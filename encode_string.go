@@ -1,6 +1,8 @@
 package json
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+)
 
 // htmlSafeSet holds the value true if the ASCII character with the given
 // array position can be safely represented inside a JSON string, embedded

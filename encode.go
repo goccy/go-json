@@ -132,7 +132,7 @@ func (e *Encoder) encode(v reflect.Value) ([]byte, error) {
 		copy(copied, e.buf)
 		return copied, nil
 	}
-	op, err := e.compile(v.Type())
+	op, err := e.compile(v.Elem().Type())
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (e *Encoder) encode(v reflect.Value) ([]byte, error) {
 func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return e.compile(typ.Elem())
+		return e.compilePtr(typ)
 	case reflect.Slice:
 		return e.compileSlice(typ)
 	case reflect.Struct:
@@ -183,6 +183,17 @@ func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
 		return e.compileBool()
 	}
 	return nil, xerrors.Errorf("failed to compile %s: %w", typ, ErrUnknownType)
+}
+
+func (e *Encoder) compilePtr(typ reflect.Type) (EncodeOp, error) {
+	elem := typ.Elem()
+	op, err := e.compile(elem)
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, p uintptr) {
+		op(enc, e.ptrToPtr(p))
+	}, nil
 }
 
 func (e *Encoder) compileInt() (EncodeOp, error) {
@@ -248,6 +259,10 @@ func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
 		return nil, err
 	}
 	return func(enc *Encoder, base uintptr) {
+		if base == 0 {
+			enc.EncodeString("null")
+			return
+		}
 		enc.EncodeByte('[')
 		slice := (*reflect.SliceHeader)(unsafe.Pointer(base))
 		num := slice.Len
@@ -287,6 +302,10 @@ func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
 	}
 	queueNum := len(opQueue)
 	return func(enc *Encoder, base uintptr) {
+		if base == 0 {
+			enc.EncodeString("null")
+			return
+		}
 		enc.EncodeByte('{')
 		for i := 0; i < queueNum; i++ {
 			opQueue[i](enc, base)
@@ -298,6 +317,7 @@ func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
 	}, nil
 }
 
+func (e *Encoder) ptrToPtr(p uintptr) uintptr     { return *(*uintptr)(unsafe.Pointer(p)) }
 func (e *Encoder) ptrToInt(p uintptr) int         { return *(*int)(unsafe.Pointer(p)) }
 func (e *Encoder) ptrToInt8(p uintptr) int8       { return *(*int8)(unsafe.Pointer(p)) }
 func (e *Encoder) ptrToInt16(p uintptr) int16     { return *(*int16)(unsafe.Pointer(p)) }

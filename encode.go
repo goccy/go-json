@@ -117,36 +117,42 @@ func (e *Encoder) EncodeByte(b byte) {
 func (e *Encoder) Encode(v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr {
-		rv = rv.Addr()
+		newV := reflect.New(rv.Type())
+		newV.Elem().Set(rv)
+		rv = newV
 	}
 	return e.encode(rv)
 }
 
 func (e *Encoder) encode(v reflect.Value) ([]byte, error) {
-	name := v.Type().Name()
+	name := v.Type().String()
 	if op, exists := cachedEncodeOp[name]; exists {
 		op(e, v.Pointer())
 		copied := make([]byte, len(e.buf))
 		copy(copied, e.buf)
 		return copied, nil
 	}
-	op, err := e.compile(v)
+	op, err := e.compile(v.Type())
 	if err != nil {
 		return nil, err
 	}
-	cachedEncodeOp[name] = op
+	if name != "" {
+		cachedEncodeOp[name] = op
+	}
 	op(e, v.Pointer())
 	copied := make([]byte, len(e.buf))
 	copy(copied, e.buf)
 	return copied, nil
 }
 
-func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
-	switch v.Type().Kind() {
+func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
+	switch typ.Kind() {
 	case reflect.Ptr:
-		return e.compile(v.Elem())
+		return e.compile(typ.Elem())
+	case reflect.Slice:
+		return e.compileSlice(typ)
 	case reflect.Struct:
-		return e.compileStruct(v)
+		return e.compileStruct(typ)
 	case reflect.Int:
 		return e.compileInt()
 	case reflect.Int8:
@@ -157,6 +163,16 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 		return e.compileInt32()
 	case reflect.Int64:
 		return e.compileInt64()
+	case reflect.Uint:
+		return e.compileUint()
+	case reflect.Uint8:
+		return e.compileUint8()
+	case reflect.Uint16:
+		return e.compileUint16()
+	case reflect.Uint32:
+		return e.compileUint32()
+	case reflect.Uint64:
+		return e.compileUint64()
 	case reflect.Float32:
 		return e.compileFloat32()
 	case reflect.Float64:
@@ -166,7 +182,7 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 	case reflect.Bool:
 		return e.compileBool()
 	}
-	return nil, xerrors.Errorf("failed to compile %s: %w", v.Type(), ErrUnknownType)
+	return nil, xerrors.Errorf("failed to compile %s: %w", typ, ErrUnknownType)
 }
 
 func (e *Encoder) compileInt() (EncodeOp, error) {
@@ -225,9 +241,29 @@ func (e *Encoder) compileBool() (EncodeOp, error) {
 	return func(enc *Encoder, p uintptr) { enc.EncodeBool(e.ptrToBool(p)) }, nil
 }
 
-func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
-	typ := v.Type()
-	fieldNum := v.NumField()
+func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
+	size := typ.Elem().Size()
+	op, err := e.compile(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, base uintptr) {
+		enc.EncodeByte('[')
+		slice := (*reflect.SliceHeader)(unsafe.Pointer(base))
+		num := slice.Len
+		for i := 0; i < num; i++ {
+			op(enc, slice.Data+uintptr(i)*size)
+			if i != num-1 {
+				enc.EncodeByte(',')
+			}
+		}
+		enc.EncodeByte(']')
+	}, nil
+
+}
+
+func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
+	fieldNum := typ.NumField()
 	opQueue := make([]EncodeOp, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
@@ -239,7 +275,7 @@ func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 				keyName = opts[0]
 			}
 		}
-		op, err := e.compile(v.Field(i))
+		op, err := e.compile(typ.Field(i).Type)
 		if err != nil {
 			return nil, err
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -230,11 +231,19 @@ func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 	opQueue := make([]EncodeOp, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
+		keyName := field.Name
+		tag := field.Tag.Get("json")
+		opts := strings.Split(tag, ",")
+		if len(opts) > 0 {
+			if opts[0] != "" {
+				keyName = opts[0]
+			}
+		}
 		op, err := e.compile(v.Field(i))
 		if err != nil {
 			return nil, err
 		}
-		key := fmt.Sprintf(`"%s":`, field.Name)
+		key := fmt.Sprintf(`"%s":`, keyName)
 		opQueue = append(opQueue, func(enc *Encoder, base uintptr) {
 			enc.EncodeString(key)
 			op(enc, base+field.Offset)

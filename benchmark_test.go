@@ -3,14 +3,25 @@ package json_test
 import (
 	"testing"
 
+	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 )
 
 type T struct {
-	A int
-	B float64
-	C string
+	A int     `json:"a"`
+	B float64 `json:"b"`
+	C string  `json:"c"`
+}
+
+func (t *T) MarshalJSONObject(enc *gojay.Encoder) {
+	enc.IntKey("a", t.A)
+	enc.FloatKey("b", t.B)
+	enc.StringKey("c", t.C)
+}
+
+func (t *T) IsNil() bool {
+	return t == nil
 }
 
 func newT() *T {
@@ -23,6 +34,16 @@ func Benchmark_jsoniter(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_gojay(b *testing.B) {
+	v := newT()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojay.MarshalJSONObject(v); err != nil {
 			b.Fatal(err)
 		}
 	}

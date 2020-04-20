@@ -114,32 +114,37 @@ func (e *Encoder) EncodeByte(b byte) {
 	e.buf = append(e.buf, b)
 }
 
-func (e *Encoder) Encode(v interface{}) ([]byte, error) {
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr {
-		newV := reflect.New(rv.Type())
-		newV.Elem().Set(rv)
-		rv = newV
-	}
-	return e.encode(rv)
+type rtype struct{}
+
+type interfaceHeader struct {
+	typ *rtype
+	ptr unsafe.Pointer
 }
 
-func (e *Encoder) encode(v reflect.Value) ([]byte, error) {
-	name := v.Type().String()
+func (e *Encoder) Encode(v interface{}) ([]byte, error) {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	return e.encode(reflect.TypeOf(v), header.ptr)
+}
+
+func (e *Encoder) encode(typ reflect.Type, ptr unsafe.Pointer) ([]byte, error) {
+	name := typ.String()
 	if op, exists := cachedEncodeOp[name]; exists {
-		op(e, v.Pointer())
+		op(e, uintptr(ptr))
 		copied := make([]byte, len(e.buf))
 		copy(copied, e.buf)
 		return copied, nil
 	}
-	op, err := e.compile(v.Elem().Type())
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	op, err := e.compile(typ)
 	if err != nil {
 		return nil, err
 	}
 	if name != "" {
 		cachedEncodeOp[name] = op
 	}
-	op(e, v.Pointer())
+	op(e, uintptr(ptr))
 	copied := make([]byte, len(e.buf))
 	copy(copied, e.buf)
 	return copied, nil

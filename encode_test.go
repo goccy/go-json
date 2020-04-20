@@ -159,4 +159,18 @@ func Test_Encoder(t *testing.T) {
 			t.Fatal("failed to encode slice of int")
 		}
 	})
+	t.Run("map", func(t *testing.T) {
+		bytes, err := json.Marshal(map[string]int{
+			"a": 1,
+			"b": 2,
+			"c": 3,
+			"d": 4,
+		})
+		if err != nil {
+			t.Fatalf("%+v", err)
+		}
+		if len(string(bytes)) != len(`{"a":1,"b":2,"c":3,"d":4}`) {
+			t.Fatal("failed to encode map of string/int")
+		}
+	})
 }

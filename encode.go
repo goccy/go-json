@@ -142,6 +142,9 @@ func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if op == nil {
+		return nil, nil
+	}
 	if name != "" {
 		cachedEncodeOp[name] = op
 	}
@@ -161,6 +164,8 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 		return e.compileStruct(v)
 	case reflect.Map:
 		return e.compileMap(v)
+	case reflect.Array:
+		return e.compileArray(v)
 	case reflect.Int:
 		return e.compileInt()
 	case reflect.Int8:
@@ -189,6 +194,20 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 		return e.compileString()
 	case reflect.Bool:
 		return e.compileBool()
+	case reflect.Interface:
+		return nil, ErrCompileSlowPath
+	case reflect.Func:
+		return nil, nil
+	case reflect.Chan:
+		return nil, nil
+	case reflect.UnsafePointer:
+		return nil, nil
+	case reflect.Uintptr:
+		return nil, nil
+	case reflect.Complex64:
+		return nil, nil
+	case reflect.Complex128:
+		return nil, nil
 	}
 	return nil, xerrors.Errorf("failed to compile %s: %w", v.Type(), ErrUnknownType)
 }
@@ -197,6 +216,9 @@ func (e *Encoder) compilePtr(v reflect.Value) (EncodeOp, error) {
 	op, err := e.compile(v.Elem())
 	if err != nil {
 		return nil, err
+	}
+	if op == nil {
+		return nil, nil
 	}
 	return func(enc *Encoder, p uintptr) {
 		op(enc, e.ptrToPtr(p))
@@ -259,16 +281,15 @@ func (e *Encoder) compileBool() (EncodeOp, error) {
 	return func(enc *Encoder, p uintptr) { enc.EncodeBool(e.ptrToBool(p)) }, nil
 }
 
-func (e *Encoder) zeroValue(typ reflect.Type) reflect.Value {
-	return reflect.New(typ).Elem()
-}
-
 func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
 	typ := v.Type()
 	size := typ.Elem().Size()
-	op, err := e.compile(e.zeroValue(typ.Elem()))
+	op, err := e.compile(reflect.Zero(typ.Elem()))
 	if err != nil {
 		return nil, err
+	}
+	if op == nil {
+		return nil, nil
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
@@ -286,7 +307,33 @@ func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
 		}
 		enc.EncodeByte(']')
 	}, nil
+}
 
+func (e *Encoder) compileArray(v reflect.Value) (EncodeOp, error) {
+	typ := v.Type()
+	alen := typ.Len()
+	size := typ.Elem().Size()
+	op, err := e.compile(reflect.Zero(typ.Elem()))
+	if err != nil {
+		return nil, err
+	}
+	if op == nil {
+		return nil, nil
+	}
+	return func(enc *Encoder, base uintptr) {
+		if base == 0 {
+			enc.EncodeString("null")
+			return
+		}
+		enc.EncodeByte('[')
+		for i := 0; i < alen; i++ {
+			if i != 0 {
+				enc.EncodeByte(',')
+			}
+			op(enc, base+uintptr(i)*size)
+		}
+		enc.EncodeByte(']')
+	}, nil
 }
 
 func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
@@ -306,6 +353,9 @@ func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 		op, err := e.compile(v.Field(i))
 		if err != nil {
 			return nil, err
+		}
+		if op == nil {
+			continue
 		}
 		key := fmt.Sprintf(`"%s":`, keyName)
 		opQueue = append(opQueue, func(enc *Encoder, base uintptr) {
@@ -352,13 +402,19 @@ type valueType struct {
 
 func (e *Encoder) compileMap(v reflect.Value) (EncodeOp, error) {
 	mapType := (*valueType)(unsafe.Pointer(&v)).typ
-	keyOp, err := e.compile(e.zeroValue(v.Type().Key()))
+	keyOp, err := e.compile(reflect.Zero(v.Type().Key()))
 	if err != nil {
 		return nil, err
 	}
-	valueOp, err := e.compile(e.zeroValue(v.Type().Elem()))
+	if keyOp == nil {
+		return nil, nil
+	}
+	valueOp, err := e.compile(reflect.Zero(v.Type().Elem()))
 	if err != nil {
 		return nil, err
+	}
+	if valueOp == nil {
+		return nil, nil
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {

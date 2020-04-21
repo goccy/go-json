@@ -1,8 +1,8 @@
 package json
 
-import "errors"
+import "golang.org/x/xerrors"
 
 var (
-	ErrUnknownType     = errors.New("unknown type name")
-	ErrCompileSlowPath = errors.New("detect dynamic type ( interface{} ) and compile with slow path")
+	ErrUnsupportedType = xerrors.New("json: unsupported type")
+	ErrCompileSlowPath = xerrors.New("json: detect dynamic type ( interface{} ) and compile with slow path")
 )

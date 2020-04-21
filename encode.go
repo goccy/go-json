@@ -186,6 +186,8 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 		return e.compileUint32()
 	case reflect.Uint64:
 		return e.compileUint64()
+	case reflect.Uintptr:
+		return e.compileUint()
 	case reflect.Float32:
 		return e.compileFloat32()
 	case reflect.Float64:
@@ -196,20 +198,8 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 		return e.compileBool()
 	case reflect.Interface:
 		return nil, ErrCompileSlowPath
-	case reflect.Func:
-		return nil, nil
-	case reflect.Chan:
-		return nil, nil
-	case reflect.UnsafePointer:
-		return nil, nil
-	case reflect.Uintptr:
-		return nil, nil
-	case reflect.Complex64:
-		return nil, nil
-	case reflect.Complex128:
-		return nil, nil
 	}
-	return nil, xerrors.Errorf("failed to compile %s: %w", v.Type(), ErrUnknownType)
+	return nil, xerrors.Errorf("failed to encode type %s: %w", v.Type(), ErrUnsupportedType)
 }
 
 func (e *Encoder) compilePtr(v reflect.Value) (EncodeOp, error) {
@@ -336,14 +326,33 @@ func (e *Encoder) compileArray(v reflect.Value) (EncodeOp, error) {
 	}, nil
 }
 
+func (e *Encoder) getTag(field reflect.StructField) string {
+	return field.Tag.Get("json")
+}
+
+func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
+	if field.PkgPath != "" && !field.Anonymous {
+		// private field
+		return true
+	}
+	tag := e.getTag(field)
+	if tag == "-" {
+		return true
+	}
+	return false
+}
+
 func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 	typ := v.Type()
 	fieldNum := typ.NumField()
 	opQueue := make([]EncodeOp, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
+		if e.isIgnoredStructField(field) {
+			continue
+		}
 		keyName := field.Name
-		tag := field.Tag.Get("json")
+		tag := e.getTag(field)
 		opts := strings.Split(tag, ",")
 		if len(opts) > 0 {
 			if opts[0] != "" {

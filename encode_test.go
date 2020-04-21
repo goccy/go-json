@@ -96,6 +96,8 @@ func Test_Encoder(t *testing.T) {
 			A int    `json:"a"`
 			B uint   `json:"b"`
 			C string `json:"c"`
+			D int    `json:"-"`  // ignore field
+			a int    `json:"aa"` // private field
 		}{
 			A: -1,
 			B: 1,

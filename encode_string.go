@@ -217,7 +217,7 @@ var safeSet = [utf8.RuneSelf]bool{
 
 var hex = "0123456789abcdef"
 
-func (e *Encoder) EncodeEscapedString(s string) {
+func (e *Encoder) encodeEscapedString(s string) {
 	valLen := len(s)
 	e.buf = append(e.buf, '"')
 	// write string, the fast path, without utf8 and escape support

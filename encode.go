@@ -2,6 +2,7 @@ package json
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strconv"
 	"strings"
@@ -11,7 +12,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// An Encoder writes JSON values to an output stream.
 type Encoder struct {
+	w    io.Writer
 	buf  []byte
 	pool sync.Pool
 }
@@ -39,78 +42,119 @@ func init() {
 	cachedEncodeOp = map[string]EncodeOp{}
 }
 
-func NewEncoder() *Encoder {
+// NewEncoder returns a new encoder that writes to w.
+func NewEncoder(w io.Writer) *Encoder {
 	enc := encPool.Get().(*Encoder)
-	enc.Reset()
+	enc.w = w
+	enc.reset()
 	return enc
 }
 
-func (e *Encoder) Release() {
-	e.pool.Put(e)
+// Encode writes the JSON encoding of v to the stream, followed by a newline character.
+//
+// See the documentation for Marshal for details about the conversion of Go values to JSON.
+func (e *Encoder) Encode(v interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	if err := e.encode(reflect.ValueOf(v), header.ptr); err != nil {
+		return err
+	}
+	if _, err := e.w.Write(e.buf); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (e *Encoder) Reset() {
+func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	if err := e.encode(reflect.ValueOf(v), header.ptr); err != nil {
+		return nil, err
+	}
+	copied := make([]byte, len(e.buf))
+	copy(copied, e.buf)
+	return copied, nil
+}
+
+// SetEscapeHTML specifies whether problematic HTML characters should be escaped inside JSON quoted strings.
+// The default behavior is to escape &, <, and > to \u0026, \u003c, and \u003e to avoid certain safety problems that can arise when embedding JSON in HTML.
+//
+// In non-HTML settings where the escaping interferes with the readability of the output, SetEscapeHTML(false) disables this behavior.
+func (e *Encoder) SetEscapeHTML(on bool) {
+
+}
+
+// SetIndent instructs the encoder to format each subsequent encoded value as if indented by the package-level function Indent(dst, src, prefix, indent).
+// Calling SetIndent("", "") disables indentation.
+func (e *Encoder) SetIndent(prefix, indent string) {
+
+}
+
+func (e *Encoder) release() {
+	e.pool.Put(e)
+	e.w = nil
+}
+
+func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
 }
 
-func (e *Encoder) EncodeInt(v int) {
-	e.EncodeInt64(int64(v))
+func (e *Encoder) encodeInt(v int) {
+	e.encodeInt64(int64(v))
 }
 
-func (e *Encoder) EncodeInt8(v int8) {
-	e.EncodeInt64(int64(v))
+func (e *Encoder) encodeInt8(v int8) {
+	e.encodeInt64(int64(v))
 }
 
-func (e *Encoder) EncodeInt16(v int16) {
-	e.EncodeInt64(int64(v))
+func (e *Encoder) encodeInt16(v int16) {
+	e.encodeInt64(int64(v))
 }
 
-func (e *Encoder) EncodeInt32(v int32) {
-	e.EncodeInt64(int64(v))
+func (e *Encoder) encodeInt32(v int32) {
+	e.encodeInt64(int64(v))
 }
 
-func (e *Encoder) EncodeInt64(v int64) {
+func (e *Encoder) encodeInt64(v int64) {
 	e.buf = strconv.AppendInt(e.buf, v, 10)
 }
 
-func (e *Encoder) EncodeUint(v uint) {
-	e.EncodeUint64(uint64(v))
+func (e *Encoder) encodeUint(v uint) {
+	e.encodeUint64(uint64(v))
 }
 
-func (e *Encoder) EncodeUint8(v uint8) {
-	e.EncodeUint64(uint64(v))
+func (e *Encoder) encodeUint8(v uint8) {
+	e.encodeUint64(uint64(v))
 }
 
-func (e *Encoder) EncodeUint16(v uint16) {
-	e.EncodeUint64(uint64(v))
+func (e *Encoder) encodeUint16(v uint16) {
+	e.encodeUint64(uint64(v))
 }
 
-func (e *Encoder) EncodeUint32(v uint32) {
-	e.EncodeUint64(uint64(v))
+func (e *Encoder) encodeUint32(v uint32) {
+	e.encodeUint64(uint64(v))
 }
 
-func (e *Encoder) EncodeUint64(v uint64) {
+func (e *Encoder) encodeUint64(v uint64) {
 	e.buf = strconv.AppendUint(e.buf, v, 10)
 }
 
-func (e *Encoder) EncodeFloat32(v float32) {
+func (e *Encoder) encodeFloat32(v float32) {
 	e.buf = strconv.AppendFloat(e.buf, float64(v), 'f', -1, 32)
 }
 
-func (e *Encoder) EncodeFloat64(v float64) {
+func (e *Encoder) encodeFloat64(v float64) {
 	e.buf = strconv.AppendFloat(e.buf, v, 'f', -1, 64)
 }
 
-func (e *Encoder) EncodeBool(v bool) {
+func (e *Encoder) encodeBool(v bool) {
 	e.buf = strconv.AppendBool(e.buf, v)
 }
 
-func (e *Encoder) EncodeString(s string) {
+func (e *Encoder) encodeString(s string) {
 	b := *(*[]byte)(unsafe.Pointer(&s))
 	e.buf = append(e.buf, b...)
 }
 
-func (e *Encoder) EncodeByte(b byte) {
+func (e *Encoder) encodeByte(b byte) {
 	e.buf = append(e.buf, b)
 }
 
@@ -121,37 +165,28 @@ type interfaceHeader struct {
 	ptr unsafe.Pointer
 }
 
-func (e *Encoder) Encode(v interface{}) ([]byte, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	return e.encode(reflect.ValueOf(v), header.ptr)
-}
-
-func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) ([]byte, error) {
+func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
 	typ := v.Type()
 	name := typ.String()
 	if op, exists := cachedEncodeOp[name]; exists {
 		op(e, uintptr(ptr))
-		copied := make([]byte, len(e.buf))
-		copy(copied, e.buf)
-		return copied, nil
+		return nil
 	}
 	if typ.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 	op, err := e.compile(v)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if op == nil {
-		return nil, nil
+		return nil
 	}
 	if name != "" {
 		cachedEncodeOp[name] = op
 	}
 	op(e, uintptr(ptr))
-	copied := make([]byte, len(e.buf))
-	copy(copied, e.buf)
-	return copied, nil
+	return nil
 }
 
 func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
@@ -216,59 +251,59 @@ func (e *Encoder) compilePtr(v reflect.Value) (EncodeOp, error) {
 }
 
 func (e *Encoder) compileInt() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeInt(e.ptrToInt(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeInt(e.ptrToInt(p)) }, nil
 }
 
 func (e *Encoder) compileInt8() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeInt8(e.ptrToInt8(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeInt8(e.ptrToInt8(p)) }, nil
 }
 
 func (e *Encoder) compileInt16() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeInt16(e.ptrToInt16(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeInt16(e.ptrToInt16(p)) }, nil
 }
 
 func (e *Encoder) compileInt32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeInt32(e.ptrToInt32(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeInt32(e.ptrToInt32(p)) }, nil
 }
 
 func (e *Encoder) compileInt64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeInt64(e.ptrToInt64(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeInt64(e.ptrToInt64(p)) }, nil
 }
 
 func (e *Encoder) compileUint() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeUint(e.ptrToUint(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeUint(e.ptrToUint(p)) }, nil
 }
 
 func (e *Encoder) compileUint8() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeUint8(e.ptrToUint8(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeUint8(e.ptrToUint8(p)) }, nil
 }
 
 func (e *Encoder) compileUint16() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeUint16(e.ptrToUint16(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeUint16(e.ptrToUint16(p)) }, nil
 }
 
 func (e *Encoder) compileUint32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeUint32(e.ptrToUint32(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeUint32(e.ptrToUint32(p)) }, nil
 }
 
 func (e *Encoder) compileUint64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeUint64(e.ptrToUint64(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeUint64(e.ptrToUint64(p)) }, nil
 }
 
 func (e *Encoder) compileFloat32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeFloat32(e.ptrToFloat32(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeFloat32(e.ptrToFloat32(p)) }, nil
 }
 
 func (e *Encoder) compileFloat64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeFloat64(e.ptrToFloat64(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeFloat64(e.ptrToFloat64(p)) }, nil
 }
 
 func (e *Encoder) compileString() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeEscapedString(e.ptrToString(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeEscapedString(e.ptrToString(p)) }, nil
 }
 
 func (e *Encoder) compileBool() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.EncodeBool(e.ptrToBool(p)) }, nil
+	return func(enc *Encoder, p uintptr) { enc.encodeBool(e.ptrToBool(p)) }, nil
 }
 
 func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
@@ -283,19 +318,19 @@ func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
-			enc.EncodeString("null")
+			enc.encodeString("null")
 			return
 		}
-		enc.EncodeByte('[')
+		enc.encodeByte('[')
 		slice := (*reflect.SliceHeader)(unsafe.Pointer(base))
 		num := slice.Len
 		for i := 0; i < num; i++ {
 			op(enc, slice.Data+uintptr(i)*size)
 			if i != num-1 {
-				enc.EncodeByte(',')
+				enc.encodeByte(',')
 			}
 		}
-		enc.EncodeByte(']')
+		enc.encodeByte(']')
 	}, nil
 }
 
@@ -312,17 +347,17 @@ func (e *Encoder) compileArray(v reflect.Value) (EncodeOp, error) {
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
-			enc.EncodeString("null")
+			enc.encodeString("null")
 			return
 		}
-		enc.EncodeByte('[')
+		enc.encodeByte('[')
 		for i := 0; i < alen; i++ {
 			if i != 0 {
-				enc.EncodeByte(',')
+				enc.encodeByte(',')
 			}
 			op(enc, base+uintptr(i)*size)
 		}
-		enc.EncodeByte(']')
+		enc.encodeByte(']')
 	}, nil
 }
 
@@ -368,24 +403,24 @@ func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 		}
 		key := fmt.Sprintf(`"%s":`, keyName)
 		opQueue = append(opQueue, func(enc *Encoder, base uintptr) {
-			enc.EncodeString(key)
+			enc.encodeString(key)
 			op(enc, base+field.Offset)
 		})
 	}
 	queueNum := len(opQueue)
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
-			enc.EncodeString("null")
+			enc.encodeString("null")
 			return
 		}
-		enc.EncodeByte('{')
+		enc.encodeByte('{')
 		for i := 0; i < queueNum; i++ {
 			opQueue[i](enc, base)
 			if i != queueNum-1 {
-				enc.EncodeByte(',')
+				enc.encodeByte(',')
 			}
 		}
-		enc.EncodeByte('}')
+		enc.encodeByte('}')
 	}, nil
 }
 
@@ -427,24 +462,24 @@ func (e *Encoder) compileMap(v reflect.Value) (EncodeOp, error) {
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
-			enc.EncodeString("null")
+			enc.encodeString("null")
 			return
 		}
-		enc.EncodeByte('{')
+		enc.encodeByte('{')
 		mlen := maplen(unsafe.Pointer(base))
 		iter := mapiterinit(mapType, unsafe.Pointer(base))
 		for i := 0; i < mlen; i++ {
 			key := mapiterkey(iter)
 			if i != 0 {
-				enc.EncodeByte(',')
+				enc.encodeByte(',')
 			}
 			value := mapitervalue(iter)
 			keyOp(enc, uintptr(key))
-			enc.EncodeByte(':')
+			enc.encodeByte(':')
 			valueOp(enc, uintptr(value))
 			mapiternext(iter)
 		}
-		enc.EncodeByte('}')
+		enc.encodeByte('}')
 	}, nil
 }
 

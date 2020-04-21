@@ -1,7 +1,10 @@
 package json
 
+import "bytes"
+
 func Marshal(v interface{}) ([]byte, error) {
-	enc := NewEncoder()
-	defer enc.Release()
-	return enc.Encode(v)
+	var b *bytes.Buffer
+	enc := NewEncoder(b)
+	defer enc.release()
+	return enc.encodeForMarshal(v)
 }

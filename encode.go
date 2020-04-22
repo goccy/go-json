@@ -89,8 +89,8 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 }
 
 func (e *Encoder) release() {
-	e.pool.Put(e)
 	e.w = nil
+	e.pool.Put(e)
 }
 
 func (e *Encoder) reset() {

@@ -306,10 +306,14 @@ func (e *Encoder) compileBool() (EncodeOp, error) {
 	return func(enc *Encoder, p uintptr) { enc.encodeBool(e.ptrToBool(p)) }, nil
 }
 
+func (e *Encoder) zeroValue(typ reflect.Type) reflect.Value {
+	return reflect.New(typ).Elem()
+}
+
 func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
 	typ := v.Type()
 	size := typ.Elem().Size()
-	op, err := e.compile(reflect.Zero(typ.Elem()))
+	op, err := e.compile(e.zeroValue(typ.Elem()))
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +342,7 @@ func (e *Encoder) compileArray(v reflect.Value) (EncodeOp, error) {
 	typ := v.Type()
 	alen := typ.Len()
 	size := typ.Elem().Size()
-	op, err := e.compile(reflect.Zero(typ.Elem()))
+	op, err := e.compile(e.zeroValue(typ.Elem()))
 	if err != nil {
 		return nil, err
 	}
@@ -446,14 +450,14 @@ type valueType struct {
 
 func (e *Encoder) compileMap(v reflect.Value) (EncodeOp, error) {
 	mapType := (*valueType)(unsafe.Pointer(&v)).typ
-	keyOp, err := e.compile(reflect.Zero(v.Type().Key()))
+	keyOp, err := e.compile(e.zeroValue(v.Type().Key()))
 	if err != nil {
 		return nil, err
 	}
 	if keyOp == nil {
 		return nil, nil
 	}
-	valueOp, err := e.compile(reflect.Zero(v.Type().Elem()))
+	valueOp, err := e.compile(e.zeroValue(v.Type().Elem()))
 	if err != nil {
 		return nil, err
 	}

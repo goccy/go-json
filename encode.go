@@ -173,9 +173,9 @@ func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
 		return nil
 	}
 	if typ.Kind() == reflect.Ptr {
-		v = v.Elem()
+		typ = typ.Elem()
 	}
-	op, err := e.compile(v)
+	op, err := e.compile(typ)
 	if err != nil {
 		return err
 	}
@@ -189,18 +189,18 @@ func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
 	return nil
 }
 
-func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
-	switch v.Type().Kind() {
+func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
+	switch typ.Kind() {
 	case reflect.Ptr:
-		return e.compilePtr(v)
+		return e.compilePtr(typ)
 	case reflect.Slice:
-		return e.compileSlice(v)
+		return e.compileSlice(typ)
 	case reflect.Struct:
-		return e.compileStruct(v)
+		return e.compileStruct(typ)
 	case reflect.Map:
-		return e.compileMap(v)
+		return e.compileMap(typ)
 	case reflect.Array:
-		return e.compileArray(v)
+		return e.compileArray(typ)
 	case reflect.Int:
 		return e.compileInt()
 	case reflect.Int8:
@@ -234,11 +234,11 @@ func (e *Encoder) compile(v reflect.Value) (EncodeOp, error) {
 	case reflect.Interface:
 		return nil, ErrCompileSlowPath
 	}
-	return nil, xerrors.Errorf("failed to encode type %s: %w", v.Type(), ErrUnsupportedType)
+	return nil, xerrors.Errorf("failed to encode type %s: %w", typ, ErrUnsupportedType)
 }
 
-func (e *Encoder) compilePtr(v reflect.Value) (EncodeOp, error) {
-	op, err := e.compile(v.Elem())
+func (e *Encoder) compilePtr(typ reflect.Type) (EncodeOp, error) {
+	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
@@ -306,14 +306,9 @@ func (e *Encoder) compileBool() (EncodeOp, error) {
 	return func(enc *Encoder, p uintptr) { enc.encodeBool(e.ptrToBool(p)) }, nil
 }
 
-func (e *Encoder) zeroValue(typ reflect.Type) reflect.Value {
-	return reflect.New(typ).Elem()
-}
-
-func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
-	typ := v.Type()
+func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
 	size := typ.Elem().Size()
-	op, err := e.compile(e.zeroValue(typ.Elem()))
+	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
@@ -338,11 +333,10 @@ func (e *Encoder) compileSlice(v reflect.Value) (EncodeOp, error) {
 	}, nil
 }
 
-func (e *Encoder) compileArray(v reflect.Value) (EncodeOp, error) {
-	typ := v.Type()
+func (e *Encoder) compileArray(typ reflect.Type) (EncodeOp, error) {
 	alen := typ.Len()
 	size := typ.Elem().Size()
-	op, err := e.compile(e.zeroValue(typ.Elem()))
+	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
@@ -381,8 +375,7 @@ func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
 	return false
 }
 
-func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
-	typ := v.Type()
+func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
 	fieldNum := typ.NumField()
 	opQueue := make([]EncodeOp, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
@@ -398,7 +391,7 @@ func (e *Encoder) compileStruct(v reflect.Value) (EncodeOp, error) {
 				keyName = opts[0]
 			}
 		}
-		op, err := e.compile(v.Field(i))
+		op, err := e.compile(field.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -448,16 +441,17 @@ type valueType struct {
 	ptr unsafe.Pointer
 }
 
-func (e *Encoder) compileMap(v reflect.Value) (EncodeOp, error) {
+func (e *Encoder) compileMap(typ reflect.Type) (EncodeOp, error) {
+	v := reflect.New(typ).Elem()
 	mapType := (*valueType)(unsafe.Pointer(&v)).typ
-	keyOp, err := e.compile(e.zeroValue(v.Type().Key()))
+	keyOp, err := e.compile(typ.Key())
 	if err != nil {
 		return nil, err
 	}
 	if keyOp == nil {
 		return nil, nil
 	}
-	valueOp, err := e.compile(e.zeroValue(v.Type().Elem()))
+	valueOp, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
 	}

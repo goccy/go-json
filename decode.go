@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"math"
@@ -197,6 +198,8 @@ func (d *Decoder) compile(v reflect.Value) (DecodeOp, error) {
 		return d.compileUint64()
 	case reflect.String:
 		return d.compileString()
+	case reflect.Bool:
+		return d.compileBool()
 	}
 	return nil, nil
 }
@@ -353,6 +356,25 @@ func (d *Decoder) compileString() (DecodeOp, error) {
 	return func(p uintptr, src []byte, _ []byte) error {
 		*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&src))
 		return nil
+	}, nil
+}
+
+var (
+	trueBytes  = []byte("true")
+	falseBytes = []byte("false")
+)
+
+func (d *Decoder) compileBool() (DecodeOp, error) {
+	return func(p uintptr, src []byte, _ []byte) error {
+		if bytes.Equal(src, trueBytes) {
+			*(*bool)(unsafe.Pointer(p)) = true
+			return nil
+		}
+		if bytes.Equal(src, falseBytes) {
+			*(*bool)(unsafe.Pointer(p)) = false
+			return nil
+		}
+		return errors.New("unexpected error bool")
 	}, nil
 }
 

@@ -179,9 +179,6 @@ func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	if op == nil {
-		return nil
-	}
 	if name != "" {
 		cachedEncodeOp[name] = op
 	}
@@ -241,9 +238,6 @@ func (e *Encoder) compilePtr(typ reflect.Type) (EncodeOp, error) {
 	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
-	}
-	if op == nil {
-		return nil, nil
 	}
 	return func(enc *Encoder, p uintptr) {
 		op(enc, e.ptrToPtr(p))
@@ -312,9 +306,6 @@ func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
 	if err != nil {
 		return nil, err
 	}
-	if op == nil {
-		return nil, nil
-	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
 			enc.encodeString("null")
@@ -339,9 +330,6 @@ func (e *Encoder) compileArray(typ reflect.Type) (EncodeOp, error) {
 	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
-	}
-	if op == nil {
-		return nil, nil
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {
@@ -395,9 +383,6 @@ func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
 		if err != nil {
 			return nil, err
 		}
-		if op == nil {
-			continue
-		}
 		key := fmt.Sprintf(`"%s":`, keyName)
 		opQueue = append(opQueue, func(enc *Encoder, base uintptr) {
 			enc.encodeString(key)
@@ -448,15 +433,9 @@ func (e *Encoder) compileMap(typ reflect.Type) (EncodeOp, error) {
 	if err != nil {
 		return nil, err
 	}
-	if keyOp == nil {
-		return nil, nil
-	}
 	valueOp, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
-	}
-	if valueOp == nil {
-		return nil, nil
 	}
 	return func(enc *Encoder, base uintptr) {
 		if base == 0 {

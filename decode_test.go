@@ -75,9 +75,11 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "string", "hello", v)
 	})
 	t.Run("float32", func(t *testing.T) {
-		var v float32
-		assertErr(t, json.Unmarshal([]byte(`3.14`), &v))
-		assertEq(t, "float32", float32(3.14), v)
+		var v struct {
+			F float32
+		}
+		assertErr(t, json.Unmarshal([]byte(`{"f": 3.14}`), &v))
+		assertEq(t, "float32", float32(3.14), v.F)
 	})
 	t.Run("float64", func(t *testing.T) {
 		var v float64

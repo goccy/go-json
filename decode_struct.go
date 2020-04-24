@@ -81,7 +81,6 @@ func (d *structDecoder) decode(ctx *context, p uintptr) error {
 		k := *(*string)(unsafe.Pointer(&key))
 		field, exists := d.fieldMap[k]
 		if exists {
-			//fmt.Printf("k = %s dec = %#v, p = %x\n", k, field.dec, p)
 			if err := field.dec.decode(ctx, p+field.offset); err != nil {
 				return err
 			}

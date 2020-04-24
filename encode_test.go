@@ -6,20 +6,6 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func assertErr(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-}
-
-func assertEq(t *testing.T, msg string, exp interface{}, act interface{}) {
-	t.Helper()
-	if exp != act {
-		t.Fatalf("failed to encode %s. exp=[%v] but act=[%v]", msg, exp, act)
-	}
-}
-
 func Test_Encoder(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
 		bytes, err := json.Marshal(-10)

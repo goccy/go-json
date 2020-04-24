@@ -54,8 +54,7 @@ func NewEncoder(w io.Writer) *Encoder {
 //
 // See the documentation for Marshal for details about the conversion of Go values to JSON.
 func (e *Encoder) Encode(v interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	if err := e.encode(reflect.ValueOf(v), header.ptr); err != nil {
+	if err := e.encode(v); err != nil {
 		return err
 	}
 	if _, err := e.w.Write(e.buf); err != nil {
@@ -65,8 +64,7 @@ func (e *Encoder) Encode(v interface{}) error {
 }
 
 func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	if err := e.encode(reflect.ValueOf(v), header.ptr); err != nil {
+	if err := e.encode(v); err != nil {
 		return nil, err
 	}
 	copied := make([]byte, len(e.buf))
@@ -158,18 +156,12 @@ func (e *Encoder) encodeByte(b byte) {
 	e.buf = append(e.buf, b)
 }
 
-type rtype struct{}
-
-type interfaceHeader struct {
-	typ *rtype
-	ptr unsafe.Pointer
-}
-
-func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
-	typ := v.Type()
+func (e *Encoder) encode(v interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	typ := header.typ
 	name := typ.String()
 	if op, exists := cachedEncodeOp[name]; exists {
-		op(e, uintptr(ptr))
+		op(e, uintptr(header.ptr))
 		return nil
 	}
 	if typ.Kind() == reflect.Ptr {
@@ -182,11 +174,11 @@ func (e *Encoder) encode(v reflect.Value, ptr unsafe.Pointer) error {
 	if name != "" {
 		cachedEncodeOp[name] = op
 	}
-	op(e, uintptr(ptr))
+	op(e, uintptr(header.ptr))
 	return nil
 }
 
-func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
+func (e *Encoder) compile(typ *rtype) (EncodeOp, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return e.compilePtr(typ)
@@ -231,10 +223,10 @@ func (e *Encoder) compile(typ reflect.Type) (EncodeOp, error) {
 	case reflect.Interface:
 		return nil, ErrCompileSlowPath
 	}
-	return nil, xerrors.Errorf("failed to encode type %s: %w", typ, ErrUnsupportedType)
+	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
 }
 
-func (e *Encoder) compilePtr(typ reflect.Type) (EncodeOp, error) {
+func (e *Encoder) compilePtr(typ *rtype) (EncodeOp, error) {
 	op, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
@@ -300,7 +292,7 @@ func (e *Encoder) compileBool() (EncodeOp, error) {
 	return func(enc *Encoder, p uintptr) { enc.encodeBool(e.ptrToBool(p)) }, nil
 }
 
-func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
+func (e *Encoder) compileSlice(typ *rtype) (EncodeOp, error) {
 	size := typ.Elem().Size()
 	op, err := e.compile(typ.Elem())
 	if err != nil {
@@ -324,7 +316,7 @@ func (e *Encoder) compileSlice(typ reflect.Type) (EncodeOp, error) {
 	}, nil
 }
 
-func (e *Encoder) compileArray(typ reflect.Type) (EncodeOp, error) {
+func (e *Encoder) compileArray(typ *rtype) (EncodeOp, error) {
 	alen := typ.Len()
 	size := typ.Elem().Size()
 	op, err := e.compile(typ.Elem())
@@ -363,7 +355,7 @@ func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
 	return false
 }
 
-func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
+func (e *Encoder) compileStruct(typ *rtype) (EncodeOp, error) {
 	fieldNum := typ.NumField()
 	opQueue := make([]EncodeOp, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
@@ -379,7 +371,8 @@ func (e *Encoder) compileStruct(typ reflect.Type) (EncodeOp, error) {
 				keyName = opts[0]
 			}
 		}
-		op, err := e.compile(field.Type)
+		fieldType := type2rtype(field.Type)
+		op, err := e.compile(fieldType)
 		if err != nil {
 			return nil, err
 		}
@@ -426,9 +419,8 @@ type valueType struct {
 	ptr unsafe.Pointer
 }
 
-func (e *Encoder) compileMap(typ reflect.Type) (EncodeOp, error) {
-	v := reflect.New(typ).Elem()
-	mapType := (*valueType)(unsafe.Pointer(&v)).typ
+func (e *Encoder) compileMap(typ *rtype) (EncodeOp, error) {
+	mapType := unsafe.Pointer(typ)
 	keyOp, err := e.compile(typ.Key())
 	if err != nil {
 		return nil, err

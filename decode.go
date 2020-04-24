@@ -54,8 +54,8 @@ func (d *Decoder) Buffered() io.Reader {
 }
 
 func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
-	rv := reflect.ValueOf(v)
-	typ := rv.Type()
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	typ := header.typ
 	if typ.Kind() != reflect.Ptr {
 		return ErrDecodePointer
 	}
@@ -71,7 +71,7 @@ func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
 		}
 		dec = compiledDec
 	}
-	ptr := rv.Pointer()
+	ptr := uintptr(header.ptr)
 	ctx := ctxPool.Get().(*context)
 	ctx.setBuf(src)
 	if err := dec.decode(ctx, ptr); err != nil {
@@ -83,8 +83,8 @@ func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
 }
 
 func (d *Decoder) Decode(v interface{}) error {
-	rv := reflect.ValueOf(v)
-	typ := rv.Type()
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	typ := header.typ
 	if typ.Kind() != reflect.Ptr {
 		return ErrDecodePointer
 	}
@@ -100,7 +100,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		}
 		dec = compiledDec
 	}
-	ptr := rv.Pointer()
+	ptr := uintptr(header.ptr)
 	ctx := ctxPool.Get().(*context)
 	defer ctxPool.Put(ctx)
 	for {
@@ -120,7 +120,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	return nil
 }
 
-func (d *Decoder) compile(typ reflect.Type) (decoder, error) {
+func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return d.compilePtr(typ)
@@ -158,7 +158,7 @@ func (d *Decoder) compile(typ reflect.Type) (decoder, error) {
 	return nil, nil
 }
 
-func (d *Decoder) compilePtr(typ reflect.Type) (decoder, error) {
+func (d *Decoder) compilePtr(typ *rtype) (decoder, error) {
 	dec, err := d.compile(typ.Elem())
 	if err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (d *Decoder) isIgnoredStructField(field reflect.StructField) bool {
 	return false
 }
 
-func (d *Decoder) compileStruct(typ reflect.Type) (decoder, error) {
+func (d *Decoder) compileStruct(typ *rtype) (decoder, error) {
 	fieldNum := typ.NumField()
 	fieldMap := map[string]*structFieldSet{}
 	for i := 0; i < fieldNum; i++ {
@@ -278,7 +278,7 @@ func (d *Decoder) compileStruct(typ reflect.Type) (decoder, error) {
 				keyName = opts[0]
 			}
 		}
-		dec, err := d.compile(field.Type)
+		dec, err := d.compile(type2rtype(field.Type))
 		if err != nil {
 			return nil, err
 		}

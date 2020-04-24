@@ -5,8 +5,13 @@ import "bytes"
 func Marshal(v interface{}) ([]byte, error) {
 	var b *bytes.Buffer
 	enc := NewEncoder(b)
-	defer enc.release()
-	return enc.encodeForMarshal(v)
+	bytes, err := enc.encodeForMarshal(v)
+	if err != nil {
+		enc.release()
+		return nil, err
+	}
+	enc.release()
+	return bytes, nil
 }
 
 func Unmarshal(data []byte, v interface{}) error {

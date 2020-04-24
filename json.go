@@ -20,3 +20,10 @@ func Unmarshal(data []byte, v interface{}) error {
 	var dec Decoder
 	return dec.decodeForUnmarshal(src, v)
 }
+
+func UnmarshalNoEscape(data []byte, v interface{}) error {
+	src := make([]byte, len(data))
+	copy(src, data)
+	var dec Decoder
+	return dec.decodeForUnmarshalNoEscape(src, v)
+}

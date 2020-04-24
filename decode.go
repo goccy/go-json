@@ -53,8 +53,7 @@ func (d *Decoder) Buffered() io.Reader {
 	return d.r
 }
 
-func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	typ := header.typ
 	if typ.Kind() != reflect.Ptr {
 		return ErrDecodePointer
@@ -80,6 +79,17 @@ func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
 	}
 	ctxPool.Put(ctx)
 	return nil
+}
+
+func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header.typ.escape()
+	return d.decode(src, header)
+}
+
+func (d *Decoder) decodeForUnmarshalNoEscape(src []byte, v interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	return d.decode(src, header)
 }
 
 func (d *Decoder) Decode(v interface{}) error {

@@ -9,6 +9,7 @@ import (
 type rtype struct{}
 
 //go:linkname rtype_Align reflect.(*rtype).Align
+//go:noescape
 func rtype_Align(*rtype) int
 
 func (t *rtype) Align() int {
@@ -16,6 +17,7 @@ func (t *rtype) Align() int {
 }
 
 //go:linkname rtype_FieldAlign reflect.(*rtype).FieldAlign
+//go:noescape
 func rtype_FieldAlign(*rtype) int
 
 func (t *rtype) FieldAlign() int {
@@ -23,6 +25,7 @@ func (t *rtype) FieldAlign() int {
 }
 
 //go:linkname rtype_Method reflect.(*rtype).Method
+//go:noescape
 func rtype_Method(*rtype, int) reflect.Method
 
 func (t *rtype) Method(a0 int) reflect.Method {
@@ -30,6 +33,7 @@ func (t *rtype) Method(a0 int) reflect.Method {
 }
 
 //go:linkname rtype_MethodByName reflect.(*rtype).MethodByName
+//go:noescape
 func rtype_MethodByName(*rtype, string) (reflect.Method, bool)
 
 func (t *rtype) MethodByName(a0 string) (reflect.Method, bool) {
@@ -37,6 +41,7 @@ func (t *rtype) MethodByName(a0 string) (reflect.Method, bool) {
 }
 
 //go:linkname rtype_NumMethod reflect.(*rtype).NumMethod
+//go:noescape
 func rtype_NumMethod(*rtype) int
 
 func (t *rtype) NumMethod() int {
@@ -52,6 +57,7 @@ func (t *rtype) Name() string {
 }
 
 //go:linkname rtype_PkgPath reflect.(*rtype).PkgPath
+//go:noescape
 func rtype_PkgPath(*rtype) string
 
 func (t *rtype) PkgPath() string {
@@ -83,6 +89,7 @@ func (t *rtype) Kind() reflect.Kind {
 }
 
 //go:linkname rtype_Implements reflect.(*rtype).Implements
+//go:noescape
 func rtype_Implements(*rtype, reflect.Type) bool
 
 func (t *rtype) Implements(u reflect.Type) bool {
@@ -90,6 +97,7 @@ func (t *rtype) Implements(u reflect.Type) bool {
 }
 
 //go:linkname rtype_AssignableTo reflect.(*rtype).AssignableTo
+//go:noescape
 func rtype_AssignableTo(*rtype, reflect.Type) bool
 
 func (t *rtype) AssignableTo(u reflect.Type) bool {
@@ -97,6 +105,7 @@ func (t *rtype) AssignableTo(u reflect.Type) bool {
 }
 
 //go:linkname rtype_ConvertibleTo reflect.(*rtype).ConvertibleTo
+//go:noescape
 func rtype_ConvertibleTo(*rtype, reflect.Type) bool
 
 func (t *rtype) ConvertibleTo(u reflect.Type) bool {
@@ -104,6 +113,7 @@ func (t *rtype) ConvertibleTo(u reflect.Type) bool {
 }
 
 //go:linkname rtype_Comparable reflect.(*rtype).Comparable
+//go:noescape
 func rtype_Comparable(*rtype) bool
 
 func (t *rtype) Comparable() bool {
@@ -111,6 +121,7 @@ func (t *rtype) Comparable() bool {
 }
 
 //go:linkname rtype_Bits reflect.(*rtype).Bits
+//go:noescape
 func rtype_Bits(*rtype) int
 
 func (t *rtype) Bits() int {
@@ -118,6 +129,7 @@ func (t *rtype) Bits() int {
 }
 
 //go:linkname rtype_ChanDir reflect.(*rtype).ChanDir
+//go:noescape
 func rtype_ChanDir(*rtype) reflect.ChanDir
 
 func (t *rtype) ChanDir() reflect.ChanDir {
@@ -125,6 +137,7 @@ func (t *rtype) ChanDir() reflect.ChanDir {
 }
 
 //go:linkname rtype_IsVariadic reflect.(*rtype).IsVariadic
+//go:noescape
 func rtype_IsVariadic(*rtype) bool
 
 func (t *rtype) IsVariadic() bool {
@@ -148,6 +161,7 @@ func (t *rtype) Field(i int) reflect.StructField {
 }
 
 //go:linkname rtype_FieldByIndex reflect.(*rtype).FieldByIndex
+//go:noescape
 func rtype_FieldByIndex(*rtype, []int) reflect.StructField
 
 func (t *rtype) FieldByIndex(index []int) reflect.StructField {
@@ -155,6 +169,7 @@ func (t *rtype) FieldByIndex(index []int) reflect.StructField {
 }
 
 //go:linkname rtype_FieldByName reflect.(*rtype).FieldByName
+//go:noescape
 func rtype_FieldByName(*rtype, string) (reflect.StructField, bool)
 
 func (t *rtype) FieldByName(name string) (reflect.StructField, bool) {
@@ -162,6 +177,7 @@ func (t *rtype) FieldByName(name string) (reflect.StructField, bool) {
 }
 
 //go:linkname rtype_FieldByNameFunc reflect.(*rtype).FieldByNameFunc
+//go:noescape
 func rtype_FieldByNameFunc(*rtype, func(string) bool) (reflect.StructField, bool)
 
 func (t *rtype) FieldByNameFunc(match func(string) bool) (reflect.StructField, bool) {
@@ -169,6 +185,7 @@ func (t *rtype) FieldByNameFunc(match func(string) bool) (reflect.StructField, b
 }
 
 //go:linkname rtype_In reflect.(*rtype).In
+//go:noescape
 func rtype_In(*rtype, int) reflect.Type
 
 func (t *rtype) In(i int) reflect.Type {
@@ -176,6 +193,7 @@ func (t *rtype) In(i int) reflect.Type {
 }
 
 //go:linkname rtype_Key reflect.(*rtype).Key
+//go:noescape
 func rtype_Key(*rtype) reflect.Type
 
 func (t *rtype) Key() *rtype {
@@ -191,6 +209,7 @@ func (t *rtype) Len() int {
 }
 
 //go:linkname rtype_NumField reflect.(*rtype).NumField
+//go:noescape
 func rtype_NumField(*rtype) int
 
 func (t *rtype) NumField() int {
@@ -198,6 +217,7 @@ func (t *rtype) NumField() int {
 }
 
 //go:linkname rtype_NumIn reflect.(*rtype).NumIn
+//go:noescape
 func rtype_NumIn(*rtype) int
 
 func (t *rtype) NumIn() int {
@@ -205,6 +225,7 @@ func (t *rtype) NumIn() int {
 }
 
 //go:linkname rtype_NumOut reflect.(*rtype).NumOut
+//go:noescape
 func rtype_NumOut(*rtype) int
 
 func (t *rtype) NumOut() int {
@@ -212,10 +233,17 @@ func (t *rtype) NumOut() int {
 }
 
 //go:linkname rtype_Out reflect.(*rtype).Out
+//go:noescape
 func rtype_Out(*rtype, int) reflect.Type
 
 func (t *rtype) Out(i int) reflect.Type {
 	return rtype_Out(t, i)
+}
+
+//go:linkname rtype_escape reflect.(*rtype).Kind
+func rtype_escape(*rtype) reflect.Kind
+func (t *rtype) escape() {
+	rtype_escape(t)
 }
 
 type interfaceHeader struct {

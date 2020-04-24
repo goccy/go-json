@@ -131,3 +131,13 @@ func Benchmark_Decode_gojson(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Decode_gojson_noescape(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var v SmallPayload
+		if err := gojson.UnmarshalNoEscape(fixture, &v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

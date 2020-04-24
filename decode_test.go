@@ -74,6 +74,16 @@ func Test_Decoder(t *testing.T) {
 		assertErr(t, json.Unmarshal([]byte(`"hello"`), &v))
 		assertEq(t, "string", "hello", v)
 	})
+	t.Run("float32", func(t *testing.T) {
+		var v float32
+		assertErr(t, json.Unmarshal([]byte(`3.14`), &v))
+		assertEq(t, "float32", float32(3.14), v)
+	})
+	t.Run("float64", func(t *testing.T) {
+		var v float64
+		assertErr(t, json.Unmarshal([]byte(`3.14`), &v))
+		assertEq(t, "float64", float64(3.14), v)
+	})
 	t.Run("struct", func(t *testing.T) {
 		type T struct {
 			AA int    `json:"aa"`

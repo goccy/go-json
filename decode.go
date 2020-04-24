@@ -150,6 +150,10 @@ func (d *Decoder) compile(typ reflect.Type) (decoder, error) {
 		return d.compileString()
 	case reflect.Bool:
 		return d.compileBool()
+	case reflect.Float32:
+		return d.compileFloat32()
+	case reflect.Float64:
+		return d.compileFloat64()
 	}
 	return nil, nil
 }
@@ -219,6 +223,18 @@ func (d *Decoder) compileUint32() (decoder, error) {
 func (d *Decoder) compileUint64() (decoder, error) {
 	return newUintDecoder(func(p uintptr, v uint64) {
 		*(*uint64)(unsafe.Pointer(p)) = v
+	}), nil
+}
+
+func (d *Decoder) compileFloat32() (decoder, error) {
+	return newFloatDecoder(func(p uintptr, v float64) {
+		*(*float32)(unsafe.Pointer(p)) = float32(v)
+	}), nil
+}
+
+func (d *Decoder) compileFloat64() (decoder, error) {
+	return newFloatDecoder(func(p uintptr, v float64) {
+		*(*float64)(unsafe.Pointer(p)) = v
 	}), nil
 }
 

@@ -154,6 +154,8 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 		return d.compileSlice(typ)
 	case reflect.Array:
 		return d.compileArray(typ)
+	case reflect.Map:
+		return d.compileMap(typ)
 	case reflect.Int:
 		return d.compileInt()
 	case reflect.Int8:
@@ -290,6 +292,18 @@ func (d *Decoder) compileArray(typ *rtype) (decoder, error) {
 		return nil, err
 	}
 	return newArrayDecoder(decoder, elem, typ.Len()), nil
+}
+
+func (d *Decoder) compileMap(typ *rtype) (decoder, error) {
+	keyDec, err := d.compile(typ.Key())
+	if err != nil {
+		return nil, err
+	}
+	valueDec, err := d.compile(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return newMapDecoder(typ, keyDec, valueDec), nil
 }
 
 func (d *Decoder) getTag(field reflect.StructField) string {

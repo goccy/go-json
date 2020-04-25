@@ -95,6 +95,14 @@ func Test_Decoder(t *testing.T) {
 		assertErr(t, json.Unmarshal([]byte(` [ 1 , 2 , 3 , 4 ] `), &v))
 		assertEq(t, "array", fmt.Sprint([4]int{1, 2, 3, 4}), fmt.Sprint(v))
 	})
+	t.Run("map", func(t *testing.T) {
+		var v map[string]int
+		assertErr(t, json.Unmarshal([]byte(` { "a": 1, "b": 2, "c": 3, "d": 4 } `), &v))
+		assertEq(t, "map.a", v["a"], 1)
+		assertEq(t, "map.b", v["b"], 2)
+		assertEq(t, "map.c", v["c"], 3)
+		assertEq(t, "map.d", v["d"], 4)
+	})
 	t.Run("struct", func(t *testing.T) {
 		type T struct {
 			AA int    `json:"aa"`

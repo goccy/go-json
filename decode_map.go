@@ -2,7 +2,6 @@ package json
 
 import (
 	"errors"
-	"fmt"
 	"unsafe"
 )
 
@@ -29,13 +28,7 @@ func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
 func (d *mapDecoder) setKey(ctx *context, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	if err := d.keyDecoder.decode(ctx, uintptr(header.ptr)); err != nil {
-		return err
-	}
-	//fmt.Println("key = ", *(*string)(header.ptr))
-	//fmt.Println("Key = ", key.(*string))
-	//fmt.Println("key = ", *(*string)(unsafe.Pointer(key)))
-	return nil
+	return d.keyDecoder.decode(ctx, uintptr(header.ptr))
 }
 
 func (d *mapDecoder) setValue(ctx *context, key interface{}) error {
@@ -56,7 +49,6 @@ func (d *mapDecoder) decode(ctx *context, p uintptr) error {
 	}
 	cursor++
 	mapValue := makemap(d.mapType, 0)
-	fmt.Println("mapValue = ", mapValue)
 	for ; cursor < buflen; cursor++ {
 		ctx.cursor = cursor
 		var key interface{}

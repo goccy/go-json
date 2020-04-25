@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"strings"
@@ -8,25 +9,26 @@ import (
 	"unsafe"
 )
 
+// A Token holds a value of one of these types:
+//
+//	Delim, for the four JSON delimiters [ ] { }
+//	bool, for JSON booleans
+//	float64, for JSON numbers
+//	Number, for JSON numbers
+//	string, for JSON string literals
+//	nil, for JSON null
+//
 type Token interface{}
 
 type Delim rune
-
-const (
-	stateNone int = iota
-	stateLiteral
-	stateObject
-	stateArray
-)
 
 type decoder interface {
 	decode(*context, uintptr) error
 }
 
 type Decoder struct {
-	r     io.Reader
-	state int
-	value []byte
+	r        io.Reader
+	buffered func() io.Reader
 }
 
 var (
@@ -43,14 +45,18 @@ func init() {
 	}
 }
 
+// NewDecoder returns a new decoder that reads from r.
+//
+// The decoder introduces its own buffering and may
+// read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{
-		r: r,
-	}
+	return &Decoder{r: r}
 }
 
+// Buffered returns a reader of the data remaining in the Decoder's
+// buffer. The reader is valid until the next call to Decode.
 func (d *Decoder) Buffered() io.Reader {
-	return d.r
+	return d.buffered()
 }
 
 func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
@@ -92,6 +98,11 @@ func (d *Decoder) decodeForUnmarshalNoEscape(src []byte, v interface{}) error {
 	return d.decode(src, header)
 }
 
+// Decode reads the next JSON-encoded value from its
+// input and stores it in the value pointed to by v.
+//
+// See the documentation for Unmarshal for details about
+// the conversion of JSON into a Go value.
 func (d *Decoder) Decode(v interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
@@ -113,6 +124,9 @@ func (d *Decoder) Decode(v interface{}) error {
 	ptr := uintptr(header.ptr)
 	ctx := ctxPool.Get().(*context)
 	defer ctxPool.Put(ctx)
+	d.buffered = func() io.Reader {
+		return bytes.NewReader(ctx.buf[ctx.cursor:])
+	}
 	for {
 		buf := make([]byte, 1024)
 		n, err := d.r.Read(buf)
@@ -136,6 +150,10 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 		return d.compilePtr(typ)
 	case reflect.Struct:
 		return d.compileStruct(typ)
+	case reflect.Slice:
+		return d.compileSlice(typ)
+	case reflect.Array:
+		return d.compileArray(typ)
 	case reflect.Int:
 		return d.compileInt()
 	case reflect.Int8:
@@ -256,6 +274,24 @@ func (d *Decoder) compileBool() (decoder, error) {
 	return newBoolDecoder(), nil
 }
 
+func (d *Decoder) compileSlice(typ *rtype) (decoder, error) {
+	elem := typ.Elem()
+	decoder, err := d.compile(elem)
+	if err != nil {
+		return nil, err
+	}
+	return newSliceDecoder(decoder, elem, elem.Size()), nil
+}
+
+func (d *Decoder) compileArray(typ *rtype) (decoder, error) {
+	elem := typ.Elem()
+	decoder, err := d.compile(elem)
+	if err != nil {
+		return nil, err
+	}
+	return newArrayDecoder(decoder, elem, typ.Len()), nil
+}
+
 func (d *Decoder) getTag(field reflect.StructField) string {
 	return field.Tag.Get("json")
 }
@@ -300,6 +336,9 @@ func (d *Decoder) compileStruct(typ *rtype) (decoder, error) {
 	return newStructDecoder(fieldMap), nil
 }
 
+// DisallowUnknownFields causes the Decoder to return an error when the destination
+// is a struct and the input contains object keys which do not match any
+// non-ignored, exported fields in the destination.
 func (d *Decoder) DisallowUnknownFields() {
 
 }
@@ -316,6 +355,8 @@ func (d *Decoder) Token() (Token, error) {
 	return nil, nil
 }
 
+// UseNumber causes the Decoder to unmarshal a number into an interface{} as a
+// Number instead of as a float64.
 func (d *Decoder) UseNumber() {
 
 }

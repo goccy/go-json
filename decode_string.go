@@ -46,6 +46,21 @@ func (d *stringDecoder) decodeByte(ctx *context) ([]byte, error) {
 				}
 			}
 			return nil, errors.New("unexpected error string")
+		case 'n':
+			if cursor+3 >= ctx.buflen {
+				return nil, errors.New("unexpected error. invalid bool character")
+			}
+			if buf[cursor+1] != 'u' {
+				return nil, errors.New("unexpected error. invalid bool character")
+			}
+			if buf[cursor+2] != 'l' {
+				return nil, errors.New("unexpected error. invalid bool character")
+			}
+			if buf[cursor+3] != 'l' {
+				return nil, errors.New("unexpected error. invalid bool character")
+			}
+			ctx.cursor += 5
+			return []byte{}, nil
 		}
 	}
 	return nil, errors.New("unexpected error key delimiter")

@@ -130,7 +130,6 @@ func Benchmark_Decode_MediumStruct_GoJayUnsafe(b *testing.B) {
 	}
 }
 
-/*
 func Benchmark_Decode_MediumStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -150,7 +149,6 @@ func Benchmark_Decode_MediumStruct_GoJsonNoEscape(b *testing.B) {
 		}
 	}
 }
-*/
 
 func Benchmark_Decode_LargeStruct_EncodingJson(b *testing.B) {
 	b.ReportAllocs()

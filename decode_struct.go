@@ -38,13 +38,28 @@ func (d *structDecoder) skipValue(ctx *context) error {
 		case '}':
 			braceCount--
 			if braceCount == -1 && bracketCount == 0 {
+				ctx.cursor = cursor
 				return nil
 			}
 		case ']':
 			bracketCount--
 		case ',':
 			if bracketCount == 0 && braceCount == 0 {
+				ctx.cursor = cursor
 				return nil
+			}
+		case '"':
+			cursor++
+			for ; cursor < buflen; cursor++ {
+				tk := buf[cursor]
+				if tk == '\\' {
+					cursor++
+					continue
+				}
+				if tk == '"' {
+					cursor++
+					break
+				}
 			}
 		}
 	}
@@ -91,6 +106,7 @@ func (d *structDecoder) decode(ctx *context, p uintptr) error {
 		}
 		cursor = ctx.skipWhiteSpace()
 		if buf[cursor] == '}' {
+			ctx.cursor++
 			return nil
 		}
 		if buf[cursor] != ',' {

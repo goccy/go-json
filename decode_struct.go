@@ -57,7 +57,10 @@ func (d *structDecoder) skipValue(ctx *context) error {
 					continue
 				}
 				if tk == '"' {
-					cursor++
+					if bracketCount == 0 && braceCount == 0 {
+						ctx.cursor = cursor + 1
+						return nil
+					}
 					break
 				}
 			}

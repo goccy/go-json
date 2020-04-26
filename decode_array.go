@@ -38,6 +38,7 @@ func (d *arrayDecoder) decode(ctx *context, p uintptr) error {
 				cursor = ctx.skipWhiteSpace()
 				switch buf[cursor] {
 				case ']':
+					ctx.cursor++
 					return nil
 				case ',':
 					idx++

@@ -200,7 +200,6 @@ func Benchmark_Decode_LargeStruct_GoJayUnsafe(b *testing.B) {
 	}
 }
 
-/*
 func Benchmark_Decode_LargeStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -220,4 +219,3 @@ func Benchmark_Decode_LargeStruct_GoJsonNoEscape(b *testing.B) {
 		}
 	}
 }
-*/

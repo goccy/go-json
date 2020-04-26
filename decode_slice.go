@@ -58,6 +58,7 @@ func (d *sliceDecoder) decode(ctx *context, p uintptr) error {
 						Len:  idx + 1,
 						Cap:  cap,
 					}
+					ctx.cursor++
 					return nil
 				case ',':
 					idx++

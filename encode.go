@@ -405,9 +405,6 @@ func mapiterinit(mapType unsafe.Pointer, m unsafe.Pointer) unsafe.Pointer
 //go:linkname mapiterkey reflect.mapiterkey
 func mapiterkey(it unsafe.Pointer) unsafe.Pointer
 
-//go:linkname mapitervalue reflect.mapitervalue
-func mapitervalue(it unsafe.Pointer) unsafe.Pointer
-
 //go:linkname mapiternext reflect.mapiternext
 func mapiternext(it unsafe.Pointer)
 

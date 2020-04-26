@@ -27,6 +27,8 @@ github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aev
 github.com/go-errors/errors v1.0.1/go.mod h1:f4zRHt4oKfwPJE5k8C9vpYG+aDHdBFUsgrm6/TyX73Q=
 github.com/goccy/go-json v0.0.0-20200425134937-b2f2a20f6518 h1:Im9WLti1rM0Lu7yfI7Q4qUa63ACa8MpcWsKsP/s1scI=
 github.com/goccy/go-json v0.0.0-20200425134937-b2f2a20f6518/go.mod h1:h37TlF6fMJkCKBvuOxM3yCc3CnzMOUL3Ya+zO4ERYXQ=
+github.com/goccy/go-json v0.0.0-20200426030317-c37a3c1aac7b h1:x2rU3NmJ9v14sP8q6ibSDHWm3dAmEvVPjxiLAAz4iU0=
+github.com/goccy/go-json v0.0.0-20200426030317-c37a3c1aac7b/go.mod h1:R/y4ycIiFvB+n4HQ2M0/BzGzFxFvgGk5wwIp4Q2JkCk=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/lint v0.0.0-20180702182130-06c8688daad7/go.mod h1:tluoj9z5200jBnyusfRPU2LqT6J+DAorxEvtC7LHB+E=

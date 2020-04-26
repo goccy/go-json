@@ -36,6 +36,7 @@ Benchmark_Decode_SmallStruct_GoJsonNoEscape-12           3000000               4
 
 ### MediumStruct
 
+```
 Benchmark_Decode_MediumStruct_EncodingJson-12             100000             20643 ns/op             384 B/op         10 allocs/op
 Benchmark_Decode_MediumStruct_JsonIter-12                 200000             11367 ns/op            2985 B/op         81 allocs/op
 Benchmark_Decode_MediumStruct_EasyJson-12                 200000              6635 ns/op             232 B/op          6 allocs/op

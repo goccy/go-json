@@ -31,6 +31,8 @@ github.com/goccy/go-json v0.0.0-20200426030317-c37a3c1aac7b h1:x2rU3NmJ9v14sP8q6
 github.com/goccy/go-json v0.0.0-20200426030317-c37a3c1aac7b/go.mod h1:R/y4ycIiFvB+n4HQ2M0/BzGzFxFvgGk5wwIp4Q2JkCk=
 github.com/goccy/go-json v0.0.0-20200426055945-3bd7507c309f h1:ZIUfVwBw7xpFIPp/7neJMAycPOv1HEbLsloc2FF6/mY=
 github.com/goccy/go-json v0.0.0-20200426055945-3bd7507c309f/go.mod h1:R/y4ycIiFvB+n4HQ2M0/BzGzFxFvgGk5wwIp4Q2JkCk=
+github.com/goccy/go-json v0.0.0-20200426062255-9b1349d40ab6 h1:vJLqMycJ1FZ5RAtM5uU2beB/1cw8CqhY/LQAsffUDTU=
+github.com/goccy/go-json v0.0.0-20200426062255-9b1349d40ab6/go.mod h1:R/y4ycIiFvB+n4HQ2M0/BzGzFxFvgGk5wwIp4Q2JkCk=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/lint v0.0.0-20180702182130-06c8688daad7/go.mod h1:tluoj9z5200jBnyusfRPU2LqT6J+DAorxEvtC7LHB+E=

@@ -1,5 +1,7 @@
 # go-json
 
+![Go](https://github.com/goccy/go-json/workflows/Go/badge.svg)
+
 Fast JSON encoder/decoder compatible with encoding/json for Go
 
 # Status

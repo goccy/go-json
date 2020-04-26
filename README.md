@@ -39,11 +39,13 @@ Benchmark_Decode_SmallStruct_GoJsonNoEscape-12           3000000               4
 ### MediumStruct
 
 ```
-Benchmark_Decode_MediumStruct_EncodingJson-12             100000             20643 ns/op             384 B/op         10 allocs/op
-Benchmark_Decode_MediumStruct_JsonIter-12                 200000             11367 ns/op            2985 B/op         81 allocs/op
-Benchmark_Decode_MediumStruct_EasyJson-12                 200000              6635 ns/op             232 B/op          6 allocs/op
-Benchmark_Decode_MediumStruct_GoJay-12                    500000              3398 ns/op            2449 B/op          8 allocs/op
-Benchmark_Decode_MediumStruct_GoJayUnsafe-12              500000              3067 ns/op             144 B/op          7 allocs/op
+Benchmark_Decode_MediumStruct_EncodingJson-12             100000             20911 ns/op             384 B/op         10 allocs/op
+Benchmark_Decode_MediumStruct_JsonIter-12                 200000             11386 ns/op            2985 B/op         81 allocs/op
+Benchmark_Decode_MediumStruct_EasyJson-12                 200000              6522 ns/op             232 B/op          6 allocs/op
+Benchmark_Decode_MediumStruct_GoJay-12                    500000              3431 ns/op            2449 B/op          8 allocs/op
+Benchmark_Decode_MediumStruct_GoJayUnsafe-12              500000              3121 ns/op             144 B/op          7 allocs/op
+Benchmark_Decode_MediumStruct_GoJson-12                   500000              2923 ns/op            2409 B/op          5 allocs/op
+Benchmark_Decode_MediumStruct_GoJsonNoEscape-12           500000              2900 ns/op            2376 B/op          4 allocs/op
 ```
 
 ### LargeStruct

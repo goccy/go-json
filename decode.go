@@ -31,13 +31,28 @@ type Decoder struct {
 	buffered func() io.Reader
 }
 
+type decoderMap struct {
+	sync.Map
+}
+
+func (m *decoderMap) Get(k string) decoder {
+	if v, ok := m.Load(k); ok {
+		return v.(decoder)
+	}
+	return nil
+}
+
+func (m *decoderMap) Set(k string, dec decoder) {
+	m.Store(k, dec)
+}
+
 var (
 	ctxPool       sync.Pool
-	cachedDecoder map[string]decoder
+	cachedDecoder decoderMap
 )
 
 func init() {
-	cachedDecoder = map[string]decoder{}
+	cachedDecoder = decoderMap{}
 	ctxPool = sync.Pool{
 		New: func() interface{} {
 			return newContext()
@@ -65,14 +80,14 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 		return ErrDecodePointer
 	}
 	name := typ.String()
-	dec, exists := cachedDecoder[name]
-	if !exists {
+	dec := cachedDecoder.Get(name)
+	if dec == nil {
 		compiledDec, err := d.compile(typ.Elem())
 		if err != nil {
 			return err
 		}
 		if name != "" {
-			cachedDecoder[name] = compiledDec
+			cachedDecoder.Set(name, compiledDec)
 		}
 		dec = compiledDec
 	}
@@ -110,14 +125,14 @@ func (d *Decoder) Decode(v interface{}) error {
 		return ErrDecodePointer
 	}
 	name := typ.String()
-	dec, exists := cachedDecoder[name]
-	if !exists {
+	dec := cachedDecoder.Get(name)
+	if dec == nil {
 		compiledDec, err := d.compile(typ.Elem())
 		if err != nil {
 			return err
 		}
 		if name != "" {
-			cachedDecoder[name] = compiledDec
+			cachedDecoder.Set(name, compiledDec)
 		}
 		dec = compiledDec
 	}

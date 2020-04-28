@@ -103,13 +103,31 @@ func Test_Encoder(t *testing.T) {
 		assertEq(t, "array", `[1,2,3,4]`, string(bytes))
 	})
 	t.Run("map", func(t *testing.T) {
-		bytes, err := json.Marshal(map[string]int{
-			"a": 1,
-			"b": 2,
-			"c": 3,
-			"d": 4,
+		t.Run("map[string]int", func(t *testing.T) {
+			bytes, err := json.Marshal(map[string]int{
+				"a": 1,
+				"b": 2,
+				"c": 3,
+				"d": 4,
+			})
+			assertErr(t, err)
+			assertEq(t, "map", len(`{"a":1,"b":2,"c":3,"d":4}`), len(string(bytes)))
 		})
-		assertErr(t, err)
-		assertEq(t, "map", len(`{"a":1,"b":2,"c":3,"d":4}`), len(string(bytes)))
+		t.Run("map[string]interface{}", func(t *testing.T) {
+			type T struct {
+				A int
+			}
+			v := map[string]interface{}{
+				"a": 1,
+				"b": 2.1,
+				"c": &T{
+					A: 10,
+				},
+				"d": 4,
+			}
+			bytes, err := json.Marshal(v)
+			assertErr(t, err)
+			assertEq(t, "map[string]interface{}", len(`{"a":1,"b":2.1,"c":{"A":10},"d":4}`), len(string(bytes)))
+		})
 	})
 }

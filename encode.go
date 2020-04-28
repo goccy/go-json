@@ -19,15 +19,31 @@ type Encoder struct {
 	pool sync.Pool
 }
 
-type EncodeOp func(*Encoder, uintptr)
+type EncodeOp func(*Encoder, *rtype, uintptr) error
 
 const (
 	bufSize = 1024
 )
 
+type EncodeOpMap struct {
+	sync.Map
+}
+
+func (m *EncodeOpMap) Get(k string) EncodeOp {
+	if v, ok := m.Load(k); ok {
+		return v.(EncodeOp)
+	}
+	return nil
+}
+
+func (m *EncodeOpMap) Set(k string, op EncodeOp) {
+	m.Store(k, op)
+}
+
 var (
-	encPool        sync.Pool
-	cachedEncodeOp map[string]EncodeOp
+	encPool            sync.Pool
+	cachedEncodeOp     EncodeOpMap
+	errCompileSlowPath = xerrors.New("json: detect dynamic type ( interface{} ) and compile with slow path")
 )
 
 func init() {
@@ -39,7 +55,7 @@ func init() {
 			}
 		},
 	}
-	cachedEncodeOp = map[string]EncodeOp{}
+	cachedEncodeOp = EncodeOpMap{}
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -159,22 +175,32 @@ func (e *Encoder) encodeByte(b byte) {
 func (e *Encoder) encode(v interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
-	name := typ.String()
-	if op, exists := cachedEncodeOp[name]; exists {
-		op(e, uintptr(header.ptr))
-		return nil
-	}
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
+	name := typ.String()
+	if op := cachedEncodeOp.Get(name); op != nil {
+		p := uintptr(header.ptr)
+		op(e, typ, p)
+		return nil
+	}
 	op, err := e.compile(typ)
 	if err != nil {
-		return err
+		if err == errCompileSlowPath {
+			slowOp, err := e.compileSlowPath(typ)
+			if err != nil {
+				return err
+			}
+			op = slowOp
+		} else {
+			return err
+		}
 	}
 	if name != "" {
-		cachedEncodeOp[name] = op
+		cachedEncodeOp.Set(name, op)
 	}
-	op(e, uintptr(header.ptr))
+	p := uintptr(header.ptr)
+	op(e, typ, p)
 	return nil
 }
 
@@ -221,121 +247,286 @@ func (e *Encoder) compile(typ *rtype) (EncodeOp, error) {
 	case reflect.Bool:
 		return e.compileBool()
 	case reflect.Interface:
-		return nil, ErrCompileSlowPath
+		return nil, errCompileSlowPath
+	}
+	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
+}
+
+func (e *Encoder) compileSlowPath(typ *rtype) (EncodeOp, error) {
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return e.compilePtrSlowPath(typ)
+	case reflect.Slice:
+		return e.compileSliceSlowPath(typ)
+	case reflect.Struct:
+		return e.compileStructSlowPath(typ)
+	case reflect.Map:
+		return e.compileMapSlowPath(typ)
+	case reflect.Array:
+		return e.compileArraySlowPath(typ)
+	case reflect.Int:
+		return e.compileInt()
+	case reflect.Int8:
+		return e.compileInt8()
+	case reflect.Int16:
+		return e.compileInt16()
+	case reflect.Int32:
+		return e.compileInt32()
+	case reflect.Int64:
+		return e.compileInt64()
+	case reflect.Uint:
+		return e.compileUint()
+	case reflect.Uint8:
+		return e.compileUint8()
+	case reflect.Uint16:
+		return e.compileUint16()
+	case reflect.Uint32:
+		return e.compileUint32()
+	case reflect.Uint64:
+		return e.compileUint64()
+	case reflect.Uintptr:
+		return e.compileUint()
+	case reflect.Float32:
+		return e.compileFloat32()
+	case reflect.Float64:
+		return e.compileFloat64()
+	case reflect.String:
+		return e.compileString()
+	case reflect.Bool:
+		return e.compileBool()
+	case reflect.Interface:
+		return e.compileInterface()
 	}
 	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
 }
 
 func (e *Encoder) compilePtr(typ *rtype) (EncodeOp, error) {
-	op, err := e.compile(typ.Elem())
+	elem := typ.Elem()
+	op, err := e.compile(elem)
 	if err != nil {
 		return nil, err
 	}
-	return func(enc *Encoder, p uintptr) {
-		op(enc, e.ptrToPtr(p))
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		return op(enc, elem, e.ptrToPtr(p))
+	}, nil
+}
+
+func (e *Encoder) compilePtrSlowPath(typ *rtype) (EncodeOp, error) {
+	elem := typ.Elem()
+	op, err := e.compileSlowPath(elem)
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		return op(enc, typ.Elem(), e.ptrToPtr(p))
 	}, nil
 }
 
 func (e *Encoder) compileInt() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeInt(e.ptrToInt(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeInt(e.ptrToInt(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileInt8() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeInt8(e.ptrToInt8(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeInt8(e.ptrToInt8(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileInt16() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeInt16(e.ptrToInt16(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeInt16(e.ptrToInt16(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileInt32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeInt32(e.ptrToInt32(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeInt32(e.ptrToInt32(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileInt64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeInt64(e.ptrToInt64(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeInt64(e.ptrToInt64(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileUint() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeUint(e.ptrToUint(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeUint(e.ptrToUint(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileUint8() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeUint8(e.ptrToUint8(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeUint8(e.ptrToUint8(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileUint16() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeUint16(e.ptrToUint16(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeUint16(e.ptrToUint16(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileUint32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeUint32(e.ptrToUint32(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeUint32(e.ptrToUint32(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileUint64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeUint64(e.ptrToUint64(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeUint64(e.ptrToUint64(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileFloat32() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeFloat32(e.ptrToFloat32(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeFloat32(e.ptrToFloat32(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileFloat64() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeFloat64(e.ptrToFloat64(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeFloat64(e.ptrToFloat64(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileString() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeEscapedString(e.ptrToString(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeEscapedString(e.ptrToString(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileBool() (EncodeOp, error) {
-	return func(enc *Encoder, p uintptr) { enc.encodeBool(e.ptrToBool(p)) }, nil
+	return func(enc *Encoder, typ *rtype, p uintptr) error {
+		enc.encodeBool(e.ptrToBool(p))
+		return nil
+	}, nil
 }
 
 func (e *Encoder) compileSlice(typ *rtype) (EncodeOp, error) {
-	size := typ.Elem().Size()
-	op, err := e.compile(typ.Elem())
+	elem := typ.Elem()
+	size := elem.Size()
+	op, err := e.compile(elem)
 	if err != nil {
 		return nil, err
 	}
-	return func(enc *Encoder, base uintptr) {
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
 		if base == 0 {
 			enc.encodeString("null")
-			return
+			return nil
 		}
 		enc.encodeByte('[')
 		slice := (*reflect.SliceHeader)(unsafe.Pointer(base))
 		num := slice.Len
 		for i := 0; i < num; i++ {
-			op(enc, slice.Data+uintptr(i)*size)
+			if err := op(enc, elem, slice.Data+uintptr(i)*size); err != nil {
+				return err
+			}
 			if i != num-1 {
 				enc.encodeByte(',')
 			}
 		}
 		enc.encodeByte(']')
+		return nil
+	}, nil
+}
+
+func (e *Encoder) compileSliceSlowPath(typ *rtype) (EncodeOp, error) {
+	op, err := e.compileSlowPath(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
+		if base == 0 {
+			enc.encodeString("null")
+			return nil
+		}
+		size := typ.Elem().Size()
+		enc.encodeByte('[')
+		slice := (*reflect.SliceHeader)(unsafe.Pointer(base))
+		num := slice.Len
+		for i := 0; i < num; i++ {
+			if err := op(enc, typ.Elem(), slice.Data+uintptr(i)*size); err != nil {
+				return err
+			}
+			if i != num-1 {
+				enc.encodeByte(',')
+			}
+		}
+		enc.encodeByte(']')
+		return nil
 	}, nil
 }
 
 func (e *Encoder) compileArray(typ *rtype) (EncodeOp, error) {
+	elem := typ.Elem()
 	alen := typ.Len()
-	size := typ.Elem().Size()
-	op, err := e.compile(typ.Elem())
+	size := elem.Size()
+	op, err := e.compile(elem)
 	if err != nil {
 		return nil, err
 	}
-	return func(enc *Encoder, base uintptr) {
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
 		if base == 0 {
 			enc.encodeString("null")
-			return
+			return nil
 		}
 		enc.encodeByte('[')
 		for i := 0; i < alen; i++ {
 			if i != 0 {
 				enc.encodeByte(',')
 			}
-			op(enc, base+uintptr(i)*size)
+			if err := op(enc, elem, base+uintptr(i)*size); err != nil {
+				return err
+			}
 		}
 		enc.encodeByte(']')
+		return nil
+	}, nil
+}
+
+func (e *Encoder) compileArraySlowPath(typ *rtype) (EncodeOp, error) {
+	elem := typ.Elem()
+	alen := typ.Len()
+	op, err := e.compileSlowPath(elem)
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
+		if base == 0 {
+			enc.encodeString("null")
+			return nil
+		}
+		elem := typ.Elem()
+		size := elem.Size()
+		enc.encodeByte('[')
+		for i := 0; i < alen; i++ {
+			if i != 0 {
+				enc.encodeByte(',')
+			}
+			if err := op(enc, elem, base+uintptr(i)*size); err != nil {
+				return err
+			}
+		}
+		enc.encodeByte(']')
+		return nil
 	}, nil
 }
 
@@ -355,9 +546,15 @@ func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
 	return false
 }
 
+type encodeStructField struct {
+	op         EncodeOp
+	fieldIndex int
+}
+
 func (e *Encoder) compileStruct(typ *rtype) (EncodeOp, error) {
 	fieldNum := typ.NumField()
-	opQueue := make([]EncodeOp, 0, fieldNum)
+	opQueue := make([]*encodeStructField, 0, fieldNum)
+
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
 		if e.isIgnoredStructField(field) {
@@ -377,38 +574,100 @@ func (e *Encoder) compileStruct(typ *rtype) (EncodeOp, error) {
 			return nil, err
 		}
 		key := fmt.Sprintf(`"%s":`, keyName)
-		opQueue = append(opQueue, func(enc *Encoder, base uintptr) {
+		structField := &encodeStructField{fieldIndex: i}
+		structField.op = func(enc *Encoder, typ *rtype, base uintptr) error {
 			enc.encodeString(key)
-			op(enc, base+field.Offset)
-		})
+			return op(enc, fieldType, base+field.Offset)
+		}
+		opQueue = append(opQueue, structField)
 	}
+
 	queueNum := len(opQueue)
-	return func(enc *Encoder, base uintptr) {
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
 		if base == 0 {
 			enc.encodeString("null")
-			return
+			return nil
 		}
 		enc.encodeByte('{')
 		for i := 0; i < queueNum; i++ {
-			opQueue[i](enc, base)
+			if err := opQueue[i].op(enc, typ, base); err != nil {
+				return err
+			}
 			if i != queueNum-1 {
 				enc.encodeByte(',')
 			}
 		}
 		enc.encodeByte('}')
+		return nil
+	}, nil
+}
+
+func (e *Encoder) compileStructSlowPath(typ *rtype) (EncodeOp, error) {
+	fieldNum := typ.NumField()
+	opQueue := make([]*encodeStructField, 0, fieldNum)
+
+	for i := 0; i < fieldNum; i++ {
+		field := typ.Field(i)
+		if e.isIgnoredStructField(field) {
+			continue
+		}
+		keyName := field.Name
+		tag := e.getTag(field)
+		opts := strings.Split(tag, ",")
+		if len(opts) > 0 {
+			if opts[0] != "" {
+				keyName = opts[0]
+			}
+		}
+		fieldType := type2rtype(field.Type)
+		op, err := e.compileSlowPath(fieldType)
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf(`"%s":`, keyName)
+		structField := &encodeStructField{fieldIndex: i}
+		structField.op = func(enc *Encoder, typ *rtype, base uintptr) error {
+			enc.encodeString(key)
+			fieldType := type2rtype(typ.Field(structField.fieldIndex).Type)
+			return op(enc, fieldType, base+field.Offset)
+		}
+		opQueue = append(opQueue, structField)
+	}
+
+	queueNum := len(opQueue)
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
+		if base == 0 {
+			enc.encodeString("null")
+			return nil
+		}
+		enc.encodeByte('{')
+		for i := 0; i < queueNum; i++ {
+			if err := opQueue[i].op(enc, typ, base); err != nil {
+				return err
+			}
+			if i != queueNum-1 {
+				enc.encodeByte(',')
+			}
+		}
+		enc.encodeByte('}')
+		return nil
 	}, nil
 }
 
 //go:linkname mapiterinit reflect.mapiterinit
-func mapiterinit(mapType unsafe.Pointer, m unsafe.Pointer) unsafe.Pointer
+//go:noescape
+func mapiterinit(mapType *rtype, m unsafe.Pointer) unsafe.Pointer
 
 //go:linkname mapiterkey reflect.mapiterkey
+//go:noescape
 func mapiterkey(it unsafe.Pointer) unsafe.Pointer
 
 //go:linkname mapiternext reflect.mapiternext
+//go:noescape
 func mapiternext(it unsafe.Pointer)
 
 //go:linkname maplen reflect.maplen
+//go:noescape
 func maplen(m unsafe.Pointer) int
 
 type valueType struct {
@@ -417,35 +676,102 @@ type valueType struct {
 }
 
 func (e *Encoder) compileMap(typ *rtype) (EncodeOp, error) {
-	mapType := unsafe.Pointer(typ)
-	keyOp, err := e.compile(typ.Key())
+	keyType := typ.Key()
+	keyOp, err := e.compile(keyType)
 	if err != nil {
 		return nil, err
 	}
-	valueOp, err := e.compile(typ.Elem())
+	valueType := typ.Elem()
+	valueOp, err := e.compile(valueType)
 	if err != nil {
 		return nil, err
 	}
-	return func(enc *Encoder, base uintptr) {
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
 		if base == 0 {
 			enc.encodeString("null")
-			return
+			return nil
 		}
 		enc.encodeByte('{')
 		mlen := maplen(unsafe.Pointer(base))
-		iter := mapiterinit(mapType, unsafe.Pointer(base))
+		iter := mapiterinit(typ, unsafe.Pointer(base))
 		for i := 0; i < mlen; i++ {
 			key := mapiterkey(iter)
 			if i != 0 {
 				enc.encodeByte(',')
 			}
 			value := mapitervalue(iter)
-			keyOp(enc, uintptr(key))
+			keyptr := uintptr(key)
+			if err := keyOp(enc, keyType, keyptr); err != nil {
+				return err
+			}
 			enc.encodeByte(':')
-			valueOp(enc, uintptr(value))
+			valueptr := uintptr(value)
+			if err := valueOp(enc, valueType, valueptr); err != nil {
+				return err
+			}
 			mapiternext(iter)
 		}
 		enc.encodeByte('}')
+		return nil
+	}, nil
+}
+
+func (e *Encoder) compileMapSlowPath(typ *rtype) (EncodeOp, error) {
+	keyOp, err := e.compileSlowPath(typ.Key())
+	if err != nil {
+		return nil, err
+	}
+	valueOp, err := e.compileSlowPath(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
+		if base == 0 {
+			enc.encodeString("null")
+			return nil
+		}
+		enc.encodeByte('{')
+		mlen := maplen(unsafe.Pointer(base))
+		iter := mapiterinit(typ, unsafe.Pointer(base))
+		for i := 0; i < mlen; i++ {
+			key := mapiterkey(iter)
+			if i != 0 {
+				enc.encodeByte(',')
+			}
+			value := mapitervalue(iter)
+			keyptr := uintptr(key)
+			if err := keyOp(enc, typ.Key(), keyptr); err != nil {
+				return err
+			}
+			enc.encodeByte(':')
+			valueptr := uintptr(value)
+			if err := valueOp(enc, typ.Elem(), valueptr); err != nil {
+				return err
+			}
+			mapiternext(iter)
+		}
+		enc.encodeByte('}')
+		return nil
+	}, nil
+}
+
+func (e *Encoder) compileInterface() (EncodeOp, error) {
+	return func(enc *Encoder, typ *rtype, base uintptr) error {
+		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+			typ: typ,
+			ptr: unsafe.Pointer(base),
+		}))
+		vv := reflect.ValueOf(v).Interface()
+		header := (*interfaceHeader)(unsafe.Pointer(&vv))
+		t := header.typ
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		op, err := e.compileSlowPath(t)
+		if err != nil {
+			return err
+		}
+		return op(enc, t, uintptr(header.ptr))
 	}, nil
 }
 

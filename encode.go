@@ -29,14 +29,14 @@ type EncodeOpMap struct {
 	sync.Map
 }
 
-func (m *EncodeOpMap) Get(k string) EncodeOp {
+func (m *EncodeOpMap) Get(k string) *opcode { //EncodeOp {
 	if v, ok := m.Load(k); ok {
-		return v.(EncodeOp)
+		return v.(*opcode) //(EncodeOp)
 	}
 	return nil
 }
 
-func (m *EncodeOpMap) Set(k string, op EncodeOp) {
+func (m *EncodeOpMap) Set(k string, op *opcode) { // EncodeOp) {
 	m.Store(k, op)
 }
 
@@ -181,17 +181,23 @@ func (e *Encoder) encode(v interface{}) error {
 	name := typ.String()
 	if op := cachedEncodeOp.Get(name); op != nil {
 		p := uintptr(header.ptr)
-		op(e, typ, p)
+		op.ptr = p
+		if err := e.run(op); err != nil {
+			return err
+		}
+		//op(e, typ, p)
 		return nil
 	}
-	op, err := e.compile(typ)
+	op, err := e.compileOp(typ)
 	if err != nil {
 		if err == errCompileSlowPath {
-			slowOp, err := e.compileSlowPath(typ)
-			if err != nil {
-				return err
-			}
-			op = slowOp
+			/*
+				slowOp, err := e.compileSlowPath(typ)
+				if err != nil {
+					return err
+				}
+				op = slowOp
+			*/
 		} else {
 			return err
 		}
@@ -200,7 +206,9 @@ func (e *Encoder) encode(v interface{}) error {
 		cachedEncodeOp.Set(name, op)
 	}
 	p := uintptr(header.ptr)
-	op(e, typ, p)
+	op.ptr = p
+	e.run(op)
+	//op(e, typ, p)
 	return nil
 }
 

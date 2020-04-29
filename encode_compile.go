@@ -54,18 +54,21 @@ func (e *Encoder) compileOp(typ *rtype) (*opcode, error) {
 }
 
 func (e *Encoder) compilePtrOp(typ *rtype) (*opcode, error) {
-	elem := typ.Elem()
-	code, err := e.compileOp(elem)
+	code, err := e.compileOp(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
-	return &opcode{
-		opcodeHeader: &opcodeHeader{
-			op:   opPtr,
-			typ:  typ,
-			next: code,
-		},
-	}, nil
+	switch code.op {
+	case opStructFieldHead:
+		code.op = opStructFieldPtrHead
+	case opStructFieldHeadInt:
+		code.op = opStructFieldPtrHeadInt
+	case opStructFieldHeadString:
+		code.op = opStructFieldPtrHeadString
+	default:
+		return newOpCode(opPtr, typ, code), nil
+	}
+	return code, nil
 }
 
 func (e *Encoder) compileIntOp(typ *rtype) (*opcode, error) {
@@ -132,22 +135,21 @@ func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 		return nil, err
 	}
 
-	// header => firstElem => opcode => elem => end
-	//                          ^        |
-	//                          |________|
+	// header => opcode => elem => end
+	//             ^        |
+	//             |________|
 
-	header := &opcode{opcodeHeader: &opcodeHeader{op: opSliceHead}}
-	firstElem := &sliceElemCode{opcodeHeader: &opcodeHeader{op: opSliceElemFirst}}
+	header := newSliceHeaderCode()
 	elemCode := &sliceElemCode{opcodeHeader: &opcodeHeader{op: opSliceElem}, size: size}
-	end := &opcode{opcodeHeader: &opcodeHeader{op: opSliceEnd}}
+	end := newOpCode(opSliceEnd, nil, nil)
 
-	header.next = (*opcode)(unsafe.Pointer(firstElem))
-	firstElem.next = code
-	firstElem.elem = elemCode
+	header.elem = elemCode
+	header.end = end
+	header.next = code
 	code.beforeLastCode().next = (*opcode)(unsafe.Pointer(elemCode))
 	elemCode.next = code
 	elemCode.end = end
-	end.next = &opcode{opcodeHeader: &opcodeHeader{op: opEnd}}
+	end.next = newEndOp()
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
@@ -157,9 +159,11 @@ func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
 	//                          |________|
 	fieldNum := typ.NumField()
 	fieldIdx := 0
-	header := &opcode{opcodeHeader: &opcodeHeader{op: opStructHead}}
-	code := header
-	var prevField *structFieldCode
+	var (
+		head      *structFieldCode
+		code      *opcode
+		prevField *structFieldCode
+	)
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
 		if e.isIgnoredStructField(field) {
@@ -182,22 +186,22 @@ func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
 		if fieldIdx == 0 {
 			fieldCode := &structFieldCode{
 				opcodeHeader: &opcodeHeader{
-					op:   opStructFieldFirst,
+					op:   opStructFieldHead,
 					typ:  fieldType,
 					next: valueCode,
 				},
 				key:    key,
 				offset: field.Offset,
 			}
-			code.next = (*opcode)(unsafe.Pointer(fieldCode))
+			head = fieldCode
+			code = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
-			if valueCode.op == opInt {
-				fieldCode.op = opStructFieldFirstInt
-				code = (*opcode)(unsafe.Pointer(fieldCode))
-			} else if valueCode.op == opString {
-				fieldCode.op = opStructFieldFirstString
-				code = (*opcode)(unsafe.Pointer(fieldCode))
-			} else {
+			switch valueCode.op {
+			case opInt:
+				fieldCode.op = opStructFieldHeadInt
+			case opString:
+				fieldCode.op = opStructFieldHeadString
+			default:
 				code = valueCode.beforeLastCode()
 			}
 		} else {
@@ -213,21 +217,23 @@ func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
 			code.next = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField.nextField = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
-			if valueCode.op == opInt {
+			switch valueCode.op {
+			case opInt:
 				fieldCode.op = opStructFieldInt
 				code = (*opcode)(unsafe.Pointer(fieldCode))
-			} else if valueCode.op == opString {
+			case opString:
 				fieldCode.op = opStructFieldString
 				code = (*opcode)(unsafe.Pointer(fieldCode))
-			} else {
+			default:
 				code = valueCode.beforeLastCode()
 			}
 		}
-		prevField.nextField = &opcode{opcodeHeader: &opcodeHeader{op: opEnd}}
+		prevField.nextField = newEndOp()
 		fieldIdx++
 	}
-	structEndCode := &opcode{opcodeHeader: &opcodeHeader{op: opStructEnd}}
+	structEndCode := newOpCode(opStructEnd, nil, nil)
+	head.end = structEndCode
 	code.next = structEndCode
-	structEndCode.next = &opcode{opcodeHeader: &opcodeHeader{op: opEnd}}
-	return header, nil
+	structEndCode.next = newEndOp()
+	return (*opcode)(unsafe.Pointer(head)), nil
 }

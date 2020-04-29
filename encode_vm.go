@@ -59,24 +59,22 @@ func (e *Encoder) run(code *opcode) error {
 			code = code.next
 		case opSliceHead:
 			p := code.ptr
+			headerCode := code.toSliceHeaderCode()
 			if p == 0 {
 				e.encodeString("null")
-				code = code.next.toSliceElemCode().end
+				code = headerCode.end.next
 			} else {
 				e.encodeByte('[')
 				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-				firstElem := code.next.toSliceElemCode()
-				firstElem.set(header)
-				firstElem.elem.set(header)
-				code = code.next
-			}
-		case opSliceElemFirst:
-			c := code.toSliceElemCode()
-			if c.len > 0 {
-				code = code.next
-				code.ptr = c.data
-			} else {
-				code = c.end
+				headerCode := code.toSliceHeaderCode()
+				headerCode.elem.set(header)
+				if header.Len > 0 {
+					code = code.next
+					code.ptr = header.Data
+				} else {
+					e.encodeByte(']')
+					code = headerCode.end.next
+				}
 			}
 		case opSliceElem:
 			c := code.toSliceElemCode()
@@ -86,39 +84,57 @@ func (e *Encoder) run(code *opcode) error {
 				code = code.next
 				code.ptr = c.data + c.idx*c.size
 			} else {
-				code = c.end
+				e.encodeByte(']')
+				code = c.end.next
 			}
-		case opSliceEnd:
-			e.encodeByte(']')
-			code = code.next
-		case opStructHead:
-			ptr := code.ptr
+		case opStructFieldPtrHead:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHead:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeString("null")
-				code = code.toStructHeaderCode().end
+				code = field.end
 			} else {
 				e.encodeByte('{')
-				code = code.next
-				code.ptr = ptr
+				e.encodeString(field.key)
+				code = field.next
+				code.ptr = field.ptr + field.offset
+				field.nextField.ptr = field.ptr
 			}
-		case opStructFieldFirst:
-			c := code.toStructFieldCode()
-			e.encodeString(c.key)
-			code = code.next
-			code.ptr = c.ptr + c.offset
-			c.nextField.ptr = c.ptr
-		case opStructFieldFirstInt:
-			c := code.toStructFieldCode()
-			e.encodeString(c.key)
-			c.nextField.ptr = c.ptr
-			e.encodeInt(e.ptrToInt(c.ptr + c.offset))
-			code = code.next
-		case opStructFieldFirstString:
-			c := code.toStructFieldCode()
-			e.encodeString(c.key)
-			c.nextField.ptr = c.ptr
-			e.encodeEscapedString(e.ptrToString(c.ptr + c.offset))
-			code = code.next
+		case opStructFieldPtrHeadInt:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadInt:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeString(field.key)
+				e.encodeInt(e.ptrToInt(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadString:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadString:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeString(field.key)
+				e.encodeEscapedString(e.ptrToString(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
 		case opStructField:
 			e.encodeByte(',')
 			c := code.toStructFieldCode()

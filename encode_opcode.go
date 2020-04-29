@@ -27,15 +27,16 @@ const (
 	opBool
 	opPtr
 	opSliceHead
-	opSliceElemFirst
 	opSliceElem
 	opSliceEnd
-	opStructHead
-	opStructFieldFirst
+	opStructFieldHead
+	opStructFieldHeadInt
+	opStructFieldHeadString
+	opStructFieldPtrHead
+	opStructFieldPtrHeadInt
+	opStructFieldPtrHeadString
 	opStructField
-	opStructFieldFirstInt
 	opStructFieldInt
-	opStructFieldFirstString
 	opStructFieldString
 	opStructEnd
 )
@@ -76,24 +77,26 @@ func (t opType) String() string {
 		return "PTR"
 	case opSliceHead:
 		return "SLICE_HEAD"
-	case opSliceElemFirst:
-		return "SLICE_ELEM_FIRST"
 	case opSliceElem:
 		return "SLICE_ELEM"
 	case opSliceEnd:
 		return "SLICE_END"
-	case opStructHead:
-		return "STRUCT_HEAD"
-	case opStructFieldFirst:
-		return "STRUCT_FIELD_FIRST"
+	case opStructFieldHead:
+		return "STRUCT_FIELD_HEAD"
+	case opStructFieldHeadInt:
+		return "STRUCT_FIELD_HEAD_INT"
+	case opStructFieldHeadString:
+		return "STRUCT_FIELD_HEAD_STRING"
+	case opStructFieldPtrHead:
+		return "STRUCT_FIELD_PTR_HEAD"
+	case opStructFieldPtrHeadInt:
+		return "STRUCT_FIELD_PTR_HEAD_INT"
+	case opStructFieldPtrHeadString:
+		return "STRUCT_FIELD_PTR_HEAD_STRING"
 	case opStructField:
 		return "STRUCT_FIELD"
-	case opStructFieldFirstInt:
-		return "STRUCT_FIELD_FIRST_INT"
 	case opStructFieldInt:
 		return "STRUCT_FIELD_INT"
-	case opStructFieldFirstString:
-		return "STRUCT_FIELD_FIRST_STRING"
 	case opStructFieldString:
 		return "STRUCT_FIELD_STRING"
 	case opStructEnd:
@@ -157,16 +160,30 @@ func (c *opcode) dump() string {
 	return strings.Join(codes, "\n")
 }
 
+func (c *opcode) toSliceHeaderCode() *sliceHeaderCode {
+	return (*sliceHeaderCode)(unsafe.Pointer(c))
+}
+
 func (c *opcode) toSliceElemCode() *sliceElemCode {
 	return (*sliceElemCode)(unsafe.Pointer(c))
 }
 
-func (c *opcode) toStructHeaderCode() *structHeaderCode {
-	return (*structHeaderCode)(unsafe.Pointer(c))
-}
-
 func (c *opcode) toStructFieldCode() *structFieldCode {
 	return (*structFieldCode)(unsafe.Pointer(c))
+}
+
+type sliceHeaderCode struct {
+	*opcodeHeader
+	elem *sliceElemCode
+	end  *opcode
+}
+
+func newSliceHeaderCode() *sliceHeaderCode {
+	return &sliceHeaderCode{
+		opcodeHeader: &opcodeHeader{
+			op: opSliceHead,
+		},
+	}
 }
 
 type sliceElemCode struct {
@@ -185,14 +202,10 @@ func (c *sliceElemCode) set(header *reflect.SliceHeader) {
 	c.data = header.Data
 }
 
-type structHeaderCode struct {
-	*opcodeHeader
-	end *opcode
-}
-
 type structFieldCode struct {
 	*opcodeHeader
 	key       string
 	offset    uintptr
 	nextField *opcode
+	end       *opcode
 }

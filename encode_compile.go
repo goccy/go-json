@@ -9,50 +9,50 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func (e *Encoder) compileOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compile(typ *rtype) (*opcode, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return e.compilePtrOp(typ)
+		return e.compilePtr(typ)
 	case reflect.Slice:
-		return e.compileSliceOp(typ)
+		return e.compileSlice(typ)
 	case reflect.Array:
-		return e.compileArrayOp(typ)
+		return e.compileArray(typ)
 	case reflect.Map:
-		return e.compileMapOp(typ)
+		return e.compileMap(typ)
 	case reflect.Struct:
-		return e.compileStructOp(typ)
+		return e.compileStruct(typ)
 	case reflect.Int:
-		return e.compileIntOp(typ)
+		return e.compileInt(typ)
 	case reflect.Int8:
-		return e.compileInt8Op(typ)
+		return e.compileInt8(typ)
 	case reflect.Int16:
-		return e.compileInt16Op(typ)
+		return e.compileInt16(typ)
 	case reflect.Int32:
-		return e.compileInt32Op(typ)
+		return e.compileInt32(typ)
 	case reflect.Int64:
-		return e.compileInt64Op(typ)
+		return e.compileInt64(typ)
 	case reflect.Uint:
-		return e.compileUintOp(typ)
+		return e.compileUint(typ)
 	case reflect.Uint8:
-		return e.compileUint8Op(typ)
+		return e.compileUint8(typ)
 	case reflect.Uint16:
-		return e.compileUint16Op(typ)
+		return e.compileUint16(typ)
 	case reflect.Uint32:
-		return e.compileUint32Op(typ)
+		return e.compileUint32(typ)
 	case reflect.Uint64:
-		return e.compileUint64Op(typ)
+		return e.compileUint64(typ)
 	case reflect.Uintptr:
-		return e.compileUintOp(typ)
+		return e.compileUint(typ)
 	case reflect.Float32:
-		return e.compileFloat32Op(typ)
+		return e.compileFloat32(typ)
 	case reflect.Float64:
-		return e.compileFloat64Op(typ)
+		return e.compileFloat64(typ)
 	case reflect.String:
-		return e.compileStringOp(typ)
+		return e.compileString(typ)
 	case reflect.Bool:
-		return e.compileBoolOp(typ)
+		return e.compileBool(typ)
 	case reflect.Interface:
-		return e.compileInterfaceOp(typ)
+		return e.compileInterface(typ)
 	}
 	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
 }
@@ -95,78 +95,78 @@ func (e *Encoder) optimizeStructFieldPtrHead(typ *rtype, code *opcode) *opcode {
 	return code
 }
 
-func (e *Encoder) compilePtrOp(typ *rtype) (*opcode, error) {
-	code, err := e.compileOp(typ.Elem())
+func (e *Encoder) compilePtr(typ *rtype) (*opcode, error) {
+	code, err := e.compile(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
 	return e.optimizeStructFieldPtrHead(typ, code), nil
 }
 
-func (e *Encoder) compileIntOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInt(typ *rtype) (*opcode, error) {
 	return newOpCode(opInt, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileInt8Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInt8(typ *rtype) (*opcode, error) {
 	return newOpCode(opInt8, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileInt16Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInt16(typ *rtype) (*opcode, error) {
 	return newOpCode(opInt16, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileInt32Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInt32(typ *rtype) (*opcode, error) {
 	return newOpCode(opInt32, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileInt64Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInt64(typ *rtype) (*opcode, error) {
 	return newOpCode(opInt64, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileUintOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileUint(typ *rtype) (*opcode, error) {
 	return newOpCode(opUint, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileUint8Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileUint8(typ *rtype) (*opcode, error) {
 	return newOpCode(opUint8, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileUint16Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileUint16(typ *rtype) (*opcode, error) {
 	return newOpCode(opUint16, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileUint32Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileUint32(typ *rtype) (*opcode, error) {
 	return newOpCode(opUint32, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileUint64Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileUint64(typ *rtype) (*opcode, error) {
 	return newOpCode(opUint64, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileFloat32Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileFloat32(typ *rtype) (*opcode, error) {
 	return newOpCode(opFloat32, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileFloat64Op(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileFloat64(typ *rtype) (*opcode, error) {
 	return newOpCode(opFloat64, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileStringOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileString(typ *rtype) (*opcode, error) {
 	return newOpCode(opString, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileBoolOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileBool(typ *rtype) (*opcode, error) {
 	return newOpCode(opBool, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileInterfaceOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileInterface(typ *rtype) (*opcode, error) {
 	return newOpCode(opInterface, typ, newEndOp()), nil
 }
 
-func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileSlice(typ *rtype) (*opcode, error) {
 	elem := typ.Elem()
 	size := elem.Size()
-	code, err := e.compileOp(elem)
+	code, err := e.compile(elem)
 	if err != nil {
 		return nil, err
 	}
@@ -188,11 +188,11 @@ func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) compileArrayOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) compileArray(typ *rtype) (*opcode, error) {
 	elem := typ.Elem()
 	alen := typ.Len()
 	size := elem.Size()
-	code, err := e.compileOp(elem)
+	code, err := e.compile(elem)
 	if err != nil {
 		return nil, err
 	}
@@ -219,17 +219,33 @@ func (e *Encoder) compileArrayOp(typ *rtype) (*opcode, error) {
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) compileMapOp(typ *rtype) (*opcode, error) {
+//go:linkname mapiterinit reflect.mapiterinit
+//go:noescape
+func mapiterinit(mapType *rtype, m unsafe.Pointer) unsafe.Pointer
+
+//go:linkname mapiterkey reflect.mapiterkey
+//go:noescape
+func mapiterkey(it unsafe.Pointer) unsafe.Pointer
+
+//go:linkname mapiternext reflect.mapiternext
+//go:noescape
+func mapiternext(it unsafe.Pointer)
+
+//go:linkname maplen reflect.maplen
+//go:noescape
+func maplen(m unsafe.Pointer) int
+
+func (e *Encoder) compileMap(typ *rtype) (*opcode, error) {
 	// header => code => value => code => key => code => value => code => end
 	//                                     ^                       |
 	//                                     |_______________________|
 	keyType := typ.Key()
-	keyCode, err := e.compileOp(keyType)
+	keyCode, err := e.compile(keyType)
 	if err != nil {
 		return nil, err
 	}
 	valueType := typ.Elem()
-	valueCode, err := e.compileOp(valueType)
+	valueCode, err := e.compile(valueType)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +268,23 @@ func (e *Encoder) compileMapOp(typ *rtype) (*opcode, error) {
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
+func (e *Encoder) getTag(field reflect.StructField) string {
+	return field.Tag.Get("json")
+}
+
+func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
+	if field.PkgPath != "" && !field.Anonymous {
+		// private field
+		return true
+	}
+	tag := e.getTag(field)
+	if tag == "-" {
+		return true
+	}
+	return false
+}
+
+func (e *Encoder) compileStruct(typ *rtype) (*opcode, error) {
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
@@ -277,7 +309,7 @@ func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
 			}
 		}
 		fieldType := type2rtype(field.Type)
-		valueCode, err := e.compileOp(fieldType)
+		valueCode, err := e.compile(fieldType)
 		if err != nil {
 			return nil, err
 		}

@@ -31,13 +31,49 @@ const (
 	opSliceEnd
 	opStructFieldHead
 	opStructFieldHeadInt
+	opStructFieldHeadInt8
+	opStructFieldHeadInt16
+	opStructFieldHeadInt32
+	opStructFieldHeadInt64
+	opStructFieldHeadUint
+	opStructFieldHeadUint8
+	opStructFieldHeadUint16
+	opStructFieldHeadUint32
+	opStructFieldHeadUint64
+	opStructFieldHeadFloat32
+	opStructFieldHeadFloat64
 	opStructFieldHeadString
+	opStructFieldHeadBool
 	opStructFieldPtrHead
 	opStructFieldPtrHeadInt
+	opStructFieldPtrHeadInt8
+	opStructFieldPtrHeadInt16
+	opStructFieldPtrHeadInt32
+	opStructFieldPtrHeadInt64
+	opStructFieldPtrHeadUint
+	opStructFieldPtrHeadUint8
+	opStructFieldPtrHeadUint16
+	opStructFieldPtrHeadUint32
+	opStructFieldPtrHeadUint64
+	opStructFieldPtrHeadFloat32
+	opStructFieldPtrHeadFloat64
 	opStructFieldPtrHeadString
+	opStructFieldPtrHeadBool
 	opStructField
 	opStructFieldInt
+	opStructFieldInt8
+	opStructFieldInt16
+	opStructFieldInt32
+	opStructFieldInt64
+	opStructFieldUint
+	opStructFieldUint8
+	opStructFieldUint16
+	opStructFieldUint32
+	opStructFieldUint64
+	opStructFieldFloat32
+	opStructFieldFloat64
 	opStructFieldString
+	opStructFieldBool
 	opStructEnd
 )
 
@@ -85,20 +121,92 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_HEAD"
 	case opStructFieldHeadInt:
 		return "STRUCT_FIELD_HEAD_INT"
+	case opStructFieldHeadInt8:
+		return "STRUCT_FIELD_HEAD_INT8"
+	case opStructFieldHeadInt16:
+		return "STRUCT_FIELD_HEAD_INT16"
+	case opStructFieldHeadInt32:
+		return "STRUCT_FIELD_HEAD_INT32"
+	case opStructFieldHeadInt64:
+		return "STRUCT_FIELD_HEAD_INT64"
+	case opStructFieldHeadUint:
+		return "STRUCT_FIELD_HEAD_UINT"
+	case opStructFieldHeadUint8:
+		return "STRUCT_FIELD_HEAD_UINT8"
+	case opStructFieldHeadUint16:
+		return "STRUCT_FIELD_HEAD_UINT16"
+	case opStructFieldHeadUint32:
+		return "STRUCT_FIELD_HEAD_UINT32"
+	case opStructFieldHeadUint64:
+		return "STRUCT_FIELD_HEAD_UINT64"
+	case opStructFieldHeadFloat32:
+		return "STRUCT_FIELD_HEAD_FLOAT32"
+	case opStructFieldHeadFloat64:
+		return "STRUCT_FIELD_HEAD_FLOAT64"
 	case opStructFieldHeadString:
 		return "STRUCT_FIELD_HEAD_STRING"
+	case opStructFieldHeadBool:
+		return "STRUCT_FIELD_HEAD_BOOL"
 	case opStructFieldPtrHead:
 		return "STRUCT_FIELD_PTR_HEAD"
 	case opStructFieldPtrHeadInt:
 		return "STRUCT_FIELD_PTR_HEAD_INT"
+	case opStructFieldPtrHeadInt8:
+		return "STRUCT_FIELD_PTR_HEAD_INT8"
+	case opStructFieldPtrHeadInt16:
+		return "STRUCT_FIELD_PTR_HEAD_INT16"
+	case opStructFieldPtrHeadInt32:
+		return "STRUCT_FIELD_PTR_HEAD_INT32"
+	case opStructFieldPtrHeadInt64:
+		return "STRUCT_FIELD_PTR_HEAD_INT64"
+	case opStructFieldPtrHeadUint:
+		return "STRUCT_FIELD_PTR_HEAD_UINT"
+	case opStructFieldPtrHeadUint8:
+		return "STRUCT_FIELD_PTR_HEAD_UINT8"
+	case opStructFieldPtrHeadUint16:
+		return "STRUCT_FIELD_PTR_HEAD_UINT16"
+	case opStructFieldPtrHeadUint32:
+		return "STRUCT_FIELD_PTR_HEAD_UINT32"
+	case opStructFieldPtrHeadUint64:
+		return "STRUCT_FIELD_PTR_HEAD_UINT64"
+	case opStructFieldPtrHeadFloat32:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT32"
+	case opStructFieldPtrHeadFloat64:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT64"
 	case opStructFieldPtrHeadString:
 		return "STRUCT_FIELD_PTR_HEAD_STRING"
+	case opStructFieldPtrHeadBool:
+		return "STRUCT_FIELD_PTR_HEAD_BOOL"
 	case opStructField:
 		return "STRUCT_FIELD"
 	case opStructFieldInt:
 		return "STRUCT_FIELD_INT"
+	case opStructFieldInt8:
+		return "STRUCT_FIELD_INT8"
+	case opStructFieldInt16:
+		return "STRUCT_FIELD_INT16"
+	case opStructFieldInt32:
+		return "STRUCT_FIELD_INT32"
+	case opStructFieldInt64:
+		return "STRUCT_FIELD_INT64"
+	case opStructFieldUint:
+		return "STRUCT_FIELD_UINT"
+	case opStructFieldUint8:
+		return "STRUCT_FIELD_UINT8"
+	case opStructFieldUint16:
+		return "STRUCT_FIELD_UINT16"
+	case opStructFieldUint32:
+		return "STRUCT_FIELD_UINT32"
+	case opStructFieldUint64:
+		return "STRUCT_FIELD_UINT64"
+	case opStructFieldFloat32:
+		return "STRUCT_FIELD_FLOAT32"
+	case opStructFieldFloat64:
+		return "STRUCT_FIELD_FLOAT64"
 	case opStructFieldString:
 		return "STRUCT_FIELD_STRING"
+	case opStructFieldBool:
+		return "STRUCT_FIELD_BOOL"
 	case opStructEnd:
 		return "STRUCT_END"
 	}
@@ -192,7 +300,6 @@ type sliceElemCode struct {
 	len  uintptr
 	size uintptr
 	data uintptr
-	elem *sliceElemCode // first => elem
 	end  *opcode
 }
 
@@ -204,7 +311,7 @@ func (c *sliceElemCode) set(header *reflect.SliceHeader) {
 
 type structFieldCode struct {
 	*opcodeHeader
-	key       string
+	key       []byte
 	offset    uintptr
 	nextField *opcode
 	end       *opcode

@@ -53,22 +53,50 @@ func (e *Encoder) compileOp(typ *rtype) (*opcode, error) {
 	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
 }
 
-func (e *Encoder) compilePtrOp(typ *rtype) (*opcode, error) {
-	code, err := e.compileOp(typ.Elem())
-	if err != nil {
-		return nil, err
-	}
+func (e *Encoder) optimizeStructFieldPtrHead(typ *rtype, code *opcode) *opcode {
 	switch code.op {
 	case opStructFieldHead:
 		code.op = opStructFieldPtrHead
 	case opStructFieldHeadInt:
 		code.op = opStructFieldPtrHeadInt
+	case opStructFieldHeadInt8:
+		code.op = opStructFieldPtrHeadInt8
+	case opStructFieldHeadInt16:
+		code.op = opStructFieldPtrHeadInt16
+	case opStructFieldHeadInt32:
+		code.op = opStructFieldPtrHeadInt32
+	case opStructFieldHeadInt64:
+		code.op = opStructFieldPtrHeadInt64
+	case opStructFieldHeadUint:
+		code.op = opStructFieldPtrHeadUint
+	case opStructFieldHeadUint8:
+		code.op = opStructFieldPtrHeadUint8
+	case opStructFieldHeadUint16:
+		code.op = opStructFieldPtrHeadUint16
+	case opStructFieldHeadUint32:
+		code.op = opStructFieldPtrHeadUint32
+	case opStructFieldHeadUint64:
+		code.op = opStructFieldPtrHeadUint64
+	case opStructFieldHeadFloat32:
+		code.op = opStructFieldPtrHeadFloat32
+	case opStructFieldHeadFloat64:
+		code.op = opStructFieldPtrHeadFloat64
 	case opStructFieldHeadString:
 		code.op = opStructFieldPtrHeadString
+	case opStructFieldHeadBool:
+		code.op = opStructFieldPtrHeadBool
 	default:
-		return newOpCode(opPtr, typ, code), nil
+		return newOpCode(opPtr, typ, code)
 	}
-	return code, nil
+	return code
+}
+
+func (e *Encoder) compilePtrOp(typ *rtype) (*opcode, error) {
+	code, err := e.compileOp(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return e.optimizeStructFieldPtrHead(typ, code), nil
 }
 
 func (e *Encoder) compileIntOp(typ *rtype) (*opcode, error) {
@@ -154,9 +182,9 @@ func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 }
 
 func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
-	// header => firstField => structField => end
-	//                          ^        |
-	//                          |________|
+	// header => code => structField => code => end
+	//                        ^          |
+	//                        |__________|
 	fieldNum := typ.NumField()
 	fieldIdx := 0
 	var (
@@ -183,47 +211,86 @@ func (e *Encoder) compileStructOp(typ *rtype) (*opcode, error) {
 			return nil, err
 		}
 		key := fmt.Sprintf(`"%s":`, keyName)
+		fieldCode := &structFieldCode{
+			opcodeHeader: &opcodeHeader{
+				typ:  fieldType,
+				next: valueCode,
+			},
+			key:    []byte(key),
+			offset: field.Offset,
+		}
 		if fieldIdx == 0 {
-			fieldCode := &structFieldCode{
-				opcodeHeader: &opcodeHeader{
-					op:   opStructFieldHead,
-					typ:  fieldType,
-					next: valueCode,
-				},
-				key:    key,
-				offset: field.Offset,
-			}
+			fieldCode.op = opStructFieldHead
 			head = fieldCode
 			code = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
 			switch valueCode.op {
 			case opInt:
 				fieldCode.op = opStructFieldHeadInt
+			case opInt8:
+				fieldCode.op = opStructFieldHeadInt8
+			case opInt16:
+				fieldCode.op = opStructFieldHeadInt16
+			case opInt32:
+				fieldCode.op = opStructFieldHeadInt32
+			case opInt64:
+				fieldCode.op = opStructFieldHeadInt64
+			case opUint:
+				fieldCode.op = opStructFieldHeadUint
+			case opUint8:
+				fieldCode.op = opStructFieldHeadUint8
+			case opUint16:
+				fieldCode.op = opStructFieldHeadUint16
+			case opUint32:
+				fieldCode.op = opStructFieldHeadUint32
+			case opUint64:
+				fieldCode.op = opStructFieldHeadUint64
+			case opFloat32:
+				fieldCode.op = opStructFieldHeadFloat32
+			case opFloat64:
+				fieldCode.op = opStructFieldHeadFloat64
 			case opString:
 				fieldCode.op = opStructFieldHeadString
+			case opBool:
+				fieldCode.op = opStructFieldHeadBool
 			default:
 				code = valueCode.beforeLastCode()
 			}
 		} else {
-			fieldCode := &structFieldCode{
-				opcodeHeader: &opcodeHeader{
-					op:   opStructField,
-					typ:  fieldType,
-					next: valueCode,
-				},
-				key:    key,
-				offset: field.Offset,
-			}
+			fieldCode.op = opStructField
 			code.next = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField.nextField = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
+			code = (*opcode)(unsafe.Pointer(fieldCode))
 			switch valueCode.op {
 			case opInt:
 				fieldCode.op = opStructFieldInt
-				code = (*opcode)(unsafe.Pointer(fieldCode))
+			case opInt8:
+				fieldCode.op = opStructFieldInt8
+			case opInt16:
+				fieldCode.op = opStructFieldInt16
+			case opInt32:
+				fieldCode.op = opStructFieldInt32
+			case opInt64:
+				fieldCode.op = opStructFieldInt64
+			case opUint:
+				fieldCode.op = opStructFieldUint
+			case opUint8:
+				fieldCode.op = opStructFieldUint8
+			case opUint16:
+				fieldCode.op = opStructFieldUint16
+			case opUint32:
+				fieldCode.op = opStructFieldUint32
+			case opUint64:
+				fieldCode.op = opStructFieldUint64
+			case opFloat32:
+				fieldCode.op = opStructFieldFloat32
+			case opFloat64:
+				fieldCode.op = opStructFieldFloat64
 			case opString:
 				fieldCode.op = opStructFieldString
-				code = (*opcode)(unsafe.Pointer(fieldCode))
+			case opBool:
+				fieldCode.op = opStructFieldBool
 			default:
 				code = valueCode.beforeLastCode()
 			}

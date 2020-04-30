@@ -98,7 +98,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeByte('{')
-				e.encodeString(field.key)
+				e.encodeBytes(field.key)
 				code = field.next
 				code.ptr = field.ptr + field.offset
 				field.nextField.ptr = field.ptr
@@ -114,8 +114,184 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeByte('{')
-				e.encodeString(field.key)
+				e.encodeBytes(field.key)
 				e.encodeInt(e.ptrToInt(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadInt8:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadInt8:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeInt8(e.ptrToInt8(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadInt16:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadInt16:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeInt16(e.ptrToInt16(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadInt32:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadInt32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeInt32(e.ptrToInt32(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadInt64:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadInt64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeInt64(e.ptrToInt64(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadUint:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadUint:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeUint(e.ptrToUint(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadUint8:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadUint8:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeUint8(e.ptrToUint8(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadUint16:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadUint16:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeUint16(e.ptrToUint16(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadUint32:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadUint32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeUint32(e.ptrToUint32(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadUint64:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadUint64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeUint64(e.ptrToUint64(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadFloat32:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadFloat32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeFloat32(e.ptrToFloat32(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadFloat64:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadFloat64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeFloat64(e.ptrToFloat64(field.ptr + field.offset))
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
@@ -130,15 +306,31 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeByte('{')
-				e.encodeString(field.key)
+				e.encodeBytes(field.key)
 				e.encodeEscapedString(e.ptrToString(field.ptr + field.offset))
+				field.nextField.ptr = field.ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadBool:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadBool:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				e.encodeBool(e.ptrToBool(field.ptr + field.offset))
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
 		case opStructField:
 			e.encodeByte(',')
 			c := code.toStructFieldCode()
-			e.encodeString(c.key)
+			e.encodeBytes(c.key)
 			code = code.next
 			code.ptr = c.ptr + c.offset
 			c.nextField.ptr = c.ptr
@@ -146,15 +338,99 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeByte(',')
 			c := code.toStructFieldCode()
 			c.nextField.ptr = c.ptr
-			e.encodeString(c.key)
+			e.encodeBytes(c.key)
 			e.encodeInt(e.ptrToInt(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldInt8:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeInt8(e.ptrToInt8(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldInt16:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeInt16(e.ptrToInt16(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldInt32:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeInt32(e.ptrToInt32(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldInt64:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeInt64(e.ptrToInt64(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldUint:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeUint(e.ptrToUint(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldUint8:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeUint8(e.ptrToUint8(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldUint16:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeUint16(e.ptrToUint16(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldUint32:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeUint32(e.ptrToUint32(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldUint64:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeUint64(e.ptrToUint64(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldFloat32:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeFloat32(e.ptrToFloat32(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldFloat64:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeFloat64(e.ptrToFloat64(c.ptr + c.offset))
 			code = code.next
 		case opStructFieldString:
 			e.encodeByte(',')
 			c := code.toStructFieldCode()
 			c.nextField.ptr = c.ptr
-			e.encodeString(c.key)
+			e.encodeBytes(c.key)
 			e.encodeEscapedString(e.ptrToString(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldBool:
+			e.encodeByte(',')
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			e.encodeBool(e.ptrToBool(c.ptr + c.offset))
 			code = code.next
 		case opStructEnd:
 			e.encodeByte('}')

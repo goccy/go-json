@@ -163,6 +163,10 @@ func (e *Encoder) encodeBool(v bool) {
 	e.buf = strconv.AppendBool(e.buf, v)
 }
 
+func (e *Encoder) encodeBytes(b []byte) {
+	e.buf = append(e.buf, b...)
+}
+
 func (e *Encoder) encodeString(s string) {
 	b := *(*[]byte)(unsafe.Pointer(&s))
 	e.buf = append(e.buf, b...)

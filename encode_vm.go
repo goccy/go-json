@@ -6,9 +6,6 @@ import (
 )
 
 func (e *Encoder) run(code *opcode) error {
-	//fmt.Println("================")
-	//fmt.Println(code.dump())
-	//fmt.Println("================")
 	for {
 		switch code.op {
 		case opPtr:
@@ -57,6 +54,25 @@ func (e *Encoder) run(code *opcode) error {
 		case opBool:
 			e.encodeBool(e.ptrToBool(code.ptr))
 			code = code.next
+		case opInterface:
+			ptr := code.ptr
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			vv := reflect.ValueOf(v).Interface()
+			header := (*interfaceHeader)(unsafe.Pointer(&vv))
+			typ := header.typ
+			if typ.Kind() == reflect.Ptr {
+				typ = typ.Elem()
+			}
+			c, err := e.compileOp(typ)
+			if err != nil {
+				return err
+			}
+			c.ptr = uintptr(header.ptr)
+			c.beforeLastCode().next = code.next
+			code = c
 		case opSliceHead:
 			p := code.ptr
 			headerCode := code.toSliceHeaderCode()
@@ -66,7 +82,6 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('[')
 				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-				headerCode := code.toSliceHeaderCode()
 				headerCode.elem.set(header)
 				if header.Len > 0 {
 					code = code.next
@@ -87,6 +102,74 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeByte(']')
 				code = c.end.next
 			}
+		case opArrayHead:
+			p := code.ptr
+			headerCode := code.toArrayHeaderCode()
+			if p == 0 {
+				e.encodeString("null")
+				code = headerCode.end.next
+			} else {
+				e.encodeByte('[')
+				if headerCode.len > 0 {
+					code = code.next
+					code.ptr = p
+					headerCode.elem.ptr = p
+				} else {
+					e.encodeByte(']')
+					code = headerCode.end.next
+				}
+			}
+		case opArrayElem:
+			c := code.toArrayElemCode()
+			c.idx++
+			if c.idx < c.len {
+				e.encodeByte(',')
+				code = code.next
+				code.ptr = c.ptr + c.idx*c.size
+			} else {
+				e.encodeByte(']')
+				code = c.end.next
+			}
+		case opMapHead:
+			ptr := code.ptr
+			mapHeadCode := code.toMapHeadCode()
+			if ptr == 0 {
+				e.encodeString("null")
+				code = mapHeadCode.end.next
+			} else {
+				e.encodeByte('{')
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					mapHeadCode.key.set(mlen, iter)
+					mapHeadCode.value.set(iter)
+					key := mapiterkey(iter)
+					code.next.ptr = uintptr(key)
+					code = code.next
+				} else {
+					e.encodeByte('}')
+					code = mapHeadCode.end.next
+				}
+			}
+		case opMapKey:
+			c := code.toMapKeyCode()
+			c.idx++
+			if c.idx < c.len {
+				e.encodeByte(',')
+				key := mapiterkey(c.iter)
+				c.next.ptr = uintptr(key)
+				code = c.next
+			} else {
+				e.encodeByte('}')
+				code = c.end.next
+			}
+		case opMapValue:
+			e.encodeByte(':')
+			c := code.toMapValueCode()
+			value := mapitervalue(c.iter)
+			c.next.ptr = uintptr(value)
+			mapiternext(c.iter)
+			code = c.next
 		case opStructFieldPtrHead:
 			code.ptr = e.ptrToPtr(code.ptr)
 			fallthrough

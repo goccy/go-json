@@ -25,10 +25,18 @@ const (
 	opFloat64
 	opString
 	opBool
+	opInterface
 	opPtr
 	opSliceHead
 	opSliceElem
 	opSliceEnd
+	opArrayHead
+	opArrayElem
+	opArrayEnd
+	opMapHead
+	opMapKey
+	opMapValue
+	opMapEnd
 	opStructFieldHead
 	opStructFieldHeadInt
 	opStructFieldHeadInt8
@@ -109,6 +117,8 @@ func (t opType) String() string {
 		return "STRING"
 	case opBool:
 		return "BOOL"
+	case opInterface:
+		return "INTERFACE"
 	case opPtr:
 		return "PTR"
 	case opSliceHead:
@@ -117,6 +127,20 @@ func (t opType) String() string {
 		return "SLICE_ELEM"
 	case opSliceEnd:
 		return "SLICE_END"
+	case opArrayHead:
+		return "ARRAY_HEAD"
+	case opArrayElem:
+		return "ARRAY_ELEM"
+	case opArrayEnd:
+		return "ARRAY_END"
+	case opMapHead:
+		return "MAP_HEAD"
+	case opMapKey:
+		return "MAP_KEY"
+	case opMapValue:
+		return "MAP_VALUE"
+	case opMapEnd:
+		return "MAP_END"
 	case opStructFieldHead:
 		return "STRUCT_FIELD_HEAD"
 	case opStructFieldHeadInt:
@@ -242,9 +266,14 @@ func (c *opcode) beforeLastCode() *opcode {
 	code := c
 	for {
 		var nextCode *opcode
-		if code.op == opSliceElem {
+		switch code.op {
+		case opArrayElem:
+			nextCode = code.toArrayElemCode().end
+		case opSliceElem:
 			nextCode = code.toSliceElemCode().end
-		} else {
+		case opMapKey:
+			nextCode = code.toMapKeyCode().end
+		default:
 			nextCode = code.next
 		}
 		if nextCode.op == opEnd {
@@ -259,9 +288,14 @@ func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
 		codes = append(codes, fmt.Sprintf("%s", code.op))
-		if code.op == opSliceElem {
+		switch code.op {
+		case opArrayElem:
+			code = code.toArrayElemCode().end
+		case opSliceElem:
 			code = code.toSliceElemCode().end
-		} else {
+		case opMapKey:
+			code = code.toMapKeyCode().end
+		default:
 			code = code.next
 		}
 	}
@@ -276,8 +310,28 @@ func (c *opcode) toSliceElemCode() *sliceElemCode {
 	return (*sliceElemCode)(unsafe.Pointer(c))
 }
 
+func (c *opcode) toArrayHeaderCode() *arrayHeaderCode {
+	return (*arrayHeaderCode)(unsafe.Pointer(c))
+}
+
+func (c *opcode) toArrayElemCode() *arrayElemCode {
+	return (*arrayElemCode)(unsafe.Pointer(c))
+}
+
 func (c *opcode) toStructFieldCode() *structFieldCode {
 	return (*structFieldCode)(unsafe.Pointer(c))
+}
+
+func (c *opcode) toMapHeadCode() *mapHeaderCode {
+	return (*mapHeaderCode)(unsafe.Pointer(c))
+}
+
+func (c *opcode) toMapKeyCode() *mapKeyCode {
+	return (*mapKeyCode)(unsafe.Pointer(c))
+}
+
+func (c *opcode) toMapValueCode() *mapValueCode {
+	return (*mapValueCode)(unsafe.Pointer(c))
 }
 
 type sliceHeaderCode struct {
@@ -309,10 +363,89 @@ func (c *sliceElemCode) set(header *reflect.SliceHeader) {
 	c.data = header.Data
 }
 
+type arrayHeaderCode struct {
+	*opcodeHeader
+	len  uintptr
+	elem *arrayElemCode
+	end  *opcode
+}
+
+func newArrayHeaderCode(alen int) *arrayHeaderCode {
+	return &arrayHeaderCode{
+		opcodeHeader: &opcodeHeader{
+			op: opArrayHead,
+		},
+		len: uintptr(alen),
+	}
+}
+
+type arrayElemCode struct {
+	*opcodeHeader
+	idx  uintptr
+	len  uintptr
+	size uintptr
+	end  *opcode
+}
+
 type structFieldCode struct {
 	*opcodeHeader
 	key       []byte
 	offset    uintptr
 	nextField *opcode
 	end       *opcode
+}
+
+type mapHeaderCode struct {
+	*opcodeHeader
+	key   *mapKeyCode
+	value *mapValueCode
+	end   *opcode
+}
+
+type mapKeyCode struct {
+	*opcodeHeader
+	idx  int
+	len  int
+	iter unsafe.Pointer
+	end  *opcode
+}
+
+func (c *mapKeyCode) set(len int, iter unsafe.Pointer) {
+	c.idx = 0
+	c.len = len
+	c.iter = iter
+}
+
+type mapValueCode struct {
+	*opcodeHeader
+	iter unsafe.Pointer
+}
+
+func (c *mapValueCode) set(iter unsafe.Pointer) {
+	c.iter = iter
+}
+
+func newMapHeaderCode(typ *rtype) *mapHeaderCode {
+	return &mapHeaderCode{
+		opcodeHeader: &opcodeHeader{
+			op:  opMapHead,
+			typ: typ,
+		},
+	}
+}
+
+func newMapKeyCode() *mapKeyCode {
+	return &mapKeyCode{
+		opcodeHeader: &opcodeHeader{
+			op: opMapKey,
+		},
+	}
+}
+
+func newMapValueCode() *mapValueCode {
+	return &mapValueCode{
+		opcodeHeader: &opcodeHeader{
+			op: opMapValue,
+		},
+	}
 }

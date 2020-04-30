@@ -15,6 +15,10 @@ func (e *Encoder) compileOp(typ *rtype) (*opcode, error) {
 		return e.compilePtrOp(typ)
 	case reflect.Slice:
 		return e.compileSliceOp(typ)
+	case reflect.Array:
+		return e.compileArrayOp(typ)
+	case reflect.Map:
+		return e.compileMapOp(typ)
 	case reflect.Struct:
 		return e.compileStructOp(typ)
 	case reflect.Int:
@@ -48,7 +52,7 @@ func (e *Encoder) compileOp(typ *rtype) (*opcode, error) {
 	case reflect.Bool:
 		return e.compileBoolOp(typ)
 	case reflect.Interface:
-		return nil, errCompileSlowPath
+		return e.compileInterfaceOp(typ)
 	}
 	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
 }
@@ -155,6 +159,10 @@ func (e *Encoder) compileBoolOp(typ *rtype) (*opcode, error) {
 	return newOpCode(opBool, typ, newEndOp()), nil
 }
 
+func (e *Encoder) compileInterfaceOp(typ *rtype) (*opcode, error) {
+	return newOpCode(opInterface, typ, newEndOp()), nil
+}
+
 func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 	elem := typ.Elem()
 	size := elem.Size()
@@ -169,7 +177,7 @@ func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 
 	header := newSliceHeaderCode()
 	elemCode := &sliceElemCode{opcodeHeader: &opcodeHeader{op: opSliceElem}, size: size}
-	end := newOpCode(opSliceEnd, nil, nil)
+	end := newOpCode(opSliceEnd, nil, newEndOp())
 
 	header.elem = elemCode
 	header.end = end
@@ -177,7 +185,70 @@ func (e *Encoder) compileSliceOp(typ *rtype) (*opcode, error) {
 	code.beforeLastCode().next = (*opcode)(unsafe.Pointer(elemCode))
 	elemCode.next = code
 	elemCode.end = end
-	end.next = newEndOp()
+	return (*opcode)(unsafe.Pointer(header)), nil
+}
+
+func (e *Encoder) compileArrayOp(typ *rtype) (*opcode, error) {
+	elem := typ.Elem()
+	alen := typ.Len()
+	size := elem.Size()
+	code, err := e.compileOp(elem)
+	if err != nil {
+		return nil, err
+	}
+	// header => opcode => elem => end
+	//             ^        |
+	//             |________|
+
+	header := newArrayHeaderCode(alen)
+	elemCode := &arrayElemCode{
+		opcodeHeader: &opcodeHeader{
+			op: opArrayElem,
+		},
+		len:  uintptr(alen),
+		size: size,
+	}
+	end := newOpCode(opArrayEnd, nil, newEndOp())
+
+	header.elem = elemCode
+	header.end = end
+	header.next = code
+	code.beforeLastCode().next = (*opcode)(unsafe.Pointer(elemCode))
+	elemCode.next = code
+	elemCode.end = end
+	return (*opcode)(unsafe.Pointer(header)), nil
+}
+
+func (e *Encoder) compileMapOp(typ *rtype) (*opcode, error) {
+	// header => code => value => code => key => code => value => code => end
+	//                                     ^                       |
+	//                                     |_______________________|
+	keyType := typ.Key()
+	keyCode, err := e.compileOp(keyType)
+	if err != nil {
+		return nil, err
+	}
+	valueType := typ.Elem()
+	valueCode, err := e.compileOp(valueType)
+	if err != nil {
+		return nil, err
+	}
+	header := newMapHeaderCode(typ)
+	key := newMapKeyCode()
+	value := newMapValueCode()
+	header.key = key
+	header.value = value
+	end := newOpCode(opMapEnd, nil, newEndOp())
+
+	header.next = keyCode
+	keyCode.beforeLastCode().next = (*opcode)(unsafe.Pointer(value))
+	value.next = valueCode
+	valueCode.beforeLastCode().next = (*opcode)(unsafe.Pointer(key))
+	key.next = keyCode
+
+	header.end = end
+	key.end = end
+
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 

@@ -65,31 +65,31 @@ Benchmark_Decode_LargeStruct_GoJsonNoEscape-12             30000             560
 ### SmallStruct
 
 ```
-Benchmark_Encode_SmallStruct_EncodingJson-12             1000000              1665 ns/op            1048 B/op          8 allocs/op
-Benchmark_Encode_SmallStruct_JsonIter-12                 2000000               737 ns/op             984 B/op          7 allocs/op
-Benchmark_Encode_SmallStruct_EasyJson-12                 3000000               550 ns/op             944 B/op          6 allocs/op
-Benchmark_Encode_SmallStruct_GoJay-12                    3000000               421 ns/op             624 B/op          2 allocs/op
-Benchmark_Encode_SmallStruct_GoJson-12                   5000000               347 ns/op             256 B/op          2 allocs/op
+Benchmark_Encode_SmallStruct_EncodingJson-12             1000000              1659 ns/op            1048 B/op          8 allocs/op
+Benchmark_Encode_SmallStruct_JsonIter-12                 2000000               729 ns/op             984 B/op          7 allocs/op
+Benchmark_Encode_SmallStruct_EasyJson-12                 3000000               546 ns/op             944 B/op          6 allocs/op
+Benchmark_Encode_SmallStruct_GoJay-12                    3000000               419 ns/op             624 B/op          2 allocs/op
+Benchmark_Encode_SmallStruct_GoJson-12                   5000000               364 ns/op             256 B/op          2 allocs/op
 ```
 
 ### MediumStruct
 
 ```
-Benchmark_Encode_MediumStruct_EncodingJson-12             500000              3800 ns/op            1712 B/op         24 allocs/op
-Benchmark_Encode_MediumStruct_JsonIter-12                1000000              1438 ns/op            1536 B/op         20 allocs/op
-Benchmark_Encode_MediumStruct_EasyJson-12                1000000              1154 ns/op            1320 B/op         19 allocs/op
-Benchmark_Encode_MediumStruct_GoJay-12                   1000000              1040 ns/op             824 B/op         15 allocs/op
-Benchmark_Encode_MediumStruct_GoJson-12                  2000000               898 ns/op             632 B/op         15 allocs/op
+Benchmark_Encode_MediumStruct_EncodingJson-12             500000              3772 ns/op            1712 B/op         24 allocs/op
+Benchmark_Encode_MediumStruct_JsonIter-12                1000000              1433 ns/op            1536 B/op         20 allocs/op
+Benchmark_Encode_MediumStruct_EasyJson-12                1000000              1181 ns/op            1320 B/op         19 allocs/op
+Benchmark_Encode_MediumStruct_GoJay-12                   1000000              1056 ns/op             824 B/op         15 allocs/op
+Benchmark_Encode_MediumStruct_GoJson-12                  2000000               906 ns/op             632 B/op         15 allocs/op
 ```
 
 ### LargeStruct
 
 ```
-Benchmark_Encode_LargeStruct_EncodingJson-12               30000             53287 ns/op           20388 B/op        331 allocs/op
-Benchmark_Encode_LargeStruct_JsonIter-12                  100000             21251 ns/op           20270 B/op        328 allocs/op
-Benchmark_Encode_LargeStruct_EasyJson-12                  100000             21303 ns/op           15461 B/op        327 allocs/op
-Benchmark_Encode_LargeStruct_GoJay-12                     100000             22500 ns/op           28049 B/op        323 allocs/op
-Benchmark_Encode_LargeStruct_GoJson-12                    100000             17957 ns/op           14697 B/op        319 allocs/op
+Benchmark_Encode_LargeStruct_EncodingJson-12               30000             53239 ns/op           20393 B/op        331 allocs/op
+Benchmark_Encode_LargeStruct_JsonIter-12                  100000             21627 ns/op           20278 B/op        328 allocs/op
+Benchmark_Encode_LargeStruct_EasyJson-12                  100000             21629 ns/op           15461 B/op        327 allocs/op
+Benchmark_Encode_LargeStruct_GoJay-12                     100000             22256 ns/op           28048 B/op        323 allocs/op
+Benchmark_Encode_LargeStruct_GoJson-12                    100000             17927 ns/op           14683 B/op        319 allocs/op
 ```
 
 # License

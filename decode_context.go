@@ -1,5 +1,16 @@
 package json
 
+var (
+	isWhiteSpace = [256]bool{}
+)
+
+func init() {
+	isWhiteSpace[' '] = true
+	isWhiteSpace['\n'] = true
+	isWhiteSpace['\t'] = true
+	isWhiteSpace['\r'] = true
+}
+
 type context struct {
 	cursor int
 	buf    []byte
@@ -16,8 +27,7 @@ func (c *context) skipWhiteSpace() int {
 	buflen := c.buflen
 	buf := c.buf
 	for cursor := c.cursor; cursor < buflen; cursor++ {
-		switch buf[cursor] {
-		case ' ', '\n', '\t', '\r':
+		if isWhiteSpace[buf[cursor]] {
 			continue
 		}
 		c.cursor = cursor

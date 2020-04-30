@@ -93,10 +93,18 @@ func Test_Encoder(t *testing.T) {
 		assertEq(t, "struct", `{"a":-1,"b":1,"c":"hello world"}`, string(bytes))
 	})
 	t.Run("slice", func(t *testing.T) {
-		bytes, err := json.Marshal([]int{1, 2, 3, 4})
-		assertErr(t, err)
-		assertEq(t, "slice", `[1,2,3,4]`, string(bytes))
+		t.Run("[]int", func(t *testing.T) {
+			bytes, err := json.Marshal([]int{1, 2, 3, 4})
+			assertErr(t, err)
+			assertEq(t, "[]int", `[1,2,3,4]`, string(bytes))
+		})
+		t.Run("[]interface{}", func(t *testing.T) {
+			bytes, err := json.Marshal([]interface{}{1, 2.1, "hello"})
+			assertErr(t, err)
+			assertEq(t, "[]interface{}", `[1,2.1,"hello"]`, string(bytes))
+		})
 	})
+
 	t.Run("array", func(t *testing.T) {
 		bytes, err := json.Marshal([4]int{1, 2, 3, 4})
 		assertErr(t, err)

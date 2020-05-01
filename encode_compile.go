@@ -89,6 +89,36 @@ func (e *Encoder) optimizeStructFieldPtrHead(typ *rtype, code *opcode) *opcode {
 		code.op = opStructFieldPtrHeadString
 	case opStructFieldHeadBool:
 		code.op = opStructFieldPtrHeadBool
+	case opStructFieldHeadOmitEmpty:
+		code.op = opStructFieldPtrHeadOmitEmpty
+	case opStructFieldHeadIntOmitEmpty:
+		code.op = opStructFieldPtrHeadIntOmitEmpty
+	case opStructFieldHeadInt8OmitEmpty:
+		code.op = opStructFieldPtrHeadInt8OmitEmpty
+	case opStructFieldHeadInt16OmitEmpty:
+		code.op = opStructFieldPtrHeadInt16OmitEmpty
+	case opStructFieldHeadInt32OmitEmpty:
+		code.op = opStructFieldPtrHeadInt32OmitEmpty
+	case opStructFieldHeadInt64OmitEmpty:
+		code.op = opStructFieldPtrHeadInt64OmitEmpty
+	case opStructFieldHeadUintOmitEmpty:
+		code.op = opStructFieldPtrHeadUintOmitEmpty
+	case opStructFieldHeadUint8OmitEmpty:
+		code.op = opStructFieldPtrHeadUint8OmitEmpty
+	case opStructFieldHeadUint16OmitEmpty:
+		code.op = opStructFieldPtrHeadUint16OmitEmpty
+	case opStructFieldHeadUint32OmitEmpty:
+		code.op = opStructFieldPtrHeadUint32OmitEmpty
+	case opStructFieldHeadUint64OmitEmpty:
+		code.op = opStructFieldPtrHeadUint64OmitEmpty
+	case opStructFieldHeadFloat32OmitEmpty:
+		code.op = opStructFieldPtrHeadFloat32OmitEmpty
+	case opStructFieldHeadFloat64OmitEmpty:
+		code.op = opStructFieldPtrHeadFloat64OmitEmpty
+	case opStructFieldHeadStringOmitEmpty:
+		code.op = opStructFieldPtrHeadStringOmitEmpty
+	case opStructFieldHeadBoolOmitEmpty:
+		code.op = opStructFieldPtrHeadBoolOmitEmpty
 	default:
 		return newOpCode(opPtr, typ, code)
 	}
@@ -308,6 +338,10 @@ func (e *Encoder) compileStruct(typ *rtype) (*opcode, error) {
 				keyName = opts[0]
 			}
 		}
+		isOmitEmpty := false
+		if len(opts) > 1 {
+			isOmitEmpty = opts[1] == "omitempty"
+		}
 		fieldType := type2rtype(field.Type)
 		valueCode, err := e.compile(fieldType)
 		if err != nil {
@@ -323,41 +357,77 @@ func (e *Encoder) compileStruct(typ *rtype) (*opcode, error) {
 			offset: field.Offset,
 		}
 		if fieldIdx == 0 {
-			fieldCode.op = opStructFieldHead
 			head = fieldCode
 			code = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
-			switch valueCode.op {
-			case opInt:
-				fieldCode.op = opStructFieldHeadInt
-			case opInt8:
-				fieldCode.op = opStructFieldHeadInt8
-			case opInt16:
-				fieldCode.op = opStructFieldHeadInt16
-			case opInt32:
-				fieldCode.op = opStructFieldHeadInt32
-			case opInt64:
-				fieldCode.op = opStructFieldHeadInt64
-			case opUint:
-				fieldCode.op = opStructFieldHeadUint
-			case opUint8:
-				fieldCode.op = opStructFieldHeadUint8
-			case opUint16:
-				fieldCode.op = opStructFieldHeadUint16
-			case opUint32:
-				fieldCode.op = opStructFieldHeadUint32
-			case opUint64:
-				fieldCode.op = opStructFieldHeadUint64
-			case opFloat32:
-				fieldCode.op = opStructFieldHeadFloat32
-			case opFloat64:
-				fieldCode.op = opStructFieldHeadFloat64
-			case opString:
-				fieldCode.op = opStructFieldHeadString
-			case opBool:
-				fieldCode.op = opStructFieldHeadBool
-			default:
-				code = valueCode.beforeLastCode()
+			if isOmitEmpty {
+				fieldCode.op = opStructFieldHeadOmitEmpty
+				switch valueCode.op {
+				case opInt:
+					fieldCode.op = opStructFieldHeadIntOmitEmpty
+				case opInt8:
+					fieldCode.op = opStructFieldHeadInt8OmitEmpty
+				case opInt16:
+					fieldCode.op = opStructFieldHeadInt16OmitEmpty
+				case opInt32:
+					fieldCode.op = opStructFieldHeadInt32OmitEmpty
+				case opInt64:
+					fieldCode.op = opStructFieldHeadInt64OmitEmpty
+				case opUint:
+					fieldCode.op = opStructFieldHeadUintOmitEmpty
+				case opUint8:
+					fieldCode.op = opStructFieldHeadUint8OmitEmpty
+				case opUint16:
+					fieldCode.op = opStructFieldHeadUint16OmitEmpty
+				case opUint32:
+					fieldCode.op = opStructFieldHeadUint32OmitEmpty
+				case opUint64:
+					fieldCode.op = opStructFieldHeadUint64OmitEmpty
+				case opFloat32:
+					fieldCode.op = opStructFieldHeadFloat32OmitEmpty
+				case opFloat64:
+					fieldCode.op = opStructFieldHeadFloat64OmitEmpty
+				case opString:
+					fieldCode.op = opStructFieldHeadStringOmitEmpty
+				case opBool:
+					fieldCode.op = opStructFieldHeadBoolOmitEmpty
+				default:
+					code = valueCode.beforeLastCode()
+				}
+			} else {
+				fieldCode.op = opStructFieldHead
+				switch valueCode.op {
+				case opInt:
+					fieldCode.op = opStructFieldHeadInt
+				case opInt8:
+					fieldCode.op = opStructFieldHeadInt8
+				case opInt16:
+					fieldCode.op = opStructFieldHeadInt16
+				case opInt32:
+					fieldCode.op = opStructFieldHeadInt32
+				case opInt64:
+					fieldCode.op = opStructFieldHeadInt64
+				case opUint:
+					fieldCode.op = opStructFieldHeadUint
+				case opUint8:
+					fieldCode.op = opStructFieldHeadUint8
+				case opUint16:
+					fieldCode.op = opStructFieldHeadUint16
+				case opUint32:
+					fieldCode.op = opStructFieldHeadUint32
+				case opUint64:
+					fieldCode.op = opStructFieldHeadUint64
+				case opFloat32:
+					fieldCode.op = opStructFieldHeadFloat32
+				case opFloat64:
+					fieldCode.op = opStructFieldHeadFloat64
+				case opString:
+					fieldCode.op = opStructFieldHeadString
+				case opBool:
+					fieldCode.op = opStructFieldHeadBool
+				default:
+					code = valueCode.beforeLastCode()
+				}
 			}
 		} else {
 			fieldCode.op = opStructField
@@ -365,43 +435,95 @@ func (e *Encoder) compileStruct(typ *rtype) (*opcode, error) {
 			prevField.nextField = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
 			code = (*opcode)(unsafe.Pointer(fieldCode))
-			switch valueCode.op {
-			case opInt:
-				fieldCode.op = opStructFieldInt
-			case opInt8:
-				fieldCode.op = opStructFieldInt8
-			case opInt16:
-				fieldCode.op = opStructFieldInt16
-			case opInt32:
-				fieldCode.op = opStructFieldInt32
-			case opInt64:
-				fieldCode.op = opStructFieldInt64
-			case opUint:
-				fieldCode.op = opStructFieldUint
-			case opUint8:
-				fieldCode.op = opStructFieldUint8
-			case opUint16:
-				fieldCode.op = opStructFieldUint16
-			case opUint32:
-				fieldCode.op = opStructFieldUint32
-			case opUint64:
-				fieldCode.op = opStructFieldUint64
-			case opFloat32:
-				fieldCode.op = opStructFieldFloat32
-			case opFloat64:
-				fieldCode.op = opStructFieldFloat64
-			case opString:
-				fieldCode.op = opStructFieldString
-			case opBool:
-				fieldCode.op = opStructFieldBool
-			default:
-				code = valueCode.beforeLastCode()
+			if isOmitEmpty {
+				fieldCode.op = opStructFieldOmitEmpty
+				switch valueCode.op {
+				case opInt:
+					fieldCode.op = opStructFieldIntOmitEmpty
+				case opInt8:
+					fieldCode.op = opStructFieldInt8OmitEmpty
+				case opInt16:
+					fieldCode.op = opStructFieldInt16OmitEmpty
+				case opInt32:
+					fieldCode.op = opStructFieldInt32OmitEmpty
+				case opInt64:
+					fieldCode.op = opStructFieldInt64OmitEmpty
+				case opUint:
+					fieldCode.op = opStructFieldUintOmitEmpty
+				case opUint8:
+					fieldCode.op = opStructFieldUint8OmitEmpty
+				case opUint16:
+					fieldCode.op = opStructFieldUint16OmitEmpty
+				case opUint32:
+					fieldCode.op = opStructFieldUint32OmitEmpty
+				case opUint64:
+					fieldCode.op = opStructFieldUint64OmitEmpty
+				case opFloat32:
+					fieldCode.op = opStructFieldFloat32OmitEmpty
+				case opFloat64:
+					fieldCode.op = opStructFieldFloat64OmitEmpty
+				case opString:
+					fieldCode.op = opStructFieldStringOmitEmpty
+				case opBool:
+					fieldCode.op = opStructFieldBoolOmitEmpty
+				default:
+					code = valueCode.beforeLastCode()
+				}
+			} else {
+				switch valueCode.op {
+				case opInt:
+					fieldCode.op = opStructFieldInt
+				case opInt8:
+					fieldCode.op = opStructFieldInt8
+				case opInt16:
+					fieldCode.op = opStructFieldInt16
+				case opInt32:
+					fieldCode.op = opStructFieldInt32
+				case opInt64:
+					fieldCode.op = opStructFieldInt64
+				case opUint:
+					fieldCode.op = opStructFieldUint
+				case opUint8:
+					fieldCode.op = opStructFieldUint8
+				case opUint16:
+					fieldCode.op = opStructFieldUint16
+				case opUint32:
+					fieldCode.op = opStructFieldUint32
+				case opUint64:
+					fieldCode.op = opStructFieldUint64
+				case opFloat32:
+					fieldCode.op = opStructFieldFloat32
+				case opFloat64:
+					fieldCode.op = opStructFieldFloat64
+				case opString:
+					fieldCode.op = opStructFieldString
+				case opBool:
+					fieldCode.op = opStructFieldBool
+				default:
+					code = valueCode.beforeLastCode()
+				}
 			}
 		}
-		prevField.nextField = newEndOp()
 		fieldIdx++
 	}
+
 	structEndCode := newOpCode(opStructEnd, nil, nil)
+
+	if prevField != nil && prevField.nextField == nil {
+		prevField.nextField = structEndCode
+	}
+
+	// no struct field
+	if head == nil {
+		head = &structFieldCode{
+			opcodeHeader: &opcodeHeader{
+				op:  opStructFieldHead,
+				typ: typ,
+			},
+			nextField: structEndCode,
+		}
+		code = (*opcode)(unsafe.Pointer(head))
+	}
 	head.end = structEndCode
 	code.next = structEndCode
 	structEndCode.next = newEndOp()

@@ -23,14 +23,14 @@ type opcodeMap struct {
 	sync.Map
 }
 
-func (m *opcodeMap) Get(k string) *opcode {
+func (m *opcodeMap) Get(k *rtype) *opcode {
 	if v, ok := m.Load(k); ok {
 		return v.(*opcode)
 	}
 	return nil
 }
 
-func (m *opcodeMap) Set(k string, op *opcode) {
+func (m *opcodeMap) Set(k *rtype, op *opcode) {
 	m.Store(k, op)
 }
 
@@ -175,8 +175,7 @@ func (e *Encoder) encode(v interface{}) error {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
-	name := typ.String()
-	if code := cachedOpcode.Get(name); code != nil {
+	if code := cachedOpcode.Get(typ); code != nil {
 		p := uintptr(header.ptr)
 		code.ptr = p
 		if err := e.run(code); err != nil {
@@ -188,9 +187,7 @@ func (e *Encoder) encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if name != "" {
-		cachedOpcode.Set(name, code)
-	}
+	cachedOpcode.Set(typ, code)
 	p := uintptr(header.ptr)
 	code.ptr = p
 	return e.run(code)

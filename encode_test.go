@@ -91,6 +91,72 @@ func Test_Encoder(t *testing.T) {
 		})
 		assertErr(t, err)
 		assertEq(t, "struct", `{"a":-1,"b":1,"c":"hello world"}`, string(bytes))
+		t.Run("null", func(t *testing.T) {
+			type T struct {
+				A *struct{} `json:"a"`
+			}
+			var v T
+			bytes, err := json.Marshal(&v)
+			assertErr(t, err)
+			assertEq(t, "struct", `{"a":null}`, string(bytes))
+		})
+		t.Run("omitempty", func(t *testing.T) {
+			type T struct {
+				A int                    `json:",omitempty"`
+				B int8                   `json:",omitempty"`
+				C int16                  `json:",omitempty"`
+				D int32                  `json:",omitempty"`
+				E int64                  `json:",omitempty"`
+				F uint                   `json:",omitempty"`
+				G uint8                  `json:",omitempty"`
+				H uint16                 `json:",omitempty"`
+				I uint32                 `json:",omitempty"`
+				J uint64                 `json:",omitempty"`
+				K float32                `json:",omitempty"`
+				L float64                `json:",omitempty"`
+				O string                 `json:",omitempty"`
+				P bool                   `json:",omitempty"`
+				Q []int                  `json:",omitempty"`
+				R map[string]interface{} `json:",omitempty"`
+				S *struct{}              `json:",omitempty"`
+				T int                    `json:"t,omitempty"`
+			}
+			var v T
+			v.T = 1
+			bytes, err := json.Marshal(&v)
+			assertErr(t, err)
+			assertEq(t, "struct", `{"t":1}`, string(bytes))
+		})
+		t.Run("head_omitempty", func(t *testing.T) {
+			type T struct {
+				A *struct{} `json:"a,omitempty"`
+			}
+			var v T
+			bytes, err := json.Marshal(&v)
+			assertErr(t, err)
+			assertEq(t, "struct", `{}`, string(bytes))
+		})
+		t.Run("pointer_head_omitempty", func(t *testing.T) {
+			type V struct{}
+			type U struct {
+				B *V `json:"b,omitempty"`
+			}
+			type T struct {
+				A *U `json:"a"`
+			}
+			bytes, err := json.Marshal(&T{A: &U{}})
+			assertErr(t, err)
+			assertEq(t, "struct", `{"a":{}}`, string(bytes))
+		})
+		t.Run("head_int_omitempty", func(t *testing.T) {
+			type T struct {
+				A int `json:"a,omitempty"`
+			}
+			var v T
+			bytes, err := json.Marshal(&v)
+			assertErr(t, err)
+			assertEq(t, "struct", `{}`, string(bytes))
+		})
 	})
 	t.Run("slice", func(t *testing.T) {
 		t.Run("[]int", func(t *testing.T) {

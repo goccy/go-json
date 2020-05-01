@@ -171,14 +171,16 @@ func (e *Encoder) run(code *opcode) error {
 			mapiternext(c.iter)
 			code = c.next
 		case opStructFieldPtrHead:
-			code.ptr = e.ptrToPtr(code.ptr)
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
 			fallthrough
 		case opStructFieldHead:
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeString("null")
-				code = field.end
+				code = field.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
@@ -410,6 +412,352 @@ func (e *Encoder) run(code *opcode) error {
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
+
+		case opStructFieldPtrHeadOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				p := ptr + field.offset
+				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					code = field.next
+					code.ptr = p
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadIntOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadIntOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToInt(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadInt8OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadInt8OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToInt8(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt8(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadInt16OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadInt16OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToInt16(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt16(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadInt32OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadInt32OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToInt32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt32(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadInt64OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadInt64OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToInt64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt64(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadUintOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadUintOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToUint(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadUint8OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadUint8OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToUint8(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint8(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadUint16OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadUint16OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToUint16(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint16(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadUint32OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadUint32OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToUint32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint32(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadUint64OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadUint64OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToUint64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint64(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadFloat32OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadFloat32OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToFloat32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeFloat32(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadFloat64OmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadFloat64OmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToFloat64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeFloat64(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadStringOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadStringOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToString(ptr + field.offset)
+				if v == "" {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeEscapedString(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrHeadBoolOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadBoolOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeString("null")
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToBool(ptr + field.offset)
+				if !v {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeBool(v)
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
 		case opStructField:
 			e.encodeByte(',')
 			c := code.toStructFieldCode()
@@ -515,6 +863,188 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeBytes(c.key)
 			e.encodeBool(e.ptrToBool(c.ptr + c.offset))
 			code = code.next
+		case opStructFieldOmitEmpty:
+			c := code.toStructFieldCode()
+			p := c.ptr + c.offset
+			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+				code = c.nextField
+			} else {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				code = code.next
+				code.ptr = p
+			}
+			c.nextField.ptr = c.ptr
+		case opStructFieldIntOmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToInt(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeInt(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldInt8OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToInt8(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeInt8(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldInt16OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToInt16(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeInt16(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldInt32OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToInt32(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeInt32(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldInt64OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToInt64(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeInt64(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldUintOmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToUint(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeUint(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldUint8OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToUint8(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeUint8(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldUint16OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToUint16(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeUint16(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldUint32OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToUint32(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeUint32(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldUint64OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToUint64(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeUint64(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldFloat32OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToFloat32(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeFloat32(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldFloat64OmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToFloat64(c.ptr + c.offset)
+			if v != 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeFloat64(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldStringOmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToString(c.ptr + c.offset)
+			if v != "" {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeEscapedString(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldBoolOmitEmpty:
+			c := code.toStructFieldCode()
+			v := e.ptrToBool(c.ptr + c.offset)
+			if v {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				e.encodeBool(v)
+			}
+			code = code.next
+			code.ptr = c.ptr
 		case opStructEnd:
 			e.encodeByte('}')
 			code = code.next

@@ -37,6 +37,8 @@ const (
 	opMapKey
 	opMapValue
 	opMapEnd
+
+	// StructFieldHead
 	opStructFieldHead
 	opStructFieldHeadInt
 	opStructFieldHeadInt8
@@ -52,6 +54,25 @@ const (
 	opStructFieldHeadFloat64
 	opStructFieldHeadString
 	opStructFieldHeadBool
+
+	// StructFieldHead with omitempty
+	opStructFieldHeadOmitEmpty
+	opStructFieldHeadIntOmitEmpty
+	opStructFieldHeadInt8OmitEmpty
+	opStructFieldHeadInt16OmitEmpty
+	opStructFieldHeadInt32OmitEmpty
+	opStructFieldHeadInt64OmitEmpty
+	opStructFieldHeadUintOmitEmpty
+	opStructFieldHeadUint8OmitEmpty
+	opStructFieldHeadUint16OmitEmpty
+	opStructFieldHeadUint32OmitEmpty
+	opStructFieldHeadUint64OmitEmpty
+	opStructFieldHeadFloat32OmitEmpty
+	opStructFieldHeadFloat64OmitEmpty
+	opStructFieldHeadStringOmitEmpty
+	opStructFieldHeadBoolOmitEmpty
+
+	// StructFieldHead for pointer structure
 	opStructFieldPtrHead
 	opStructFieldPtrHeadInt
 	opStructFieldPtrHeadInt8
@@ -67,6 +88,25 @@ const (
 	opStructFieldPtrHeadFloat64
 	opStructFieldPtrHeadString
 	opStructFieldPtrHeadBool
+
+	// StructFieldPtrHead with omitempty
+	opStructFieldPtrHeadOmitEmpty
+	opStructFieldPtrHeadIntOmitEmpty
+	opStructFieldPtrHeadInt8OmitEmpty
+	opStructFieldPtrHeadInt16OmitEmpty
+	opStructFieldPtrHeadInt32OmitEmpty
+	opStructFieldPtrHeadInt64OmitEmpty
+	opStructFieldPtrHeadUintOmitEmpty
+	opStructFieldPtrHeadUint8OmitEmpty
+	opStructFieldPtrHeadUint16OmitEmpty
+	opStructFieldPtrHeadUint32OmitEmpty
+	opStructFieldPtrHeadUint64OmitEmpty
+	opStructFieldPtrHeadFloat32OmitEmpty
+	opStructFieldPtrHeadFloat64OmitEmpty
+	opStructFieldPtrHeadStringOmitEmpty
+	opStructFieldPtrHeadBoolOmitEmpty
+
+	// StructField
 	opStructField
 	opStructFieldInt
 	opStructFieldInt8
@@ -82,6 +122,24 @@ const (
 	opStructFieldFloat64
 	opStructFieldString
 	opStructFieldBool
+
+	// StructField with omitempty
+	opStructFieldOmitEmpty
+	opStructFieldIntOmitEmpty
+	opStructFieldInt8OmitEmpty
+	opStructFieldInt16OmitEmpty
+	opStructFieldInt32OmitEmpty
+	opStructFieldInt64OmitEmpty
+	opStructFieldUintOmitEmpty
+	opStructFieldUint8OmitEmpty
+	opStructFieldUint16OmitEmpty
+	opStructFieldUint32OmitEmpty
+	opStructFieldUint64OmitEmpty
+	opStructFieldFloat32OmitEmpty
+	opStructFieldFloat64OmitEmpty
+	opStructFieldStringOmitEmpty
+	opStructFieldBoolOmitEmpty
+
 	opStructEnd
 )
 
@@ -141,6 +199,7 @@ func (t opType) String() string {
 		return "MAP_VALUE"
 	case opMapEnd:
 		return "MAP_END"
+
 	case opStructFieldHead:
 		return "STRUCT_FIELD_HEAD"
 	case opStructFieldHeadInt:
@@ -171,6 +230,38 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_HEAD_STRING"
 	case opStructFieldHeadBool:
 		return "STRUCT_FIELD_HEAD_BOOL"
+
+	case opStructFieldHeadOmitEmpty:
+		return "STRUCT_FIELD_HEAD_OMIT_EMPTY"
+	case opStructFieldHeadIntOmitEmpty:
+		return "STRUCT_FIELD_HEAD_INT_OMIT_EMPTY"
+	case opStructFieldHeadInt8OmitEmpty:
+		return "STRUCT_FIELD_HEAD_INT8_OMIT_EMPTY"
+	case opStructFieldHeadInt16OmitEmpty:
+		return "STRUCT_FIELD_HEAD_INT16_OMIT_EMPTY"
+	case opStructFieldHeadInt32OmitEmpty:
+		return "STRUCT_FIELD_HEAD_INT32_OMIT_EMPTY"
+	case opStructFieldHeadInt64OmitEmpty:
+		return "STRUCT_FIELD_HEAD_INT64_OMIT_EMPTY"
+	case opStructFieldHeadUintOmitEmpty:
+		return "STRUCT_FIELD_HEAD_UINT_OMIT_EMPTY"
+	case opStructFieldHeadUint8OmitEmpty:
+		return "STRUCT_FIELD_HEAD_UINT8_OMIT_EMPTY"
+	case opStructFieldHeadUint16OmitEmpty:
+		return "STRUCT_FIELD_HEAD_UINT16_OMIT_EMPTY"
+	case opStructFieldHeadUint32OmitEmpty:
+		return "STRUCT_FIELD_HEAD_UINT32_OMIT_EMPTY"
+	case opStructFieldHeadUint64OmitEmpty:
+		return "STRUCT_FIELD_HEAD_UINT64_OMIT_EMPTY"
+	case opStructFieldHeadFloat32OmitEmpty:
+		return "STRUCT_FIELD_HEAD_FLOAT32_OMIT_EMPTY"
+	case opStructFieldHeadFloat64OmitEmpty:
+		return "STRUCT_FIELD_HEAD_FLOAT64_OMIT_EMPTY"
+	case opStructFieldHeadStringOmitEmpty:
+		return "STRUCT_FIELD_HEAD_STRING_OMIT_EMPTY"
+	case opStructFieldHeadBoolOmitEmpty:
+		return "STRUCT_FIELD_HEAD_BOOL_OMIT_EMPTY"
+
 	case opStructFieldPtrHead:
 		return "STRUCT_FIELD_PTR_HEAD"
 	case opStructFieldPtrHeadInt:
@@ -201,6 +292,38 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_PTR_HEAD_STRING"
 	case opStructFieldPtrHeadBool:
 		return "STRUCT_FIELD_PTR_HEAD_BOOL"
+
+	case opStructFieldPtrHeadOmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_OMIT_EMPTY"
+	case opStructFieldPtrHeadIntOmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_INT_OMIT_EMPTY"
+	case opStructFieldPtrHeadInt8OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_INT8_OMIT_EMPTY"
+	case opStructFieldPtrHeadInt16OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_INT16_OMIT_EMPTY"
+	case opStructFieldPtrHeadInt32OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_INT32_OMIT_EMPTY"
+	case opStructFieldPtrHeadInt64OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_INT64_OMIT_EMPTY"
+	case opStructFieldPtrHeadUintOmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_UINT_OMIT_EMPTY"
+	case opStructFieldPtrHeadUint8OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_UINT8_OMIT_EMPTY"
+	case opStructFieldPtrHeadUint16OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_UINT16_OMIT_EMPTY"
+	case opStructFieldPtrHeadUint32OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_UINT32_OMIT_EMPTY"
+	case opStructFieldPtrHeadUint64OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_UINT64_OMIT_EMPTY"
+	case opStructFieldPtrHeadFloat32OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT32_OMIT_EMPTY"
+	case opStructFieldPtrHeadFloat64OmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT64_OMIT_EMPTY"
+	case opStructFieldPtrHeadStringOmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_STRING_OMIT_EMPTY"
+	case opStructFieldPtrHeadBoolOmitEmpty:
+		return "STRUCT_FIELD_PTR_HEAD_BOOL_OMIT_EMPTY"
+
 	case opStructField:
 		return "STRUCT_FIELD"
 	case opStructFieldInt:
@@ -231,6 +354,38 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_STRING"
 	case opStructFieldBool:
 		return "STRUCT_FIELD_BOOL"
+
+	case opStructFieldOmitEmpty:
+		return "STRUCT_FIELD_OMIT_EMPTY"
+	case opStructFieldIntOmitEmpty:
+		return "STRUCT_FIELD_INT_OMIT_EMPTY"
+	case opStructFieldInt8OmitEmpty:
+		return "STRUCT_FIELD_INT8_OMIT_EMPTY"
+	case opStructFieldInt16OmitEmpty:
+		return "STRUCT_FIELD_INT16_OMIT_EMPTY"
+	case opStructFieldInt32OmitEmpty:
+		return "STRUCT_FIELD_INT32_OMIT_EMPTY"
+	case opStructFieldInt64OmitEmpty:
+		return "STRUCT_FIELD_INT64_OMIT_EMPTY"
+	case opStructFieldUintOmitEmpty:
+		return "STRUCT_FIELD_UINT_OMIT_EMPTY"
+	case opStructFieldUint8OmitEmpty:
+		return "STRUCT_FIELD_UINT8_OMIT_EMPTY"
+	case opStructFieldUint16OmitEmpty:
+		return "STRUCT_FIELD_UINT16_OMIT_EMPTY"
+	case opStructFieldUint32OmitEmpty:
+		return "STRUCT_FIELD_UINT32_OMIT_EMPTY"
+	case opStructFieldUint64OmitEmpty:
+		return "STRUCT_FIELD_UINT64_OMIT_EMPTY"
+	case opStructFieldFloat32OmitEmpty:
+		return "STRUCT_FIELD_FLOAT32_OMIT_EMPTY"
+	case opStructFieldFloat64OmitEmpty:
+		return "STRUCT_FIELD_FLOAT64_OMIT_EMPTY"
+	case opStructFieldStringOmitEmpty:
+		return "STRUCT_FIELD_STRING_OMIT_EMPTY"
+	case opStructFieldBoolOmitEmpty:
+		return "STRUCT_FIELD_BOOL_OMIT_EMPTY"
+
 	case opStructEnd:
 		return "STRUCT_END"
 	}

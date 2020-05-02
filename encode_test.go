@@ -6,7 +6,7 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func Test_Encoder(t *testing.T) {
+func Test_Marshal(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
 		bytes, err := json.Marshal(-10)
 		assertErr(t, err)
@@ -202,6 +202,80 @@ func Test_Encoder(t *testing.T) {
 			bytes, err := json.Marshal(v)
 			assertErr(t, err)
 			assertEq(t, "map[string]interface{}", len(`{"a":1,"b":2.1,"c":{"A":10},"d":4}`), len(string(bytes)))
+		})
+	})
+}
+
+func Test_MarshalIndent(t *testing.T) {
+	prefix := "-"
+	indent := "\t"
+	t.Run("struct", func(t *testing.T) {
+		bytes, err := json.MarshalIndent(struct {
+			A int    `json:"a"`
+			B uint   `json:"b"`
+			C string `json:"c"`
+			D int    `json:"-"`  // ignore field
+			a int    `json:"aa"` // private field
+		}{
+			A: -1,
+			B: 1,
+			C: "hello world",
+		}, prefix, indent)
+		assertErr(t, err)
+		result := "{\n-\t\"a\": -1,\n-\t\"b\": 1,\n-\t\"c\": \"hello world\"\n-}"
+		assertEq(t, "struct", result, string(bytes))
+	})
+	t.Run("slice", func(t *testing.T) {
+		t.Run("[]int", func(t *testing.T) {
+			bytes, err := json.MarshalIndent([]int{1, 2, 3, 4}, prefix, indent)
+			assertErr(t, err)
+			result := "[\n-\t1,\n-\t2,\n-\t3,\n-\t4\n-]"
+			assertEq(t, "[]int", result, string(bytes))
+		})
+		t.Run("[]interface{}", func(t *testing.T) {
+			bytes, err := json.MarshalIndent([]interface{}{1, 2.1, "hello"}, prefix, indent)
+			assertErr(t, err)
+			result := "[\n-\t1,\n-\t2.1,\n-\t\"hello\"\n-]"
+			assertEq(t, "[]interface{}", result, string(bytes))
+		})
+	})
+
+	t.Run("array", func(t *testing.T) {
+		bytes, err := json.MarshalIndent([4]int{1, 2, 3, 4}, prefix, indent)
+		assertErr(t, err)
+		result := "[\n-\t1,\n-\t2,\n-\t3,\n-\t4\n-]"
+		assertEq(t, "array", result, string(bytes))
+	})
+	t.Run("map", func(t *testing.T) {
+		t.Run("map[string]int", func(t *testing.T) {
+			bytes, err := json.MarshalIndent(map[string]int{
+				"a": 1,
+				"b": 2,
+				"c": 3,
+				"d": 4,
+			}, prefix, indent)
+			assertErr(t, err)
+			result := "{\n-\t\"a\": 1,\n-\t\"b\": 2,\n-\t\"c\": 3,\n-\t\"d\": 4\n-}"
+			assertEq(t, "map", len(result), len(string(bytes)))
+		})
+		t.Run("map[string]interface{}", func(t *testing.T) {
+			type T struct {
+				E int
+				F int
+			}
+			v := map[string]interface{}{
+				"a": 1,
+				"b": 2.1,
+				"c": &T{
+					E: 10,
+					F: 11,
+				},
+				"d": 4,
+			}
+			bytes, err := json.MarshalIndent(v, prefix, indent)
+			assertErr(t, err)
+			result := "{\n-\t\"a\": 1,\n-\t\"b\": 2.1,\n-\t\"c\": {\n-\t\t\"E\": 10,\n-\t\t\"F\": 11\n-\t},\n-\t\"d\": 4\n-}"
+			assertEq(t, "map[string]interface{}", len(result), len(string(bytes)))
 		})
 	})
 }

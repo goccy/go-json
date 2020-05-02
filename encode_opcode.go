@@ -27,16 +27,32 @@ const (
 	opBool
 	opInterface
 	opPtr
+
 	opSliceHead
 	opSliceElem
 	opSliceEnd
+
+	opSliceHeadIndent
+	opSliceElemIndent
+	opSliceEndIndent
+
 	opArrayHead
 	opArrayElem
 	opArrayEnd
+
+	opArrayHeadIndent
+	opArrayElemIndent
+	opArrayEndIndent
+
 	opMapHead
 	opMapKey
 	opMapValue
 	opMapEnd
+
+	opMapHeadIndent
+	opMapKeyIndent
+	opMapValueIndent
+	opMapEndIndent
 
 	// StructFieldHead
 	opStructFieldHead
@@ -55,6 +71,22 @@ const (
 	opStructFieldHeadString
 	opStructFieldHeadBool
 
+	opStructFieldHeadIndent
+	opStructFieldHeadIntIndent
+	opStructFieldHeadInt8Indent
+	opStructFieldHeadInt16Indent
+	opStructFieldHeadInt32Indent
+	opStructFieldHeadInt64Indent
+	opStructFieldHeadUintIndent
+	opStructFieldHeadUint8Indent
+	opStructFieldHeadUint16Indent
+	opStructFieldHeadUint32Indent
+	opStructFieldHeadUint64Indent
+	opStructFieldHeadFloat32Indent
+	opStructFieldHeadFloat64Indent
+	opStructFieldHeadStringIndent
+	opStructFieldHeadBoolIndent
+
 	// StructFieldHead with omitempty
 	opStructFieldHeadOmitEmpty
 	opStructFieldHeadIntOmitEmpty
@@ -71,6 +103,22 @@ const (
 	opStructFieldHeadFloat64OmitEmpty
 	opStructFieldHeadStringOmitEmpty
 	opStructFieldHeadBoolOmitEmpty
+
+	opStructFieldHeadOmitEmptyIndent
+	opStructFieldHeadIntOmitEmptyIndent
+	opStructFieldHeadInt8OmitEmptyIndent
+	opStructFieldHeadInt16OmitEmptyIndent
+	opStructFieldHeadInt32OmitEmptyIndent
+	opStructFieldHeadInt64OmitEmptyIndent
+	opStructFieldHeadUintOmitEmptyIndent
+	opStructFieldHeadUint8OmitEmptyIndent
+	opStructFieldHeadUint16OmitEmptyIndent
+	opStructFieldHeadUint32OmitEmptyIndent
+	opStructFieldHeadUint64OmitEmptyIndent
+	opStructFieldHeadFloat32OmitEmptyIndent
+	opStructFieldHeadFloat64OmitEmptyIndent
+	opStructFieldHeadStringOmitEmptyIndent
+	opStructFieldHeadBoolOmitEmptyIndent
 
 	// StructFieldHead for pointer structure
 	opStructFieldPtrHead
@@ -89,6 +137,22 @@ const (
 	opStructFieldPtrHeadString
 	opStructFieldPtrHeadBool
 
+	opStructFieldPtrHeadIndent
+	opStructFieldPtrHeadIntIndent
+	opStructFieldPtrHeadInt8Indent
+	opStructFieldPtrHeadInt16Indent
+	opStructFieldPtrHeadInt32Indent
+	opStructFieldPtrHeadInt64Indent
+	opStructFieldPtrHeadUintIndent
+	opStructFieldPtrHeadUint8Indent
+	opStructFieldPtrHeadUint16Indent
+	opStructFieldPtrHeadUint32Indent
+	opStructFieldPtrHeadUint64Indent
+	opStructFieldPtrHeadFloat32Indent
+	opStructFieldPtrHeadFloat64Indent
+	opStructFieldPtrHeadStringIndent
+	opStructFieldPtrHeadBoolIndent
+
 	// StructFieldPtrHead with omitempty
 	opStructFieldPtrHeadOmitEmpty
 	opStructFieldPtrHeadIntOmitEmpty
@@ -105,6 +169,22 @@ const (
 	opStructFieldPtrHeadFloat64OmitEmpty
 	opStructFieldPtrHeadStringOmitEmpty
 	opStructFieldPtrHeadBoolOmitEmpty
+
+	opStructFieldPtrHeadOmitEmptyIndent
+	opStructFieldPtrHeadIntOmitEmptyIndent
+	opStructFieldPtrHeadInt8OmitEmptyIndent
+	opStructFieldPtrHeadInt16OmitEmptyIndent
+	opStructFieldPtrHeadInt32OmitEmptyIndent
+	opStructFieldPtrHeadInt64OmitEmptyIndent
+	opStructFieldPtrHeadUintOmitEmptyIndent
+	opStructFieldPtrHeadUint8OmitEmptyIndent
+	opStructFieldPtrHeadUint16OmitEmptyIndent
+	opStructFieldPtrHeadUint32OmitEmptyIndent
+	opStructFieldPtrHeadUint64OmitEmptyIndent
+	opStructFieldPtrHeadFloat32OmitEmptyIndent
+	opStructFieldPtrHeadFloat64OmitEmptyIndent
+	opStructFieldPtrHeadStringOmitEmptyIndent
+	opStructFieldPtrHeadBoolOmitEmptyIndent
 
 	// StructField
 	opStructField
@@ -123,6 +203,22 @@ const (
 	opStructFieldString
 	opStructFieldBool
 
+	opStructFieldIndent
+	opStructFieldIntIndent
+	opStructFieldInt8Indent
+	opStructFieldInt16Indent
+	opStructFieldInt32Indent
+	opStructFieldInt64Indent
+	opStructFieldUintIndent
+	opStructFieldUint8Indent
+	opStructFieldUint16Indent
+	opStructFieldUint32Indent
+	opStructFieldUint64Indent
+	opStructFieldFloat32Indent
+	opStructFieldFloat64Indent
+	opStructFieldStringIndent
+	opStructFieldBoolIndent
+
 	// StructField with omitempty
 	opStructFieldOmitEmpty
 	opStructFieldIntOmitEmpty
@@ -140,7 +236,24 @@ const (
 	opStructFieldStringOmitEmpty
 	opStructFieldBoolOmitEmpty
 
+	opStructFieldOmitEmptyIndent
+	opStructFieldIntOmitEmptyIndent
+	opStructFieldInt8OmitEmptyIndent
+	opStructFieldInt16OmitEmptyIndent
+	opStructFieldInt32OmitEmptyIndent
+	opStructFieldInt64OmitEmptyIndent
+	opStructFieldUintOmitEmptyIndent
+	opStructFieldUint8OmitEmptyIndent
+	opStructFieldUint16OmitEmptyIndent
+	opStructFieldUint32OmitEmptyIndent
+	opStructFieldUint64OmitEmptyIndent
+	opStructFieldFloat32OmitEmptyIndent
+	opStructFieldFloat64OmitEmptyIndent
+	opStructFieldStringOmitEmptyIndent
+	opStructFieldBoolOmitEmptyIndent
+
 	opStructEnd
+	opStructEndIndent
 )
 
 func (t opType) String() string {
@@ -179,19 +292,36 @@ func (t opType) String() string {
 		return "INTERFACE"
 	case opPtr:
 		return "PTR"
+
 	case opSliceHead:
 		return "SLICE_HEAD"
 	case opSliceElem:
 		return "SLICE_ELEM"
 	case opSliceEnd:
 		return "SLICE_END"
+
+	case opSliceHeadIndent:
+		return "SLICE_HEAD_INDENT"
+	case opSliceElemIndent:
+		return "SLICE_ELEM_INDENT"
+	case opSliceEndIndent:
+		return "SLICE_END_INDENT"
+
 	case opArrayHead:
 		return "ARRAY_HEAD"
 	case opArrayElem:
 		return "ARRAY_ELEM"
 	case opArrayEnd:
 		return "ARRAY_END"
+
+	case opArrayHeadIndent:
+		return "ARRAY_HEAD_INDENT"
+	case opArrayElemIndent:
+		return "ARRAY_ELEM_INDENT"
+	case opArrayEndIndent:
+		return "ARRAY_END_INDENT"
 	case opMapHead:
+
 		return "MAP_HEAD"
 	case opMapKey:
 		return "MAP_KEY"
@@ -199,6 +329,15 @@ func (t opType) String() string {
 		return "MAP_VALUE"
 	case opMapEnd:
 		return "MAP_END"
+
+	case opMapHeadIndent:
+		return "MAP_HEAD_INDENT"
+	case opMapKeyIndent:
+		return "MAP_KEY_INDENT"
+	case opMapValueIndent:
+		return "MAP_VALUE_INDENT"
+	case opMapEndIndent:
+		return "MAP_END_INDENT"
 
 	case opStructFieldHead:
 		return "STRUCT_FIELD_HEAD"
@@ -231,6 +370,37 @@ func (t opType) String() string {
 	case opStructFieldHeadBool:
 		return "STRUCT_FIELD_HEAD_BOOL"
 
+	case opStructFieldHeadIndent:
+		return "STRUCT_FIELD_HEAD_INDENT"
+	case opStructFieldHeadIntIndent:
+		return "STRUCT_FIELD_HEAD_INT_INDENT"
+	case opStructFieldHeadInt8Indent:
+		return "STRUCT_FIELD_HEAD_INT8_INDENT"
+	case opStructFieldHeadInt16Indent:
+		return "STRUCT_FIELD_HEAD_INT16_INDENT"
+	case opStructFieldHeadInt32Indent:
+		return "STRUCT_FIELD_HEAD_INT32_INDENT"
+	case opStructFieldHeadInt64Indent:
+		return "STRUCT_FIELD_HEAD_INT64_INDENT"
+	case opStructFieldHeadUintIndent:
+		return "STRUCT_FIELD_HEAD_UINT_INDENT"
+	case opStructFieldHeadUint8Indent:
+		return "STRUCT_FIELD_HEAD_UINT8_INDENT"
+	case opStructFieldHeadUint16Indent:
+		return "STRUCT_FIELD_HEAD_UINT16_INDENT"
+	case opStructFieldHeadUint32Indent:
+		return "STRUCT_FIELD_HEAD_UINT32_INDENT"
+	case opStructFieldHeadUint64Indent:
+		return "STRUCT_FIELD_HEAD_UINT64_INDENT"
+	case opStructFieldHeadFloat32Indent:
+		return "STRUCT_FIELD_HEAD_FLOAT32_INDENT"
+	case opStructFieldHeadFloat64Indent:
+		return "STRUCT_FIELD_HEAD_FLOAT64_INDENT"
+	case opStructFieldHeadStringIndent:
+		return "STRUCT_FIELD_HEAD_STRING_INDENT"
+	case opStructFieldHeadBoolIndent:
+		return "STRUCT_FIELD_HEAD_BOOL_INDENT"
+
 	case opStructFieldHeadOmitEmpty:
 		return "STRUCT_FIELD_HEAD_OMIT_EMPTY"
 	case opStructFieldHeadIntOmitEmpty:
@@ -261,6 +431,37 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_HEAD_STRING_OMIT_EMPTY"
 	case opStructFieldHeadBoolOmitEmpty:
 		return "STRUCT_FIELD_HEAD_BOOL_OMIT_EMPTY"
+
+	case opStructFieldHeadOmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadIntOmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_INT_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadInt8OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_INT8_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadInt16OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_INT16_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadInt32OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_INT32_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadInt64OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_INT64_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadUintOmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_UINT_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadUint8OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_UINT8_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadUint16OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_UINT16_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadUint32OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_UINT32_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadUint64OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_UINT64_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadFloat32OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_FLOAT32_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadFloat64OmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_FLOAT64_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadStringOmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_STRING_OMIT_EMPTY_INDENT"
+	case opStructFieldHeadBoolOmitEmptyIndent:
+		return "STRUCT_FIELD_HEAD_BOOL_OMIT_EMPTY_INDENT"
 
 	case opStructFieldPtrHead:
 		return "STRUCT_FIELD_PTR_HEAD"
@@ -293,6 +494,37 @@ func (t opType) String() string {
 	case opStructFieldPtrHeadBool:
 		return "STRUCT_FIELD_PTR_HEAD_BOOL"
 
+	case opStructFieldPtrHeadIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INDENT"
+	case opStructFieldPtrHeadIntIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT_INDENT"
+	case opStructFieldPtrHeadInt8Indent:
+		return "STRUCT_FIELD_PTR_HEAD_INT8_INDENT"
+	case opStructFieldPtrHeadInt16Indent:
+		return "STRUCT_FIELD_PTR_HEAD_INT16_INDENT"
+	case opStructFieldPtrHeadInt32Indent:
+		return "STRUCT_FIELD_PTR_HEAD_INT32_INDENT"
+	case opStructFieldPtrHeadInt64Indent:
+		return "STRUCT_FIELD_PTR_HEAD_INT64_INDENT"
+	case opStructFieldPtrHeadUintIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT_INDENT"
+	case opStructFieldPtrHeadUint8Indent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT8_INDENT"
+	case opStructFieldPtrHeadUint16Indent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT16_INDENT"
+	case opStructFieldPtrHeadUint32Indent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT32_INDENT"
+	case opStructFieldPtrHeadUint64Indent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT64_INDENT"
+	case opStructFieldPtrHeadFloat32Indent:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT32_INDENT"
+	case opStructFieldPtrHeadFloat64Indent:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT64_INDENT"
+	case opStructFieldPtrHeadStringIndent:
+		return "STRUCT_FIELD_PTR_HEAD_STRING_INDENT"
+	case opStructFieldPtrHeadBoolIndent:
+		return "STRUCT_FIELD_PTR_HEAD_BOOL_INDENT"
+
 	case opStructFieldPtrHeadOmitEmpty:
 		return "STRUCT_FIELD_PTR_HEAD_OMIT_EMPTY"
 	case opStructFieldPtrHeadIntOmitEmpty:
@@ -323,6 +555,37 @@ func (t opType) String() string {
 		return "STRUCT_FIELD_PTR_HEAD_STRING_OMIT_EMPTY"
 	case opStructFieldPtrHeadBoolOmitEmpty:
 		return "STRUCT_FIELD_PTR_HEAD_BOOL_OMIT_EMPTY"
+
+	case opStructFieldPtrHeadOmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadIntOmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadInt8OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT8_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadInt16OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT16_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadInt32OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT32_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadInt64OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_INT64_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadUintOmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadUint8OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT8_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadUint16OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT16_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadUint32OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT32_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadUint64OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_UINT64_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadFloat32OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT32_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadFloat64OmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_FLOAT64_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadStringOmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_STRING_OMIT_EMPTY_INDENT"
+	case opStructFieldPtrHeadBoolOmitEmptyIndent:
+		return "STRUCT_FIELD_PTR_HEAD_BOOL_OMIT_EMPTY_INDENT"
 
 	case opStructField:
 		return "STRUCT_FIELD"
@@ -355,6 +618,37 @@ func (t opType) String() string {
 	case opStructFieldBool:
 		return "STRUCT_FIELD_BOOL"
 
+	case opStructFieldIndent:
+		return "STRUCT_FIELD_INDENT"
+	case opStructFieldIntIndent:
+		return "STRUCT_FIELD_INT_INDENT"
+	case opStructFieldInt8Indent:
+		return "STRUCT_FIELD_INT8_INDENT"
+	case opStructFieldInt16Indent:
+		return "STRUCT_FIELD_INT16_INDENT"
+	case opStructFieldInt32Indent:
+		return "STRUCT_FIELD_INT32_INDENT"
+	case opStructFieldInt64Indent:
+		return "STRUCT_FIELD_INT64_INDENT"
+	case opStructFieldUintIndent:
+		return "STRUCT_FIELD_UINT_INDENT"
+	case opStructFieldUint8Indent:
+		return "STRUCT_FIELD_UINT8_INDENT"
+	case opStructFieldUint16Indent:
+		return "STRUCT_FIELD_UINT16_INDENT"
+	case opStructFieldUint32Indent:
+		return "STRUCT_FIELD_UINT32_INDENT"
+	case opStructFieldUint64Indent:
+		return "STRUCT_FIELD_UINT64_INDENT"
+	case opStructFieldFloat32Indent:
+		return "STRUCT_FIELD_FLOAT32_INDENT"
+	case opStructFieldFloat64Indent:
+		return "STRUCT_FIELD_FLOAT64_INDENT"
+	case opStructFieldStringIndent:
+		return "STRUCT_FIELD_STRING_INDENT"
+	case opStructFieldBoolIndent:
+		return "STRUCT_FIELD_BOOL_INDENT"
+
 	case opStructFieldOmitEmpty:
 		return "STRUCT_FIELD_OMIT_EMPTY"
 	case opStructFieldIntOmitEmpty:
@@ -386,35 +680,71 @@ func (t opType) String() string {
 	case opStructFieldBoolOmitEmpty:
 		return "STRUCT_FIELD_BOOL_OMIT_EMPTY"
 
+	case opStructFieldOmitEmptyIndent:
+		return "STRUCT_FIELD_OMIT_EMPTY_INDENT"
+	case opStructFieldIntOmitEmptyIndent:
+		return "STRUCT_FIELD_INT_OMIT_EMPTY_INDENT"
+	case opStructFieldInt8OmitEmptyIndent:
+		return "STRUCT_FIELD_INT8_OMIT_EMPTY_INDENT"
+	case opStructFieldInt16OmitEmptyIndent:
+		return "STRUCT_FIELD_INT16_OMIT_EMPTY_INDENT"
+	case opStructFieldInt32OmitEmptyIndent:
+		return "STRUCT_FIELD_INT32_OMIT_EMPTY_INDENT"
+	case opStructFieldInt64OmitEmptyIndent:
+		return "STRUCT_FIELD_INT64_OMIT_EMPTY_INDENT"
+	case opStructFieldUintOmitEmptyIndent:
+		return "STRUCT_FIELD_UINT_OMIT_EMPTY_INDENT"
+	case opStructFieldUint8OmitEmptyIndent:
+		return "STRUCT_FIELD_UINT8_OMIT_EMPTY_INDENT"
+	case opStructFieldUint16OmitEmptyIndent:
+		return "STRUCT_FIELD_UINT16_OMIT_EMPTY_INDENT"
+	case opStructFieldUint32OmitEmptyIndent:
+		return "STRUCT_FIELD_UINT32_OMIT_EMPTY_INDENT"
+	case opStructFieldUint64OmitEmptyIndent:
+		return "STRUCT_FIELD_UINT64_OMIT_EMPTY_INDENT"
+	case opStructFieldFloat32OmitEmptyIndent:
+		return "STRUCT_FIELD_FLOAT32_OMIT_EMPTY_INDENT"
+	case opStructFieldFloat64OmitEmptyIndent:
+		return "STRUCT_FIELD_FLOAT64_OMIT_EMPTY_INDENT"
+	case opStructFieldStringOmitEmptyIndent:
+		return "STRUCT_FIELD_STRING_OMIT_EMPTY_INDENT"
+	case opStructFieldBoolOmitEmptyIndent:
+		return "STRUCT_FIELD_BOOL_OMIT_EMPTY_INDENT"
+
 	case opStructEnd:
 		return "STRUCT_END"
+	case opStructEndIndent:
+		return "STRUCT_END_INDENT"
+
 	}
 	return ""
 }
 
 type opcodeHeader struct {
-	op   opType
-	typ  *rtype
-	ptr  uintptr
-	next *opcode
+	op     opType
+	typ    *rtype
+	ptr    uintptr
+	indent int
+	next   *opcode
 }
 
 type opcode struct {
 	*opcodeHeader
 }
 
-func newOpCode(op opType, typ *rtype, next *opcode) *opcode {
+func newOpCode(op opType, typ *rtype, indent int, next *opcode) *opcode {
 	return &opcode{
 		opcodeHeader: &opcodeHeader{
-			op:   op,
-			typ:  typ,
-			next: next,
+			op:     op,
+			typ:    typ,
+			indent: indent,
+			next:   next,
 		},
 	}
 }
 
-func newEndOp() *opcode {
-	return newOpCode(opEnd, nil, nil)
+func newEndOp(indent int) *opcode {
+	return newOpCode(opEnd, nil, indent, nil)
 }
 
 func (c *opcode) beforeLastCode() *opcode {
@@ -422,11 +752,11 @@ func (c *opcode) beforeLastCode() *opcode {
 	for {
 		var nextCode *opcode
 		switch code.op {
-		case opArrayElem:
+		case opArrayElem, opArrayElemIndent:
 			nextCode = code.toArrayElemCode().end
-		case opSliceElem:
+		case opSliceElem, opSliceElemIndent:
 			nextCode = code.toSliceElemCode().end
-		case opMapKey:
+		case opMapKey, opMapKeyIndent:
 			nextCode = code.toMapKeyCode().end
 		default:
 			nextCode = code.next
@@ -442,13 +772,14 @@ func (c *opcode) beforeLastCode() *opcode {
 func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
-		codes = append(codes, fmt.Sprintf("%s", code.op))
+		indent := strings.Repeat(" ", code.indent)
+		codes = append(codes, fmt.Sprintf("%s%s", indent, code.op))
 		switch code.op {
-		case opArrayElem:
+		case opArrayElem, opArrayElemIndent:
 			code = code.toArrayElemCode().end
-		case opSliceElem:
+		case opSliceElem, opSliceElemIndent:
 			code = code.toSliceElemCode().end
-		case opMapKey:
+		case opMapKey, opMapKeyIndent:
 			code = code.toMapKeyCode().end
 		default:
 			code = code.next
@@ -495,10 +826,11 @@ type sliceHeaderCode struct {
 	end  *opcode
 }
 
-func newSliceHeaderCode() *sliceHeaderCode {
+func newSliceHeaderCode(indent int) *sliceHeaderCode {
 	return &sliceHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op: opSliceHead,
+			op:     opSliceHead,
+			indent: indent,
 		},
 	}
 }
@@ -525,10 +857,11 @@ type arrayHeaderCode struct {
 	end  *opcode
 }
 
-func newArrayHeaderCode(alen int) *arrayHeaderCode {
+func newArrayHeaderCode(indent, alen int) *arrayHeaderCode {
 	return &arrayHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op: opArrayHead,
+			op:     opArrayHead,
+			indent: indent,
 		},
 		len: uintptr(alen),
 	}
@@ -580,27 +913,30 @@ func (c *mapValueCode) set(iter unsafe.Pointer) {
 	c.iter = iter
 }
 
-func newMapHeaderCode(typ *rtype) *mapHeaderCode {
+func newMapHeaderCode(typ *rtype, indent int) *mapHeaderCode {
 	return &mapHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op:  opMapHead,
-			typ: typ,
+			op:     opMapHead,
+			typ:    typ,
+			indent: indent,
 		},
 	}
 }
 
-func newMapKeyCode() *mapKeyCode {
+func newMapKeyCode(indent int) *mapKeyCode {
 	return &mapKeyCode{
 		opcodeHeader: &opcodeHeader{
-			op: opMapKey,
+			op:     opMapKey,
+			indent: indent,
 		},
 	}
 }
 
-func newMapValueCode() *mapValueCode {
+func newMapValueCode(indent int) *mapValueCode {
 	return &mapValueCode{
 		opcodeHeader: &opcodeHeader{
-			op: opMapValue,
+			op:     opMapValue,
+			indent: indent,
 		},
 	}
 }

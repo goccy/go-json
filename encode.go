@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"strconv"
@@ -10,9 +11,13 @@ import (
 
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
-	w    io.Writer
-	buf  []byte
-	pool sync.Pool
+	w             io.Writer
+	buf           []byte
+	pool          sync.Pool
+	enabledIndent bool
+	prefix        []byte
+	indentStr     []byte
+	indent        int
 }
 
 const (
@@ -23,14 +28,19 @@ type opcodeMap struct {
 	sync.Map
 }
 
-func (m *opcodeMap) Get(k *rtype) *opcode {
+type opcodeSet struct {
+	codeIndent *opcode
+	code       *opcode
+}
+
+func (m *opcodeMap) get(k *rtype) *opcodeSet {
 	if v, ok := m.Load(k); ok {
-		return v.(*opcode)
+		return v.(*opcodeSet)
 	}
 	return nil
 }
 
-func (m *opcodeMap) Set(k *rtype, op *opcode) {
+func (m *opcodeMap) set(k *rtype, op *opcodeSet) {
 	m.Store(k, op)
 }
 
@@ -55,6 +65,7 @@ func init() {
 func NewEncoder(w io.Writer) *Encoder {
 	enc := encPool.Get().(*Encoder)
 	enc.w = w
+	enc.indent = 0
 	enc.reset()
 	return enc
 }
@@ -72,15 +83,6 @@ func (e *Encoder) Encode(v interface{}) error {
 	return nil
 }
 
-func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
-	if err := e.encode(v); err != nil {
-		return nil, err
-	}
-	copied := make([]byte, len(e.buf))
-	copy(copied, e.buf)
-	return copied, nil
-}
-
 // SetEscapeHTML specifies whether problematic HTML characters should be escaped inside JSON quoted strings.
 // The default behavior is to escape &, <, and > to \u0026, \u003c, and \u003e to avoid certain safety problems that can arise when embedding JSON in HTML.
 //
@@ -92,7 +94,13 @@ func (e *Encoder) SetEscapeHTML(on bool) {
 // SetIndent instructs the encoder to format each subsequent encoded value as if indented by the package-level function Indent(dst, src, prefix, indent).
 // Calling SetIndent("", "") disables indentation.
 func (e *Encoder) SetIndent(prefix, indent string) {
-
+	if prefix == "" && indent == "" {
+		e.enabledIndent = false
+		return
+	}
+	e.prefix = []byte(prefix)
+	e.indentStr = []byte(indent)
+	e.enabledIndent = true
 }
 
 func (e *Encoder) release() {
@@ -102,6 +110,63 @@ func (e *Encoder) release() {
 
 func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
+}
+
+func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
+	if err := e.encode(v); err != nil {
+		return nil, err
+	}
+	if e.enabledIndent {
+		last := len(e.buf) - 1
+		if e.buf[last] == '\n' {
+			last--
+		}
+		length := last + 1
+		copied := make([]byte, length)
+		copy(copied, e.buf[0:length])
+		return copied, nil
+	}
+	copied := make([]byte, len(e.buf))
+	copy(copied, e.buf)
+	return copied, nil
+}
+
+func (e *Encoder) encode(v interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	typ := header.typ
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if codeSet := cachedOpcode.get(typ); codeSet != nil {
+		var code *opcode
+		if e.enabledIndent {
+			code = codeSet.codeIndent
+		} else {
+			code = codeSet.code
+		}
+		p := uintptr(header.ptr)
+		code.ptr = p
+		if err := e.run(code); err != nil {
+			return err
+		}
+		return nil
+	}
+	codeIndent, err := e.compile(typ, true)
+	if err != nil {
+		return err
+	}
+	code, err := e.compile(typ, false)
+	if err != nil {
+		return err
+	}
+	codeSet := &opcodeSet{codeIndent: codeIndent, code: code}
+	cachedOpcode.set(typ, codeSet)
+	p := uintptr(header.ptr)
+	code.ptr = p
+	if e.enabledIndent {
+		return e.run(codeIndent)
+	}
+	return e.run(code)
 }
 
 func (e *Encoder) encodeInt(v int) {
@@ -169,26 +234,7 @@ func (e *Encoder) encodeByte(b byte) {
 	e.buf = append(e.buf, b)
 }
 
-func (e *Encoder) encode(v interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	typ := header.typ
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	if code := cachedOpcode.Get(typ); code != nil {
-		p := uintptr(header.ptr)
-		code.ptr = p
-		if err := e.run(code); err != nil {
-			return err
-		}
-		return nil
-	}
-	code, err := e.compile(typ)
-	if err != nil {
-		return err
-	}
-	cachedOpcode.Set(typ, code)
-	p := uintptr(header.ptr)
-	code.ptr = p
-	return e.run(code)
+func (e *Encoder) encodeIndent(indent int) {
+	e.buf = append(e.buf, e.prefix...)
+	e.buf = append(e.buf, bytes.Repeat(e.indentStr, indent)...)
 }

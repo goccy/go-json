@@ -34,14 +34,14 @@ type opcodeSet struct {
 	code       *opcode
 }
 
-func (m *opcodeMap) get(k *rtype) *opcodeSet {
+func (m *opcodeMap) get(k uintptr) *opcodeSet {
 	if v, ok := m.Load(k); ok {
 		return v.(*opcodeSet)
 	}
 	return nil
 }
 
-func (m *opcodeMap) set(k *rtype, op *opcodeSet) {
+func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
 	m.Store(k, op)
 }
 
@@ -140,7 +140,8 @@ func (e *Encoder) encode(v interface{}) error {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
-	if codeSet := cachedOpcode.get(typ); codeSet != nil {
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
 		var code *opcode
 		if e.enabledIndent {
 			code = codeSet.codeIndent
@@ -154,16 +155,20 @@ func (e *Encoder) encode(v interface{}) error {
 		}
 		return nil
 	}
-	codeIndent, err := e.compile(typ, true)
+
+	// to noescape trick for header.typ ( reflect.*rtype )
+	copiedType := (*rtype)(unsafe.Pointer(typeptr))
+
+	codeIndent, err := e.compile(copiedType, true)
 	if err != nil {
 		return err
 	}
-	code, err := e.compile(typ, false)
+	code, err := e.compile(copiedType, false)
 	if err != nil {
 		return err
 	}
 	codeSet := &opcodeSet{codeIndent: codeIndent, code: code}
-	cachedOpcode.set(typ, codeSet)
+	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
 	code.ptr = p
 	if e.enabledIndent {

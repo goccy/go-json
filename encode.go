@@ -11,13 +11,14 @@ import (
 
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
-	w             io.Writer
-	buf           []byte
-	pool          sync.Pool
-	enabledIndent bool
-	prefix        []byte
-	indentStr     []byte
-	indent        int
+	w                 io.Writer
+	buf               []byte
+	pool              sync.Pool
+	enabledIndent     bool
+	enabledHTMLEscape bool
+	prefix            []byte
+	indentStr         []byte
+	indent            int
 }
 
 const (
@@ -65,7 +66,6 @@ func init() {
 func NewEncoder(w io.Writer) *Encoder {
 	enc := encPool.Get().(*Encoder)
 	enc.w = w
-	enc.indent = 0
 	enc.reset()
 	return enc
 }
@@ -88,7 +88,7 @@ func (e *Encoder) Encode(v interface{}) error {
 //
 // In non-HTML settings where the escaping interferes with the readability of the output, SetEscapeHTML(false) disables this behavior.
 func (e *Encoder) SetEscapeHTML(on bool) {
-
+	e.enabledHTMLEscape = on
 }
 
 // SetIndent instructs the encoder to format each subsequent encoded value as if indented by the package-level function Indent(dst, src, prefix, indent).
@@ -110,6 +110,9 @@ func (e *Encoder) release() {
 
 func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
+	e.indent = 0
+	e.enabledHTMLEscape = true
+	e.enabledIndent = false
 }
 
 func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
@@ -225,9 +228,16 @@ func (e *Encoder) encodeBytes(b []byte) {
 	e.buf = append(e.buf, b...)
 }
 
+func (e *Encoder) encodeNull() {
+	e.buf = append(e.buf, 'n', 'u', 'l', 'l')
+}
+
 func (e *Encoder) encodeString(s string) {
-	b := *(*[]byte)(unsafe.Pointer(&s))
-	e.buf = append(e.buf, b...)
+	if e.enabledHTMLEscape {
+		e.encodeEscapedString(s)
+	} else {
+		e.encodeNoEscapedString(s)
+	}
 }
 
 func (e *Encoder) encodeByte(b byte) {

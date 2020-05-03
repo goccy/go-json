@@ -49,7 +49,7 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeFloat64(e.ptrToFloat64(code.ptr))
 			code = code.next
 		case opString:
-			e.encodeEscapedString(e.ptrToString(code.ptr))
+			e.encodeString(e.ptrToString(code.ptr))
 			code = code.next
 		case opBool:
 			e.encodeBool(e.ptrToBool(code.ptr))
@@ -78,7 +78,7 @@ func (e *Encoder) run(code *opcode) error {
 			p := code.ptr
 			headerCode := code.toSliceHeaderCode()
 			if p == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = headerCode.end.next
 			} else {
 				e.encodeByte('[')
@@ -108,7 +108,7 @@ func (e *Encoder) run(code *opcode) error {
 			headerCode := code.toSliceHeaderCode()
 			if p == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = headerCode.end.next
 			} else {
 				e.encodeBytes([]byte{'[', '\n'})
@@ -143,7 +143,7 @@ func (e *Encoder) run(code *opcode) error {
 			p := code.ptr
 			headerCode := code.toArrayHeaderCode()
 			if p == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = headerCode.end.next
 			} else {
 				e.encodeByte('[')
@@ -172,7 +172,7 @@ func (e *Encoder) run(code *opcode) error {
 			headerCode := code.toArrayHeaderCode()
 			if p == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = headerCode.end.next
 			} else {
 				e.encodeBytes([]byte{'[', '\n'})
@@ -205,7 +205,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := code.ptr
 			mapHeadCode := code.toMapHeadCode()
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = mapHeadCode.end.next
 			} else {
 				e.encodeByte('{')
@@ -246,7 +246,7 @@ func (e *Encoder) run(code *opcode) error {
 			mapHeadCode := code.toMapHeadCode()
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = mapHeadCode.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -297,7 +297,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeByte('{')
@@ -313,7 +313,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -329,7 +329,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -345,7 +345,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -361,7 +361,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -377,7 +377,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -393,7 +393,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -409,7 +409,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -425,7 +425,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -441,7 +441,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -457,7 +457,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -473,7 +473,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -489,7 +489,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -505,12 +505,12 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeEscapedString(e.ptrToString(field.ptr + field.offset))
+				e.encodeString(e.ptrToString(field.ptr + field.offset))
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
@@ -521,7 +521,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeByte('{')
@@ -541,7 +541,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -561,7 +561,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -580,7 +580,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -599,7 +599,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -619,7 +619,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -639,7 +639,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -659,7 +659,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -679,7 +679,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -699,7 +699,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -719,7 +719,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -739,7 +739,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -759,7 +759,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -779,7 +779,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -799,7 +799,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -807,7 +807,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeIndent(code.indent + 1)
 				e.encodeBytes(field.key)
 				e.encodeByte(' ')
-				e.encodeEscapedString(e.ptrToString(field.ptr + field.offset))
+				e.encodeString(e.ptrToString(field.ptr + field.offset))
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
@@ -819,7 +819,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end
 			} else {
 				e.encodeIndent(code.indent)
@@ -840,7 +840,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -865,7 +865,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -890,7 +890,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -915,7 +915,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -940,7 +940,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -965,7 +965,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -990,7 +990,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1015,7 +1015,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1040,7 +1040,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1065,7 +1065,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1090,7 +1090,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1115,7 +1115,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1140,7 +1140,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1165,7 +1165,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1176,7 +1176,7 @@ func (e *Encoder) run(code *opcode) error {
 				} else {
 					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
-					e.encodeEscapedString(v)
+					e.encodeString(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
@@ -1190,7 +1190,7 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1217,7 +1217,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1244,7 +1244,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1271,7 +1271,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1298,7 +1298,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1325,7 +1325,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1352,7 +1352,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1379,7 +1379,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1406,7 +1406,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1433,7 +1433,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1460,7 +1460,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1487,7 +1487,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1514,7 +1514,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1541,7 +1541,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1568,7 +1568,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1580,7 +1580,7 @@ func (e *Encoder) run(code *opcode) error {
 					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeByte(' ')
-					e.encodeEscapedString(v)
+					e.encodeString(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
@@ -1595,7 +1595,7 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := field.ptr
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
-				e.encodeString("null")
+				e.encodeNull()
 				code = field.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1708,7 +1708,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			c.nextField.ptr = c.ptr
 			e.encodeBytes(c.key)
-			e.encodeEscapedString(e.ptrToString(c.ptr + c.offset))
+			e.encodeString(e.ptrToString(c.ptr + c.offset))
 			code = code.next
 		case opStructFieldBool:
 			e.encodeByte(',')
@@ -1841,7 +1841,7 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeIndent(c.indent)
 			e.encodeBytes(c.key)
 			e.encodeByte(' ')
-			e.encodeEscapedString(e.ptrToString(c.ptr + c.offset))
+			e.encodeString(e.ptrToString(c.ptr + c.offset))
 			code = code.next
 			c.nextField.ptr = c.ptr
 		case opStructFieldBoolIndent:
@@ -2019,7 +2019,7 @@ func (e *Encoder) run(code *opcode) error {
 					e.encodeByte(',')
 				}
 				e.encodeBytes(c.key)
-				e.encodeEscapedString(v)
+				e.encodeString(v)
 			}
 			code = code.next
 			code.ptr = c.ptr
@@ -2230,7 +2230,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeIndent(c.indent)
 				e.encodeBytes(c.key)
 				e.encodeByte(' ')
-				e.encodeEscapedString(v)
+				e.encodeString(v)
 			}
 			code = code.next
 			code.ptr = c.ptr

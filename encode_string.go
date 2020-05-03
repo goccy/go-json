@@ -305,3 +305,67 @@ func (e *Encoder) writeStringSlowPathWithHTMLEscaped(i int, s string, valLen int
 	}
 	e.buf = append(e.buf, '"')
 }
+
+func (e *Encoder) encodeNoEscapedString(s string) {
+	valLen := len(s)
+	e.buf = append(e.buf, '"')
+
+	// write string, the fast path, without utf8 and escape support
+	i := 0
+	for ; i < valLen; i++ {
+		c := s[i]
+		if c > 31 && c != '"' && c != '\\' {
+			e.buf = append(e.buf, c)
+		} else {
+			break
+		}
+	}
+	if i == valLen {
+		e.buf = append(e.buf, '"')
+		return
+	}
+	e.writeStringSlowPath(i, s, valLen)
+}
+
+func (e *Encoder) writeStringSlowPath(i int, s string, valLen int) {
+	start := i
+	// for the remaining parts, we process them char by char
+	for i < valLen {
+		if b := s[i]; b < utf8.RuneSelf {
+			if safeSet[b] {
+				i++
+				continue
+			}
+			if start < i {
+				e.buf = append(e.buf, s[start:i]...)
+			}
+			switch b {
+			case '\\', '"':
+				e.buf = append(e.buf, '\\', b)
+			case '\n':
+				e.buf = append(e.buf, '\\', 'n')
+			case '\r':
+				e.buf = append(e.buf, '\\', 'r')
+			case '\t':
+				e.buf = append(e.buf, '\\', 't')
+			default:
+				// This encodes bytes < 0x20 except for \t, \n and \r.
+				// If escapeHTML is set, it also escapes <, >, and &
+				// because they can lead to security holes when
+				// user-controlled strings are rendered into JSON
+				// and served to some browsers.
+				e.buf = append(e.buf, []byte(`\u00`)...)
+				e.buf = append(e.buf, hex[b>>4], hex[b&0xF])
+			}
+			i++
+			start = i
+			continue
+		}
+		i++
+		continue
+	}
+	if start < len(s) {
+		e.buf = append(e.buf, s[start:]...)
+	}
+	e.buf = append(e.buf, '"')
+}

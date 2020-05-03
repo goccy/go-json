@@ -5,7 +5,6 @@ import "bytes"
 func Marshal(v interface{}) ([]byte, error) {
 	var b *bytes.Buffer
 	enc := NewEncoder(b)
-	enc.SetIndent("", "")
 	bytes, err := enc.encodeForMarshal(v)
 	if err != nil {
 		enc.release()

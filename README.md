@@ -8,6 +8,57 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 
 WIP
 
+## API
+
+- [ ] `Compact`
+- [ ] `HTMLEscape`
+- [ ] `Indent`
+- [x] `Marshal`
+- [x] `MarshalIndent`
+- [x] `Unmarshal`
+- [ ] `Valid`
+- [x] `NewDecoder`
+- [x] `(*Decoder).Buffered`
+- [x] `(*Decoder).Decode`
+- [ ] `(*Decoder).DisallowUnknownFields`
+- [ ] `(*Decoder).InputOffset`
+- [ ] `(*Decoder).More`
+- [ ] `(*Decoder).Token`
+- [ ] `(*Decoder).UseNumber`
+- [ ] `Delim`
+- [ ] `(Delim).String`
+- [x] `NewEncoder`
+- [x] `(*Encoder).Encode`
+- [x] `(*Encoder).SetEscapeHTML`
+- [x] `(*Encoder).SetIndent`
+
+## Type
+
+### Encoder
+
+- [x] `int`, `int8`, `int16`, `int32`, `int64`
+- [x] `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- [x] `float32`, `float64`
+- [x] `string`
+- [x] `struct`
+- [x] `array`
+- [x] `slice`
+- [x] `map`
+- [x] `interface{}`
+- [x] `MarshalJSON`
+- [x] `MarshalText`
+
+### Decoder
+
+- [x] `int`, `int8`, `int16`, `int32`, `int64`
+- [x] `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- [x] `float32`, `float64`
+- [x] `string`
+- [x] `struct`
+- [x] `array`
+- [x] `slice`
+- [x] `map`
+
 # Benchmarks
 
 ```

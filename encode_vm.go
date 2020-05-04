@@ -74,6 +74,32 @@ func (e *Encoder) run(code *opcode) error {
 			c.ptr = uintptr(header.ptr)
 			c.beforeLastCode().next = code.next
 			code = c
+		case opMarshalJSON:
+			ptr := code.ptr
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			bytes, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return err
+			}
+			e.encodeBytes(bytes)
+			code = code.next
+			code.ptr = ptr
+		case opMarshalText:
+			ptr := code.ptr
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			bytes, err := v.(marshalText).MarshalText()
+			if err != nil {
+				return err
+			}
+			e.encodeBytes(bytes)
+			code = code.next
+			code.ptr = ptr
 		case opSliceHead:
 			p := code.ptr
 			headerCode := code.toSliceHeaderCode()

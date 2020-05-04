@@ -9,7 +9,24 @@ import (
 	"golang.org/x/xerrors"
 )
 
+func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
+	if typ.Implements(marshalJSONType) {
+		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+	} else if typ.Implements(marshalTextType) {
+		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+	}
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	return e.compile(typ, withIndent)
+}
+
 func (e *Encoder) compile(typ *rtype, withIndent bool) (*opcode, error) {
+	if typ.Implements(marshalJSONType) {
+		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+	} else if typ.Implements(marshalTextType) {
+		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+	}
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return e.compilePtr(typ, withIndent)

@@ -45,9 +45,15 @@ func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
 	m.Store(k, op)
 }
 
+type marshalText interface {
+	MarshalText() ([]byte, error)
+}
+
 var (
-	encPool      sync.Pool
-	cachedOpcode opcodeMap
+	encPool         sync.Pool
+	cachedOpcode    opcodeMap
+	marshalJSONType reflect.Type
+	marshalTextType reflect.Type
 )
 
 func init() {
@@ -60,6 +66,8 @@ func init() {
 		},
 	}
 	cachedOpcode = opcodeMap{}
+	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	marshalTextType = reflect.TypeOf((*marshalText)(nil)).Elem()
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -137,9 +145,7 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 func (e *Encoder) encode(v interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
+
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
 		var code *opcode
@@ -159,11 +165,11 @@ func (e *Encoder) encode(v interface{}) error {
 	// to noescape trick for header.typ ( reflect.*rtype )
 	copiedType := (*rtype)(unsafe.Pointer(typeptr))
 
-	codeIndent, err := e.compile(copiedType, true)
+	codeIndent, err := e.compileHead(copiedType, true)
 	if err != nil {
 		return err
 	}
-	code, err := e.compile(copiedType, false)
+	code, err := e.compileHead(copiedType, false)
 	if err != nil {
 		return err
 	}

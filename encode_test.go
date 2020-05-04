@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/goccy/go-json"
 )
@@ -203,6 +204,25 @@ func Test_Marshal(t *testing.T) {
 			assertErr(t, err)
 			assertEq(t, "map[string]interface{}", len(`{"a":1,"b":2.1,"c":{"A":10},"d":4}`), len(string(bytes)))
 		})
+	})
+}
+
+type marshalJSON struct{}
+
+func (*marshalJSON) MarshalJSON() ([]byte, error) {
+	return []byte(`1`), nil
+}
+
+func Test_MarshalJSON(t *testing.T) {
+	t.Run("*struct", func(t *testing.T) {
+		bytes, err := json.Marshal(&marshalJSON{})
+		assertErr(t, err)
+		assertEq(t, "MarshalJSON", "1", string(bytes))
+	})
+	t.Run("time", func(t *testing.T) {
+		bytes, err := json.Marshal(time.Time{})
+		assertErr(t, err)
+		assertEq(t, "MarshalJSON", `"0001-01-01T00:00:00Z"`, string(bytes))
 	})
 }
 

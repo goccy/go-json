@@ -27,6 +27,8 @@ const (
 	opBool
 	opInterface
 	opPtr
+	opMarshalJSON
+	opMarshalText
 
 	opSliceHead
 	opSliceElem
@@ -292,6 +294,10 @@ func (t opType) String() string {
 		return "INTERFACE"
 	case opPtr:
 		return "PTR"
+	case opMarshalJSON:
+		return "MARSHAL_JSON"
+	case opMarshalText:
+		return "MARSHAL_TEXT"
 
 	case opSliceHead:
 		return "SLICE_HEAD"

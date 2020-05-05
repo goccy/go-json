@@ -33,12 +33,10 @@ func (d *stringDecoder) decodeByte(ctx *context) ([]byte, error) {
 			cursor++
 			start := cursor
 			for ; cursor < buflen; cursor++ {
-				tk := buf[cursor]
-				if tk == '\\' {
+				switch buf[cursor] {
+				case '\\':
 					cursor++
-					continue
-				}
-				if tk == '"' {
+				case '"':
 					literal := buf[start:cursor]
 					cursor++
 					ctx.cursor = cursor

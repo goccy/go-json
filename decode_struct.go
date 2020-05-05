@@ -51,19 +51,18 @@ func (d *structDecoder) skipValue(ctx *context) error {
 		case '"':
 			cursor++
 			for ; cursor < buflen; cursor++ {
-				tk := buf[cursor]
-				if tk == '\\' {
+				switch buf[cursor] {
+				case '\\':
 					cursor++
-					continue
-				}
-				if tk == '"' {
+				case '"':
 					if bracketCount == 0 && braceCount == 0 {
 						ctx.cursor = cursor + 1
 						return nil
 					}
-					break
+					goto QUOTE_END
 				}
 			}
+		QUOTE_END:
 		}
 	}
 	return errors.New("unexpected error value")

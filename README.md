@@ -78,37 +78,37 @@ goarch: amd64
 ### SmallStruct
 
 ```
-Benchmark_Decode_SmallStruct_EncodingJson-12             1000000              1697 ns/op             280 B/op          3 allocs/op
-Benchmark_Decode_SmallStruct_JsonIter-12                 1000000              1292 ns/op             316 B/op         12 allocs/op
-Benchmark_Decode_SmallStruct_EasyJson-12                 2000000               626 ns/op             240 B/op          2 allocs/op
-Benchmark_Decode_SmallStruct_GoJay-12                    3000000               559 ns/op             256 B/op          2 allocs/op
-Benchmark_Decode_SmallStruct_GoJayUnsafe-12              3000000               523 ns/op             112 B/op          1 allocs/op
-Benchmark_Decode_SmallStruct_GoJson-12                   3000000               530 ns/op             256 B/op          2 allocs/op
-Benchmark_Decode_SmallStruct_GoJsonNoEscape-12           3000000               478 ns/op             144 B/op          1 allocs/op
+Benchmark_Decode_SmallStruct_EncodingJson-12             1000000              1734 ns/op             280 B/op          3 allocs/op
+Benchmark_Decode_SmallStruct_JsonIter-12                 1000000              1325 ns/op             316 B/op         12 allocs/op
+Benchmark_Decode_SmallStruct_EasyJson-12                 2000000               622 ns/op             240 B/op          2 allocs/op
+Benchmark_Decode_SmallStruct_GoJay-12                    3000000               564 ns/op             256 B/op          2 allocs/op
+Benchmark_Decode_SmallStruct_GoJayUnsafe-12              3000000               509 ns/op             112 B/op          1 allocs/op
+Benchmark_Decode_SmallStruct_GoJson-12                   3000000               553 ns/op             256 B/op          2 allocs/op
+Benchmark_Decode_SmallStruct_GoJsonNoEscape-12           3000000               503 ns/op             144 B/op          1 allocs/op
 ```
 
 ### MediumStruct
 
 ```
-Benchmark_Decode_MediumStruct_EncodingJson-12             100000             20865 ns/op             384 B/op         10 allocs/op
-Benchmark_Decode_MediumStruct_JsonIter-12                 200000             11459 ns/op            2985 B/op         81 allocs/op
-Benchmark_Decode_MediumStruct_EasyJson-12                 200000              6521 ns/op             232 B/op          6 allocs/op
-Benchmark_Decode_MediumStruct_GoJay-12                    500000              3503 ns/op            2449 B/op          8 allocs/op
-Benchmark_Decode_MediumStruct_GoJayUnsafe-12              500000              3226 ns/op             144 B/op          7 allocs/op
-Benchmark_Decode_MediumStruct_GoJson-12                   500000              3648 ns/op            2457 B/op          8 allocs/op
-Benchmark_Decode_MediumStruct_GoJsonNoEscape-12           500000              3606 ns/op            2425 B/op          7 allocs/op
+Benchmark_Decode_MediumStruct_EncodingJson-12             100000             20762 ns/op             384 B/op         10 allocs/op
+Benchmark_Decode_MediumStruct_JsonIter-12                 200000             10658 ns/op            2985 B/op         81 allocs/op
+Benchmark_Decode_MediumStruct_EasyJson-12                 300000              5781 ns/op             232 B/op          6 allocs/op
+Benchmark_Decode_MediumStruct_GoJay-12                    500000              3428 ns/op            2449 B/op          8 allocs/op
+Benchmark_Decode_MediumStruct_GoJayUnsafe-12              500000              3111 ns/op             144 B/op          7 allocs/op
+Benchmark_Decode_MediumStruct_GoJson-12                   500000              2973 ns/op            2457 B/op          8 allocs/op
+Benchmark_Decode_MediumStruct_GoJsonNoEscape-12           500000              2945 ns/op            2425 B/op          7 allocs/op
 ```
 
 ### LargeStruct
 
 ```
-Benchmark_Decode_LargeStruct_EncodingJson-12                5000            293675 ns/op             312 B/op          6 allocs/op
-Benchmark_Decode_LargeStruct_JsonIter-12                   10000            182299 ns/op           41737 B/op       1137 allocs/op
-Benchmark_Decode_LargeStruct_EasyJson-12                   10000            107157 ns/op             160 B/op          2 allocs/op
-Benchmark_Decode_LargeStruct_GoJay-12                      50000             36518 ns/op           31244 B/op         77 allocs/op
-Benchmark_Decode_LargeStruct_GoJayUnsafe-12                50000             33196 ns/op            2561 B/op         76 allocs/op
-Benchmark_Decode_LargeStruct_GoJson-12                     30000             56653 ns/op           31228 B/op         75 allocs/op
-Benchmark_Decode_LargeStruct_GoJsonNoEscape-12             30000             56049 ns/op           31196 B/op         74 allocs/op
+Benchmark_Decode_LargeStruct_EncodingJson-12                5000            281306 ns/op             312 B/op          6 allocs/op
+Benchmark_Decode_LargeStruct_JsonIter-12                   10000            158583 ns/op           41738 B/op       1137 allocs/op
+Benchmark_Decode_LargeStruct_EasyJson-12                   20000             85164 ns/op             160 B/op          2 allocs/op
+Benchmark_Decode_LargeStruct_GoJay-12                      50000             36703 ns/op           31244 B/op         77 allocs/op
+Benchmark_Decode_LargeStruct_GoJayUnsafe-12                50000             33470 ns/op            2561 B/op         76 allocs/op
+Benchmark_Decode_LargeStruct_GoJson-12                     30000             46755 ns/op           31228 B/op         75 allocs/op
+Benchmark_Decode_LargeStruct_GoJsonNoEscape-12             30000             47348 ns/op           31196 B/op         74 allocs/op
 ```
 
 ## Encode

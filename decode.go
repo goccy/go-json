@@ -35,14 +35,14 @@ type decoderMap struct {
 	sync.Map
 }
 
-func (m *decoderMap) Get(k string) decoder {
+func (m *decoderMap) get(k uintptr) decoder {
 	if v, ok := m.Load(k); ok {
 		return v.(decoder)
 	}
 	return nil
 }
 
-func (m *decoderMap) Set(k string, dec decoder) {
+func (m *decoderMap) set(k uintptr, dec decoder) {
 	m.Store(k, dec)
 }
 
@@ -79,16 +79,14 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	if typ.Kind() != reflect.Ptr {
 		return ErrDecodePointer
 	}
-	name := typ.String()
-	dec := cachedDecoder.Get(name)
+	typeptr := uintptr(unsafe.Pointer(typ))
+	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
 		compiledDec, err := d.compile(typ.Elem())
 		if err != nil {
 			return err
 		}
-		if name != "" {
-			cachedDecoder.Set(name, compiledDec)
-		}
+		cachedDecoder.set(typeptr, compiledDec)
 		dec = compiledDec
 	}
 	ptr := uintptr(header.ptr)
@@ -124,16 +122,14 @@ func (d *Decoder) Decode(v interface{}) error {
 	if typ.Kind() != reflect.Ptr {
 		return ErrDecodePointer
 	}
-	name := typ.String()
-	dec := cachedDecoder.Get(name)
+	typeptr := uintptr(unsafe.Pointer(typ))
+	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
 		compiledDec, err := d.compile(typ.Elem())
 		if err != nil {
 			return err
 		}
-		if name != "" {
-			cachedDecoder.Set(name, compiledDec)
-		}
+		cachedDecoder.set(typeptr, compiledDec)
 		dec = compiledDec
 	}
 	ptr := uintptr(header.ptr)

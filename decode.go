@@ -23,7 +23,7 @@ type Token interface{}
 type Delim rune
 
 type decoder interface {
-	decode(*context, uintptr) error
+	decode([]byte, int, uintptr) (int, error)
 }
 
 type Decoder struct {
@@ -47,17 +47,11 @@ func (m *decoderMap) set(k uintptr, dec decoder) {
 }
 
 var (
-	ctxPool       sync.Pool
 	cachedDecoder decoderMap
 )
 
 func init() {
 	cachedDecoder = decoderMap{}
-	ctxPool = sync.Pool{
-		New: func() interface{} {
-			return newContext()
-		},
-	}
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -90,13 +84,9 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 		dec = compiledDec
 	}
 	ptr := uintptr(header.ptr)
-	ctx := ctxPool.Get().(*context)
-	ctx.setBuf(src)
-	if err := dec.decode(ctx, ptr); err != nil {
-		ctxPool.Put(ctx)
+	if _, err := dec.decode(src, 0, ptr); err != nil {
 		return err
 	}
-	ctxPool.Put(ctx)
 	return nil
 }
 
@@ -133,11 +123,6 @@ func (d *Decoder) Decode(v interface{}) error {
 		dec = compiledDec
 	}
 	ptr := uintptr(header.ptr)
-	ctx := ctxPool.Get().(*context)
-	defer ctxPool.Put(ctx)
-	d.buffered = func() io.Reader {
-		return bytes.NewReader(ctx.buf[ctx.cursor:])
-	}
 	for {
 		buf := make([]byte, 1024)
 		n, err := d.r.Read(buf)
@@ -147,9 +132,12 @@ func (d *Decoder) Decode(v interface{}) error {
 		if err != nil {
 			return err
 		}
-		ctx.setBuf(buf[:n])
-		if err := dec.decode(ctx, ptr); err != nil {
+		cursor, err := dec.decode(buf[:n], 0, ptr)
+		if err != nil {
 			return err
+		}
+		d.buffered = func() io.Reader {
+			return bytes.NewReader(buf[cursor:])
 		}
 	}
 	return nil

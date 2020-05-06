@@ -14,10 +14,8 @@ func newFloatDecoder(op func(uintptr, float64)) *floatDecoder {
 	return &floatDecoder{op: op}
 }
 
-func (d *floatDecoder) decodeByte(ctx *context) ([]byte, error) {
-	buf := ctx.buf
-	cursor := ctx.cursor
-	buflen := ctx.buflen
+func (d *floatDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
+	buflen := len(buf)
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -32,24 +30,24 @@ func (d *floatDecoder) decodeByte(ctx *context) ([]byte, error) {
 				}
 				break
 			}
-			num := ctx.buf[start:cursor]
-			ctx.cursor = cursor
-			return num, nil
+			num := buf[start:cursor]
+			return num, cursor, nil
 		}
 	}
-	return nil, errors.New("unexpected error number")
+	return nil, 0, errors.New("unexpected error number")
 }
 
-func (d *floatDecoder) decode(ctx *context, p uintptr) error {
-	bytes, err := d.decodeByte(ctx)
+func (d *floatDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	cursor = c
 	s := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	d.op(p, f64)
-	return nil
+	return cursor, nil
 }

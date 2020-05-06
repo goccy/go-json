@@ -26,57 +26,57 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setKey(ctx *context, key interface{}) error {
+func (d *mapDecoder) setKey(buf []byte, cursor int, key interface{}) (int, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.keyDecoder.decode(ctx, uintptr(header.ptr))
+	return d.keyDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
-func (d *mapDecoder) setValue(ctx *context, key interface{}) error {
+func (d *mapDecoder) setValue(buf []byte, cursor int, key interface{}) (int, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.valueDecoder.decode(ctx, uintptr(header.ptr))
+	return d.valueDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
-func (d *mapDecoder) decode(ctx *context, p uintptr) error {
-	ctx.skipWhiteSpace()
-	buf := ctx.buf
-	buflen := ctx.buflen
-	cursor := ctx.cursor
+func (d *mapDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	buflen := len(buf)
 	if buflen < 2 {
-		return errors.New("unexpected error {}")
+		return 0, errors.New("unexpected error {}")
 	}
 	if buf[cursor] != '{' {
-		return errors.New("unexpected error {")
+		return 0, errors.New("unexpected error {")
 	}
 	cursor++
 	mapValue := makemap(d.mapType, 0)
 	for ; cursor < buflen; cursor++ {
-		ctx.cursor = cursor
 		var key interface{}
-		if err := d.setKey(ctx, &key); err != nil {
-			return err
+		keyCursor, err := d.setKey(buf, cursor, &key)
+		if err != nil {
+			return 0, err
 		}
-		cursor = ctx.skipWhiteSpace()
+		cursor = keyCursor
+		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] != ':' {
-			return errors.New("unexpected error invalid delimiter for object")
+			return 0, errors.New("unexpected error invalid delimiter for object")
 		}
 		cursor++
 		if cursor >= buflen {
-			return errors.New("unexpected error missing value")
+			return 0, errors.New("unexpected error missing value")
 		}
-		ctx.cursor = cursor
 		var value interface{}
-		if err := d.setValue(ctx, &value); err != nil {
-			return err
+		valueCursor, err := d.setValue(buf, cursor, &value)
+		if err != nil {
+			return 0, err
 		}
+		cursor = valueCursor
 		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
-		cursor = ctx.skipWhiteSpace()
+		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
-			return nil
+			return cursor, nil
 		}
 		if buf[cursor] != ',' {
-			return errors.New("unexpected error ,")
+			return 0, errors.New("unexpected error ,")
 		}
 	}
-	return nil
+	return cursor, nil
 }

@@ -12,19 +12,18 @@ func newStringDecoder() *stringDecoder {
 	return &stringDecoder{}
 }
 
-func (d *stringDecoder) decode(ctx *context, p uintptr) error {
-	bytes, err := d.decodeByte(ctx)
+func (d *stringDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	cursor = c
 	*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&bytes))
-	return nil
+	return cursor, nil
 }
 
-func (d *stringDecoder) decodeByte(ctx *context) ([]byte, error) {
-	buf := ctx.buf
-	buflen := ctx.buflen
-	cursor := ctx.cursor
+func (d *stringDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
+	buflen := len(buf)
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -39,27 +38,26 @@ func (d *stringDecoder) decodeByte(ctx *context) ([]byte, error) {
 				case '"':
 					literal := buf[start:cursor]
 					cursor++
-					ctx.cursor = cursor
-					return literal, nil
+					return literal, cursor, nil
 				}
 			}
-			return nil, errors.New("unexpected error string")
+			return nil, 0, errors.New("unexpected error string")
 		case 'n':
-			if cursor+3 >= ctx.buflen {
-				return nil, errors.New("unexpected error. invalid bool character")
+			if cursor+3 >= buflen {
+				return nil, 0, errors.New("unexpected error. invalid bool character")
 			}
 			if buf[cursor+1] != 'u' {
-				return nil, errors.New("unexpected error. invalid bool character")
+				return nil, 0, errors.New("unexpected error. invalid bool character")
 			}
 			if buf[cursor+2] != 'l' {
-				return nil, errors.New("unexpected error. invalid bool character")
+				return nil, 0, errors.New("unexpected error. invalid bool character")
 			}
 			if buf[cursor+3] != 'l' {
-				return nil, errors.New("unexpected error. invalid bool character")
+				return nil, 0, errors.New("unexpected error. invalid bool character")
 			}
-			ctx.cursor += 5
-			return []byte{}, nil
+			cursor += 5
+			return []byte{}, cursor, nil
 		}
 	}
-	return nil, errors.New("unexpected error key delimiter")
+	return nil, 0, errors.New("unexpected error key delimiter")
 }

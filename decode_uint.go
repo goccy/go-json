@@ -28,10 +28,8 @@ func (d *uintDecoder) parseUint(b []byte) uint64 {
 	return sum
 }
 
-func (d *uintDecoder) decodeByte(ctx *context) ([]byte, error) {
-	buf := ctx.buf
-	buflen := ctx.buflen
-	cursor := ctx.cursor
+func (d *uintDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
+	buflen := len(buf)
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -47,18 +45,18 @@ func (d *uintDecoder) decodeByte(ctx *context) ([]byte, error) {
 				break
 			}
 			num := buf[start:cursor]
-			ctx.cursor = cursor
-			return num, nil
+			return num, cursor, nil
 		}
 	}
-	return nil, errors.New("unexpected error number")
+	return nil, 0, errors.New("unexpected error number")
 }
 
-func (d *uintDecoder) decode(ctx *context, p uintptr) error {
-	bytes, err := d.decodeByte(ctx)
+func (d *uintDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	cursor = c
 	d.op(p, d.parseUint(bytes))
-	return nil
+	return cursor, nil
 }

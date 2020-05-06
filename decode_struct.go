@@ -22,13 +22,11 @@ func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 	}
 }
 
-func (d *structDecoder) skipValue(ctx *context) error {
-	ctx.skipWhiteSpace()
+func (d *structDecoder) skipValue(buf []byte, cursor int) (int, error) {
+	cursor = skipWhiteSpace(buf, cursor)
 	braceCount := 0
 	bracketCount := 0
-	cursor := ctx.cursor
-	buf := ctx.buf
-	buflen := ctx.buflen
+	buflen := len(buf)
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case '{':
@@ -38,15 +36,13 @@ func (d *structDecoder) skipValue(ctx *context) error {
 		case '}':
 			braceCount--
 			if braceCount == -1 && bracketCount == 0 {
-				ctx.cursor = cursor
-				return nil
+				return cursor, nil
 			}
 		case ']':
 			bracketCount--
 		case ',':
 			if bracketCount == 0 && braceCount == 0 {
-				ctx.cursor = cursor
-				return nil
+				return cursor, nil
 			}
 		case '"':
 			cursor++
@@ -56,8 +52,7 @@ func (d *structDecoder) skipValue(ctx *context) error {
 					cursor++
 				case '"':
 					if bracketCount == 0 && braceCount == 0 {
-						ctx.cursor = cursor + 1
-						return nil
+						return cursor + 1, nil
 					}
 					goto QUOTE_END
 				}
@@ -65,55 +60,56 @@ func (d *structDecoder) skipValue(ctx *context) error {
 		QUOTE_END:
 		}
 	}
-	return errors.New("unexpected error value")
+	return cursor, errors.New("unexpected error value")
 }
 
-func (d *structDecoder) decode(ctx *context, p uintptr) error {
-	ctx.skipWhiteSpace()
-	buf := ctx.buf
-	buflen := ctx.buflen
-	cursor := ctx.cursor
+func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	buflen := len(buf)
+	cursor = skipWhiteSpace(buf, cursor)
 	if buflen < 2 {
-		return errors.New("unexpected error {}")
+		return 0, errors.New("unexpected error {}")
 	}
 	if buf[cursor] != '{' {
-		return errors.New("unexpected error {")
+		return 0, errors.New("unexpected error {")
 	}
 	cursor++
 	for ; cursor < buflen; cursor++ {
-		ctx.cursor = cursor
-		key, err := d.keyDecoder.decodeByte(ctx)
+		key, c, err := d.keyDecoder.decodeByte(buf, cursor)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		cursor = ctx.skipWhiteSpace()
+		cursor = c
+		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] != ':' {
-			return errors.New("unexpected error invalid delimiter for object")
+			return 0, errors.New("unexpected error invalid delimiter for object")
 		}
 		cursor++
 		if cursor >= buflen {
-			return errors.New("unexpected error missing value")
+			return 0, errors.New("unexpected error missing value")
 		}
-		ctx.cursor = cursor
 		k := *(*string)(unsafe.Pointer(&key))
 		field, exists := d.fieldMap[k]
 		if exists {
-			if err := field.dec.decode(ctx, p+field.offset); err != nil {
-				return err
+			c, err := field.dec.decode(buf, cursor, p+field.offset)
+			if err != nil {
+				return 0, err
 			}
+			cursor = c
 		} else {
-			if err := d.skipValue(ctx); err != nil {
-				return err
+			c, err := d.skipValue(buf, cursor)
+			if err != nil {
+				return 0, err
 			}
+			cursor = c
 		}
-		cursor = ctx.skipWhiteSpace()
+		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] == '}' {
-			ctx.cursor++
-			return nil
+			cursor++
+			return cursor, nil
 		}
 		if buf[cursor] != ',' {
-			return errors.New("unexpected error ,")
+			return 0, errors.New("unexpected error ,")
 		}
 	}
-	return nil
+	return cursor, nil
 }

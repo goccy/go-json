@@ -20,10 +20,8 @@ func newArrayDecoder(dec decoder, elemType *rtype, alen int) *arrayDecoder {
 	}
 }
 
-func (d *arrayDecoder) decode(ctx *context, p uintptr) error {
-	buf := ctx.buf
-	buflen := ctx.buflen
-	cursor := ctx.cursor
+func (d *arrayDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+	buflen := len(buf)
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -31,23 +29,25 @@ func (d *arrayDecoder) decode(ctx *context, p uintptr) error {
 		case '[':
 			idx := 0
 			for {
-				ctx.cursor = cursor + 1
-				if err := d.valueDecoder.decode(ctx, p+uintptr(idx)*d.size); err != nil {
-					return err
+				cursor++
+				c, err := d.valueDecoder.decode(buf, cursor, p+uintptr(idx)*d.size)
+				if err != nil {
+					return 0, err
 				}
-				cursor = ctx.skipWhiteSpace()
+				cursor = c
+				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
-					ctx.cursor++
-					return nil
+					cursor++
+					return cursor, nil
 				case ',':
 					idx++
 					continue
 				default:
-					return errors.New("syntax error array")
+					return 0, errors.New("syntax error array")
 				}
 			}
 		}
 	}
-	return errors.New("unexpected error array")
+	return 0, errors.New("unexpected error array")
 }

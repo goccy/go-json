@@ -16,11 +16,13 @@ func newPtrDecoder(dec decoder, typ *rtype) *ptrDecoder {
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) uintptr
 
-func (d *ptrDecoder) decode(ctx *context, p uintptr) error {
+func (d *ptrDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 	newptr := unsafe_New(d.typ)
-	if err := d.dec.decode(ctx, newptr); err != nil {
-		return err
+	c, err := d.dec.decode(buf, cursor, newptr)
+	if err != nil {
+		return 0, err
 	}
+	cursor = c
 	*(*uintptr)(unsafe.Pointer(p)) = newptr
-	return nil
+	return cursor, nil
 }

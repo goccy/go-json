@@ -23,41 +23,46 @@ func (d *stringDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 }
 
 func (d *stringDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
-	buflen := len(buf)
-	for ; cursor < buflen; cursor++ {
-		switch buf[cursor] {
-		case ' ', '\n', '\t', '\r':
-			continue
-		case '"':
+LOOP:
+	switch buf[cursor] {
+	case '\000':
+		return nil, 0, errors.New("unexpected error key delimiter")
+	case ' ', '\n', '\t', '\r':
+		cursor++
+		goto LOOP
+	case '"':
+		cursor++
+		start := cursor
+		for {
+			switch buf[cursor] {
+			case '\\':
+				cursor++
+			case '"':
+				literal := buf[start:cursor]
+				cursor++
+				return literal, cursor, nil
+			case '\000':
+				return nil, 0, errors.New("unexpected error string")
+			}
 			cursor++
-			start := cursor
-			for ; cursor < buflen; cursor++ {
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-				case '"':
-					literal := buf[start:cursor]
-					cursor++
-					return literal, cursor, nil
-				}
-			}
-			return nil, 0, errors.New("unexpected error string")
-		case 'n':
-			if cursor+3 >= buflen {
-				return nil, 0, errors.New("unexpected error. invalid bool character")
-			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errors.New("unexpected error. invalid bool character")
-			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errors.New("unexpected error. invalid bool character")
-			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errors.New("unexpected error. invalid bool character")
-			}
-			cursor += 5
-			return []byte{}, cursor, nil
 		}
+		return nil, 0, errors.New("unexpected error string")
+	case 'n':
+		buflen := len(buf)
+		if cursor+3 >= buflen {
+			return nil, 0, errors.New("unexpected error. invalid bool character")
+		}
+		if buf[cursor+1] != 'u' {
+			return nil, 0, errors.New("unexpected error. invalid bool character")
+		}
+		if buf[cursor+2] != 'l' {
+			return nil, 0, errors.New("unexpected error. invalid bool character")
+		}
+		if buf[cursor+3] != 'l' {
+			return nil, 0, errors.New("unexpected error. invalid bool character")
+		}
+		cursor += 5
+		return []byte{'n', 'u', 'l', 'l'}, cursor, nil
 	}
 	return nil, 0, errors.New("unexpected error key delimiter")
 }

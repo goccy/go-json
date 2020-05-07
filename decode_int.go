@@ -38,26 +38,42 @@ func (d *intDecoder) parseInt(b []byte) int64 {
 	return sum
 }
 
+var (
+	numTable = [256]bool{
+		'0': true,
+		'1': true,
+		'2': true,
+		'3': true,
+		'4': true,
+		'5': true,
+		'6': true,
+		'7': true,
+		'8': true,
+		'9': true,
+	}
+)
+
 func (d *intDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
-	buflen := len(buf)
-	for ; cursor < buflen; cursor++ {
+	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
+			cursor++
 			continue
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
-			for ; cursor < buflen; cursor++ {
-				tk := int(buf[cursor])
-				if int('0') <= tk && tk <= int('9') {
-					continue
-				}
-				break
+		LOOP:
+			if numTable[buf[cursor]] {
+				cursor++
+				goto LOOP
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
+		default:
+			goto ERROR
 		}
 	}
+ERROR:
 	return nil, 0, errors.New("unexpected error number")
 }
 

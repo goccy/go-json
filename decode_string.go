@@ -25,8 +25,6 @@ func (d *stringDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 func (d *stringDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
 	for {
 		switch buf[cursor] {
-		case '\000':
-			return nil, 0, errors.New("unexpected error key delimiter")
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '"':
@@ -62,7 +60,10 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) 
 			}
 			cursor += 5
 			return []byte{'n', 'u', 'l', 'l'}, cursor, nil
+		default:
+			goto ERROR
 		}
 	}
+ERROR:
 	return nil, 0, errors.New("unexpected error key delimiter")
 }

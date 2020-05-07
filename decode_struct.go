@@ -48,18 +48,20 @@ func (d *structDecoder) skipValue(buf []byte, cursor int) (int, error) {
 			}
 		case '"':
 			cursor++
+
 			for ; cursor < buflen; cursor++ {
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-				case '"':
-					if bracketCount == 0 && braceCount == 0 {
-						return cursor + 1, nil
-					}
-					goto QUOTE_END
+				if buf[cursor] != '"' {
+					continue
 				}
+				if buf[cursor-1] == '\\' {
+					continue
+				}
+				if bracketCount == 0 && braceCount == 0 {
+					return cursor + 1, nil
+				}
+				break
 			}
-		QUOTE_END:
+
 		}
 		cursor++
 	}

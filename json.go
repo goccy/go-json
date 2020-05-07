@@ -166,14 +166,14 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 }
 
 func Unmarshal(data []byte, v interface{}) error {
-	src := make([]byte, len(data))
+	src := make([]byte, len(data)+1) // append nul byte to end
 	copy(src, data)
 	var dec Decoder
 	return dec.decodeForUnmarshal(src, v)
 }
 
 func UnmarshalNoEscape(data []byte, v interface{}) error {
-	src := make([]byte, len(data))
+	src := make([]byte, len(data)+1) // append nul byte to end
 	copy(src, data)
 	var dec Decoder
 	return dec.decodeForUnmarshalNoEscape(src, v)

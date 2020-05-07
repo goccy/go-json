@@ -27,8 +27,10 @@ func (d *structDecoder) skipValue(buf []byte, cursor int) (int, error) {
 	braceCount := 0
 	bracketCount := 0
 	buflen := len(buf)
-	for ; cursor < buflen; cursor++ {
+	for {
 		switch buf[cursor] {
+		case '\000':
+			return cursor, errors.New("unexpected error value")
 		case '{':
 			braceCount++
 		case '[':
@@ -59,6 +61,7 @@ func (d *structDecoder) skipValue(buf []byte, cursor int) (int, error) {
 			}
 		QUOTE_END:
 		}
+		cursor++
 	}
 	return cursor, errors.New("unexpected error value")
 }

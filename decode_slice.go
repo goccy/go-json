@@ -3,6 +3,7 @@ package json
 import (
 	"errors"
 	"reflect"
+	"sync"
 	"unsafe"
 )
 
@@ -10,6 +11,7 @@ type sliceDecoder struct {
 	elemType     *rtype
 	valueDecoder decoder
 	size         uintptr
+	arrayPool    sync.Pool
 }
 
 func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
@@ -17,7 +19,27 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
 		valueDecoder: dec,
 		elemType:     elemType,
 		size:         size,
+		arrayPool: sync.Pool{
+			New: func() interface{} {
+				cap := 2
+				return &reflect.SliceHeader{
+					Data: uintptr(newArray(elemType, cap)),
+					Len:  0,
+					Cap:  cap,
+				}
+			},
+		},
 	}
+}
+
+func (d *sliceDecoder) newSlice() *reflect.SliceHeader {
+	slice := d.arrayPool.Get().(*reflect.SliceHeader)
+	slice.Len = 0
+	return slice
+}
+
+func (d *sliceDecoder) releaseSlice(p *reflect.SliceHeader) {
+	d.arrayPool.Put(p)
 }
 
 //go:linkname copySlice reflect.typedslicecopy
@@ -34,8 +56,9 @@ func (d *sliceDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 			continue
 		case '[':
 			idx := 0
-			cap := 2
-			data := uintptr(newArray(d.elemType, cap))
+			slice := d.newSlice()
+			cap := slice.Cap
+			data := slice.Data
 			for {
 				cursor++
 				if cap <= idx {
@@ -53,17 +76,27 @@ func (d *sliceDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
-					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = reflect.SliceHeader{
-						Data: data,
+					slice.Cap = cap
+					slice.Len = idx + 1
+					slice.Data = data
+					dstCap := idx + 1
+					dst := reflect.SliceHeader{
+						Data: uintptr(newArray(d.elemType, dstCap)),
 						Len:  idx + 1,
-						Cap:  cap,
+						Cap:  dstCap,
 					}
+					copySlice(d.elemType, dst, *slice)
+					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
+					d.releaseSlice(slice)
 					cursor++
 					return cursor, nil
 				case ',':
 					idx++
 					continue
 				default:
+					slice.Cap = cap
+					slice.Data = data
+					d.releaseSlice(slice)
 					return 0, errors.New("syntax error slice")
 				}
 			}

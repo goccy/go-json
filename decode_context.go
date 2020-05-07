@@ -12,12 +12,10 @@ func init() {
 }
 
 func skipWhiteSpace(buf []byte, cursor int) int {
-	buflen := len(buf)
-	for ; cursor < buflen; cursor++ {
-		if isWhiteSpace[buf[cursor]] {
-			continue
-		}
-		return cursor
+LOOP:
+	if isWhiteSpace[buf[cursor]] {
+		cursor++
+		goto LOOP
 	}
-	return buflen
+	return cursor
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+
+	"golang.org/x/xerrors"
 )
 
 // A Token holds a value of one of these types:
@@ -155,6 +157,8 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 		return d.compileArray(typ)
 	case reflect.Map:
 		return d.compileMap(typ)
+	case reflect.Interface:
+		return d.compileInterface(typ)
 	case reflect.Int:
 		return d.compileInt()
 	case reflect.Int8:
@@ -184,7 +188,7 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	case reflect.Float64:
 		return d.compileFloat64()
 	}
-	return nil, nil
+	return nil, xerrors.Errorf("unknown type %s", typ)
 }
 
 func (d *Decoder) compilePtr(typ *rtype) (decoder, error) {
@@ -303,6 +307,10 @@ func (d *Decoder) compileMap(typ *rtype) (decoder, error) {
 		return nil, err
 	}
 	return newMapDecoder(typ, keyDec, valueDec), nil
+}
+
+func (d *Decoder) compileInterface(typ *rtype) (decoder, error) {
+	return newInterfaceDecoder(typ), nil
 }
 
 func (d *Decoder) getTag(field reflect.StructField) string {

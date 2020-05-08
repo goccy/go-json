@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -133,5 +134,45 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "struct.D.AA", 2, v.D.AA)
 		assertEq(t, "struct.D.BB", "world", v.D.BB)
 		assertEq(t, "struct.D.CC", true, v.D.CC)
+	})
+	t.Run("interface", func(t *testing.T) {
+		t.Run("number", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`10`), &v))
+			assertEq(t, "interface.kind", "float64", reflect.TypeOf(v).Kind().String())
+			assertEq(t, "interface", `10`, fmt.Sprint(v))
+		})
+		t.Run("string", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`"hello"`), &v))
+			assertEq(t, "interface.kind", "string", reflect.TypeOf(v).Kind().String())
+			assertEq(t, "interface", `hello`, fmt.Sprint(v))
+		})
+		t.Run("bool", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`true`), &v))
+			assertEq(t, "interface.kind", "bool", reflect.TypeOf(v).Kind().String())
+			assertEq(t, "interface", `true`, fmt.Sprint(v))
+		})
+		t.Run("slice", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`[1,2,3,4]`), &v))
+			assertEq(t, "interface.kind", "slice", reflect.TypeOf(v).Kind().String())
+			assertEq(t, "interface", `[1 2 3 4]`, fmt.Sprint(v))
+		})
+		t.Run("map", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`{"a": 1, "b": "c"}`), &v))
+			assertEq(t, "interface.kind", "map", reflect.TypeOf(v).Kind().String())
+			m := v.(map[interface{}]interface{})
+			assertEq(t, "interface", `1`, fmt.Sprint(m["a"]))
+			assertEq(t, "interface", `c`, fmt.Sprint(m["b"]))
+		})
+		t.Run("null", func(t *testing.T) {
+			var v interface{}
+			v = 1
+			assertErr(t, json.Unmarshal([]byte(`null`), &v))
+			assertEq(t, "interface", nil, v)
+		})
 	})
 }

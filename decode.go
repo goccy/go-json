@@ -2,6 +2,7 @@ package json
 
 import (
 	"bytes"
+	"encoding"
 	"io"
 	"reflect"
 	"strings"
@@ -49,7 +50,9 @@ func (m *decoderMap) set(k uintptr, dec decoder) {
 }
 
 var (
-	cachedDecoder decoderMap
+	cachedDecoder     decoderMap
+	unmarshalJSONType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
+	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 )
 
 func init() {
@@ -78,7 +81,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
-		compiledDec, err := d.compile(typ.Elem())
+		compiledDec, err := d.compileHead(typ)
 		if err != nil {
 			return err
 		}
@@ -117,7 +120,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
-		compiledDec, err := d.compile(typ.Elem())
+		compiledDec, err := d.compileHead(typ)
 		if err != nil {
 			return err
 		}
@@ -145,7 +148,21 @@ func (d *Decoder) Decode(v interface{}) error {
 	return nil
 }
 
+func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
+	if typ.Implements(unmarshalJSONType) {
+		return newUnmarshalJSONDecoder(typ), nil
+	} else if typ.Implements(unmarshalTextType) {
+
+	}
+	return d.compile(typ.Elem())
+}
+
 func (d *Decoder) compile(typ *rtype) (decoder, error) {
+	if typ.Implements(unmarshalJSONType) {
+		return newUnmarshalJSONDecoder(typ), nil
+	} else if typ.Implements(unmarshalTextType) {
+
+	}
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return d.compilePtr(typ)

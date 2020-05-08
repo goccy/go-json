@@ -1,6 +1,7 @@
 package json
 
 import (
+	"encoding"
 	"reflect"
 	"unsafe"
 )
@@ -93,7 +94,7 @@ func (e *Encoder) run(code *opcode) error {
 				typ: code.typ,
 				ptr: unsafe.Pointer(ptr),
 			}))
-			bytes, err := v.(marshalText).MarshalText()
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
 				return err
 			}

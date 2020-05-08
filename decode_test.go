@@ -176,3 +176,24 @@ func Test_Decoder(t *testing.T) {
 		})
 	})
 }
+
+type unmarshalJSON struct {
+	v int
+}
+
+func (u *unmarshalJSON) UnmarshalJSON(b []byte) error {
+	var v int
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	u.v = v
+	return nil
+}
+
+func Test_UnmarshalJSON(t *testing.T) {
+	t.Run("*struct", func(t *testing.T) {
+		var v unmarshalJSON
+		assertErr(t, json.Unmarshal([]byte(`10`), &v))
+		assertEq(t, "unmarshal", v.v, 10)
+	})
+}

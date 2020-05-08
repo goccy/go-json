@@ -22,52 +22,6 @@ func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 	}
 }
 
-func (d *structDecoder) skipValue(buf []byte, cursor int) (int, error) {
-	cursor = skipWhiteSpace(buf, cursor)
-	braceCount := 0
-	bracketCount := 0
-	buflen := len(buf)
-	for {
-		switch buf[cursor] {
-		case '\000':
-			return cursor, errors.New("unexpected error value")
-		case '{':
-			braceCount++
-		case '[':
-			bracketCount++
-		case '}':
-			braceCount--
-			if braceCount == -1 && bracketCount == 0 {
-				return cursor, nil
-			}
-		case ']':
-			bracketCount--
-		case ',':
-			if bracketCount == 0 && braceCount == 0 {
-				return cursor, nil
-			}
-		case '"':
-			cursor++
-
-			for ; cursor < buflen; cursor++ {
-				if buf[cursor] != '"' {
-					continue
-				}
-				if buf[cursor-1] == '\\' {
-					continue
-				}
-				if bracketCount == 0 && braceCount == 0 {
-					return cursor + 1, nil
-				}
-				break
-			}
-
-		}
-		cursor++
-	}
-	return cursor, errors.New("unexpected error value")
-}
-
 func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 	buflen := len(buf)
 	cursor = skipWhiteSpace(buf, cursor)
@@ -101,7 +55,7 @@ func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 			}
 			cursor = c
 		} else {
-			c, err := d.skipValue(buf, cursor)
+			c, err := skipValue(buf, cursor)
 			if err != nil {
 				return 0, err
 			}

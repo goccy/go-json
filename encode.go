@@ -2,6 +2,7 @@ package json
 
 import (
 	"bytes"
+	"encoding"
 	"io"
 	"reflect"
 	"strconv"
@@ -45,10 +46,6 @@ func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
 	m.Store(k, op)
 }
 
-type marshalText interface {
-	MarshalText() ([]byte, error)
-}
-
 var (
 	encPool         sync.Pool
 	cachedOpcode    opcodeMap
@@ -67,7 +64,7 @@ func init() {
 	}
 	cachedOpcode = opcodeMap{}
 	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	marshalTextType = reflect.TypeOf((*marshalText)(nil)).Elem()
+	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 }
 
 // NewEncoder returns a new encoder that writes to w.

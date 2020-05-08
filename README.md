@@ -64,6 +64,17 @@ WIP
 - [x] `UnmarshalText`
 - [x] `pointer`
 
+### Error
+
+- [ ] `InvalidUTF8Error`
+- [x] `InvalidUnmarshalError`
+- [ ] `MarshalerError`
+- [ ] `SyntaxError`
+- [ ] `UnmarshalFieldError`
+- [ ] `UnmarshalTypeError`
+- [x] `UnsupportedTypeError`
+- [x] `UnsupportedValueError`
+
 # Benchmarks
 
 ```

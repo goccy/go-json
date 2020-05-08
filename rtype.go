@@ -246,6 +246,10 @@ func (t *rtype) escape() {
 	rtype_escape(t)
 }
 
+//go:linkname rtype2type reflect.toType
+//go:noescape
+func rtype2type(t *rtype) reflect.Type
+
 type interfaceHeader struct {
 	typ *rtype
 	ptr unsafe.Pointer

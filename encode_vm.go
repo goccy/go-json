@@ -2,7 +2,9 @@ package json
 
 import (
 	"encoding"
+	"math"
 	"reflect"
+	"strconv"
 	"unsafe"
 )
 
@@ -47,7 +49,14 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeFloat32(e.ptrToFloat32(code.ptr))
 			code = code.next
 		case opFloat64:
-			e.encodeFloat64(e.ptrToFloat64(code.ptr))
+			v := e.ptrToFloat64(code.ptr)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   strconv.FormatFloat(v, 'g', -1, 64),
+				}
+			}
+			e.encodeFloat64(v)
 			code = code.next
 		case opString:
 			e.encodeString(e.ptrToString(code.ptr))
@@ -519,9 +528,16 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end
 			} else {
+				v := e.ptrToFloat64(field.ptr + field.offset)
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return &UnsupportedValueError{
+						Value: reflect.ValueOf(v),
+						Str:   strconv.FormatFloat(v, 'g', -1, 64),
+					}
+				}
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeFloat64(e.ptrToFloat64(field.ptr + field.offset))
+				e.encodeFloat64(v)
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
@@ -809,12 +825,19 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end
 			} else {
+				v := e.ptrToFloat64(field.ptr + field.offset)
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return &UnsupportedValueError{
+						Value: reflect.ValueOf(v),
+						Str:   strconv.FormatFloat(v, 'g', -1, 64),
+					}
+				}
 				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})
 				e.encodeIndent(code.indent + 1)
 				e.encodeBytes(field.key)
 				e.encodeByte(' ')
-				e.encodeFloat64(e.ptrToFloat64(field.ptr + field.offset))
+				e.encodeFloat64(v)
 				field.nextField.ptr = field.ptr
 				code = field.next
 			}
@@ -1176,6 +1199,12 @@ func (e *Encoder) run(code *opcode) error {
 				if v == 0 {
 					code = field.nextField
 				} else {
+					if math.IsInf(v, 0) || math.IsNaN(v) {
+						return &UnsupportedValueError{
+							Value: reflect.ValueOf(v),
+							Str:   strconv.FormatFloat(v, 'g', -1, 64),
+						}
+					}
 					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeFloat64(v)
@@ -1577,6 +1606,12 @@ func (e *Encoder) run(code *opcode) error {
 				if v == 0 {
 					code = field.nextField
 				} else {
+					if math.IsInf(v, 0) || math.IsNaN(v) {
+						return &UnsupportedValueError{
+							Value: reflect.ValueOf(v),
+							Str:   strconv.FormatFloat(v, 'g', -1, 64),
+						}
+					}
 					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeByte(' ')
@@ -1728,7 +1763,14 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			c.nextField.ptr = c.ptr
 			e.encodeBytes(c.key)
-			e.encodeFloat64(e.ptrToFloat64(c.ptr + c.offset))
+			v := e.ptrToFloat64(c.ptr + c.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   strconv.FormatFloat(v, 'g', -1, 64),
+				}
+			}
+			e.encodeFloat64(v)
 			code = code.next
 		case opStructFieldString:
 			e.encodeByte(',')
@@ -1859,7 +1901,14 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeIndent(c.indent)
 			e.encodeBytes(c.key)
 			e.encodeByte(' ')
-			e.encodeFloat64(e.ptrToFloat64(c.ptr + c.offset))
+			v := e.ptrToFloat64(c.ptr + c.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   strconv.FormatFloat(v, 'g', -1, 64),
+				}
+			}
+			e.encodeFloat64(v)
 			code = code.next
 			c.nextField.ptr = c.ptr
 		case opStructFieldStringIndent:
@@ -2030,6 +2079,12 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToFloat64(c.ptr + c.offset)
 			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return &UnsupportedValueError{
+						Value: reflect.ValueOf(v),
+						Str:   strconv.FormatFloat(v, 'g', -1, 64),
+					}
+				}
 				if e.buf[len(e.buf)-1] != '{' {
 					e.encodeByte(',')
 				}
@@ -2237,6 +2292,12 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToFloat64(c.ptr + c.offset)
 			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return &UnsupportedValueError{
+						Value: reflect.ValueOf(v),
+						Str:   strconv.FormatFloat(v, 'g', -1, 64),
+					}
+				}
 				if e.buf[len(e.buf)-2] != '{' {
 					e.encodeBytes([]byte{',', '\n'})
 				}

@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"unsafe"
-
-	"golang.org/x/xerrors"
 )
 
 func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
@@ -71,7 +69,7 @@ func (e *Encoder) compile(typ *rtype, withIndent bool) (*opcode, error) {
 	case reflect.Interface:
 		return e.compileInterface(typ)
 	}
-	return nil, xerrors.Errorf("failed to encode type %s: %w", typ.String(), ErrUnsupportedType)
+	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
 
 func (e *Encoder) optimizeStructFieldPtrHead(typ *rtype, code *opcode) *opcode {

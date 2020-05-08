@@ -218,3 +218,16 @@ func Test_UnmarshalText(t *testing.T) {
 		assertEq(t, "unmarshal", v.v, 11)
 	})
 }
+
+func Test_InvalidUnmarshalError(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		var v *struct{}
+		err := fmt.Sprint(json.Unmarshal([]byte(`{}`), v))
+		assertEq(t, "invalid unmarshal error", "json: Unmarshal(nil *struct {})", err)
+	})
+	t.Run("non pointer", func(t *testing.T) {
+		var v int
+		err := fmt.Sprint(json.Unmarshal([]byte(`{}`), v))
+		assertEq(t, "invalid unmarshal error", "json: Unmarshal(non-pointer int)", err)
+	})
+}

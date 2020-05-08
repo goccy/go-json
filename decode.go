@@ -81,7 +81,10 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
-		compiledDec, err := d.compileHead(typ)
+		// noescape trick for header.typ ( reflect.*rtype )
+		copiedType := (*rtype)(unsafe.Pointer(typeptr))
+
+		compiledDec, err := d.compileHead(copiedType)
 		if err != nil {
 			return err
 		}

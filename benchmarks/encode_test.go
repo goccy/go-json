@@ -7,7 +7,6 @@ import (
 	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
-	easyjson "github.com/mailru/easyjson"
 )
 
 func Benchmark_Encode_SmallStruct_EncodingJson(b *testing.B) {
@@ -24,15 +23,6 @@ func Benchmark_Encode_SmallStruct_JsonIter(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(NewSmallPayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_SmallStruct_EasyJson(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := easyjson.Marshal(NewSmallPayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -75,15 +65,6 @@ func Benchmark_Encode_MediumStruct_JsonIter(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_MediumStruct_EasyJson(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := easyjson.Marshal(NewMediumPayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func Benchmark_Encode_MediumStruct_GoJay(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -116,15 +97,6 @@ func Benchmark_Encode_LargeStruct_JsonIter(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(NewLargePayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_LargeStruct_EasyJson(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := easyjson.Marshal(NewLargePayload()); err != nil {
 			b.Fatal(err)
 		}
 	}

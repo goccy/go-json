@@ -152,7 +152,7 @@ func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
 	if typ.Implements(unmarshalJSONType) {
 		return newUnmarshalJSONDecoder(typ), nil
 	} else if typ.Implements(unmarshalTextType) {
-
+		return newUnmarshalTextDecoder(typ), nil
 	}
 	return d.compile(typ.Elem())
 }
@@ -161,7 +161,7 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	if typ.Implements(unmarshalJSONType) {
 		return newUnmarshalJSONDecoder(typ), nil
 	} else if typ.Implements(unmarshalTextType) {
-
+		return newUnmarshalTextDecoder(typ), nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:

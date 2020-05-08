@@ -47,6 +47,7 @@ WIP
 - [x] `interface{}`
 - [x] `MarshalJSON`
 - [x] `MarshalText`
+- [x] `pointer`
 
 ### Decoder
 
@@ -58,6 +59,10 @@ WIP
 - [x] `array`
 - [x] `slice`
 - [x] `map`
+- [x] `interface{}`
+- [x] `UnmarshalJSON`
+- [x] `UnmarshalText`
+- [x] `pointer`
 
 # Benchmarks
 

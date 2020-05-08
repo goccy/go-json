@@ -1,6 +1,8 @@
 package json_test
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -298,4 +300,17 @@ func Test_MarshalIndent(t *testing.T) {
 			assertEq(t, "map[string]interface{}", len(result), len(string(bytes)))
 		})
 	})
+}
+
+type marshalerError struct{}
+
+func (*marshalerError) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("unexpected error")
+}
+
+func Test_MarshalerError(t *testing.T) {
+	var v marshalerError
+	_, err := json.Marshal(&v)
+	expect := `json: error calling MarshalJSON for type *json_test.marshalerError: unexpected error`
+	assertEq(t, "marshaler error", expect, fmt.Sprint(err))
 }

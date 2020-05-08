@@ -92,7 +92,10 @@ func (e *Encoder) run(code *opcode) error {
 			}))
 			bytes, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return err
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
 			}
 			e.encodeBytes(bytes)
 			code = code.next
@@ -105,7 +108,10 @@ func (e *Encoder) run(code *opcode) error {
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
-				return err
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
 			}
 			e.encodeBytes(bytes)
 			code = code.next

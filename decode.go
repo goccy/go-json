@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	"golang.org/x/xerrors"
 )
 
 // A Token holds a value of one of these types:
@@ -222,7 +220,7 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	case reflect.Float64:
 		return d.compileFloat64()
 	}
-	return nil, xerrors.Errorf("unknown type %s", typ)
+	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
 
 func (d *Decoder) compilePtr(typ *rtype) (decoder, error) {

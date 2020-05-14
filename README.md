@@ -1,6 +1,7 @@
 # go-json
 
 ![Go](https://github.com/goccy/go-json/workflows/Go/badge.svg)
+[![GoDoc](https://godoc.org/github.com/goccy/go-json?status.svg)](https://pkg.go.dev/github.com/goccy/go-json?tab=doc)
 
 Fast JSON encoder/decoder compatible with encoding/json for Go
 

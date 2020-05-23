@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"unsafe"
 )
 
@@ -26,24 +25,24 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setKey(buf []byte, cursor int, key interface{}) (int, error) {
+func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
 	return d.keyDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
-func (d *mapDecoder) setValue(buf []byte, cursor int, key interface{}) (int, error) {
+func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
 	return d.valueDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
-func (d *mapDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
-	buflen := len(buf)
+	buflen := int64(len(buf))
 	if buflen < 2 {
-		return 0, errors.New("unexpected error {}")
+		return 0, errExpected("{} for map", cursor)
 	}
 	if buf[cursor] != '{' {
-		return 0, errors.New("unexpected error {")
+		return 0, errExpected("{ character for map value", cursor)
 	}
 	cursor++
 	mapValue := makemap(d.mapType, 0)
@@ -56,11 +55,11 @@ func (d *mapDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 		cursor = keyCursor
 		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] != ':' {
-			return 0, errors.New("unexpected error invalid delimiter for object")
+			return 0, errExpected("colon after object key", cursor)
 		}
 		cursor++
 		if cursor >= buflen {
-			return 0, errors.New("unexpected error missing value")
+			return 0, errUnexpectedEndOfJSON("map", cursor)
 		}
 		var value interface{}
 		valueCursor, err := d.setValue(buf, cursor, &value)
@@ -75,7 +74,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 			return cursor, nil
 		}
 		if buf[cursor] != ',' {
-			return 0, errors.New("unexpected error ,")
+			return 0, errExpected("semicolon after object value", cursor)
 		}
 	}
 	return cursor, nil

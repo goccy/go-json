@@ -16,7 +16,7 @@ func newPtrDecoder(dec decoder, typ *rtype) *ptrDecoder {
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) uintptr
 
-func (d *ptrDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *ptrDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	newptr := unsafe_New(d.typ)
 	c, err := d.dec.decode(buf, cursor, newptr)
 	if err != nil {

@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"strconv"
 	"unsafe"
 )
@@ -14,8 +13,8 @@ func newFloatDecoder(op func(uintptr, float64)) *floatDecoder {
 	return &floatDecoder{op: op}
 }
 
-func (d *floatDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
-	buflen := len(buf)
+func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -34,10 +33,10 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
 			return num, cursor, nil
 		}
 	}
-	return nil, 0, errors.New("unexpected error number")
+	return nil, 0, errUnexpectedEndOfJSON("float", cursor)
 }
 
-func (d *floatDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *floatDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

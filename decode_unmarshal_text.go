@@ -13,7 +13,7 @@ func newUnmarshalTextDecoder(typ *rtype) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{typ: typ}
 }
 
-func (d *unmarshalTextDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor)

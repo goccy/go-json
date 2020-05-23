@@ -116,3 +116,25 @@ type UnsupportedValueError struct {
 func (e *UnsupportedValueError) Error() string {
 	return fmt.Sprintf("json: unsupported value: %s", e.Str)
 }
+
+func errNotAtBeginningOfValue(cursor int64) *SyntaxError {
+	return &SyntaxError{msg: "not at beginning of value", Offset: cursor}
+}
+
+func errUnexpectedEndOfJSON(msg string, cursor int64) *SyntaxError {
+	return &SyntaxError{
+		msg:    fmt.Sprintf("unexpected end of JSON input for %s", msg),
+		Offset: cursor,
+	}
+}
+
+func errExpected(msg string, cursor int64) *SyntaxError {
+	return &SyntaxError{msg: fmt.Sprintf("expected %s", msg), Offset: cursor}
+}
+
+func errInvalidCharacter(c byte, context string, cursor int64) *SyntaxError {
+	return &SyntaxError{
+		msg:    fmt.Sprintf("invalid character %c as %s", c, context),
+		Offset: cursor,
+	}
+}

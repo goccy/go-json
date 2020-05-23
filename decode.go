@@ -24,7 +24,7 @@ type Token interface{}
 type Delim rune
 
 type decoder interface {
-	decode([]byte, int, uintptr) (int, error)
+	decode([]byte, int64, uintptr) (int64, error)
 }
 
 type Decoder struct {

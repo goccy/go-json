@@ -12,7 +12,7 @@ func newUnmarshalJSONDecoder(typ *rtype) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{typ: typ}
 }
 
-func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor)

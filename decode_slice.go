@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"reflect"
 	"sync"
 	"unsafe"
@@ -48,8 +47,8 @@ func copySlice(elemType *rtype, dst, src reflect.SliceHeader) int
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
 
-func (d *sliceDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
-	buflen := len(buf)
+func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -97,10 +96,10 @@ func (d *sliceDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 					slice.Cap = cap
 					slice.Data = data
 					d.releaseSlice(slice)
-					return 0, errors.New("syntax error slice")
+					return 0, errInvalidCharacter(buf[cursor], "slice", cursor)
 				}
 			}
 		}
 	}
-	return 0, errors.New("unexpected error slice")
+	return 0, errUnexpectedEndOfJSON("slice", cursor)
 }

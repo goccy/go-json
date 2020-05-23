@@ -1,9 +1,5 @@
 package json
 
-import (
-	"errors"
-)
-
 type uintDecoder struct {
 	op func(uintptr, uint64)
 }
@@ -28,8 +24,8 @@ func (d *uintDecoder) parseUint(b []byte) uint64 {
 	return sum
 }
 
-func (d *uintDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
-	buflen := len(buf)
+func (d *uintDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -46,12 +42,14 @@ func (d *uintDecoder) decodeByte(buf []byte, cursor int) ([]byte, int, error) {
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
+		default:
+			return nil, 0, errInvalidCharacter(buf[cursor], "number(unsigned integer)", cursor)
 		}
 	}
-	return nil, 0, errors.New("unexpected error number")
+	return nil, 0, errUnexpectedEndOfJSON("number(unsigned integer)", cursor)
 }
 
-func (d *uintDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
+func (d *uintDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

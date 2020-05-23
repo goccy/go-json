@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"unsafe"
 )
 
@@ -22,14 +21,14 @@ func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 	}
 }
 
-func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
-	buflen := len(buf)
+func (d *structDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
-	if buflen < 2 {
-		return 0, errors.New("unexpected error {}")
-	}
 	if buf[cursor] != '{' {
-		return 0, errors.New("unexpected error {")
+		return 0, errNotAtBeginningOfValue(cursor)
+	}
+	if buflen < 2 {
+		return 0, errUnexpectedEndOfJSON("object", cursor)
 	}
 	cursor++
 	for ; cursor < buflen; cursor++ {
@@ -40,11 +39,11 @@ func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 		cursor = c
 		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] != ':' {
-			return 0, errors.New("unexpected error invalid delimiter for object")
+			return 0, errExpected("colon after object key", cursor)
 		}
 		cursor++
 		if cursor >= buflen {
-			return 0, errors.New("unexpected error missing value")
+			return 0, errExpected("object value after colon", cursor)
 		}
 		k := *(*string)(unsafe.Pointer(&key))
 		field, exists := d.fieldMap[k]
@@ -67,7 +66,7 @@ func (d *structDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 			return cursor, nil
 		}
 		if buf[cursor] != ',' {
-			return 0, errors.New("unexpected error ,")
+			return 0, errExpected("comma after object element", cursor)
 		}
 	}
 	return cursor, nil

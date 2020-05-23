@@ -1,9 +1,5 @@
 package json
 
-import (
-	"errors"
-)
-
 type arrayDecoder struct {
 	elemType     *rtype
 	size         uintptr
@@ -20,8 +16,8 @@ func newArrayDecoder(dec decoder, elemType *rtype, alen int) *arrayDecoder {
 	}
 }
 
-func (d *arrayDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
-	buflen := len(buf)
+func (d *arrayDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -44,10 +40,10 @@ func (d *arrayDecoder) decode(buf []byte, cursor int, p uintptr) (int, error) {
 					idx++
 					continue
 				default:
-					return 0, errors.New("syntax error array")
+					return 0, errInvalidCharacter(buf[cursor], "array", cursor)
 				}
 			}
 		}
 	}
-	return 0, errors.New("unexpected error array")
+	return 0, errUnexpectedEndOfJSON("array", cursor)
 }

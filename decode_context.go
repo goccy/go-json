@@ -1,9 +1,5 @@
 package json
 
-import (
-	"errors"
-)
-
 var (
 	isWhiteSpace = [256]bool{}
 )
@@ -15,7 +11,7 @@ func init() {
 	isWhiteSpace['\r'] = true
 }
 
-func skipWhiteSpace(buf []byte, cursor int) int {
+func skipWhiteSpace(buf []byte, cursor int64) int64 {
 LOOP:
 	if isWhiteSpace[buf[cursor]] {
 		cursor++
@@ -24,15 +20,15 @@ LOOP:
 	return cursor
 }
 
-func skipValue(buf []byte, cursor int) (int, error) {
+func skipValue(buf []byte, cursor int64) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	braceCount := 0
 	bracketCount := 0
-	buflen := len(buf)
+	buflen := int64(len(buf))
 	for {
 		switch buf[cursor] {
 		case '\000':
-			return cursor, errors.New("unexpected error value")
+			return cursor, errUnexpectedEndOfJSON("value of object", cursor)
 		case '{':
 			braceCount++
 		case '[':
@@ -79,5 +75,5 @@ func skipValue(buf []byte, cursor int) (int, error) {
 		}
 		cursor++
 	}
-	return cursor, errors.New("unexpected error value")
+	return cursor, errUnexpectedEndOfJSON("value of object", cursor)
 }

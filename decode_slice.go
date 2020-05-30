@@ -13,6 +13,15 @@ type sliceDecoder struct {
 	arrayPool    sync.Pool
 }
 
+// If use reflect.SliceHeader, data type is uintptr.
+// In this case, Go compiler cannot trace reference created by newArray().
+// So, define using unsafe.Pointer as data type
+type sliceHeader struct {
+	data unsafe.Pointer
+	len  int
+	cap  int
+}
+
 func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder: dec,
@@ -21,23 +30,23 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
 		arrayPool: sync.Pool{
 			New: func() interface{} {
 				cap := 2
-				return &reflect.SliceHeader{
-					Data: uintptr(newArray(elemType, cap)),
-					Len:  0,
-					Cap:  cap,
+				return &sliceHeader{
+					data: newArray(elemType, cap),
+					len:  0,
+					cap:  cap,
 				}
 			},
 		},
 	}
 }
 
-func (d *sliceDecoder) newSlice() *reflect.SliceHeader {
-	slice := d.arrayPool.Get().(*reflect.SliceHeader)
-	slice.Len = 0
+func (d *sliceDecoder) newSlice() *sliceHeader {
+	slice := d.arrayPool.Get().(*sliceHeader)
+	slice.len = 0
 	return slice
 }
 
-func (d *sliceDecoder) releaseSlice(p *reflect.SliceHeader) {
+func (d *sliceDecoder) releaseSlice(p *sliceHeader) {
 	d.arrayPool.Put(p)
 }
 
@@ -56,18 +65,18 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 		case '[':
 			idx := 0
 			slice := d.newSlice()
-			cap := slice.Cap
-			data := slice.Data
+			cap := slice.cap
+			data := slice.data
 			for {
 				cursor++
 				if cap <= idx {
-					src := reflect.SliceHeader{Data: data, Len: idx, Cap: cap}
+					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					cap *= 2
-					data = uintptr(newArray(d.elemType, cap))
-					dst := reflect.SliceHeader{Data: data, Len: idx, Cap: cap}
+					data = newArray(d.elemType, cap)
+					dst := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
-				c, err := d.valueDecoder.decode(buf, cursor, data+uintptr(idx)*d.size)
+				c, err := d.valueDecoder.decode(buf, cursor, uintptr(data)+uintptr(idx)*d.size)
 				if err != nil {
 					return 0, err
 				}
@@ -75,16 +84,20 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
-					slice.Cap = cap
-					slice.Len = idx + 1
-					slice.Data = data
+					slice.cap = cap
+					slice.len = idx + 1
+					slice.data = data
 					dstCap := idx + 1
 					dst := reflect.SliceHeader{
 						Data: uintptr(newArray(d.elemType, dstCap)),
 						Len:  idx + 1,
 						Cap:  dstCap,
 					}
-					copySlice(d.elemType, dst, *slice)
+					copySlice(d.elemType, dst, reflect.SliceHeader{
+						Data: uintptr(slice.data),
+						Len:  slice.len,
+						Cap:  slice.cap,
+					})
 					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
 					d.releaseSlice(slice)
 					cursor++
@@ -93,8 +106,8 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 					idx++
 					continue
 				default:
-					slice.Cap = cap
-					slice.Data = data
+					slice.cap = cap
+					slice.data = data
 					d.releaseSlice(slice)
 					return 0, errInvalidCharacter(buf[cursor], "slice", cursor)
 				}

@@ -49,15 +49,15 @@ var (
 	}
 )
 
-func (d *intDecoder) decodeByteStream(s *stream) ([]byte, error) {
-	for ; s.cursor < s.length || s.read(); s.cursor++ {
+func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
+			s.progress()
 			continue
 		case '-':
 			start := s.cursor
-			s.cursor++
-			for ; s.cursor < s.length || s.read(); s.cursor++ {
+			for s.progress() {
 				if numTable[s.char()] {
 					continue
 				}
@@ -70,8 +70,7 @@ func (d *intDecoder) decodeByteStream(s *stream) ([]byte, error) {
 			return num, nil
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
-			s.cursor++
-			for ; s.cursor < s.length || s.read(); s.cursor++ {
+			for s.progress() {
 				if numTable[s.char()] {
 					continue
 				}
@@ -110,7 +109,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 }
 
 func (d *intDecoder) decodeStream(s *stream, p uintptr) error {
-	bytes, err := d.decodeByteStream(s)
+	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
 	}

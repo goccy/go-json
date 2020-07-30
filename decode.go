@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"sync"
 	"unsafe"
 )
@@ -17,6 +18,7 @@ func (d Delim) String() string {
 
 type decoder interface {
 	decode([]byte, int64, uintptr) (int64, error)
+	decodeStream(*stream, uintptr) error
 }
 
 type Decoder struct {
@@ -53,7 +55,9 @@ func init() {
 // The decoder introduces its own buffering and may
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{s: &stream{r: r}}
+	s := &stream{r: r}
+	s.read()
+	return &Decoder{s: s}
 }
 
 // Buffered returns a reader of the data remaining in the Decoder's
@@ -109,12 +113,13 @@ func (d *Decoder) decodeForUnmarshalNoEscape(src []byte, v interface{}) error {
 
 func (d *Decoder) prepareForDecode() error {
 	s := d.s
-	for ; s.cursor < s.length || s.read(); s.cursor++ {
+	for {
 		switch s.char() {
 		case ' ', '\t', '\r', '\n':
+			s.progress()
 			continue
 		case ',', ':':
-			s.cursor++
+			s.progress()
 			return nil
 		}
 		break
@@ -152,10 +157,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 	s := d.s
-	cursor, err := dec.decode(s.buf[s.cursor:], 0, ptr)
-	s.cursor += cursor
-	fmt.Println("cursor = ", cursor, "next buf = ", string(s.buf[s.cursor:]))
-	if err != nil {
+	if err := dec.decodeStream(s, ptr); err != nil {
 		return err
 	}
 	return nil
@@ -163,10 +165,12 @@ func (d *Decoder) Decode(v interface{}) error {
 
 func (d *Decoder) More() bool {
 	s := d.s
-	for ; s.cursor < s.length || s.read(); s.cursor++ {
+	for {
 		switch s.char() {
 		case ' ', '\n', '\r', '\t':
-			continue
+			if s.progress() {
+				continue
+			}
 		case '}', ']':
 			return false
 		}
@@ -177,27 +181,51 @@ func (d *Decoder) More() bool {
 
 func (d *Decoder) Token() (Token, error) {
 	s := d.s
-	for ; s.cursor < s.length || s.read(); s.cursor++ {
-		switch s.char() {
+	for {
+		c := s.char()
+		switch c {
 		case ' ', '\n', '\r', '\t':
-			continue
-		case '{':
-			s.cursor++
-			return Delim('{'), nil
-		case '[':
-			s.cursor++
-			return Delim('['), nil
-		case '}':
-			s.cursor++
-			return Delim('}'), nil
-		case ']':
-			s.cursor++
-			return Delim(']'), nil
+			if s.progress() {
+				continue
+			}
+		case '{', '[', ']', '}':
+			s.progress()
+			return Delim(c), nil
+		case ',', ':':
+			if s.progress() {
+				continue
+			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			bytes := floatBytes(s)
+			s := *(*string)(unsafe.Pointer(&bytes))
+			f64, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return nil, err
+			}
+			return f64, nil
 		case '"':
+			bytes, err := stringBytes(s)
+			if err != nil {
+				return nil, err
+			}
+			return string(bytes), nil
 		case 't':
+			if err := trueBytes(s); err != nil {
+				return nil, err
+			}
+			return true, nil
 		case 'f':
+			if err := falseBytes(s); err != nil {
+				return nil, err
+			}
+			return false, nil
 		case 'n':
+			if err := nullBytes(s); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		case '\000':
+			return nil, io.EOF
 		default:
 			return nil, errInvalidCharacter(s.char(), "token", s.totalOffset())
 		}

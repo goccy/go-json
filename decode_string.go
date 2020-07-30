@@ -11,6 +11,15 @@ func newStringDecoder() *stringDecoder {
 	return &stringDecoder{}
 }
 
+func (d *stringDecoder) decodeStream(s *stream, p uintptr) error {
+	bytes, err := d.decodeStreamByte(s)
+	if err != nil {
+		return err
+	}
+	*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&bytes))
+	return nil
+}
+
 func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
@@ -19,6 +28,64 @@ func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, erro
 	cursor = c
 	*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&bytes))
 	return cursor, nil
+}
+
+func stringBytes(s *stream) ([]byte, error) {
+	s.progress()
+	start := s.cursor
+	for {
+		switch s.char() {
+		case '\\':
+			s.progress()
+		case '"':
+			literal := s.buf[start:s.cursor]
+			s.progress()
+			s.reset()
+			return literal, nil
+		case '\000':
+			goto ERROR
+		}
+		s.progress()
+	}
+ERROR:
+	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())
+}
+
+func nullBytes(s *stream) error {
+	s.progress()
+	if s.char() != 'u' {
+		return errInvalidCharacter(s.char(), "null", s.totalOffset())
+	}
+	s.progress()
+	if s.char() != 'l' {
+		return errInvalidCharacter(s.char(), "null", s.totalOffset())
+	}
+	s.progress()
+	if s.char() != 'l' {
+		return errInvalidCharacter(s.char(), "null", s.totalOffset())
+	}
+	s.progress()
+	return nil
+}
+
+func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+	for {
+		switch s.char() {
+		case ' ', '\n', '\t', '\r':
+			s.progress()
+		case '"':
+			return stringBytes(s)
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return nil, err
+			}
+			return []byte{'n', 'u', 'l', 'l'}, nil
+		default:
+			goto ERROR
+		}
+	}
+ERROR:
+	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {

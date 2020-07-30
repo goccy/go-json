@@ -233,6 +233,20 @@ func Test_InvalidUnmarshalError(t *testing.T) {
 	})
 }
 
+func Test_Token(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"a": 1, "b": true, "c": [1, "two", null]}`))
+	cnt := 0
+	for {
+		if _, err := dec.Token(); err != nil {
+			break
+		}
+		cnt++
+	}
+	if cnt != 12 {
+		t.Fatal("failed to parse token")
+	}
+}
+
 func Test_DecodeStream(t *testing.T) {
 	const stream = `
 	[

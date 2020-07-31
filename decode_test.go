@@ -3,6 +3,7 @@ package json_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -230,4 +231,55 @@ func Test_InvalidUnmarshalError(t *testing.T) {
 		err := fmt.Sprint(json.Unmarshal([]byte(`{}`), v))
 		assertEq(t, "invalid unmarshal error", "json: Unmarshal(non-pointer int)", err)
 	})
+}
+
+func Test_Token(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"a": 1, "b": true, "c": [1, "two", null]}`))
+	cnt := 0
+	for {
+		if _, err := dec.Token(); err != nil {
+			break
+		}
+		cnt++
+	}
+	if cnt != 12 {
+		t.Fatal("failed to parse token")
+	}
+}
+
+func Test_DecodeStream(t *testing.T) {
+	const stream = `
+	[
+		{"Name": "Ed", "Text": "Knock knock."},
+		{"Name": "Sam", "Text": "Who's there?"},
+		{"Name": "Ed", "Text": "Go fmt."},
+		{"Name": "Sam", "Text": "Go fmt who?"},
+		{"Name": "Ed", "Text": "Go fmt yourself!"}
+	]
+`
+	type Message struct {
+		Name, Text string
+	}
+	dec := json.NewDecoder(strings.NewReader(stream))
+
+	tk, err := dec.Token()
+	assertErr(t, err)
+	assertEq(t, "[", fmt.Sprint(tk), "[")
+
+	elem := 0
+	// while the array contains values
+	for dec.More() {
+		var m Message
+		// decode an array value (Message)
+		assertErr(t, dec.Decode(&m))
+		if m.Name == "" || m.Text == "" {
+			t.Fatal("failed to assign value to struct field")
+		}
+		elem++
+	}
+	assertEq(t, "decode count", elem, 5)
+
+	tk, err = dec.Token()
+	assertErr(t, err)
+	assertEq(t, "]", fmt.Sprint(tk), "]")
 }

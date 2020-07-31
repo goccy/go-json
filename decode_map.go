@@ -35,6 +35,59 @@ func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64,
 	return d.valueDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
+func (d *mapDecoder) setKeyStream(s *stream, key interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	return d.keyDecoder.decodeStream(s, uintptr(header.ptr))
+}
+
+func (d *mapDecoder) setValueStream(s *stream, key interface{}) error {
+	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	return d.valueDecoder.decodeStream(s, uintptr(header.ptr))
+}
+
+func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
+	s.skipWhiteSpace()
+	if s.char() != '{' {
+		return errExpected("{ character for map value", s.totalOffset())
+	}
+	mapValue := makemap(d.mapType, 0)
+	for {
+		s.cursor++
+		var key interface{}
+		if err := d.setKeyStream(s, &key); err != nil {
+			return err
+		}
+		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
+		if s.char() != ':' {
+			return errExpected("colon after object key", s.totalOffset())
+		}
+		s.cursor++
+		if s.end() {
+			return errUnexpectedEndOfJSON("map", s.totalOffset())
+		}
+		var value interface{}
+		if err := d.setValueStream(s, &value); err != nil {
+			return err
+		}
+		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
+		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
+		if s.char() == '}' {
+			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+			return nil
+		}
+		if s.char() != ',' {
+			return errExpected("semicolon after object value", s.totalOffset())
+		}
+	}
+	return nil
+}
+
 func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	buflen := int64(len(buf))

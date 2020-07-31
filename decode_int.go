@@ -49,6 +49,62 @@ var (
 	}
 )
 
+func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+	for {
+		switch s.char() {
+		case ' ', '\n', '\t', '\r':
+			s.cursor++
+			continue
+		case '-':
+			start := s.cursor
+			for {
+				s.cursor++
+				if numTable[s.char()] {
+					continue
+				} else if s.char() == nul {
+					if s.read() {
+						s.cursor-- // for retry current character
+						continue
+					}
+				}
+				break
+			}
+			num := s.buf[start:s.cursor]
+			s.reset()
+			if len(num) < 2 {
+				goto ERROR
+			}
+			return num, nil
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			start := s.cursor
+			for {
+				s.cursor++
+				if numTable[s.char()] {
+					continue
+				} else if s.char() == nul {
+					if s.read() {
+						s.cursor-- // for retry current character
+						continue
+					}
+				}
+				break
+			}
+			num := s.buf[start:s.cursor]
+			s.reset()
+			return num, nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto ERROR
+		default:
+			goto ERROR
+		}
+	}
+ERROR:
+	return nil, errUnexpectedEndOfJSON("number(integer)", s.totalOffset())
+}
+
 func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	for {
 		switch buf[cursor] {
@@ -70,6 +126,15 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 		}
 	}
 	return nil, 0, errUnexpectedEndOfJSON("number(integer)", cursor)
+}
+
+func (d *intDecoder) decodeStream(s *stream, p uintptr) error {
+	bytes, err := d.decodeStreamByte(s)
+	if err != nil {
+		return err
+	}
+	d.op(p, d.parseInt(bytes))
+	return nil
 }
 
 func (d *intDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {

@@ -20,6 +20,83 @@ var (
 	)
 )
 
+func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
+	s.skipWhiteSpace()
+	for {
+		switch s.char() {
+		case '{':
+			var v map[interface{}]interface{}
+			ptr := unsafe.Pointer(&v)
+			d.dummy = ptr
+			dec := newMapDecoder(interfaceMapType, newInterfaceDecoder(d.typ), newInterfaceDecoder(d.typ))
+			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = v
+			return nil
+		case '[':
+			var v []interface{}
+			ptr := unsafe.Pointer(&v)
+			d.dummy = ptr // escape ptr
+			dec := newSliceDecoder(newInterfaceDecoder(d.typ), d.typ, d.typ.Size())
+			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = v
+			return nil
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return newFloatDecoder(func(p uintptr, v float64) {
+				*(*interface{})(unsafe.Pointer(p)) = v
+			}).decodeStream(s, p)
+		case '"':
+			s.cursor++
+			start := s.cursor
+			for {
+				switch s.char() {
+				case '\\':
+					s.cursor++
+				case '"':
+					literal := s.buf[start:s.cursor]
+					s.cursor++
+					*(*interface{})(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&literal))
+					return nil
+				case nul:
+					if s.read() {
+						continue
+					}
+					return errUnexpectedEndOfJSON("string", s.totalOffset())
+				}
+				s.cursor++
+			}
+			return errUnexpectedEndOfJSON("string", s.totalOffset())
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = true
+			return nil
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = false
+			return nil
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = nil
+			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
+		}
+		break
+	}
+	return errNotAtBeginningOfValue(s.totalOffset())
+}
+
 func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {

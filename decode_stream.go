@@ -1,0 +1,193 @@
+package json
+
+import (
+	"bytes"
+	"io"
+)
+
+const (
+	readChunkSize = 512
+)
+
+type stream struct {
+	buf     []byte
+	length  int64
+	r       io.Reader
+	offset  int64
+	cursor  int64
+	allRead bool
+}
+
+func (s *stream) buffered() io.Reader {
+	return bytes.NewReader(s.buf[s.cursor:])
+}
+
+func (s *stream) totalOffset() int64 {
+	return s.offset + s.cursor
+}
+
+func (s *stream) prevChar() byte {
+	return s.buf[s.cursor-1]
+}
+
+func (s *stream) char() byte {
+	return s.buf[s.cursor]
+}
+
+func (s *stream) end() bool {
+	return s.allRead && s.length <= s.cursor
+}
+
+func (s *stream) progressN(n int64) bool {
+	if s.cursor+n < s.length-1 || s.read() {
+		s.cursor += n
+		return true
+	}
+	s.cursor = s.length
+	return false
+}
+
+func (s *stream) reset() {
+	s.buf = s.buf[s.cursor:]
+	s.length -= s.cursor
+	s.cursor = 0
+}
+
+func (s *stream) read() bool {
+	if s.allRead {
+		return false
+	}
+	buf := make([]byte, readChunkSize)
+	n, err := s.r.Read(buf)
+	if err != nil && err != io.EOF {
+		return false
+	}
+	if n < readChunkSize || err == io.EOF {
+		s.allRead = true
+	}
+	totalSize := s.length + int64(n) + 1
+	if totalSize > readChunkSize {
+		newBuf := make([]byte, totalSize)
+		copy(newBuf, s.buf)
+		copy(newBuf[s.length:], buf)
+		s.buf = newBuf
+		s.length = totalSize - 1
+	} else if s.length > 0 {
+		copy(buf[s.length:], buf)
+		copy(buf, s.buf[:s.length])
+		s.buf = buf
+		s.length = totalSize - 1
+	} else {
+		s.buf = buf
+		s.length = totalSize - 1
+	}
+	s.offset += s.cursor
+	if n == 0 {
+		return false
+	}
+	return true
+}
+
+func (s *stream) skipWhiteSpace() {
+LOOP:
+	if isWhiteSpace[s.char()] {
+		s.cursor++
+		goto LOOP
+	} else if s.char() == nul {
+		if s.read() {
+			goto LOOP
+		}
+	}
+}
+
+func (s *stream) skipValue() error {
+	s.skipWhiteSpace()
+	braceCount := 0
+	bracketCount := 0
+	for {
+		switch s.char() {
+		case nul:
+			if s.read() {
+				continue
+			}
+			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
+		case '{':
+			braceCount++
+		case '[':
+			bracketCount++
+		case '}':
+			braceCount--
+			if braceCount == -1 && bracketCount == 0 {
+				return nil
+			}
+		case ']':
+			bracketCount--
+		case ',':
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+		case '"':
+			for {
+				s.cursor++
+				if s.char() == nul {
+					if !s.read() {
+						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
+					}
+				}
+				if s.char() != '"' {
+					continue
+				}
+				if s.prevChar() == '\\' {
+					continue
+				}
+				if bracketCount == 0 && braceCount == 0 {
+					s.cursor++
+					return nil
+				}
+				break
+			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			for {
+				s.cursor++
+				if floatTable[s.char()] {
+					continue
+				} else if s.char() == nul {
+					if s.read() {
+						continue
+					}
+				}
+				break
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return err
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return err
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		}
+		s.cursor++
+	}
+	return errUnexpectedEndOfJSON("value of object", s.offset)
+}

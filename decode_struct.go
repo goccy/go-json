@@ -21,6 +21,63 @@ func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 	}
 }
 
+func (d *structDecoder) decodeStream(s *stream, p uintptr) error {
+	s.skipWhiteSpace()
+	if s.char() == nul {
+		s.read()
+	}
+	if s.char() != '{' {
+		return errNotAtBeginningOfValue(s.totalOffset())
+	}
+	s.cursor++
+	for {
+		s.reset()
+		key, err := d.keyDecoder.decodeStreamByte(s)
+		if err != nil {
+			return err
+		}
+		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
+		if s.char() != ':' {
+			return errExpected("colon after object key", s.totalOffset())
+		}
+		s.cursor++
+		if s.char() == nul {
+			s.read()
+		}
+		if s.end() {
+			return errExpected("object value after colon", s.totalOffset())
+		}
+		k := *(*string)(unsafe.Pointer(&key))
+		field, exists := d.fieldMap[k]
+		if exists {
+			if err := field.dec.decodeStream(s, p+field.offset); err != nil {
+				return err
+			}
+		} else {
+			if err := s.skipValue(); err != nil {
+				return err
+			}
+		}
+		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
+		c := s.char()
+		if c == '}' {
+			s.cursor++
+			return nil
+		}
+		if c != ',' {
+			return errExpected("comma after object element", s.totalOffset())
+		}
+		s.cursor++
+	}
+	return nil
+}
+
 func (d *structDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)

@@ -38,15 +38,6 @@ func (s *stream) end() bool {
 	return s.allRead && s.length <= s.cursor
 }
 
-func (s *stream) progress() bool {
-	if s.cursor < s.length-1 || s.read() {
-		s.cursor++
-		return true
-	}
-	s.cursor = s.length
-	return false
-}
-
 func (s *stream) progressN(n int64) bool {
 	if s.cursor+n < s.length-1 || s.read() {
 		s.cursor += n
@@ -94,8 +85,12 @@ func (s *stream) read() bool {
 func (s *stream) skipWhiteSpace() {
 LOOP:
 	if isWhiteSpace[s.char()] {
-		s.progress()
+		s.cursor++
 		goto LOOP
+	} else if s.char() == nul {
+		if s.read() {
+			goto LOOP
+		}
 	}
 }
 
@@ -105,8 +100,11 @@ func (s *stream) skipValue() error {
 	bracketCount := 0
 	for {
 		switch s.char() {
-		case '\000':
-			return errUnexpectedEndOfJSON("value of object", s.offset)
+		case nul:
+			if s.read() {
+				continue
+			}
+			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
 		case '{':
 			braceCount++
 		case '[':
@@ -123,7 +121,13 @@ func (s *stream) skipValue() error {
 				return nil
 			}
 		case '"':
-			for s.progress() {
+			for {
+				s.cursor++
+				if s.char() == nul {
+					if !s.read() {
+						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
+					}
+				}
 				if s.char() != '"' {
 					continue
 				}
@@ -131,16 +135,20 @@ func (s *stream) skipValue() error {
 					continue
 				}
 				if bracketCount == 0 && braceCount == 0 {
-					s.progress()
+					s.cursor++
 					return nil
 				}
 				break
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			for s.progress() {
-				tk := int(s.char())
-				if (int('0') <= tk && tk <= int('9')) || tk == '.' || tk == 'e' || tk == 'E' {
+			for {
+				s.cursor++
+				if floatTable[s.char()] {
 					continue
+				} else if s.char() == nul {
+					if s.read() {
+						continue
+					}
 				}
 				break
 			}
@@ -149,7 +157,7 @@ func (s *stream) skipValue() error {
 			}
 			continue
 		}
-		s.progress()
+		s.cursor++
 	}
 	return errUnexpectedEndOfJSON("value of object", s.offset)
 }

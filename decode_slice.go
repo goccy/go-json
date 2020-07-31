@@ -51,14 +51,15 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
-			s.progress()
+			s.cursor++
 			continue
 		case '[':
 			idx := 0
 			slice := d.newSlice()
 			cap := slice.Cap
 			data := slice.Data
-			for s.progress() {
+			for {
+				s.cursor++
 				if cap <= idx {
 					src := reflect.SliceHeader{Data: data, Len: idx, Cap: cap}
 					cap *= 2
@@ -70,6 +71,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					return err
 				}
 				s.skipWhiteSpace()
+			RETRY:
 				switch s.char() {
 				case ']':
 					slice.Cap = cap
@@ -84,20 +86,34 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					copySlice(d.elemType, dst, *slice)
 					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
 					d.releaseSlice(slice)
-					s.progress()
+					s.cursor++
 					return nil
 				case ',':
 					idx++
 					continue
+				case nul:
+					if s.read() {
+						goto RETRY
+					}
+					slice.Cap = cap
+					slice.Data = data
+					d.releaseSlice(slice)
+					goto ERROR
 				default:
 					slice.Cap = cap
 					slice.Data = data
 					d.releaseSlice(slice)
-					return errInvalidCharacter(s.char(), "slice", s.totalOffset())
+					goto ERROR
 				}
 			}
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto ERROR
 		}
 	}
+ERROR:
 	return errUnexpectedEndOfJSON("slice", s.totalOffset())
 }
 

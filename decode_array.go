@@ -23,27 +23,38 @@ func (d *arrayDecoder) decodeStream(s *stream, p uintptr) error {
 		case '[':
 			idx := 0
 			for {
-				s.progress()
+				s.cursor++
 				if err := d.valueDecoder.decodeStream(s, p+uintptr(idx)*d.size); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
 				switch s.char() {
 				case ']':
-					s.progress()
+					s.cursor++
 					return nil
 				case ',':
 					idx++
+				case nul:
+					if s.read() {
+						continue
+					}
+					goto ERROR
 				default:
-					return errInvalidCharacter(s.char(), "array", s.offset)
+					goto ERROR
 				}
 			}
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto ERROR
 		default:
-			return errUnexpectedEndOfJSON("array", s.offset)
+			goto ERROR
 		}
-		s.progress()
+		s.cursor++
 	}
-	return errUnexpectedEndOfJSON("array", s.offset)
+ERROR:
+	return errUnexpectedEndOfJSON("array", s.totalOffset())
 }
 
 func (d *arrayDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {

@@ -22,101 +22,77 @@ var (
 
 func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
-	switch s.char() {
-	case '{':
-		var v map[interface{}]interface{}
-		ptr := unsafe.Pointer(&v)
-		d.dummy = ptr
-		dec := newMapDecoder(interfaceMapType, newInterfaceDecoder(d.typ), newInterfaceDecoder(d.typ))
-		if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
-			return err
-		}
-		*(*interface{})(unsafe.Pointer(p)) = v
-		return nil
-	case '[':
-		var v []interface{}
-		ptr := unsafe.Pointer(&v)
-		d.dummy = ptr // escape ptr
-		dec := newSliceDecoder(newInterfaceDecoder(d.typ), d.typ, d.typ.Size())
-		if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
-			return err
-		}
-		*(*interface{})(unsafe.Pointer(p)) = v
-		return nil
-	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return newFloatDecoder(func(p uintptr, v float64) {
-			*(*interface{})(unsafe.Pointer(p)) = v
-		}).decodeStream(s, p)
-	case '"':
-		s.progress()
-		start := s.cursor
-		for {
-			switch s.char() {
-			case '\\':
-				s.progress()
-			case '"':
-				literal := s.buf[start:s.cursor]
-				s.progress()
-				*(*interface{})(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&literal))
-				return nil
-			case '\000':
-				return errUnexpectedEndOfJSON("string", s.totalOffset())
+	for {
+		switch s.char() {
+		case '{':
+			var v map[interface{}]interface{}
+			ptr := unsafe.Pointer(&v)
+			d.dummy = ptr
+			dec := newMapDecoder(interfaceMapType, newInterfaceDecoder(d.typ), newInterfaceDecoder(d.typ))
+			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
+				return err
 			}
-			s.progress()
+			*(*interface{})(unsafe.Pointer(p)) = v
+			return nil
+		case '[':
+			var v []interface{}
+			ptr := unsafe.Pointer(&v)
+			d.dummy = ptr // escape ptr
+			dec := newSliceDecoder(newInterfaceDecoder(d.typ), d.typ, d.typ.Size())
+			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = v
+			return nil
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return newFloatDecoder(func(p uintptr, v float64) {
+				*(*interface{})(unsafe.Pointer(p)) = v
+			}).decodeStream(s, p)
+		case '"':
+			s.cursor++
+			start := s.cursor
+			for {
+				switch s.char() {
+				case '\\':
+					s.cursor++
+				case '"':
+					literal := s.buf[start:s.cursor]
+					s.cursor++
+					*(*interface{})(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&literal))
+					return nil
+				case nul:
+					if s.read() {
+						continue
+					}
+					return errUnexpectedEndOfJSON("string", s.totalOffset())
+				}
+				s.cursor++
+			}
+			return errUnexpectedEndOfJSON("string", s.totalOffset())
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = true
+			return nil
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = false
+			return nil
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(unsafe.Pointer(p)) = nil
+			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
 		}
-		return errUnexpectedEndOfJSON("string", s.totalOffset())
-	case 't':
-		s.progress()
-		if s.char() != 'r' {
-			return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'u' {
-			return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'e' {
-			return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-		}
-		s.progress()
-		*(*interface{})(unsafe.Pointer(p)) = true
-		return nil
-	case 'f':
-		s.progress()
-		if s.char() != 'a' {
-			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'l' {
-			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 's' {
-			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'e' {
-			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-		}
-		s.progress()
-		*(*interface{})(unsafe.Pointer(p)) = false
-		return nil
-	case 'n':
-		s.progress()
-		if s.char() != 'u' {
-			return errInvalidCharacter(s.char(), "null", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'l' {
-			return errInvalidCharacter(s.char(), "null", s.totalOffset())
-		}
-		s.progress()
-		if s.char() != 'l' {
-			return errInvalidCharacter(s.char(), "null", s.totalOffset())
-		}
-		s.progress()
-		*(*interface{})(unsafe.Pointer(p)) = nil
-		return nil
+		break
 	}
 	return errNotAtBeginningOfValue(s.totalOffset())
 }

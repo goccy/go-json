@@ -51,16 +51,20 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 		return errExpected("{ character for map value", s.totalOffset())
 	}
 	mapValue := makemap(d.mapType, 0)
-	for s.progress() {
+	for {
+		s.cursor++
 		var key interface{}
 		if err := d.setKeyStream(s, &key); err != nil {
 			return err
 		}
 		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
 		if s.char() != ':' {
 			return errExpected("colon after object key", s.totalOffset())
 		}
-		s.progress()
+		s.cursor++
 		if s.end() {
 			return errUnexpectedEndOfJSON("map", s.totalOffset())
 		}
@@ -70,6 +74,9 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 		}
 		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
 		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
 		if s.char() == '}' {
 			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
 			return nil

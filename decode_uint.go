@@ -28,22 +28,29 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
-			s.progress()
+			s.cursor++
 			continue
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
-			for s.progress() {
-				tk := int(s.char())
-				if int('0') <= tk && tk <= int('9') {
+			for {
+				s.cursor++
+				if numTable[s.char()] {
 					continue
+				} else if s.char() == nul {
+					if s.read() {
+						continue
+					}
 				}
 				break
 			}
 			num := s.buf[start:s.cursor]
 			return num, nil
-		default:
-			return nil, errInvalidCharacter(s.char(), "number(unsigned integer)", s.totalOffset())
+		case nul:
+			if s.read() {
+				continue
+			}
 		}
+		break
 	}
 	return nil, errUnexpectedEndOfJSON("number(unsigned integer)", s.totalOffset())
 }

@@ -52,10 +52,11 @@ func Benchmark_Decode_SmallStruct_GoJayUnsafe(b *testing.B) {
 
 func Benchmark_Decode_SmallStruct_GoJsonDecode(b *testing.B) {
 	b.ReportAllocs()
+	reader := bytes.NewReader(SmallFixture)
 	for i := 0; i < b.N; i++ {
 		result := SmallPayload{}
-		buf := bytes.NewBuffer(SmallFixture)
-		if err := gojson.NewDecoder(buf).Decode(&result); err != nil {
+		reader.Reset(SmallFixture)
+		if err := gojson.NewDecoder(reader).Decode(&result); err != nil {
 			b.Fatal(err)
 		}
 	}

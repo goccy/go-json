@@ -31,40 +31,48 @@ func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, erro
 }
 
 func stringBytes(s *stream) ([]byte, error) {
-	s.progress()
+	s.cursor++
 	start := s.cursor
 	for {
 		switch s.char() {
 		case '\\':
-			s.progress()
+			s.cursor++
 		case '"':
 			literal := s.buf[start:s.cursor]
-			s.progress()
+			s.cursor++
 			s.reset()
 			return literal, nil
-		case '\000':
+		case nul:
+			if s.read() {
+				continue
+			}
 			goto ERROR
 		}
-		s.progress()
+		s.cursor++
 	}
 ERROR:
 	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())
 }
 
 func nullBytes(s *stream) error {
-	s.progress()
+	if s.cursor+3 >= s.length {
+		if !s.read() {
+			return errInvalidCharacter(s.char(), "null", s.totalOffset())
+		}
+	}
+	s.cursor++
 	if s.char() != 'u' {
 		return errInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'l' {
 		return errInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'l' {
 		return errInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	return nil
 }
 
@@ -72,7 +80,8 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
-			s.progress()
+			s.cursor++
+			continue
 		case '"':
 			return stringBytes(s)
 		case 'n':
@@ -80,11 +89,13 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				return nil, err
 			}
 			return []byte{'n', 'u', 'l', 'l'}, nil
-		default:
-			goto ERROR
+		case nul:
+			if s.read() {
+				continue
+			}
 		}
+		break
 	}
-ERROR:
 	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 

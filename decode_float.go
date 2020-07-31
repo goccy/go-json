@@ -31,9 +31,14 @@ var floatTable = [256]bool{
 
 func floatBytes(s *stream) []byte {
 	start := s.cursor
-	for s.progress() {
+	for {
+		s.cursor++
 		if floatTable[s.char()] {
 			continue
+		} else if s.char() == nul {
+			if s.read() {
+				continue
+			}
 		}
 		break
 	}
@@ -44,15 +49,21 @@ func (d *floatDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
-			s.progress()
+			s.cursor++
 			continue
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return floatBytes(s), nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto ERROR
 		default:
-			return nil, errUnexpectedEndOfJSON("float", s.offset)
+			goto ERROR
 		}
 	}
-	return nil, errUnexpectedEndOfJSON("float", s.offset)
+ERROR:
+	return nil, errUnexpectedEndOfJSON("float", s.totalOffset())
 }
 
 func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {

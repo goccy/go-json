@@ -49,6 +49,10 @@ func init() {
 	cachedDecoder = decoderMap{}
 }
 
+const (
+	nul = '\000'
+)
+
 // NewDecoder returns a new decoder that reads from r.
 //
 // The decoder introduces its own buffering and may
@@ -115,11 +119,16 @@ func (d *Decoder) prepareForDecode() error {
 	for {
 		switch s.char() {
 		case ' ', '\t', '\r', '\n':
-			s.progress()
+			s.cursor++
 			continue
 		case ',', ':':
-			s.progress()
+			s.cursor++
 			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			return io.EOF
 		}
 		break
 	}
@@ -167,10 +176,14 @@ func (d *Decoder) More() bool {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\r', '\t':
-			if s.progress() {
+			s.cursor++
+			continue
+		case '}', ']':
+			return false
+		case nul:
+			if s.read() {
 				continue
 			}
-		case '}', ']':
 			return false
 		}
 		break
@@ -184,16 +197,12 @@ func (d *Decoder) Token() (Token, error) {
 		c := s.char()
 		switch c {
 		case ' ', '\n', '\r', '\t':
-			if s.progress() {
-				continue
-			}
+			s.cursor++
 		case '{', '[', ']', '}':
-			s.progress()
+			s.cursor++
 			return Delim(c), nil
 		case ',', ':':
-			if s.progress() {
-				continue
-			}
+			s.cursor++
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			bytes := floatBytes(s)
 			s := *(*string)(unsafe.Pointer(&bytes))
@@ -223,7 +232,10 @@ func (d *Decoder) Token() (Token, error) {
 				return nil, err
 			}
 			return nil, nil
-		case '\000':
+		case nul:
+			if s.read() {
+				continue
+			}
 			return nil, io.EOF
 		default:
 			return nil, errInvalidCharacter(s.char(), "token", s.totalOffset())

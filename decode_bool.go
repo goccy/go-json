@@ -11,59 +11,78 @@ func newBoolDecoder() *boolDecoder {
 }
 
 func trueBytes(s *stream) error {
-	s.progress()
+	if s.cursor+3 >= s.length {
+		if !s.read() {
+			return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
+		}
+	}
+	s.cursor++
 	if s.char() != 'r' {
 		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'u' {
 		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'e' {
 		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	return nil
 }
 
 func falseBytes(s *stream) error {
-	s.progress()
+	if s.cursor+4 >= s.length {
+		if s.read() {
+			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
+		}
+	}
+	s.cursor++
 	if s.char() != 'a' {
 		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'l' {
 		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 's' {
 		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	if s.char() != 'e' {
 		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	return nil
 }
 
 func (d *boolDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
-	switch s.char() {
-	case 't':
-		if err := trueBytes(s); err != nil {
-			return err
+	for {
+		switch s.char() {
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return err
+			}
+			*(*bool)(unsafe.Pointer(p)) = true
+			return nil
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return err
+			}
+			*(*bool)(unsafe.Pointer(p)) = false
+			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto ERROR
 		}
-		*(*bool)(unsafe.Pointer(p)) = true
-		return nil
-	case 'f':
-		if err := falseBytes(s); err != nil {
-			return err
-		}
-		*(*bool)(unsafe.Pointer(p)) = false
-		return nil
+		break
 	}
+ERROR:
 	return errUnexpectedEndOfJSON("bool", s.totalOffset())
 }
 

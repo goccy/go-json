@@ -23,10 +23,13 @@ func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 
 func (d *structDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
+	if s.char() == nul {
+		s.read()
+	}
 	if s.char() != '{' {
 		return errNotAtBeginningOfValue(s.totalOffset())
 	}
-	s.progress()
+	s.cursor++
 	for {
 		s.reset()
 		key, err := d.keyDecoder.decodeStreamByte(s)
@@ -34,10 +37,16 @@ func (d *structDecoder) decodeStream(s *stream, p uintptr) error {
 			return err
 		}
 		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
 		if s.char() != ':' {
 			return errExpected("colon after object key", s.totalOffset())
 		}
-		s.progress()
+		s.cursor++
+		if s.char() == nul {
+			s.read()
+		}
 		if s.end() {
 			return errExpected("object value after colon", s.totalOffset())
 		}
@@ -53,15 +62,18 @@ func (d *structDecoder) decodeStream(s *stream, p uintptr) error {
 			}
 		}
 		s.skipWhiteSpace()
+		if s.char() == nul {
+			s.read()
+		}
 		c := s.char()
 		if c == '}' {
-			s.progress()
+			s.cursor++
 			return nil
 		}
 		if c != ',' {
 			return errExpected("comma after object element", s.totalOffset())
 		}
-		s.progress()
+		s.cursor++
 	}
 	return nil
 }

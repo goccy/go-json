@@ -65,34 +65,38 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 		case '[':
 			idx := 0
 			slice := d.newSlice()
-			cap := slice.Cap
-			data := slice.Data
+			cap := slice.cap
+			data := slice.data
 			for {
 				s.cursor++
 				if cap <= idx {
-					src := reflect.SliceHeader{Data: data, Len: idx, Cap: cap}
+					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					cap *= 2
-					data = uintptr(newArray(d.elemType, cap))
-					dst := reflect.SliceHeader{Data: data, Len: idx, Cap: cap}
+					data = newArray(d.elemType, cap)
+					dst := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
-				if err := d.valueDecoder.decodeStream(s, data+uintptr(idx)*d.size); err != nil {
+				if err := d.valueDecoder.decodeStream(s, uintptr(data)+uintptr(idx)*d.size); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
 			RETRY:
 				switch s.char() {
 				case ']':
-					slice.Cap = cap
-					slice.Len = idx + 1
-					slice.Data = data
+					slice.cap = cap
+					slice.len = idx + 1
+					slice.data = data
 					dstCap := idx + 1
 					dst := reflect.SliceHeader{
 						Data: uintptr(newArray(d.elemType, dstCap)),
 						Len:  idx + 1,
 						Cap:  dstCap,
 					}
-					copySlice(d.elemType, dst, *slice)
+					copySlice(d.elemType, dst, reflect.SliceHeader{
+						Data: uintptr(slice.data),
+						Len:  slice.len,
+						Cap:  slice.cap,
+					})
 					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
 					d.releaseSlice(slice)
 					s.cursor++
@@ -104,13 +108,13 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					if s.read() {
 						goto RETRY
 					}
-					slice.Cap = cap
-					slice.Data = data
+					slice.cap = cap
+					slice.data = data
 					d.releaseSlice(slice)
 					goto ERROR
 				default:
-					slice.Cap = cap
-					slice.Data = data
+					slice.cap = cap
+					slice.data = data
 					d.releaseSlice(slice)
 					goto ERROR
 				}

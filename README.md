@@ -22,12 +22,12 @@ WIP
 - [x] `(*Decoder).Buffered`
 - [x] `(*Decoder).Decode`
 - [ ] `(*Decoder).DisallowUnknownFields`
-- [ ] `(*Decoder).InputOffset`
-- [ ] `(*Decoder).More`
-- [ ] `(*Decoder).Token`
+- [x] `(*Decoder).InputOffset`
+- [x] `(*Decoder).More`
+- [x] `(*Decoder).Token`
 - [ ] `(*Decoder).UseNumber`
-- [ ] `Delim`
-- [ ] `(Delim).String`
+- [x] `Delim`
+- [x] `(Delim).String`
 - [x] `NewEncoder`
 - [x] `(*Encoder).Encode`
 - [x] `(*Encoder).SetEscapeHTML`

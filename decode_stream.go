@@ -71,10 +71,16 @@ func (s *stream) read() bool {
 		copy(newBuf, s.buf)
 		copy(newBuf[s.length:], buf)
 		s.buf = newBuf
+		s.length = totalSize - 1
+	} else if s.length > 0 {
+		copy(buf[s.length:], buf)
+		copy(buf, s.buf[:s.length])
+		s.buf = buf
+		s.length = totalSize - 1
 	} else {
 		s.buf = buf
+		s.length = totalSize - 1
 	}
-	s.length = int64(len(s.buf)) - 1
 	s.offset += s.cursor
 	if n == 0 {
 		return false
@@ -151,6 +157,30 @@ func (s *stream) skipValue() error {
 					}
 				}
 				break
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return err
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return err
+			}
+			if bracketCount == 0 && braceCount == 0 {
+				return nil
+			}
+			continue
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return err
 			}
 			if bracketCount == 0 && braceCount == 0 {
 				return nil

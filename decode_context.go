@@ -72,6 +72,63 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 				return cursor, nil
 			}
 			continue
+		case 't':
+			if cursor+3 >= buflen {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+1] != 'r' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+2] != 'u' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+3] != 'e' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			cursor += 4
+			if bracketCount == 0 && braceCount == 0 {
+				return cursor, nil
+			}
+			continue
+		case 'f':
+			if cursor+4 >= buflen {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+1] != 'a' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+2] != 'l' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+3] != 's' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			if buf[cursor+4] != 'e' {
+				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			}
+			cursor += 5
+			if bracketCount == 0 && braceCount == 0 {
+				return cursor, nil
+			}
+			continue
+		case 'n':
+			if cursor+3 >= buflen {
+				return 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			if buf[cursor+1] != 'u' {
+				return 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			if buf[cursor+2] != 'l' {
+				return 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			if buf[cursor+3] != 'l' {
+				return 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			cursor += 4
+			if bracketCount == 0 && braceCount == 0 {
+				return cursor, nil
+			}
+			continue
 		}
 		cursor++
 	}

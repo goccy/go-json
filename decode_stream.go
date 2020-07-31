@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	readChunkSize = 2
+	readChunkSize = 512
 )
 
 type stream struct {

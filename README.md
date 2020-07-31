@@ -70,7 +70,7 @@ WIP
 - [ ] `InvalidUTF8Error`
 - [x] `InvalidUnmarshalError`
 - [x] `MarshalerError`
-- [ ] `SyntaxError`
+- [x] `SyntaxError`
 - [ ] `UnmarshalFieldError`
 - [ ] `UnmarshalTypeError`
 - [x] `UnsupportedTypeError`

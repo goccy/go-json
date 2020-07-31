@@ -90,10 +90,11 @@ func (s *stream) read() bool {
 
 func (s *stream) skipWhiteSpace() {
 LOOP:
-	if isWhiteSpace[s.char()] {
+	c := s.char()
+	if isWhiteSpace[c] {
 		s.cursor++
 		goto LOOP
-	} else if s.char() == nul {
+	} else if c == nul {
 		if s.read() {
 			goto LOOP
 		}
@@ -129,12 +130,14 @@ func (s *stream) skipValue() error {
 		case '"':
 			for {
 				s.cursor++
-				if s.char() == nul {
+				c := s.char()
+				if c == nul {
 					if !s.read() {
 						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
 					}
+					c = s.char()
 				}
-				if s.char() != '"' {
+				if c != '"' {
 					continue
 				}
 				if s.prevChar() == '\\' {
@@ -149,10 +152,12 @@ func (s *stream) skipValue() error {
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			for {
 				s.cursor++
-				if floatTable[s.char()] {
+				c := s.char()
+				if floatTable[c] {
 					continue
-				} else if s.char() == nul {
+				} else if c == nul {
 					if s.read() {
+						s.cursor-- // for retry current character
 						continue
 					}
 				}

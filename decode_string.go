@@ -115,7 +115,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 					literal := buf[start:cursor]
 					cursor++
 					return literal, cursor, nil
-				case '\000':
+				case nul:
 					return nil, 0, errUnexpectedEndOfJSON("string", cursor)
 				}
 				cursor++

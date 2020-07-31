@@ -38,6 +38,7 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 					continue
 				} else if s.char() == nul {
 					if s.read() {
+						s.cursor-- // for retry current character
 						continue
 					}
 				}

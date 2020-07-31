@@ -64,6 +64,7 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				break
 			}
 			num := s.buf[start:s.cursor]
+			s.reset()
 			if len(num) < 2 {
 				return nil, errInvalidCharacter(s.char(), "number(integer)", s.totalOffset())
 			}
@@ -77,6 +78,7 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				break
 			}
 			num := s.buf[start:s.cursor]
+			s.reset()
 			return num, nil
 		default:
 			return nil, errInvalidCharacter(s.char(), "number(integer)", s.totalOffset())

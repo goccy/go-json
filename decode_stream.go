@@ -63,20 +63,29 @@ func (s *stream) reset() {
 }
 
 func (s *stream) read() bool {
+	if s.allRead {
+		return false
+	}
 	buf := make([]byte, readChunkSize)
 	n, err := s.r.Read(buf)
 	if err != nil && err != io.EOF {
 		return false
 	}
-	remain := s.length
-	newBuf := make([]byte, remain+int64(n)+1)
-	copy(newBuf, s.buf)
-	copy(newBuf[remain:], buf)
-	s.buf = newBuf
-	s.length = int64(len(newBuf)) - 1
-	s.offset += s.cursor
-	if n == 0 || err == io.EOF {
+	if n < readChunkSize || err == io.EOF {
 		s.allRead = true
+	}
+	totalSize := s.length + int64(n) + 1
+	if totalSize > readChunkSize {
+		newBuf := make([]byte, totalSize)
+		copy(newBuf, s.buf)
+		copy(newBuf[s.length:], buf)
+		s.buf = newBuf
+	} else {
+		s.buf = buf
+	}
+	s.length = int64(len(s.buf)) - 1
+	s.offset += s.cursor
+	if n == 0 {
 		return false
 	}
 	return true

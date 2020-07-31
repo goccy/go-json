@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -44,6 +45,17 @@ func Benchmark_Decode_SmallStruct_GoJayUnsafe(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		result := SmallPayload{}
 		if err := gojay.Unsafe.UnmarshalJSONObject(SmallFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_SmallStruct_GoJsonDecode(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := SmallPayload{}
+		buf := bytes.NewBuffer(SmallFixture)
+		if err := gojson.NewDecoder(buf).Decode(&result); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -2,7 +2,6 @@ package json
 
 import (
 	"encoding"
-	"fmt"
 	"io"
 	"reflect"
 	"strconv"

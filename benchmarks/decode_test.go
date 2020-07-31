@@ -30,6 +30,18 @@ func Benchmark_Decode_SmallStruct_JsonIter(b *testing.B) {
 	}
 }
 
+func Benchmark_Decode_SmallStruct_GoJayDecode(b *testing.B) {
+	b.ReportAllocs()
+	reader := bytes.NewReader(SmallFixture)
+	for n := 0; n < b.N; n++ {
+		reader.Reset(SmallFixture)
+		result := SmallPayload{}
+		if err := gojay.NewDecoder(reader).DecodeObject(&result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Decode_SmallStruct_GoJay(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {

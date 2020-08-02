@@ -5,46 +5,20 @@
 
 Fast JSON encoder/decoder compatible with encoding/json for Go
 
-# Status
+# Installation
 
-## Type
+```
+go get github.com/goccy/go-json
+```
 
-Currently supported all types
+# How to use
 
-## API
+Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 
-- [ ] `Compact`
-- [ ] `HTMLEscape`
-- [ ] `Indent`
-- [x] `Marshal`
-- [x] `MarshalIndent`
-- [x] `Unmarshal`
-- [ ] `Valid`
-- [x] `NewDecoder`
-- [x] `(*Decoder).Buffered`
-- [x] `(*Decoder).Decode`
-- [ ] `(*Decoder).DisallowUnknownFields`
-- [x] `(*Decoder).InputOffset`
-- [x] `(*Decoder).More`
-- [x] `(*Decoder).Token`
-- [ ] `(*Decoder).UseNumber`
-- [x] `Delim`
-- [x] `(Delim).String`
-- [x] `NewEncoder`
-- [x] `(*Encoder).Encode`
-- [x] `(*Encoder).SetEscapeHTML`
-- [x] `(*Encoder).SetIndent`
-
-### Error
-
-- [ ] `InvalidUTF8Error`
-- [x] `InvalidUnmarshalError`
-- [x] `MarshalerError`
-- [x] `SyntaxError`
-- [ ] `UnmarshalFieldError`
-- [ ] `UnmarshalTypeError`
-- [x] `UnsupportedTypeError`
-- [x] `UnsupportedValueError`
+```
+-import "encoding/json"
++import "github.com/goccy/go-json"
+```
 
 # Benchmarks
 
@@ -101,6 +75,46 @@ $ go test -bench .
 
 <img src="https://user-images.githubusercontent.com/209884/89118920-c28eec80-d4e4-11ea-91cc-424cfe726539.png"></img>
 
+# Status
+
+## Type
+
+Currently supported all types
+
+## API
+
+- [ ] `Compact`
+- [ ] `HTMLEscape`
+- [ ] `Indent`
+- [x] `Marshal`
+- [x] `MarshalIndent`
+- [x] `Unmarshal`
+- [ ] `Valid`
+- [x] `NewDecoder`
+- [x] `(*Decoder).Buffered`
+- [x] `(*Decoder).Decode`
+- [ ] `(*Decoder).DisallowUnknownFields`
+- [x] `(*Decoder).InputOffset`
+- [x] `(*Decoder).More`
+- [x] `(*Decoder).Token`
+- [ ] `(*Decoder).UseNumber`
+- [x] `Delim`
+- [x] `(Delim).String`
+- [x] `NewEncoder`
+- [x] `(*Encoder).Encode`
+- [x] `(*Encoder).SetEscapeHTML`
+- [x] `(*Encoder).SetIndent`
+
+### Error
+
+- [ ] `InvalidUTF8Error`
+- [x] `InvalidUnmarshalError`
+- [x] `MarshalerError`
+- [x] `SyntaxError`
+- [ ] `UnmarshalFieldError`
+- [ ] `UnmarshalTypeError`
+- [x] `UnsupportedTypeError`
+- [x] `UnsupportedValueError`
 
 # License
 

@@ -135,12 +135,26 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "struct.D.AA", 2, v.D.AA)
 		assertEq(t, "struct.D.BB", "world", v.D.BB)
 		assertEq(t, "struct.D.CC", true, v.D.CC)
-		t.Run("struct.null", func(t *testing.T) {
+		t.Run("struct.field null", func(t *testing.T) {
 			var v struct {
 				A string
+				B []string
+				C []int
+				D map[string]interface{}
+				E [2]string
+				F interface{}
 			}
-			assertErr(t, json.Unmarshal([]byte(`{"a":null}`), &v))
-			assertEq(t, "string is null", v.A, "")
+			assertErr(t, json.Unmarshal([]byte(`{"a":null,"b":null,"c":null,"d":null,"e":null,"f":null}`), &v))
+			assertEq(t, "string", v.A, "")
+			assertNeq(t, "[]string", v.B, nil)
+			assertEq(t, "[]string", len(v.B), 0)
+			assertNeq(t, "[]int", v.C, nil)
+			assertEq(t, "[]int", len(v.C), 0)
+			assertNeq(t, "map", v.D, nil)
+			assertEq(t, "map", len(v.D), 0)
+			assertNeq(t, "array", v.E, nil)
+			assertEq(t, "array", len(v.E), 2)
+			assertEq(t, "interface{}", v.F, nil)
 		})
 	})
 	t.Run("interface", func(t *testing.T) {

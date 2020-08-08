@@ -62,6 +62,11 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
 			continue
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			return nil
 		case '[':
 			idx := 0
 			slice := d.newSlice()
@@ -136,6 +141,22 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
 			continue
+		case 'n':
+			buflen := int64(len(buf))
+			if cursor+3 >= buflen {
+				return 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			if buf[cursor+1] != 'u' {
+				return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			}
+			if buf[cursor+2] != 'l' {
+				return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			}
+			if buf[cursor+3] != 'l' {
+				return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			}
+			cursor += 4
+			return cursor, nil
 		case '[':
 			idx := 0
 			slice := d.newSlice()

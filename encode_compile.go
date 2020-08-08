@@ -16,6 +16,9 @@ func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
+	if typ.Kind() == reflect.Map {
+		return e.compileMap(typ, false, withIndent)
+	}
 	return e.compile(typ, withIndent)
 }
 
@@ -33,7 +36,7 @@ func (e *Encoder) compile(typ *rtype, withIndent bool) (*opcode, error) {
 	case reflect.Array:
 		return e.compileArray(typ, withIndent)
 	case reflect.Map:
-		return e.compileMap(typ, withIndent)
+		return e.compileMap(typ, true, withIndent)
 	case reflect.Struct:
 		return e.compileStruct(typ, withIndent)
 	case reflect.Int:
@@ -366,7 +369,7 @@ func mapiternext(it unsafe.Pointer)
 //go:noescape
 func maplen(m unsafe.Pointer) int
 
-func (e *Encoder) compileMap(typ *rtype, withIndent bool) (*opcode, error) {
+func (e *Encoder) compileMap(typ *rtype, withLoad, withIndent bool) (*opcode, error) {
 	// header => code => value => code => key => code => value => code => end
 	//                                     ^                       |
 	//                                     |_______________________|
@@ -387,13 +390,17 @@ func (e *Encoder) compileMap(typ *rtype, withIndent bool) (*opcode, error) {
 
 	e.indent--
 
-	header := newMapHeaderCode(typ, e.indent)
+	header := newMapHeaderCode(typ, withLoad, e.indent)
 	header.key = key
 	header.value = value
 	end := newOpCode(opMapEnd, nil, e.indent, newEndOp(e.indent))
 
 	if withIndent {
-		header.op = opMapHeadIndent
+		if header.op == opMapHead {
+			header.op = opMapHeadIndent
+		} else {
+			header.op = opMapHeadLoadIndent
+		}
 		key.op = opMapKeyIndent
 		value.op = opMapValueIndent
 		end.op = opMapEndIndent

@@ -47,11 +47,13 @@ const (
 	opArrayEndIndent
 
 	opMapHead
+	opMapHeadLoad
 	opMapKey
 	opMapValue
 	opMapEnd
 
 	opMapHeadIndent
+	opMapHeadLoadIndent
 	opMapKeyIndent
 	opMapValueIndent
 	opMapEndIndent
@@ -327,8 +329,9 @@ func (t opType) String() string {
 	case opArrayEndIndent:
 		return "ARRAY_END_INDENT"
 	case opMapHead:
-
 		return "MAP_HEAD"
+	case opMapHeadLoad:
+		return "MAP_HEAD_LOAD"
 	case opMapKey:
 		return "MAP_KEY"
 	case opMapValue:
@@ -338,6 +341,8 @@ func (t opType) String() string {
 
 	case opMapHeadIndent:
 		return "MAP_HEAD_INDENT"
+	case opMapHeadLoadIndent:
+		return "MAP_HEAD_LOAD_INDENT"
 	case opMapKeyIndent:
 		return "MAP_KEY_INDENT"
 	case opMapValueIndent:
@@ -919,10 +924,16 @@ func (c *mapValueCode) set(iter unsafe.Pointer) {
 	c.iter = iter
 }
 
-func newMapHeaderCode(typ *rtype, indent int) *mapHeaderCode {
+func newMapHeaderCode(typ *rtype, withLoad bool, indent int) *mapHeaderCode {
+	var op opType
+	if withLoad {
+		op = opMapHeadLoad
+	} else {
+		op = opMapHead
+	}
 	return &mapHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opMapHead,
+			op:     op,
 			typ:    typ,
 			indent: indent,
 		},

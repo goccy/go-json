@@ -15,3 +15,10 @@ func assertEq(t *testing.T, msg string, exp interface{}, act interface{}) {
 		t.Fatalf("failed to test for %s. exp=[%v] but act=[%v]", msg, exp, act)
 	}
 }
+
+func assertNeq(t *testing.T, msg string, exp interface{}, act interface{}) {
+	t.Helper()
+	if exp == act {
+		t.Fatalf("failed to test for %s. expected value is not [%v] but got same value", msg, act)
+	}
+}

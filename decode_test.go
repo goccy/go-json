@@ -135,6 +135,13 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "struct.D.AA", 2, v.D.AA)
 		assertEq(t, "struct.D.BB", "world", v.D.BB)
 		assertEq(t, "struct.D.CC", true, v.D.CC)
+		t.Run("struct.null", func(t *testing.T) {
+			var v struct {
+				A string
+			}
+			assertErr(t, json.Unmarshal([]byte(`{"a":null}`), &v))
+			assertEq(t, "string is null", v.A, "")
+		})
 	})
 	t.Run("interface", func(t *testing.T) {
 		t.Run("number", func(t *testing.T) {

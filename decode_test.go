@@ -104,6 +104,24 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "map.b", v["b"], 2)
 		assertEq(t, "map.c", v["c"], 3)
 		assertEq(t, "map.d", v["d"], 4)
+		t.Run("nested map", func(t *testing.T) {
+			// https://github.com/goccy/go-json/issues/8
+			content := `
+{
+  "a": {
+    "nestedA": "value of nested a"
+  },  
+  "b": {
+    "nestedB": "value of nested b"
+  },  
+  "c": {
+    "nestedC": "value of nested c"
+  }
+}`
+			var v map[string]interface{}
+			assertErr(t, json.Unmarshal([]byte(content), &v))
+			assertEq(t, "length", 3, len(v))
+		})
 	})
 	t.Run("struct", func(t *testing.T) {
 		type T struct {

@@ -129,6 +129,116 @@ func Test_Marshal(t *testing.T) {
 			bytes, err := json.Marshal(&v)
 			assertErr(t, err)
 			assertEq(t, "struct", `{"t":1}`, string(bytes))
+			t.Run("int", func(t *testing.T) {
+				var v struct {
+					A int `json:"a,omitempty"`
+					B int `json:"b"`
+				}
+				v.B = 1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "int", `{"b":1}`, string(bytes))
+			})
+			t.Run("int8", func(t *testing.T) {
+				var v struct {
+					A int  `json:"a,omitempty"`
+					B int8 `json:"b"`
+				}
+				v.B = 1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "int8", `{"b":1}`, string(bytes))
+			})
+			t.Run("int16", func(t *testing.T) {
+				var v struct {
+					A int   `json:"a,omitempty"`
+					B int16 `json:"b"`
+				}
+				v.B = 1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "int16", `{"b":1}`, string(bytes))
+			})
+			t.Run("int32", func(t *testing.T) {
+				var v struct {
+					A int   `json:"a,omitempty"`
+					B int32 `json:"b"`
+				}
+				v.B = 1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "int32", `{"b":1}`, string(bytes))
+			})
+			t.Run("int64", func(t *testing.T) {
+				var v struct {
+					A int   `json:"a,omitempty"`
+					B int64 `json:"b"`
+				}
+				v.B = 1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "int64", `{"b":1}`, string(bytes))
+			})
+			t.Run("string", func(t *testing.T) {
+				var v struct {
+					A int    `json:"a,omitempty"`
+					B string `json:"b"`
+				}
+				v.B = "b"
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "string", `{"b":"b"}`, string(bytes))
+			})
+			t.Run("float32", func(t *testing.T) {
+				var v struct {
+					A int     `json:"a,omitempty"`
+					B float32 `json:"b"`
+				}
+				v.B = 1.1
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "float32", `{"b":1.1}`, string(bytes))
+			})
+			t.Run("float64", func(t *testing.T) {
+				var v struct {
+					A int     `json:"a,omitempty"`
+					B float64 `json:"b"`
+				}
+				v.B = 3.14
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "float64", `{"b":3.14}`, string(bytes))
+			})
+			t.Run("slice", func(t *testing.T) {
+				var v struct {
+					A int   `json:"a,omitempty"`
+					B []int `json:"b"`
+				}
+				v.B = []int{1, 2, 3}
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "slice", `{"b":[1,2,3]}`, string(bytes))
+			})
+			t.Run("array", func(t *testing.T) {
+				var v struct {
+					A int    `json:"a,omitempty"`
+					B [2]int `json:"b"`
+				}
+				v.B = [2]int{1, 2}
+				bytes, err := json.Marshal(&v)
+				assertErr(t, err)
+				assertEq(t, "array", `{"b":[1,2]}`, string(bytes))
+			})
+			t.Run("map", func(t *testing.T) {
+				v := new(struct {
+					A int                    `json:"a,omitempty"`
+					B map[string]interface{} `json:"b"`
+				})
+				v.B = map[string]interface{}{"c": 1}
+				bytes, err := json.Marshal(v)
+				assertErr(t, err)
+				assertEq(t, "array", `{"b":{"c":1}}`, string(bytes))
+			})
 		})
 		t.Run("head_omitempty", func(t *testing.T) {
 			type T struct {

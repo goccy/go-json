@@ -135,7 +135,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			if buf[cursor+3] != 'l' {
 				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
 			}
-			cursor += 5
+			cursor += 4
 			return []byte{}, cursor, nil
 		default:
 			goto ERROR

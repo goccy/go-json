@@ -86,6 +86,7 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 		}
 		if s.char() == '}' {
 			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+			s.cursor++
 			return nil
 		}
 		if s.char() != ',' {
@@ -148,6 +149,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) 
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+			cursor++
 			return cursor, nil
 		}
 		if buf[cursor] != ',' {

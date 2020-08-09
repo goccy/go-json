@@ -31,8 +31,8 @@ type opcodeMap struct {
 }
 
 type opcodeSet struct {
-	codeIndent *opcode
-	code       *opcode
+	codeIndent sync.Pool
+	code       sync.Pool
 }
 
 func (m *opcodeMap) get(k uintptr) *opcodeSet {
@@ -48,6 +48,7 @@ func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
 
 var (
 	encPool         sync.Pool
+	codePool        sync.Pool
 	cachedOpcode    opcodeMap
 	marshalJSONType reflect.Type
 	marshalTextType reflect.Type
@@ -147,14 +148,19 @@ func (e *Encoder) encode(v interface{}) error {
 	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
 		var code *opcode
 		if e.enabledIndent {
-			code = codeSet.codeIndent
+			code = codeSet.codeIndent.Get().(*opcode)
 		} else {
-			code = codeSet.code
+			code = codeSet.code.Get().(*opcode)
 		}
 		p := uintptr(header.ptr)
 		code.ptr = p
 		if err := e.run(code); err != nil {
 			return err
+		}
+		if e.enabledIndent {
+			codeSet.codeIndent.Put(code)
+		} else {
+			codeSet.code.Put(code)
 		}
 		return nil
 	}
@@ -170,13 +176,25 @@ func (e *Encoder) encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	codeSet := &opcodeSet{codeIndent: codeIndent, code: code}
+	codeSet := &opcodeSet{
+		codeIndent: sync.Pool{
+			New: func() interface{} {
+				return copyOpcode(codeIndent)
+			},
+		},
+		code: sync.Pool{
+			New: func() interface{} {
+				return copyOpcode(code)
+			},
+		},
+	}
 	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
-	code.ptr = p
 	if e.enabledIndent {
+		codeIndent.ptr = p
 		return e.run(codeIndent)
 	}
+	code.ptr = p
 	return e.run(code)
 }
 

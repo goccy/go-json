@@ -93,11 +93,11 @@ Currently supported all types
 - [x] `NewDecoder`
 - [x] `(*Decoder).Buffered`
 - [x] `(*Decoder).Decode`
-- [ ] `(*Decoder).DisallowUnknownFields`
+- [x] `(*Decoder).DisallowUnknownFields`
 - [x] `(*Decoder).InputOffset`
 - [x] `(*Decoder).More`
 - [x] `(*Decoder).Token`
-- [ ] `(*Decoder).UseNumber`
+- [x] `(*Decoder).UseNumber`
 - [x] `Delim`
 - [x] `(Delim).String`
 - [x] `NewEncoder`

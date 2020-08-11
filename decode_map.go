@@ -8,6 +8,7 @@ type mapDecoder struct {
 	mapType      *rtype
 	keyDecoder   decoder
 	valueDecoder decoder
+	dummy        *interfaceHeader
 }
 
 func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder) *mapDecoder {
@@ -37,11 +38,13 @@ func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64,
 
 func (d *mapDecoder) setKeyStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	d.dummy = header
 	return d.keyDecoder.decodeStream(s, uintptr(header.ptr))
 }
 
 func (d *mapDecoder) setValueStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	d.dummy = header
 	return d.valueDecoder.decodeStream(s, uintptr(header.ptr))
 }
 

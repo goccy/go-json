@@ -217,6 +217,14 @@ func Test_Decoder(t *testing.T) {
 	})
 }
 
+func Test_Decoder_UseNumber(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"a": 3.14}`))
+	dec.UseNumber()
+	var v map[string]interface{}
+	assertErr(t, dec.Decode(&v))
+	assertEq(t, "json.Number", "json.Number", fmt.Sprintf("%T", v["a"]))
+}
+
 type unmarshalJSON struct {
 	v int
 }

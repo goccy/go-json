@@ -258,5 +258,5 @@ func (d *Decoder) InputOffset() int64 {
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a
 // Number instead of as a float64.
 func (d *Decoder) UseNumber() {
-
+	d.s.useNumber = true
 }

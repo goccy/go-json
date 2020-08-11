@@ -11,7 +11,20 @@ type interfaceDecoder struct {
 }
 
 func newInterfaceDecoder(typ *rtype) *interfaceDecoder {
-	return &interfaceDecoder{typ: typ}
+	return &interfaceDecoder{
+		typ: typ,
+	}
+}
+
+func (d *interfaceDecoder) numDecoder(s *stream) decoder {
+	if s.useNumber {
+		return newNumberDecoder(func(p uintptr, v Number) {
+			*(*interface{})(unsafe.Pointer(p)) = v
+		})
+	}
+	return newFloatDecoder(func(p uintptr, v float64) {
+		*(*interface{})(unsafe.Pointer(p)) = v
+	})
 }
 
 var (
@@ -28,7 +41,11 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 			var v map[interface{}]interface{}
 			ptr := unsafe.Pointer(&v)
 			d.dummy = ptr
-			dec := newMapDecoder(interfaceMapType, newInterfaceDecoder(d.typ), newInterfaceDecoder(d.typ))
+			dec := newMapDecoder(
+				interfaceMapType,
+				newInterfaceDecoder(d.typ),
+				newInterfaceDecoder(d.typ),
+			)
 			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
 				return err
 			}
@@ -38,16 +55,18 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
 			d.dummy = ptr // escape ptr
-			dec := newSliceDecoder(newInterfaceDecoder(d.typ), d.typ, d.typ.Size())
+			dec := newSliceDecoder(
+				newInterfaceDecoder(d.typ),
+				d.typ,
+				d.typ.Size(),
+			)
 			if err := dec.decodeStream(s, uintptr(ptr)); err != nil {
 				return err
 			}
 			*(*interface{})(unsafe.Pointer(p)) = v
 			return nil
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return newFloatDecoder(func(p uintptr, v float64) {
-				*(*interface{})(unsafe.Pointer(p)) = v
-			}).decodeStream(s, p)
+			return d.numDecoder(s).decodeStream(s, p)
 		case '"':
 			s.cursor++
 			start := s.cursor
@@ -104,7 +123,11 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 		var v map[interface{}]interface{}
 		ptr := unsafe.Pointer(&v)
 		d.dummy = ptr
-		dec := newMapDecoder(interfaceMapType, newInterfaceDecoder(d.typ), newInterfaceDecoder(d.typ))
+		dec := newMapDecoder(
+			interfaceMapType,
+			newInterfaceDecoder(d.typ),
+			newInterfaceDecoder(d.typ),
+		)
 		cursor, err := dec.decode(buf, cursor, uintptr(ptr))
 		if err != nil {
 			return 0, err
@@ -115,7 +138,11 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
 		d.dummy = ptr // escape ptr
-		dec := newSliceDecoder(newInterfaceDecoder(d.typ), d.typ, d.typ.Size())
+		dec := newSliceDecoder(
+			newInterfaceDecoder(d.typ),
+			d.typ,
+			d.typ.Size(),
+		)
 		cursor, err := dec.decode(buf, cursor, uintptr(ptr))
 		if err != nil {
 			return 0, err

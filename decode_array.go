@@ -16,6 +16,10 @@ func newArrayDecoder(dec decoder, elemType *rtype, alen int) *arrayDecoder {
 	}
 }
 
+func (d *arrayDecoder) setDisallowUnknownFields(disallowUnknownFields bool) {
+	d.valueDecoder.setDisallowUnknownFields(disallowUnknownFields)
+}
+
 func (d *arrayDecoder) decodeStream(s *stream, p uintptr) error {
 	for {
 		switch s.char() {

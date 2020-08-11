@@ -58,6 +58,8 @@ func falseBytes(s *stream) error {
 	return nil
 }
 
+func (d *boolDecoder) setDisallowUnknownFields(_ bool) {}
+
 func (d *boolDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
 	for {

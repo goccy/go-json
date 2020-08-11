@@ -225,6 +225,21 @@ func Test_Decoder_UseNumber(t *testing.T) {
 	assertEq(t, "json.Number", "json.Number", fmt.Sprintf("%T", v["a"]))
 }
 
+func Test_Decoder_DisallowUnknownFields(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"x": 1}`))
+	dec.DisallowUnknownFields()
+	var v struct {
+		x int
+	}
+	err := dec.Decode(&v)
+	if err == nil {
+		t.Fatal("expected unknown field error")
+	}
+	if err.Error() != `json: unknown field "x"` {
+		t.Fatal("expected unknown field error")
+	}
+}
+
 type unmarshalJSON struct {
 	v int
 }

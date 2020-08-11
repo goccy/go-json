@@ -16,6 +16,8 @@ func newNumberDecoder(op func(uintptr, Number)) *numberDecoder {
 	}
 }
 
+func (d *numberDecoder) setDisallowUnknownFields(_ bool) {}
+
 func (d *numberDecoder) decodeStream(s *stream, p uintptr) error {
 	bytes, err := d.floatDecoder.decodeStreamByte(s)
 	if err != nil {

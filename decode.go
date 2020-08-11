@@ -18,10 +18,12 @@ func (d Delim) String() string {
 type decoder interface {
 	decode([]byte, int64, uintptr) (int64, error)
 	decodeStream(*stream, uintptr) error
+	setDisallowUnknownFields(bool)
 }
 
 type Decoder struct {
-	s *stream
+	s                     *stream
+	disallowUnknownFields bool
 }
 
 type decoderMap struct {
@@ -97,6 +99,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 		cachedDecoder.set(typeptr, compiledDec)
 		dec = compiledDec
 	}
+	dec.setDisallowUnknownFields(d.disallowUnknownFields)
 	if _, err := dec.decode(src, 0, ptr); err != nil {
 		return err
 	}
@@ -161,6 +164,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		cachedDecoder.set(typeptr, compiledDec)
 		dec = compiledDec
 	}
+	dec.setDisallowUnknownFields(d.disallowUnknownFields)
 	if err := d.prepareForDecode(); err != nil {
 		return err
 	}
@@ -248,7 +252,7 @@ func (d *Decoder) Token() (Token, error) {
 // is a struct and the input contains object keys which do not match any
 // non-ignored, exported fields in the destination.
 func (d *Decoder) DisallowUnknownFields() {
-
+	d.disallowUnknownFields = true
 }
 
 func (d *Decoder) InputOffset() int64 {

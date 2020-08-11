@@ -1,6 +1,7 @@
 package json
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -10,14 +11,22 @@ type structFieldSet struct {
 }
 
 type structDecoder struct {
-	fieldMap   map[string]*structFieldSet
-	keyDecoder *stringDecoder
+	fieldMap              map[string]*structFieldSet
+	keyDecoder            *stringDecoder
+	disallowUnknownFields bool
 }
 
 func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
 	return &structDecoder{
 		fieldMap:   fieldMap,
 		keyDecoder: newStringDecoder(),
+	}
+}
+
+func (d *structDecoder) setDisallowUnknownFields(disallowUnknownFields bool) {
+	d.disallowUnknownFields = disallowUnknownFields
+	for _, field := range d.fieldMap {
+		field.dec.setDisallowUnknownFields(disallowUnknownFields)
 	}
 }
 
@@ -56,6 +65,8 @@ func (d *structDecoder) decodeStream(s *stream, p uintptr) error {
 			if err := field.dec.decodeStream(s, p+field.offset); err != nil {
 				return err
 			}
+		} else if d.disallowUnknownFields {
+			return fmt.Errorf("json: unknown field %q", k)
 		} else {
 			if err := s.skipValue(); err != nil {
 				return err
@@ -110,6 +121,8 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, erro
 				return 0, err
 			}
 			cursor = c
+		} else if d.disallowUnknownFields {
+			return 0, fmt.Errorf("json: unknown field %q", k)
 		} else {
 			c, err := skipValue(buf, cursor)
 			if err != nil {

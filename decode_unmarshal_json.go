@@ -12,6 +12,8 @@ func newUnmarshalJSONDecoder(typ *rtype) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{typ: typ}
 }
 
+func (d *unmarshalJSONDecoder) setDisallowUnknownFields(_ bool) {}
+
 func (d *unmarshalJSONDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
 	start := s.cursor

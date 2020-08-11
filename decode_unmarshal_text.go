@@ -13,6 +13,8 @@ func newUnmarshalTextDecoder(typ *rtype) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{typ: typ}
 }
 
+func (d *unmarshalTextDecoder) setDisallowUnknownFields(_ bool) {}
+
 func (d *unmarshalTextDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
 	start := s.cursor

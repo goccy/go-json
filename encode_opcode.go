@@ -145,6 +145,8 @@ const (
 	opStructFieldPtrHeadString
 	opStructFieldPtrHeadBool
 
+	opStructFieldRecursive
+
 	opStructFieldPtrHeadIndent
 	opStructFieldPtrHeadIntIndent
 	opStructFieldPtrHeadInt8Indent
@@ -362,6 +364,8 @@ func (t opType) String() string {
 	case opMapEndIndent:
 		return "MAP_END_INDENT"
 
+	case opStructFieldRecursive:
+		return "STRUCT_FIELD_RECURSIVE"
 	case opStructFieldHead:
 		return "STRUCT_FIELD_HEAD"
 	case opStructFieldHeadInt:
@@ -831,6 +835,8 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		code = c.toMapKeyCode().copy(codeMap)
 	case opMapValue, opMapValueIndent:
 		code = c.toMapValueCode().copy(codeMap)
+	case opStructFieldRecursive:
+		code = c.toRecursiveCode().copy(codeMap)
 	case opStructFieldHead,
 		opStructFieldHeadInt,
 		opStructFieldHeadInt8,
@@ -1076,6 +1082,10 @@ func (c *opcode) toInterfaceCode() *interfaceCode {
 	return (*interfaceCode)(unsafe.Pointer(c))
 }
 
+func (c *opcode) toRecursiveCode() *recursiveCode {
+	return (*recursiveCode)(unsafe.Pointer(c))
+}
+
 type sliceHeaderCode struct {
 	*opcodeHeader
 	elem *sliceElemCode
@@ -1301,27 +1311,6 @@ func (c *mapKeyCode) set(len int, iter unsafe.Pointer) {
 	c.iter = iter
 }
 
-type interfaceCode struct {
-	*opcodeHeader
-	root bool
-}
-
-func (c *interfaceCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	iface := &interfaceCode{}
-	code := (*opcode)(unsafe.Pointer(iface))
-	codeMap[addr] = code
-
-	iface.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	return code
-}
-
 type mapValueCode struct {
 	*opcodeHeader
 	iter unsafe.Pointer
@@ -1381,4 +1370,49 @@ func newMapValueCode(indent int) *mapValueCode {
 			indent: indent,
 		},
 	}
+}
+
+type interfaceCode struct {
+	*opcodeHeader
+	root bool
+}
+
+func (c *interfaceCode) copy(codeMap map[uintptr]*opcode) *opcode {
+	if c == nil {
+		return nil
+	}
+	addr := uintptr(unsafe.Pointer(c))
+	if code, exists := codeMap[addr]; exists {
+		return code
+	}
+	iface := &interfaceCode{}
+	code := (*opcode)(unsafe.Pointer(iface))
+	codeMap[addr] = code
+
+	iface.opcodeHeader = c.opcodeHeader.copy(codeMap)
+	return code
+}
+
+type recursiveCode struct {
+	*opcodeHeader
+	jmp *compiledCode
+}
+
+func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
+	if c == nil {
+		return nil
+	}
+	addr := uintptr(unsafe.Pointer(c))
+	if code, exists := codeMap[addr]; exists {
+		return code
+	}
+	recur := &recursiveCode{}
+	code := (*opcode)(unsafe.Pointer(recur))
+	codeMap[addr] = code
+
+	recur.opcodeHeader = c.opcodeHeader.copy(codeMap)
+	recur.jmp = &compiledCode{
+		code: c.jmp.code.copy(codeMap),
+	}
+	return code
 }

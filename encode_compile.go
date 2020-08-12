@@ -747,6 +747,38 @@ func (e *Encoder) optimizeStructField(op opType, isOmitEmpty, withIndent bool) o
 }
 
 func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, error) {
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if withIndent {
+		if compiled, exists := e.structTypeToCompiledCode[typeptr]; exists {
+			return (*opcode)(unsafe.Pointer(&recursiveCode{
+				opcodeHeader: &opcodeHeader{
+					op:     opStructFieldRecursive,
+					typ:    typ,
+					indent: e.indent,
+					next:   newEndOp(e.indent),
+				},
+				jmp: compiled,
+			})), nil
+		}
+	} else {
+		if compiled, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
+			return (*opcode)(unsafe.Pointer(&recursiveCode{
+				opcodeHeader: &opcodeHeader{
+					op:     opStructFieldRecursive,
+					typ:    typ,
+					indent: e.indent,
+					next:   newEndOp(e.indent),
+				},
+				jmp: compiled,
+			})), nil
+		}
+	}
+	compiled := &compiledCode{}
+	if withIndent {
+		e.structTypeToCompiledCode[typeptr] = compiled
+	} else {
+		e.structTypeToCompiledIndentCode[typeptr] = compiled
+	}
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
@@ -851,5 +883,7 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 	head.end = structEndCode
 	code.next = structEndCode
 	structEndCode.next = newEndOp(e.indent)
-	return (*opcode)(unsafe.Pointer(head)), nil
+	ret := (*opcode)(unsafe.Pointer(head))
+	compiled.code = ret
+	return ret, nil
 }

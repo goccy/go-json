@@ -458,6 +458,14 @@ func (e *Encoder) run(code *opcode) error {
 			c.next.ptr = uintptr(value)
 			mapiternext(c.iter)
 			code = c.next
+		case opStructFieldRecursive:
+			recursive := code.toRecursiveCode()
+			c := copyOpcode(recursive.jmp.code)
+			c.ptr = recursive.ptr
+			if err := e.run(c); err != nil {
+				return err
+			}
+			code = recursive.next
 		case opStructFieldPtrHead:
 			if code.ptr != 0 {
 				code.ptr = e.ptrToPtr(code.ptr)

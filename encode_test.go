@@ -9,6 +9,15 @@ import (
 	"github.com/goccy/go-json"
 )
 
+type recursiveT struct {
+	A *recursiveT `json:"a,omitempty"`
+	B *recursiveU `json:"b,omitempty"`
+	C string      `json:"c,omitempty"`
+}
+type recursiveU struct {
+	T *recursiveT `json:"t,omitempty"`
+}
+
 func Test_Marshal(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
 		bytes, err := json.Marshal(-10)
@@ -102,6 +111,19 @@ func Test_Marshal(t *testing.T) {
 			bytes, err := json.Marshal(&v)
 			assertErr(t, err)
 			assertEq(t, "struct", `{"a":null}`, string(bytes))
+		})
+		t.Run("recursive", func(t *testing.T) {
+			bytes, err := json.Marshal(recursiveT{
+				A: &recursiveT{
+					B: &recursiveU{
+						T: &recursiveT{
+							C: "hello",
+						},
+					},
+				},
+			})
+			assertErr(t, err)
+			assertEq(t, "recursive", `{"a":{"b":{"t":{"c":"hello"}}}}`, string(bytes))
 		})
 		t.Run("omitempty", func(t *testing.T) {
 			type T struct {

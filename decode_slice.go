@@ -72,12 +72,22 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 			}
 			return nil
 		case '[':
+			s.cursor++
+			s.skipWhiteSpace()
+			if s.char() == ']' {
+				*(*reflect.SliceHeader)(unsafe.Pointer(p)) = reflect.SliceHeader{
+					Data: uintptr(newArray(d.elemType, 0)),
+					Len:  0,
+					Cap:  0,
+				}
+				s.cursor++
+				return nil
+			}
 			idx := 0
 			slice := d.newSlice()
 			cap := slice.cap
 			data := slice.data
 			for {
-				s.cursor++
 				if cap <= idx {
 					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					cap *= 2
@@ -112,7 +122,6 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					return nil
 				case ',':
 					idx++
-					continue
 				case nul:
 					if s.read() {
 						goto RETRY
@@ -127,6 +136,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					d.releaseSlice(slice)
 					goto ERROR
 				}
+				s.cursor++
 			}
 		case nul:
 			if s.read() {
@@ -162,12 +172,22 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 			cursor += 4
 			return cursor, nil
 		case '[':
+			cursor++
+			cursor = skipWhiteSpace(buf, cursor)
+			if buf[cursor] == ']' {
+				*(*reflect.SliceHeader)(unsafe.Pointer(p)) = reflect.SliceHeader{
+					Data: uintptr(newArray(d.elemType, 0)),
+					Len:  0,
+					Cap:  0,
+				}
+				cursor++
+				return cursor, nil
+			}
 			idx := 0
 			slice := d.newSlice()
 			cap := slice.cap
 			data := slice.data
 			for {
-				cursor++
 				if cap <= idx {
 					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
 					cap *= 2
@@ -203,13 +223,13 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 					return cursor, nil
 				case ',':
 					idx++
-					continue
 				default:
 					slice.cap = cap
 					slice.data = data
 					d.releaseSlice(slice)
 					return 0, errInvalidCharacter(buf[cursor], "slice", cursor)
 				}
+				cursor++
 			}
 		}
 	}

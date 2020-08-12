@@ -65,7 +65,13 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 	default:
 		return errExpected("{ character for map value", s.totalOffset())
 	}
+	s.skipWhiteSpace()
 	mapValue := makemap(d.mapType, 0)
+	if s.buf[s.cursor+1] == '}' {
+		*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+		s.cursor++
+		return nil
+	}
 	for {
 		s.cursor++
 		var key interface{}
@@ -131,7 +137,13 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) 
 		return 0, errExpected("{ character for map value", cursor)
 	}
 	cursor++
+	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := makemap(d.mapType, 0)
+	if buf[cursor] == '}' {
+		*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+		cursor++
+		return cursor, nil
+	}
 	for ; cursor < buflen; cursor++ {
 		var key interface{}
 		keyCursor, err := d.setKey(buf, cursor, &key)

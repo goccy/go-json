@@ -67,21 +67,25 @@ func (s *stream) read() bool {
 	if n < readChunkSize || err == io.EOF {
 		s.allRead = true
 	}
-	totalSize := s.length + int64(n) + 1
+	// extend buffer (2) is protect ( s.cursor++ x2 )
+	// e.g.) line 85 in decode_interface.go
+	const extendBufLength = int64(2)
+
+	totalSize := s.length + int64(n) + extendBufLength
 	if totalSize > readChunkSize {
 		newBuf := make([]byte, totalSize)
 		copy(newBuf, s.buf)
 		copy(newBuf[s.length:], buf)
 		s.buf = newBuf
-		s.length = totalSize - 1
+		s.length = totalSize - extendBufLength
 	} else if s.length > 0 {
 		copy(buf[s.length:], buf)
 		copy(buf, s.buf[:s.length])
 		s.buf = buf
-		s.length = totalSize - 1
+		s.length = totalSize - extendBufLength
 	} else {
 		s.buf = buf
-		s.length = totalSize - 1
+		s.length = totalSize - extendBufLength
 	}
 	s.offset += s.cursor
 	if n == 0 {

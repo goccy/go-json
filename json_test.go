@@ -2,6 +2,9 @@ package json_test
 
 import (
 	"bytes"
+	"math"
+	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -115,4 +118,182 @@ func TestIndent(t *testing.T) {
 			t.Errorf("Indent(%#q) = %#q, want %#q", tt.compact, s, tt.indent)
 		}
 	}
+}
+
+// Tests of a large random structure.
+
+func TestCompactBig(t *testing.T) {
+	initBig()
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, jsonBig); err != nil {
+		t.Fatalf("Compact: %v", err)
+	}
+	b := buf.Bytes()
+	if !bytes.Equal(b, jsonBig) {
+		t.Error("Compact(jsonBig) != jsonBig")
+		diff(t, b, jsonBig)
+		return
+	}
+}
+
+func TestIndentBig(t *testing.T) {
+	t.Parallel()
+	initBig()
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, jsonBig, "", "\t"); err != nil {
+		t.Fatalf("Indent1: %v", err)
+	}
+	b := buf.Bytes()
+	if len(b) == len(jsonBig) {
+		// jsonBig is compact (no unnecessary spaces);
+		// indenting should make it bigger
+		t.Fatalf("Indent(jsonBig) did not get bigger")
+	}
+
+	// should be idempotent
+	var buf1 bytes.Buffer
+	if err := json.Indent(&buf1, b, "", "\t"); err != nil {
+		t.Fatalf("Indent2: %v", err)
+	}
+	b1 := buf1.Bytes()
+	if !bytes.Equal(b1, b) {
+		t.Error("Indent(Indent(jsonBig)) != Indent(jsonBig)")
+		diff(t, b1, b)
+		return
+	}
+
+	// should get back to original
+	buf1.Reset()
+	if err := json.Compact(&buf1, b); err != nil {
+		t.Fatalf("Compact: %v", err)
+	}
+	b1 = buf1.Bytes()
+	if !bytes.Equal(b1, jsonBig) {
+		t.Error("Compact(Indent(jsonBig)) != jsonBig")
+		diff(t, b1, jsonBig)
+		return
+	}
+}
+
+type indentErrorTest struct {
+	in  string
+	err error
+}
+
+var indentErrorTests = []indentErrorTest{
+	{`{"X": "foo", "Y"}`, json.NewSyntaxError("invalid character '}' after object key", 17)},
+	{`{"X": "foo" "Y": "bar"}`, json.NewSyntaxError("invalid character '\"' after object key:value pair", 13)},
+}
+
+func TestIndentErrors(t *testing.T) {
+	for i, tt := range indentErrorTests {
+		slice := make([]uint8, 0)
+		buf := bytes.NewBuffer(slice)
+		if err := json.Indent(buf, []uint8(tt.in), "", ""); err != nil {
+			if !reflect.DeepEqual(err, tt.err) {
+				t.Errorf("#%d: Indent: %#v", i, err)
+				continue
+			}
+		}
+	}
+}
+
+func diff(t *testing.T, a, b []byte) {
+	for i := 0; ; i++ {
+		if i >= len(a) || i >= len(b) || a[i] != b[i] {
+			j := i - 10
+			if j < 0 {
+				j = 0
+			}
+			t.Errorf("diverge at %d: «%s» vs «%s»", i, trim(a[j:]), trim(b[j:]))
+			return
+		}
+	}
+}
+
+func trim(b []byte) []byte {
+	if len(b) > 20 {
+		return b[0:20]
+	}
+	return b
+}
+
+// Generate a random JSON object.
+
+var jsonBig []byte
+
+func initBig() {
+	n := 10000
+	if testing.Short() {
+		n = 100
+	}
+	v := genValue(n)
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	jsonBig = b
+}
+
+func genValue(n int) interface{} {
+	if n > 1 {
+		switch rand.Intn(2) {
+		case 0:
+			return genArray(n)
+		case 1:
+			return genMap(n)
+		}
+	}
+	switch rand.Intn(3) {
+	case 0:
+		return rand.Intn(2) == 0
+	case 1:
+		return rand.NormFloat64()
+	case 2:
+		return genString(30)
+	}
+	panic("unreachable")
+}
+
+func genString(stddev float64) string {
+	n := int(math.Abs(rand.NormFloat64()*stddev + stddev/2))
+	c := make([]rune, n)
+	for i := range c {
+		f := math.Abs(rand.NormFloat64()*64 + 32)
+		if f > 0x10ffff {
+			f = 0x10ffff
+		}
+		c[i] = rune(f)
+	}
+	return string(c)
+}
+
+func genArray(n int) []interface{} {
+	f := int(math.Abs(rand.NormFloat64()) * math.Min(10, float64(n/2)))
+	if f > n {
+		f = n
+	}
+	if f < 1 {
+		f = 1
+	}
+	x := make([]interface{}, f)
+	for i := range x {
+		x[i] = genValue(((i+1)*n)/f - (i*n)/f)
+	}
+	return x
+}
+
+func genMap(n int) map[string]interface{} {
+	f := int(math.Abs(rand.NormFloat64()) * math.Min(10, float64(n/2)))
+	if f > n {
+		f = n
+	}
+	if n > 0 && f == 0 {
+		f = 1
+	}
+	x := make(map[string]interface{})
+	for i := 0; i < f; i++ {
+		x[genString(10)] = genValue(((i+1)*n)/f - (i*n)/f)
+	}
+	return x
 }

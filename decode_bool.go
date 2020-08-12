@@ -34,7 +34,7 @@ func trueBytes(s *stream) error {
 
 func falseBytes(s *stream) error {
 	if s.cursor+4 >= s.length {
-		if s.read() {
+		if !s.read() {
 			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 		}
 	}

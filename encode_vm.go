@@ -84,9 +84,19 @@ func (e *Encoder) run(code *opcode) error {
 				typ = typ.Elem()
 			}
 			e.indent = ifaceCode.indent
-			c, err := e.compile(typ, ifaceCode.root, e.enabledIndent)
-			if err != nil {
-				return err
+			var c *opcode
+			if typ.Kind() == reflect.Map {
+				code, err := e.compileMap(typ, false, ifaceCode.root, e.enabledIndent)
+				if err != nil {
+					return err
+				}
+				c = code
+			} else {
+				code, err := e.compile(typ, ifaceCode.root, e.enabledIndent)
+				if err != nil {
+					return err
+				}
+				c = code
 			}
 			c.ptr = uintptr(header.ptr)
 			c.beforeLastCode().next = code.next

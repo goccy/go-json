@@ -12,14 +12,20 @@ import (
 
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
-	w                 io.Writer
-	buf               []byte
-	pool              sync.Pool
-	enabledIndent     bool
-	enabledHTMLEscape bool
-	prefix            []byte
-	indentStr         []byte
-	indent            int
+	w                              io.Writer
+	buf                            []byte
+	pool                           sync.Pool
+	enabledIndent                  bool
+	enabledHTMLEscape              bool
+	prefix                         []byte
+	indentStr                      []byte
+	indent                         int
+	structTypeToCompiledCode       map[uintptr]*compiledCode
+	structTypeToCompiledIndentCode map[uintptr]*compiledCode
+}
+
+type compiledCode struct {
+	code *opcode
 }
 
 const (
@@ -58,8 +64,10 @@ func init() {
 	encPool = sync.Pool{
 		New: func() interface{} {
 			return &Encoder{
-				buf:  make([]byte, 0, bufSize),
-				pool: encPool,
+				buf:                            make([]byte, 0, bufSize),
+				pool:                           encPool,
+				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
+				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
 			}
 		},
 	}

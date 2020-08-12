@@ -296,6 +296,10 @@ func (n Number) Int64() (int64, error) {
 	return strconv.ParseInt(string(n), 10, 64)
 }
 
+func (n Number) MarshalJSON() ([]byte, error) {
+	return []byte(n), nil
+}
+
 // RawMessage is a raw encoded JSON value.
 // It implements Marshaler and Unmarshaler and can
 // be used to delay JSON decoding or precompute a JSON encoding.
@@ -316,4 +320,69 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 	}
 	*m = append((*m)[0:0], data...)
 	return nil
+}
+
+// Compact appends to dst the JSON-encoded src with
+// insignificant space characters elided.
+func Compact(dst *bytes.Buffer, src []byte) error {
+	var v interface{}
+	dec := NewDecoder(bytes.NewBuffer(src))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+	enc := NewEncoder(dst)
+	enc.SetEscapeHTML(false)
+	return enc.Encode(v)
+}
+
+// Indent appends to dst an indented form of the JSON-encoded src.
+// Each element in a JSON object or array begins on a new,
+// indented line beginning with prefix followed by one or more
+// copies of indent according to the indentation nesting.
+// The data appended to dst does not begin with the prefix nor
+// any indentation, to make it easier to embed inside other formatted JSON data.
+// Although leading space characters (space, tab, carriage return, newline)
+// at the beginning of src are dropped, trailing space characters
+// at the end of src are preserved and copied to dst.
+// For example, if src has no trailing spaces, neither will dst;
+// if src ends in a trailing newline, so will dst.
+func Indent(dst *bytes.Buffer, src []byte, prefix, indent string) error {
+	var v interface{}
+	dec := NewDecoder(bytes.NewBuffer(src))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+	enc := NewEncoder(dst)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent(prefix, indent)
+	return enc.Encode(v)
+}
+
+// HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029
+// characters inside string literals changed to \u003c, \u003e, \u0026, \u2028, \u2029
+// so that the JSON will be safe to embed inside HTML <script> tags.
+// For historical reasons, web browsers don't honor standard HTML
+// escaping within <script> tags, so an alternative JSON encoding must
+// be used.
+func HTMLEscape(dst *bytes.Buffer, src []byte) {
+	var v interface{}
+	dec := NewDecoder(bytes.NewBuffer(src))
+	dec.UseNumber()
+	if err := dec.Decode(&v); err != nil {
+		return
+	}
+	enc := NewEncoder(dst)
+	enc.SetEscapeHTML(true)
+	enc.Encode(v)
+}
+
+// Valid reports whether data is a valid JSON encoding.
+func Valid(data []byte) bool {
+	var v interface{}
+	if err := Unmarshal(data, &v); err != nil {
+		return false
+	}
+	return true
 }

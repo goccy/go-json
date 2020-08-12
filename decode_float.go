@@ -27,6 +27,7 @@ var floatTable = [256]bool{
 	'.': true,
 	'e': true,
 	'E': true,
+	'+': true,
 }
 
 func floatBytes(s *stream) []byte {
@@ -79,8 +80,7 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 			start := cursor
 			cursor++
 			for ; cursor < buflen; cursor++ {
-				tk := int(buf[cursor])
-				if (int('0') <= tk && tk <= int('9')) || tk == '.' || tk == 'e' || tk == 'E' {
+				if floatTable[buf[cursor]] {
 					continue
 				}
 				break

@@ -35,7 +35,9 @@ const (
 	opSliceEnd
 
 	opSliceHeadIndent
+	opRootSliceHeadIndent
 	opSliceElemIndent
+	opRootSliceElemIndent
 	opSliceEndIndent
 
 	opArrayHead
@@ -50,12 +52,14 @@ const (
 	opMapHeadLoad
 	opMapKey
 	opMapValue
-	opMapEnd
 
 	opMapHeadIndent
+	opRootMapHeadIndent
 	opMapHeadLoadIndent
 	opMapKeyIndent
+	opRootMapKeyIndent
 	opMapValueIndent
+	opMapEnd
 	opMapEndIndent
 
 	// StructFieldHead
@@ -310,8 +314,12 @@ func (t opType) String() string {
 
 	case opSliceHeadIndent:
 		return "SLICE_HEAD_INDENT"
+	case opRootSliceHeadIndent:
+		return "ROOT_SLICE_HEAD_INDENT"
 	case opSliceElemIndent:
 		return "SLICE_ELEM_INDENT"
+	case opRootSliceElemIndent:
+		return "ROOT_SLICE_ELEM_INDENT"
 	case opSliceEndIndent:
 		return "SLICE_END_INDENT"
 
@@ -341,10 +349,14 @@ func (t opType) String() string {
 
 	case opMapHeadIndent:
 		return "MAP_HEAD_INDENT"
+	case opRootMapHeadIndent:
+		return "ROOT_MAP_HEAD_INDENT"
 	case opMapHeadLoadIndent:
 		return "MAP_HEAD_LOAD_INDENT"
 	case opMapKeyIndent:
 		return "MAP_KEY_INDENT"
+	case opRootMapKeyIndent:
+		return "ROOT_MAP_KEY_INDENT"
 	case opMapValueIndent:
 		return "MAP_VALUE_INDENT"
 	case opMapEndIndent:
@@ -780,9 +792,9 @@ func (c *opcode) beforeLastCode() *opcode {
 		switch code.op {
 		case opArrayElem, opArrayElemIndent:
 			nextCode = code.toArrayElemCode().end
-		case opSliceElem, opSliceElemIndent:
+		case opSliceElem, opSliceElemIndent, opRootSliceElemIndent:
 			nextCode = code.toSliceElemCode().end
-		case opMapKey, opMapKeyIndent:
+		case opMapKey, opMapKeyIndent, opRootMapKeyIndent:
 			nextCode = code.toMapKeyCode().end
 		default:
 			nextCode = code.next
@@ -809,13 +821,13 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		code = c.toArrayHeaderCode().copy(codeMap)
 	case opArrayElem, opArrayElemIndent:
 		code = c.toArrayElemCode().copy(codeMap)
-	case opSliceHead, opSliceHeadIndent:
+	case opSliceHead, opSliceHeadIndent, opRootSliceHeadIndent:
 		code = c.toSliceHeaderCode().copy(codeMap)
-	case opSliceElem, opSliceElemIndent:
+	case opSliceElem, opSliceElemIndent, opRootSliceElemIndent:
 		code = c.toSliceElemCode().copy(codeMap)
-	case opMapHead, opMapHeadLoad, opMapHeadIndent, opMapHeadLoadIndent:
+	case opMapHead, opMapHeadLoad, opMapHeadIndent, opMapHeadLoadIndent, opRootMapHeadIndent:
 		code = c.toMapHeadCode().copy(codeMap)
-	case opMapKey, opMapKeyIndent:
+	case opMapKey, opMapKeyIndent, opRootMapKeyIndent:
 		code = c.toMapKeyCode().copy(codeMap)
 	case opMapValue, opMapValueIndent:
 		code = c.toMapValueCode().copy(codeMap)
@@ -1017,9 +1029,9 @@ func (c *opcode) dump() string {
 		switch code.op {
 		case opArrayElem, opArrayElemIndent:
 			code = code.toArrayElemCode().end
-		case opSliceElem, opSliceElemIndent:
+		case opSliceElem, opSliceElemIndent, opRootSliceElemIndent:
 			code = code.toSliceElemCode().end
-		case opMapKey, opMapKeyIndent:
+		case opMapKey, opMapKeyIndent, opRootMapKeyIndent:
 			code = code.toMapKeyCode().end
 		default:
 			code = code.next
@@ -1058,6 +1070,10 @@ func (c *opcode) toMapKeyCode() *mapKeyCode {
 
 func (c *opcode) toMapValueCode() *mapValueCode {
 	return (*mapValueCode)(unsafe.Pointer(c))
+}
+
+func (c *opcode) toInterfaceCode() *interfaceCode {
+	return (*interfaceCode)(unsafe.Pointer(c))
 }
 
 type sliceHeaderCode struct {
@@ -1283,6 +1299,27 @@ func (c *mapKeyCode) set(len int, iter unsafe.Pointer) {
 	c.idx = 0
 	c.len = len
 	c.iter = iter
+}
+
+type interfaceCode struct {
+	*opcodeHeader
+	root bool
+}
+
+func (c *interfaceCode) copy(codeMap map[uintptr]*opcode) *opcode {
+	if c == nil {
+		return nil
+	}
+	addr := uintptr(unsafe.Pointer(c))
+	if code, exists := codeMap[addr]; exists {
+		return code
+	}
+	iface := &interfaceCode{}
+	code := (*opcode)(unsafe.Pointer(iface))
+	codeMap[addr] = code
+
+	iface.opcodeHeader = c.opcodeHeader.copy(codeMap)
+	return code
 }
 
 type mapValueCode struct {

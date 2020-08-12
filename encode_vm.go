@@ -65,19 +65,26 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeBool(e.ptrToBool(code.ptr))
 			code = code.next
 		case opInterface:
-			ptr := code.ptr
+			ifaceCode := code.toInterfaceCode()
+			ptr := ifaceCode.ptr
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
+				typ: ifaceCode.typ,
 				ptr: unsafe.Pointer(ptr),
 			}))
-			vv := reflect.ValueOf(v).Interface()
+			rv := reflect.ValueOf(v)
+			if rv.IsNil() {
+				e.encodeNull()
+				code = ifaceCode.next
+				break
+			}
+			vv := rv.Interface()
 			header := (*interfaceHeader)(unsafe.Pointer(&vv))
 			typ := header.typ
 			if typ.Kind() == reflect.Ptr {
 				typ = typ.Elem()
 			}
-			e.indent = code.indent
-			c, err := e.compile(typ, e.enabledIndent)
+			e.indent = ifaceCode.indent
+			c, err := e.compile(typ, ifaceCode.root, e.enabledIndent)
 			if err != nil {
 				return err
 			}
@@ -153,17 +160,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = headerCode.end.next
 			} else {
-				e.encodeBytes([]byte{'[', '\n'})
 				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
 				headerCode.elem.set(header)
 				if header.Len > 0 {
+					e.encodeBytes([]byte{'[', '\n'})
 					e.encodeIndent(code.indent + 1)
 					code = code.next
 					code.ptr = header.Data
 				} else {
-					e.encodeByte('\n')
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{']', '\n'})
+					e.encodeBytes([]byte{'[', ']', '\n'})
+					code = headerCode.end.next
+				}
+			}
+		case opRootSliceHeadIndent:
+			p := code.ptr
+			headerCode := code.toSliceHeaderCode()
+			if p == 0 {
+				e.encodeIndent(code.indent)
+				e.encodeNull()
+				code = headerCode.end.next
+			} else {
+				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
+				headerCode.elem.set(header)
+				if header.Len > 0 {
+					e.encodeBytes([]byte{'[', '\n'})
+					e.encodeIndent(code.indent + 1)
+					code = code.next
+					code.ptr = header.Data
+				} else {
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'[', ']'})
 					code = headerCode.end.next
 				}
 			}
@@ -179,6 +206,20 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{']', '\n'})
+				code = c.end.next
+			}
+		case opRootSliceElemIndent:
+			c := code.toSliceElemCode()
+			c.idx++
+			if c.idx < c.len {
+				e.encodeBytes([]byte{',', '\n'})
+				e.encodeIndent(code.indent + 1)
+				code = code.next
+				code.ptr = c.data + c.idx*c.size
+			} else {
+				e.encodeByte('\n')
+				e.encodeIndent(code.indent)
+				e.encodeBytes([]byte{']'})
 				code = c.end.next
 			}
 		case opArrayHead:
@@ -287,7 +328,6 @@ func (e *Encoder) run(code *opcode) error {
 					code = mapHeadCode.end.next
 				}
 			}
-
 		case opMapKey:
 			c := code.toMapKeyCode()
 			c.idx++
@@ -315,9 +355,9 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = mapHeadCode.end.next
 			} else {
-				e.encodeBytes([]byte{'{', '\n'})
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
+					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
 					mapHeadCode.key.set(mlen, iter)
 					mapHeadCode.value.set(iter)
@@ -326,9 +366,58 @@ func (e *Encoder) run(code *opcode) error {
 					code = code.next
 					e.encodeIndent(code.indent)
 				} else {
-					e.encodeByte('\n')
-					e.encodeIndent(code.indent - 1)
-					e.encodeBytes([]byte{'}', '\n'})
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'{', '}', '\n'})
+					code = mapHeadCode.end.next
+				}
+			}
+		case opMapHeadLoadIndent:
+			ptr := code.ptr
+			mapHeadCode := code.toMapHeadCode()
+			if ptr == 0 {
+				e.encodeIndent(code.indent)
+				e.encodeNull()
+				code = mapHeadCode.end.next
+			} else {
+				// load pointer
+				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					e.encodeBytes([]byte{'{', '\n'})
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					mapHeadCode.key.set(mlen, iter)
+					mapHeadCode.value.set(iter)
+					key := mapiterkey(iter)
+					code.next.ptr = uintptr(key)
+					code = code.next
+					e.encodeIndent(code.indent)
+				} else {
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'{', '}', '\n'})
+					code = mapHeadCode.end.next
+				}
+			}
+		case opRootMapHeadIndent:
+			ptr := code.ptr
+			mapHeadCode := code.toMapHeadCode()
+			if ptr == 0 {
+				e.encodeIndent(code.indent)
+				e.encodeNull()
+				code = mapHeadCode.end.next
+			} else {
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					e.encodeBytes([]byte{'{', '\n'})
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					mapHeadCode.key.set(mlen, iter)
+					mapHeadCode.value.set(iter)
+					key := mapiterkey(iter)
+					code.next.ptr = uintptr(key)
+					code = code.next
+					e.encodeIndent(code.indent)
+				} else {
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'{', '}'})
 					code = mapHeadCode.end.next
 				}
 			}
@@ -345,6 +434,21 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent - 1)
 				e.encodeBytes([]byte{'}', '\n'})
+				code = c.end.next
+			}
+		case opRootMapKeyIndent:
+			c := code.toMapKeyCode()
+			c.idx++
+			if c.idx < c.len {
+				e.encodeBytes([]byte{',', '\n'})
+				e.encodeIndent(code.indent)
+				key := mapiterkey(c.iter)
+				c.next.ptr = uintptr(key)
+				code = c.next
+			} else {
+				e.encodeByte('\n')
+				e.encodeIndent(code.indent - 1)
+				e.encodeBytes([]byte{'}'})
 				code = c.end.next
 			}
 		case opMapValueIndent:

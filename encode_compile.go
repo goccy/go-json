@@ -749,7 +749,7 @@ func (e *Encoder) optimizeStructField(op opType, isOmitEmpty, withIndent bool) o
 func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if withIndent {
-		if compiled, exists := e.structTypeToCompiledCode[typeptr]; exists {
+		if compiled, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
 			return (*opcode)(unsafe.Pointer(&recursiveCode{
 				opcodeHeader: &opcodeHeader{
 					op:     opStructFieldRecursive,
@@ -761,7 +761,7 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 			})), nil
 		}
 	} else {
-		if compiled, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
+		if compiled, exists := e.structTypeToCompiledCode[typeptr]; exists {
 			return (*opcode)(unsafe.Pointer(&recursiveCode{
 				opcodeHeader: &opcodeHeader{
 					op:     opStructFieldRecursive,
@@ -775,9 +775,9 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 	}
 	compiled := &compiledCode{}
 	if withIndent {
-		e.structTypeToCompiledCode[typeptr] = compiled
-	} else {
 		e.structTypeToCompiledIndentCode[typeptr] = compiled
+	} else {
+		e.structTypeToCompiledCode[typeptr] = compiled
 	}
 	// header => code => structField => code => end
 	//                        ^          |

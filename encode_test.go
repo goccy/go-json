@@ -12,8 +12,10 @@ import (
 type recursiveT struct {
 	A *recursiveT `json:"a,omitempty"`
 	B *recursiveU `json:"b,omitempty"`
-	C string      `json:"c,omitempty"`
+	C *recursiveU `json:"c,omitempty"`
+	D string      `json:"d,omitempty"`
 }
+
 type recursiveU struct {
 	T *recursiveT `json:"t,omitempty"`
 }
@@ -117,13 +119,18 @@ func Test_Marshal(t *testing.T) {
 				A: &recursiveT{
 					B: &recursiveU{
 						T: &recursiveT{
-							C: "hello",
+							D: "hello",
+						},
+					},
+					C: &recursiveU{
+						T: &recursiveT{
+							D: "world",
 						},
 					},
 				},
 			})
 			assertErr(t, err)
-			assertEq(t, "recursive", `{"a":{"b":{"t":{"c":"hello"}}}}`, string(bytes))
+			assertEq(t, "recursive", `{"a":{"b":{"t":{"d":"hello"}},"c":{"t":{"d":"world"}}}}`, string(bytes))
 		})
 		t.Run("omitempty", func(t *testing.T) {
 			type T struct {

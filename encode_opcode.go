@@ -1416,3 +1416,134 @@ func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
 	}
 	return code
 }
+
+func newRecursiveCode(recursive *recursiveCode) *opcode {
+	code := copyOpcode(recursive.jmp.code)
+	head := (*structFieldCode)(unsafe.Pointer(code))
+	head.end.next = newEndOp(0)
+	code.ptr = recursive.ptr
+
+	switch code.op {
+	case opStructFieldPtrHead:
+		code.op = opStructFieldHead
+	case opStructFieldPtrHeadInt:
+		code.op = opStructFieldHeadInt
+	case opStructFieldPtrHeadInt8:
+		code.op = opStructFieldHeadInt8
+	case opStructFieldPtrHeadInt16:
+		code.op = opStructFieldHeadInt16
+	case opStructFieldPtrHeadInt32:
+		code.op = opStructFieldHeadInt32
+	case opStructFieldPtrHeadInt64:
+		code.op = opStructFieldHeadInt64
+	case opStructFieldPtrHeadUint:
+		code.op = opStructFieldHeadUint
+	case opStructFieldPtrHeadUint8:
+		code.op = opStructFieldHeadUint8
+	case opStructFieldPtrHeadUint16:
+		code.op = opStructFieldHeadUint16
+	case opStructFieldPtrHeadUint32:
+		code.op = opStructFieldHeadUint32
+	case opStructFieldPtrHeadUint64:
+		code.op = opStructFieldHeadUint64
+	case opStructFieldPtrHeadFloat32:
+		code.op = opStructFieldHeadFloat32
+	case opStructFieldPtrHeadFloat64:
+		code.op = opStructFieldHeadFloat64
+	case opStructFieldPtrHeadString:
+		code.op = opStructFieldHeadString
+	case opStructFieldPtrHeadBool:
+		code.op = opStructFieldHeadBool
+	case opStructFieldPtrHeadIndent:
+		code.op = opStructFieldHeadIndent
+	case opStructFieldPtrHeadIntIndent:
+		code.op = opStructFieldHeadIntIndent
+	case opStructFieldPtrHeadInt8Indent:
+		code.op = opStructFieldHeadInt8Indent
+	case opStructFieldPtrHeadInt16Indent:
+		code.op = opStructFieldHeadInt16Indent
+	case opStructFieldPtrHeadInt32Indent:
+		code.op = opStructFieldHeadInt32Indent
+	case opStructFieldPtrHeadInt64Indent:
+		code.op = opStructFieldHeadInt64Indent
+	case opStructFieldPtrHeadUintIndent:
+		code.op = opStructFieldHeadUintIndent
+	case opStructFieldPtrHeadUint8Indent:
+		code.op = opStructFieldHeadUint8Indent
+	case opStructFieldPtrHeadUint16Indent:
+		code.op = opStructFieldHeadUint16Indent
+	case opStructFieldPtrHeadUint32Indent:
+		code.op = opStructFieldHeadUint32Indent
+	case opStructFieldPtrHeadUint64Indent:
+		code.op = opStructFieldHeadUint64Indent
+	case opStructFieldPtrHeadFloat32Indent:
+		code.op = opStructFieldHeadFloat32Indent
+	case opStructFieldPtrHeadFloat64Indent:
+		code.op = opStructFieldHeadFloat64Indent
+	case opStructFieldPtrHeadStringIndent:
+		code.op = opStructFieldHeadStringIndent
+	case opStructFieldPtrHeadBoolIndent:
+		code.op = opStructFieldHeadBoolIndent
+	case opStructFieldPtrHeadOmitEmpty:
+		code.op = opStructFieldHeadOmitEmpty
+	case opStructFieldPtrHeadIntOmitEmpty:
+		code.op = opStructFieldHeadIntOmitEmpty
+	case opStructFieldPtrHeadInt8OmitEmpty:
+		code.op = opStructFieldHeadInt8OmitEmpty
+	case opStructFieldPtrHeadInt16OmitEmpty:
+		code.op = opStructFieldHeadInt16OmitEmpty
+	case opStructFieldPtrHeadInt32OmitEmpty:
+		code.op = opStructFieldHeadInt32OmitEmpty
+	case opStructFieldPtrHeadInt64OmitEmpty:
+		code.op = opStructFieldHeadInt64OmitEmpty
+	case opStructFieldPtrHeadUintOmitEmpty:
+		code.op = opStructFieldHeadUintOmitEmpty
+	case opStructFieldPtrHeadUint8OmitEmpty:
+		code.op = opStructFieldHeadUint8OmitEmpty
+	case opStructFieldPtrHeadUint16OmitEmpty:
+		code.op = opStructFieldHeadUint16OmitEmpty
+	case opStructFieldPtrHeadUint32OmitEmpty:
+		code.op = opStructFieldHeadUint32OmitEmpty
+	case opStructFieldPtrHeadUint64OmitEmpty:
+		code.op = opStructFieldHeadUint64OmitEmpty
+	case opStructFieldPtrHeadFloat32OmitEmpty:
+		code.op = opStructFieldHeadFloat32OmitEmpty
+	case opStructFieldPtrHeadFloat64OmitEmpty:
+		code.op = opStructFieldHeadFloat64OmitEmpty
+	case opStructFieldPtrHeadStringOmitEmpty:
+		code.op = opStructFieldHeadStringOmitEmpty
+	case opStructFieldPtrHeadBoolOmitEmpty:
+		code.op = opStructFieldHeadBoolOmitEmpty
+	case opStructFieldPtrHeadOmitEmptyIndent:
+		code.op = opStructFieldHeadOmitEmptyIndent
+	case opStructFieldPtrHeadIntOmitEmptyIndent:
+		code.op = opStructFieldHeadIntOmitEmptyIndent
+	case opStructFieldPtrHeadInt8OmitEmptyIndent:
+		code.op = opStructFieldHeadInt8OmitEmptyIndent
+	case opStructFieldPtrHeadInt16OmitEmptyIndent:
+		code.op = opStructFieldHeadInt16OmitEmptyIndent
+	case opStructFieldPtrHeadInt32OmitEmptyIndent:
+		code.op = opStructFieldHeadInt32OmitEmptyIndent
+	case opStructFieldPtrHeadInt64OmitEmptyIndent:
+		code.op = opStructFieldHeadInt64OmitEmptyIndent
+	case opStructFieldPtrHeadUintOmitEmptyIndent:
+		code.op = opStructFieldHeadUintOmitEmptyIndent
+	case opStructFieldPtrHeadUint8OmitEmptyIndent:
+		code.op = opStructFieldHeadUint8OmitEmptyIndent
+	case opStructFieldPtrHeadUint16OmitEmptyIndent:
+		code.op = opStructFieldHeadUint16OmitEmptyIndent
+	case opStructFieldPtrHeadUint32OmitEmptyIndent:
+		code.op = opStructFieldHeadUint32OmitEmptyIndent
+	case opStructFieldPtrHeadUint64OmitEmptyIndent:
+		code.op = opStructFieldHeadUint64OmitEmptyIndent
+	case opStructFieldPtrHeadFloat32OmitEmptyIndent:
+		code.op = opStructFieldHeadFloat32OmitEmptyIndent
+	case opStructFieldPtrHeadFloat64OmitEmptyIndent:
+		code.op = opStructFieldHeadFloat64OmitEmptyIndent
+	case opStructFieldPtrHeadStringOmitEmptyIndent:
+		code.op = opStructFieldHeadStringOmitEmptyIndent
+	case opStructFieldPtrHeadBoolOmitEmptyIndent:
+		code.op = opStructFieldHeadBoolOmitEmptyIndent
+	}
+	return code
+}

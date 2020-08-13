@@ -460,9 +460,7 @@ func (e *Encoder) run(code *opcode) error {
 			code = c.next
 		case opStructFieldRecursive:
 			recursive := code.toRecursiveCode()
-			c := copyOpcode(recursive.jmp.code)
-			c.ptr = recursive.ptr
-			if err := e.run(c); err != nil {
+			if err := e.run(newRecursiveCode(recursive)); err != nil {
 				return err
 			}
 			code = recursive.next

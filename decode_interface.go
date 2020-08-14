@@ -33,6 +33,85 @@ var (
 	)
 )
 
+var (
+	hexToInt = [256]int{
+		'0': 0,
+		'1': 1,
+		'2': 2,
+		'3': 3,
+		'4': 4,
+		'5': 5,
+		'6': 6,
+		'7': 7,
+		'8': 8,
+		'9': 9,
+		'A': 10,
+		'B': 11,
+		'C': 12,
+		'D': 13,
+		'E': 14,
+		'F': 15,
+		'a': 10,
+		'b': 11,
+		'c': 12,
+		'd': 13,
+		'e': 14,
+		'f': 15,
+	}
+)
+
+func unicodeToRune(code []byte) rune {
+	sum := 0
+	for i := 0; i < len(code); i++ {
+		sum += hexToInt[code[i]] << (uint(len(code)-i-1) * 4)
+	}
+	return rune(sum)
+}
+
+func decodeEscapeString(s *stream) error {
+	s.cursor++
+RETRY:
+	switch s.buf[s.cursor] {
+	case '"':
+		s.buf[s.cursor] = '"'
+	case '\\':
+		s.buf[s.cursor] = '\\'
+	case '/':
+		s.buf[s.cursor] = '/'
+	case 'b':
+		s.buf[s.cursor] = '\b'
+	case 'f':
+		s.buf[s.cursor] = '\f'
+	case 'n':
+		s.buf[s.cursor] = '\n'
+	case 'r':
+		s.buf[s.cursor] = '\r'
+	case 't':
+		s.buf[s.cursor] = '\t'
+	case 'u':
+		if s.cursor+5 >= s.length {
+			if !s.read() {
+				return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+			}
+		}
+		code := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
+		unicode := []byte(string(code))
+		s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+		s.cursor--
+		return nil
+	case nul:
+		if !s.read() {
+			return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+		}
+		goto RETRY
+	default:
+		return errUnexpectedEndOfJSON("string", s.totalOffset())
+	}
+	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
+	s.cursor--
+	return nil
+}
+
 func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
 	for {
@@ -71,7 +150,9 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 			for {
 				switch s.char() {
 				case '\\':
-					s.cursor++
+					if err := decodeEscapeString(s); err != nil {
+						return err
+					}
 				case '"':
 					literal := s.buf[start:s.cursor]
 					s.cursor++

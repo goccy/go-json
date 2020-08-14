@@ -132,6 +132,25 @@ func Test_Marshal(t *testing.T) {
 			assertErr(t, err)
 			assertEq(t, "recursive", `{"a":{"b":{"t":{"d":"hello"}},"c":{"t":{"d":"world"}}}}`, string(bytes))
 		})
+		t.Run("embedded", func(t *testing.T) {
+			type T struct {
+				A string `json:"a"`
+			}
+			type U struct {
+				*T
+				B string `json:"b"`
+			}
+			v := &U{
+				T: &T{
+					A: "aaa",
+				},
+				B: "bbb",
+			}
+			fmt.Printf("v.T = %p v.T.A = %p\n", v.T, &v.T.A)
+			bytes, err := json.Marshal(v)
+			assertErr(t, err)
+			assertEq(t, "embedded", `{"a":"aaa","b":"bbb"}`, string(bytes))
+		})
 		t.Run("omitempty", func(t *testing.T) {
 			type T struct {
 				A int                    `json:",omitempty"`

@@ -325,15 +325,7 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 // Compact appends to dst the JSON-encoded src with
 // insignificant space characters elided.
 func Compact(dst *bytes.Buffer, src []byte) error {
-	var v interface{}
-	dec := NewDecoder(bytes.NewBuffer(src))
-	dec.UseNumber()
-	if err := dec.Decode(&v); err != nil {
-		return err
-	}
-	enc := NewEncoder(dst)
-	enc.SetEscapeHTML(false)
-	return enc.Encode(v)
+	return compact(dst, src)
 }
 
 // Indent appends to dst an indented form of the JSON-encoded src.
@@ -348,16 +340,7 @@ func Compact(dst *bytes.Buffer, src []byte) error {
 // For example, if src has no trailing spaces, neither will dst;
 // if src ends in a trailing newline, so will dst.
 func Indent(dst *bytes.Buffer, src []byte, prefix, indent string) error {
-	var v interface{}
-	dec := NewDecoder(bytes.NewBuffer(src))
-	dec.UseNumber()
-	if err := dec.Decode(&v); err != nil {
-		return err
-	}
-	enc := NewEncoder(dst)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent(prefix, indent)
-	return enc.Encode(v)
+	return encodeWithIndent(dst, src, prefix, indent)
 }
 
 // HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029

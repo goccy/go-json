@@ -56,10 +56,6 @@ func copySlice(elemType *rtype, dst, src reflect.SliceHeader) int
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
 
-func (d *sliceDecoder) setDisallowUnknownFields(disallowUnknownFields bool) {
-	d.valueDecoder.setDisallowUnknownFields(disallowUnknownFields)
-}
-
 func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 	for {
 		switch s.char() {

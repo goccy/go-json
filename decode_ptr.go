@@ -16,10 +16,6 @@ func newPtrDecoder(dec decoder, typ *rtype) *ptrDecoder {
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) uintptr
 
-func (d *ptrDecoder) setDisallowUnknownFields(disallowUnknownFields bool) {
-	d.dec.setDisallowUnknownFields(disallowUnknownFields)
-}
-
 func (d *ptrDecoder) decodeStream(s *stream, p uintptr) error {
 	newptr := unsafe_New(d.typ)
 	if err := d.dec.decodeStream(s, newptr); err != nil {

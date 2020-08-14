@@ -10,13 +10,14 @@ const (
 )
 
 type stream struct {
-	buf       []byte
-	length    int64
-	r         io.Reader
-	offset    int64
-	cursor    int64
-	allRead   bool
-	useNumber bool
+	buf                   []byte
+	length                int64
+	r                     io.Reader
+	offset                int64
+	cursor                int64
+	allRead               bool
+	useNumber             bool
+	disallowUnknownFields bool
 }
 
 func (s *stream) buffered() io.Reader {

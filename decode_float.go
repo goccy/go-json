@@ -47,8 +47,6 @@ func floatBytes(s *stream) []byte {
 	return s.buf[start:s.cursor]
 }
 
-func (d *floatDecoder) setDisallowUnknownFields(_ bool) {}
-
 func (d *floatDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {

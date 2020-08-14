@@ -49,8 +49,6 @@ var (
 	}
 )
 
-func (d *intDecoder) setDisallowUnknownFields(_ bool) {}
-
 func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {

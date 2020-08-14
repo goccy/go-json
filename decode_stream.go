@@ -68,7 +68,7 @@ func (s *stream) read() bool {
 		s.allRead = true
 	}
 	// extend buffer (2) is protect ( s.cursor++ x2 )
-	// e.g.) line 85 in decode_interface.go
+	// e.g.) decodeEscapeString
 	const extendBufLength = int64(2)
 
 	totalSize := s.length + int64(n) + extendBufLength

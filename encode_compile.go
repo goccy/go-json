@@ -746,33 +746,80 @@ func (e *Encoder) optimizeStructField(op opType, isOmitEmpty, withIndent bool) o
 	return opStructField
 }
 
-func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, error) {
+func (e *Encoder) recursiveCode(typ *rtype, code *compiledCode) *opcode {
+	return (*opcode)(unsafe.Pointer(&recursiveCode{
+		opcodeHeader: &opcodeHeader{
+			op:     opStructFieldRecursive,
+			typ:    typ,
+			indent: e.indent,
+			next:   newEndOp(e.indent),
+		},
+		jmp: code,
+	}))
+}
+
+func (e *Encoder) compiledCode(typ *rtype, withIndent bool) *opcode {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if withIndent {
-		if compiled, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
-			return (*opcode)(unsafe.Pointer(&recursiveCode{
-				opcodeHeader: &opcodeHeader{
-					op:     opStructFieldRecursive,
-					typ:    typ,
-					indent: e.indent,
-					next:   newEndOp(e.indent),
-				},
-				jmp: compiled,
-			})), nil
+		if compiledCode, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
+			return e.recursiveCode(typ, compiledCode)
 		}
 	} else {
-		if compiled, exists := e.structTypeToCompiledCode[typeptr]; exists {
-			return (*opcode)(unsafe.Pointer(&recursiveCode{
-				opcodeHeader: &opcodeHeader{
-					op:     opStructFieldRecursive,
-					typ:    typ,
-					indent: e.indent,
-					next:   newEndOp(e.indent),
-				},
-				jmp: compiled,
-			})), nil
+		if compiledCode, exists := e.structTypeToCompiledCode[typeptr]; exists {
+			return e.recursiveCode(typ, compiledCode)
 		}
 	}
+	return nil
+}
+
+func (e *Encoder) keyNameAndOmitEmptyFromField(field reflect.StructField) (string, bool) {
+	keyName := field.Name
+	tag := e.getTag(field)
+	opts := strings.Split(tag, ",")
+	if len(opts) > 0 {
+		if opts[0] != "" {
+			keyName = opts[0]
+		}
+	}
+	isOmitEmpty := false
+	if len(opts) > 1 {
+		isOmitEmpty = opts[1] == "omitempty"
+	}
+	return keyName, isOmitEmpty
+}
+
+func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, isOmitEmpty, withIndent bool) *opcode {
+	fieldCode.indent--
+	op := e.optimizeStructHeader(valueCode.op, isOmitEmpty, withIndent)
+	fieldCode.op = op
+	switch op {
+	case opStructFieldHead,
+		opStructFieldHeadOmitEmpty,
+		opStructFieldHeadIndent,
+		opStructFieldHeadOmitEmptyIndent:
+		return valueCode.beforeLastCode()
+	}
+	return (*opcode)(unsafe.Pointer(fieldCode))
+}
+
+func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, isOmitEmpty, withIndent bool) *opcode {
+	code := (*opcode)(unsafe.Pointer(fieldCode))
+	op := e.optimizeStructField(valueCode.op, isOmitEmpty, withIndent)
+	fieldCode.op = op
+	switch op {
+	case opStructField,
+		opStructFieldOmitEmpty,
+		opStructFieldIndent,
+		opStructFieldOmitEmptyIndent:
+		return valueCode.beforeLastCode()
+	}
+	return code
+}
+func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, error) {
+	if code := e.compiledCode(typ, withIndent); code != nil {
+		return code, nil
+	}
+	typeptr := uintptr(unsafe.Pointer(typ))
 	compiled := &compiledCode{}
 	if withIndent {
 		e.structTypeToCompiledIndentCode[typeptr] = compiled
@@ -795,18 +842,7 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 		if e.isIgnoredStructField(field) {
 			continue
 		}
-		keyName := field.Name
-		tag := e.getTag(field)
-		opts := strings.Split(tag, ",")
-		if len(opts) > 0 {
-			if opts[0] != "" {
-				keyName = opts[0]
-			}
-		}
-		isOmitEmpty := false
-		if len(opts) > 1 {
-			isOmitEmpty = opts[1] == "omitempty"
-		}
+		keyName, isOmitEmpty := e.keyNameAndOmitEmptyFromField(field)
 		fieldType := type2rtype(field.Type)
 		valueCode, err := e.compile(fieldType, false, withIndent)
 		if err != nil {
@@ -823,40 +859,22 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 			offset: field.Offset,
 		}
 		if fieldIdx == 0 {
-			fieldCode.indent--
+			code = e.structHeader(fieldCode, valueCode, isOmitEmpty, withIndent)
 			head = fieldCode
-			code = (*opcode)(unsafe.Pointer(fieldCode))
 			prevField = fieldCode
-			op := e.optimizeStructHeader(valueCode.op, isOmitEmpty, withIndent)
-			fieldCode.op = op
-			switch op {
-			case opStructFieldHead,
-				opStructFieldHeadOmitEmpty,
-				opStructFieldHeadIndent,
-				opStructFieldHeadOmitEmptyIndent:
-				code = valueCode.beforeLastCode()
-			}
 		} else {
-			code.next = (*opcode)(unsafe.Pointer(fieldCode))
-			prevField.nextField = (*opcode)(unsafe.Pointer(fieldCode))
+			fcode := (*opcode)(unsafe.Pointer(fieldCode))
+			code.next = fcode
+			code = e.structField(fieldCode, valueCode, isOmitEmpty, withIndent)
+			prevField.nextField = fcode
 			prevField = fieldCode
-			code = (*opcode)(unsafe.Pointer(fieldCode))
-			op := e.optimizeStructField(valueCode.op, isOmitEmpty, withIndent)
-			fieldCode.op = op
-			switch op {
-			case opStructField,
-				opStructFieldOmitEmpty,
-				opStructFieldIndent,
-				opStructFieldOmitEmptyIndent:
-				code = valueCode.beforeLastCode()
-			}
 		}
 		fieldIdx++
 	}
 	e.indent--
 
 	structEndCode := newOpCode(opStructEnd, nil, e.indent, nil)
-
+	structEndCode.next = newEndOp(e.indent)
 	if withIndent {
 		structEndCode.op = opStructEndIndent
 	}
@@ -882,7 +900,6 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 	}
 	head.end = structEndCode
 	code.next = structEndCode
-	structEndCode.next = newEndOp(e.indent)
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret
 	return ret, nil

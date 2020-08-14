@@ -99,7 +99,7 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 			return nil
 		}
 		if s.char() != ',' {
-			return errExpected("semicolon after object value", s.totalOffset())
+			return errExpected("comma after object value", s.totalOffset())
 		}
 	}
 	return nil
@@ -168,7 +168,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) 
 			return cursor, nil
 		}
 		if buf[cursor] != ',' {
-			return 0, errExpected("semicolon after object value", cursor)
+			return 0, errExpected("comma after object value", cursor)
 		}
 	}
 	return cursor, nil

@@ -26,11 +26,6 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setDisallowUnknownFields(disallowUnknownFields bool) {
-	d.keyDecoder.setDisallowUnknownFields(disallowUnknownFields)
-	d.valueDecoder.setDisallowUnknownFields(disallowUnknownFields)
-}
-
 func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
 	return d.keyDecoder.decode(buf, cursor, uintptr(header.ptr))

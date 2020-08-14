@@ -24,8 +24,6 @@ func (d *uintDecoder) parseUint(b []byte) uint64 {
 	return sum
 }
 
-func (d *uintDecoder) setDisallowUnknownFields(_ bool) {}
-
 func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {

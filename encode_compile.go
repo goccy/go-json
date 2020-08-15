@@ -602,5 +602,12 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 	code.next = structEndCode
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret
+
+	if withIndent {
+		delete(e.structTypeToCompiledIndentCode, typeptr)
+	} else {
+		delete(e.structTypeToCompiledCode, typeptr)
+	}
+
 	return ret, nil
 }

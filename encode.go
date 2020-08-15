@@ -14,7 +14,6 @@ import (
 type Encoder struct {
 	w                              io.Writer
 	buf                            []byte
-	pool                           sync.Pool
 	enabledIndent                  bool
 	enabledHTMLEscape              bool
 	prefix                         []byte
@@ -65,7 +64,6 @@ func init() {
 		New: func() interface{} {
 			return &Encoder{
 				buf:                            make([]byte, 0, bufSize),
-				pool:                           encPool,
 				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
 				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
 			}
@@ -119,7 +117,7 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 
 func (e *Encoder) release() {
 	e.w = nil
-	e.pool.Put(e)
+	encPool.Put(e)
 }
 
 func (e *Encoder) reset() {

@@ -1237,18 +1237,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				p := ptr + field.offset
 				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					code = field.next
 					code.ptr = p
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmpty:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmpty:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				p := ptr + field.offset
+				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					code = field.next
+					code.ptr = p
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyInt:
 			if code.ptr != 0 {
@@ -1262,18 +1281,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToInt(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeInt(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyInt:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyInt:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToInt(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyInt8:
 			if code.ptr != 0 {
@@ -1287,18 +1325,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToInt8(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeInt8(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyInt8:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToInt8(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt8(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyInt16:
 			if code.ptr != 0 {
@@ -1312,18 +1369,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToInt16(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeInt16(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyInt16:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToInt16(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt16(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyInt32:
 			if code.ptr != 0 {
@@ -1337,18 +1413,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToInt32(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeInt32(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyInt32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToInt32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt32(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyInt64:
 			if code.ptr != 0 {
@@ -1362,18 +1457,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToInt64(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeInt64(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyInt64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToInt64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeInt64(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyUint:
 			if code.ptr != 0 {
@@ -1387,18 +1501,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToUint(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeUint(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyUint:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyUint:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToUint(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyUint8:
 			if code.ptr != 0 {
@@ -1412,18 +1545,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToUint8(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeUint8(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyUint8:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToUint8(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint8(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyUint16:
 			if code.ptr != 0 {
@@ -1437,18 +1589,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToUint16(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeUint16(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyUint16:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToUint16(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint16(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyUint32:
 			if code.ptr != 0 {
@@ -1462,18 +1633,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToUint32(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeUint32(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyUint32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToUint32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint32(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyUint64:
 			if code.ptr != 0 {
@@ -1487,18 +1677,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToUint64(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeUint64(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyUint64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToUint64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeUint64(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyFloat32:
 			if code.ptr != 0 {
@@ -1512,18 +1721,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToFloat32(ptr + field.offset)
 				if v == 0 {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeFloat32(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyFloat32:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToFloat32(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeFloat32(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyFloat64:
 			if code.ptr != 0 {
@@ -1537,7 +1765,6 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToFloat64(ptr + field.offset)
 				if v == 0 {
@@ -1549,12 +1776,38 @@ func (e *Encoder) run(code *opcode) error {
 							Str:   strconv.FormatFloat(v, 'g', -1, 64),
 						}
 					}
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeFloat64(v)
 					code = field.next
 				}
 				field.nextField.ptr = field.ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyFloat64:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToFloat64(ptr + field.offset)
+				if v == 0 {
+					code = field.nextField
+				} else {
+					if math.IsInf(v, 0) || math.IsNaN(v) {
+						return &UnsupportedValueError{
+							Value: reflect.ValueOf(v),
+							Str:   strconv.FormatFloat(v, 'g', -1, 64),
+						}
+					}
+					e.encodeBytes(field.key)
+					e.encodeFloat64(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyString:
 			if code.ptr != 0 {
@@ -1568,18 +1821,37 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToString(ptr + field.offset)
 				if v == "" {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeString(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyString:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyString:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToString(ptr + field.offset)
+				if v == "" {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeString(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
 			}
 		case opStructFieldPtrHeadOmitEmptyBool:
 			if code.ptr != 0 {
@@ -1593,20 +1865,38 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeNull()
 				code = field.end.next
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeByte('{')
 				v := e.ptrToBool(ptr + field.offset)
 				if !v {
 					code = field.nextField
 				} else {
-					e.encodeIndent(code.indent + 1)
 					e.encodeBytes(field.key)
 					e.encodeBool(v)
 					code = field.next
 				}
-				field.nextField.ptr = field.ptr
+				field.nextField.ptr = ptr
 			}
-
+		case opStructFieldPtrAnonymousHeadOmitEmptyBool:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyBool:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToBool(ptr + field.offset)
+				if !v {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					e.encodeBool(v)
+					code = field.next
+				}
+				field.nextField.ptr = ptr
+			}
 		case opStructFieldPtrHeadOmitEmptyIndent:
 			if code.ptr != 0 {
 				code.ptr = e.ptrToPtr(code.ptr)

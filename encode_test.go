@@ -140,6 +140,13 @@ func Test_Marshal(t *testing.T) {
 				*T
 				B string `json:"b"`
 			}
+			type T2 struct {
+				A string `json:"a,omitempty"`
+			}
+			type U2 struct {
+				*T2
+				B string `json:"b,omitempty"`
+			}
 			t.Run("exists field", func(t *testing.T) {
 				bytes, err := json.Marshal(&U{
 					T: &T{
@@ -149,6 +156,16 @@ func Test_Marshal(t *testing.T) {
 				})
 				assertErr(t, err)
 				assertEq(t, "embedded", `{"a":"aaa","b":"bbb"}`, string(bytes))
+				t.Run("omitempty", func(t *testing.T) {
+					bytes, err := json.Marshal(&U2{
+						T2: &T2{
+							A: "aaa",
+						},
+						B: "bbb",
+					})
+					assertErr(t, err)
+					assertEq(t, "embedded", `{"a":"aaa","b":"bbb"}`, string(bytes))
+				})
 			})
 			t.Run("none field", func(t *testing.T) {
 				bytes, err := json.Marshal(&U{
@@ -156,6 +173,13 @@ func Test_Marshal(t *testing.T) {
 				})
 				assertErr(t, err)
 				assertEq(t, "embedded", `{"b":"bbb"}`, string(bytes))
+				t.Run("omitempty", func(t *testing.T) {
+					bytes, err := json.Marshal(&U2{
+						B: "bbb",
+					})
+					assertErr(t, err)
+					assertEq(t, "embedded", `{"b":"bbb"}`, string(bytes))
+				})
 			})
 		})
 		t.Run("omitempty", func(t *testing.T) {

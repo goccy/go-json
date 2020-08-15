@@ -42,297 +42,357 @@ const (
   opStructFieldHead opType = 20
   opStructFieldHeadOmitEmpty opType = 21
   opStructFieldAnonymousHead opType = 22
-  opStructFieldPtrHead opType = 23
-  opStructFieldPtrHeadOmitEmpty opType = 24
-  opStructFieldPtrAnonymousHead opType = 25
-  opStructField opType = 26
-  opStructFieldOmitEmpty opType = 27
-  opStructFieldRecursive opType = 28
-  opStructEnd opType = 29
-  opStructAnonymousEnd opType = 30
-  opInt opType = 31
-  opInt8 opType = 32
-  opInt16 opType = 33
-  opInt32 opType = 34
-  opInt64 opType = 35
-  opUint opType = 36
-  opUint8 opType = 37
-  opUint16 opType = 38
-  opUint32 opType = 39
-  opUint64 opType = 40
-  opFloat32 opType = 41
-  opFloat64 opType = 42
-  opBool opType = 43
-  opString opType = 44
-  opStructFieldHeadInt opType = 45
-  opStructFieldHeadInt8 opType = 46
-  opStructFieldHeadInt16 opType = 47
-  opStructFieldHeadInt32 opType = 48
-  opStructFieldHeadInt64 opType = 49
-  opStructFieldHeadUint opType = 50
-  opStructFieldHeadUint8 opType = 51
-  opStructFieldHeadUint16 opType = 52
-  opStructFieldHeadUint32 opType = 53
-  opStructFieldHeadUint64 opType = 54
-  opStructFieldHeadFloat32 opType = 55
-  opStructFieldHeadFloat64 opType = 56
-  opStructFieldHeadBool opType = 57
-  opStructFieldHeadString opType = 58
-  opStructFieldHeadOmitEmptyInt opType = 59
-  opStructFieldHeadOmitEmptyInt8 opType = 60
-  opStructFieldHeadOmitEmptyInt16 opType = 61
-  opStructFieldHeadOmitEmptyInt32 opType = 62
-  opStructFieldHeadOmitEmptyInt64 opType = 63
-  opStructFieldHeadOmitEmptyUint opType = 64
-  opStructFieldHeadOmitEmptyUint8 opType = 65
-  opStructFieldHeadOmitEmptyUint16 opType = 66
-  opStructFieldHeadOmitEmptyUint32 opType = 67
-  opStructFieldHeadOmitEmptyUint64 opType = 68
-  opStructFieldHeadOmitEmptyFloat32 opType = 69
-  opStructFieldHeadOmitEmptyFloat64 opType = 70
-  opStructFieldHeadOmitEmptyBool opType = 71
-  opStructFieldHeadOmitEmptyString opType = 72
-  opStructFieldAnonymousHeadInt opType = 73
-  opStructFieldAnonymousHeadInt8 opType = 74
-  opStructFieldAnonymousHeadInt16 opType = 75
-  opStructFieldAnonymousHeadInt32 opType = 76
-  opStructFieldAnonymousHeadInt64 opType = 77
-  opStructFieldAnonymousHeadUint opType = 78
-  opStructFieldAnonymousHeadUint8 opType = 79
-  opStructFieldAnonymousHeadUint16 opType = 80
-  opStructFieldAnonymousHeadUint32 opType = 81
-  opStructFieldAnonymousHeadUint64 opType = 82
-  opStructFieldAnonymousHeadFloat32 opType = 83
-  opStructFieldAnonymousHeadFloat64 opType = 84
-  opStructFieldAnonymousHeadBool opType = 85
-  opStructFieldAnonymousHeadString opType = 86
-  opStructFieldPtrHeadInt opType = 87
-  opStructFieldPtrHeadInt8 opType = 88
-  opStructFieldPtrHeadInt16 opType = 89
-  opStructFieldPtrHeadInt32 opType = 90
-  opStructFieldPtrHeadInt64 opType = 91
-  opStructFieldPtrHeadUint opType = 92
-  opStructFieldPtrHeadUint8 opType = 93
-  opStructFieldPtrHeadUint16 opType = 94
-  opStructFieldPtrHeadUint32 opType = 95
-  opStructFieldPtrHeadUint64 opType = 96
-  opStructFieldPtrHeadFloat32 opType = 97
-  opStructFieldPtrHeadFloat64 opType = 98
-  opStructFieldPtrHeadBool opType = 99
-  opStructFieldPtrHeadString opType = 100
-  opStructFieldPtrHeadOmitEmptyInt opType = 101
-  opStructFieldPtrHeadOmitEmptyInt8 opType = 102
-  opStructFieldPtrHeadOmitEmptyInt16 opType = 103
-  opStructFieldPtrHeadOmitEmptyInt32 opType = 104
-  opStructFieldPtrHeadOmitEmptyInt64 opType = 105
-  opStructFieldPtrHeadOmitEmptyUint opType = 106
-  opStructFieldPtrHeadOmitEmptyUint8 opType = 107
-  opStructFieldPtrHeadOmitEmptyUint16 opType = 108
-  opStructFieldPtrHeadOmitEmptyUint32 opType = 109
-  opStructFieldPtrHeadOmitEmptyUint64 opType = 110
-  opStructFieldPtrHeadOmitEmptyFloat32 opType = 111
-  opStructFieldPtrHeadOmitEmptyFloat64 opType = 112
-  opStructFieldPtrHeadOmitEmptyBool opType = 113
-  opStructFieldPtrHeadOmitEmptyString opType = 114
-  opStructFieldPtrAnonymousHeadInt opType = 115
-  opStructFieldPtrAnonymousHeadInt8 opType = 116
-  opStructFieldPtrAnonymousHeadInt16 opType = 117
-  opStructFieldPtrAnonymousHeadInt32 opType = 118
-  opStructFieldPtrAnonymousHeadInt64 opType = 119
-  opStructFieldPtrAnonymousHeadUint opType = 120
-  opStructFieldPtrAnonymousHeadUint8 opType = 121
-  opStructFieldPtrAnonymousHeadUint16 opType = 122
-  opStructFieldPtrAnonymousHeadUint32 opType = 123
-  opStructFieldPtrAnonymousHeadUint64 opType = 124
-  opStructFieldPtrAnonymousHeadFloat32 opType = 125
-  opStructFieldPtrAnonymousHeadFloat64 opType = 126
-  opStructFieldPtrAnonymousHeadBool opType = 127
-  opStructFieldPtrAnonymousHeadString opType = 128
-  opStructFieldInt opType = 129
-  opStructFieldInt8 opType = 130
-  opStructFieldInt16 opType = 131
-  opStructFieldInt32 opType = 132
-  opStructFieldInt64 opType = 133
-  opStructFieldUint opType = 134
-  opStructFieldUint8 opType = 135
-  opStructFieldUint16 opType = 136
-  opStructFieldUint32 opType = 137
-  opStructFieldUint64 opType = 138
-  opStructFieldFloat32 opType = 139
-  opStructFieldFloat64 opType = 140
-  opStructFieldBool opType = 141
-  opStructFieldString opType = 142
-  opStructFieldOmitEmptyInt opType = 143
-  opStructFieldOmitEmptyInt8 opType = 144
-  opStructFieldOmitEmptyInt16 opType = 145
-  opStructFieldOmitEmptyInt32 opType = 146
-  opStructFieldOmitEmptyInt64 opType = 147
-  opStructFieldOmitEmptyUint opType = 148
-  opStructFieldOmitEmptyUint8 opType = 149
-  opStructFieldOmitEmptyUint16 opType = 150
-  opStructFieldOmitEmptyUint32 opType = 151
-  opStructFieldOmitEmptyUint64 opType = 152
-  opStructFieldOmitEmptyFloat32 opType = 153
-  opStructFieldOmitEmptyFloat64 opType = 154
-  opStructFieldOmitEmptyBool opType = 155
-  opStructFieldOmitEmptyString opType = 156
-  opEndIndent opType = 157
-  opInterfaceIndent opType = 158
-  opPtrIndent opType = 159
-  opMarshalJSONIndent opType = 160
-  opMarshalTextIndent opType = 161
-  opSliceHeadIndent opType = 162
-  opRootSliceHeadIndent opType = 163
-  opSliceElemIndent opType = 164
-  opRootSliceElemIndent opType = 165
-  opSliceEndIndent opType = 166
-  opArrayHeadIndent opType = 167
-  opArrayElemIndent opType = 168
-  opArrayEndIndent opType = 169
-  opMapHeadIndent opType = 170
-  opMapHeadLoadIndent opType = 171
-  opRootMapHeadIndent opType = 172
-  opMapKeyIndent opType = 173
-  opRootMapKeyIndent opType = 174
-  opMapValueIndent opType = 175
-  opMapEndIndent opType = 176
-  opStructFieldHeadIndent opType = 177
-  opStructFieldHeadOmitEmptyIndent opType = 178
-  opStructFieldAnonymousHeadIndent opType = 179
-  opStructFieldPtrHeadIndent opType = 180
-  opStructFieldPtrHeadOmitEmptyIndent opType = 181
-  opStructFieldPtrAnonymousHeadIndent opType = 182
-  opStructFieldIndent opType = 183
-  opStructFieldOmitEmptyIndent opType = 184
-  opStructFieldRecursiveIndent opType = 185
-  opStructEndIndent opType = 186
-  opStructAnonymousEndIndent opType = 187
-  opIntIndent opType = 188
-  opInt8Indent opType = 189
-  opInt16Indent opType = 190
-  opInt32Indent opType = 191
-  opInt64Indent opType = 192
-  opUintIndent opType = 193
-  opUint8Indent opType = 194
-  opUint16Indent opType = 195
-  opUint32Indent opType = 196
-  opUint64Indent opType = 197
-  opFloat32Indent opType = 198
-  opFloat64Indent opType = 199
-  opBoolIndent opType = 200
-  opStringIndent opType = 201
-  opStructFieldHeadIntIndent opType = 202
-  opStructFieldHeadInt8Indent opType = 203
-  opStructFieldHeadInt16Indent opType = 204
-  opStructFieldHeadInt32Indent opType = 205
-  opStructFieldHeadInt64Indent opType = 206
-  opStructFieldHeadUintIndent opType = 207
-  opStructFieldHeadUint8Indent opType = 208
-  opStructFieldHeadUint16Indent opType = 209
-  opStructFieldHeadUint32Indent opType = 210
-  opStructFieldHeadUint64Indent opType = 211
-  opStructFieldHeadFloat32Indent opType = 212
-  opStructFieldHeadFloat64Indent opType = 213
-  opStructFieldHeadBoolIndent opType = 214
-  opStructFieldHeadStringIndent opType = 215
-  opStructFieldHeadOmitEmptyIntIndent opType = 216
-  opStructFieldHeadOmitEmptyInt8Indent opType = 217
-  opStructFieldHeadOmitEmptyInt16Indent opType = 218
-  opStructFieldHeadOmitEmptyInt32Indent opType = 219
-  opStructFieldHeadOmitEmptyInt64Indent opType = 220
-  opStructFieldHeadOmitEmptyUintIndent opType = 221
-  opStructFieldHeadOmitEmptyUint8Indent opType = 222
-  opStructFieldHeadOmitEmptyUint16Indent opType = 223
-  opStructFieldHeadOmitEmptyUint32Indent opType = 224
-  opStructFieldHeadOmitEmptyUint64Indent opType = 225
-  opStructFieldHeadOmitEmptyFloat32Indent opType = 226
-  opStructFieldHeadOmitEmptyFloat64Indent opType = 227
-  opStructFieldHeadOmitEmptyBoolIndent opType = 228
-  opStructFieldHeadOmitEmptyStringIndent opType = 229
-  opStructFieldAnonymousHeadIntIndent opType = 230
-  opStructFieldAnonymousHeadInt8Indent opType = 231
-  opStructFieldAnonymousHeadInt16Indent opType = 232
-  opStructFieldAnonymousHeadInt32Indent opType = 233
-  opStructFieldAnonymousHeadInt64Indent opType = 234
-  opStructFieldAnonymousHeadUintIndent opType = 235
-  opStructFieldAnonymousHeadUint8Indent opType = 236
-  opStructFieldAnonymousHeadUint16Indent opType = 237
-  opStructFieldAnonymousHeadUint32Indent opType = 238
-  opStructFieldAnonymousHeadUint64Indent opType = 239
-  opStructFieldAnonymousHeadFloat32Indent opType = 240
-  opStructFieldAnonymousHeadFloat64Indent opType = 241
-  opStructFieldAnonymousHeadBoolIndent opType = 242
-  opStructFieldAnonymousHeadStringIndent opType = 243
-  opStructFieldPtrHeadIntIndent opType = 244
-  opStructFieldPtrHeadInt8Indent opType = 245
-  opStructFieldPtrHeadInt16Indent opType = 246
-  opStructFieldPtrHeadInt32Indent opType = 247
-  opStructFieldPtrHeadInt64Indent opType = 248
-  opStructFieldPtrHeadUintIndent opType = 249
-  opStructFieldPtrHeadUint8Indent opType = 250
-  opStructFieldPtrHeadUint16Indent opType = 251
-  opStructFieldPtrHeadUint32Indent opType = 252
-  opStructFieldPtrHeadUint64Indent opType = 253
-  opStructFieldPtrHeadFloat32Indent opType = 254
-  opStructFieldPtrHeadFloat64Indent opType = 255
-  opStructFieldPtrHeadBoolIndent opType = 256
-  opStructFieldPtrHeadStringIndent opType = 257
-  opStructFieldPtrHeadOmitEmptyIntIndent opType = 258
-  opStructFieldPtrHeadOmitEmptyInt8Indent opType = 259
-  opStructFieldPtrHeadOmitEmptyInt16Indent opType = 260
-  opStructFieldPtrHeadOmitEmptyInt32Indent opType = 261
-  opStructFieldPtrHeadOmitEmptyInt64Indent opType = 262
-  opStructFieldPtrHeadOmitEmptyUintIndent opType = 263
-  opStructFieldPtrHeadOmitEmptyUint8Indent opType = 264
-  opStructFieldPtrHeadOmitEmptyUint16Indent opType = 265
-  opStructFieldPtrHeadOmitEmptyUint32Indent opType = 266
-  opStructFieldPtrHeadOmitEmptyUint64Indent opType = 267
-  opStructFieldPtrHeadOmitEmptyFloat32Indent opType = 268
-  opStructFieldPtrHeadOmitEmptyFloat64Indent opType = 269
-  opStructFieldPtrHeadOmitEmptyBoolIndent opType = 270
-  opStructFieldPtrHeadOmitEmptyStringIndent opType = 271
-  opStructFieldPtrAnonymousHeadIntIndent opType = 272
-  opStructFieldPtrAnonymousHeadInt8Indent opType = 273
-  opStructFieldPtrAnonymousHeadInt16Indent opType = 274
-  opStructFieldPtrAnonymousHeadInt32Indent opType = 275
-  opStructFieldPtrAnonymousHeadInt64Indent opType = 276
-  opStructFieldPtrAnonymousHeadUintIndent opType = 277
-  opStructFieldPtrAnonymousHeadUint8Indent opType = 278
-  opStructFieldPtrAnonymousHeadUint16Indent opType = 279
-  opStructFieldPtrAnonymousHeadUint32Indent opType = 280
-  opStructFieldPtrAnonymousHeadUint64Indent opType = 281
-  opStructFieldPtrAnonymousHeadFloat32Indent opType = 282
-  opStructFieldPtrAnonymousHeadFloat64Indent opType = 283
-  opStructFieldPtrAnonymousHeadBoolIndent opType = 284
-  opStructFieldPtrAnonymousHeadStringIndent opType = 285
-  opStructFieldIntIndent opType = 286
-  opStructFieldInt8Indent opType = 287
-  opStructFieldInt16Indent opType = 288
-  opStructFieldInt32Indent opType = 289
-  opStructFieldInt64Indent opType = 290
-  opStructFieldUintIndent opType = 291
-  opStructFieldUint8Indent opType = 292
-  opStructFieldUint16Indent opType = 293
-  opStructFieldUint32Indent opType = 294
-  opStructFieldUint64Indent opType = 295
-  opStructFieldFloat32Indent opType = 296
-  opStructFieldFloat64Indent opType = 297
-  opStructFieldBoolIndent opType = 298
-  opStructFieldStringIndent opType = 299
-  opStructFieldOmitEmptyIntIndent opType = 300
-  opStructFieldOmitEmptyInt8Indent opType = 301
-  opStructFieldOmitEmptyInt16Indent opType = 302
-  opStructFieldOmitEmptyInt32Indent opType = 303
-  opStructFieldOmitEmptyInt64Indent opType = 304
-  opStructFieldOmitEmptyUintIndent opType = 305
-  opStructFieldOmitEmptyUint8Indent opType = 306
-  opStructFieldOmitEmptyUint16Indent opType = 307
-  opStructFieldOmitEmptyUint32Indent opType = 308
-  opStructFieldOmitEmptyUint64Indent opType = 309
-  opStructFieldOmitEmptyFloat32Indent opType = 310
-  opStructFieldOmitEmptyFloat64Indent opType = 311
-  opStructFieldOmitEmptyBoolIndent opType = 312
-  opStructFieldOmitEmptyStringIndent opType = 313
+  opStructFieldAnonymousHeadOmitEmpty opType = 23
+  opStructFieldPtrAnonymousHeadOmitEmpty opType = 24
+  opStructFieldPtrHead opType = 25
+  opStructFieldPtrHeadOmitEmpty opType = 26
+  opStructFieldPtrAnonymousHead opType = 27
+  opStructField opType = 28
+  opStructFieldOmitEmpty opType = 29
+  opStructFieldRecursive opType = 30
+  opStructEnd opType = 31
+  opStructAnonymousEnd opType = 32
+  opInt opType = 33
+  opInt8 opType = 34
+  opInt16 opType = 35
+  opInt32 opType = 36
+  opInt64 opType = 37
+  opUint opType = 38
+  opUint8 opType = 39
+  opUint16 opType = 40
+  opUint32 opType = 41
+  opUint64 opType = 42
+  opFloat32 opType = 43
+  opFloat64 opType = 44
+  opBool opType = 45
+  opString opType = 46
+  opStructFieldHeadInt opType = 47
+  opStructFieldHeadInt8 opType = 48
+  opStructFieldHeadInt16 opType = 49
+  opStructFieldHeadInt32 opType = 50
+  opStructFieldHeadInt64 opType = 51
+  opStructFieldHeadUint opType = 52
+  opStructFieldHeadUint8 opType = 53
+  opStructFieldHeadUint16 opType = 54
+  opStructFieldHeadUint32 opType = 55
+  opStructFieldHeadUint64 opType = 56
+  opStructFieldHeadFloat32 opType = 57
+  opStructFieldHeadFloat64 opType = 58
+  opStructFieldHeadBool opType = 59
+  opStructFieldHeadString opType = 60
+  opStructFieldHeadOmitEmptyInt opType = 61
+  opStructFieldHeadOmitEmptyInt8 opType = 62
+  opStructFieldHeadOmitEmptyInt16 opType = 63
+  opStructFieldHeadOmitEmptyInt32 opType = 64
+  opStructFieldHeadOmitEmptyInt64 opType = 65
+  opStructFieldHeadOmitEmptyUint opType = 66
+  opStructFieldHeadOmitEmptyUint8 opType = 67
+  opStructFieldHeadOmitEmptyUint16 opType = 68
+  opStructFieldHeadOmitEmptyUint32 opType = 69
+  opStructFieldHeadOmitEmptyUint64 opType = 70
+  opStructFieldHeadOmitEmptyFloat32 opType = 71
+  opStructFieldHeadOmitEmptyFloat64 opType = 72
+  opStructFieldHeadOmitEmptyBool opType = 73
+  opStructFieldHeadOmitEmptyString opType = 74
+  opStructFieldAnonymousHeadInt opType = 75
+  opStructFieldAnonymousHeadInt8 opType = 76
+  opStructFieldAnonymousHeadInt16 opType = 77
+  opStructFieldAnonymousHeadInt32 opType = 78
+  opStructFieldAnonymousHeadInt64 opType = 79
+  opStructFieldAnonymousHeadUint opType = 80
+  opStructFieldAnonymousHeadUint8 opType = 81
+  opStructFieldAnonymousHeadUint16 opType = 82
+  opStructFieldAnonymousHeadUint32 opType = 83
+  opStructFieldAnonymousHeadUint64 opType = 84
+  opStructFieldAnonymousHeadFloat32 opType = 85
+  opStructFieldAnonymousHeadFloat64 opType = 86
+  opStructFieldAnonymousHeadBool opType = 87
+  opStructFieldAnonymousHeadString opType = 88
+  opStructFieldAnonymousHeadOmitEmptyInt opType = 89
+  opStructFieldAnonymousHeadOmitEmptyInt8 opType = 90
+  opStructFieldAnonymousHeadOmitEmptyInt16 opType = 91
+  opStructFieldAnonymousHeadOmitEmptyInt32 opType = 92
+  opStructFieldAnonymousHeadOmitEmptyInt64 opType = 93
+  opStructFieldAnonymousHeadOmitEmptyUint opType = 94
+  opStructFieldAnonymousHeadOmitEmptyUint8 opType = 95
+  opStructFieldAnonymousHeadOmitEmptyUint16 opType = 96
+  opStructFieldAnonymousHeadOmitEmptyUint32 opType = 97
+  opStructFieldAnonymousHeadOmitEmptyUint64 opType = 98
+  opStructFieldAnonymousHeadOmitEmptyFloat32 opType = 99
+  opStructFieldAnonymousHeadOmitEmptyFloat64 opType = 100
+  opStructFieldAnonymousHeadOmitEmptyBool opType = 101
+  opStructFieldAnonymousHeadOmitEmptyString opType = 102
+  opStructFieldPtrHeadInt opType = 103
+  opStructFieldPtrHeadInt8 opType = 104
+  opStructFieldPtrHeadInt16 opType = 105
+  opStructFieldPtrHeadInt32 opType = 106
+  opStructFieldPtrHeadInt64 opType = 107
+  opStructFieldPtrHeadUint opType = 108
+  opStructFieldPtrHeadUint8 opType = 109
+  opStructFieldPtrHeadUint16 opType = 110
+  opStructFieldPtrHeadUint32 opType = 111
+  opStructFieldPtrHeadUint64 opType = 112
+  opStructFieldPtrHeadFloat32 opType = 113
+  opStructFieldPtrHeadFloat64 opType = 114
+  opStructFieldPtrHeadBool opType = 115
+  opStructFieldPtrHeadString opType = 116
+  opStructFieldPtrHeadOmitEmptyInt opType = 117
+  opStructFieldPtrHeadOmitEmptyInt8 opType = 118
+  opStructFieldPtrHeadOmitEmptyInt16 opType = 119
+  opStructFieldPtrHeadOmitEmptyInt32 opType = 120
+  opStructFieldPtrHeadOmitEmptyInt64 opType = 121
+  opStructFieldPtrHeadOmitEmptyUint opType = 122
+  opStructFieldPtrHeadOmitEmptyUint8 opType = 123
+  opStructFieldPtrHeadOmitEmptyUint16 opType = 124
+  opStructFieldPtrHeadOmitEmptyUint32 opType = 125
+  opStructFieldPtrHeadOmitEmptyUint64 opType = 126
+  opStructFieldPtrHeadOmitEmptyFloat32 opType = 127
+  opStructFieldPtrHeadOmitEmptyFloat64 opType = 128
+  opStructFieldPtrHeadOmitEmptyBool opType = 129
+  opStructFieldPtrHeadOmitEmptyString opType = 130
+  opStructFieldPtrAnonymousHeadInt opType = 131
+  opStructFieldPtrAnonymousHeadInt8 opType = 132
+  opStructFieldPtrAnonymousHeadInt16 opType = 133
+  opStructFieldPtrAnonymousHeadInt32 opType = 134
+  opStructFieldPtrAnonymousHeadInt64 opType = 135
+  opStructFieldPtrAnonymousHeadUint opType = 136
+  opStructFieldPtrAnonymousHeadUint8 opType = 137
+  opStructFieldPtrAnonymousHeadUint16 opType = 138
+  opStructFieldPtrAnonymousHeadUint32 opType = 139
+  opStructFieldPtrAnonymousHeadUint64 opType = 140
+  opStructFieldPtrAnonymousHeadFloat32 opType = 141
+  opStructFieldPtrAnonymousHeadFloat64 opType = 142
+  opStructFieldPtrAnonymousHeadBool opType = 143
+  opStructFieldPtrAnonymousHeadString opType = 144
+  opStructFieldPtrAnonymousHeadOmitEmptyInt opType = 145
+  opStructFieldPtrAnonymousHeadOmitEmptyInt8 opType = 146
+  opStructFieldPtrAnonymousHeadOmitEmptyInt16 opType = 147
+  opStructFieldPtrAnonymousHeadOmitEmptyInt32 opType = 148
+  opStructFieldPtrAnonymousHeadOmitEmptyInt64 opType = 149
+  opStructFieldPtrAnonymousHeadOmitEmptyUint opType = 150
+  opStructFieldPtrAnonymousHeadOmitEmptyUint8 opType = 151
+  opStructFieldPtrAnonymousHeadOmitEmptyUint16 opType = 152
+  opStructFieldPtrAnonymousHeadOmitEmptyUint32 opType = 153
+  opStructFieldPtrAnonymousHeadOmitEmptyUint64 opType = 154
+  opStructFieldPtrAnonymousHeadOmitEmptyFloat32 opType = 155
+  opStructFieldPtrAnonymousHeadOmitEmptyFloat64 opType = 156
+  opStructFieldPtrAnonymousHeadOmitEmptyBool opType = 157
+  opStructFieldPtrAnonymousHeadOmitEmptyString opType = 158
+  opStructFieldInt opType = 159
+  opStructFieldInt8 opType = 160
+  opStructFieldInt16 opType = 161
+  opStructFieldInt32 opType = 162
+  opStructFieldInt64 opType = 163
+  opStructFieldUint opType = 164
+  opStructFieldUint8 opType = 165
+  opStructFieldUint16 opType = 166
+  opStructFieldUint32 opType = 167
+  opStructFieldUint64 opType = 168
+  opStructFieldFloat32 opType = 169
+  opStructFieldFloat64 opType = 170
+  opStructFieldBool opType = 171
+  opStructFieldString opType = 172
+  opStructFieldOmitEmptyInt opType = 173
+  opStructFieldOmitEmptyInt8 opType = 174
+  opStructFieldOmitEmptyInt16 opType = 175
+  opStructFieldOmitEmptyInt32 opType = 176
+  opStructFieldOmitEmptyInt64 opType = 177
+  opStructFieldOmitEmptyUint opType = 178
+  opStructFieldOmitEmptyUint8 opType = 179
+  opStructFieldOmitEmptyUint16 opType = 180
+  opStructFieldOmitEmptyUint32 opType = 181
+  opStructFieldOmitEmptyUint64 opType = 182
+  opStructFieldOmitEmptyFloat32 opType = 183
+  opStructFieldOmitEmptyFloat64 opType = 184
+  opStructFieldOmitEmptyBool opType = 185
+  opStructFieldOmitEmptyString opType = 186
+  opEndIndent opType = 187
+  opInterfaceIndent opType = 188
+  opPtrIndent opType = 189
+  opMarshalJSONIndent opType = 190
+  opMarshalTextIndent opType = 191
+  opSliceHeadIndent opType = 192
+  opRootSliceHeadIndent opType = 193
+  opSliceElemIndent opType = 194
+  opRootSliceElemIndent opType = 195
+  opSliceEndIndent opType = 196
+  opArrayHeadIndent opType = 197
+  opArrayElemIndent opType = 198
+  opArrayEndIndent opType = 199
+  opMapHeadIndent opType = 200
+  opMapHeadLoadIndent opType = 201
+  opRootMapHeadIndent opType = 202
+  opMapKeyIndent opType = 203
+  opRootMapKeyIndent opType = 204
+  opMapValueIndent opType = 205
+  opMapEndIndent opType = 206
+  opStructFieldHeadIndent opType = 207
+  opStructFieldHeadOmitEmptyIndent opType = 208
+  opStructFieldAnonymousHeadIndent opType = 209
+  opStructFieldAnonymousHeadOmitEmptyIndent opType = 210
+  opStructFieldPtrAnonymousHeadOmitEmptyIndent opType = 211
+  opStructFieldPtrHeadIndent opType = 212
+  opStructFieldPtrHeadOmitEmptyIndent opType = 213
+  opStructFieldPtrAnonymousHeadIndent opType = 214
+  opStructFieldIndent opType = 215
+  opStructFieldOmitEmptyIndent opType = 216
+  opStructFieldRecursiveIndent opType = 217
+  opStructEndIndent opType = 218
+  opStructAnonymousEndIndent opType = 219
+  opIntIndent opType = 220
+  opInt8Indent opType = 221
+  opInt16Indent opType = 222
+  opInt32Indent opType = 223
+  opInt64Indent opType = 224
+  opUintIndent opType = 225
+  opUint8Indent opType = 226
+  opUint16Indent opType = 227
+  opUint32Indent opType = 228
+  opUint64Indent opType = 229
+  opFloat32Indent opType = 230
+  opFloat64Indent opType = 231
+  opBoolIndent opType = 232
+  opStringIndent opType = 233
+  opStructFieldHeadIntIndent opType = 234
+  opStructFieldHeadInt8Indent opType = 235
+  opStructFieldHeadInt16Indent opType = 236
+  opStructFieldHeadInt32Indent opType = 237
+  opStructFieldHeadInt64Indent opType = 238
+  opStructFieldHeadUintIndent opType = 239
+  opStructFieldHeadUint8Indent opType = 240
+  opStructFieldHeadUint16Indent opType = 241
+  opStructFieldHeadUint32Indent opType = 242
+  opStructFieldHeadUint64Indent opType = 243
+  opStructFieldHeadFloat32Indent opType = 244
+  opStructFieldHeadFloat64Indent opType = 245
+  opStructFieldHeadBoolIndent opType = 246
+  opStructFieldHeadStringIndent opType = 247
+  opStructFieldHeadOmitEmptyIntIndent opType = 248
+  opStructFieldHeadOmitEmptyInt8Indent opType = 249
+  opStructFieldHeadOmitEmptyInt16Indent opType = 250
+  opStructFieldHeadOmitEmptyInt32Indent opType = 251
+  opStructFieldHeadOmitEmptyInt64Indent opType = 252
+  opStructFieldHeadOmitEmptyUintIndent opType = 253
+  opStructFieldHeadOmitEmptyUint8Indent opType = 254
+  opStructFieldHeadOmitEmptyUint16Indent opType = 255
+  opStructFieldHeadOmitEmptyUint32Indent opType = 256
+  opStructFieldHeadOmitEmptyUint64Indent opType = 257
+  opStructFieldHeadOmitEmptyFloat32Indent opType = 258
+  opStructFieldHeadOmitEmptyFloat64Indent opType = 259
+  opStructFieldHeadOmitEmptyBoolIndent opType = 260
+  opStructFieldHeadOmitEmptyStringIndent opType = 261
+  opStructFieldAnonymousHeadIntIndent opType = 262
+  opStructFieldAnonymousHeadInt8Indent opType = 263
+  opStructFieldAnonymousHeadInt16Indent opType = 264
+  opStructFieldAnonymousHeadInt32Indent opType = 265
+  opStructFieldAnonymousHeadInt64Indent opType = 266
+  opStructFieldAnonymousHeadUintIndent opType = 267
+  opStructFieldAnonymousHeadUint8Indent opType = 268
+  opStructFieldAnonymousHeadUint16Indent opType = 269
+  opStructFieldAnonymousHeadUint32Indent opType = 270
+  opStructFieldAnonymousHeadUint64Indent opType = 271
+  opStructFieldAnonymousHeadFloat32Indent opType = 272
+  opStructFieldAnonymousHeadFloat64Indent opType = 273
+  opStructFieldAnonymousHeadBoolIndent opType = 274
+  opStructFieldAnonymousHeadStringIndent opType = 275
+  opStructFieldAnonymousHeadOmitEmptyIntIndent opType = 276
+  opStructFieldAnonymousHeadOmitEmptyInt8Indent opType = 277
+  opStructFieldAnonymousHeadOmitEmptyInt16Indent opType = 278
+  opStructFieldAnonymousHeadOmitEmptyInt32Indent opType = 279
+  opStructFieldAnonymousHeadOmitEmptyInt64Indent opType = 280
+  opStructFieldAnonymousHeadOmitEmptyUintIndent opType = 281
+  opStructFieldAnonymousHeadOmitEmptyUint8Indent opType = 282
+  opStructFieldAnonymousHeadOmitEmptyUint16Indent opType = 283
+  opStructFieldAnonymousHeadOmitEmptyUint32Indent opType = 284
+  opStructFieldAnonymousHeadOmitEmptyUint64Indent opType = 285
+  opStructFieldAnonymousHeadOmitEmptyFloat32Indent opType = 286
+  opStructFieldAnonymousHeadOmitEmptyFloat64Indent opType = 287
+  opStructFieldAnonymousHeadOmitEmptyBoolIndent opType = 288
+  opStructFieldAnonymousHeadOmitEmptyStringIndent opType = 289
+  opStructFieldPtrHeadIntIndent opType = 290
+  opStructFieldPtrHeadInt8Indent opType = 291
+  opStructFieldPtrHeadInt16Indent opType = 292
+  opStructFieldPtrHeadInt32Indent opType = 293
+  opStructFieldPtrHeadInt64Indent opType = 294
+  opStructFieldPtrHeadUintIndent opType = 295
+  opStructFieldPtrHeadUint8Indent opType = 296
+  opStructFieldPtrHeadUint16Indent opType = 297
+  opStructFieldPtrHeadUint32Indent opType = 298
+  opStructFieldPtrHeadUint64Indent opType = 299
+  opStructFieldPtrHeadFloat32Indent opType = 300
+  opStructFieldPtrHeadFloat64Indent opType = 301
+  opStructFieldPtrHeadBoolIndent opType = 302
+  opStructFieldPtrHeadStringIndent opType = 303
+  opStructFieldPtrHeadOmitEmptyIntIndent opType = 304
+  opStructFieldPtrHeadOmitEmptyInt8Indent opType = 305
+  opStructFieldPtrHeadOmitEmptyInt16Indent opType = 306
+  opStructFieldPtrHeadOmitEmptyInt32Indent opType = 307
+  opStructFieldPtrHeadOmitEmptyInt64Indent opType = 308
+  opStructFieldPtrHeadOmitEmptyUintIndent opType = 309
+  opStructFieldPtrHeadOmitEmptyUint8Indent opType = 310
+  opStructFieldPtrHeadOmitEmptyUint16Indent opType = 311
+  opStructFieldPtrHeadOmitEmptyUint32Indent opType = 312
+  opStructFieldPtrHeadOmitEmptyUint64Indent opType = 313
+  opStructFieldPtrHeadOmitEmptyFloat32Indent opType = 314
+  opStructFieldPtrHeadOmitEmptyFloat64Indent opType = 315
+  opStructFieldPtrHeadOmitEmptyBoolIndent opType = 316
+  opStructFieldPtrHeadOmitEmptyStringIndent opType = 317
+  opStructFieldPtrAnonymousHeadIntIndent opType = 318
+  opStructFieldPtrAnonymousHeadInt8Indent opType = 319
+  opStructFieldPtrAnonymousHeadInt16Indent opType = 320
+  opStructFieldPtrAnonymousHeadInt32Indent opType = 321
+  opStructFieldPtrAnonymousHeadInt64Indent opType = 322
+  opStructFieldPtrAnonymousHeadUintIndent opType = 323
+  opStructFieldPtrAnonymousHeadUint8Indent opType = 324
+  opStructFieldPtrAnonymousHeadUint16Indent opType = 325
+  opStructFieldPtrAnonymousHeadUint32Indent opType = 326
+  opStructFieldPtrAnonymousHeadUint64Indent opType = 327
+  opStructFieldPtrAnonymousHeadFloat32Indent opType = 328
+  opStructFieldPtrAnonymousHeadFloat64Indent opType = 329
+  opStructFieldPtrAnonymousHeadBoolIndent opType = 330
+  opStructFieldPtrAnonymousHeadStringIndent opType = 331
+  opStructFieldPtrAnonymousHeadOmitEmptyIntIndent opType = 332
+  opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent opType = 333
+  opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent opType = 334
+  opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent opType = 335
+  opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent opType = 336
+  opStructFieldPtrAnonymousHeadOmitEmptyUintIndent opType = 337
+  opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent opType = 338
+  opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent opType = 339
+  opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent opType = 340
+  opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent opType = 341
+  opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent opType = 342
+  opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent opType = 343
+  opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent opType = 344
+  opStructFieldPtrAnonymousHeadOmitEmptyStringIndent opType = 345
+  opStructFieldIntIndent opType = 346
+  opStructFieldInt8Indent opType = 347
+  opStructFieldInt16Indent opType = 348
+  opStructFieldInt32Indent opType = 349
+  opStructFieldInt64Indent opType = 350
+  opStructFieldUintIndent opType = 351
+  opStructFieldUint8Indent opType = 352
+  opStructFieldUint16Indent opType = 353
+  opStructFieldUint32Indent opType = 354
+  opStructFieldUint64Indent opType = 355
+  opStructFieldFloat32Indent opType = 356
+  opStructFieldFloat64Indent opType = 357
+  opStructFieldBoolIndent opType = 358
+  opStructFieldStringIndent opType = 359
+  opStructFieldOmitEmptyIntIndent opType = 360
+  opStructFieldOmitEmptyInt8Indent opType = 361
+  opStructFieldOmitEmptyInt16Indent opType = 362
+  opStructFieldOmitEmptyInt32Indent opType = 363
+  opStructFieldOmitEmptyInt64Indent opType = 364
+  opStructFieldOmitEmptyUintIndent opType = 365
+  opStructFieldOmitEmptyUint8Indent opType = 366
+  opStructFieldOmitEmptyUint16Indent opType = 367
+  opStructFieldOmitEmptyUint32Indent opType = 368
+  opStructFieldOmitEmptyUint64Indent opType = 369
+  opStructFieldOmitEmptyFloat32Indent opType = 370
+  opStructFieldOmitEmptyFloat64Indent opType = 371
+  opStructFieldOmitEmptyBoolIndent opType = 372
+  opStructFieldOmitEmptyStringIndent opType = 373
 )
 
 func (t opType) String() string {
@@ -383,6 +443,10 @@ func (t opType) String() string {
     return "StructFieldHeadOmitEmpty"
   case opStructFieldAnonymousHead:
     return "StructFieldAnonymousHead"
+  case opStructFieldAnonymousHeadOmitEmpty:
+    return "StructFieldAnonymousHeadOmitEmpty"
+  case opStructFieldPtrAnonymousHeadOmitEmpty:
+    return "StructFieldPtrAnonymousHeadOmitEmpty"
   case opStructFieldPtrHead:
     return "StructFieldPtrHead"
   case opStructFieldPtrHeadOmitEmpty:
@@ -511,6 +575,34 @@ func (t opType) String() string {
     return "StructFieldAnonymousHeadBool"
   case opStructFieldAnonymousHeadString:
     return "StructFieldAnonymousHeadString"
+  case opStructFieldAnonymousHeadOmitEmptyInt:
+    return "StructFieldAnonymousHeadOmitEmptyInt"
+  case opStructFieldAnonymousHeadOmitEmptyInt8:
+    return "StructFieldAnonymousHeadOmitEmptyInt8"
+  case opStructFieldAnonymousHeadOmitEmptyInt16:
+    return "StructFieldAnonymousHeadOmitEmptyInt16"
+  case opStructFieldAnonymousHeadOmitEmptyInt32:
+    return "StructFieldAnonymousHeadOmitEmptyInt32"
+  case opStructFieldAnonymousHeadOmitEmptyInt64:
+    return "StructFieldAnonymousHeadOmitEmptyInt64"
+  case opStructFieldAnonymousHeadOmitEmptyUint:
+    return "StructFieldAnonymousHeadOmitEmptyUint"
+  case opStructFieldAnonymousHeadOmitEmptyUint8:
+    return "StructFieldAnonymousHeadOmitEmptyUint8"
+  case opStructFieldAnonymousHeadOmitEmptyUint16:
+    return "StructFieldAnonymousHeadOmitEmptyUint16"
+  case opStructFieldAnonymousHeadOmitEmptyUint32:
+    return "StructFieldAnonymousHeadOmitEmptyUint32"
+  case opStructFieldAnonymousHeadOmitEmptyUint64:
+    return "StructFieldAnonymousHeadOmitEmptyUint64"
+  case opStructFieldAnonymousHeadOmitEmptyFloat32:
+    return "StructFieldAnonymousHeadOmitEmptyFloat32"
+  case opStructFieldAnonymousHeadOmitEmptyFloat64:
+    return "StructFieldAnonymousHeadOmitEmptyFloat64"
+  case opStructFieldAnonymousHeadOmitEmptyBool:
+    return "StructFieldAnonymousHeadOmitEmptyBool"
+  case opStructFieldAnonymousHeadOmitEmptyString:
+    return "StructFieldAnonymousHeadOmitEmptyString"
   case opStructFieldPtrHeadInt:
     return "StructFieldPtrHeadInt"
   case opStructFieldPtrHeadInt8:
@@ -595,6 +687,34 @@ func (t opType) String() string {
     return "StructFieldPtrAnonymousHeadBool"
   case opStructFieldPtrAnonymousHeadString:
     return "StructFieldPtrAnonymousHeadString"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt8"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt16"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt32"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt64"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint8"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint16"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint32"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint64"
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
+    return "StructFieldPtrAnonymousHeadOmitEmptyFloat32"
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
+    return "StructFieldPtrAnonymousHeadOmitEmptyFloat64"
+  case opStructFieldPtrAnonymousHeadOmitEmptyBool:
+    return "StructFieldPtrAnonymousHeadOmitEmptyBool"
+  case opStructFieldPtrAnonymousHeadOmitEmptyString:
+    return "StructFieldPtrAnonymousHeadOmitEmptyString"
   case opStructFieldInt:
     return "StructFieldInt"
   case opStructFieldInt8:
@@ -697,6 +817,10 @@ func (t opType) String() string {
     return "StructFieldHeadOmitEmptyIndent"
   case opStructFieldAnonymousHeadIndent:
     return "StructFieldAnonymousHeadIndent"
+  case opStructFieldAnonymousHeadOmitEmptyIndent:
+    return "StructFieldAnonymousHeadOmitEmptyIndent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyIndent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyIndent"
   case opStructFieldPtrHeadIndent:
     return "StructFieldPtrHeadIndent"
   case opStructFieldPtrHeadOmitEmptyIndent:
@@ -825,6 +949,34 @@ func (t opType) String() string {
     return "StructFieldAnonymousHeadBoolIndent"
   case opStructFieldAnonymousHeadStringIndent:
     return "StructFieldAnonymousHeadStringIndent"
+  case opStructFieldAnonymousHeadOmitEmptyIntIndent:
+    return "StructFieldAnonymousHeadOmitEmptyIntIndent"
+  case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
+    return "StructFieldAnonymousHeadOmitEmptyInt8Indent"
+  case opStructFieldAnonymousHeadOmitEmptyInt16Indent:
+    return "StructFieldAnonymousHeadOmitEmptyInt16Indent"
+  case opStructFieldAnonymousHeadOmitEmptyInt32Indent:
+    return "StructFieldAnonymousHeadOmitEmptyInt32Indent"
+  case opStructFieldAnonymousHeadOmitEmptyInt64Indent:
+    return "StructFieldAnonymousHeadOmitEmptyInt64Indent"
+  case opStructFieldAnonymousHeadOmitEmptyUintIndent:
+    return "StructFieldAnonymousHeadOmitEmptyUintIndent"
+  case opStructFieldAnonymousHeadOmitEmptyUint8Indent:
+    return "StructFieldAnonymousHeadOmitEmptyUint8Indent"
+  case opStructFieldAnonymousHeadOmitEmptyUint16Indent:
+    return "StructFieldAnonymousHeadOmitEmptyUint16Indent"
+  case opStructFieldAnonymousHeadOmitEmptyUint32Indent:
+    return "StructFieldAnonymousHeadOmitEmptyUint32Indent"
+  case opStructFieldAnonymousHeadOmitEmptyUint64Indent:
+    return "StructFieldAnonymousHeadOmitEmptyUint64Indent"
+  case opStructFieldAnonymousHeadOmitEmptyFloat32Indent:
+    return "StructFieldAnonymousHeadOmitEmptyFloat32Indent"
+  case opStructFieldAnonymousHeadOmitEmptyFloat64Indent:
+    return "StructFieldAnonymousHeadOmitEmptyFloat64Indent"
+  case opStructFieldAnonymousHeadOmitEmptyBoolIndent:
+    return "StructFieldAnonymousHeadOmitEmptyBoolIndent"
+  case opStructFieldAnonymousHeadOmitEmptyStringIndent:
+    return "StructFieldAnonymousHeadOmitEmptyStringIndent"
   case opStructFieldPtrHeadIntIndent:
     return "StructFieldPtrHeadIntIndent"
   case opStructFieldPtrHeadInt8Indent:
@@ -909,6 +1061,34 @@ func (t opType) String() string {
     return "StructFieldPtrAnonymousHeadBoolIndent"
   case opStructFieldPtrAnonymousHeadStringIndent:
     return "StructFieldPtrAnonymousHeadStringIndent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyIntIndent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt8Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt16Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt32Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyInt64Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUintIndent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUintIndent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint8Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint16Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint32Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyUint64Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyFloat32Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyFloat64Indent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyBoolIndent"
+  case opStructFieldPtrAnonymousHeadOmitEmptyStringIndent:
+    return "StructFieldPtrAnonymousHeadOmitEmptyStringIndent"
   case opStructFieldIntIndent:
     return "StructFieldIntIndent"
   case opStructFieldInt8Indent:
@@ -1016,6 +1196,10 @@ func (t opType) codeType() codeType {
   case opStructFieldHeadOmitEmpty:
     return codeStructField
   case opStructFieldAnonymousHead:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmpty:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmpty:
     return codeStructField
   case opStructFieldPtrHead:
     return codeStructField
@@ -1145,6 +1329,34 @@ func (t opType) codeType() codeType {
     return codeStructField
   case opStructFieldAnonymousHeadString:
     return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt8:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt16:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt32:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt64:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint8:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint16:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint32:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint64:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyFloat32:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyFloat64:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyBool:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyString:
+    return codeStructField
   case opStructFieldPtrHeadInt:
     return codeStructField
   case opStructFieldPtrHeadInt8:
@@ -1228,6 +1440,34 @@ func (t opType) codeType() codeType {
   case opStructFieldPtrAnonymousHeadBool:
     return codeStructField
   case opStructFieldPtrAnonymousHeadString:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyBool:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyString:
     return codeStructField
   case opStructFieldInt:
     return codeStructField
@@ -1330,6 +1570,10 @@ func (t opType) codeType() codeType {
   case opStructFieldHeadOmitEmptyIndent:
     return codeStructField
   case opStructFieldAnonymousHeadIndent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyIndent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyIndent:
     return codeStructField
   case opStructFieldPtrHeadIndent:
     return codeStructField
@@ -1459,6 +1703,34 @@ func (t opType) codeType() codeType {
     return codeStructField
   case opStructFieldAnonymousHeadStringIndent:
     return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyIntIndent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt16Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt32Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyInt64Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUintIndent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint8Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint16Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint32Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyUint64Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyFloat32Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyFloat64Indent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyBoolIndent:
+    return codeStructField
+  case opStructFieldAnonymousHeadOmitEmptyStringIndent:
+    return codeStructField
   case opStructFieldPtrHeadIntIndent:
     return codeStructField
   case opStructFieldPtrHeadInt8Indent:
@@ -1542,6 +1814,34 @@ func (t opType) codeType() codeType {
   case opStructFieldPtrAnonymousHeadBoolIndent:
     return codeStructField
   case opStructFieldPtrAnonymousHeadStringIndent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUintIndent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent:
+    return codeStructField
+  case opStructFieldPtrAnonymousHeadOmitEmptyStringIndent:
     return codeStructField
   case opStructFieldIntIndent:
     return codeStructField
@@ -1651,6 +1951,10 @@ func (t opType) toIndent() opType {
     return opStructFieldHeadOmitEmptyIndent
   case opStructFieldAnonymousHead:
     return opStructFieldAnonymousHeadIndent
+  case opStructFieldAnonymousHeadOmitEmpty:
+    return opStructFieldAnonymousHeadOmitEmptyIndent
+  case opStructFieldPtrAnonymousHeadOmitEmpty:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIndent
   case opStructFieldPtrHead:
     return opStructFieldPtrHeadIndent
   case opStructFieldPtrHeadOmitEmpty:
@@ -1779,6 +2083,34 @@ func (t opType) toIndent() opType {
     return opStructFieldAnonymousHeadBoolIndent
   case opStructFieldAnonymousHeadString:
     return opStructFieldAnonymousHeadStringIndent
+  case opStructFieldAnonymousHeadOmitEmptyInt:
+    return opStructFieldAnonymousHeadOmitEmptyIntIndent
+  case opStructFieldAnonymousHeadOmitEmptyInt8:
+    return opStructFieldAnonymousHeadOmitEmptyInt8Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt16:
+    return opStructFieldAnonymousHeadOmitEmptyInt16Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt32:
+    return opStructFieldAnonymousHeadOmitEmptyInt32Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt64:
+    return opStructFieldAnonymousHeadOmitEmptyInt64Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint:
+    return opStructFieldAnonymousHeadOmitEmptyUintIndent
+  case opStructFieldAnonymousHeadOmitEmptyUint8:
+    return opStructFieldAnonymousHeadOmitEmptyUint8Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint16:
+    return opStructFieldAnonymousHeadOmitEmptyUint16Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint32:
+    return opStructFieldAnonymousHeadOmitEmptyUint32Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint64:
+    return opStructFieldAnonymousHeadOmitEmptyUint64Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat32:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat64:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64Indent
+  case opStructFieldAnonymousHeadOmitEmptyBool:
+    return opStructFieldAnonymousHeadOmitEmptyBoolIndent
+  case opStructFieldAnonymousHeadOmitEmptyString:
+    return opStructFieldAnonymousHeadOmitEmptyStringIndent
   case opStructFieldPtrHeadInt:
     return opStructFieldPtrHeadIntIndent
   case opStructFieldPtrHeadInt8:
@@ -1863,6 +2195,34 @@ func (t opType) toIndent() opType {
     return opStructFieldPtrAnonymousHeadBoolIndent
   case opStructFieldPtrAnonymousHeadString:
     return opStructFieldPtrAnonymousHeadStringIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUintIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyBool:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyString:
+    return opStructFieldPtrAnonymousHeadOmitEmptyStringIndent
   case opStructFieldInt:
     return opStructFieldIntIndent
   case opStructFieldInt8:
@@ -1965,6 +2325,10 @@ func (t opType) toIndent() opType {
     return opStructFieldHeadOmitEmptyIndent
   case opStructFieldAnonymousHeadIndent:
     return opStructFieldAnonymousHeadIndent
+  case opStructFieldAnonymousHeadOmitEmptyIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIndent
   case opStructFieldPtrHeadIndent:
     return opStructFieldPtrHeadIndent
   case opStructFieldPtrHeadOmitEmptyIndent:
@@ -2093,6 +2457,34 @@ func (t opType) toIndent() opType {
     return opStructFieldAnonymousHeadBoolIndent
   case opStructFieldAnonymousHeadStringIndent:
     return opStructFieldAnonymousHeadStringIndent
+  case opStructFieldAnonymousHeadOmitEmptyIntIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIntIndent
+  case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt8Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt16Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt32Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt64Indent
+  case opStructFieldAnonymousHeadOmitEmptyUintIndent:
+    return opStructFieldAnonymousHeadOmitEmptyUintIndent
+  case opStructFieldAnonymousHeadOmitEmptyUint8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint8Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint16Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint32Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint64Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64Indent
+  case opStructFieldAnonymousHeadOmitEmptyBoolIndent:
+    return opStructFieldAnonymousHeadOmitEmptyBoolIndent
+  case opStructFieldAnonymousHeadOmitEmptyStringIndent:
+    return opStructFieldAnonymousHeadOmitEmptyStringIndent
   case opStructFieldPtrHeadIntIndent:
     return opStructFieldPtrHeadIntIndent
   case opStructFieldPtrHeadInt8Indent:
@@ -2177,6 +2569,34 @@ func (t opType) toIndent() opType {
     return opStructFieldPtrAnonymousHeadBoolIndent
   case opStructFieldPtrAnonymousHeadStringIndent:
     return opStructFieldPtrAnonymousHeadStringIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUintIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUintIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyStringIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyStringIndent
   case opStructFieldIntIndent:
     return opStructFieldIntIndent
   case opStructFieldInt8Indent:
@@ -2245,180 +2665,240 @@ func (t opType) headToPtrHead() opType {
     return opStructFieldPtrAnonymousHead
   case opStructFieldHeadOmitEmpty:
     return opStructFieldPtrHeadOmitEmpty
+  case opStructFieldAnonymousHeadOmitEmpty:
+    return opStructFieldPtrAnonymousHeadOmitEmpty
   case opStructFieldHeadInt:
     return opStructFieldPtrHeadInt
   case opStructFieldAnonymousHeadInt:
     return opStructFieldPtrAnonymousHeadInt
   case opStructFieldHeadOmitEmptyInt:
     return opStructFieldPtrHeadOmitEmptyInt
+  case opStructFieldAnonymousHeadOmitEmptyInt:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt
   case opStructFieldHeadInt8:
     return opStructFieldPtrHeadInt8
   case opStructFieldAnonymousHeadInt8:
     return opStructFieldPtrAnonymousHeadInt8
   case opStructFieldHeadOmitEmptyInt8:
     return opStructFieldPtrHeadOmitEmptyInt8
+  case opStructFieldAnonymousHeadOmitEmptyInt8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8
   case opStructFieldHeadInt16:
     return opStructFieldPtrHeadInt16
   case opStructFieldAnonymousHeadInt16:
     return opStructFieldPtrAnonymousHeadInt16
   case opStructFieldHeadOmitEmptyInt16:
     return opStructFieldPtrHeadOmitEmptyInt16
+  case opStructFieldAnonymousHeadOmitEmptyInt16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16
   case opStructFieldHeadInt32:
     return opStructFieldPtrHeadInt32
   case opStructFieldAnonymousHeadInt32:
     return opStructFieldPtrAnonymousHeadInt32
   case opStructFieldHeadOmitEmptyInt32:
     return opStructFieldPtrHeadOmitEmptyInt32
+  case opStructFieldAnonymousHeadOmitEmptyInt32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32
   case opStructFieldHeadInt64:
     return opStructFieldPtrHeadInt64
   case opStructFieldAnonymousHeadInt64:
     return opStructFieldPtrAnonymousHeadInt64
   case opStructFieldHeadOmitEmptyInt64:
     return opStructFieldPtrHeadOmitEmptyInt64
+  case opStructFieldAnonymousHeadOmitEmptyInt64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64
   case opStructFieldHeadUint:
     return opStructFieldPtrHeadUint
   case opStructFieldAnonymousHeadUint:
     return opStructFieldPtrAnonymousHeadUint
   case opStructFieldHeadOmitEmptyUint:
     return opStructFieldPtrHeadOmitEmptyUint
+  case opStructFieldAnonymousHeadOmitEmptyUint:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint
   case opStructFieldHeadUint8:
     return opStructFieldPtrHeadUint8
   case opStructFieldAnonymousHeadUint8:
     return opStructFieldPtrAnonymousHeadUint8
   case opStructFieldHeadOmitEmptyUint8:
     return opStructFieldPtrHeadOmitEmptyUint8
+  case opStructFieldAnonymousHeadOmitEmptyUint8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8
   case opStructFieldHeadUint16:
     return opStructFieldPtrHeadUint16
   case opStructFieldAnonymousHeadUint16:
     return opStructFieldPtrAnonymousHeadUint16
   case opStructFieldHeadOmitEmptyUint16:
     return opStructFieldPtrHeadOmitEmptyUint16
+  case opStructFieldAnonymousHeadOmitEmptyUint16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16
   case opStructFieldHeadUint32:
     return opStructFieldPtrHeadUint32
   case opStructFieldAnonymousHeadUint32:
     return opStructFieldPtrAnonymousHeadUint32
   case opStructFieldHeadOmitEmptyUint32:
     return opStructFieldPtrHeadOmitEmptyUint32
+  case opStructFieldAnonymousHeadOmitEmptyUint32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32
   case opStructFieldHeadUint64:
     return opStructFieldPtrHeadUint64
   case opStructFieldAnonymousHeadUint64:
     return opStructFieldPtrAnonymousHeadUint64
   case opStructFieldHeadOmitEmptyUint64:
     return opStructFieldPtrHeadOmitEmptyUint64
+  case opStructFieldAnonymousHeadOmitEmptyUint64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64
   case opStructFieldHeadFloat32:
     return opStructFieldPtrHeadFloat32
   case opStructFieldAnonymousHeadFloat32:
     return opStructFieldPtrAnonymousHeadFloat32
   case opStructFieldHeadOmitEmptyFloat32:
     return opStructFieldPtrHeadOmitEmptyFloat32
+  case opStructFieldAnonymousHeadOmitEmptyFloat32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32
   case opStructFieldHeadFloat64:
     return opStructFieldPtrHeadFloat64
   case opStructFieldAnonymousHeadFloat64:
     return opStructFieldPtrAnonymousHeadFloat64
   case opStructFieldHeadOmitEmptyFloat64:
     return opStructFieldPtrHeadOmitEmptyFloat64
+  case opStructFieldAnonymousHeadOmitEmptyFloat64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64
   case opStructFieldHeadBool:
     return opStructFieldPtrHeadBool
   case opStructFieldAnonymousHeadBool:
     return opStructFieldPtrAnonymousHeadBool
   case opStructFieldHeadOmitEmptyBool:
     return opStructFieldPtrHeadOmitEmptyBool
+  case opStructFieldAnonymousHeadOmitEmptyBool:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBool
   case opStructFieldHeadString:
     return opStructFieldPtrHeadString
   case opStructFieldAnonymousHeadString:
     return opStructFieldPtrAnonymousHeadString
   case opStructFieldHeadOmitEmptyString:
     return opStructFieldPtrHeadOmitEmptyString
+  case opStructFieldAnonymousHeadOmitEmptyString:
+    return opStructFieldPtrAnonymousHeadOmitEmptyString
   case opStructFieldHeadIndent:
     return opStructFieldPtrHeadIndent
   case opStructFieldAnonymousHeadIndent:
     return opStructFieldPtrAnonymousHeadIndent
   case opStructFieldHeadOmitEmptyIndent:
     return opStructFieldPtrHeadOmitEmptyIndent
+  case opStructFieldAnonymousHeadOmitEmptyIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIndent
   case opStructFieldHeadIntIndent:
     return opStructFieldPtrHeadIntIndent
   case opStructFieldAnonymousHeadIntIndent:
     return opStructFieldPtrAnonymousHeadIntIndent
   case opStructFieldHeadOmitEmptyIntIndent:
     return opStructFieldPtrHeadOmitEmptyIntIndent
+  case opStructFieldAnonymousHeadOmitEmptyIntIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
   case opStructFieldHeadInt8Indent:
     return opStructFieldPtrHeadInt8Indent
   case opStructFieldAnonymousHeadInt8Indent:
     return opStructFieldPtrAnonymousHeadInt8Indent
   case opStructFieldHeadOmitEmptyInt8Indent:
     return opStructFieldPtrHeadOmitEmptyInt8Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent
   case opStructFieldHeadInt16Indent:
     return opStructFieldPtrHeadInt16Indent
   case opStructFieldAnonymousHeadInt16Indent:
     return opStructFieldPtrAnonymousHeadInt16Indent
   case opStructFieldHeadOmitEmptyInt16Indent:
     return opStructFieldPtrHeadOmitEmptyInt16Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent
   case opStructFieldHeadInt32Indent:
     return opStructFieldPtrHeadInt32Indent
   case opStructFieldAnonymousHeadInt32Indent:
     return opStructFieldPtrAnonymousHeadInt32Indent
   case opStructFieldHeadOmitEmptyInt32Indent:
     return opStructFieldPtrHeadOmitEmptyInt32Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent
   case opStructFieldHeadInt64Indent:
     return opStructFieldPtrHeadInt64Indent
   case opStructFieldAnonymousHeadInt64Indent:
     return opStructFieldPtrAnonymousHeadInt64Indent
   case opStructFieldHeadOmitEmptyInt64Indent:
     return opStructFieldPtrHeadOmitEmptyInt64Indent
+  case opStructFieldAnonymousHeadOmitEmptyInt64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent
   case opStructFieldHeadUintIndent:
     return opStructFieldPtrHeadUintIndent
   case opStructFieldAnonymousHeadUintIndent:
     return opStructFieldPtrAnonymousHeadUintIndent
   case opStructFieldHeadOmitEmptyUintIndent:
     return opStructFieldPtrHeadOmitEmptyUintIndent
+  case opStructFieldAnonymousHeadOmitEmptyUintIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUintIndent
   case opStructFieldHeadUint8Indent:
     return opStructFieldPtrHeadUint8Indent
   case opStructFieldAnonymousHeadUint8Indent:
     return opStructFieldPtrAnonymousHeadUint8Indent
   case opStructFieldHeadOmitEmptyUint8Indent:
     return opStructFieldPtrHeadOmitEmptyUint8Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent
   case opStructFieldHeadUint16Indent:
     return opStructFieldPtrHeadUint16Indent
   case opStructFieldAnonymousHeadUint16Indent:
     return opStructFieldPtrAnonymousHeadUint16Indent
   case opStructFieldHeadOmitEmptyUint16Indent:
     return opStructFieldPtrHeadOmitEmptyUint16Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent
   case opStructFieldHeadUint32Indent:
     return opStructFieldPtrHeadUint32Indent
   case opStructFieldAnonymousHeadUint32Indent:
     return opStructFieldPtrAnonymousHeadUint32Indent
   case opStructFieldHeadOmitEmptyUint32Indent:
     return opStructFieldPtrHeadOmitEmptyUint32Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent
   case opStructFieldHeadUint64Indent:
     return opStructFieldPtrHeadUint64Indent
   case opStructFieldAnonymousHeadUint64Indent:
     return opStructFieldPtrAnonymousHeadUint64Indent
   case opStructFieldHeadOmitEmptyUint64Indent:
     return opStructFieldPtrHeadOmitEmptyUint64Indent
+  case opStructFieldAnonymousHeadOmitEmptyUint64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent
   case opStructFieldHeadFloat32Indent:
     return opStructFieldPtrHeadFloat32Indent
   case opStructFieldAnonymousHeadFloat32Indent:
     return opStructFieldPtrAnonymousHeadFloat32Indent
   case opStructFieldHeadOmitEmptyFloat32Indent:
     return opStructFieldPtrHeadOmitEmptyFloat32Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent
   case opStructFieldHeadFloat64Indent:
     return opStructFieldPtrHeadFloat64Indent
   case opStructFieldAnonymousHeadFloat64Indent:
     return opStructFieldPtrAnonymousHeadFloat64Indent
   case opStructFieldHeadOmitEmptyFloat64Indent:
     return opStructFieldPtrHeadOmitEmptyFloat64Indent
+  case opStructFieldAnonymousHeadOmitEmptyFloat64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent
   case opStructFieldHeadBoolIndent:
     return opStructFieldPtrHeadBoolIndent
   case opStructFieldAnonymousHeadBoolIndent:
     return opStructFieldPtrAnonymousHeadBoolIndent
   case opStructFieldHeadOmitEmptyBoolIndent:
     return opStructFieldPtrHeadOmitEmptyBoolIndent
+  case opStructFieldAnonymousHeadOmitEmptyBoolIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent
   case opStructFieldHeadStringIndent:
     return opStructFieldPtrHeadStringIndent
   case opStructFieldAnonymousHeadStringIndent:
     return opStructFieldPtrAnonymousHeadStringIndent
   case opStructFieldHeadOmitEmptyStringIndent:
     return opStructFieldPtrHeadOmitEmptyStringIndent
+  case opStructFieldAnonymousHeadOmitEmptyStringIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyStringIndent
   }
   return t
 }
@@ -2429,122 +2909,242 @@ func (t opType) headToAnonymousHead() opType {
     return opStructFieldAnonymousHead
   case opStructFieldPtrHead:
     return opStructFieldPtrAnonymousHead
+  case opStructFieldHeadOmitEmpty:
+    return opStructFieldAnonymousHeadOmitEmpty
+  case opStructFieldPtrHeadOmitEmpty:
+    return opStructFieldPtrAnonymousHeadOmitEmpty
   case opStructFieldHeadInt:
     return opStructFieldAnonymousHeadInt
   case opStructFieldPtrHeadInt:
     return opStructFieldPtrAnonymousHeadInt
+  case opStructFieldHeadOmitEmptyInt:
+    return opStructFieldAnonymousHeadOmitEmptyInt
+  case opStructFieldPtrHeadOmitEmptyInt:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt
   case opStructFieldHeadInt8:
     return opStructFieldAnonymousHeadInt8
   case opStructFieldPtrHeadInt8:
     return opStructFieldPtrAnonymousHeadInt8
+  case opStructFieldHeadOmitEmptyInt8:
+    return opStructFieldAnonymousHeadOmitEmptyInt8
+  case opStructFieldPtrHeadOmitEmptyInt8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8
   case opStructFieldHeadInt16:
     return opStructFieldAnonymousHeadInt16
   case opStructFieldPtrHeadInt16:
     return opStructFieldPtrAnonymousHeadInt16
+  case opStructFieldHeadOmitEmptyInt16:
+    return opStructFieldAnonymousHeadOmitEmptyInt16
+  case opStructFieldPtrHeadOmitEmptyInt16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16
   case opStructFieldHeadInt32:
     return opStructFieldAnonymousHeadInt32
   case opStructFieldPtrHeadInt32:
     return opStructFieldPtrAnonymousHeadInt32
+  case opStructFieldHeadOmitEmptyInt32:
+    return opStructFieldAnonymousHeadOmitEmptyInt32
+  case opStructFieldPtrHeadOmitEmptyInt32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32
   case opStructFieldHeadInt64:
     return opStructFieldAnonymousHeadInt64
   case opStructFieldPtrHeadInt64:
     return opStructFieldPtrAnonymousHeadInt64
+  case opStructFieldHeadOmitEmptyInt64:
+    return opStructFieldAnonymousHeadOmitEmptyInt64
+  case opStructFieldPtrHeadOmitEmptyInt64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64
   case opStructFieldHeadUint:
     return opStructFieldAnonymousHeadUint
   case opStructFieldPtrHeadUint:
     return opStructFieldPtrAnonymousHeadUint
+  case opStructFieldHeadOmitEmptyUint:
+    return opStructFieldAnonymousHeadOmitEmptyUint
+  case opStructFieldPtrHeadOmitEmptyUint:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint
   case opStructFieldHeadUint8:
     return opStructFieldAnonymousHeadUint8
   case opStructFieldPtrHeadUint8:
     return opStructFieldPtrAnonymousHeadUint8
+  case opStructFieldHeadOmitEmptyUint8:
+    return opStructFieldAnonymousHeadOmitEmptyUint8
+  case opStructFieldPtrHeadOmitEmptyUint8:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8
   case opStructFieldHeadUint16:
     return opStructFieldAnonymousHeadUint16
   case opStructFieldPtrHeadUint16:
     return opStructFieldPtrAnonymousHeadUint16
+  case opStructFieldHeadOmitEmptyUint16:
+    return opStructFieldAnonymousHeadOmitEmptyUint16
+  case opStructFieldPtrHeadOmitEmptyUint16:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16
   case opStructFieldHeadUint32:
     return opStructFieldAnonymousHeadUint32
   case opStructFieldPtrHeadUint32:
     return opStructFieldPtrAnonymousHeadUint32
+  case opStructFieldHeadOmitEmptyUint32:
+    return opStructFieldAnonymousHeadOmitEmptyUint32
+  case opStructFieldPtrHeadOmitEmptyUint32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32
   case opStructFieldHeadUint64:
     return opStructFieldAnonymousHeadUint64
   case opStructFieldPtrHeadUint64:
     return opStructFieldPtrAnonymousHeadUint64
+  case opStructFieldHeadOmitEmptyUint64:
+    return opStructFieldAnonymousHeadOmitEmptyUint64
+  case opStructFieldPtrHeadOmitEmptyUint64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64
   case opStructFieldHeadFloat32:
     return opStructFieldAnonymousHeadFloat32
   case opStructFieldPtrHeadFloat32:
     return opStructFieldPtrAnonymousHeadFloat32
+  case opStructFieldHeadOmitEmptyFloat32:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32
+  case opStructFieldPtrHeadOmitEmptyFloat32:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32
   case opStructFieldHeadFloat64:
     return opStructFieldAnonymousHeadFloat64
   case opStructFieldPtrHeadFloat64:
     return opStructFieldPtrAnonymousHeadFloat64
+  case opStructFieldHeadOmitEmptyFloat64:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64
+  case opStructFieldPtrHeadOmitEmptyFloat64:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64
   case opStructFieldHeadBool:
     return opStructFieldAnonymousHeadBool
   case opStructFieldPtrHeadBool:
     return opStructFieldPtrAnonymousHeadBool
+  case opStructFieldHeadOmitEmptyBool:
+    return opStructFieldAnonymousHeadOmitEmptyBool
+  case opStructFieldPtrHeadOmitEmptyBool:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBool
   case opStructFieldHeadString:
     return opStructFieldAnonymousHeadString
   case opStructFieldPtrHeadString:
     return opStructFieldPtrAnonymousHeadString
+  case opStructFieldHeadOmitEmptyString:
+    return opStructFieldAnonymousHeadOmitEmptyString
+  case opStructFieldPtrHeadOmitEmptyString:
+    return opStructFieldPtrAnonymousHeadOmitEmptyString
   case opStructFieldHeadIndent:
     return opStructFieldAnonymousHeadIndent
   case opStructFieldPtrHeadIndent:
     return opStructFieldPtrAnonymousHeadIndent
+  case opStructFieldHeadOmitEmptyIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIndent
+  case opStructFieldPtrHeadOmitEmptyIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIndent
   case opStructFieldHeadIntIndent:
     return opStructFieldAnonymousHeadIntIndent
   case opStructFieldPtrHeadIntIndent:
     return opStructFieldPtrAnonymousHeadIntIndent
+  case opStructFieldHeadOmitEmptyIntIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIntIndent
+  case opStructFieldPtrHeadOmitEmptyIntIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
   case opStructFieldHeadInt8Indent:
     return opStructFieldAnonymousHeadInt8Indent
   case opStructFieldPtrHeadInt8Indent:
     return opStructFieldPtrAnonymousHeadInt8Indent
+  case opStructFieldHeadOmitEmptyInt8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt8Indent
+  case opStructFieldPtrHeadOmitEmptyInt8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent
   case opStructFieldHeadInt16Indent:
     return opStructFieldAnonymousHeadInt16Indent
   case opStructFieldPtrHeadInt16Indent:
     return opStructFieldPtrAnonymousHeadInt16Indent
+  case opStructFieldHeadOmitEmptyInt16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt16Indent
+  case opStructFieldPtrHeadOmitEmptyInt16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent
   case opStructFieldHeadInt32Indent:
     return opStructFieldAnonymousHeadInt32Indent
   case opStructFieldPtrHeadInt32Indent:
     return opStructFieldPtrAnonymousHeadInt32Indent
+  case opStructFieldHeadOmitEmptyInt32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt32Indent
+  case opStructFieldPtrHeadOmitEmptyInt32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent
   case opStructFieldHeadInt64Indent:
     return opStructFieldAnonymousHeadInt64Indent
   case opStructFieldPtrHeadInt64Indent:
     return opStructFieldPtrAnonymousHeadInt64Indent
+  case opStructFieldHeadOmitEmptyInt64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt64Indent
+  case opStructFieldPtrHeadOmitEmptyInt64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent
   case opStructFieldHeadUintIndent:
     return opStructFieldAnonymousHeadUintIndent
   case opStructFieldPtrHeadUintIndent:
     return opStructFieldPtrAnonymousHeadUintIndent
+  case opStructFieldHeadOmitEmptyUintIndent:
+    return opStructFieldAnonymousHeadOmitEmptyUintIndent
+  case opStructFieldPtrHeadOmitEmptyUintIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUintIndent
   case opStructFieldHeadUint8Indent:
     return opStructFieldAnonymousHeadUint8Indent
   case opStructFieldPtrHeadUint8Indent:
     return opStructFieldPtrAnonymousHeadUint8Indent
+  case opStructFieldHeadOmitEmptyUint8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint8Indent
+  case opStructFieldPtrHeadOmitEmptyUint8Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent
   case opStructFieldHeadUint16Indent:
     return opStructFieldAnonymousHeadUint16Indent
   case opStructFieldPtrHeadUint16Indent:
     return opStructFieldPtrAnonymousHeadUint16Indent
+  case opStructFieldHeadOmitEmptyUint16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint16Indent
+  case opStructFieldPtrHeadOmitEmptyUint16Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent
   case opStructFieldHeadUint32Indent:
     return opStructFieldAnonymousHeadUint32Indent
   case opStructFieldPtrHeadUint32Indent:
     return opStructFieldPtrAnonymousHeadUint32Indent
+  case opStructFieldHeadOmitEmptyUint32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint32Indent
+  case opStructFieldPtrHeadOmitEmptyUint32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent
   case opStructFieldHeadUint64Indent:
     return opStructFieldAnonymousHeadUint64Indent
   case opStructFieldPtrHeadUint64Indent:
     return opStructFieldPtrAnonymousHeadUint64Indent
+  case opStructFieldHeadOmitEmptyUint64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint64Indent
+  case opStructFieldPtrHeadOmitEmptyUint64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent
   case opStructFieldHeadFloat32Indent:
     return opStructFieldAnonymousHeadFloat32Indent
   case opStructFieldPtrHeadFloat32Indent:
     return opStructFieldPtrAnonymousHeadFloat32Indent
+  case opStructFieldHeadOmitEmptyFloat32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32Indent
+  case opStructFieldPtrHeadOmitEmptyFloat32Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent
   case opStructFieldHeadFloat64Indent:
     return opStructFieldAnonymousHeadFloat64Indent
   case opStructFieldPtrHeadFloat64Indent:
     return opStructFieldPtrAnonymousHeadFloat64Indent
+  case opStructFieldHeadOmitEmptyFloat64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64Indent
+  case opStructFieldPtrHeadOmitEmptyFloat64Indent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent
   case opStructFieldHeadBoolIndent:
     return opStructFieldAnonymousHeadBoolIndent
   case opStructFieldPtrHeadBoolIndent:
     return opStructFieldPtrAnonymousHeadBoolIndent
+  case opStructFieldHeadOmitEmptyBoolIndent:
+    return opStructFieldAnonymousHeadOmitEmptyBoolIndent
+  case opStructFieldPtrHeadOmitEmptyBoolIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent
   case opStructFieldHeadStringIndent:
     return opStructFieldAnonymousHeadStringIndent
   case opStructFieldPtrHeadStringIndent:
     return opStructFieldPtrAnonymousHeadStringIndent
+  case opStructFieldHeadOmitEmptyStringIndent:
+    return opStructFieldAnonymousHeadOmitEmptyStringIndent
+  case opStructFieldPtrHeadOmitEmptyStringIndent:
+    return opStructFieldPtrAnonymousHeadOmitEmptyStringIndent
   }
   return t
 }
@@ -2683,180 +3283,240 @@ func (t opType) ptrHeadToHead() opType {
     return opStructFieldAnonymousHead
   case opStructFieldPtrHeadOmitEmpty:
     return opStructFieldHeadOmitEmpty
+  case opStructFieldPtrAnonymousHeadOmitEmpty:
+    return opStructFieldAnonymousHeadOmitEmpty
   case opStructFieldPtrHeadInt:
     return opStructFieldHeadInt
   case opStructFieldPtrAnonymousHeadInt:
     return opStructFieldAnonymousHeadInt
   case opStructFieldPtrHeadOmitEmptyInt:
     return opStructFieldHeadOmitEmptyInt
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt:
+    return opStructFieldAnonymousHeadOmitEmptyInt
   case opStructFieldPtrHeadInt8:
     return opStructFieldHeadInt8
   case opStructFieldPtrAnonymousHeadInt8:
     return opStructFieldAnonymousHeadInt8
   case opStructFieldPtrHeadOmitEmptyInt8:
     return opStructFieldHeadOmitEmptyInt8
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
+    return opStructFieldAnonymousHeadOmitEmptyInt8
   case opStructFieldPtrHeadInt16:
     return opStructFieldHeadInt16
   case opStructFieldPtrAnonymousHeadInt16:
     return opStructFieldAnonymousHeadInt16
   case opStructFieldPtrHeadOmitEmptyInt16:
     return opStructFieldHeadOmitEmptyInt16
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
+    return opStructFieldAnonymousHeadOmitEmptyInt16
   case opStructFieldPtrHeadInt32:
     return opStructFieldHeadInt32
   case opStructFieldPtrAnonymousHeadInt32:
     return opStructFieldAnonymousHeadInt32
   case opStructFieldPtrHeadOmitEmptyInt32:
     return opStructFieldHeadOmitEmptyInt32
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
+    return opStructFieldAnonymousHeadOmitEmptyInt32
   case opStructFieldPtrHeadInt64:
     return opStructFieldHeadInt64
   case opStructFieldPtrAnonymousHeadInt64:
     return opStructFieldAnonymousHeadInt64
   case opStructFieldPtrHeadOmitEmptyInt64:
     return opStructFieldHeadOmitEmptyInt64
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
+    return opStructFieldAnonymousHeadOmitEmptyInt64
   case opStructFieldPtrHeadUint:
     return opStructFieldHeadUint
   case opStructFieldPtrAnonymousHeadUint:
     return opStructFieldAnonymousHeadUint
   case opStructFieldPtrHeadOmitEmptyUint:
     return opStructFieldHeadOmitEmptyUint
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint:
+    return opStructFieldAnonymousHeadOmitEmptyUint
   case opStructFieldPtrHeadUint8:
     return opStructFieldHeadUint8
   case opStructFieldPtrAnonymousHeadUint8:
     return opStructFieldAnonymousHeadUint8
   case opStructFieldPtrHeadOmitEmptyUint8:
     return opStructFieldHeadOmitEmptyUint8
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
+    return opStructFieldAnonymousHeadOmitEmptyUint8
   case opStructFieldPtrHeadUint16:
     return opStructFieldHeadUint16
   case opStructFieldPtrAnonymousHeadUint16:
     return opStructFieldAnonymousHeadUint16
   case opStructFieldPtrHeadOmitEmptyUint16:
     return opStructFieldHeadOmitEmptyUint16
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
+    return opStructFieldAnonymousHeadOmitEmptyUint16
   case opStructFieldPtrHeadUint32:
     return opStructFieldHeadUint32
   case opStructFieldPtrAnonymousHeadUint32:
     return opStructFieldAnonymousHeadUint32
   case opStructFieldPtrHeadOmitEmptyUint32:
     return opStructFieldHeadOmitEmptyUint32
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
+    return opStructFieldAnonymousHeadOmitEmptyUint32
   case opStructFieldPtrHeadUint64:
     return opStructFieldHeadUint64
   case opStructFieldPtrAnonymousHeadUint64:
     return opStructFieldAnonymousHeadUint64
   case opStructFieldPtrHeadOmitEmptyUint64:
     return opStructFieldHeadOmitEmptyUint64
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
+    return opStructFieldAnonymousHeadOmitEmptyUint64
   case opStructFieldPtrHeadFloat32:
     return opStructFieldHeadFloat32
   case opStructFieldPtrAnonymousHeadFloat32:
     return opStructFieldAnonymousHeadFloat32
   case opStructFieldPtrHeadOmitEmptyFloat32:
     return opStructFieldHeadOmitEmptyFloat32
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32
   case opStructFieldPtrHeadFloat64:
     return opStructFieldHeadFloat64
   case opStructFieldPtrAnonymousHeadFloat64:
     return opStructFieldAnonymousHeadFloat64
   case opStructFieldPtrHeadOmitEmptyFloat64:
     return opStructFieldHeadOmitEmptyFloat64
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64
   case opStructFieldPtrHeadBool:
     return opStructFieldHeadBool
   case opStructFieldPtrAnonymousHeadBool:
     return opStructFieldAnonymousHeadBool
   case opStructFieldPtrHeadOmitEmptyBool:
     return opStructFieldHeadOmitEmptyBool
+  case opStructFieldPtrAnonymousHeadOmitEmptyBool:
+    return opStructFieldAnonymousHeadOmitEmptyBool
   case opStructFieldPtrHeadString:
     return opStructFieldHeadString
   case opStructFieldPtrAnonymousHeadString:
     return opStructFieldAnonymousHeadString
   case opStructFieldPtrHeadOmitEmptyString:
     return opStructFieldHeadOmitEmptyString
+  case opStructFieldPtrAnonymousHeadOmitEmptyString:
+    return opStructFieldAnonymousHeadOmitEmptyString
   case opStructFieldPtrHeadIndent:
     return opStructFieldHeadIndent
   case opStructFieldPtrAnonymousHeadIndent:
     return opStructFieldAnonymousHeadIndent
   case opStructFieldPtrHeadOmitEmptyIndent:
     return opStructFieldHeadOmitEmptyIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIndent
   case opStructFieldPtrHeadIntIndent:
     return opStructFieldHeadIntIndent
   case opStructFieldPtrAnonymousHeadIntIndent:
     return opStructFieldAnonymousHeadIntIndent
   case opStructFieldPtrHeadOmitEmptyIntIndent:
     return opStructFieldHeadOmitEmptyIntIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
+    return opStructFieldAnonymousHeadOmitEmptyIntIndent
   case opStructFieldPtrHeadInt8Indent:
     return opStructFieldHeadInt8Indent
   case opStructFieldPtrAnonymousHeadInt8Indent:
     return opStructFieldAnonymousHeadInt8Indent
   case opStructFieldPtrHeadOmitEmptyInt8Indent:
     return opStructFieldHeadOmitEmptyInt8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt8Indent
   case opStructFieldPtrHeadInt16Indent:
     return opStructFieldHeadInt16Indent
   case opStructFieldPtrAnonymousHeadInt16Indent:
     return opStructFieldAnonymousHeadInt16Indent
   case opStructFieldPtrHeadOmitEmptyInt16Indent:
     return opStructFieldHeadOmitEmptyInt16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt16Indent
   case opStructFieldPtrHeadInt32Indent:
     return opStructFieldHeadInt32Indent
   case opStructFieldPtrAnonymousHeadInt32Indent:
     return opStructFieldAnonymousHeadInt32Indent
   case opStructFieldPtrHeadOmitEmptyInt32Indent:
     return opStructFieldHeadOmitEmptyInt32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt32Indent
   case opStructFieldPtrHeadInt64Indent:
     return opStructFieldHeadInt64Indent
   case opStructFieldPtrAnonymousHeadInt64Indent:
     return opStructFieldAnonymousHeadInt64Indent
   case opStructFieldPtrHeadOmitEmptyInt64Indent:
     return opStructFieldHeadOmitEmptyInt64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyInt64Indent
   case opStructFieldPtrHeadUintIndent:
     return opStructFieldHeadUintIndent
   case opStructFieldPtrAnonymousHeadUintIndent:
     return opStructFieldAnonymousHeadUintIndent
   case opStructFieldPtrHeadOmitEmptyUintIndent:
     return opStructFieldHeadOmitEmptyUintIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUintIndent:
+    return opStructFieldAnonymousHeadOmitEmptyUintIndent
   case opStructFieldPtrHeadUint8Indent:
     return opStructFieldHeadUint8Indent
   case opStructFieldPtrAnonymousHeadUint8Indent:
     return opStructFieldAnonymousHeadUint8Indent
   case opStructFieldPtrHeadOmitEmptyUint8Indent:
     return opStructFieldHeadOmitEmptyUint8Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint8Indent
   case opStructFieldPtrHeadUint16Indent:
     return opStructFieldHeadUint16Indent
   case opStructFieldPtrAnonymousHeadUint16Indent:
     return opStructFieldAnonymousHeadUint16Indent
   case opStructFieldPtrHeadOmitEmptyUint16Indent:
     return opStructFieldHeadOmitEmptyUint16Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint16Indent
   case opStructFieldPtrHeadUint32Indent:
     return opStructFieldHeadUint32Indent
   case opStructFieldPtrAnonymousHeadUint32Indent:
     return opStructFieldAnonymousHeadUint32Indent
   case opStructFieldPtrHeadOmitEmptyUint32Indent:
     return opStructFieldHeadOmitEmptyUint32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint32Indent
   case opStructFieldPtrHeadUint64Indent:
     return opStructFieldHeadUint64Indent
   case opStructFieldPtrAnonymousHeadUint64Indent:
     return opStructFieldAnonymousHeadUint64Indent
   case opStructFieldPtrHeadOmitEmptyUint64Indent:
     return opStructFieldHeadOmitEmptyUint64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyUint64Indent
   case opStructFieldPtrHeadFloat32Indent:
     return opStructFieldHeadFloat32Indent
   case opStructFieldPtrAnonymousHeadFloat32Indent:
     return opStructFieldAnonymousHeadFloat32Indent
   case opStructFieldPtrHeadOmitEmptyFloat32Indent:
     return opStructFieldHeadOmitEmptyFloat32Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat32Indent
   case opStructFieldPtrHeadFloat64Indent:
     return opStructFieldHeadFloat64Indent
   case opStructFieldPtrAnonymousHeadFloat64Indent:
     return opStructFieldAnonymousHeadFloat64Indent
   case opStructFieldPtrHeadOmitEmptyFloat64Indent:
     return opStructFieldHeadOmitEmptyFloat64Indent
+  case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent:
+    return opStructFieldAnonymousHeadOmitEmptyFloat64Indent
   case opStructFieldPtrHeadBoolIndent:
     return opStructFieldHeadBoolIndent
   case opStructFieldPtrAnonymousHeadBoolIndent:
     return opStructFieldAnonymousHeadBoolIndent
   case opStructFieldPtrHeadOmitEmptyBoolIndent:
     return opStructFieldHeadOmitEmptyBoolIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent:
+    return opStructFieldAnonymousHeadOmitEmptyBoolIndent
   case opStructFieldPtrHeadStringIndent:
     return opStructFieldHeadStringIndent
   case opStructFieldPtrAnonymousHeadStringIndent:
     return opStructFieldAnonymousHeadStringIndent
   case opStructFieldPtrHeadOmitEmptyStringIndent:
     return opStructFieldHeadOmitEmptyStringIndent
+  case opStructFieldPtrAnonymousHeadOmitEmptyStringIndent:
+    return opStructFieldAnonymousHeadOmitEmptyStringIndent
   }
   return t
 }

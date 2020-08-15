@@ -219,21 +219,21 @@ var hex = "0123456789abcdef"
 
 func (e *Encoder) encodeEscapedString(s string) {
 	valLen := len(s)
-	e.buf = append(e.buf, '"')
 	// write string, the fast path, without utf8 and escape support
 	i := 0
 	for ; i < valLen; i++ {
 		c := s[i]
-		if c < utf8.RuneSelf && htmlSafeSet[c] {
-			e.buf = append(e.buf, c)
-		} else {
+		if c >= utf8.RuneSelf || !htmlSafeSet[c] {
 			break
 		}
 	}
+	e.buf = append(e.buf, '"')
 	if i == valLen {
+		e.buf = append(e.buf, s...)
 		e.buf = append(e.buf, '"')
 		return
 	}
+	e.buf = append(e.buf, s[:i]...)
 	e.writeStringSlowPathWithHTMLEscaped(i, s, valLen)
 }
 

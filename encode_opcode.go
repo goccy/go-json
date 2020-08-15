@@ -307,7 +307,6 @@ type structFieldCode struct {
 	key          []byte
 	offset       uintptr
 	anonymousKey bool
-	anonymous    bool
 	nextField    *opcode
 	end          *opcode
 }
@@ -323,7 +322,6 @@ func (c *structFieldCode) copy(codeMap map[uintptr]*opcode) *opcode {
 	field := &structFieldCode{
 		key:          c.key,
 		anonymousKey: c.anonymousKey,
-		anonymous:    c.anonymous,
 		offset:       c.offset,
 	}
 	code := (*opcode)(unsafe.Pointer(field))

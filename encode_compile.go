@@ -8,6 +8,7 @@ import (
 )
 
 func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
+	root := true
 	switch {
 	case typ.Implements(marshalJSONType):
 		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
@@ -18,12 +19,15 @@ func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
 	case rtype_ptrTo(typ).Implements(marshalTextType):
 		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
 	}
+	isPtr := false
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
+		isPtr = true
 	}
-	root := true
 	if typ.Kind() == reflect.Map {
-		return e.compileMap(typ, false, root, withIndent)
+		return e.compileMap(typ, isPtr, root, withIndent)
+	} else if typ.Kind() == reflect.Struct {
+		return e.compileStruct(typ, isPtr, root, withIndent)
 	}
 	return e.compile(typ, root, withIndent)
 }
@@ -49,7 +53,7 @@ func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
 	case reflect.Map:
 		return e.compileMap(typ, true, root, withIndent)
 	case reflect.Struct:
-		return e.compileStruct(typ, root, withIndent)
+		return e.compileStruct(typ, false, root, withIndent)
 	case reflect.Interface:
 		return e.compileInterface(typ, root)
 	case reflect.Int:
@@ -376,6 +380,10 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 		return opStructFieldHeadString
 	case opBool:
 		return opStructFieldHeadBool
+	case opMarshalJSON:
+		return opStructFieldHeadMarshalJSON
+	case opMarshalText:
+		return opStructFieldHeadMarshalText
 	}
 	return opStructFieldHead
 }
@@ -410,6 +418,10 @@ func (e *Encoder) typeToFieldType(op opType) opType {
 		return opStructFieldString
 	case opBool:
 		return opStructFieldBool
+	case opMarshalJSON:
+		return opStructFieldMarshalJSON
+	case opMarshalText:
+		return opStructFieldMarshalText
 	}
 	return opStructField
 }
@@ -505,7 +517,7 @@ func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, isO
 	}
 	return code
 }
-func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, error) {
+func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opcode, error) {
 	if code := e.compiledCode(typ, withIndent); code != nil {
 		return code, nil
 	}
@@ -534,6 +546,15 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 		}
 		keyName, isOmitEmpty := e.keyNameAndOmitEmptyFromField(field)
 		fieldType := type2rtype(field.Type)
+		if isPtr && i == 0 {
+			// head field of pointer structure at top level
+			// if field type is pointer and implements MarshalJSON or MarshalText,
+			// it need to operation of dereference of pointer.
+			if field.Type.Kind() == reflect.Ptr &&
+				(field.Type.Implements(marshalJSONType) || field.Type.Implements(marshalTextType)) {
+				fieldType = rtype_ptrTo(fieldType)
+			}
+		}
 		valueCode, err := e.compile(fieldType, false, withIndent)
 		if err != nil {
 			return nil, err
@@ -554,7 +575,7 @@ func (e *Encoder) compileStruct(typ *rtype, root, withIndent bool) (*opcode, err
 		key := fmt.Sprintf(`"%s":`, keyName)
 		fieldCode := &structFieldCode{
 			opcodeHeader: &opcodeHeader{
-				typ:    fieldType,
+				typ:    valueCode.typ,
 				next:   valueCode,
 				indent: e.indent,
 			},

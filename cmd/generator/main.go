@@ -171,7 +171,7 @@ func (t opType) fieldToOmitEmptyField() opType {
 	primitiveTypes := []string{
 		"int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64", "bool", "string",
+		"float32", "float64", "bool", "string", "MarshalJSON", "MarshalText",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
@@ -181,8 +181,6 @@ func (t opType) fieldToOmitEmptyField() opType {
 		{"End", "EndIndent", "Op"},
 		{"Interface", "InterfaceIndent", "Op"},
 		{"Ptr", "PtrIndent", "Op"},
-		{"MarshalJSON", "MarshalJSONIndent", "Op"},
-		{"MarshalText", "MarshalTextIndent", "Op"},
 		{"SliceHead", "SliceHeadIndent", "SliceHead"},
 		{"RootSliceHead", "RootSliceHeadIndent", "SliceHead"},
 		{"SliceElem", "SliceElemIndent", "SliceElem"},

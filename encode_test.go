@@ -3,6 +3,7 @@ package json_test
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -491,6 +492,108 @@ func Test_MarshalIndent(t *testing.T) {
 	})
 }
 
+func TestMarshalRawMessageValue(t *testing.T) {
+	type (
+		T1 struct {
+			M json.RawMessage `json:",omitempty"`
+		}
+		T2 struct {
+			M *json.RawMessage `json:",omitempty"`
+		}
+	)
+
+	var (
+		rawNil   = json.RawMessage(nil)
+		rawEmpty = json.RawMessage([]byte{})
+		rawText  = json.RawMessage([]byte(`"foo"`))
+	)
+
+	tests := []struct {
+		in   interface{}
+		want string
+		ok   bool
+	}{
+		// Test with nil RawMessage.
+		{rawNil, "null", true},
+		{&rawNil, "null", true},
+		{[]interface{}{rawNil}, "[null]", true},
+		{&[]interface{}{rawNil}, "[null]", true},
+		{[]interface{}{&rawNil}, "[null]", true},
+		{&[]interface{}{&rawNil}, "[null]", true},
+		{struct{ M json.RawMessage }{rawNil}, `{"M":null}`, true},
+		{&struct{ M json.RawMessage }{rawNil}, `{"M":null}`, true},
+		{struct{ M *json.RawMessage }{&rawNil}, `{"M":null}`, true},
+		{&struct{ M *json.RawMessage }{&rawNil}, `{"M":null}`, true},
+		{map[string]interface{}{"M": rawNil}, `{"M":null}`, true},
+		{&map[string]interface{}{"M": rawNil}, `{"M":null}`, true},
+		{map[string]interface{}{"M": &rawNil}, `{"M":null}`, true},
+		{&map[string]interface{}{"M": &rawNil}, `{"M":null}`, true},
+		{T1{rawNil}, "{}", true},
+		{T2{&rawNil}, `{"M":null}`, true},
+		{&T1{rawNil}, "{}", true},
+		{&T2{&rawNil}, `{"M":null}`, true},
+
+		// Test with empty, but non-nil, RawMessage.
+		{rawEmpty, "", false},
+		{&rawEmpty, "", false},
+		{[]interface{}{rawEmpty}, "", false},
+		{&[]interface{}{rawEmpty}, "", false},
+		{[]interface{}{&rawEmpty}, "", false},
+		{&[]interface{}{&rawEmpty}, "", false},
+		{struct{ X json.RawMessage }{rawEmpty}, "", false},
+		{&struct{ X json.RawMessage }{rawEmpty}, "", false},
+		{struct{ X *json.RawMessage }{&rawEmpty}, "", false},
+		{&struct{ X *json.RawMessage }{&rawEmpty}, "", false},
+		{map[string]interface{}{"nil": rawEmpty}, "", false},
+		{&map[string]interface{}{"nil": rawEmpty}, "", false},
+		{map[string]interface{}{"nil": &rawEmpty}, "", false},
+		{&map[string]interface{}{"nil": &rawEmpty}, "", false},
+
+		{T1{rawEmpty}, "{}", true},
+		{T2{&rawEmpty}, "", false},
+		{&T1{rawEmpty}, "{}", true},
+		{&T2{&rawEmpty}, "", false},
+
+		// Test with RawMessage with some text.
+		//
+		// The tests below marked with Issue6458 used to generate "ImZvbyI=" instead "foo".
+		// This behavior was intentionally changed in Go 1.8.
+		// See https://golang.org/issues/14493#issuecomment-255857318
+		{rawText, `"foo"`, true}, // Issue6458
+		{&rawText, `"foo"`, true},
+		{[]interface{}{rawText}, `["foo"]`, true},  // Issue6458
+		{&[]interface{}{rawText}, `["foo"]`, true}, // Issue6458
+		{[]interface{}{&rawText}, `["foo"]`, true},
+		{&[]interface{}{&rawText}, `["foo"]`, true},
+		{struct{ M json.RawMessage }{rawText}, `{"M":"foo"}`, true}, // Issue6458
+		{&struct{ M json.RawMessage }{rawText}, `{"M":"foo"}`, true},
+		{struct{ M *json.RawMessage }{&rawText}, `{"M":"foo"}`, true},
+		{&struct{ M *json.RawMessage }{&rawText}, `{"M":"foo"}`, true},
+		{map[string]interface{}{"M": rawText}, `{"M":"foo"}`, true},  // Issue6458
+		{&map[string]interface{}{"M": rawText}, `{"M":"foo"}`, true}, // Issue6458
+		{map[string]interface{}{"M": &rawText}, `{"M":"foo"}`, true},
+		{&map[string]interface{}{"M": &rawText}, `{"M":"foo"}`, true},
+		{T1{rawText}, `{"M":"foo"}`, true}, // Issue6458
+		{T2{&rawText}, `{"M":"foo"}`, true},
+		{&T1{rawText}, `{"M":"foo"}`, true},
+		{&T2{&rawText}, `{"M":"foo"}`, true},
+	}
+
+	for i, tt := range tests {
+		b, err := json.Marshal(tt.in)
+		if ok := (err == nil); ok != tt.ok {
+			if err != nil {
+				t.Errorf("test %d, unexpected failure: %v", i, err)
+			} else {
+				t.Errorf("test %d, unexpected success", i)
+			}
+		}
+		if got := string(b); got != tt.want {
+			t.Errorf("test %d, Marshal(%#v) = %q, want %q", i, tt.in, got, tt.want)
+		}
+	}
+}
+
 type marshalerError struct{}
 
 func (*marshalerError) MarshalJSON() ([]byte, error) {
@@ -605,5 +708,61 @@ func TestMarshalerEscaping(t *testing.T) {
 	}
 	if got := string(b); got != want {
 		t.Errorf("Marshal(ct) = %#q, want %#q", got, want)
+	}
+}
+
+type marshalPanic struct{}
+
+func (marshalPanic) MarshalJSON() ([]byte, error) { panic(0xdead) }
+
+func TestMarshalPanic(t *testing.T) {
+	defer func() {
+		if got := recover(); !reflect.DeepEqual(got, 0xdead) {
+			t.Errorf("panic() = (%T)(%v), want 0xdead", got, got)
+		}
+	}()
+	json.Marshal(&marshalPanic{})
+	t.Error("Marshal should have panicked")
+}
+
+func TestMarshalUncommonFieldNames(t *testing.T) {
+	v := struct {
+		A0, À, Aβ int
+	}{}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal("Marshal:", err)
+	}
+	want := `{"A0":0,"À":0,"Aβ":0}`
+	got := string(b)
+	if got != want {
+		t.Fatalf("Marshal: got %s want %s", got, want)
+	}
+}
+
+func TestMarshalerError(t *testing.T) {
+	s := "test variable"
+	st := reflect.TypeOf(s)
+	errText := "json: test error"
+
+	tests := []struct {
+		err  *json.MarshalerError
+		want string
+	}{
+		{
+			json.NewMarshalerError(st, fmt.Errorf(errText), ""),
+			"json: error calling MarshalJSON for type " + st.String() + ": " + errText,
+		},
+		{
+			json.NewMarshalerError(st, fmt.Errorf(errText), "TestMarshalerError"),
+			"json: error calling TestMarshalerError for type " + st.String() + ": " + errText,
+		},
+	}
+
+	for i, tt := range tests {
+		got := tt.err.Error()
+		if got != tt.want {
+			t.Errorf("MarshalerError test %d, got: %s, want: %s", i, got, tt.want)
+		}
 	}
 }

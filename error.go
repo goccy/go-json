@@ -123,7 +123,7 @@ func errNotAtBeginningOfValue(cursor int64) *SyntaxError {
 
 func errUnexpectedEndOfJSON(msg string, cursor int64) *SyntaxError {
 	return &SyntaxError{
-		msg:    fmt.Sprintf("unexpected end of JSON input for %s", msg),
+		msg:    fmt.Sprintf("json: %s unexpected end of JSON input", msg),
 		Offset: cursor,
 	}
 }

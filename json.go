@@ -325,7 +325,7 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 // Compact appends to dst the JSON-encoded src with
 // insignificant space characters elided.
 func Compact(dst *bytes.Buffer, src []byte) error {
-	return compact(dst, src)
+	return compact(dst, src, false)
 }
 
 // Indent appends to dst an indented form of the JSON-encoded src.

@@ -3,6 +3,7 @@ package json
 import (
 	"bytes"
 	"encoding"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -114,6 +115,12 @@ func (e *Encoder) run(code *opcode) error {
 					Type: rtype2type(code.typ),
 					Err:  err,
 				}
+			}
+			if len(b) == 0 {
+				return errUnexpectedEndOfJSON(
+					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+					0,
+				)
 			}
 			var buf bytes.Buffer
 			if err := compact(&buf, b, true); err != nil {
@@ -930,6 +937,131 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeBytes(field.key)
 				e.encodeBool(e.ptrToBool(ptr))
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadMarshalJSON:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadMarshalJSON:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				fmt.Println("code.typ = ", code.typ)
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(ptr),
+				}))
+				b, err := v.(Marshaler).MarshalJSON()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				if len(b) == 0 {
+					return errUnexpectedEndOfJSON(
+						fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+						0,
+					)
+				}
+				var buf bytes.Buffer
+				if err := compact(&buf, b, true); err != nil {
+					return err
+				}
+				e.encodeBytes(buf.Bytes())
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrAnonymousHeadMarshalJSON:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldAnonymousHeadMarshalJSON:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end
+			} else {
+				e.encodeBytes(field.key)
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(ptr),
+				}))
+				b, err := v.(Marshaler).MarshalJSON()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				if len(b) == 0 {
+					return errUnexpectedEndOfJSON(
+						fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+						0,
+					)
+				}
+				var buf bytes.Buffer
+				if err := compact(&buf, b, true); err != nil {
+					return err
+				}
+				e.encodeBytes(buf.Bytes())
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadMarshalText:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadMarshalText:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(ptr),
+				}))
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrAnonymousHeadMarshalText:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldAnonymousHeadMarshalText:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end
+			} else {
+				e.encodeBytes(field.key)
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(ptr),
+				}))
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -1912,6 +2044,159 @@ func (e *Encoder) run(code *opcode) error {
 				}
 				field.nextField.ptr = ptr
 			}
+
+		case opStructFieldPtrHeadOmitEmptyMarshalJSON:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyMarshalJSON:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				p := unsafe.Pointer(ptr + field.offset)
+				isPtr := code.typ.Kind() == reflect.Ptr
+				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
+					code = field.nextField
+				} else {
+					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
+					b, err := v.(Marshaler).MarshalJSON()
+					if err != nil {
+						return &MarshalerError{
+							Type: rtype2type(code.typ),
+							Err:  err,
+						}
+					}
+					if len(b) == 0 {
+						if isPtr {
+							return errUnexpectedEndOfJSON(
+								fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+								0,
+							)
+						}
+						code = field.nextField
+					} else {
+						var buf bytes.Buffer
+						if err := compact(&buf, b, true); err != nil {
+							return err
+						}
+						e.encodeBytes(field.key)
+						e.encodeBytes(buf.Bytes())
+						code = field.next
+					}
+				}
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMarshalJSON:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				p := unsafe.Pointer(ptr + field.offset)
+				isPtr := code.typ.Kind() == reflect.Ptr
+				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
+					code = field.nextField
+				} else {
+					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
+					b, err := v.(Marshaler).MarshalJSON()
+					if err != nil {
+						return &MarshalerError{
+							Type: rtype2type(code.typ),
+							Err:  err,
+						}
+					}
+					if len(b) == 0 {
+						if isPtr {
+							return errUnexpectedEndOfJSON(
+								fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+								0,
+							)
+						}
+						code = field.nextField
+					} else {
+						var buf bytes.Buffer
+						if err := compact(&buf, b, true); err != nil {
+							return err
+						}
+						e.encodeBytes(field.key)
+						e.encodeBytes(buf.Bytes())
+						code = field.next
+					}
+				}
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrHeadOmitEmptyMarshalText:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyMarshalText:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				p := unsafe.Pointer(ptr + field.offset)
+				isPtr := code.typ.Kind() == reflect.Ptr
+				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
+					code = field.nextField
+				} else {
+					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
+					bytes, err := v.(encoding.TextMarshaler).MarshalText()
+					if err != nil {
+						return &MarshalerError{
+							Type: rtype2type(code.typ),
+							Err:  err,
+						}
+					}
+					e.encodeBytes(field.key)
+					e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+					code = field.next
+				}
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyMarshalText:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMarshalText:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				p := unsafe.Pointer(ptr + field.offset)
+				isPtr := code.typ.Kind() == reflect.Ptr
+				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
+					code = field.nextField
+				} else {
+					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
+					bytes, err := v.(encoding.TextMarshaler).MarshalText()
+					if err != nil {
+						return &MarshalerError{
+							Type: rtype2type(code.typ),
+							Err:  err,
+						}
+					}
+					e.encodeBytes(field.key)
+					e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+					code = field.next
+				}
+				field.nextField.ptr = ptr
+			}
 		case opStructFieldPtrHeadOmitEmptyIndent:
 			if code.ptr != 0 {
 				code.ptr = e.ptrToPtr(code.ptr)
@@ -2465,7 +2750,52 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeBytes(c.key)
 			e.encodeBool(e.ptrToBool(c.ptr + c.offset))
 			code = code.next
-
+		case opStructFieldMarshalJSON:
+			if e.buf[len(e.buf)-1] != '{' {
+				e.encodeByte(',')
+			}
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			ptr := c.ptr + c.offset
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			b, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, b, true); err != nil {
+				return err
+			}
+			e.encodeBytes(buf.Bytes())
+			code = code.next
+		case opStructFieldMarshalText:
+			if e.buf[len(e.buf)-1] != '{' {
+				e.encodeByte(',')
+			}
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			ptr := c.ptr + c.offset
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
+			}
+			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			code = code.next
 		case opStructFieldIndent:
 			c := code.toStructFieldCode()
 			if e.buf[len(e.buf)-2] != '{' {
@@ -2827,6 +3157,52 @@ func (e *Encoder) run(code *opcode) error {
 			code = code.next
 			code.ptr = c.ptr
 
+		case opStructFieldOmitEmptyMarshalJSON:
+			c := code.toStructFieldCode()
+			ptr := c.ptr + c.offset
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			if v != nil {
+				b, err := v.(Marshaler).MarshalJSON()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				var buf bytes.Buffer
+				if err := compact(&buf, b, true); err != nil {
+					return err
+				}
+				e.encodeBytes(buf.Bytes())
+			}
+			code = code.next
+			code.ptr = c.ptr
+		case opStructFieldOmitEmptyMarshalText:
+			c := code.toStructFieldCode()
+			ptr := c.ptr + c.offset
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			if v != nil {
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(ptr),
+				}))
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			}
+			code = code.next
+			code.ptr = c.ptr
 		case opStructFieldOmitEmptyIndent:
 			c := code.toStructFieldCode()
 			p := c.ptr + c.offset

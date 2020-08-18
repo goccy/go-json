@@ -952,7 +952,6 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				fmt.Println("code.typ = ", code.typ)
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
 					ptr: unsafe.Pointer(ptr),

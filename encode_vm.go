@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"encoding"
 	"math"
 	"reflect"
@@ -107,14 +108,18 @@ func (e *Encoder) run(code *opcode) error {
 				typ: code.typ,
 				ptr: unsafe.Pointer(ptr),
 			}))
-			bytes, err := v.(Marshaler).MarshalJSON()
+			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
 				return &MarshalerError{
 					Type: rtype2type(code.typ),
 					Err:  err,
 				}
 			}
-			e.encodeBytes(bytes)
+			var buf bytes.Buffer
+			if err := compact(&buf, b, true); err != nil {
+				return err
+			}
+			e.encodeBytes(buf.Bytes())
 			code = code.next
 			code.ptr = ptr
 		case opMarshalText:
@@ -130,7 +135,7 @@ func (e *Encoder) run(code *opcode) error {
 					Err:  err,
 				}
 			}
-			e.encodeBytes(bytes)
+			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			code = code.next
 			code.ptr = ptr
 		case opSliceHead:

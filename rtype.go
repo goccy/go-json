@@ -236,6 +236,10 @@ func (t *rtype) NumOut() int {
 //go:noescape
 func rtype_Out(*rtype, int) reflect.Type
 
+//go:linkname rtype_ptrTo reflect.(*rtype).ptrTo
+//go:noescape
+func rtype_ptrTo(*rtype) *rtype
+
 func (t *rtype) Out(i int) reflect.Type {
 	return rtype_Out(t, i)
 }

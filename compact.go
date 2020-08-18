@@ -4,7 +4,7 @@ import (
 	"bytes"
 )
 
-func compact(dst *bytes.Buffer, src []byte) error {
+func compact(dst *bytes.Buffer, src []byte, escape bool) error {
 	length := len(src)
 	for cursor := 0; cursor < length; cursor++ {
 		c := src[cursor]
@@ -17,10 +17,18 @@ func compact(dst *bytes.Buffer, src []byte) error {
 			}
 			for {
 				cursor++
-				if err := dst.WriteByte(src[cursor]); err != nil {
+				c := src[cursor]
+				if escape && (c == '<' || c == '>' || c == '&') {
+					if _, err := dst.WriteString(`\u00`); err != nil {
+						return err
+					}
+					if _, err := dst.Write([]byte{hex[c>>4], hex[c&0xF]}); err != nil {
+						return err
+					}
+				} else if err := dst.WriteByte(c); err != nil {
 					return err
 				}
-				switch src[cursor] {
+				switch c {
 				case '\\':
 					cursor++
 					if err := dst.WriteByte(src[cursor]); err != nil {

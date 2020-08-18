@@ -503,3 +503,107 @@ func Test_MarshalerError(t *testing.T) {
 	expect := `json: error calling MarshalJSON for type *json_test.marshalerError: unexpected error`
 	assertEq(t, "marshaler error", expect, fmt.Sprint(err))
 }
+
+// Ref has Marshaler and Unmarshaler methods with pointer receiver.
+type Ref int
+
+func (*Ref) MarshalJSON() ([]byte, error) {
+	return []byte(`"ref"`), nil
+}
+
+func (r *Ref) UnmarshalJSON([]byte) error {
+	*r = 12
+	return nil
+}
+
+// Val has Marshaler methods with value receiver.
+type Val int
+
+func (Val) MarshalJSON() ([]byte, error) {
+	return []byte(`"val"`), nil
+}
+
+// RefText has Marshaler and Unmarshaler methods with pointer receiver.
+type RefText int
+
+func (*RefText) MarshalText() ([]byte, error) {
+	return []byte(`"ref"`), nil
+}
+
+func (r *RefText) UnmarshalText([]byte) error {
+	*r = 13
+	return nil
+}
+
+// ValText has Marshaler methods with value receiver.
+type ValText int
+
+func (ValText) MarshalText() ([]byte, error) {
+	return []byte(`"val"`), nil
+}
+
+func TestRefValMarshal(t *testing.T) {
+	var s = struct {
+		R0 Ref
+		R1 *Ref
+		R2 RefText
+		R3 *RefText
+		V0 Val
+		V1 *Val
+		V2 ValText
+		V3 *ValText
+	}{
+		R0: 12,
+		R1: new(Ref),
+		R2: 14,
+		R3: new(RefText),
+		V0: 13,
+		V1: new(Val),
+		V2: 15,
+		V3: new(ValText),
+	}
+	const want = `{"R0":"ref","R1":"ref","R2":"\"ref\"","R3":"\"ref\"","V0":"val","V1":"val","V2":"\"val\"","V3":"\"val\""}`
+	b, err := json.Marshal(&s)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if got := string(b); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// C implements Marshaler and returns unescaped JSON.
+type C int
+
+func (C) MarshalJSON() ([]byte, error) {
+	return []byte(`"<&>"`), nil
+}
+
+// CText implements Marshaler and returns unescaped text.
+type CText int
+
+func (CText) MarshalText() ([]byte, error) {
+	return []byte(`"<&>"`), nil
+}
+
+func TestMarshalerEscaping(t *testing.T) {
+	var c C
+	want := `"\u003c\u0026\u003e"`
+	b, err := json.Marshal(c)
+	if err != nil {
+		t.Fatalf("Marshal(c): %v", err)
+	}
+	if got := string(b); got != want {
+		t.Errorf("Marshal(c) = %#q, want %#q", got, want)
+	}
+
+	var ct CText
+	want = `"\"\u003c\u0026\u003e\""`
+	b, err = json.Marshal(ct)
+	if err != nil {
+		t.Fatalf("Marshal(ct): %v", err)
+	}
+	if got := string(b); got != want {
+		t.Errorf("Marshal(ct) = %#q, want %#q", got, want)
+	}
+}

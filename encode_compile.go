@@ -8,10 +8,15 @@ import (
 )
 
 func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
-	if typ.Implements(marshalJSONType) {
+	switch {
+	case typ.Implements(marshalJSONType):
 		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
-	} else if typ.Implements(marshalTextType) {
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+	case typ.Implements(marshalTextType):
 		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+	case rtype_ptrTo(typ).Implements(marshalTextType):
+		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
 	}
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -24,10 +29,15 @@ func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
 }
 
 func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
-	if typ.Implements(marshalJSONType) {
+	switch {
+	case typ.Implements(marshalJSONType):
 		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
-	} else if typ.Implements(marshalTextType) {
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+	case typ.Implements(marshalTextType):
 		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+	case rtype_ptrTo(typ).Implements(marshalTextType):
+		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:

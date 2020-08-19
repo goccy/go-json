@@ -47,6 +47,9 @@ func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
 	case reflect.Ptr:
 		return e.compilePtr(typ, root, withIndent)
 	case reflect.Slice:
+		if typ.Elem().Kind() == reflect.Uint8 {
+			return e.compileBytes(typ)
+		}
 		return e.compileSlice(typ, root, withIndent)
 	case reflect.Array:
 		return e.compileArray(typ, root, withIndent)
@@ -161,6 +164,10 @@ func (e *Encoder) compileString(typ *rtype) (*opcode, error) {
 
 func (e *Encoder) compileBool(typ *rtype) (*opcode, error) {
 	return newOpCode(opBool, typ, e.indent, newEndOp(e.indent)), nil
+}
+
+func (e *Encoder) compileBytes(typ *rtype) (*opcode, error) {
+	return newOpCode(opBytes, typ, e.indent, newEndOp(e.indent)), nil
 }
 
 func (e *Encoder) compileInterface(typ *rtype, root bool) (*opcode, error) {

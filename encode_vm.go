@@ -3,6 +3,7 @@ package json
 import (
 	"bytes"
 	"encoding"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"reflect"
@@ -65,6 +66,12 @@ func (e *Encoder) run(code *opcode) error {
 			code = code.next
 		case opBool:
 			e.encodeBool(e.ptrToBool(code.ptr))
+			code = code.next
+		case opBytes:
+			s := base64.StdEncoding.EncodeToString(e.ptrToBytes(code.ptr))
+			e.encodeByte('"')
+			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+			e.encodeByte('"')
 			code = code.next
 		case opInterface:
 			ifaceCode := code.toInterfaceCode()
@@ -940,6 +947,42 @@ func (e *Encoder) run(code *opcode) error {
 				field.nextField.ptr = ptr
 				code = field.next
 			}
+		case opStructFieldPtrHeadBytes:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadBytes:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end
+			} else {
+				e.encodeByte('{')
+				e.encodeBytes(field.key)
+				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr))
+				e.encodeByte('"')
+				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				e.encodeByte('"')
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrAnonymousHeadBytes:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldAnonymousHeadBytes:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end
+			} else {
+				e.encodeBytes(field.key)
+				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(code.ptr))
+				e.encodeByte('"')
+				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				e.encodeByte('"')
+				field.nextField.ptr = ptr
+				code = field.next
+			}
 		case opStructFieldPtrHeadMarshalJSON:
 			code.ptr = e.ptrToPtr(code.ptr)
 			fallthrough
@@ -1368,6 +1411,29 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeBytes(field.key)
 				e.encodeByte(' ')
 				e.encodeBool(e.ptrToBool(ptr))
+				field.nextField.ptr = ptr
+				code = field.next
+			}
+		case opStructFieldPtrHeadBytesIndent:
+			code.ptr = e.ptrToPtr(code.ptr)
+			fallthrough
+		case opStructFieldHeadBytesIndent:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeIndent(code.indent)
+				e.encodeNull()
+				code = field.end
+			} else {
+				e.encodeIndent(code.indent)
+				e.encodeBytes([]byte{'{', '\n'})
+				e.encodeIndent(code.indent + 1)
+				e.encodeBytes(field.key)
+				e.encodeByte(' ')
+				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr))
+				e.encodeByte('"')
+				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				e.encodeByte('"')
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -2043,7 +2109,56 @@ func (e *Encoder) run(code *opcode) error {
 				}
 				field.nextField.ptr = ptr
 			}
-
+		case opStructFieldPtrHeadOmitEmptyBytes:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyBytes:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeNull()
+				code = field.end.next
+			} else {
+				e.encodeByte('{')
+				v := e.ptrToBytes(ptr + field.offset)
+				if len(v) == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					s := base64.StdEncoding.EncodeToString(v)
+					e.encodeByte('"')
+					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+					e.encodeByte('"')
+					code = field.next
+				}
+				field.nextField.ptr = ptr
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyBytes:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyBytes:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				v := e.ptrToBytes(ptr + field.offset)
+				if len(v) == 0 {
+					code = field.nextField
+				} else {
+					e.encodeBytes(field.key)
+					s := base64.StdEncoding.EncodeToString(v)
+					e.encodeByte('"')
+					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+					e.encodeByte('"')
+					code = field.next
+				}
+				field.nextField.ptr = ptr
+			}
 		case opStructFieldPtrHeadOmitEmptyMarshalJSON:
 			if code.ptr != 0 {
 				code.ptr = e.ptrToPtr(code.ptr)
@@ -2607,6 +2722,36 @@ func (e *Encoder) run(code *opcode) error {
 				}
 				field.nextField.ptr = field.ptr
 			}
+		case opStructFieldPtrHeadOmitEmptyBytesIndent:
+			if code.ptr != 0 {
+				code.ptr = e.ptrToPtr(code.ptr)
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyBytesIndent:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				e.encodeIndent(code.indent)
+				e.encodeNull()
+				code = field.end.next
+			} else {
+				e.encodeIndent(code.indent)
+				e.encodeBytes([]byte{'{', '\n'})
+				v := e.ptrToBytes(ptr + field.offset)
+				if len(v) == 0 {
+					code = field.nextField
+				} else {
+					e.encodeIndent(code.indent + 1)
+					e.encodeBytes(field.key)
+					e.encodeByte(' ')
+					s := base64.StdEncoding.EncodeToString(v)
+					e.encodeByte('"')
+					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+					e.encodeByte('"')
+					code = field.next
+				}
+				field.nextField.ptr = field.ptr
+			}
 		case opStructField:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
@@ -2748,6 +2893,18 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 			e.encodeBytes(c.key)
 			e.encodeBool(e.ptrToBool(c.ptr + c.offset))
+			code = code.next
+		case opStructFieldBytes:
+			if e.buf[len(e.buf)-1] != '{' {
+				e.encodeByte(',')
+			}
+			c := code.toStructFieldCode()
+			c.nextField.ptr = c.ptr
+			e.encodeBytes(c.key)
+			s := base64.StdEncoding.EncodeToString(e.ptrToBytes(c.ptr + c.offset))
+			e.encodeByte('"')
+			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+			e.encodeByte('"')
 			code = code.next
 		case opStructFieldMarshalJSON:
 			if e.buf[len(e.buf)-1] != '{' {
@@ -2967,6 +3124,20 @@ func (e *Encoder) run(code *opcode) error {
 			e.encodeBool(e.ptrToBool(c.ptr + c.offset))
 			code = code.next
 			c.nextField.ptr = c.ptr
+		case opStructFieldBytesIndent:
+			c := code.toStructFieldCode()
+			if e.buf[len(e.buf)-2] != '{' {
+				e.encodeBytes([]byte{',', '\n'})
+			}
+			e.encodeIndent(c.indent)
+			e.encodeBytes(c.key)
+			e.encodeByte(' ')
+			s := base64.StdEncoding.EncodeToString(e.ptrToBytes(c.ptr + c.offset))
+			e.encodeByte('"')
+			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+			e.encodeByte('"')
+			code = code.next
+			c.nextField.ptr = c.ptr
 		case opStructFieldOmitEmpty:
 			c := code.toStructFieldCode()
 			p := c.ptr + c.offset
@@ -3155,7 +3326,21 @@ func (e *Encoder) run(code *opcode) error {
 			}
 			code = code.next
 			code.ptr = c.ptr
-
+		case opStructFieldOmitEmptyBytes:
+			c := code.toStructFieldCode()
+			v := e.ptrToBytes(c.ptr + c.offset)
+			if len(v) > 0 {
+				if e.buf[len(e.buf)-1] != '{' {
+					e.encodeByte(',')
+				}
+				e.encodeBytes(c.key)
+				s := base64.StdEncoding.EncodeToString(v)
+				e.encodeByte('"')
+				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				e.encodeByte('"')
+			}
+			code = code.next
+			code.ptr = c.ptr
 		case opStructFieldOmitEmptyMarshalJSON:
 			c := code.toStructFieldCode()
 			ptr := c.ptr + c.offset
@@ -3420,6 +3605,24 @@ func (e *Encoder) run(code *opcode) error {
 			}
 			code = code.next
 			code.ptr = c.ptr
+		case opStructFieldOmitEmptyBytesIndent:
+			c := code.toStructFieldCode()
+			v := e.ptrToBytes(c.ptr + c.offset)
+			if len(v) > 0 {
+				if e.buf[len(e.buf)-2] != '{' {
+					e.encodeBytes([]byte{',', '\n'})
+				}
+				e.encodeIndent(c.indent)
+				e.encodeBytes(c.key)
+				e.encodeByte(' ')
+				s := base64.StdEncoding.EncodeToString(v)
+				e.encodeByte('"')
+				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				e.encodeByte('"')
+			}
+			code = code.next
+			code.ptr = c.ptr
+
 		case opStructEnd:
 			e.encodeByte('}')
 			code = code.next

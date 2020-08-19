@@ -34,6 +34,8 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 		return d.compileMap(typ)
 	case reflect.Interface:
 		return d.compileInterface(typ)
+	case reflect.Uintptr:
+		return d.compileUint()
 	case reflect.Int:
 		return d.compileInt()
 	case reflect.Int8:

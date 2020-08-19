@@ -492,6 +492,31 @@ func Test_MarshalIndent(t *testing.T) {
 	})
 }
 
+// byte slices are special even if they're renamed types.
+type renamedByte byte
+type renamedByteSlice []byte
+type renamedRenamedByteSlice []renamedByte
+
+func TestEncodeRenamedByteSlice(t *testing.T) {
+	s := renamedByteSlice("abc")
+	result, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := `"YWJj"`
+	if string(result) != expect {
+		t.Errorf(" got %s want %s", result, expect)
+	}
+	r := renamedRenamedByteSlice("abc")
+	result, err = json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(result) != expect {
+		t.Errorf(" got %s want %s", result, expect)
+	}
+}
+
 func TestMarshalRawMessageValue(t *testing.T) {
 	type (
 		T1 struct {

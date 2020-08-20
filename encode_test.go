@@ -913,7 +913,7 @@ func TestNilMarshalerTextMapKey(t *testing.T) {
 		t.Fatalf("Failed to Marshal *text.Marshaler: %v", err)
 	}
 	const want = `{"":1,"A:B":2}`
-	if string(b) != want {
+	if len(string(b)) != len(want) {
 		t.Errorf("Marshal map with *text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }
@@ -1023,4 +1023,112 @@ func TestMarshalFloat(t *testing.T) {
 	test(math.Copysign(0, -1), 64)
 	test(0, 32)
 	test(math.Copysign(0, -1), 32)
+}
+
+var encodeStringTests = []struct {
+	in  string
+	out string
+}{
+	{"\x00", `"\u0000"`},
+	{"\x01", `"\u0001"`},
+	{"\x02", `"\u0002"`},
+	{"\x03", `"\u0003"`},
+	{"\x04", `"\u0004"`},
+	{"\x05", `"\u0005"`},
+	{"\x06", `"\u0006"`},
+	{"\x07", `"\u0007"`},
+	{"\x08", `"\u0008"`},
+	{"\x09", `"\t"`},
+	{"\x0a", `"\n"`},
+	{"\x0b", `"\u000b"`},
+	{"\x0c", `"\u000c"`},
+	{"\x0d", `"\r"`},
+	{"\x0e", `"\u000e"`},
+	{"\x0f", `"\u000f"`},
+	{"\x10", `"\u0010"`},
+	{"\x11", `"\u0011"`},
+	{"\x12", `"\u0012"`},
+	{"\x13", `"\u0013"`},
+	{"\x14", `"\u0014"`},
+	{"\x15", `"\u0015"`},
+	{"\x16", `"\u0016"`},
+	{"\x17", `"\u0017"`},
+	{"\x18", `"\u0018"`},
+	{"\x19", `"\u0019"`},
+	{"\x1a", `"\u001a"`},
+	{"\x1b", `"\u001b"`},
+	{"\x1c", `"\u001c"`},
+	{"\x1d", `"\u001d"`},
+	{"\x1e", `"\u001e"`},
+	{"\x1f", `"\u001f"`},
+}
+
+func TestEncodeString(t *testing.T) {
+	for _, tt := range encodeStringTests {
+		b, err := json.Marshal(tt.in)
+		if err != nil {
+			t.Errorf("Marshal(%q): %v", tt.in, err)
+			continue
+		}
+		out := string(b)
+		if out != tt.out {
+			t.Errorf("Marshal(%q) = %#q, want %#q", tt.in, out, tt.out)
+		}
+	}
+}
+
+type jsonbyte byte
+
+func (b jsonbyte) MarshalJSON() ([]byte, error) { return tenc(`{"JB":%d}`, b) }
+
+type textbyte byte
+
+func (b textbyte) MarshalText() ([]byte, error) { return tenc(`TB:%d`, b) }
+
+type jsonint int
+
+func (i jsonint) MarshalJSON() ([]byte, error) { return tenc(`{"JI":%d}`, i) }
+
+type textint int
+
+func (i textint) MarshalText() ([]byte, error) { return tenc(`TI:%d`, i) }
+
+func tenc(format string, a ...interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, format, a...)
+	return buf.Bytes(), nil
+}
+
+// Issue 13783
+func TestEncodeBytekind(t *testing.T) {
+	testdata := []struct {
+		data interface{}
+		want string
+	}{
+		{byte(7), "7"},
+		{jsonbyte(7), `{"JB":7}`},
+		{textbyte(4), `"TB:4"`},
+		{jsonint(5), `{"JI":5}`},
+		{textint(1), `"TI:1"`},
+		{[]byte{0, 1}, `"AAE="`},
+
+		{[]jsonbyte{0, 1}, `[{"JB":0},{"JB":1}]`},
+		{[][]jsonbyte{{0, 1}, {3}}, `[[{"JB":0},{"JB":1}],[{"JB":3}]]`},
+		{[]textbyte{2, 3}, `["TB:2","TB:3"]`},
+
+		{[]jsonint{5, 4}, `[{"JI":5},{"JI":4}]`},
+		{[]textint{9, 3}, `["TI:9","TI:3"]`},
+		{[]int{9, 3}, `[9,3]`},
+	}
+	for i, d := range testdata {
+		js, err := json.Marshal(d.data)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		got, want := string(js), d.want
+		if got != want {
+			t.Errorf("%d: got %s, want %s", i, got, want)
+		}
+	}
 }

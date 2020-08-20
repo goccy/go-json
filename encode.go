@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"io"
+	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -245,11 +246,29 @@ func (e *Encoder) encodeUint64(v uint64) {
 }
 
 func (e *Encoder) encodeFloat32(v float32) {
-	e.buf = strconv.AppendFloat(e.buf, float64(v), 'f', -1, 32)
+	f64 := float64(v)
+	abs := math.Abs(f64)
+	fmt := byte('f')
+	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
+	if abs != 0 {
+		f32 := float32(abs)
+		if f32 < 1e-6 || f32 >= 1e21 {
+			fmt = 'e'
+		}
+	}
+	e.buf = strconv.AppendFloat(e.buf, f64, fmt, -1, 32)
 }
 
 func (e *Encoder) encodeFloat64(v float64) {
-	e.buf = strconv.AppendFloat(e.buf, v, 'f', -1, 64)
+	abs := math.Abs(v)
+	fmt := byte('f')
+	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
+	if abs != 0 {
+		if abs < 1e-6 || abs >= 1e21 {
+			fmt = 'e'
+		}
+	}
+	e.buf = strconv.AppendFloat(e.buf, v, fmt, -1, 64)
 }
 
 func (e *Encoder) encodeBool(v bool) {

@@ -1211,3 +1211,25 @@ func TestUnsupportedValues(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue10281(t *testing.T) {
+	type Foo struct {
+		N json.Number
+	}
+	x := Foo{json.Number(`invalid`)}
+
+	b, err := json.Marshal(&x)
+	if err == nil {
+		t.Errorf("Marshal(&x) = %#q; want error", b)
+	}
+}
+
+func TestHTMLEscape(t *testing.T) {
+	var b, want bytes.Buffer
+	m := `{"M":"<html>foo &` + "\xe2\x80\xa8 \xe2\x80\xa9" + `</html>"}`
+	want.Write([]byte(`{"M":"\u003chtml\u003efoo \u0026\u2028 \u2029\u003c/html\u003e"}`))
+	json.HTMLEscape(&b, []byte(m))
+	if !bytes.Equal(b.Bytes(), want.Bytes()) {
+		t.Errorf("HTMLEscape(&b, []byte(m)) = %s; want %s", b.Bytes(), want.Bytes())
+	}
+}

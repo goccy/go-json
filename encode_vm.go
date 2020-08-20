@@ -12,6 +12,7 @@ import (
 )
 
 func (e *Encoder) run(code *opcode) error {
+	seenPtr := map[uintptr]struct{}{}
 	for {
 		switch code.op {
 		case opPtr:
@@ -80,6 +81,13 @@ func (e *Encoder) run(code *opcode) error {
 				typ: ifaceCode.typ,
 				ptr: unsafe.Pointer(ptr),
 			}))
+			if _, exists := seenPtr[ptr]; exists {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+				}
+			}
+			seenPtr[ptr] = struct{}{}
 			rv := reflect.ValueOf(v)
 			if rv.IsNil() {
 				e.encodeNull()
@@ -498,6 +506,17 @@ func (e *Encoder) run(code *opcode) error {
 			code = c.next
 		case opStructFieldRecursive:
 			recursive := code.toRecursiveCode()
+			if recursive.seenPtr != 0 && recursive.seenPtr == recursive.ptr {
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: unsafe.Pointer(recursive.ptr),
+				}))
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+				}
+			}
+			recursive.seenPtr = recursive.ptr
 			if err := e.run(newRecursiveCode(recursive)); err != nil {
 				return err
 			}

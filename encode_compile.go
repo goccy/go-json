@@ -3,7 +3,6 @@ package json
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"unsafe"
 )
 
@@ -341,22 +340,6 @@ func (e *Encoder) compileMap(typ *rtype, withLoad, root, withIndent bool) (*opco
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) getTag(field reflect.StructField) string {
-	return field.Tag.Get("json")
-}
-
-func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
-	if field.PkgPath != "" && !field.Anonymous {
-		// private field
-		return true
-	}
-	tag := e.getTag(field)
-	if tag == "-" {
-		return true
-	}
-	return false
-}
-
 func (e *Encoder) typeToHeaderType(op opType) opType {
 	switch op {
 	case opInt:
@@ -433,10 +416,13 @@ func (e *Encoder) typeToFieldType(op opType) opType {
 	return opStructField
 }
 
-func (e *Encoder) optimizeStructHeader(op opType, isOmitEmpty, withIndent bool) opType {
+func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent bool) opType {
 	headType := e.typeToHeaderType(op)
-	if isOmitEmpty {
+	switch {
+	case tag.isOmitEmpty:
 		headType = headType.headToOmitEmptyHead()
+	case tag.isString:
+		headType = headType.headToStringTagHead()
 	}
 	if withIndent {
 		return headType.toIndent()
@@ -444,10 +430,13 @@ func (e *Encoder) optimizeStructHeader(op opType, isOmitEmpty, withIndent bool) 
 	return headType
 }
 
-func (e *Encoder) optimizeStructField(op opType, isOmitEmpty, withIndent bool) opType {
+func (e *Encoder) optimizeStructField(op opType, tag *structTag, withIndent bool) opType {
 	fieldType := e.typeToFieldType(op)
-	if isOmitEmpty {
+	switch {
+	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
+	case tag.isString:
+		fieldType = fieldType.fieldToStringTagField()
 	}
 	if withIndent {
 		return fieldType.toIndent()
@@ -481,25 +470,9 @@ func (e *Encoder) compiledCode(typ *rtype, withIndent bool) *opcode {
 	return nil
 }
 
-func (e *Encoder) keyNameAndOmitEmptyFromField(field reflect.StructField) (string, bool) {
-	keyName := field.Name
-	tag := e.getTag(field)
-	opts := strings.Split(tag, ",")
-	if len(opts) > 0 {
-		if opts[0] != "" {
-			keyName = opts[0]
-		}
-	}
-	isOmitEmpty := false
-	if len(opts) > 1 {
-		isOmitEmpty = opts[1] == "omitempty"
-	}
-	return keyName, isOmitEmpty
-}
-
-func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, isOmitEmpty, withIndent bool) *opcode {
+func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, tag *structTag, withIndent bool) *opcode {
 	fieldCode.indent--
-	op := e.optimizeStructHeader(valueCode.op, isOmitEmpty, withIndent)
+	op := e.optimizeStructHeader(valueCode.op, tag, withIndent)
 	fieldCode.op = op
 	switch op {
 	case opStructFieldHead,
@@ -511,9 +484,9 @@ func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, is
 	return (*opcode)(unsafe.Pointer(fieldCode))
 }
 
-func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, isOmitEmpty, withIndent bool) *opcode {
+func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, tag *structTag, withIndent bool) *opcode {
 	code := (*opcode)(unsafe.Pointer(fieldCode))
-	op := e.optimizeStructField(valueCode.op, isOmitEmpty, withIndent)
+	op := e.optimizeStructField(valueCode.op, tag, withIndent)
 	fieldCode.op = op
 	switch op {
 	case opStructField,
@@ -548,10 +521,10 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 	e.indent++
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
-		if e.isIgnoredStructField(field) {
+		if isIgnoredStructField(field) {
 			continue
 		}
-		keyName, isOmitEmpty := e.keyNameAndOmitEmptyFromField(field)
+		tag := structTagFromField(field)
 		fieldType := type2rtype(field.Type)
 		if isPtr && i == 0 {
 			// head field of pointer structure at top level
@@ -579,7 +552,7 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 				f = f.nextField.toStructFieldCode()
 			}
 		}
-		key := fmt.Sprintf(`"%s":`, keyName)
+		key := fmt.Sprintf(`"%s":`, tag.key)
 		fieldCode := &structFieldCode{
 			opcodeHeader: &opcodeHeader{
 				typ:    valueCode.typ,
@@ -591,13 +564,13 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 			offset:       field.Offset,
 		}
 		if fieldIdx == 0 {
-			code = e.structHeader(fieldCode, valueCode, isOmitEmpty, withIndent)
+			code = e.structHeader(fieldCode, valueCode, tag, withIndent)
 			head = fieldCode
 			prevField = fieldCode
 		} else {
 			fcode := (*opcode)(unsafe.Pointer(fieldCode))
 			code.next = fcode
-			code = e.structField(fieldCode, valueCode, isOmitEmpty, withIndent)
+			code = e.structField(fieldCode, valueCode, tag, withIndent)
 			prevField.nextField = fcode
 			prevField = fieldCode
 		}

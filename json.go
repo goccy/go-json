@@ -300,6 +300,15 @@ func (n Number) MarshalJSON() ([]byte, error) {
 	return []byte(n), nil
 }
 
+func (n *Number) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	if _, err := strconv.ParseFloat(s, 64); err != nil {
+		return err
+	}
+	*n = Number(s)
+	return nil
+}
+
 // RawMessage is a raw encoded JSON value.
 // It implements Marshaler and Unmarshaler and can
 // be used to delay JSON decoding or precompute a JSON encoding.

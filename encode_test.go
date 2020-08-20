@@ -492,6 +492,77 @@ func Test_MarshalIndent(t *testing.T) {
 	})
 }
 
+type StringTag struct {
+	BoolStr    bool        `json:",string"`
+	IntStr     int64       `json:",string"`
+	UintptrStr uintptr     `json:",string"`
+	StrStr     string      `json:",string"`
+	NumberStr  json.Number `json:",string"`
+}
+
+func TestRoundtripStringTag(t *testing.T) {
+	tests := []struct {
+		name string
+		in   StringTag
+		want string // empty to just test that we roundtrip
+	}{
+		{
+			name: "AllTypes",
+			in: StringTag{
+				BoolStr:    true,
+				IntStr:     42,
+				UintptrStr: 44,
+				StrStr:     "xzbit",
+				NumberStr:  "46",
+			},
+			want: `{
+				"BoolStr": "true",
+				"IntStr": "42",
+				"UintptrStr": "44",
+				"StrStr": "\"xzbit\"",
+				"NumberStr": "46"
+			}`,
+		},
+		{
+			// See golang.org/issues/38173.
+			name: "StringDoubleEscapes",
+			in: StringTag{
+				StrStr:    "\b\f\n\r\t\"\\",
+				NumberStr: "0", // just to satisfy the roundtrip
+			},
+			want: `{
+				"BoolStr": "false",
+				"IntStr": "0",
+				"UintptrStr": "0",
+				"StrStr": "\"\\u0008\\u000c\\n\\r\\t\\\"\\\\\"",
+				"NumberStr": "0"
+			}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Indent with a tab prefix to make the multi-line string
+			// literals in the table nicer to read.
+			got, err := json.MarshalIndent(&test.in, "\t\t\t", "\t")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(got); got != test.want {
+				t.Fatalf(" got: %s\nwant: %s\n", got, test.want)
+			}
+
+			// Verify that it round-trips.
+			var s2 StringTag
+			if err := json.Unmarshal(got, &s2); err != nil {
+				t.Fatalf("Decode: %v", err)
+			}
+			if !reflect.DeepEqual(test.in, s2) {
+				t.Fatalf("decode didn't match.\nsource: %#v\nEncoded as:\n%s\ndecode: %#v", test.in, string(got), s2)
+			}
+		})
+	}
+}
+
 // byte slices are special even if they're renamed types.
 type renamedByte byte
 type renamedByteSlice []byte

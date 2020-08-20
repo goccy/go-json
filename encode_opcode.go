@@ -478,7 +478,8 @@ func (c *interfaceCode) copy(codeMap map[uintptr]*opcode) *opcode {
 
 type recursiveCode struct {
 	*opcodeHeader
-	jmp *compiledCode
+	jmp     *compiledCode
+	seenPtr uintptr
 }
 
 func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
@@ -489,7 +490,7 @@ func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
 	if code, exists := codeMap[addr]; exists {
 		return code
 	}
-	recur := &recursiveCode{}
+	recur := &recursiveCode{seenPtr: c.seenPtr}
 	code := (*opcode)(unsafe.Pointer(recur))
 	codeMap[addr] = code
 

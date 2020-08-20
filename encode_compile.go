@@ -31,6 +31,20 @@ func (e *Encoder) compileHead(typ *rtype, withIndent bool) (*opcode, error) {
 	return e.compile(typ, root, withIndent)
 }
 
+func (e *Encoder) implementsMarshaler(typ *rtype) bool {
+	switch {
+	case typ.Implements(marshalJSONType):
+		return true
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return true
+	case typ.Implements(marshalTextType):
+		return true
+	case rtype_ptrTo(typ).Implements(marshalTextType):
+		return true
+	}
+	return false
+}
+
 func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
 	switch {
 	case typ.Implements(marshalJSONType):
@@ -46,7 +60,8 @@ func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
 	case reflect.Ptr:
 		return e.compilePtr(typ, root, withIndent)
 	case reflect.Slice:
-		if typ.Elem().Kind() == reflect.Uint8 {
+		elem := typ.Elem()
+		if !e.implementsMarshaler(elem) && elem.Kind() == reflect.Uint8 {
 			return e.compileBytes(typ)
 		}
 		return e.compileSlice(typ, root, withIndent)

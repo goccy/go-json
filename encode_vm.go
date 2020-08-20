@@ -138,18 +138,27 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = ptr
 		case opMarshalText:
 			ptr := code.ptr
-			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
-				ptr: unsafe.Pointer(ptr),
-			}))
-			bytes, err := v.(encoding.TextMarshaler).MarshalText()
-			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
+			isPtr := code.typ.Kind() == reflect.Ptr
+			p := unsafe.Pointer(ptr)
+			if isPtr && *(*unsafe.Pointer)(p) == nil {
+				e.encodeBytes([]byte{'"', '"'})
+			} else {
+				if isPtr && code.typ.Elem().Implements(marshalTextType) {
+					p = *(*unsafe.Pointer)(p)
 				}
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: p,
+				}))
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			}
-			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			code = code.next
 			code.ptr = ptr
 		case opSliceHead:

@@ -92,6 +92,56 @@ func (e *Encoder) compile(typ *rtype, root, withIndent bool) (*opcode, error) {
 	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
 
+func (e *Encoder) compileKey(typ *rtype, root, withIndent bool) (*opcode, error) {
+	switch {
+	case typ.Implements(marshalJSONType):
+		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+	case typ.Implements(marshalTextType):
+		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+	case rtype_ptrTo(typ).Implements(marshalTextType):
+		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+	}
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return e.compilePtr(typ, root, withIndent)
+	case reflect.Interface:
+		return e.compileInterface(typ, root)
+	case reflect.Int:
+		return e.compileInt(typ)
+	case reflect.Int8:
+		return e.compileInt8(typ)
+	case reflect.Int16:
+		return e.compileInt16(typ)
+	case reflect.Int32:
+		return e.compileInt32(typ)
+	case reflect.Int64:
+		return e.compileInt64(typ)
+	case reflect.Uint:
+		return e.compileUint(typ)
+	case reflect.Uint8:
+		return e.compileUint8(typ)
+	case reflect.Uint16:
+		return e.compileUint16(typ)
+	case reflect.Uint32:
+		return e.compileUint32(typ)
+	case reflect.Uint64:
+		return e.compileUint64(typ)
+	case reflect.Uintptr:
+		return e.compileUint(typ)
+	case reflect.Float32:
+		return e.compileFloat32(typ)
+	case reflect.Float64:
+		return e.compileFloat64(typ)
+	case reflect.String:
+		return e.compileString(typ)
+	case reflect.Bool:
+		return e.compileBool(typ)
+	}
+	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
+}
+
 func (e *Encoder) optimizeStructFieldPtrHead(typ *rtype, code *opcode) *opcode {
 	ptrHeadOp := code.op.headToPtrHead()
 	if code.op != ptrHeadOp {
@@ -289,7 +339,7 @@ func (e *Encoder) compileMap(typ *rtype, withLoad, root, withIndent bool) (*opco
 	//                                     |_______________________|
 	e.indent++
 	keyType := typ.Key()
-	keyCode, err := e.compile(keyType, false, withIndent)
+	keyCode, err := e.compileKey(keyType, false, withIndent)
 	if err != nil {
 		return nil, err
 	}

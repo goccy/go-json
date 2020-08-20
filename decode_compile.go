@@ -7,20 +7,31 @@ import (
 )
 
 func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
-	if typ.Implements(unmarshalJSONType) {
+	switch {
+	case typ.Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(typ), nil
-	} else if typ.Implements(unmarshalTextType) {
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return newUnmarshalJSONDecoder(rtype_ptrTo(typ)), nil
+	case typ.Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(typ), nil
+	case rtype_ptrTo(typ).Implements(unmarshalTextType):
+		return newUnmarshalTextDecoder(rtype_ptrTo(typ)), nil
 	}
 	return d.compile(typ.Elem())
 }
 
 func (d *Decoder) compile(typ *rtype) (decoder, error) {
-	if typ.Implements(unmarshalJSONType) {
+	switch {
+	case typ.Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(typ), nil
-	} else if typ.Implements(unmarshalTextType) {
+	case rtype_ptrTo(typ).Implements(marshalJSONType):
+		return newUnmarshalJSONDecoder(rtype_ptrTo(typ)), nil
+	case typ.Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(typ), nil
+	case rtype_ptrTo(typ).Implements(unmarshalTextType):
+		return newUnmarshalTextDecoder(rtype_ptrTo(typ)), nil
 	}
+
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return d.compilePtr(typ)
@@ -190,46 +201,26 @@ func (d *Decoder) compileInterface(typ *rtype) (decoder, error) {
 	return newInterfaceDecoder(typ), nil
 }
 
-func (d *Decoder) getTag(field reflect.StructField) string {
-	return field.Tag.Get("json")
-}
-
-func (d *Decoder) isIgnoredStructField(field reflect.StructField) bool {
-	if field.PkgPath != "" && !field.Anonymous {
-		// private field
-		return true
-	}
-	tag := d.getTag(field)
-	if tag == "-" {
-		return true
-	}
-	return false
-}
-
 func (d *Decoder) compileStruct(typ *rtype) (decoder, error) {
 	fieldNum := typ.NumField()
 	fieldMap := map[string]*structFieldSet{}
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
-		if d.isIgnoredStructField(field) {
+		if isIgnoredStructField(field) {
 			continue
 		}
-		keyName := field.Name
-		tag := d.getTag(field)
-		opts := strings.Split(tag, ",")
-		if len(opts) > 0 {
-			if opts[0] != "" {
-				keyName = opts[0]
-			}
-		}
+		tag := structTagFromField(field)
 		dec, err := d.compile(type2rtype(field.Type))
 		if err != nil {
 			return nil, err
 		}
+		if tag.isString {
+			dec = newWrappedStringDecoder(dec)
+		}
 		fieldSet := &structFieldSet{dec: dec, offset: field.Offset}
 		fieldMap[field.Name] = fieldSet
-		fieldMap[keyName] = fieldSet
-		fieldMap[strings.ToLower(keyName)] = fieldSet
+		fieldMap[tag.key] = fieldSet
+		fieldMap[strings.ToLower(tag.key)] = fieldSet
 	}
 	return newStructDecoder(fieldMap), nil
 }

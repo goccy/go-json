@@ -3,7 +3,6 @@ package json
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"unsafe"
 )
 
@@ -341,22 +340,6 @@ func (e *Encoder) compileMap(typ *rtype, withLoad, root, withIndent bool) (*opco
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) getTag(field reflect.StructField) string {
-	return field.Tag.Get("json")
-}
-
-func (e *Encoder) isIgnoredStructField(field reflect.StructField) bool {
-	if field.PkgPath != "" && !field.Anonymous {
-		// private field
-		return true
-	}
-	tag := e.getTag(field)
-	if tag == "-" {
-		return true
-	}
-	return false
-}
-
 func (e *Encoder) typeToHeaderType(op opType) opType {
 	switch op {
 	case opInt:
@@ -487,29 +470,6 @@ func (e *Encoder) compiledCode(typ *rtype, withIndent bool) *opcode {
 	return nil
 }
 
-type structTag struct {
-	key         string
-	isOmitEmpty bool
-	isString    bool
-}
-
-func (e *Encoder) structTagFromField(field reflect.StructField) *structTag {
-	keyName := field.Name
-	tag := e.getTag(field)
-	opts := strings.Split(tag, ",")
-	if len(opts) > 0 {
-		if opts[0] != "" {
-			keyName = opts[0]
-		}
-	}
-	st := &structTag{key: keyName}
-	if len(opts) > 1 {
-		st.isOmitEmpty = opts[1] == "omitempty"
-		st.isString = opts[1] == "string"
-	}
-	return st
-}
-
 func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, tag *structTag, withIndent bool) *opcode {
 	fieldCode.indent--
 	op := e.optimizeStructHeader(valueCode.op, tag, withIndent)
@@ -561,10 +521,10 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 	e.indent++
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
-		if e.isIgnoredStructField(field) {
+		if isIgnoredStructField(field) {
 			continue
 		}
-		tag := e.structTagFromField(field)
+		tag := structTagFromField(field)
 		fieldType := type2rtype(field.Type)
 		if isPtr && i == 0 {
 			// head field of pointer structure at top level

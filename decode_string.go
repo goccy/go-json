@@ -30,6 +30,85 @@ func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, erro
 	return cursor, nil
 }
 
+var (
+	hexToInt = [256]int{
+		'0': 0,
+		'1': 1,
+		'2': 2,
+		'3': 3,
+		'4': 4,
+		'5': 5,
+		'6': 6,
+		'7': 7,
+		'8': 8,
+		'9': 9,
+		'A': 10,
+		'B': 11,
+		'C': 12,
+		'D': 13,
+		'E': 14,
+		'F': 15,
+		'a': 10,
+		'b': 11,
+		'c': 12,
+		'd': 13,
+		'e': 14,
+		'f': 15,
+	}
+)
+
+func unicodeToRune(code []byte) rune {
+	sum := 0
+	for i := 0; i < len(code); i++ {
+		sum += hexToInt[code[i]] << (uint(len(code)-i-1) * 4)
+	}
+	return rune(sum)
+}
+
+func decodeEscapeString(s *stream) error {
+	s.cursor++
+RETRY:
+	switch s.buf[s.cursor] {
+	case '"':
+		s.buf[s.cursor] = '"'
+	case '\\':
+		s.buf[s.cursor] = '\\'
+	case '/':
+		s.buf[s.cursor] = '/'
+	case 'b':
+		s.buf[s.cursor] = '\b'
+	case 'f':
+		s.buf[s.cursor] = '\f'
+	case 'n':
+		s.buf[s.cursor] = '\n'
+	case 'r':
+		s.buf[s.cursor] = '\r'
+	case 't':
+		s.buf[s.cursor] = '\t'
+	case 'u':
+		if s.cursor+5 >= s.length {
+			if !s.read() {
+				return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+			}
+		}
+		code := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
+		unicode := []byte(string(code))
+		s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+		s.cursor--
+		return nil
+	case nul:
+		if !s.read() {
+			return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+		}
+		goto RETRY
+	default:
+		return errUnexpectedEndOfJSON("string", s.totalOffset())
+	}
+	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
+	s.cursor--
+	return nil
+}
+
 func stringBytes(s *stream) ([]byte, error) {
 	s.cursor++
 	start := s.cursor
@@ -111,6 +190,43 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				switch buf[cursor] {
 				case '\\':
 					cursor++
+					switch buf[cursor] {
+					case '"':
+						buf[cursor] = '"'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case '\\':
+						buf[cursor] = '\\'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case '/':
+						buf[cursor] = '/'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'b':
+						buf[cursor] = '\b'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'f':
+						buf[cursor] = '\f'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'n':
+						buf[cursor] = '\n'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'r':
+						buf[cursor] = '\r'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 't':
+						buf[cursor] = '\t'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'u':
+						buflen := int64(len(buf))
+						if cursor+5 >= buflen {
+							return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
+						}
+						code := unicodeToRune(buf[cursor+1 : cursor+5])
+						unicode := []byte(string(code))
+						buf = append(append(buf[:cursor-1], unicode...), buf[cursor+5:]...)
+					default:
+						return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
+					}
+					continue
 				case '"':
 					literal := buf[start:cursor]
 					cursor++

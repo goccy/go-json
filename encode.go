@@ -22,6 +22,7 @@ type Encoder struct {
 	indent                         int
 	structTypeToCompiledCode       map[uintptr]*compiledCode
 	structTypeToCompiledIndentCode map[uintptr]*compiledCode
+	seenPtr                        map[uintptr]struct{}
 }
 
 type compiledCode struct {
@@ -67,6 +68,7 @@ func init() {
 				buf:                            make([]byte, 0, bufSize),
 				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
 				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
+				seenPtr:                        map[uintptr]struct{}{},
 			}
 		},
 	}

@@ -542,8 +542,10 @@ func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, ta
 	switch op {
 	case opStructFieldHead,
 		opStructFieldHeadOmitEmpty,
+		opStructFieldHeadStringTag,
 		opStructFieldHeadIndent,
-		opStructFieldHeadOmitEmptyIndent:
+		opStructFieldHeadOmitEmptyIndent,
+		opStructFieldHeadStringTagIndent:
 		return valueCode.beforeLastCode()
 	}
 	return (*opcode)(unsafe.Pointer(fieldCode))
@@ -556,8 +558,10 @@ func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, tag
 	switch op {
 	case opStructField,
 		opStructFieldOmitEmpty,
+		opStructFieldStringTag,
 		opStructFieldIndent,
-		opStructFieldOmitEmptyIndent:
+		opStructFieldOmitEmptyIndent,
+		opStructFieldStringTagIndent:
 		return valueCode.beforeLastCode()
 	}
 	return code
@@ -615,6 +619,16 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 					break
 				}
 				f = f.nextField.toStructFieldCode()
+			}
+		}
+		if fieldNum == 1 && valueCode.op == opPtr {
+			// if field number is one and primitive pointer type,
+			// it should encode as **not** pointer .
+			switch valueCode.next.op {
+			case opInt, opInt8, opInt16, opInt32, opInt64,
+				opUint, opUint8, opUint16, opUint32, opUint64,
+				opFloat32, opFloat64, opBool, opString, opBytes:
+				valueCode = valueCode.next
 			}
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)

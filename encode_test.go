@@ -1,6 +1,7 @@
 package json_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -864,6 +865,56 @@ func TestMarshalerError(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("MarshalerError test %d, got: %s, want: %s", i, got, tt.want)
 		}
+	}
+}
+
+type unmarshalerText struct {
+	A, B string
+}
+
+// needed for re-marshaling tests
+func (u unmarshalerText) MarshalText() ([]byte, error) {
+	return []byte(u.A + ":" + u.B), nil
+}
+
+func (u *unmarshalerText) UnmarshalText(b []byte) error {
+	pos := bytes.IndexByte(b, ':')
+	if pos == -1 {
+		return errors.New("missing separator")
+	}
+	u.A, u.B = string(b[:pos]), string(b[pos+1:])
+	return nil
+}
+
+func TestTextMarshalerMapKeysAreSorted(t *testing.T) {
+	b, err := json.Marshal(map[unmarshalerText]int{
+		{"x", "y"}: 1,
+		{"y", "x"}: 2,
+		{"a", "z"}: 3,
+		{"z", "a"}: 4,
+	})
+	if err != nil {
+		t.Fatalf("Failed to Marshal text.Marshaler: %v", err)
+	}
+	const want = `{"a:z":3,"x:y":1,"y:x":2,"z:a":4}`
+	if len(string(b)) != len(want) {
+		t.Errorf("Marshal map with text.Marshaler keys: got %#q, want %#q", b, want)
+	}
+}
+
+// https://golang.org/issue/33675
+func TestNilMarshalerTextMapKey(t *testing.T) {
+	v := map[*unmarshalerText]int{
+		(*unmarshalerText)(nil): 1,
+		{"A", "B"}:              2,
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("Failed to Marshal *text.Marshaler: %v", err)
+	}
+	const want = `{"":1,"A:B":2}`
+	if string(b) != want {
+		t.Errorf("Marshal map with *text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }
 

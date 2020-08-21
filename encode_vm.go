@@ -148,7 +148,9 @@ func (e *Encoder) run(code *opcode) error {
 			ptr := code.ptr
 			isPtr := code.typ.Kind() == reflect.Ptr
 			p := unsafe.Pointer(ptr)
-			if isPtr && *(*unsafe.Pointer)(p) == nil {
+			if p == nil {
+				e.encodeNull()
+			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
 				e.encodeBytes([]byte{'"', '"'})
 			} else {
 				if isPtr && code.typ.Elem().Implements(marshalTextType) {
@@ -1027,7 +1029,14 @@ func (e *Encoder) run(code *opcode) error {
 					typ: code.typ,
 					ptr: unsafe.Pointer(ptr),
 				}))
-				b, err := v.(Marshaler).MarshalJSON()
+				marshaler, ok := v.(Marshaler)
+				if !ok {
+					// invalid marshaler
+					e.encodeNull()
+					code = field.end
+					break
+				}
+				b, err := marshaler.MarshalJSON()
 				if err != nil {
 					return &MarshalerError{
 						Type: rtype2type(code.typ),
@@ -1099,7 +1108,14 @@ func (e *Encoder) run(code *opcode) error {
 					typ: code.typ,
 					ptr: unsafe.Pointer(ptr),
 				}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				marshaler, ok := v.(encoding.TextMarshaler)
+				if !ok {
+					// invalid marshaler
+					e.encodeNull()
+					code = field.end
+					break
+				}
+				bytes, err := marshaler.MarshalText()
 				if err != nil {
 					return &MarshalerError{
 						Type: rtype2type(code.typ),

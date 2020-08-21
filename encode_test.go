@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"encoding"
 	"errors"
 	"fmt"
 	"log"
@@ -1231,5 +1232,163 @@ func TestHTMLEscape(t *testing.T) {
 	json.HTMLEscape(&b, []byte(m))
 	if !bytes.Equal(b.Bytes(), want.Bytes()) {
 		t.Errorf("HTMLEscape(&b, []byte(m)) = %s; want %s", b.Bytes(), want.Bytes())
+	}
+}
+
+type BugA struct {
+	S string
+}
+
+type BugB struct {
+	BugA
+	S string
+}
+
+type BugC struct {
+	S string
+}
+
+// Legal Go: We never use the repeated embedded field (S).
+type BugX struct {
+	A int
+	BugA
+	BugB
+}
+
+// golang.org/issue/16042.
+// Even if a nil interface value is passed in, as long as
+// it implements Marshaler, it should be marshaled.
+type nilJSONMarshaler string
+
+func (nm *nilJSONMarshaler) MarshalJSON() ([]byte, error) {
+	if nm == nil {
+		return json.Marshal("0zenil0")
+	}
+	return json.Marshal("zenil:" + string(*nm))
+}
+
+// golang.org/issue/34235.
+// Even if a nil interface value is passed in, as long as
+// it implements encoding.TextMarshaler, it should be marshaled.
+type nilTextMarshaler string
+
+func (nm *nilTextMarshaler) MarshalText() ([]byte, error) {
+	if nm == nil {
+		return []byte("0zenil0"), nil
+	}
+	return []byte("zenil:" + string(*nm)), nil
+}
+
+// See golang.org/issue/16042 and golang.org/issue/34235.
+func TestNilMarshal(t *testing.T) {
+	testCases := []struct {
+		v    interface{}
+		want string
+	}{
+		{v: nil, want: `null`},
+		{v: new(float64), want: `0`},
+		{v: []interface{}(nil), want: `null`},
+		{v: []string(nil), want: `null`},
+		{v: map[string]string(nil), want: `null`},
+		{v: []byte(nil), want: `null`},
+		{v: struct{ M string }{"gopher"}, want: `{"M":"gopher"}`},
+		{v: struct{ M json.Marshaler }{}, want: `{"M":null}`},
+		{v: struct{ M json.Marshaler }{(*nilJSONMarshaler)(nil)}, want: `{"M":"0zenil0"}`},
+		{v: struct{ M interface{} }{(*nilJSONMarshaler)(nil)}, want: `{"M":null}`},
+		{v: struct{ M encoding.TextMarshaler }{}, want: `{"M":null}`},
+		{v: struct{ M encoding.TextMarshaler }{(*nilTextMarshaler)(nil)}, want: `{"M":"0zenil0"}`},
+		{v: struct{ M interface{} }{(*nilTextMarshaler)(nil)}, want: `{"M":null}`},
+	}
+
+	for i, tt := range testCases {
+		out, err := json.Marshal(tt.v)
+		if err != nil || string(out) != tt.want {
+			t.Errorf("%d: Marshal(%#v) = %#q, %#v, want %#q, nil", i, tt.v, out, err, tt.want)
+			continue
+		}
+	}
+}
+
+// Issue 5245.
+func TestEmbeddedBug(t *testing.T) {
+	v := BugB{
+		BugA{"A"},
+		"B",
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal("Marshal:", err)
+	}
+	want := `{"S":"B"}`
+	got := string(b)
+	if got != want {
+		t.Fatalf("Marshal: got %s want %s", got, want)
+	}
+	// Now check that the duplicate field, S, does not appear.
+	x := BugX{
+		A: 23,
+	}
+	b, err = json.Marshal(x)
+	if err != nil {
+		t.Fatal("Marshal:", err)
+	}
+	want = `{"A":23}`
+	got = string(b)
+	if got != want {
+		t.Fatalf("Marshal: got %s want %s", got, want)
+	}
+}
+
+type BugD struct { // Same as BugA after tagging.
+	XXX string `json:"S"`
+}
+
+// BugD's tagged S field should dominate BugA's.
+type BugY struct {
+	BugA
+	BugD
+}
+
+// Test that a field with a tag dominates untagged fields.
+func TestTaggedFieldDominates(t *testing.T) {
+	v := BugY{
+		BugA{"BugA"},
+		BugD{"BugD"},
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal("Marshal:", err)
+	}
+	want := `{"S":"BugD"}`
+	got := string(b)
+	if got != want {
+		t.Fatalf("Marshal: got %s want %s", got, want)
+	}
+}
+
+// There are no tags here, so S should not appear.
+type BugZ struct {
+	BugA
+	BugC
+	BugY // Contains a tagged S field through BugD; should not dominate.
+}
+
+func TestDuplicatedFieldDisappears(t *testing.T) {
+	v := BugZ{
+		BugA{"BugA"},
+		BugC{"BugC"},
+		BugY{
+			BugA{"nested BugA"},
+			BugD{"nested BugD"},
+		},
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal("Marshal:", err)
+	}
+	want := `{}`
+	got := string(b)
+	if got != want {
+		t.Fatalf("Marshal: got %s want %s", got, want)
 	}
 }

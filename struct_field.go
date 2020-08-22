@@ -10,9 +10,15 @@ func getTag(field reflect.StructField) string {
 }
 
 func isIgnoredStructField(field reflect.StructField) bool {
-	if field.PkgPath != "" && !field.Anonymous {
-		// private field
-		return true
+	if field.PkgPath != "" {
+		if field.Anonymous {
+			if !(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) && field.Type.Kind() != reflect.Struct {
+				return true
+			}
+		} else {
+			// private field
+			return true
+		}
 	}
 	tag := getTag(field)
 	if tag == "-" {

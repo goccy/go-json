@@ -538,7 +538,11 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHead {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end.next
 			} else {
 				e.encodeByte('{')
@@ -585,7 +589,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeInt(e.ptrToInt(ptr))
+				e.encodeInt(e.ptrToInt(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}

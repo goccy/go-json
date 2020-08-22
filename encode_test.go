@@ -1569,3 +1569,57 @@ func TestAnonymousFields(t *testing.T) {
 		})
 	}
 }
+
+type Optionals struct {
+	Sr string `json:"sr"`
+	So string `json:"so,omitempty"`
+	Sw string `json:"-"`
+
+	Ir int `json:"omitempty"` // actually named omitempty, not an option
+	Io int `json:"io,omitempty"`
+
+	Slr []string `json:"slr,random"`
+	Slo []string `json:"slo,omitempty"`
+
+	Mr map[string]interface{} `json:"mr"`
+	Mo map[string]interface{} `json:",omitempty"`
+
+	Fr float64 `json:"fr"`
+	Fo float64 `json:"fo,omitempty"`
+
+	Br bool `json:"br"`
+	Bo bool `json:"bo,omitempty"`
+
+	Ur uint `json:"ur"`
+	Uo uint `json:"uo,omitempty"`
+
+	Str struct{} `json:"str"`
+	Sto struct{} `json:"sto,omitempty"`
+}
+
+var optionalsExpected = `{
+ "sr": "",
+ "omitempty": 0,
+ "slr": null,
+ "mr": {},
+ "fr": 0,
+ "br": false,
+ "ur": 0,
+ "str": {},
+ "sto": {}
+}`
+
+func TestOmitEmpty(t *testing.T) {
+	var o Optionals
+	o.Sw = "something"
+	o.Mr = map[string]interface{}{}
+	o.Mo = map[string]interface{}{}
+
+	got, err := json.MarshalIndent(&o, "", " ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(got); got != optionalsExpected {
+		t.Errorf(" got: %s\nwant: %s\n", got, optionalsExpected)
+	}
+}

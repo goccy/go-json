@@ -570,12 +570,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadInt {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeInt(e.ptrToInt(ptr))
+				e.encodeInt(e.ptrToInt(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -600,12 +604,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadInt8 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeInt8(e.ptrToInt8(ptr))
+				e.encodeInt8(e.ptrToInt8(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -619,7 +627,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeInt8(e.ptrToInt8(ptr))
+				e.encodeInt8(e.ptrToInt8(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -630,12 +638,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadInt16 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeInt16(e.ptrToInt16(ptr))
+				e.encodeInt16(e.ptrToInt16(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -649,7 +661,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeInt16(e.ptrToInt16(ptr))
+				e.encodeInt16(e.ptrToInt16(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -660,12 +672,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadInt32 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeInt32(e.ptrToInt32(ptr))
+				e.encodeInt32(e.ptrToInt32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -679,7 +695,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeInt32(e.ptrToInt32(ptr))
+				e.encodeInt32(e.ptrToInt32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -690,12 +706,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadInt64 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeInt64(e.ptrToInt64(ptr))
+				e.encodeInt64(e.ptrToInt64(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -709,7 +729,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeInt64(e.ptrToInt64(ptr))
+				e.encodeInt64(e.ptrToInt64(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -720,12 +740,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadUint {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeUint(e.ptrToUint(ptr))
+				e.encodeUint(e.ptrToUint(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -739,7 +763,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeUint(e.ptrToUint(ptr))
+				e.encodeUint(e.ptrToUint(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -750,12 +774,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadUint8 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeUint8(e.ptrToUint8(ptr))
+				e.encodeUint8(e.ptrToUint8(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -769,7 +797,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeUint8(e.ptrToUint8(ptr))
+				e.encodeUint8(e.ptrToUint8(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -780,12 +808,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadUint16 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeUint16(e.ptrToUint16(ptr))
+				e.encodeUint16(e.ptrToUint16(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -799,7 +831,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeUint16(e.ptrToUint16(ptr))
+				e.encodeUint16(e.ptrToUint16(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -810,12 +842,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadUint32 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeUint32(e.ptrToUint32(ptr))
+				e.encodeUint32(e.ptrToUint32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -829,7 +865,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeUint32(e.ptrToUint32(ptr))
+				e.encodeUint32(e.ptrToUint32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -840,12 +876,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadUint64 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeUint64(e.ptrToUint64(ptr))
+				e.encodeUint64(e.ptrToUint64(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -859,7 +899,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeUint64(e.ptrToUint64(ptr))
+				e.encodeUint64(e.ptrToUint64(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -870,12 +910,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadFloat32 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeFloat32(e.ptrToFloat32(ptr))
+				e.encodeFloat32(e.ptrToFloat32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -889,7 +933,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeFloat32(e.ptrToFloat32(ptr))
+				e.encodeFloat32(e.ptrToFloat32(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -900,10 +944,14 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadFloat64 {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
-				v := e.ptrToFloat64(ptr)
+				v := e.ptrToFloat64(ptr + field.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
 					return &UnsupportedValueError{
 						Value: reflect.ValueOf(v),
@@ -925,7 +973,7 @@ func (e *Encoder) run(code *opcode) error {
 			if ptr == 0 {
 				code = field.end
 			} else {
-				v := e.ptrToFloat64(ptr)
+				v := e.ptrToFloat64(ptr + field.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
 					return &UnsupportedValueError{
 						Value: reflect.ValueOf(v),
@@ -944,12 +992,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadString {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeString(e.ptrToString(ptr))
+				e.encodeString(e.ptrToString(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -963,7 +1015,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeString(e.ptrToString(ptr))
+				e.encodeString(e.ptrToString(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -974,12 +1026,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadBool {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				e.encodeBool(e.ptrToBool(ptr))
+				e.encodeBool(e.ptrToBool(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -993,7 +1049,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				e.encodeBool(e.ptrToBool(ptr))
+				e.encodeBool(e.ptrToBool(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}
@@ -1004,12 +1060,16 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadBytes {
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(field.key)
-				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr))
+				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr + field.offset))
 				e.encodeByte('"')
 				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 				e.encodeByte('"')
@@ -1026,7 +1086,7 @@ func (e *Encoder) run(code *opcode) error {
 				code = field.end
 			} else {
 				e.encodeBytes(field.key)
-				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(code.ptr))
+				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(code.ptr + field.offset))
 				e.encodeByte('"')
 				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 				e.encodeByte('"')
@@ -1047,7 +1107,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeBytes(field.key)
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr),
+					ptr: unsafe.Pointer(ptr + field.offset),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1088,7 +1148,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeBytes(field.key)
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr),
+					ptr: unsafe.Pointer(ptr + field.offset),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1131,7 +1191,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeBytes(field.key)
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr),
+					ptr: unsafe.Pointer(ptr + field.offset),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1162,7 +1222,7 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeBytes(field.key)
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr),
+					ptr: unsafe.Pointer(ptr + field.offset),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {

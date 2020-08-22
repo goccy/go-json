@@ -1253,6 +1253,13 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
 				code = field.end.next
+			} else if field.next == field.end {
+				// not exists fields
+				e.encodeIndent(code.indent)
+				e.encodeBytes([]byte{'{', '}'})
+				code = field.next
+				code.ptr = ptr
+				field.nextField.ptr = ptr
 			} else {
 				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})

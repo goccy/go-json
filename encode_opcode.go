@@ -306,6 +306,7 @@ type structFieldCode struct {
 	*opcodeHeader
 	key          []byte
 	displayKey   string
+	isTaggedKey  bool
 	offset       uintptr
 	anonymousKey bool
 	nextField    *opcode
@@ -352,6 +353,7 @@ func (c *structFieldCode) copy(codeMap map[uintptr]*opcode) *opcode {
 	}
 	field := &structFieldCode{
 		key:          c.key,
+		isTaggedKey:  c.isTaggedKey,
 		displayKey:   c.displayKey,
 		anonymousKey: c.anonymousKey,
 		offset:       c.offset,

@@ -4145,7 +4145,7 @@ func (e *Encoder) run(code *opcode) error {
 			code = code.next
 		case opStructFieldIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4156,7 +4156,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldIntIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4167,7 +4167,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldInt8Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4178,7 +4178,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldInt16Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4189,7 +4189,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldInt32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4200,7 +4200,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldInt64Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4211,7 +4211,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldUintIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4222,7 +4222,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldUint8Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4233,7 +4233,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldUint16Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4244,7 +4244,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldUint32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4255,7 +4255,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldUint64Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4266,7 +4266,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldFloat32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4277,7 +4277,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldFloat64Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4295,7 +4295,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldStringIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4306,7 +4306,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldBoolIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4317,7 +4317,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldBytesIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -4331,7 +4331,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldMarshalJSONIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-1] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeByte(',')
 			}
 			e.encodeIndent(c.indent)
@@ -4611,7 +4611,7 @@ func (e *Encoder) run(code *opcode) error {
 			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 				code = c.nextField
 			} else {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4625,7 +4625,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToInt(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4639,7 +4639,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToInt8(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4653,7 +4653,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToInt16(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4667,7 +4667,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToInt32(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4681,7 +4681,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToInt64(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4695,7 +4695,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToUint(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4709,7 +4709,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToUint8(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4723,7 +4723,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToUint16(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4737,7 +4737,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToUint32(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4751,7 +4751,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToUint64(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4765,7 +4765,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToFloat32(c.ptr + c.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4785,7 +4785,7 @@ func (e *Encoder) run(code *opcode) error {
 						Str:   strconv.FormatFloat(v, 'g', -1, 64),
 					}
 				}
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4799,7 +4799,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToString(c.ptr + c.offset)
 			if v != "" {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4813,7 +4813,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToBool(c.ptr + c.offset)
 			if v {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -4827,7 +4827,7 @@ func (e *Encoder) run(code *opcode) error {
 			c := code.toStructFieldCode()
 			v := e.ptrToBytes(c.ptr + c.offset)
 			if len(v) > 0 {
-				if e.buf[len(e.buf)-2] != '{' {
+				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 					e.encodeBytes([]byte{',', '\n'})
 				}
 				e.encodeIndent(c.indent)
@@ -5037,7 +5037,7 @@ func (e *Encoder) run(code *opcode) error {
 		case opStructFieldStringTagIndent:
 			c := code.toStructFieldCode()
 			p := c.ptr + c.offset
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5048,7 +5048,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldStringTagIntIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5059,7 +5059,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagInt8Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5070,7 +5070,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagInt16Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5081,7 +5081,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagInt32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5092,7 +5092,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagInt64Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5103,7 +5103,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagUintIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5114,7 +5114,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagUint8Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5125,7 +5125,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagUint16Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5136,7 +5136,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagUint32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5147,7 +5147,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagUint64Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5158,7 +5158,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagFloat32Indent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5176,7 +5176,7 @@ func (e *Encoder) run(code *opcode) error {
 					Str:   strconv.FormatFloat(v, 'g', -1, 64),
 				}
 			}
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5187,7 +5187,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagStringIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5202,7 +5202,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagBoolIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5213,7 +5213,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagBytesIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5229,7 +5229,7 @@ func (e *Encoder) run(code *opcode) error {
 			code.ptr = c.ptr
 		case opStructFieldStringTagMarshalJSONIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)
@@ -5256,7 +5256,7 @@ func (e *Encoder) run(code *opcode) error {
 			c.nextField.ptr = c.ptr
 		case opStructFieldStringTagMarshalTextIndent:
 			c := code.toStructFieldCode()
-			if e.buf[len(e.buf)-2] != '{' {
+			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
 			}
 			e.encodeIndent(c.indent)

@@ -112,15 +112,24 @@ func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
 		indent := strings.Repeat(" ", code.indent)
-		codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
 		switch code.op.codeType() {
 		case codeArrayElem:
+			codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
 			code = code.toArrayElemCode().end
 		case codeSliceElem:
+			codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
 			code = code.toSliceElemCode().end
 		case codeMapKey:
+			codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
 			code = code.toMapKeyCode().end
+		case codeStructField:
+			sf := code.toStructFieldCode()
+			key := sf.displayKey
+			offset := sf.offset
+			codes = append(codes, fmt.Sprintf("%s%s [%s:%d] ( %p )", indent, code.op, key, offset, unsafe.Pointer(code)))
+			code = code.next
 		default:
+			codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
 			code = code.next
 		}
 	}

@@ -622,7 +622,6 @@ type structFieldPair struct {
 }
 
 func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, valueCode *structFieldCode) map[string][]structFieldPair {
-	//fmt.Println("type = ", typ, "valueCode = ", valueCode.dump())
 	anonymousFields := map[string][]structFieldPair{}
 	f := valueCode
 	var prevAnonymousField *structFieldCode

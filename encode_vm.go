@@ -223,7 +223,7 @@ func (e *Encoder) run(code *opcode) error {
 					code.ptr = header.Data
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'[', ']', '\n'})
+					e.encodeBytes([]byte{'[', ']'})
 					code = headerCode.end.next
 				}
 			}
@@ -259,7 +259,7 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
-				e.encodeBytes([]byte{']', '\n'})
+				e.encodeByte(']')
 				code = c.end.next
 			}
 		case opRootSliceElemIndent:
@@ -421,7 +421,7 @@ func (e *Encoder) run(code *opcode) error {
 					e.encodeIndent(code.indent)
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'{', '}', '\n'})
+					e.encodeBytes([]byte{'{', '}'})
 					code = mapHeadCode.end.next
 				}
 			}
@@ -447,7 +447,7 @@ func (e *Encoder) run(code *opcode) error {
 					e.encodeIndent(code.indent)
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'{', '}', '\n'})
+					e.encodeBytes([]byte{'{', '}'})
 					code = mapHeadCode.end.next
 				}
 			}
@@ -487,7 +487,7 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent - 1)
-				e.encodeBytes([]byte{'}', '\n'})
+				e.encodeByte('}')
 				code = c.end.next
 			}
 		case opRootMapKeyIndent:
@@ -502,7 +502,7 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent - 1)
-				e.encodeBytes([]byte{'}'})
+				e.encodeByte('}')
 				code = c.end.next
 			}
 		case opMapValueIndent:

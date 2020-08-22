@@ -53,12 +53,12 @@ func (c *opcode) beforeLastCode() *opcode {
 	code := c
 	for {
 		var nextCode *opcode
-		switch code.op {
-		case opArrayElem, opArrayElemIndent:
+		switch code.op.codeType() {
+		case codeArrayElem:
 			nextCode = code.toArrayElemCode().end
-		case opSliceElem, opSliceElemIndent, opRootSliceElemIndent:
+		case codeSliceElem:
 			nextCode = code.toSliceElemCode().end
-		case opMapKey, opMapKeyIndent, opRootMapKeyIndent:
+		case codeMapKey:
 			nextCode = code.toMapKeyCode().end
 		default:
 			nextCode = code.next
@@ -112,13 +112,13 @@ func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
 		indent := strings.Repeat(" ", code.indent)
-		codes = append(codes, fmt.Sprintf("%s%s", indent, code.op))
-		switch code.op {
-		case opArrayElem, opArrayElemIndent:
+		codes = append(codes, fmt.Sprintf("%s%s ( %p )", indent, code.op, unsafe.Pointer(code)))
+		switch code.op.codeType() {
+		case codeArrayElem:
 			code = code.toArrayElemCode().end
-		case opSliceElem, opSliceElemIndent, opRootSliceElemIndent:
+		case codeSliceElem:
 			code = code.toSliceElemCode().end
-		case opMapKey, opMapKeyIndent, opRootMapKeyIndent:
+		case codeMapKey:
 			code = code.toMapKeyCode().end
 		default:
 			code = code.next
@@ -305,10 +305,41 @@ func (c *arrayElemCode) copy(codeMap map[uintptr]*opcode) *opcode {
 type structFieldCode struct {
 	*opcodeHeader
 	key          []byte
+	displayKey   string
 	offset       uintptr
 	anonymousKey bool
 	nextField    *opcode
 	end          *opcode
+}
+
+func linkPrevToNextField(prev, cur *structFieldCode) {
+	prev.nextField = cur.nextField
+	code := prev.toOpcode()
+	fcode := cur.toOpcode()
+	for {
+		var nextCode *opcode
+		switch code.op.codeType() {
+		case codeArrayElem:
+			nextCode = code.toArrayElemCode().end
+		case codeSliceElem:
+			nextCode = code.toSliceElemCode().end
+		case codeMapKey:
+			nextCode = code.toMapKeyCode().end
+		default:
+			nextCode = code.next
+		}
+		if nextCode == fcode {
+			code.next = fcode.next
+			break
+		} else if nextCode.op == opEnd {
+			break
+		}
+		code = nextCode
+	}
+}
+
+func (c *structFieldCode) toOpcode() *opcode {
+	return (*opcode)(unsafe.Pointer(c))
 }
 
 func (c *structFieldCode) copy(codeMap map[uintptr]*opcode) *opcode {
@@ -321,6 +352,7 @@ func (c *structFieldCode) copy(codeMap map[uintptr]*opcode) *opcode {
 	}
 	field := &structFieldCode{
 		key:          c.key,
+		displayKey:   c.displayKey,
 		anonymousKey: c.anonymousKey,
 		offset:       c.offset,
 	}

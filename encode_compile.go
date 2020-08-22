@@ -566,6 +566,60 @@ func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, tag
 	}
 	return code
 }
+
+func (e *Encoder) isNotExistsField(head *structFieldCode) bool {
+	if head == nil {
+		return false
+	}
+	if head.op != opStructFieldAnonymousHead {
+		return false
+	}
+	if head.next == nil {
+		return false
+	}
+	if head.nextField == nil {
+		return false
+	}
+	if head.nextField.op != opStructAnonymousEnd {
+		return false
+	}
+	if head.next.op == opStructAnonymousEnd {
+		return true
+	}
+	if head.next.op.codeType() != codeStructField {
+		return false
+	}
+	return e.isNotExistsField(head.next.toStructFieldCode())
+}
+
+func (e *Encoder) optimizeAnonymousFields(head *structFieldCode) {
+	code := head
+	var prev *structFieldCode
+	for {
+		if code.op == opStructEnd || code.op == opStructEndIndent {
+			break
+		}
+		if code.op == opStructField || code.op == opStructFieldIndent {
+			codeType := code.next.op.codeType()
+			if codeType == codeStructField {
+				if e.isNotExistsField(code.next.toStructFieldCode()) {
+					code.next = code.nextField
+					linkPrevToNextField(prev, code)
+					code = prev
+				}
+			}
+		}
+		prev = code
+		code = code.nextField.toStructFieldCode()
+	}
+}
+
+type structFieldPair struct {
+	prevField *structFieldCode
+	curField  *structFieldCode
+	linked    bool
+}
+
 func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opcode, error) {
 	if code := e.compiledCode(typ, withIndent); code != nil {
 		return code, nil
@@ -588,12 +642,17 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 		prevField *structFieldCode
 	)
 	e.indent++
+	tags := structTags{}
+	anonymousFields := map[string]structFieldPair{}
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
 		if isIgnoredStructField(field) {
 			continue
 		}
-		tag := structTagFromField(field)
+		tags = append(tags, structTagFromField(field))
+	}
+	for i, tag := range tags {
+		field := tag.field
 		fieldType := type2rtype(field.Type)
 		if isPtr && i == 0 {
 			// head field of pointer structure at top level
@@ -610,14 +669,57 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 		}
 		if field.Anonymous {
 			f := valueCode.toStructFieldCode()
+			var prevAnonymousField *structFieldCode
 			for {
-				f.op = f.op.headToAnonymousHead()
-				if f.op == opStructEnd {
+				existsKey := tags.existsKey(f.displayKey)
+				op := f.op.headToAnonymousHead()
+				if op != f.op {
+					if existsKey {
+						f.op = opStructFieldAnonymousHead
+					} else {
+						f.op = op
+					}
+				} else if f.op == opStructEnd {
 					f.op = opStructAnonymousEnd
+				} else if existsKey {
+					linkPrevToNextField(prevAnonymousField, f)
+				}
+
+				if f.displayKey == "" {
+					if f.nextField == nil {
+						break
+					}
+					prevAnonymousField = f
+					f = f.nextField.toStructFieldCode()
+					continue
+				}
+
+				// conflict anonymous fields
+				if existsFieldSet, exists := anonymousFields[f.displayKey]; exists {
+					if !existsFieldSet.linked {
+						if existsFieldSet.prevField == nil {
+							// head operation
+							existsFieldSet.curField.op = opStructFieldAnonymousHead
+						} else {
+							linkPrevToNextField(existsFieldSet.prevField, existsFieldSet.curField)
+						}
+						existsFieldSet.linked = true
+					}
+					if prevAnonymousField == nil {
+						// head operation
+						f.op = opStructFieldAnonymousHead
+					} else {
+						linkPrevToNextField(prevAnonymousField, f)
+					}
+				}
+				anonymousFields[f.displayKey] = structFieldPair{
+					prevField: prevAnonymousField,
+					curField:  f,
 				}
 				if f.nextField == nil {
 					break
 				}
+				prevAnonymousField = f
 				f = f.nextField.toStructFieldCode()
 			}
 		}
@@ -640,6 +742,7 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 			},
 			anonymousKey: field.Anonymous,
 			key:          []byte(key),
+			displayKey:   tag.key,
 			offset:       field.Offset,
 		}
 		if fieldIdx == 0 {
@@ -690,6 +793,9 @@ func (e *Encoder) compileStruct(typ *rtype, isPtr, root, withIndent bool) (*opco
 	}
 	head.end = structEndCode
 	code.next = structEndCode
+
+	e.optimizeAnonymousFields(head)
+
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret
 

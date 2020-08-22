@@ -25,6 +25,18 @@ type structTag struct {
 	key         string
 	isOmitEmpty bool
 	isString    bool
+	field       reflect.StructField
+}
+
+type structTags []*structTag
+
+func (t structTags) existsKey(key string) bool {
+	for _, tt := range t {
+		if tt.key == key {
+			return true
+		}
+	}
+	return false
 }
 
 func structTagFromField(field reflect.StructField) *structTag {
@@ -36,7 +48,7 @@ func structTagFromField(field reflect.StructField) *structTag {
 			keyName = opts[0]
 		}
 	}
-	st := &structTag{key: keyName}
+	st := &structTag{key: keyName, field: field}
 	if len(opts) > 1 {
 		st.isOmitEmpty = opts[1] == "omitempty"
 		st.isString = opts[1] == "string"

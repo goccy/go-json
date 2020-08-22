@@ -549,6 +549,16 @@ func (e *Encoder) run(code *opcode) error {
 				code.ptr = ptr
 				field.nextField.ptr = ptr
 			}
+		case opStructFieldAnonymousHead:
+			field := code.toStructFieldCode()
+			ptr := field.ptr
+			if ptr == 0 {
+				code = field.end.next
+			} else {
+				code = field.next
+				code.ptr = ptr
+				field.nextField.ptr = ptr
+			}
 		case opStructFieldPtrHeadInt:
 			code.ptr = e.ptrToPtr(code.ptr)
 			fallthrough
@@ -3872,7 +3882,9 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeByte(',')
 			}
 			c := code.toStructFieldCode()
-			e.encodeBytes(c.key)
+			if !c.anonymousKey {
+				e.encodeBytes(c.key)
+			}
 			code = code.next
 			code.ptr = c.ptr + c.offset
 			c.nextField.ptr = c.ptr

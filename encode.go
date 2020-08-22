@@ -148,6 +148,10 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 }
 
 func (e *Encoder) encode(v interface{}) error {
+	if v == nil {
+		e.encodeNull()
+		return nil
+	}
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
 

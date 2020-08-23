@@ -435,6 +435,26 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 		return opStructFieldHeadString
 	case opBool:
 		return opStructFieldHeadBool
+	case opMapHead:
+		return opStructFieldHeadMap
+	case opMapHeadLoad:
+		return opStructFieldHeadMapLoad
+	case opMapHeadIndent:
+		return opStructFieldHeadMapIndent
+	case opMapHeadLoadIndent:
+		return opStructFieldHeadMapLoadIndent
+	case opArrayHead:
+		return opStructFieldHeadArray
+	case opArrayHeadIndent:
+		return opStructFieldHeadArrayIndent
+	case opSliceHead:
+		return opStructFieldHeadSlice
+	case opSliceHeadIndent:
+		return opStructFieldHeadSliceIndent
+	case opStructFieldHead:
+		return opStructFieldHeadStruct
+	case opStructFieldHeadIndent:
+		return opStructFieldHeadStructIndent
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
 	case opMarshalText:
@@ -473,6 +493,26 @@ func (e *Encoder) typeToFieldType(op opType) opType {
 		return opStructFieldString
 	case opBool:
 		return opStructFieldBool
+	case opMapHead:
+		return opStructFieldMap
+	case opMapHeadLoad:
+		return opStructFieldMapLoad
+	case opMapHeadIndent:
+		return opStructFieldMapIndent
+	case opMapHeadLoadIndent:
+		return opStructFieldMapLoadIndent
+	case opArrayHead:
+		return opStructFieldArray
+	case opArrayHeadIndent:
+		return opStructFieldArrayIndent
+	case opSliceHead:
+		return opStructFieldSlice
+	case opSliceHeadIndent:
+		return opStructFieldSliceIndent
+	case opStructFieldHead:
+		return opStructFieldStruct
+	case opStructFieldHeadIndent:
+		return opStructFieldStructIndent
 	case opMarshalJSON:
 		return opStructFieldMarshalJSON
 	case opMarshalText:
@@ -541,10 +581,30 @@ func (e *Encoder) structHeader(fieldCode *structFieldCode, valueCode *opcode, ta
 	fieldCode.op = op
 	switch op {
 	case opStructFieldHead,
+		opStructFieldHeadSlice,
+		opStructFieldHeadArray,
+		opStructFieldHeadMap,
+		opStructFieldHeadMapLoad,
+		opStructFieldHeadStruct,
 		opStructFieldHeadOmitEmpty,
+		opStructFieldHeadOmitEmptySlice,
+		opStructFieldHeadOmitEmptyArray,
+		opStructFieldHeadOmitEmptyMap,
+		opStructFieldHeadOmitEmptyMapLoad,
+		opStructFieldHeadOmitEmptyStruct,
 		opStructFieldHeadStringTag,
 		opStructFieldHeadIndent,
+		opStructFieldHeadSliceIndent,
+		opStructFieldHeadArrayIndent,
+		opStructFieldHeadMapIndent,
+		opStructFieldHeadMapLoadIndent,
+		opStructFieldHeadStructIndent,
 		opStructFieldHeadOmitEmptyIndent,
+		opStructFieldHeadOmitEmptySliceIndent,
+		opStructFieldHeadOmitEmptyArrayIndent,
+		opStructFieldHeadOmitEmptyMapIndent,
+		opStructFieldHeadOmitEmptyMapLoadIndent,
+		opStructFieldHeadOmitEmptyStructIndent,
 		opStructFieldHeadStringTagIndent:
 		return valueCode.beforeLastCode()
 	}
@@ -557,10 +617,30 @@ func (e *Encoder) structField(fieldCode *structFieldCode, valueCode *opcode, tag
 	fieldCode.op = op
 	switch op {
 	case opStructField,
+		opStructFieldSlice,
+		opStructFieldArray,
+		opStructFieldMap,
+		opStructFieldMapLoad,
+		opStructFieldStruct,
 		opStructFieldOmitEmpty,
+		opStructFieldOmitEmptySlice,
+		opStructFieldOmitEmptyArray,
+		opStructFieldOmitEmptyMap,
+		opStructFieldOmitEmptyMapLoad,
+		opStructFieldOmitEmptyStruct,
 		opStructFieldStringTag,
 		opStructFieldIndent,
+		opStructFieldSliceIndent,
+		opStructFieldArrayIndent,
+		opStructFieldMapIndent,
+		opStructFieldMapLoadIndent,
+		opStructFieldStructIndent,
 		opStructFieldOmitEmptyIndent,
+		opStructFieldOmitEmptySliceIndent,
+		opStructFieldOmitEmptyArrayIndent,
+		opStructFieldOmitEmptyMapIndent,
+		opStructFieldOmitEmptyMapLoadIndent,
+		opStructFieldOmitEmptyStructIndent,
 		opStructFieldStringTagIndent:
 		return valueCode.beforeLastCode()
 	}

@@ -165,7 +165,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 				cursor++
 				*(*interface{})(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&literal))
 				return cursor, nil
-			case '\000':
+			case nul:
 				return 0, errUnexpectedEndOfJSON("string", cursor)
 			}
 			cursor++

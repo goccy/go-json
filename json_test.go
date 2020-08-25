@@ -199,6 +199,7 @@ func TestIndentErrors(t *testing.T) {
 }
 
 func diff(t *testing.T, a, b []byte) {
+	t.Helper()
 	for i := 0; ; i++ {
 		if i >= len(a) || i >= len(b) || a[i] != b[i] {
 			j := i - 10

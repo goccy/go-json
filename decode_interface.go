@@ -29,7 +29,7 @@ func (d *interfaceDecoder) numDecoder(s *stream) decoder {
 
 var (
 	interfaceMapType = type2rtype(
-		reflect.TypeOf((*map[interface{}]interface{})(nil)).Elem(),
+		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
 	)
 )
 
@@ -38,12 +38,12 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 	for {
 		switch s.char() {
 		case '{':
-			var v map[interface{}]interface{}
+			var v map[string]interface{}
 			ptr := unsafe.Pointer(&v)
 			d.dummy = ptr
 			if err := newMapDecoder(
 				interfaceMapType,
-				newInterfaceDecoder(d.typ),
+				newStringDecoder(),
 				newInterfaceDecoder(d.typ),
 			).decodeStream(s, uintptr(ptr)); err != nil {
 				return err
@@ -120,12 +120,12 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
-		var v map[interface{}]interface{}
+		var v map[string]interface{}
 		ptr := unsafe.Pointer(&v)
 		d.dummy = ptr
 		dec := newMapDecoder(
 			interfaceMapType,
-			newInterfaceDecoder(d.typ),
+			newStringDecoder(),
 			newInterfaceDecoder(d.typ),
 		)
 		cursor, err := dec.decode(buf, cursor, uintptr(ptr))
@@ -165,7 +165,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 				cursor++
 				*(*interface{})(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&literal))
 				return cursor, nil
-			case '\000':
+			case nul:
 				return 0, errUnexpectedEndOfJSON("string", cursor)
 			}
 			cursor++

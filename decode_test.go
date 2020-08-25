@@ -204,7 +204,7 @@ func Test_Decoder(t *testing.T) {
 			var v interface{}
 			assertErr(t, json.Unmarshal([]byte(`{"a": 1, "b": "c"}`), &v))
 			assertEq(t, "interface.kind", "map", reflect.TypeOf(v).Kind().String())
-			m := v.(map[interface{}]interface{})
+			m := v.(map[string]interface{})
 			assertEq(t, "interface", `1`, fmt.Sprint(m["a"]))
 			assertEq(t, "interface", `c`, fmt.Sprint(m["b"]))
 		})

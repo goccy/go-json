@@ -23,6 +23,7 @@ type decoder interface {
 type Decoder struct {
 	s                     *stream
 	disallowUnknownFields bool
+	structTypeToDecoder   map[uintptr]decoder
 }
 
 type decoderMap struct {
@@ -61,7 +62,9 @@ const (
 func NewDecoder(r io.Reader) *Decoder {
 	s := &stream{r: r}
 	s.read()
-	return &Decoder{s: s}
+	return &Decoder{
+		s: s,
+	}
 }
 
 // Buffered returns a reader of the data remaining in the Decoder's
@@ -90,7 +93,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	}
 	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
-
+		d.structTypeToDecoder = map[uintptr]decoder{}
 		compiledDec, err := d.compileHead(copiedType)
 		if err != nil {
 			return err
@@ -155,6 +158,7 @@ func (d *Decoder) Decode(v interface{}) error {
 
 	dec := cachedDecoder.get(typeptr)
 	if dec == nil {
+		d.structTypeToDecoder = map[uintptr]decoder{}
 		compiledDec, err := d.compileHead(typ)
 		if err != nil {
 			return err

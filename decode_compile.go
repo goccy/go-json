@@ -204,6 +204,12 @@ func (d *Decoder) compileInterface(typ *rtype) (decoder, error) {
 func (d *Decoder) compileStruct(typ *rtype) (decoder, error) {
 	fieldNum := typ.NumField()
 	fieldMap := map[string]*structFieldSet{}
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if dec, exists := d.structTypeToDecoder[typeptr]; exists {
+		return dec, nil
+	}
+	structDec := newStructDecoder(fieldMap)
+	d.structTypeToDecoder[typeptr] = structDec
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
 		if isIgnoredStructField(field) {
@@ -222,5 +228,6 @@ func (d *Decoder) compileStruct(typ *rtype) (decoder, error) {
 		fieldMap[tag.key] = fieldSet
 		fieldMap[strings.ToLower(tag.key)] = fieldSet
 	}
-	return newStructDecoder(fieldMap), nil
+	delete(d.structTypeToDecoder, typeptr)
+	return structDec, nil
 }

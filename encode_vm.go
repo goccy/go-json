@@ -74,9 +74,12 @@ func (e *Encoder) run(code *opcode) error {
 			if ptr == 0 || header.Data == 0 {
 				e.encodeNull()
 			} else {
-				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(code.ptr))
+				b := e.ptrToBytes(code.ptr)
+				encodedLen := base64.StdEncoding.EncodedLen(len(b))
 				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
+				buf := make([]byte, encodedLen)
+				base64.StdEncoding.Encode(buf, b)
+				e.encodeBytes(buf)
 				e.encodeByte('"')
 			}
 			code = code.next

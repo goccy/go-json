@@ -550,7 +550,7 @@ func (e *Encoder) run(code *opcode) error {
 					e.encodeBytes(field.key)
 				}
 				code = field.next
-				code.ptr = ptr
+				code.ptr = ptr + field.offset
 				field.nextField.ptr = ptr
 			}
 		case opStructFieldAnonymousHead:

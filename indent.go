@@ -52,9 +52,10 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 			if indentNum < 0 {
 				return errInvalidCharacter('}', "}", cursor)
 			}
-			b := []byte{'\n', c}
+			b := []byte{'\n'}
 			b = append(b, prefix...)
 			b = append(b, bytes.Repeat(indentBytes, indentNum)...)
+			b = append(b, c)
 			if _, err := dst.Write(b); err != nil {
 				return err
 			}
@@ -78,9 +79,10 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 			if indentNum < 0 {
 				return errInvalidCharacter(']', "]", cursor)
 			}
-			b := []byte{'\n', c}
+			b := []byte{'\n'}
 			b = append(b, prefix...)
 			b = append(b, bytes.Repeat(indentBytes, indentNum)...)
+			b = append(b, c)
 			if _, err := dst.Write(b); err != nil {
 				return err
 			}

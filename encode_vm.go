@@ -147,12 +147,22 @@ func (e *Encoder) run(code *opcode) error {
 				)
 			}
 			var buf bytes.Buffer
-			if err := compact(&buf, b, true); err != nil {
-				return err
+			if e.enabledIndent {
+				if err := encodeWithIndent(
+					&buf,
+					b,
+					string(e.prefix)+string(bytes.Repeat(e.indentStr, code.indent)),
+					string(e.indentStr),
+				); err != nil {
+					return err
+				}
+			} else {
+				if err := compact(&buf, b, true); err != nil {
+					return err
+				}
 			}
 			e.encodeBytes(buf.Bytes())
 			code = code.next
-			code.ptr = ptr
 		case opMarshalText:
 			ptr := code.ptr
 			isPtr := code.typ.Kind() == reflect.Ptr
@@ -179,7 +189,6 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			}
 			code = code.next
-			code.ptr = ptr
 		case opSliceHead:
 			p := code.ptr
 			headerCode := code.toSliceHeaderCode()
@@ -276,7 +285,7 @@ func (e *Encoder) run(code *opcode) error {
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
-				e.encodeBytes([]byte{']'})
+				e.encodeByte(']')
 				code = c.end.next
 			}
 		case opArrayHead:
@@ -1352,15 +1361,19 @@ func (e *Encoder) run(code *opcode) error {
 			field := code.toStructFieldCode()
 			ptr := field.ptr
 			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
+				if code.op == opStructFieldPtrHeadIntIndent {
+					e.encodeIndent(code.indent)
+					e.encodeNull()
+				} else {
+					e.encodeBytes([]byte{'{', '}'})
+				}
 				code = field.end
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
 				e.encodeIndent(code.indent + 1)
 				e.encodeBytes(field.key)
 				e.encodeByte(' ')
-				e.encodeInt(e.ptrToInt(ptr))
+				e.encodeInt(e.ptrToInt(ptr + field.offset))
 				field.nextField.ptr = ptr
 				code = field.next
 			}

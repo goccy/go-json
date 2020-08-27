@@ -189,7 +189,6 @@ func (e *Encoder) run(code *opcode) error {
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			}
 			code = code.next
-			code.ptr = ptr
 		case opSliceHead:
 			p := code.ptr
 			headerCode := code.toSliceHeaderCode()

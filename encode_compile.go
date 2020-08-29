@@ -10,13 +10,13 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
 	case typ.Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalJSON), nil
 	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalJSON), nil
 	case typ.Implements(marshalTextType):
-		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalText), nil
 	case rtype_ptrTo(typ).Implements(marshalTextType):
-		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalText), nil
 	}
 	isPtr := false
 	if typ.Kind() == reflect.Ptr {
@@ -49,13 +49,13 @@ func (e *Encoder) compile(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
 	case typ.Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalJSON), nil
 	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalJSON), nil
 	case typ.Implements(marshalTextType):
-		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalText), nil
 	case rtype_ptrTo(typ).Implements(marshalTextType):
-		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalText), nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
@@ -112,13 +112,13 @@ func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
 	case typ.Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalJSON), nil
 	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		return newOpCode(opMarshalJSON, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalJSON), nil
 	case typ.Implements(marshalTextType):
-		return newOpCode(opMarshalText, typ, e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx, opMarshalText), nil
 	case rtype_ptrTo(typ).Implements(marshalTextType):
-		return newOpCode(opMarshalText, rtype_ptrTo(typ), e.indent, newEndOp(e.indent)), nil
+		return newOpCode(ctx.withType(rtype_ptrTo(typ)), opMarshalText), nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
@@ -132,13 +132,12 @@ func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func (e *Encoder) optimizeStructFieldPtrHead(ctx *encodeCompileContext, code *opcode) *opcode {
-	typ := ctx.typ
 	ptrHeadOp := code.op.headToPtrHead()
 	if code.op != ptrHeadOp {
 		code.op = ptrHeadOp
 		return code
 	}
-	return newOpCode(opPtr, typ, e.indent, code)
+	return newOpCodeWithNext(ctx, opPtr, code)
 }
 
 func (e *Encoder) compilePtr(ctx *encodeCompileContext) (*opcode, error) {
@@ -150,63 +149,63 @@ func (e *Encoder) compilePtr(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func (e *Encoder) compileInt(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opInt, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opInt), nil
 }
 
 func (e *Encoder) compileInt8(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opInt8, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opInt8), nil
 }
 
 func (e *Encoder) compileInt16(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opInt16, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opInt16), nil
 }
 
 func (e *Encoder) compileInt32(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opInt32, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opInt32), nil
 }
 
 func (e *Encoder) compileInt64(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opInt64, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opInt64), nil
 }
 
 func (e *Encoder) compileUint(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opUint, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opUint), nil
 }
 
 func (e *Encoder) compileUint8(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opUint8, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opUint8), nil
 }
 
 func (e *Encoder) compileUint16(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opUint16, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opUint16), nil
 }
 
 func (e *Encoder) compileUint32(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opUint32, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opUint32), nil
 }
 
 func (e *Encoder) compileUint64(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opUint64, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opUint64), nil
 }
 
 func (e *Encoder) compileFloat32(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opFloat32, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opFloat32), nil
 }
 
 func (e *Encoder) compileFloat64(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opFloat64, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opFloat64), nil
 }
 
 func (e *Encoder) compileString(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opString, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opString), nil
 }
 
 func (e *Encoder) compileBool(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opBool, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opBool), nil
 }
 
 func (e *Encoder) compileBytes(ctx *encodeCompileContext) (*opcode, error) {
-	return newOpCode(opBytes, ctx.typ, e.indent, newEndOp(e.indent)), nil
+	return newOpCode(ctx, opBytes), nil
 }
 
 func (e *Encoder) compileInterface(ctx *encodeCompileContext) (*opcode, error) {
@@ -214,8 +213,8 @@ func (e *Encoder) compileInterface(ctx *encodeCompileContext) (*opcode, error) {
 		opcodeHeader: &opcodeHeader{
 			op:     opInterface,
 			typ:    ctx.typ,
-			indent: e.indent,
-			next:   newEndOp(e.indent),
+			indent: ctx.indent,
+			next:   newEndOp(ctx),
 		},
 		root: ctx.root,
 	})), nil
@@ -226,10 +225,7 @@ func (e *Encoder) compileSlice(ctx *encodeCompileContext) (*opcode, error) {
 	elem := ctx.typ.Elem()
 	size := elem.Size()
 
-	e.indent++
-	code, err := e.compile(ctx.withType(ctx.typ.Elem()))
-	e.indent--
-
+	code, err := e.compile(ctx.withType(ctx.typ.Elem()).incIndent())
 	if err != nil {
 		return nil, err
 	}
@@ -238,15 +234,15 @@ func (e *Encoder) compileSlice(ctx *encodeCompileContext) (*opcode, error) {
 	//             ^        |
 	//             |________|
 
-	header := newSliceHeaderCode(e.indent)
+	header := newSliceHeaderCode(ctx.indent)
 	elemCode := &sliceElemCode{
 		opcodeHeader: &opcodeHeader{
 			op:     opSliceElem,
-			indent: e.indent,
+			indent: ctx.indent,
 		},
 		size: size,
 	}
-	end := newOpCode(opSliceEnd, nil, e.indent, newEndOp(e.indent))
+	end := newOpCode(ctx, opSliceEnd)
 	if ctx.withIndent {
 		if ctx.root {
 			header.op = opRootSliceHeadIndent
@@ -274,10 +270,7 @@ func (e *Encoder) compileArray(ctx *encodeCompileContext) (*opcode, error) {
 	alen := typ.Len()
 	size := elem.Size()
 
-	e.indent++
-	code, err := e.compile(ctx.withType(elem))
-	e.indent--
-
+	code, err := e.compile(ctx.withType(elem).incIndent())
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +278,7 @@ func (e *Encoder) compileArray(ctx *encodeCompileContext) (*opcode, error) {
 	//             ^        |
 	//             |________|
 
-	header := newArrayHeaderCode(e.indent, alen)
+	header := newArrayHeaderCode(ctx.indent, alen)
 	elemCode := &arrayElemCode{
 		opcodeHeader: &opcodeHeader{
 			op: opArrayElem,
@@ -293,7 +286,7 @@ func (e *Encoder) compileArray(ctx *encodeCompileContext) (*opcode, error) {
 		len:  uintptr(alen),
 		size: size,
 	}
-	end := newOpCode(opArrayEnd, nil, e.indent, newEndOp(e.indent))
+	end := newOpCode(ctx, opArrayEnd)
 
 	if ctx.withIndent {
 		header.op = opArrayHeadIndent
@@ -330,7 +323,7 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 	// header => code => value => code => key => code => value => code => end
 	//                                     ^                       |
 	//                                     |_______________________|
-	e.indent++
+	ctx = ctx.incIndent()
 	typ := ctx.typ
 	keyType := ctx.typ.Key()
 	keyCode, err := e.compileKey(ctx.withType(keyType))
@@ -343,15 +336,15 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 		return nil, err
 	}
 
-	key := newMapKeyCode(e.indent)
-	value := newMapValueCode(e.indent)
+	key := newMapKeyCode(ctx.indent)
+	value := newMapValueCode(ctx.indent)
 
-	e.indent--
+	ctx = ctx.decIndent()
 
-	header := newMapHeaderCode(typ, withLoad, e.indent)
+	header := newMapHeaderCode(typ, withLoad, ctx.indent)
 	header.key = key
 	header.value = value
-	end := newOpCode(opMapEnd, nil, e.indent, newEndOp(e.indent))
+	end := newOpCode(ctx, opMapEnd)
 
 	if ctx.withIndent {
 		if header.op == opMapHead {
@@ -533,8 +526,8 @@ func (e *Encoder) recursiveCode(ctx *encodeCompileContext, code *compiledCode) *
 		opcodeHeader: &opcodeHeader{
 			op:     opStructFieldRecursive,
 			typ:    ctx.typ,
-			indent: e.indent,
-			next:   newEndOp(e.indent),
+			indent: ctx.indent,
+			next:   newEndOp(ctx),
 		},
 		jmp: code,
 	}))
@@ -793,7 +786,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		code      *opcode
 		prevField *structFieldCode
 	)
-	e.indent++
+	ctx = ctx.incIndent()
 	tags := structTags{}
 	anonymousFields := map[string][]structFieldPair{}
 	for i := 0; i < fieldNum; i++ {
@@ -839,7 +832,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			opcodeHeader: &opcodeHeader{
 				typ:    valueCode.typ,
 				next:   valueCode,
-				indent: e.indent,
+				indent: ctx.indent,
 			},
 			anonymousKey: field.Anonymous,
 			key:          []byte(key),
@@ -860,16 +853,16 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		}
 		fieldIdx++
 	}
-	e.indent--
+	ctx = ctx.decIndent()
 
 	structEndCode := (*opcode)(unsafe.Pointer(&structFieldCode{
 		opcodeHeader: &opcodeHeader{
 			op:     opStructEnd,
 			typ:    nil,
-			indent: e.indent,
+			indent: ctx.indent,
 		},
 	}))
-	structEndCode.next = newEndOp(e.indent)
+	structEndCode.next = newEndOp(ctx)
 	if ctx.withIndent {
 		structEndCode.op = opStructEndIndent
 	}
@@ -884,7 +877,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			opcodeHeader: &opcodeHeader{
 				op:     opStructFieldHead,
 				typ:    typ,
-				indent: e.indent,
+				indent: ctx.indent,
 			},
 			nextField: structEndCode,
 		}

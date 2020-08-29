@@ -109,13 +109,13 @@ func (e *Encoder) run(code *opcode) error {
 			if typ.Kind() == reflect.Ptr {
 				typ = typ.Elem()
 			}
-			e.indent = ifaceCode.indent
 			var c *opcode
 			if typ.Kind() == reflect.Map {
 				code, err := e.compileMap(&encodeCompileContext{
 					typ:        typ,
 					root:       ifaceCode.root,
 					withIndent: e.enabledIndent,
+					indent:     ifaceCode.indent,
 				}, false)
 				if err != nil {
 					return err
@@ -126,6 +126,7 @@ func (e *Encoder) run(code *opcode) error {
 					typ:        typ,
 					root:       ifaceCode.root,
 					withIndent: e.enabledIndent,
+					indent:     ifaceCode.indent,
 				})
 				if err != nil {
 					return err

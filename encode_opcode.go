@@ -34,19 +34,30 @@ type opcode struct {
 	*opcodeHeader
 }
 
-func newOpCode(op opType, typ *rtype, indent int, next *opcode) *opcode {
+func newOpCode(ctx *encodeCompileContext, op opType) *opcode {
 	return &opcode{
 		opcodeHeader: &opcodeHeader{
 			op:     op,
-			typ:    typ,
-			indent: indent,
+			typ:    ctx.typ,
+			indent: ctx.indent,
+			next:   newEndOp(ctx),
+		},
+	}
+}
+
+func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opcode {
+	return &opcode{
+		opcodeHeader: &opcodeHeader{
+			op:     op,
+			typ:    ctx.typ,
+			indent: ctx.indent,
 			next:   next,
 		},
 	}
 }
 
-func newEndOp(indent int) *opcode {
-	return newOpCode(opEnd, nil, indent, nil)
+func newEndOp(ctx *encodeCompileContext) *opcode {
+	return newOpCodeWithNext(ctx, opEnd, nil)
 }
 
 func (c *opcode) beforeLastCode() *opcode {
@@ -547,7 +558,7 @@ func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
 func newRecursiveCode(recursive *recursiveCode) *opcode {
 	code := copyOpcode(recursive.jmp.code)
 	head := (*structFieldCode)(unsafe.Pointer(code))
-	head.end.next = newEndOp(0)
+	head.end.next = newEndOp(&encodeCompileContext{})
 	code.ptr = recursive.ptr
 
 	code.op = code.op.ptrHeadToHead()

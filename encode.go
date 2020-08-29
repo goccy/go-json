@@ -19,7 +19,6 @@ type Encoder struct {
 	enabledHTMLEscape              bool
 	prefix                         []byte
 	indentStr                      []byte
-	indent                         int
 	structTypeToCompiledCode       map[uintptr]*compiledCode
 	structTypeToCompiledIndentCode map[uintptr]*compiledCode
 }
@@ -123,7 +122,6 @@ func (e *Encoder) release() {
 
 func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
-	e.indent = 0
 	e.enabledHTMLEscape = true
 	e.enabledIndent = false
 }

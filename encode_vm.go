@@ -112,13 +112,21 @@ func (e *Encoder) run(code *opcode) error {
 			e.indent = ifaceCode.indent
 			var c *opcode
 			if typ.Kind() == reflect.Map {
-				code, err := e.compileMap(typ, false, ifaceCode.root, e.enabledIndent)
+				code, err := e.compileMap(&encodeCompileContext{
+					typ:        typ,
+					root:       ifaceCode.root,
+					withIndent: e.enabledIndent,
+				}, false)
 				if err != nil {
 					return err
 				}
 				c = code
 			} else {
-				code, err := e.compile(typ, ifaceCode.root, e.enabledIndent)
+				code, err := e.compile(&encodeCompileContext{
+					typ:        typ,
+					root:       ifaceCode.root,
+					withIndent: e.enabledIndent,
+				})
 				if err != nil {
 					return err
 				}

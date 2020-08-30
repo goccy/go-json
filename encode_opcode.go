@@ -16,7 +16,6 @@ type opcodeHeader struct {
 	op     opType
 	typ    *rtype
 	idx    int
-	ptr    uintptr
 	indent int
 	next   *opcode
 }
@@ -26,7 +25,6 @@ func (h *opcodeHeader) copy(codeMap map[uintptr]*opcode) *opcodeHeader {
 		op:     h.op,
 		typ:    h.typ,
 		idx:    h.idx,
-		ptr:    h.ptr,
 		indent: h.indent,
 		next:   h.next.copy(codeMap),
 	}
@@ -616,7 +614,6 @@ func newRecursiveCode(recursive *recursiveCode) *opcode {
 	code := copyOpcode(recursive.jmp.code)
 	head := (*structFieldCode)(unsafe.Pointer(code))
 	head.end.next = newEndOp(&encodeCompileContext{})
-	code.ptr = recursive.ptr
 
 	code.op = code.op.ptrHeadToHead()
 	return code

@@ -162,19 +162,17 @@ func (e *Encoder) encode(v interface{}) error {
 		} else {
 			code = codeSet.code.Get().(*opcode)
 		}
-		ctx := codeSet.ctx.Get().(encodeRuntimeContext)
+		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
 		ctx.init(p)
-		code.ptr = p
-		if err := e.run(ctx, code); err != nil {
-			return err
-		}
+		err := e.run(ctx, code)
 		if e.enabledIndent {
 			codeSet.codeIndent.Put(code)
 		} else {
 			codeSet.code.Put(code)
 		}
-		return nil
+		codeSet.ctx.Put(ctx)
+		return err
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -210,20 +208,28 @@ func (e *Encoder) encode(v interface{}) error {
 		},
 		ctx: sync.Pool{
 			New: func() interface{} {
-				return make(encodeRuntimeContext, codeLength)
+				return &encodeRuntimeContext{
+					ptrs:    make([]uintptr, codeLength),
+					seenPtr: map[uintptr]struct{}{},
+				}
 			},
 		},
 	}
 	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
-	ctx := codeSet.ctx.Get().(encodeRuntimeContext)
+	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 	ctx.init(p)
 	if e.enabledIndent {
-		codeIndent.ptr = p
-		return e.run(ctx, codeIndent)
+		err := e.run(ctx, codeIndent)
+		codeSet.ctx.Put(ctx)
+		return err
 	}
-	code.ptr = p
-	return e.run(ctx, code)
+	if err := e.run(ctx, code); err != nil {
+		codeSet.ctx.Put(ctx)
+		return err
+	}
+	codeSet.ctx.Put(ctx)
+	return err
 }
 
 func (e *Encoder) encodeInt(v int) {

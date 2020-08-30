@@ -58,13 +58,16 @@ func (c *encodeCompileContext) decOpcodeIndex() {
 	}
 }
 
-type encodeRuntimeContext []uintptr
-
-func (c *encodeRuntimeContext) init(p uintptr) {
-	(*c)[0] = p
+type encodeRuntimeContext struct {
+	ptrs    []uintptr
+	seenPtr map[uintptr]struct{}
 }
 
-func (c *encodeRuntimeContext) ptr() *uintptr {
-	header := (*reflect.SliceHeader)(unsafe.Pointer(c))
-	return (*uintptr)(unsafe.Pointer(&header.Data))
+func (c *encodeRuntimeContext) init(p uintptr) {
+	c.ptrs[0] = p
+}
+
+func (c *encodeRuntimeContext) ptr() uintptr {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&c.ptrs))
+	return header.Data
 }

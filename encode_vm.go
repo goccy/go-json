@@ -11,7 +11,7 @@ import (
 	"unsafe"
 )
 
-func (e *Encoder) run(code *opcode) error {
+func (e *Encoder) run(ctx encodeRuntimeContext, code *opcode) error {
 	seenPtr := map[uintptr]struct{}{}
 	for {
 		switch code.op {
@@ -546,7 +546,7 @@ func (e *Encoder) run(code *opcode) error {
 				}
 			}
 			recursive.seenPtr = recursive.ptr
-			if err := e.run(newRecursiveCode(recursive)); err != nil {
+			if err := e.run(nil, newRecursiveCode(recursive)); err != nil {
 				return err
 			}
 			code = recursive.next

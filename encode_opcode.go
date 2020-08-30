@@ -78,6 +78,24 @@ func (c *opcode) beforeLastCode() *opcode {
 	return nil
 }
 
+func (c *opcode) length() int {
+	var idx int
+	for code := c; code.op != opEnd; {
+		idx = code.idx
+		switch code.op.codeType() {
+		case codeArrayElem:
+			code = code.toArrayElemCode().end
+		case codeSliceElem:
+			code = code.toSliceElemCode().end
+		case codeMapKey:
+			code = code.toMapKeyCode().end
+		default:
+			code = code.next
+		}
+	}
+	return idx + 1
+}
+
 func (c *opcode) decOpcodeIndex() {
 	for code := c; code.op != opEnd; {
 		code.idx--

@@ -1,5 +1,10 @@
 package json
 
+import (
+	"reflect"
+	"unsafe"
+)
+
 type encodeCompileContext struct {
 	typ         *rtype
 	withIndent  bool
@@ -51,4 +56,15 @@ func (c *encodeCompileContext) decOpcodeIndex() {
 	if c.parent != nil {
 		c.parent.decOpcodeIndex()
 	}
+}
+
+type encodeRuntimeContext []uintptr
+
+func (c *encodeRuntimeContext) init(p uintptr) {
+	(*c)[0] = p
+}
+
+func (c *encodeRuntimeContext) ptr() *uintptr {
+	header := (*reflect.SliceHeader)(unsafe.Pointer(c))
+	return (*uintptr)(unsafe.Pointer(&header.Data))
 }

@@ -63,6 +63,10 @@ type encodeRuntimeContext struct {
 	seenPtr map[uintptr]struct{}
 }
 
+func (c *encodeRuntimeContext) reset() {
+	c.seenPtr = map[uintptr]struct{}{}
+}
+
 func (c *encodeRuntimeContext) init(p uintptr) {
 	c.ptrs[0] = p
 }

@@ -164,6 +164,7 @@ func (e *Encoder) encode(v interface{}) error {
 		}
 		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
+		ctx.reset()
 		ctx.init(p)
 		err := e.run(ctx, code)
 		if e.enabledIndent {
@@ -218,6 +219,7 @@ func (e *Encoder) encode(v interface{}) error {
 	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
 	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
+	ctx.reset()
 	ctx.init(p)
 	if e.enabledIndent {
 		err := e.run(ctx, codeIndent)

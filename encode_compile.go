@@ -267,11 +267,12 @@ func (e *Encoder) compileBytes(ctx *encodeCompileContext) (*opcode, error) {
 func (e *Encoder) compileInterface(ctx *encodeCompileContext) (*opcode, error) {
 	code := (*opcode)(unsafe.Pointer(&interfaceCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opInterface,
-			typ:    ctx.typ,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
-			next:   newEndOp(ctx),
+			op:         opInterface,
+			typ:        ctx.typ,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
+			next:       newEndOp(ctx),
 		},
 		root: ctx.root,
 	}))
@@ -588,11 +589,12 @@ func (e *Encoder) optimizeStructField(op opType, tag *structTag, withIndent bool
 func (e *Encoder) recursiveCode(ctx *encodeCompileContext, code *compiledCode) *opcode {
 	c := (*opcode)(unsafe.Pointer(&recursiveCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opStructFieldRecursive,
-			typ:    ctx.typ,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
-			next:   newEndOp(ctx),
+			op:         opStructFieldRecursive,
+			typ:        ctx.typ,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
+			next:       newEndOp(ctx),
 		},
 		jmp: code,
 	}))
@@ -726,7 +728,7 @@ func (e *Encoder) optimizeAnonymousFields(head *structFieldCode) {
 			if codeType == codeStructField {
 				if e.isNotExistsField(code.next.toStructFieldCode()) {
 					code.next = code.nextField
-					diff := code.next.idx - code.idx
+					diff := code.next.displayIdx - code.displayIdx
 					for i := 0; i < diff; i++ {
 						code.next.decOpcodeIndex()
 					}
@@ -763,7 +765,7 @@ func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, value
 		} else if f.op == opStructEnd {
 			f.op = opStructAnonymousEnd
 		} else if existsKey {
-			diff := f.nextField.idx - f.idx
+			diff := f.nextField.displayIdx - f.displayIdx
 			for i := 0; i < diff; i++ {
 				f.nextField.decOpcodeIndex()
 			}
@@ -814,7 +816,7 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 						// head operation
 						fieldPair.curField.op = opStructFieldAnonymousHead
 					} else {
-						diff := fieldPair.curField.nextField.idx - fieldPair.curField.idx
+						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
 							fieldPair.curField.nextField.decOpcodeIndex()
 						}
@@ -831,7 +833,7 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 						// head operation
 						fieldPair.curField.op = opStructFieldAnonymousHead
 					} else {
-						diff := fieldPair.curField.nextField.idx - fieldPair.curField.idx
+						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
 							fieldPair.curField.nextField.decOpcodeIndex()
 						}
@@ -919,10 +921,11 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		fieldCode := &structFieldCode{
 			opcodeHeader: &opcodeHeader{
-				typ:    valueCode.typ,
-				idx:    fieldOpcodeIndex,
-				next:   valueCode,
-				indent: ctx.indent,
+				typ:        valueCode.typ,
+				displayIdx: fieldOpcodeIndex,
+				idx:        uintptr(fieldOpcodeIndex) * 8,
+				next:       valueCode,
+				indent:     ctx.indent,
 			},
 			anonymousKey: field.Anonymous,
 			key:          []byte(key),
@@ -958,10 +961,11 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	if head == nil {
 		head = &structFieldCode{
 			opcodeHeader: &opcodeHeader{
-				op:     opStructFieldHead,
-				typ:    typ,
-				idx:    ctx.opcodeIndex,
-				indent: ctx.indent,
+				op:         opStructFieldHead,
+				typ:        typ,
+				displayIdx: ctx.opcodeIndex,
+				idx:        uintptr(ctx.opcodeIndex) * 8,
+				indent:     ctx.indent,
 			},
 			nextField: structEndCode,
 		}
@@ -972,7 +976,8 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		code = (*opcode)(unsafe.Pointer(head))
 	}
 
-	structEndCode.idx = ctx.opcodeIndex
+	structEndCode.displayIdx = ctx.opcodeIndex
+	structEndCode.idx = uintptr(ctx.opcodeIndex) * 8
 	ctx.incOpcodeIndex()
 
 	if ctx.withIndent {

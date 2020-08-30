@@ -11,17 +11,16 @@ import (
 	"unsafe"
 )
 
-func load(base uintptr, idx int) uintptr {
-	return *(*uintptr)(unsafe.Pointer(base + uintptr(idx)*8))
+func load(base uintptr, idx uintptr) uintptr {
+	return *(*uintptr)(unsafe.Pointer(base + idx))
 }
 
-func store(base uintptr, idx int, p uintptr) {
-	*(*uintptr)(unsafe.Pointer(base + uintptr(idx)*8)) = p
+func store(base uintptr, idx uintptr, p uintptr) {
+	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
-func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
+func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, code *opcode) error {
 	ctxptr := ctx.ptr()
-	seenPtr := ctx.seenPtr
 	for {
 		switch code.op {
 		case opPtr:
@@ -143,11 +142,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				c = code
 			}
 			ctx := &encodeRuntimeContext{
-				ptrs:    make([]uintptr, c.length()),
-				seenPtr: seenPtr,
+				ptrs: make([]uintptr, c.length()),
 			}
 			ctx.init(uintptr(header.ptr))
-			if err := e.run(ctx, c); err != nil {
+			if err := e.run(ctx, seenPtr, c); err != nil {
 				return err
 			}
 			code = ifaceCode.next
@@ -566,11 +564,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			recursive.seenPtr = ptr
 			recursiveCode := newRecursiveCode(recursive)
 			ctx := &encodeRuntimeContext{
-				ptrs:    make([]uintptr, recursiveCode.length()),
-				seenPtr: seenPtr,
+				ptrs: make([]uintptr, recursiveCode.length()),
 			}
 			ctx.init(ptr)
-			if err := e.run(ctx, recursiveCode); err != nil {
+			if err := e.run(ctx, seenPtr, recursiveCode); err != nil {
 				return err
 			}
 			code = recursive.next

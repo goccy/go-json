@@ -164,9 +164,9 @@ func (e *Encoder) encode(v interface{}) error {
 		}
 		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
-		ctx.reset()
 		ctx.init(p)
-		err := e.run(ctx, code)
+		seenPtr := map[uintptr]struct{}{}
+		err := e.run(ctx, seenPtr, code)
 		if e.enabledIndent {
 			codeSet.codeIndent.Put(code)
 		} else {
@@ -210,8 +210,7 @@ func (e *Encoder) encode(v interface{}) error {
 		ctx: sync.Pool{
 			New: func() interface{} {
 				return &encodeRuntimeContext{
-					ptrs:    make([]uintptr, codeLength),
-					seenPtr: map[uintptr]struct{}{},
+					ptrs: make([]uintptr, codeLength),
 				}
 			},
 		},
@@ -219,19 +218,22 @@ func (e *Encoder) encode(v interface{}) error {
 	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
 	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
-	ctx.reset()
 	ctx.init(p)
+
+	var c *opcode
 	if e.enabledIndent {
-		err := e.run(ctx, codeIndent)
-		codeSet.ctx.Put(ctx)
-		return err
+		c = codeIndent
+	} else {
+		c = code
 	}
-	if err := e.run(ctx, code); err != nil {
+
+	seenPtr := map[uintptr]struct{}{}
+	if err := e.run(ctx, seenPtr, c); err != nil {
 		codeSet.ctx.Put(ctx)
 		return err
 	}
 	codeSet.ctx.Put(ctx)
-	return err
+	return nil
 }
 
 func (e *Encoder) encodeInt(v int) {

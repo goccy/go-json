@@ -13,20 +13,22 @@ func copyOpcode(code *opcode) *opcode {
 }
 
 type opcodeHeader struct {
-	op     opType
-	typ    *rtype
-	idx    int
-	indent int
-	next   *opcode
+	op         opType
+	typ        *rtype
+	displayIdx int
+	idx        uintptr
+	indent     int
+	next       *opcode
 }
 
 func (h *opcodeHeader) copy(codeMap map[uintptr]*opcode) *opcodeHeader {
 	return &opcodeHeader{
-		op:     h.op,
-		typ:    h.typ,
-		idx:    h.idx,
-		indent: h.indent,
-		next:   h.next.copy(codeMap),
+		op:         h.op,
+		typ:        h.typ,
+		displayIdx: h.displayIdx,
+		idx:        h.idx,
+		indent:     h.indent,
+		next:       h.next.copy(codeMap),
 	}
 }
 
@@ -41,11 +43,12 @@ func newOpCode(ctx *encodeCompileContext, op opType) *opcode {
 func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opcode {
 	return &opcode{
 		opcodeHeader: &opcodeHeader{
-			op:     op,
-			typ:    ctx.typ,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
-			next:   next,
+			op:         op,
+			typ:        ctx.typ,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
+			next:       next,
 		},
 	}
 }
@@ -79,7 +82,7 @@ func (c *opcode) beforeLastCode() *opcode {
 func (c *opcode) length() int {
 	var idx int
 	for code := c; code.op != opEnd; {
-		idx = code.idx
+		idx = code.displayIdx
 		switch code.op.codeType() {
 		case codeArrayElem:
 			code = code.toArrayElemCode().end
@@ -96,7 +99,8 @@ func (c *opcode) length() int {
 
 func (c *opcode) decOpcodeIndex() {
 	for code := c; code.op != opEnd; {
-		code.idx--
+		code.displayIdx--
+		code.idx -= 8
 		switch code.op.codeType() {
 		case codeArrayElem:
 			code = code.toArrayElemCode().end
@@ -153,22 +157,22 @@ func (c *opcode) dump() string {
 		indent := strings.Repeat(" ", code.indent)
 		switch code.op.codeType() {
 		case codeArrayElem:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.idx, indent, code.op, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
 			code = code.toArrayElemCode().end
 		case codeSliceElem:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.idx, indent, code.op, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
 			code = code.toSliceElemCode().end
 		case codeMapKey:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.idx, indent, code.op, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
 			code = code.toMapKeyCode().end
 		case codeStructField:
 			sf := code.toStructFieldCode()
 			key := sf.displayKey
 			offset := sf.offset
-			codes = append(codes, fmt.Sprintf("[%d]%s%s [%s:%d] ( %p )", code.idx, indent, code.op, key, offset, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf("[%d]%s%s [%s:%d] ( %p )", code.displayIdx, indent, code.op, key, offset, unsafe.Pointer(code)))
 			code = code.next
 		default:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.idx, indent, code.op, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
 			code = code.next
 		}
 	}
@@ -224,9 +228,10 @@ type sliceHeaderCode struct {
 func newSliceHeaderCode(ctx *encodeCompileContext) *sliceHeaderCode {
 	return &sliceHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opSliceHead,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         opSliceHead,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 	}
 }
@@ -234,9 +239,10 @@ func newSliceHeaderCode(ctx *encodeCompileContext) *sliceHeaderCode {
 func newSliceElemCode(ctx *encodeCompileContext, size uintptr) *sliceElemCode {
 	return &sliceElemCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opSliceElem,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         opSliceElem,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 		size: size,
 	}
@@ -307,9 +313,10 @@ type arrayHeaderCode struct {
 func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *arrayHeaderCode {
 	return &arrayHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opArrayHead,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         opArrayHead,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 		len: uintptr(alen),
 	}
@@ -318,8 +325,9 @@ func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *arrayHeaderCode {
 func newArrayElemCode(ctx *encodeCompileContext, alen int, size uintptr) *arrayElemCode {
 	return &arrayElemCode{
 		opcodeHeader: &opcodeHeader{
-			op:  opArrayElem,
-			idx: ctx.opcodeIndex,
+			op:         opArrayElem,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
 		},
 		len:  uintptr(alen),
 		size: size,
@@ -536,10 +544,11 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *mapHeaderCode {
 	}
 	return &mapHeaderCode{
 		opcodeHeader: &opcodeHeader{
-			op:     op,
-			typ:    ctx.typ,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         op,
+			typ:        ctx.typ,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 	}
 }
@@ -547,9 +556,10 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *mapHeaderCode {
 func newMapKeyCode(ctx *encodeCompileContext) *mapKeyCode {
 	return &mapKeyCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opMapKey,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         opMapKey,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 	}
 }
@@ -557,9 +567,10 @@ func newMapKeyCode(ctx *encodeCompileContext) *mapKeyCode {
 func newMapValueCode(ctx *encodeCompileContext) *mapValueCode {
 	return &mapValueCode{
 		opcodeHeader: &opcodeHeader{
-			op:     opMapValue,
-			idx:    ctx.opcodeIndex,
-			indent: ctx.indent,
+			op:         opMapValue,
+			displayIdx: ctx.opcodeIndex,
+			idx:        uintptr(ctx.opcodeIndex) * 8,
+			indent:     ctx.indent,
 		},
 	}
 }

@@ -59,12 +59,7 @@ func (c *encodeCompileContext) decOpcodeIndex() {
 }
 
 type encodeRuntimeContext struct {
-	ptrs    []uintptr
-	seenPtr map[uintptr]struct{}
-}
-
-func (c *encodeRuntimeContext) reset() {
-	c.seenPtr = map[uintptr]struct{}{}
+	ptrs []uintptr
 }
 
 func (c *encodeRuntimeContext) init(p uintptr) {

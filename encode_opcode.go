@@ -2,54 +2,56 @@ package json
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"unsafe"
 )
 
-func copyOpcode(code *opcode) *opcode {
-	codeMap := map[uintptr]*opcode{}
-	return code.copy(codeMap)
-}
-
-type opcodeHeader struct {
-	op         opType
-	typ        *rtype
-	displayIdx int
-	idx        uintptr
-	indent     int
-	next       *opcode
-}
-
-func (h *opcodeHeader) copy(codeMap map[uintptr]*opcode) *opcodeHeader {
-	return &opcodeHeader{
-		op:         h.op,
-		typ:        h.typ,
-		displayIdx: h.displayIdx,
-		idx:        h.idx,
-		indent:     h.indent,
-		next:       h.next.copy(codeMap),
-	}
-}
+var uintptrSize = unsafe.Sizeof(uintptr(0))
 
 type opcode struct {
-	*opcodeHeader
+	op           opType // operation type
+	typ          *rtype // go type
+	displayIdx   int    // opcode index
+	key          []byte // struct field key
+	displayKey   string // key text to display
+	isTaggedKey  bool   // whether tagged key
+	anonymousKey bool   // whether anonymous key
+	root         bool   // whether root
+	indent       int    // indent number
+
+	idx     uintptr // offset to access ptr
+	headIdx uintptr // offset to access slice/struct head
+	elemIdx uintptr // offset to access array/slice/map elem
+	length  uintptr // offset to access slice/map length or array length
+	mapIter uintptr // offset to access map iterator
+	offset  uintptr // offset size from struct header
+	size    uintptr // array/slice elem size
+
+	mapKey    *opcode       // map key
+	mapValue  *opcode       // map value
+	elem      *opcode       // array/slice elem
+	end       *opcode       // array/slice/struct/map end
+	nextField *opcode       // next struct field
+	next      *opcode       // next opcode
+	jmp       *compiledCode // for recursive call
 }
 
 func newOpCode(ctx *encodeCompileContext, op opType) *opcode {
 	return newOpCodeWithNext(ctx, op, newEndOp(ctx))
 }
 
+func opcodeOffset(idx int) uintptr {
+	return uintptr(idx) * uintptrSize
+}
+
 func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opcode {
 	return &opcode{
-		opcodeHeader: &opcodeHeader{
-			op:         op,
-			typ:        ctx.typ,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-			next:       next,
-		},
+		op:         op,
+		typ:        ctx.typ,
+		displayIdx: ctx.opcodeIndex,
+		indent:     ctx.indent,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		next:       next,
 	}
 }
 
@@ -62,12 +64,8 @@ func (c *opcode) beforeLastCode() *opcode {
 	for {
 		var nextCode *opcode
 		switch code.op.codeType() {
-		case codeArrayElem:
-			nextCode = code.toArrayElemCode().end
-		case codeSliceElem:
-			nextCode = code.toSliceElemCode().end
-		case codeMapKey:
-			nextCode = code.toMapKeyCode().end
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			nextCode = code.end
 		default:
 			nextCode = code.next
 		}
@@ -79,17 +77,13 @@ func (c *opcode) beforeLastCode() *opcode {
 	return nil
 }
 
-func (c *opcode) length() int {
+func (c *opcode) totalLength() int {
 	var idx int
 	for code := c; code.op != opEnd; {
 		idx = code.displayIdx
 		switch code.op.codeType() {
-		case codeArrayElem:
-			code = code.toArrayElemCode().end
-		case codeSliceElem:
-			code = code.toSliceElemCode().end
-		case codeMapKey:
-			code = code.toMapKeyCode().end
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
 		default:
 			code = code.next
 		}
@@ -102,310 +96,86 @@ func (c *opcode) decOpcodeIndex() {
 		code.displayIdx--
 		code.idx -= 8
 		switch code.op.codeType() {
-		case codeArrayElem:
-			code = code.toArrayElemCode().end
-		case codeSliceElem:
-			code = code.toSliceElemCode().end
-		case codeMapKey:
-			code = code.toMapKeyCode().end
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
 		default:
 			code = code.next
 		}
 	}
 }
 
-func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	var code *opcode
-	switch c.op.codeType() {
-	case codeArrayHead:
-		code = c.toArrayHeaderCode().copy(codeMap)
-	case codeArrayElem:
-		code = c.toArrayElemCode().copy(codeMap)
-	case codeSliceHead:
-		code = c.toSliceHeaderCode().copy(codeMap)
-	case codeSliceElem:
-		code = c.toSliceElemCode().copy(codeMap)
-	case codeMapHead:
-		code = c.toMapHeadCode().copy(codeMap)
-	case codeMapKey:
-		code = c.toMapKeyCode().copy(codeMap)
-	case codeMapValue:
-		code = c.toMapValueCode().copy(codeMap)
-	case codeStructFieldRecursive:
-		code = c.toRecursiveCode().copy(codeMap)
-	case codeStructField:
-		code = c.toStructFieldCode().copy(codeMap)
-	default:
-		code = &opcode{}
-		codeMap[addr] = code
+func (c *opcode) dumpElem(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([headIdx:%d][elemIdx:%d][length:%d][size:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.headIdx,
+		code.elemIdx,
+		code.length,
+		code.size,
+	)
+}
 
-		code.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	}
-	return code
+func (c *opcode) dumpField(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([key:%s][offset:%d][headIdx:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.displayKey,
+		code.offset,
+		code.headIdx,
+	)
+}
+
+func (c *opcode) dumpKey(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([elemIdx:%d][length:%d][mapIter:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.elemIdx,
+		code.length,
+		code.mapIter,
+	)
 }
 
 func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
-		indent := strings.Repeat(" ", code.indent)
 		switch code.op.codeType() {
-		case codeArrayElem:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
-			code = code.toArrayElemCode().end
-		case codeSliceElem:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
-			code = code.toSliceElemCode().end
+		case codeArrayElem, codeSliceElem:
+			codes = append(codes, c.dumpElem(code))
+			code = code.end
 		case codeMapKey:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
-			code = code.toMapKeyCode().end
+			codes = append(codes, c.dumpKey(code))
+			code = code.end
 		case codeStructField:
-			sf := code.toStructFieldCode()
-			key := sf.displayKey
-			offset := sf.offset
-			codes = append(codes, fmt.Sprintf("[%d]%s%s [%s:%d] ( %p )", code.displayIdx, indent, code.op, key, offset, unsafe.Pointer(code)))
+			codes = append(codes, c.dumpField(code))
 			code = code.next
 		default:
-			codes = append(codes, fmt.Sprintf("[%d]%s%s ( %p )", code.displayIdx, indent, code.op, unsafe.Pointer(code)))
+			codes = append(codes, fmt.Sprintf(
+				"[%d]%s%s",
+				code.displayIdx,
+				strings.Repeat("-", code.indent),
+				code.op,
+			))
 			code = code.next
 		}
 	}
 	return strings.Join(codes, "\n")
 }
 
-func (c *opcode) toSliceHeaderCode() *sliceHeaderCode {
-	return (*sliceHeaderCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toSliceElemCode() *sliceElemCode {
-	return (*sliceElemCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toArrayHeaderCode() *arrayHeaderCode {
-	return (*arrayHeaderCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toArrayElemCode() *arrayElemCode {
-	return (*arrayElemCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toStructFieldCode() *structFieldCode {
-	return (*structFieldCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toMapHeadCode() *mapHeaderCode {
-	return (*mapHeaderCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toMapKeyCode() *mapKeyCode {
-	return (*mapKeyCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toMapValueCode() *mapValueCode {
-	return (*mapValueCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toInterfaceCode() *interfaceCode {
-	return (*interfaceCode)(unsafe.Pointer(c))
-}
-
-func (c *opcode) toRecursiveCode() *recursiveCode {
-	return (*recursiveCode)(unsafe.Pointer(c))
-}
-
-type sliceHeaderCode struct {
-	*opcodeHeader
-	elem *sliceElemCode
-	end  *opcode
-}
-
-func newSliceHeaderCode(ctx *encodeCompileContext) *sliceHeaderCode {
-	return &sliceHeaderCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opSliceHead,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
-	}
-}
-
-func newSliceElemCode(ctx *encodeCompileContext, size uintptr) *sliceElemCode {
-	return &sliceElemCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opSliceElem,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
-		size: size,
-	}
-}
-
-func (c *sliceHeaderCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	header := &sliceHeaderCode{}
-	code := (*opcode)(unsafe.Pointer(header))
-	codeMap[addr] = code
-
-	header.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	header.elem = (*sliceElemCode)(unsafe.Pointer(c.elem.copy(codeMap)))
-	header.end = c.end.copy(codeMap)
-	return code
-}
-
-type sliceElemCode struct {
-	*opcodeHeader
-	idx  uintptr
-	len  uintptr
-	size uintptr
-	data uintptr
-	end  *opcode
-}
-
-func (c *sliceElemCode) set(header *reflect.SliceHeader) {
-	c.idx = uintptr(0)
-	c.len = uintptr(header.Len)
-	c.data = header.Data
-}
-
-func (c *sliceElemCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	elem := &sliceElemCode{
-		idx:  c.idx,
-		len:  c.len,
-		size: c.size,
-		data: c.data,
-	}
-	code := (*opcode)(unsafe.Pointer(elem))
-	codeMap[addr] = code
-
-	elem.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	elem.end = c.end.copy(codeMap)
-	return code
-}
-
-type arrayHeaderCode struct {
-	*opcodeHeader
-	len  uintptr
-	elem *arrayElemCode
-	end  *opcode
-}
-
-func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *arrayHeaderCode {
-	return &arrayHeaderCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opArrayHead,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
-		len: uintptr(alen),
-	}
-}
-
-func newArrayElemCode(ctx *encodeCompileContext, alen int, size uintptr) *arrayElemCode {
-	return &arrayElemCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opArrayElem,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-		},
-		len:  uintptr(alen),
-		size: size,
-	}
-}
-
-func (c *arrayHeaderCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	header := &arrayHeaderCode{}
-	code := (*opcode)(unsafe.Pointer(header))
-	codeMap[addr] = code
-
-	header.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	header.len = c.len
-	header.elem = (*arrayElemCode)(unsafe.Pointer(c.elem.copy(codeMap)))
-	header.end = c.end.copy(codeMap)
-	return code
-}
-
-type arrayElemCode struct {
-	*opcodeHeader
-	idx  uintptr
-	len  uintptr
-	size uintptr
-	end  *opcode
-}
-
-func (c *arrayElemCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	elem := &arrayElemCode{
-		idx:  c.idx,
-		len:  c.len,
-		size: c.size,
-	}
-	code := (*opcode)(unsafe.Pointer(elem))
-	codeMap[addr] = code
-
-	elem.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	elem.end = c.end.copy(codeMap)
-	return code
-}
-
-type structFieldCode struct {
-	*opcodeHeader
-	key          []byte
-	displayKey   string
-	isTaggedKey  bool
-	offset       uintptr
-	anonymousKey bool
-	nextField    *opcode
-	end          *opcode
-}
-
-func linkPrevToNextField(prev, cur *structFieldCode) {
+func linkPrevToNextField(prev, cur *opcode) {
 	prev.nextField = cur.nextField
-	code := prev.toOpcode()
-	fcode := cur.toOpcode()
+	code := prev
+	fcode := cur
 	for {
 		var nextCode *opcode
 		switch code.op.codeType() {
-		case codeArrayElem:
-			nextCode = code.toArrayElemCode().end
-		case codeSliceElem:
-			nextCode = code.toSliceElemCode().end
-		case codeMapKey:
-			nextCode = code.toMapKeyCode().end
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			nextCode = code.end
 		default:
 			nextCode = code.next
 		}
@@ -419,213 +189,108 @@ func linkPrevToNextField(prev, cur *structFieldCode) {
 	}
 }
 
-func (c *structFieldCode) toOpcode() *opcode {
-	return (*opcode)(unsafe.Pointer(c))
+func newSliceHeaderCode(ctx *encodeCompileContext) *opcode {
+	return &opcode{
+		op:         opSliceHead,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
+	}
 }
 
-func (c *structFieldCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
+func newSliceElemCode(ctx *encodeCompileContext, size uintptr) *opcode {
+	return &opcode{
+		op:         opSliceElem,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
+		size:       size,
 	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	field := &structFieldCode{
-		key:          c.key,
-		isTaggedKey:  c.isTaggedKey,
-		displayKey:   c.displayKey,
-		anonymousKey: c.anonymousKey,
-		offset:       c.offset,
-	}
-	code := (*opcode)(unsafe.Pointer(field))
-	codeMap[addr] = code
-
-	field.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	field.nextField = c.nextField.copy(codeMap)
-	field.end = c.end.copy(codeMap)
-	return code
 }
 
-type mapHeaderCode struct {
-	*opcodeHeader
-	key   *mapKeyCode
-	value *mapValueCode
-	end   *opcode
+func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *opcode {
+	return &opcode{
+		op:         opArrayHead,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
+		length:     uintptr(alen),
+	}
 }
 
-func (c *mapHeaderCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
+func newArrayElemCode(ctx *encodeCompileContext, alen int, size uintptr) *opcode {
+	return &opcode{
+		op:         opArrayElem,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		length:     uintptr(alen),
+		size:       size,
 	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	header := &mapHeaderCode{}
-	code := (*opcode)(unsafe.Pointer(header))
-	codeMap[addr] = code
-
-	header.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	header.key = (*mapKeyCode)(unsafe.Pointer(c.key.copy(codeMap)))
-	header.value = (*mapValueCode)(unsafe.Pointer(c.value.copy(codeMap)))
-	header.end = c.end.copy(codeMap)
-	return code
 }
 
-type mapKeyCode struct {
-	*opcodeHeader
-	idx  int
-	len  int
-	iter unsafe.Pointer
-	end  *opcode
-}
-
-func (c *mapKeyCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	key := &mapKeyCode{
-		idx:  c.idx,
-		len:  c.len,
-		iter: c.iter,
-	}
-	code := (*opcode)(unsafe.Pointer(key))
-	codeMap[addr] = code
-
-	key.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	key.end = c.end.copy(codeMap)
-	return code
-}
-
-func (c *mapKeyCode) set(len int, iter unsafe.Pointer) {
-	c.idx = 0
-	c.len = len
-	c.iter = iter
-}
-
-type mapValueCode struct {
-	*opcodeHeader
-	iter unsafe.Pointer
-}
-
-func (c *mapValueCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	value := &mapValueCode{
-		iter: c.iter,
-	}
-	code := (*opcode)(unsafe.Pointer(value))
-	codeMap[addr] = code
-
-	value.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	return code
-}
-
-func (c *mapValueCode) set(iter unsafe.Pointer) {
-	c.iter = iter
-}
-
-func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *mapHeaderCode {
+func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	var op opType
 	if withLoad {
 		op = opMapHeadLoad
 	} else {
 		op = opMapHead
 	}
-	return &mapHeaderCode{
-		opcodeHeader: &opcodeHeader{
-			op:         op,
-			typ:        ctx.typ,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
+	return &opcode{
+		op:         op,
+		typ:        ctx.typ,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
 	}
 }
 
-func newMapKeyCode(ctx *encodeCompileContext) *mapKeyCode {
-	return &mapKeyCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opMapKey,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
+func newMapKeyCode(ctx *encodeCompileContext) *opcode {
+	return &opcode{
+		op:         opMapKey,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
 	}
 }
 
-func newMapValueCode(ctx *encodeCompileContext) *mapValueCode {
-	return &mapValueCode{
-		opcodeHeader: &opcodeHeader{
-			op:         opMapValue,
-			displayIdx: ctx.opcodeIndex,
-			idx:        uintptr(ctx.opcodeIndex) * 8,
-			indent:     ctx.indent,
-		},
+func newMapValueCode(ctx *encodeCompileContext) *opcode {
+	return &opcode{
+		op:         opMapValue,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
 	}
 }
 
-type interfaceCode struct {
-	*opcodeHeader
-	root bool
+func newInterfaceCode(ctx *encodeCompileContext) *opcode {
+	return &opcode{
+		op:         opInterface,
+		typ:        ctx.typ,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
+		next:       newEndOp(ctx),
+		root:       ctx.root,
+	}
 }
 
-func (c *interfaceCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
+func newRecursiveCode(ctx *encodeCompileContext, jmp *compiledCode) *opcode {
+	return &opcode{
+		op:         opStructFieldRecursive,
+		typ:        ctx.typ,
+		displayIdx: ctx.opcodeIndex,
+		idx:        opcodeOffset(ctx.opcodeIndex),
+		indent:     ctx.indent,
+		next:       newEndOp(ctx),
+		jmp:        jmp,
 	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	iface := &interfaceCode{}
-	code := (*opcode)(unsafe.Pointer(iface))
-	codeMap[addr] = code
-
-	iface.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	return code
 }
 
-type recursiveCode struct {
-	*opcodeHeader
-	jmp     *compiledCode
-	seenPtr uintptr
-}
+//func newRecursiveCode(recursive *recursiveCode) *opcode {
+//code := copyOpcode(recursive.jmp.code)
+//head := (*structFieldCode)(unsafe.Pointer(code))
+//head.end.next = newEndOp(&encodeCompileContext{})
 
-func (c *recursiveCode) copy(codeMap map[uintptr]*opcode) *opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	recur := &recursiveCode{seenPtr: c.seenPtr}
-	code := (*opcode)(unsafe.Pointer(recur))
-	codeMap[addr] = code
-
-	recur.opcodeHeader = c.opcodeHeader.copy(codeMap)
-	recur.jmp = &compiledCode{
-		code: c.jmp.code.copy(codeMap),
-	}
-	return code
-}
-
-func newRecursiveCode(recursive *recursiveCode) *opcode {
-	code := copyOpcode(recursive.jmp.code)
-	head := (*structFieldCode)(unsafe.Pointer(code))
-	head.end.next = newEndOp(&encodeCompileContext{})
-
-	code.op = code.op.ptrHeadToHead()
-	return code
-}
+//code.op = code.op.ptrHeadToHead()
+//	return code
+//}

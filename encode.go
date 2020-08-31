@@ -195,16 +195,16 @@ func (e *Encoder) encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	codeLength := code.length()
+	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
 		codeIndent: sync.Pool{
 			New: func() interface{} {
-				return copyOpcode(codeIndent)
+				return codeIndent
 			},
 		},
 		code: sync.Pool{
 			New: func() interface{} {
-				return copyOpcode(code)
+				return code
 			},
 		},
 		ctx: sync.Pool{

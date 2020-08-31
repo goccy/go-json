@@ -10,6 +10,7 @@ type encodeCompileContext struct {
 	withIndent  bool
 	root        bool
 	opcodeIndex int
+	ptrIndex    int
 	indent      int
 
 	parent *encodeCompileContext
@@ -21,6 +22,7 @@ func (c *encodeCompileContext) context() *encodeCompileContext {
 		withIndent:  c.withIndent,
 		root:        c.root,
 		opcodeIndex: c.opcodeIndex,
+		ptrIndex:    c.ptrIndex,
 		indent:      c.indent,
 		parent:      c,
 	}
@@ -46,6 +48,7 @@ func (c *encodeCompileContext) decIndent() *encodeCompileContext {
 
 func (c *encodeCompileContext) incOpcodeIndex() {
 	c.opcodeIndex++
+	c.ptrIndex++
 	if c.parent != nil {
 		c.parent.incOpcodeIndex()
 	}
@@ -53,6 +56,7 @@ func (c *encodeCompileContext) incOpcodeIndex() {
 
 func (c *encodeCompileContext) decOpcodeIndex() {
 	c.opcodeIndex--
+	c.ptrIndex--
 	if c.parent != nil {
 		c.parent.decOpcodeIndex()
 	}

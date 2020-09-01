@@ -50,7 +50,7 @@ func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opco
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
 		indent:     ctx.indent,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
 		next:       next,
 	}
 }
@@ -94,7 +94,7 @@ func (c *opcode) totalLength() int {
 func (c *opcode) decOpcodeIndex() {
 	for code := c; code.op != opEnd; {
 		code.displayIdx--
-		code.idx -= 8
+		code.idx -= uintptrSize
 		switch code.op.codeType() {
 		case codeArrayElem, codeSliceElem, codeMapKey:
 			code = code.end
@@ -104,40 +104,93 @@ func (c *opcode) decOpcodeIndex() {
 	}
 }
 
-func (c *opcode) dumpElem(code *opcode) string {
+func (c *opcode) dumpHead(code *opcode) string {
+	var length uintptr
+	if code.op.codeType() == codeArrayElem {
+		length = code.length
+	} else {
+		length = code.length / uintptrSize
+	}
 	return fmt.Sprintf(
-		`[%d]%s%s ([headIdx:%d][elemIdx:%d][length:%d][size:%d])`,
+		`[%d]%s%s ([idx:%d][headIdx:%d][elemIdx:%d][length:%d])`,
 		code.displayIdx,
 		strings.Repeat("-", code.indent),
 		code.op,
-		code.headIdx,
-		code.elemIdx,
-		code.length,
+		code.idx/uintptrSize,
+		code.headIdx/uintptrSize,
+		code.elemIdx/uintptrSize,
+		length,
+	)
+}
+
+func (c *opcode) dumpMapHead(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([idx:%d][headIdx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.idx/uintptrSize,
+		code.headIdx/uintptrSize,
+		code.elemIdx/uintptrSize,
+		code.length/uintptrSize,
+		code.mapIter/uintptrSize,
+	)
+}
+
+func (c *opcode) dumpElem(code *opcode) string {
+	var length uintptr
+	if code.op.codeType() == codeArrayElem {
+		length = code.length
+	} else {
+		length = code.length / uintptrSize
+	}
+	return fmt.Sprintf(
+		`[%d]%s%s ([idx:%d][headIdx:%d][elemIdx:%d][length:%d][size:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.idx/uintptrSize,
+		code.headIdx/uintptrSize,
+		code.elemIdx/uintptrSize,
+		length,
 		code.size,
 	)
 }
 
 func (c *opcode) dumpField(code *opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([key:%s][offset:%d][headIdx:%d])`,
+		`[%d]%s%s ([idx:%d][key:%s][offset:%d][headIdx:%d])`,
 		code.displayIdx,
 		strings.Repeat("-", code.indent),
 		code.op,
+		code.idx/uintptrSize,
 		code.displayKey,
 		code.offset,
-		code.headIdx,
+		code.headIdx/uintptrSize,
 	)
 }
 
 func (c *opcode) dumpKey(code *opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([elemIdx:%d][length:%d][mapIter:%d])`,
+		`[%d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
 		code.displayIdx,
 		strings.Repeat("-", code.indent),
 		code.op,
-		code.elemIdx,
-		code.length,
-		code.mapIter,
+		code.idx/uintptrSize,
+		code.elemIdx/uintptrSize,
+		code.length/uintptrSize,
+		code.mapIter/uintptrSize,
+	)
+}
+
+func (c *opcode) dumpValue(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([idx:%d][mapIter:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.idx/uintptrSize,
+		code.mapIter/uintptrSize,
 	)
 }
 
@@ -145,21 +198,31 @@ func (c *opcode) dump() string {
 	codes := []string{}
 	for code := c; code.op != opEnd; {
 		switch code.op.codeType() {
+		case codeSliceHead:
+			codes = append(codes, c.dumpHead(code))
+			code = code.next
+		case codeMapHead:
+			codes = append(codes, c.dumpMapHead(code))
+			code = code.next
 		case codeArrayElem, codeSliceElem:
 			codes = append(codes, c.dumpElem(code))
 			code = code.end
 		case codeMapKey:
 			codes = append(codes, c.dumpKey(code))
 			code = code.end
+		case codeMapValue:
+			codes = append(codes, c.dumpValue(code))
+			code = code.next
 		case codeStructField:
 			codes = append(codes, c.dumpField(code))
 			code = code.next
 		default:
 			codes = append(codes, fmt.Sprintf(
-				"[%d]%s%s",
+				"[%d]%s%s ([idx:%d])",
 				code.displayIdx,
 				strings.Repeat("-", code.indent),
 				code.op,
+				code.idx/uintptrSize,
 			))
 			code = code.next
 		}
@@ -190,40 +253,58 @@ func linkPrevToNextField(prev, cur *opcode) {
 }
 
 func newSliceHeaderCode(ctx *encodeCompileContext) *opcode {
+	idx := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	elemIdx := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	length := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
 		op:         opSliceHead,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        idx,
+		headIdx:    idx,
+		elemIdx:    elemIdx,
+		length:     length,
 		indent:     ctx.indent,
 	}
 }
 
-func newSliceElemCode(ctx *encodeCompileContext, size uintptr) *opcode {
+func newSliceElemCode(ctx *encodeCompileContext, head *opcode, size uintptr) *opcode {
 	return &opcode{
 		op:         opSliceElem,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
+		headIdx:    head.idx,
+		elemIdx:    head.elemIdx,
+		length:     head.length,
 		indent:     ctx.indent,
 		size:       size,
 	}
 }
 
 func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *opcode {
+	idx := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	elemIdx := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
 		op:         opArrayHead,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        idx,
+		headIdx:    idx,
+		elemIdx:    elemIdx,
 		indent:     ctx.indent,
 		length:     uintptr(alen),
 	}
 }
 
-func newArrayElemCode(ctx *encodeCompileContext, alen int, size uintptr) *opcode {
+func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size uintptr) *opcode {
 	return &opcode{
 		op:         opArrayElem,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
-		length:     uintptr(alen),
+		idx:        opcodeOffset(ctx.ptrIndex),
+		elemIdx:    head.elemIdx,
+		headIdx:    head.headIdx,
+		length:     uintptr(length),
 		size:       size,
 	}
 }
@@ -235,29 +316,45 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	} else {
 		op = opMapHead
 	}
+	idx := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	elemIdx := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	length := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	mapIter := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
 		op:         op,
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        idx,
+		elemIdx:    elemIdx,
+		length:     length,
+		mapIter:    mapIter,
 		indent:     ctx.indent,
 	}
 }
 
-func newMapKeyCode(ctx *encodeCompileContext) *opcode {
+func newMapKeyCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
 		op:         opMapKey,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
+		elemIdx:    head.elemIdx,
+		length:     head.length,
+		mapIter:    head.mapIter,
 		indent:     ctx.indent,
 	}
 }
 
-func newMapValueCode(ctx *encodeCompileContext) *opcode {
+func newMapValueCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
 		op:         opMapValue,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
+		elemIdx:    head.elemIdx,
+		length:     head.length,
+		mapIter:    head.mapIter,
 		indent:     ctx.indent,
 	}
 }
@@ -267,7 +364,7 @@ func newInterfaceCode(ctx *encodeCompileContext) *opcode {
 		op:         opInterface,
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
 		indent:     ctx.indent,
 		next:       newEndOp(ctx),
 		root:       ctx.root,
@@ -279,7 +376,7 @@ func newRecursiveCode(ctx *encodeCompileContext, jmp *compiledCode) *opcode {
 		op:         opStructFieldRecursive,
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
-		idx:        opcodeOffset(ctx.opcodeIndex),
+		idx:        opcodeOffset(ctx.ptrIndex),
 		indent:     ctx.indent,
 		next:       newEndOp(ctx),
 		jmp:        jmp,

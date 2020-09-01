@@ -166,7 +166,7 @@ func (e *Encoder) encode(v interface{}) error {
 		p := uintptr(header.ptr)
 		ctx.init(p)
 		seenPtr := map[uintptr]struct{}{}
-		err := e.run(ctx, seenPtr, code)
+		err := e.run(ctx, 0, seenPtr, code)
 		if e.enabledIndent {
 			codeSet.codeIndent.Put(code)
 		} else {
@@ -228,7 +228,7 @@ func (e *Encoder) encode(v interface{}) error {
 	}
 
 	seenPtr := map[uintptr]struct{}{}
-	if err := e.run(ctx, seenPtr, c); err != nil {
+	if err := e.run(ctx, 0, seenPtr, c); err != nil {
 		codeSet.ctx.Put(ctx)
 		return err
 	}

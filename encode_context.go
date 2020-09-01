@@ -46,9 +46,18 @@ func (c *encodeCompileContext) decIndent() *encodeCompileContext {
 	return ctx
 }
 
+func (c *encodeCompileContext) incIndex() {
+	c.incOpcodeIndex()
+	c.incPtrIndex()
+}
+
+func (c *encodeCompileContext) decIndex() {
+	c.decOpcodeIndex()
+	c.decPtrIndex()
+}
+
 func (c *encodeCompileContext) incOpcodeIndex() {
 	c.opcodeIndex++
-	c.ptrIndex++
 	if c.parent != nil {
 		c.parent.incOpcodeIndex()
 	}
@@ -56,9 +65,22 @@ func (c *encodeCompileContext) incOpcodeIndex() {
 
 func (c *encodeCompileContext) decOpcodeIndex() {
 	c.opcodeIndex--
-	c.ptrIndex--
 	if c.parent != nil {
 		c.parent.decOpcodeIndex()
+	}
+}
+
+func (c *encodeCompileContext) incPtrIndex() {
+	c.ptrIndex++
+	if c.parent != nil {
+		c.parent.incPtrIndex()
+	}
+}
+
+func (c *encodeCompileContext) decPtrIndex() {
+	c.ptrIndex--
+	if c.parent != nil {
+		c.parent.decPtrIndex()
 	}
 }
 

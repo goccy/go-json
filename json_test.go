@@ -121,7 +121,6 @@ func TestIndent(t *testing.T) {
 }
 
 // Tests of a large random structure.
-
 func TestCompactBig(t *testing.T) {
 	initBig()
 	var buf bytes.Buffer
@@ -221,7 +220,10 @@ func trim(b []byte) []byte {
 
 // Generate a random JSON object.
 
-var jsonBig []byte
+var (
+	jsonBig []byte
+	jsonVal interface{}
+)
 
 func initBig() {
 	if len(jsonBig) > 0 {
@@ -231,8 +233,8 @@ func initBig() {
 	if testing.Short() {
 		n = 100
 	}
-	v := genValue(n)
-	b, err := json.Marshal(v)
+	jsonVal = genValue(n)
+	b, err := json.Marshal(jsonVal)
 	if err != nil {
 		panic(err)
 	}

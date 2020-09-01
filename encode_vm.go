@@ -11,6 +11,8 @@ import (
 	"unsafe"
 )
 
+const startDetectingCyclesAfter = 1000
+
 func load(base uintptr, idx uintptr) uintptr {
 	return *(*uintptr)(unsafe.Pointer(base + idx))
 }
@@ -19,7 +21,7 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
-func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, code *opcode) error {
+func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map[uintptr]struct{}, code *opcode) error {
 	ctxptr := ctx.ptr()
 	for {
 		switch code.op {
@@ -144,7 +146,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				ptrs: make([]uintptr, c.totalLength()),
 			}
 			ctx.init(uintptr(header.ptr))
-			if err := e.run(ctx, seenPtr, c); err != nil {
+			if err := e.run(ctx, recursiveLevel+1, seenPtr, c); err != nil {
 				return err
 			}
 			code = code.next
@@ -236,9 +238,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 			if idx < length {
 				e.encodeByte(',')
 				store(ctxptr, code.elemIdx, idx)
-				code = code.next
 				data := load(ctxptr, code.headIdx)
-				store(ctxptr, code.idx, data+idx*code.size)
+				size := code.size
+				code = code.next
+				store(ctxptr, code.idx, data+idx*size)
 			} else {
 				e.encodeByte(']')
 				code = code.end.next
@@ -295,9 +298,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				e.encodeBytes([]byte{',', '\n'})
 				e.encodeIndent(code.indent + 1)
 				store(ctxptr, code.elemIdx, idx)
-				code = code.next
 				data := load(ctxptr, code.headIdx)
-				store(ctxptr, code.idx, data+idx*code.size)
+				size := code.size
+				code = code.next
+				store(ctxptr, code.idx, data+idx*size)
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
@@ -329,6 +333,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 			} else {
 				e.encodeByte('[')
 				if code.length > 0 {
+					store(ctxptr, code.elemIdx, 0)
 					code = code.next
 					store(ctxptr, code.idx, p)
 				} else {
@@ -343,8 +348,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				e.encodeByte(',')
 				store(ctxptr, code.elemIdx, idx)
 				p := load(ctxptr, code.headIdx)
+				size := code.size
 				code = code.next
-				store(ctxptr, code.idx, p+idx*code.size)
+				store(ctxptr, code.idx, p+idx*size)
 			} else {
 				e.encodeByte(']')
 				code = code.end.next
@@ -359,6 +365,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				e.encodeBytes([]byte{'[', '\n'})
 				if code.length > 0 {
 					e.encodeIndent(code.indent + 1)
+					store(ctxptr, code.elemIdx, 0)
 					code = code.next
 					store(ctxptr, code.idx, p)
 				} else {
@@ -375,8 +382,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				e.encodeIndent(code.indent + 1)
 				store(ctxptr, code.elemIdx, idx)
 				p := load(ctxptr, code.headIdx)
+				size := code.size
 				code = code.next
-				store(ctxptr, code.idx, p+idx*code.size)
+				store(ctxptr, code.idx, p+idx*size)
 			} else {
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
@@ -393,9 +401,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					store(ctxptr, code.mapKey.length, uintptr(mlen))
-					store(ctxptr, code.mapKey.mapIter, uintptr(iter))
-					store(ctxptr, code.mapValue.mapIter, uintptr(iter))
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -416,9 +424,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					store(ctxptr, code.mapKey.length, uintptr(mlen))
-					store(ctxptr, code.mapKey.mapIter, uintptr(iter))
-					store(ctxptr, code.mapValue.mapIter, uintptr(iter))
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -460,9 +468,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					store(ctxptr, code.mapKey.length, uintptr(mlen))
-					store(ctxptr, code.mapKey.mapIter, uintptr(iter))
-					store(ctxptr, code.mapValue.mapIter, uintptr(iter))
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -486,9 +494,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					store(ctxptr, code.mapKey.length, uintptr(mlen))
-					store(ctxptr, code.mapKey.mapIter, uintptr(iter))
-					store(ctxptr, code.mapValue.mapIter, uintptr(iter))
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -510,9 +518,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					store(ctxptr, code.mapKey.length, uintptr(mlen))
-					store(ctxptr, code.mapKey.mapIter, uintptr(iter))
-					store(ctxptr, code.mapValue.mapIter, uintptr(iter))
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -569,17 +577,20 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 		case opStructFieldRecursive:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
-				if _, exists := seenPtr[ptr]; exists {
-					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-						typ: code.typ,
-						ptr: unsafe.Pointer(ptr),
-					}))
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+				if recursiveLevel > startDetectingCyclesAfter {
+					if _, exists := seenPtr[ptr]; exists {
+						v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+							typ: code.typ,
+							ptr: unsafe.Pointer(ptr),
+						}))
+						return &UnsupportedValueError{
+							Value: reflect.ValueOf(v),
+							Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+						}
 					}
 				}
 			}
+			seenPtr[ptr] = struct{}{}
 			c := *(code.jmp.code)
 			ctx := &encodeRuntimeContext{
 				ptrs: make([]uintptr, c.totalLength()),
@@ -587,7 +598,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 			ctx.init(ptr)
 			c.end.next = newEndOp(&encodeCompileContext{})
 			c.op = c.op.ptrHeadToHead()
-			if err := e.run(ctx, seenPtr, &c); err != nil {
+			if err := e.run(ctx, recursiveLevel+1, seenPtr, &c); err != nil {
 				return err
 			}
 			code = code.next
@@ -611,8 +622,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 				if !code.anonymousKey {
 					e.encodeBytes(code.key)
 				}
+				p := ptr + code.offset
 				code = code.next
-				store(ctxptr, code.idx, ptr+code.offset)
+				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldAnonymousHead:
 			ptr := load(ctxptr, code.idx)
@@ -4063,40 +4075,45 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 			}
 			e.encodeBytes(code.key)
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldSlice:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
 			}
 			e.encodeBytes(code.key)
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldMap:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
 			}
 			e.encodeBytes(code.key)
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldMapLoad:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
 			}
 			e.encodeBytes(code.key)
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldStruct:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
 			}
 			e.encodeBytes(code.key)
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldIndent:
 			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
@@ -4105,8 +4122,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, seenPtr map[uintptr]struct{}, c
 			e.encodeBytes(code.key)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
 			code = code.next
-			store(ctxptr, code.idx, ptr+code.offset)
+			store(ctxptr, code.idx, p)
 		case opStructFieldIntIndent:
 			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})

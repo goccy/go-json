@@ -36,8 +36,8 @@ type opcodeMap struct {
 }
 
 type opcodeSet struct {
-	codeIndent sync.Pool
-	code       sync.Pool
+	codeIndent *opcode
+	code       *opcode
 	ctx        sync.Pool
 }
 
@@ -158,20 +158,15 @@ func (e *Encoder) encode(v interface{}) error {
 	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
 		var code *opcode
 		if e.enabledIndent {
-			code = codeSet.codeIndent.Get().(*opcode)
+			code = codeSet.codeIndent
 		} else {
-			code = codeSet.code.Get().(*opcode)
+			code = codeSet.code
 		}
 		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
 		ctx.init(p)
 		seenPtr := map[uintptr]struct{}{}
 		err := e.run(ctx, 0, seenPtr, code)
-		if e.enabledIndent {
-			codeSet.codeIndent.Put(code)
-		} else {
-			codeSet.code.Put(code)
-		}
 		codeSet.ctx.Put(ctx)
 		return err
 	}
@@ -197,16 +192,8 @@ func (e *Encoder) encode(v interface{}) error {
 	}
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
-		codeIndent: sync.Pool{
-			New: func() interface{} {
-				return codeIndent
-			},
-		},
-		code: sync.Pool{
-			New: func() interface{} {
-				return code
-			},
-		},
+		codeIndent: codeIndent,
+		code:       code,
 		ctx: sync.Pool{
 			New: func() interface{} {
 				return &encodeRuntimeContext{

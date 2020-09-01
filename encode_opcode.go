@@ -95,6 +95,18 @@ func (c *opcode) decOpcodeIndex() {
 	for code := c; code.op != opEnd; {
 		code.displayIdx--
 		code.idx -= uintptrSize
+		if code.headIdx > 0 {
+			code.headIdx -= uintptrSize
+		}
+		if code.elemIdx > 0 {
+			code.elemIdx -= uintptrSize
+		}
+		if code.mapIter > 0 {
+			code.mapIter -= uintptrSize
+		}
+		if code.length > 0 && code.op.codeType() != codeArrayHead && code.op.codeType() != codeArrayElem {
+			code.length -= uintptrSize
+		}
 		switch code.op.codeType() {
 		case codeArrayElem, codeSliceElem, codeMapKey:
 			code = code.end
@@ -106,7 +118,7 @@ func (c *opcode) decOpcodeIndex() {
 
 func (c *opcode) dumpHead(code *opcode) string {
 	var length uintptr
-	if code.op.codeType() == codeArrayElem {
+	if code.op.codeType() == codeArrayHead {
 		length = code.length
 	} else {
 		length = code.length / uintptrSize
@@ -382,12 +394,3 @@ func newRecursiveCode(ctx *encodeCompileContext, jmp *compiledCode) *opcode {
 		jmp:        jmp,
 	}
 }
-
-//func newRecursiveCode(recursive *recursiveCode) *opcode {
-//code := copyOpcode(recursive.jmp.code)
-//head := (*structFieldCode)(unsafe.Pointer(code))
-//head.end.next = newEndOp(&encodeCompileContext{})
-
-//code.op = code.op.ptrHeadToHead()
-//	return code
-//}

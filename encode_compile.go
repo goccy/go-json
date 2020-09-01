@@ -954,7 +954,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	}
 
 	structEndCode.displayIdx = ctx.opcodeIndex
-	structEndCode.idx = opcodeOffset(ctx.opcodeIndex)
+	structEndCode.idx = opcodeOffset(ctx.ptrIndex)
 	ctx.incIndex()
 
 	if ctx.withIndent {

@@ -152,20 +152,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map
 			curlen := uintptr(len(ctx.ptrs))
 			offsetNum := ptrOffset / uintptrSize
 			oldOffset := ptrOffset
-			ptrOffset = ptrOffset + totalLength*uintptrSize // curlen * uintptrSize
-			}
+			ptrOffset += totalLength * uintptrSize
+
 			newLen := offsetNum + totalLength + nextTotalLength
 			if curlen < newLen {
 				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
-				store(ctx.ptr()+ptrOffset, 0, uintptr(header.ptr))
-			} else {
-				store(ctx.ptr()+ptrOffset, 0, uintptr(header.ptr))
 			}
 			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
-			if load(ctxptr, 0) != uintptr(header.ptr) {
-				panic(nil)
-			}
-			// save current ctxptr
+
+			store(ctxptr, 0, uintptr(header.ptr))
 			store(ctxptr, lastCode.idx, oldOffset)
 
 			// link lastCode ( opInterfaceEnd ) => code.next

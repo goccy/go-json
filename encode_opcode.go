@@ -80,7 +80,10 @@ func (c *opcode) beforeLastCode() *opcode {
 func (c *opcode) totalLength() int {
 	var idx int
 	for code := c; code.op != opEnd; {
-		idx = code.displayIdx
+		idx = int(code.idx / uintptrSize)
+		if code.op == opInterfaceEnd {
+			break
+		}
 		switch code.op.codeType() {
 		case codeArrayElem, codeSliceElem, codeMapKey:
 			code = code.end
@@ -88,7 +91,7 @@ func (c *opcode) totalLength() int {
 			code = code.next
 		}
 	}
-	return idx + 1
+	return idx + 2 // opEnd + 1
 }
 
 func (c *opcode) decOpcodeIndex() {
@@ -378,8 +381,8 @@ func newInterfaceCode(ctx *encodeCompileContext) *opcode {
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		indent:     ctx.indent,
-		next:       newEndOp(ctx),
 		root:       ctx.root,
+		next:       newEndOp(ctx),
 	}
 }
 

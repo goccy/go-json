@@ -22,6 +22,7 @@ func store(base uintptr, idx uintptr, p uintptr) {
 }
 
 func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map[uintptr]struct{}, code *opcode) error {
+	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	for {
 		switch code.op {
@@ -142,13 +143,43 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map
 				}
 				c = code
 			}
-			ctx := &encodeRuntimeContext{
-				ptrs: make([]uintptr, c.totalLength()),
+
+			beforeLastCode := c.beforeLastCode()
+			lastCode := beforeLastCode.next
+			lastCode.idx = beforeLastCode.idx + uintptrSize
+			totalLength := uintptr(code.totalLength())
+			nextTotalLength := uintptr(c.totalLength())
+			curlen := uintptr(len(ctx.ptrs))
+			offsetNum := ptrOffset / uintptrSize
+			oldOffset := ptrOffset
+			ptrOffset = ptrOffset + totalLength*uintptrSize // curlen * uintptrSize
 			}
-			ctx.init(uintptr(header.ptr))
-			if err := e.run(ctx, recursiveLevel+1, seenPtr, c); err != nil {
-				return err
+			newLen := offsetNum + totalLength + nextTotalLength
+			if curlen < newLen {
+				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
+				store(ctx.ptr()+ptrOffset, 0, uintptr(header.ptr))
+			} else {
+				store(ctx.ptr()+ptrOffset, 0, uintptr(header.ptr))
 			}
+			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+			if load(ctxptr, 0) != uintptr(header.ptr) {
+				panic(nil)
+			}
+			// save current ctxptr
+			store(ctxptr, lastCode.idx, oldOffset)
+
+			// link lastCode ( opInterfaceEnd ) => code.next
+			lastCode.op = opInterfaceEnd
+			lastCode.next = code.next
+
+			code = c
+			recursiveLevel++
+		case opInterfaceEnd:
+			recursiveLevel--
+			// restore ctxptr
+			offset := load(ctxptr, code.idx)
+			ctxptr = ctx.ptr() + offset
+			ptrOffset = offset
 			code = code.next
 		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)

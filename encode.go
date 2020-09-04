@@ -19,7 +19,6 @@ type Encoder struct {
 	enabledHTMLEscape              bool
 	prefix                         []byte
 	indentStr                      []byte
-	indent                         int
 	structTypeToCompiledCode       map[uintptr]*compiledCode
 	structTypeToCompiledIndentCode map[uintptr]*compiledCode
 }
@@ -37,8 +36,9 @@ type opcodeMap struct {
 }
 
 type opcodeSet struct {
-	codeIndent sync.Pool
-	code       sync.Pool
+	codeIndent *opcode
+	code       *opcode
+	ctx        sync.Pool
 }
 
 func (m *opcodeMap) get(k uintptr) *opcodeSet {
@@ -123,7 +123,6 @@ func (e *Encoder) release() {
 
 func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
-	e.indent = 0
 	e.enabledHTMLEscape = true
 	e.enabledIndent = false
 }
@@ -159,54 +158,68 @@ func (e *Encoder) encode(v interface{}) error {
 	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
 		var code *opcode
 		if e.enabledIndent {
-			code = codeSet.codeIndent.Get().(*opcode)
+			code = codeSet.codeIndent
 		} else {
-			code = codeSet.code.Get().(*opcode)
+			code = codeSet.code
 		}
+		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
-		code.ptr = p
-		if err := e.run(code); err != nil {
-			return err
-		}
-		if e.enabledIndent {
-			codeSet.codeIndent.Put(code)
-		} else {
-			codeSet.code.Put(code)
-		}
-		return nil
+		ctx.init(p)
+		err := e.run(ctx, code)
+		codeSet.ctx.Put(ctx)
+		return err
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
 	copiedType := (*rtype)(unsafe.Pointer(typeptr))
 
-	codeIndent, err := e.compileHead(copiedType, true)
+	codeIndent, err := e.compileHead(&encodeCompileContext{
+		typ:        copiedType,
+		root:       true,
+		withIndent: true,
+	})
 	if err != nil {
 		return err
 	}
-	code, err := e.compileHead(copiedType, false)
+	code, err := e.compileHead(&encodeCompileContext{
+		typ:        copiedType,
+		root:       true,
+		withIndent: false,
+	})
 	if err != nil {
 		return err
 	}
+	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
-		codeIndent: sync.Pool{
+		codeIndent: codeIndent,
+		code:       code,
+		ctx: sync.Pool{
 			New: func() interface{} {
-				return copyOpcode(codeIndent)
-			},
-		},
-		code: sync.Pool{
-			New: func() interface{} {
-				return copyOpcode(code)
+				return &encodeRuntimeContext{
+					ptrs:     make([]uintptr, codeLength),
+					keepRefs: make([]unsafe.Pointer, 8),
+				}
 			},
 		},
 	}
 	cachedOpcode.set(typeptr, codeSet)
 	p := uintptr(header.ptr)
+	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
+	ctx.init(p)
+
+	var c *opcode
 	if e.enabledIndent {
-		codeIndent.ptr = p
-		return e.run(codeIndent)
+		c = codeIndent
+	} else {
+		c = code
 	}
-	code.ptr = p
-	return e.run(code)
+
+	if err := e.run(ctx, c); err != nil {
+		codeSet.ctx.Put(ctx)
+		return err
+	}
+	codeSet.ctx.Put(ctx)
+	return nil
 }
 
 func (e *Encoder) encodeInt(v int) {

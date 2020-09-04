@@ -220,6 +220,7 @@ func (t opType) fieldToStringTagField() opType {
 	opTypes := []opType{
 		{"End", "EndIndent", "Op"},
 		{"Interface", "InterfaceIndent", "Op"},
+		{"InterfaceEnd", "InterfaceEndIndent", "Op"},
 		{"Ptr", "PtrIndent", "Op"},
 		{"SliceHead", "SliceHeadIndent", "SliceHead"},
 		{"RootSliceHead", "RootSliceHeadIndent", "SliceHead"},
@@ -252,6 +253,7 @@ func (t opType) fieldToStringTagField() opType {
 		{"StructFieldOmitEmpty", "StructFieldOmitEmptyIndent", "StructField"},
 		{"StructFieldStringTag", "StructFieldStringTagIndent", "StructField"},
 		{"StructFieldRecursive", "StructFieldRecursiveIndent", "StructFieldRecursive"},
+		{"StructFieldRecursiveEnd", "StructFieldRecursiveEndIndent", "Op"},
 		{"StructEnd", "StructEndIndent", "StructField"},
 		{"StructAnonymousEnd", "StructAnonymousEndIndent", "StructField"},
 	}

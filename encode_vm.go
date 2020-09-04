@@ -21,9 +21,12 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
-func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map[uintptr]struct{}, code *opcode) error {
+func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
+	recursiveLevel := 0
+	seenPtr := map[uintptr]struct{}{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+
 	for {
 		switch code.op {
 		case opPtr:

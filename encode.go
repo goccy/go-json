@@ -165,8 +165,7 @@ func (e *Encoder) encode(v interface{}) error {
 		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 		p := uintptr(header.ptr)
 		ctx.init(p)
-		seenPtr := map[uintptr]struct{}{}
-		err := e.run(ctx, 0, seenPtr, code)
+		err := e.run(ctx, code)
 		codeSet.ctx.Put(ctx)
 		return err
 	}
@@ -214,8 +213,7 @@ func (e *Encoder) encode(v interface{}) error {
 		c = code
 	}
 
-	seenPtr := map[uintptr]struct{}{}
-	if err := e.run(ctx, 0, seenPtr, c); err != nil {
+	if err := e.run(ctx, c); err != nil {
 		codeSet.ctx.Put(ctx)
 		return err
 	}

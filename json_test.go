@@ -222,7 +222,6 @@ func trim(b []byte) []byte {
 
 var (
 	jsonBig []byte
-	jsonVal interface{}
 )
 
 func initBig() {
@@ -233,8 +232,8 @@ func initBig() {
 	if testing.Short() {
 		n = 100
 	}
-	jsonVal = genValue(n)
-	b, err := json.Marshal(jsonVal)
+	v := genValue(n)
+	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}

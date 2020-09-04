@@ -85,11 +85,13 @@ func (c *encodeCompileContext) decPtrIndex() {
 }
 
 type encodeRuntimeContext struct {
-	ptrs []uintptr
+	ptrs     []uintptr
+	keepRefs []unsafe.Pointer
 }
 
 func (c *encodeRuntimeContext) init(p uintptr) {
 	c.ptrs[0] = p
+	c.keepRefs = c.keepRefs[:0]
 }
 
 func (c *encodeRuntimeContext) ptr() uintptr {

@@ -21,10 +21,6 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
-var (
-	globalArray = []interface{}{}
-)
-
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -434,7 +430,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					globalArray = append(globalArray, iter)
+					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))
@@ -458,6 +454,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))
@@ -502,6 +499,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))
@@ -528,6 +526,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))
@@ -552,6 +551,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))

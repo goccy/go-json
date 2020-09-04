@@ -196,7 +196,8 @@ func (e *Encoder) encode(v interface{}) error {
 		ctx: sync.Pool{
 			New: func() interface{} {
 				return &encodeRuntimeContext{
-					ptrs: make([]uintptr, codeLength),
+					ptrs:     make([]uintptr, codeLength),
+					keepRefs: make([]unsafe.Pointer, 8),
 				}
 			},
 		},

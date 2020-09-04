@@ -21,6 +21,10 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
+var (
+	globalArray = []interface{}{}
+)
+
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -430,6 +434,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					globalArray = append(globalArray, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
 					store(ctxptr, code.mapIter, uintptr(iter))

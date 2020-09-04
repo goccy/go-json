@@ -617,17 +617,53 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, recursiveLevel int, seenPtr map
 				}
 			}
 			seenPtr[ptr] = struct{}{}
-			c := *(code.jmp.code)
-			ctx := &encodeRuntimeContext{
-				ptrs: make([]uintptr, c.totalLength()),
-			}
-			ctx.init(ptr)
+			c := code.jmp.code
 			c.end.next = newEndOp(&encodeCompileContext{})
 			c.op = c.op.ptrHeadToHead()
-			if err := e.run(ctx, recursiveLevel+1, seenPtr, &c); err != nil {
-				return err
+
+			beforeLastCode := c.end
+			lastCode := beforeLastCode.next
+
+			lastCode.idx = beforeLastCode.idx + uintptrSize
+			lastCode.elemIdx = lastCode.idx + uintptrSize
+
+			// extend length to alloc slot for elemIdx
+			totalLength := uintptr(code.totalLength() + 1)
+			nextTotalLength := uintptr(c.totalLength() + 1)
+
+			curlen := uintptr(len(ctx.ptrs))
+			offsetNum := ptrOffset / uintptrSize
+			oldOffset := ptrOffset
+			ptrOffset += totalLength * uintptrSize
+
+			newLen := offsetNum + totalLength + nextTotalLength
+			if curlen < newLen {
+				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			code = code.next
+			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+
+			store(ctxptr, 0, ptr)
+			store(ctxptr, lastCode.idx, oldOffset)
+			store(ctxptr, lastCode.elemIdx, uintptr(unsafe.Pointer(code.next)))
+
+			// link lastCode ( opStructFieldRecursiveEnd ) => code.next
+			lastCode.op = opStructFieldRecursiveEnd
+			code = c
+			recursiveLevel++
+		case opStructFieldRecursiveEnd:
+			recursiveLevel--
+
+			// Since the pointer addresses of root code and code.jmp.code may be common,
+			// `opStructFieldRecursive` processing may replace `opEnd` of root code with `opRecursiveEnd`.
+			// At that time, `recursiveLevel` becomes -1, so return here as normal processing.
+			if recursiveLevel < 0 {
+				return nil
+			}
+			// restore ctxptr
+			offset := load(ctxptr, code.idx)
+			code = (*opcode)(unsafe.Pointer(load(ctxptr, code.elemIdx)))
+			ctxptr = ctx.ptr() + offset
+			ptrOffset = offset
 		case opStructFieldPtrHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

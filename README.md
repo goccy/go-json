@@ -5,6 +5,8 @@
 
 Fast JSON encoder/decoder compatible with encoding/json for Go
 
+<img width="400px" src="https://user-images.githubusercontent.com/209884/92572337-42b42900-f2bf-11ea-973a-c74a359553a5.png"></img>
+
 # Installation
 
 ```

@@ -665,12 +665,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldRecursiveEnd:
 			recursiveLevel--
 
-			// Since the pointer addresses of root code and code.jmp.code may be common,
-			// `opStructFieldRecursive` processing may replace `opEnd` of root code with `opRecursiveEnd`.
-			// At that time, `recursiveLevel` becomes -1, so return here as normal processing.
-			if recursiveLevel < 0 {
-				return nil
-			}
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
 			code = (*opcode)(unsafe.Pointer(load(ctxptr, code.elemIdx)))

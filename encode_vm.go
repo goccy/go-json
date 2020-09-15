@@ -21,6 +21,17 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
+func errUnsupportedValue(code *opcode, ptr uintptr) *UnsupportedValueError {
+	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+		typ: code.typ,
+		ptr: unsafe.Pointer(ptr),
+	}))
+	return &UnsupportedValueError{
+		Value: reflect.ValueOf(v),
+		Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+	}
+}
+
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -613,14 +624,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr != 0 {
 				if recursiveLevel > startDetectingCyclesAfter {
 					if _, exists := seenPtr[ptr]; exists {
-						v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-							typ: code.typ,
-							ptr: unsafe.Pointer(ptr),
-						}))
-						return &UnsupportedValueError{
-							Value: reflect.ValueOf(v),
-							Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
-						}
+						return errUnsupportedValue(code, ptr)
 					}
 				}
 			}

@@ -654,7 +654,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
 
-			store(ctxptr, 0, ptr)
+			store(ctxptr, c.idx, ptr)
 			store(ctxptr, lastCode.idx, oldOffset)
 			store(ctxptr, lastCode.elemIdx, uintptr(unsafe.Pointer(code.next)))
 

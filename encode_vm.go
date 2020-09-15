@@ -21,6 +21,17 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	*(*uintptr)(unsafe.Pointer(base + idx)) = p
 }
 
+func errUnsupportedValue(code *opcode, ptr uintptr) *UnsupportedValueError {
+	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+		typ: code.typ,
+		ptr: unsafe.Pointer(ptr),
+	}))
+	return &UnsupportedValueError{
+		Value: reflect.ValueOf(v),
+		Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+	}
+}
+
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -88,13 +99,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 || header.Data == 0 {
 				e.encodeNull()
 			} else {
-				b := e.ptrToBytes(ptr)
-				encodedLen := base64.StdEncoding.EncodedLen(len(b))
-				e.encodeByte('"')
-				buf := make([]byte, encodedLen)
-				base64.StdEncoding.Encode(buf, b)
-				e.encodeBytes(buf)
-				e.encodeByte('"')
+				e.encodeByteSlice(e.ptrToBytes(ptr))
 			}
 			code = code.next
 		case opInterface:
@@ -613,14 +618,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr != 0 {
 				if recursiveLevel > startDetectingCyclesAfter {
 					if _, exists := seenPtr[ptr]; exists {
-						v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-							typ: code.typ,
-							ptr: unsafe.Pointer(ptr),
-						}))
-						return &UnsupportedValueError{
-							Value: reflect.ValueOf(v),
-							Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
-						}
+						return errUnsupportedValue(code, ptr)
 					}
 				}
 			}
@@ -650,7 +648,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
 
-			store(ctxptr, 0, ptr)
+			store(ctxptr, c.idx, ptr)
 			store(ctxptr, lastCode.idx, oldOffset)
 			store(ctxptr, lastCode.elemIdx, uintptr(unsafe.Pointer(code.next)))
 
@@ -661,12 +659,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldRecursiveEnd:
 			recursiveLevel--
 
-			// Since the pointer addresses of root code and code.jmp.code may be common,
-			// `opStructFieldRecursive` processing may replace `opEnd` of root code with `opRecursiveEnd`.
-			// At that time, `recursiveLevel` becomes -1, so return here as normal processing.
-			if recursiveLevel < 0 {
-				return nil
-			}
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
 			code = (*opcode)(unsafe.Pointer(load(ctxptr, code.elemIdx)))
@@ -1153,10 +1145,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(code.key)
-				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr + code.offset))
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
+				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadBytes:
@@ -1168,10 +1157,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end
 			} else {
 				e.encodeBytes(code.key)
-				s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr + code.offset))
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
+				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
 				code = code.next
 			}
 		case opStructFieldPtrHeadArray:
@@ -2349,10 +2335,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.nextField
 				} else {
 					e.encodeBytes(code.key)
-					s := base64.StdEncoding.EncodeToString(v)
-					e.encodeByte('"')
-					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-					e.encodeByte('"')
+					e.encodeByteSlice(v)
 					code = code.next
 				}
 			}
@@ -2372,10 +2355,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.nextField
 				} else {
 					e.encodeBytes(code.key)
-					s := base64.StdEncoding.EncodeToString(v)
-					e.encodeByte('"')
-					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-					e.encodeByte('"')
+					e.encodeByteSlice(v)
 					code = code.next
 				}
 			}
@@ -3461,12 +3441,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				e.encodeBytes(code.key)
-				s := base64.StdEncoding.EncodeToString(
-					e.ptrToBytes(ptr + code.offset),
-				)
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
+				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagBytes:
@@ -3481,12 +3456,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeBytes(code.key)
-				s := base64.StdEncoding.EncodeToString(
-					e.ptrToBytes(ptr + code.offset),
-				)
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
+				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagMarshalJSON:
@@ -4090,10 +4060,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeBytes(code.key)
-			s := base64.StdEncoding.EncodeToString(e.ptrToBytes(ptr + code.offset))
-			e.encodeByte('"')
-			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-			e.encodeByte('"')
+			e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
 			code = code.next
 		case opStructFieldMarshalJSON:
 			if e.buf[len(e.buf)-1] != '{' {
@@ -4661,10 +4628,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeByte(',')
 				}
 				e.encodeBytes(code.key)
-				s := base64.StdEncoding.EncodeToString(v)
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
+				e.encodeByteSlice(v)
 			}
 			code = code.next
 		case opStructFieldOmitEmptyMarshalJSON:
@@ -5213,10 +5177,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte(',')
 			}
 			e.encodeBytes(code.key)
-			s := base64.StdEncoding.EncodeToString(v)
-			e.encodeByte('"')
-			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-			e.encodeByte('"')
+			e.encodeByteSlice(v)
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)

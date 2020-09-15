@@ -3,6 +3,7 @@ package json
 import (
 	"bytes"
 	"encoding"
+	"encoding/base64"
 	"io"
 	"math"
 	"reflect"
@@ -189,6 +190,8 @@ func (e *Encoder) encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
+	codeIndent = copyOpcode(codeIndent)
+	code = copyOpcode(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
 		codeIndent: codeIndent,
@@ -306,6 +309,22 @@ func (e *Encoder) encodeString(s string) {
 	} else {
 		e.encodeNoEscapedString(s)
 	}
+}
+
+func (e *Encoder) encodeByteSlice(b []byte) {
+	encodedLen := base64.StdEncoding.EncodedLen(len(b))
+	e.encodeByte('"')
+	pos := len(e.buf)
+	remainLen := cap(e.buf[pos:])
+	var buf []byte
+	if remainLen > encodedLen {
+		buf = e.buf[pos : pos+encodedLen]
+	} else {
+		buf = make([]byte, encodedLen)
+	}
+	base64.StdEncoding.Encode(buf, b)
+	e.encodeBytes(buf)
+	e.encodeByte('"')
 }
 
 func (e *Encoder) encodeByte(b byte) {

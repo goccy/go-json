@@ -44,6 +44,11 @@ func opcodeOffset(idx int) uintptr {
 	return uintptr(idx) * uintptrSize
 }
 
+func copyOpcode(code *opcode) *opcode {
+	codeMap := map[uintptr]*opcode{}
+	return code.copy(codeMap)
+}
+
 func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opcode {
 	return &opcode{
 		op:         op,
@@ -57,6 +62,43 @@ func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opco
 
 func newEndOp(ctx *encodeCompileContext) *opcode {
 	return newOpCodeWithNext(ctx, opEnd, nil)
+}
+
+func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
+	if c == nil {
+		return nil
+	}
+	addr := uintptr(unsafe.Pointer(c))
+	if code, exists := codeMap[addr]; exists {
+		return code
+	}
+	copied := &opcode{
+		op:           c.op,
+		typ:          c.typ,
+		displayIdx:   c.displayIdx,
+		key:          c.key,
+		displayKey:   c.displayKey,
+		isTaggedKey:  c.isTaggedKey,
+		anonymousKey: c.anonymousKey,
+		root:         c.root,
+		indent:       c.indent,
+		idx:          c.idx,
+		headIdx:      c.headIdx,
+		elemIdx:      c.elemIdx,
+		length:       c.length,
+		mapIter:      c.mapIter,
+		offset:       c.offset,
+		size:         c.size,
+	}
+	codeMap[addr] = copied
+	copied.mapKey = c.mapKey.copy(codeMap)
+	copied.mapValue = c.mapValue.copy(codeMap)
+	copied.elem = c.elem.copy(codeMap)
+	copied.end = c.end.copy(codeMap)
+	copied.nextField = c.nextField.copy(codeMap)
+	copied.next = c.next.copy(codeMap)
+	copied.jmp = c.jmp
+	return copied
 }
 
 func (c *opcode) beforeLastCode() *opcode {

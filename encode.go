@@ -189,6 +189,8 @@ func (e *Encoder) encode(v interface{}) error {
 	if err != nil {
 		return err
 	}
+	codeIndent = copyOpcode(codeIndent)
+	code = copyOpcode(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
 		codeIndent: codeIndent,

@@ -640,31 +640,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.end.next
 				}
 			}
-		case opRootMapHeadIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				mlen := maplen(unsafe.Pointer(ptr))
-				if mlen > 0 {
-					e.encodeBytes([]byte{'{', '\n'})
-					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-					code = code.next
-					e.encodeIndent(code.indent)
-				} else {
-					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'{', '}'})
-					code = code.end.next
-				}
-			}
 		case opMapKeyIndent:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
@@ -696,24 +671,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					code = code.end
 				}
-			}
-		case opRootMapKeyIndent:
-			idx := load(ctxptr, code.elemIdx)
-			length := load(ctxptr, code.length)
-			idx++
-			if idx < length {
-				e.encodeBytes([]byte{',', '\n'})
-				e.encodeIndent(code.indent)
-				store(ctxptr, code.elemIdx, idx)
-				iter := unsafe.Pointer(load(ctxptr, code.mapIter))
-				key := mapiterkey(iter)
-				store(ctxptr, code.next.idx, uintptr(key))
-				code = code.next
-			} else {
-				e.encodeByte('\n')
-				e.encodeIndent(code.indent - 1)
-				e.encodeByte('}')
-				code = code.end.next
 			}
 		case opMapValueIndent:
 			if e.unorderedMap {

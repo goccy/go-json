@@ -452,13 +452,13 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 		return opStructFieldHeadString
 	case opBool:
 		return opStructFieldHeadBool
-	case opMapHead, opSortedMapHead:
+	case opMapHead:
 		return opStructFieldHeadMap
-	case opMapHeadLoad, opSortedMapHeadLoad:
+	case opMapHeadLoad:
 		return opStructFieldHeadMapLoad
-	case opMapHeadIndent, opSortedMapHeadIndent:
+	case opMapHeadIndent:
 		return opStructFieldHeadMapIndent
-	case opMapHeadLoadIndent, opSortedMapHeadLoadIndent:
+	case opMapHeadLoadIndent:
 		return opStructFieldHeadMapLoadIndent
 	case opArrayHead:
 		return opStructFieldHeadArray
@@ -510,13 +510,13 @@ func (e *Encoder) typeToFieldType(op opType) opType {
 		return opStructFieldString
 	case opBool:
 		return opStructFieldBool
-	case opMapHead, opSortedMapHead:
+	case opMapHead:
 		return opStructFieldMap
-	case opMapHeadLoad, opSortedMapHeadLoad:
+	case opMapHeadLoad:
 		return opStructFieldMapLoad
-	case opMapHeadIndent, opSortedMapHeadIndent:
+	case opMapHeadIndent:
 		return opStructFieldMapIndent
-	case opMapHeadLoadIndent, opSortedMapHeadLoadIndent:
+	case opMapHeadLoadIndent:
 		return opStructFieldMapLoadIndent
 	case opArrayHead:
 		return opStructFieldArray

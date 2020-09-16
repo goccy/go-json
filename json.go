@@ -154,8 +154,18 @@ type Unmarshaler interface {
 // an infinite recursion.
 //
 func Marshal(v interface{}) ([]byte, error) {
+	return MarshalWithOption(v)
+}
+
+// MarshalWithOption returns the JSON encoding of v with EncodeOption.
+func MarshalWithOption(v interface{}, opts ...EncodeOption) ([]byte, error) {
 	var b *bytes.Buffer
 	enc := NewEncoder(b)
+	for _, opt := range opts {
+		if err := opt(enc); err != nil {
+			return nil, err
+		}
+	}
 	bytes, err := enc.encodeForMarshal(v)
 	if err != nil {
 		enc.release()
@@ -169,8 +179,18 @@ func Marshal(v interface{}) ([]byte, error) {
 // Each JSON element in the output will begin on a new line beginning with prefix
 // followed by one or more copies of indent according to the indentation nesting.
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
+	return MarshalIndentWithOption(v, prefix, indent)
+}
+
+// MarshalIndentWithOption is like Marshal but applies Indent to format the output with EncodeOption.
+func MarshalIndentWithOption(v interface{}, prefix, indent string, opts ...EncodeOption) ([]byte, error) {
 	var b *bytes.Buffer
 	enc := NewEncoder(b)
+	for _, opt := range opts {
+		if err := opt(enc); err != nil {
+			return nil, err
+		}
+	}
 	enc.SetIndent(prefix, indent)
 	bytes, err := enc.encodeForMarshal(v)
 	if err != nil {

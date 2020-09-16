@@ -18,6 +18,7 @@ type Encoder struct {
 	buf                            []byte
 	enabledIndent                  bool
 	enabledHTMLEscape              bool
+	unorderedMap                   bool
 	prefix                         []byte
 	indentStr                      []byte
 	structTypeToCompiledCode       map[uintptr]*compiledCode
@@ -88,6 +89,16 @@ func NewEncoder(w io.Writer) *Encoder {
 //
 // See the documentation for Marshal for details about the conversion of Go values to JSON.
 func (e *Encoder) Encode(v interface{}) error {
+	return e.EncodeWithOption(v)
+}
+
+// EncodeWithOption call Encode with EncodeOption.
+func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
+	for _, opt := range opts {
+		if err := opt(e); err != nil {
+			return err
+		}
+	}
 	if err := e.encode(v); err != nil {
 		return err
 	}
@@ -126,6 +137,7 @@ func (e *Encoder) reset() {
 	e.buf = e.buf[:0]
 	e.enabledHTMLEscape = true
 	e.enabledIndent = false
+	e.unorderedMap = false
 }
 
 func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {

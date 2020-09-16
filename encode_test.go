@@ -377,14 +377,18 @@ func Test_Marshal(t *testing.T) {
 	})
 	t.Run("map", func(t *testing.T) {
 		t.Run("map[string]int", func(t *testing.T) {
-			bytes, err := json.Marshal(map[string]int{
+			v := map[string]int{
 				"a": 1,
 				"b": 2,
 				"c": 3,
 				"d": 4,
-			})
+			}
+			bytes, err := json.Marshal(v)
 			assertErr(t, err)
 			assertEq(t, "map", `{"a":1,"b":2,"c":3,"d":4}`, string(bytes))
+			b, err := json.MarshalWithOption(v, json.UnorderedMap())
+			assertErr(t, err)
+			assertEq(t, "unordered map", len(`{"a":1,"b":2,"c":3,"d":4}`), len(string(b)))
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			type T struct {

@@ -389,9 +389,9 @@ func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size 
 func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	var op opType
 	if withLoad {
-		op = opSortedMapHeadLoad
+		op = opMapHeadLoad
 	} else {
-		op = opSortedMapHead
+		op = opMapHead
 	}
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
@@ -414,7 +414,7 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 
 func newMapKeyCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
-		op:         opSortedMapKey,
+		op:         opMapKey,
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		elemIdx:    head.elemIdx,
@@ -426,7 +426,7 @@ func newMapKeyCode(ctx *encodeCompileContext, head *opcode) *opcode {
 
 func newMapValueCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
-		op:         opSortedMapValue,
+		op:         opMapValue,
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		elemIdx:    head.elemIdx,
@@ -443,7 +443,7 @@ func newMapEndCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	ctx.incPtrIndex()
 	idx := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         opSortedMapEnd,
+		op:         opMapEnd,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		length:     head.length,

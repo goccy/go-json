@@ -24,6 +24,7 @@ type opcode struct {
 	elemIdx uintptr // offset to access array/slice/map elem
 	length  uintptr // offset to access slice/map length or array length
 	mapIter uintptr // offset to access map iterator
+	mapPos  uintptr // offset to access position list for sorted map
 	offset  uintptr // offset size from struct header
 	size    uintptr // array/slice elem size
 
@@ -87,6 +88,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		elemIdx:      c.elemIdx,
 		length:       c.length,
 		mapIter:      c.mapIter,
+		mapPos:       c.mapPos,
 		offset:       c.offset,
 		size:         c.size,
 	}
@@ -194,6 +196,18 @@ func (c *opcode) dumpMapHead(code *opcode) string {
 	)
 }
 
+func (c *opcode) dumpMapEnd(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.idx/uintptrSize,
+		code.mapPos/uintptrSize,
+		code.length/uintptrSize,
+	)
+}
+
 func (c *opcode) dumpElem(code *opcode) string {
 	var length uintptr
 	if code.op.codeType() == codeArrayElem {
@@ -269,6 +283,9 @@ func (c *opcode) dump() string {
 			code = code.end
 		case codeMapValue:
 			codes = append(codes, c.dumpValue(code))
+			code = code.next
+		case codeMapEnd:
+			codes = append(codes, c.dumpMapEnd(code))
 			code = code.next
 		case codeStructField:
 			codes = append(codes, c.dumpField(code))
@@ -413,6 +430,21 @@ func newMapValueCode(ctx *encodeCompileContext, head *opcode) *opcode {
 		length:     head.length,
 		mapIter:    head.mapIter,
 		indent:     ctx.indent,
+	}
+}
+
+func newMapEndCode(ctx *encodeCompileContext, head *opcode) *opcode {
+	mapPos := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	idx := opcodeOffset(ctx.ptrIndex)
+	return &opcode{
+		op:         opMapEnd,
+		displayIdx: ctx.opcodeIndex,
+		idx:        idx,
+		length:     head.length,
+		mapPos:     mapPos,
+		indent:     ctx.indent,
+		next:       newEndOp(ctx),
 	}
 }
 

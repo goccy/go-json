@@ -377,14 +377,18 @@ func Test_Marshal(t *testing.T) {
 	})
 	t.Run("map", func(t *testing.T) {
 		t.Run("map[string]int", func(t *testing.T) {
-			bytes, err := json.Marshal(map[string]int{
+			v := map[string]int{
 				"a": 1,
 				"b": 2,
 				"c": 3,
 				"d": 4,
-			})
+			}
+			bytes, err := json.Marshal(v)
 			assertErr(t, err)
-			assertEq(t, "map", len(`{"a":1,"b":2,"c":3,"d":4}`), len(string(bytes)))
+			assertEq(t, "map", `{"a":1,"b":2,"c":3,"d":4}`, string(bytes))
+			b, err := json.MarshalWithOption(v, json.UnorderedMap())
+			assertErr(t, err)
+			assertEq(t, "unordered map", len(`{"a":1,"b":2,"c":3,"d":4}`), len(string(b)))
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			type T struct {
@@ -400,7 +404,7 @@ func Test_Marshal(t *testing.T) {
 			}
 			bytes, err := json.Marshal(v)
 			assertErr(t, err)
-			assertEq(t, "map[string]interface{}", len(`{"a":1,"b":2.1,"c":{"A":10},"d":4}`), len(string(bytes)))
+			assertEq(t, "map[string]interface{}", `{"a":1,"b":2.1,"c":{"A":10},"d":4}`, string(bytes))
 		})
 	})
 }
@@ -474,7 +478,7 @@ func Test_MarshalIndent(t *testing.T) {
 			}, prefix, indent)
 			assertErr(t, err)
 			result := "{\n-\t\"a\": 1,\n-\t\"b\": 2,\n-\t\"c\": 3,\n-\t\"d\": 4\n-}"
-			assertEq(t, "map", len(result), len(string(bytes)))
+			assertEq(t, "map", result, string(bytes))
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			type T struct {
@@ -493,7 +497,7 @@ func Test_MarshalIndent(t *testing.T) {
 			bytes, err := json.MarshalIndent(v, prefix, indent)
 			assertErr(t, err)
 			result := "{\n-\t\"a\": 1,\n-\t\"b\": 2.1,\n-\t\"c\": {\n-\t\t\"E\": 10,\n-\t\t\"F\": 11\n-\t},\n-\t\"d\": 4\n-}"
-			assertEq(t, "map[string]interface{}", len(result), len(string(bytes)))
+			assertEq(t, "map[string]interface{}", result, string(bytes))
 		})
 	})
 }
@@ -898,7 +902,7 @@ func TestTextMarshalerMapKeysAreSorted(t *testing.T) {
 		t.Fatalf("Failed to Marshal text.Marshaler: %v", err)
 	}
 	const want = `{"a:z":3,"x:y":1,"y:x":2,"z:a":4}`
-	if len(string(b)) != len(want) {
+	if string(b) != want {
 		t.Errorf("Marshal map with text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }
@@ -914,7 +918,7 @@ func TestNilMarshalerTextMapKey(t *testing.T) {
 		t.Fatalf("Failed to Marshal *text.Marshaler: %v", err)
 	}
 	const want = `{"":1,"A:B":2}`
-	if len(string(b)) != len(want) {
+	if string(b) != want {
 		t.Errorf("Marshal map with *text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }

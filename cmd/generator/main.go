@@ -204,6 +204,7 @@ func (t opType) fieldToStringTagField() opType {
 		"MapHead",
 		"MapKey",
 		"MapValue",
+		"MapEnd",
 		"StructFieldRecursive",
 		"StructField",
 	}

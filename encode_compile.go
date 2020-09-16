@@ -398,26 +398,15 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 
 	header.mapKey = key
 	header.mapValue = value
-	end := newOpCode(ctx, opMapEnd)
+
+	end := newMapEndCode(ctx, header)
 	ctx.incIndex()
 
 	if ctx.withIndent {
-		if header.op == opMapHead {
-			if ctx.root {
-				header.op = opRootMapHeadIndent
-			} else {
-				header.op = opMapHeadIndent
-			}
-		} else {
-			header.op = opMapHeadLoadIndent
-		}
-		if ctx.root {
-			key.op = opRootMapKeyIndent
-		} else {
-			key.op = opMapKeyIndent
-		}
-		value.op = opMapValueIndent
-		end.op = opMapEndIndent
+		header.op = header.op.toIndent()
+		key.op = key.op.toIndent()
+		value.op = value.op.toIndent()
+		end.op = end.op.toIndent()
 	}
 
 	header.next = keyCode
@@ -428,6 +417,7 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 
 	header.end = end
 	key.end = end
+	value.end = end
 
 	return (*opcode)(unsafe.Pointer(header)), nil
 }

@@ -12,8 +12,9 @@ const (
   codeMapHead codeType = 5
   codeMapKey codeType = 6
   codeMapValue codeType = 7
-  codeStructFieldRecursive codeType = 8
-  codeStructField codeType = 9
+  codeMapEnd codeType = 8
+  codeStructFieldRecursive codeType = 9
+  codeStructField codeType = 10
 )
 
 type opType int

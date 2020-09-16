@@ -398,26 +398,15 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 
 	header.mapKey = key
 	header.mapValue = value
-	end := newOpCode(ctx, opMapEnd)
+
+	end := newMapEndCode(ctx, header)
 	ctx.incIndex()
 
 	if ctx.withIndent {
-		if header.op == opMapHead {
-			if ctx.root {
-				header.op = opRootMapHeadIndent
-			} else {
-				header.op = opMapHeadIndent
-			}
-		} else {
-			header.op = opMapHeadLoadIndent
-		}
-		if ctx.root {
-			key.op = opRootMapKeyIndent
-		} else {
-			key.op = opMapKeyIndent
-		}
-		value.op = opMapValueIndent
-		end.op = opMapEndIndent
+		header.op = header.op.toIndent()
+		key.op = key.op.toIndent()
+		value.op = value.op.toIndent()
+		end.op = end.op.toIndent()
 	}
 
 	header.next = keyCode
@@ -428,6 +417,7 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 
 	header.end = end
 	key.end = end
+	value.end = end
 
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
@@ -462,13 +452,13 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 		return opStructFieldHeadString
 	case opBool:
 		return opStructFieldHeadBool
-	case opMapHead:
+	case opMapHead, opSortedMapHead:
 		return opStructFieldHeadMap
-	case opMapHeadLoad:
+	case opMapHeadLoad, opSortedMapHeadLoad:
 		return opStructFieldHeadMapLoad
-	case opMapHeadIndent:
+	case opMapHeadIndent, opSortedMapHeadIndent:
 		return opStructFieldHeadMapIndent
-	case opMapHeadLoadIndent:
+	case opMapHeadLoadIndent, opSortedMapHeadLoadIndent:
 		return opStructFieldHeadMapLoadIndent
 	case opArrayHead:
 		return opStructFieldHeadArray
@@ -520,13 +510,13 @@ func (e *Encoder) typeToFieldType(op opType) opType {
 		return opStructFieldString
 	case opBool:
 		return opStructFieldBool
-	case opMapHead:
+	case opMapHead, opSortedMapHead:
 		return opStructFieldMap
-	case opMapHeadLoad:
+	case opMapHeadLoad, opSortedMapHeadLoad:
 		return opStructFieldMapLoad
-	case opMapHeadIndent:
+	case opMapHeadIndent, opSortedMapHeadIndent:
 		return opStructFieldMapIndent
-	case opMapHeadLoadIndent:
+	case opMapHeadLoadIndent, opSortedMapHeadLoadIndent:
 		return opStructFieldMapLoadIndent
 	case opArrayHead:
 		return opStructFieldArray

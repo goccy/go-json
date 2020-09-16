@@ -24,6 +24,8 @@ type opcode struct {
 	elemIdx uintptr // offset to access array/slice/map elem
 	length  uintptr // offset to access slice/map length or array length
 	mapIter uintptr // offset to access map iterator
+	headPos uintptr // offset to access head position of map
+	mapPos  uintptr // offset to access position list for sorted map
 	offset  uintptr // offset size from struct header
 	size    uintptr // array/slice elem size
 
@@ -87,6 +89,8 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		elemIdx:      c.elemIdx,
 		length:       c.length,
 		mapIter:      c.mapIter,
+		headPos:      c.headPos,
+		mapPos:       c.mapPos,
 		offset:       c.offset,
 		size:         c.size,
 	}
@@ -194,6 +198,19 @@ func (c *opcode) dumpMapHead(code *opcode) string {
 	)
 }
 
+func (c *opcode) dumpMapEnd(code *opcode) string {
+	return fmt.Sprintf(
+		`[%d]%s%s ([idx:%d][headPos:%d][mapPos:%d][length:%d])`,
+		code.displayIdx,
+		strings.Repeat("-", code.indent),
+		code.op,
+		code.idx/uintptrSize,
+		code.headPos/uintptrSize,
+		code.mapPos/uintptrSize,
+		code.length/uintptrSize,
+	)
+}
+
 func (c *opcode) dumpElem(code *opcode) string {
 	var length uintptr
 	if code.op.codeType() == codeArrayElem {
@@ -269,6 +286,9 @@ func (c *opcode) dump() string {
 			code = code.end
 		case codeMapValue:
 			codes = append(codes, c.dumpValue(code))
+			code = code.next
+		case codeMapEnd:
+			codes = append(codes, c.dumpMapEnd(code))
 			code = code.next
 		case codeStructField:
 			codes = append(codes, c.dumpField(code))
@@ -369,9 +389,9 @@ func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size 
 func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	var op opType
 	if withLoad {
-		op = opMapHeadLoad
+		op = opSortedMapHeadLoad
 	} else {
-		op = opMapHead
+		op = opSortedMapHead
 	}
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
@@ -394,7 +414,7 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 
 func newMapKeyCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
-		op:         opMapKey,
+		op:         opSortedMapKey,
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		elemIdx:    head.elemIdx,
@@ -406,13 +426,31 @@ func newMapKeyCode(ctx *encodeCompileContext, head *opcode) *opcode {
 
 func newMapValueCode(ctx *encodeCompileContext, head *opcode) *opcode {
 	return &opcode{
-		op:         opMapValue,
+		op:         opSortedMapValue,
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		elemIdx:    head.elemIdx,
 		length:     head.length,
 		mapIter:    head.mapIter,
 		indent:     ctx.indent,
+	}
+}
+
+func newMapEndCode(ctx *encodeCompileContext, head *opcode) *opcode {
+	headPos := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	mapPos := opcodeOffset(ctx.ptrIndex)
+	ctx.incPtrIndex()
+	idx := opcodeOffset(ctx.ptrIndex)
+	return &opcode{
+		op:         opSortedMapEnd,
+		displayIdx: ctx.opcodeIndex,
+		idx:        idx,
+		length:     head.length,
+		headPos:    headPos,
+		mapPos:     mapPos,
+		indent:     ctx.indent,
+		next:       newEndOp(ctx),
 	}
 }
 

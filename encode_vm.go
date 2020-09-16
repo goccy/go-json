@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strconv"
 	"unsafe"
 )
@@ -425,6 +426,125 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{']', '\n'})
 				code = code.end.next
 			}
+		case opSortedMapHead:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				e.encodeNull()
+				code = code.end.next
+			} else {
+				e.encodeByte('{')
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
+					pos := make([]int, 0, mlen)
+					pos = append(pos, len(e.buf))
+					posPtr := unsafe.Pointer(&pos)
+					ctx.keepRefs = append(ctx.keepRefs, posPtr)
+					store(ctxptr, code.end.mapPos, uintptr(posPtr))
+					key := mapiterkey(iter)
+					store(ctxptr, code.next.idx, uintptr(key))
+					code = code.next
+				} else {
+					e.encodeByte('}')
+					code = code.end.next
+				}
+			}
+		case opSortedMapHeadLoad:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				e.encodeNull()
+				code = code.end.next
+			} else {
+				// load pointer
+				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
+				e.encodeByte('{')
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
+					key := mapiterkey(iter)
+					store(ctxptr, code.next.idx, uintptr(key))
+					pos := make([]int, 0, mlen)
+					pos = append(pos, len(e.buf))
+					posPtr := unsafe.Pointer(&pos)
+					ctx.keepRefs = append(ctx.keepRefs, posPtr)
+					store(ctxptr, code.end.mapPos, uintptr(posPtr))
+					code = code.next
+				} else {
+					e.encodeByte('}')
+					code = code.end.next
+				}
+			}
+		case opSortedMapKey:
+			idx := load(ctxptr, code.elemIdx)
+			length := load(ctxptr, code.length)
+			posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+			*posPtr = append(*posPtr, len(e.buf))
+			idx++
+			if idx < length {
+				iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+				store(ctxptr, code.elemIdx, idx)
+				key := mapiterkey(iter)
+				store(ctxptr, code.next.idx, uintptr(key))
+				code = code.next
+			} else {
+				code = code.end
+			}
+		case opSortedMapValue:
+			posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+			*posPtr = append(*posPtr, len(e.buf))
+			iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+			value := mapitervalue(iter)
+			store(ctxptr, code.next.idx, uintptr(value))
+			mapiternext(iter)
+			code = code.next
+		case opSortedMapEnd:
+			length := int(load(ctxptr, code.length))
+			type mapKV struct {
+				key   string
+				value string
+			}
+			kvs := make([]mapKV, 0, length)
+			posPtr := unsafe.Pointer(load(ctxptr, code.mapPos))
+			pos := *(*[]int)(posPtr)
+			for i := 0; i < length; i++ {
+				startKey := pos[i*2]
+				startValue := pos[i*2+1]
+				var endValue int
+				if i+1 < length {
+					endValue = pos[i*2+2]
+				} else {
+					endValue = len(e.buf)
+				}
+				kvs = append(kvs, mapKV{
+					key:   string(e.buf[startKey:startValue]),
+					value: string(e.buf[startValue:endValue]),
+				})
+			}
+			sort.Slice(kvs, func(i, j int) bool {
+				return kvs[i].key < kvs[j].key
+			})
+			buf := e.buf[pos[0]:]
+			buf = buf[:0]
+			for idx, kv := range kvs {
+				if idx != 0 {
+					buf = append(buf, ',')
+				}
+				buf = append(buf, []byte(kv.key)...)
+				buf = append(buf, ':')
+				buf = append(buf, []byte(kv.value)...)
+			}
+			buf = append(buf, '}')
+			e.buf = e.buf[:pos[0]]
+			e.buf = append(e.buf, buf...)
+			code = code.next
 		case opMapHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
@@ -492,6 +612,136 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			value := mapitervalue(iter)
 			store(ctxptr, code.next.idx, uintptr(value))
 			mapiternext(iter)
+			code = code.next
+		case opSortedMapHeadIndent:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				e.encodeNull()
+				code = code.end.next
+			} else {
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					e.encodeBytes([]byte{'{', '\n'})
+
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
+					pos := make([]int, 0, mlen)
+					pos = append(pos, len(e.buf))
+					posPtr := unsafe.Pointer(&pos)
+					ctx.keepRefs = append(ctx.keepRefs, posPtr)
+					store(ctxptr, code.end.mapPos, uintptr(posPtr))
+					key := mapiterkey(iter)
+					store(ctxptr, code.next.idx, uintptr(key))
+					code = code.next
+				} else {
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'{', '}'})
+					code = code.end.next
+				}
+			}
+		case opSortedMapHeadLoadIndent:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				e.encodeNull()
+				code = code.end.next
+			} else {
+				// load pointer
+				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
+				mlen := maplen(unsafe.Pointer(ptr))
+				if mlen > 0 {
+					e.encodeBytes([]byte{'{', '\n'})
+
+					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					ctx.keepRefs = append(ctx.keepRefs, iter)
+					store(ctxptr, code.elemIdx, 0)
+					store(ctxptr, code.length, uintptr(mlen))
+					store(ctxptr, code.mapIter, uintptr(iter))
+					key := mapiterkey(iter)
+					store(ctxptr, code.next.idx, uintptr(key))
+					pos := make([]int, 0, mlen)
+					pos = append(pos, len(e.buf))
+					posPtr := unsafe.Pointer(&pos)
+					ctx.keepRefs = append(ctx.keepRefs, posPtr)
+					store(ctxptr, code.end.mapPos, uintptr(posPtr))
+					code = code.next
+				} else {
+					e.encodeIndent(code.indent)
+					e.encodeBytes([]byte{'{', '}'})
+					code = code.end.next
+				}
+			}
+		case opSortedMapKeyIndent:
+			idx := load(ctxptr, code.elemIdx)
+			length := load(ctxptr, code.length)
+			posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+			*posPtr = append(*posPtr, len(e.buf))
+			idx++
+			if idx < length {
+				iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+				store(ctxptr, code.elemIdx, idx)
+				key := mapiterkey(iter)
+				store(ctxptr, code.next.idx, uintptr(key))
+				code = code.next
+			} else {
+				code = code.end
+			}
+		case opSortedMapValueIndent:
+			posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+			*posPtr = append(*posPtr, len(e.buf))
+			iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+			value := mapitervalue(iter)
+			store(ctxptr, code.next.idx, uintptr(value))
+			mapiternext(iter)
+			code = code.next
+		case opSortedMapEndIndent:
+			length := int(load(ctxptr, code.length))
+			type mapKV struct {
+				key   string
+				value string
+			}
+			kvs := make([]mapKV, 0, length)
+			pos := *(*[]int)(unsafe.Pointer(load(ctxptr, code.mapPos)))
+			for i := 0; i < length; i++ {
+				startKey := pos[i*2]
+				startValue := pos[i*2+1]
+				var endValue int
+				if i+1 < length {
+					endValue = pos[i*2+2]
+				} else {
+					endValue = len(e.buf)
+				}
+				kvs = append(kvs, mapKV{
+					key:   string(e.buf[startKey:startValue]),
+					value: string(e.buf[startValue:endValue]),
+				})
+			}
+			fmt.Println("kvs = ", kvs)
+			sort.Slice(kvs, func(i, j int) bool {
+				return kvs[i].key < kvs[j].key
+			})
+			buf := e.buf[pos[0]:]
+			buf = buf[:0]
+			for idx, kv := range kvs {
+				if idx != 0 {
+					buf = append(buf, []byte{',', '\n'}...)
+				}
+
+				buf = append(buf, e.prefix...)
+				buf = append(buf, bytes.Repeat(e.indentStr, code.indent+1)...)
+
+				buf = append(buf, []byte(kv.key)...)
+				buf = append(buf, []byte{':', ' '}...)
+				buf = append(buf, []byte(kv.value)...)
+			}
+			buf = append(buf, '\n')
+			buf = append(buf, e.prefix...)
+			buf = append(buf, bytes.Repeat(e.indentStr, code.indent)...)
+			buf = append(buf, '}')
+			e.buf = e.buf[:pos[0]]
+			e.buf = append(e.buf, buf...)
 			code = code.next
 		case opMapHeadIndent:
 			ptr := load(ctxptr, code.idx)

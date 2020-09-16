@@ -24,7 +24,6 @@ type opcode struct {
 	elemIdx uintptr // offset to access array/slice/map elem
 	length  uintptr // offset to access slice/map length or array length
 	mapIter uintptr // offset to access map iterator
-	headPos uintptr // offset to access head position of map
 	mapPos  uintptr // offset to access position list for sorted map
 	offset  uintptr // offset size from struct header
 	size    uintptr // array/slice elem size
@@ -89,7 +88,6 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		elemIdx:      c.elemIdx,
 		length:       c.length,
 		mapIter:      c.mapIter,
-		headPos:      c.headPos,
 		mapPos:       c.mapPos,
 		offset:       c.offset,
 		size:         c.size,
@@ -200,12 +198,11 @@ func (c *opcode) dumpMapHead(code *opcode) string {
 
 func (c *opcode) dumpMapEnd(code *opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][headPos:%d][mapPos:%d][length:%d])`,
+		`[%d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
 		code.displayIdx,
 		strings.Repeat("-", code.indent),
 		code.op,
 		code.idx/uintptrSize,
-		code.headPos/uintptrSize,
 		code.mapPos/uintptrSize,
 		code.length/uintptrSize,
 	)
@@ -437,8 +434,6 @@ func newMapValueCode(ctx *encodeCompileContext, head *opcode) *opcode {
 }
 
 func newMapEndCode(ctx *encodeCompileContext, head *opcode) *opcode {
-	headPos := opcodeOffset(ctx.ptrIndex)
-	ctx.incPtrIndex()
 	mapPos := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	idx := opcodeOffset(ctx.ptrIndex)
@@ -447,7 +442,6 @@ func newMapEndCode(ctx *encodeCompileContext, head *opcode) *opcode {
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		length:     head.length,
-		headPos:    headPos,
 		mapPos:     mapPos,
 		indent:     ctx.indent,
 		next:       newEndOp(ctx),

@@ -13,6 +13,7 @@ type opcode struct {
 	typ          *rtype // go type
 	displayIdx   int    // opcode index
 	key          []byte // struct field key
+	escapedKey   []byte // struct field key ( HTML escaped )
 	displayKey   string // key text to display
 	isTaggedKey  bool   // whether tagged key
 	anonymousKey bool   // whether anonymous key
@@ -78,6 +79,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		typ:          c.typ,
 		displayIdx:   c.displayIdx,
 		key:          c.key,
+		escapedKey:   c.escapedKey,
 		displayKey:   c.displayKey,
 		isTaggedKey:  c.isTaggedKey,
 		anonymousKey: c.anonymousKey,

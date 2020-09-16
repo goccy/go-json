@@ -3,6 +3,7 @@ package json
 import (
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 func getTag(field reflect.StructField) string {
@@ -46,13 +47,30 @@ func (t structTags) existsKey(key string) bool {
 	return false
 }
 
+func isValidTag(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case strings.ContainsRune("!#$%&()*+-./:<=>?@[]^_{|}~ ", c):
+			// Backslash and quote chars are reserved, but
+			// otherwise any punctuation chars are allowed
+			// in a tag name.
+		case !unicode.IsLetter(c) && !unicode.IsDigit(c):
+			return false
+		}
+	}
+	return true
+}
+
 func structTagFromField(field reflect.StructField) *structTag {
 	keyName := field.Name
 	tag := getTag(field)
 	st := &structTag{field: field}
 	opts := strings.Split(tag, ",")
 	if len(opts) > 0 {
-		if opts[0] != "" {
+		if opts[0] != "" && isValidTag(opts[0]) {
 			keyName = opts[0]
 			st.isTaggedKey = true
 		}

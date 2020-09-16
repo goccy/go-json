@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -890,6 +891,12 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			}
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
+
+		var buf bytes.Buffer
+		enc := NewEncoder(&buf)
+		enc.encodeEscapedString(tag.key)
+		escapedKey := fmt.Sprintf(`%s:`, string(enc.buf))
+		enc.release()
 		fieldCode := &opcode{
 			typ:          valueCode.typ,
 			displayIdx:   fieldOpcodeIndex,
@@ -898,6 +905,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			indent:       ctx.indent,
 			anonymousKey: field.Anonymous,
 			key:          []byte(key),
+			escapedKey:   []byte(escapedKey),
 			isTaggedKey:  tag.isTaggedKey,
 			displayKey:   tag.key,
 			offset:       field.Offset,

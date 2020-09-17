@@ -15,19 +15,19 @@ import (
 type Size int
 
 const (
-	Unrecognized Size = iota
-	Small
-	Large
+	unrecognized Size = iota
+	small
+	large
 )
 
 func (s *Size) UnmarshalText(text []byte) error {
 	switch strings.ToLower(string(text)) {
 	default:
-		*s = Unrecognized
+		*s = unrecognized
 	case "small":
-		*s = Small
+		*s = small
 	case "large":
-		*s = Large
+		*s = large
 	}
 	return nil
 }
@@ -37,9 +37,9 @@ func (s Size) MarshalText() ([]byte, error) {
 	switch s {
 	default:
 		name = "unrecognized"
-	case Small:
+	case small:
 		name = "small"
-	case Large:
+	case large:
 		name = "large"
 	}
 	return []byte(name), nil
@@ -58,7 +58,7 @@ func Example_textMarshalJSON() {
 	}
 
 	fmt.Printf("Inventory Counts:\n* Small:        %d\n* Large:        %d\n* Unrecognized: %d\n",
-		counts[Small], counts[Large], counts[Unrecognized])
+		counts[small], counts[large], counts[unrecognized])
 
 	// Output:
 	// Inventory Counts:

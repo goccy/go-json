@@ -481,8 +481,39 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 	return opStructFieldHead
 }
 
-func (e *Encoder) typeToFieldType(op opType) opType {
-	switch op {
+func (e *Encoder) typeToFieldType(code *opcode) opType {
+	switch code.op {
+	case opPtr:
+		switch code.next.op {
+		case opInt:
+			return opStructFieldPtrInt
+		case opInt8:
+			return opStructFieldPtrInt8
+		case opInt16:
+			return opStructFieldPtrInt16
+		case opInt32:
+			return opStructFieldPtrInt32
+		case opInt64:
+			return opStructFieldPtrInt64
+		case opUint:
+			return opStructFieldPtrUint
+		case opUint8:
+			return opStructFieldPtrUint8
+		case opUint16:
+			return opStructFieldPtrUint16
+		case opUint32:
+			return opStructFieldPtrUint32
+		case opUint64:
+			return opStructFieldPtrUint64
+		case opFloat32:
+			return opStructFieldPtrFloat32
+		case opFloat64:
+			return opStructFieldPtrFloat64
+		case opString:
+			return opStructFieldPtrString
+		case opBool:
+			return opStructFieldPtrBool
+		}
 	case opInt:
 		return opStructFieldInt
 	case opInt8:
@@ -553,8 +584,8 @@ func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent boo
 	return headType
 }
 
-func (e *Encoder) optimizeStructField(op opType, tag *structTag, withIndent bool) opType {
-	fieldType := e.typeToFieldType(op)
+func (e *Encoder) optimizeStructField(code *opcode, tag *structTag, withIndent bool) opType {
+	fieldType := e.typeToFieldType(code)
 	switch {
 	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
@@ -627,7 +658,7 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 
 func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	code := (*opcode)(unsafe.Pointer(fieldCode))
-	op := e.optimizeStructField(valueCode.op, tag, ctx.withIndent)
+	op := e.optimizeStructField(valueCode, tag, ctx.withIndent)
 	fieldCode.op = op
 	switch op {
 	case opStructField,

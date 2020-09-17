@@ -28,11 +28,13 @@ func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
 func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	d.dummy = header
 	return d.keyDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 
 func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
+	d.dummy = header
 	return d.valueDecoder.decode(buf, cursor, uintptr(header.ptr))
 }
 

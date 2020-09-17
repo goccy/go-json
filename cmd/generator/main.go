@@ -277,6 +277,7 @@ func (t opType) fieldToStringTagField() opType {
 		"StructFieldPtrAnonymousHeadOmitEmpty",
 		"StructFieldPtrAnonymousHeadStringTag",
 		"StructField",
+		"StructFieldPtr",
 		"StructFieldOmitEmpty",
 		"StructFieldStringTag",
 	} {

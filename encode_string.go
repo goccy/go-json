@@ -308,22 +308,22 @@ func (e *Encoder) writeStringSlowPathWithHTMLEscaped(i int, s string, valLen int
 
 func (e *Encoder) encodeNoEscapedString(s string) {
 	valLen := len(s)
-	e.buf = append(e.buf, '"')
 
 	// write string, the fast path, without utf8 and escape support
 	i := 0
 	for ; i < valLen; i++ {
 		c := s[i]
-		if c > 31 && c != '"' && c != '\\' {
-			e.buf = append(e.buf, c)
-		} else {
+		if c <= 31 || c == '"' || c == '\\' {
 			break
 		}
 	}
+	e.buf = append(e.buf, '"')
 	if i == valLen {
+		e.buf = append(e.buf, s...)
 		e.buf = append(e.buf, '"')
 		return
 	}
+	e.buf = append(e.buf, s[:i]...)
 	e.writeStringSlowPath(i, s, valLen)
 }
 

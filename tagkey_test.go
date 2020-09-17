@@ -90,7 +90,7 @@ var structTagObjectKeyTests = []struct {
 	{emptyTag{"Pour Moi"}, "Pour Moi", "W"},
 	{misnamedTag{"Animal Kingdom"}, "Animal Kingdom", "X"},
 	{badFormatTag{"Orfevre"}, "Orfevre", "Y"},
-	//{badCodeTag{"Reliable Man"}, "Reliable Man", "Z"},
+	{badCodeTag{"Reliable Man"}, "Reliable Man", "Z"},
 	{percentSlashTag{"brut"}, "brut", "text/html%"},
 	{punctuationTag{"Union Rags"}, "Union Rags", "!#$%&()*+-./:<=>?@[]^_{|}~"},
 	{spaceTag{"Perreddu"}, "Perreddu", "With space"},

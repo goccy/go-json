@@ -102,9 +102,11 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 	if err := e.encode(v); err != nil {
 		return err
 	}
+	e.buf = append(e.buf, '\n')
 	if _, err := e.w.Write(e.buf); err != nil {
 		return err
 	}
+	e.buf = e.buf[:0]
 	return nil
 }
 
@@ -313,6 +315,14 @@ func (e *Encoder) encodeBytes(b []byte) {
 
 func (e *Encoder) encodeNull() {
 	e.buf = append(e.buf, 'n', 'u', 'l', 'l')
+}
+
+func (e *Encoder) encodeKey(code *opcode) {
+	if e.enabledHTMLEscape {
+		e.encodeBytes(code.escapedKey)
+	} else {
+		e.encodeBytes(code.key)
+	}
 }
 
 func (e *Encoder) encodeString(s string) {

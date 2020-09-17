@@ -390,7 +390,8 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	}
 	enc := NewEncoder(dst)
 	enc.SetEscapeHTML(true)
-	enc.Encode(v)
+	enc.encode(v)
+	dst.Write(enc.buf)
 }
 
 // Valid reports whether data is a valid JSON encoding.

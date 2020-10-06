@@ -20,3 +20,6 @@ jobs:
 
     - name: Test
       run: go test -v ./
+
+    - name: Test with race detector
+      run: go test -v -race ./

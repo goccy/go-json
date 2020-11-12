@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -380,7 +381,11 @@ func (t opType) fieldToStringTagField() opType {
 		return err
 	}
 	path := filepath.Join(repoRoot(), "encode_optype.go")
-	return ioutil.WriteFile(path, b.Bytes(), 0644)
+	buf, err := format.Source(b.Bytes())
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, buf, 0644)
 }
 
 func repoRoot() string {

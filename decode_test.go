@@ -1771,6 +1771,7 @@ func TestMarshalEmbeds(t *testing.T) {
 	}
 }
 
+/*
 func equalError(a, b error) bool {
 	if a == nil {
 		return b == nil

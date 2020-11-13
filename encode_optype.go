@@ -52,32 +52,32 @@ const (
 	opStructField                                           opType = 29
 	opStructFieldOmitEmpty                                  opType = 30
 	opStructFieldStringTag                                  opType = 31
-	opStructFieldRecursive                                  opType = 32
-	opStructFieldRecursiveEnd                               opType = 33
-	opStructEnd                                             opType = 34
-	opStructAnonymousEnd                                    opType = 35
-	opInt                                                   opType = 36
-	opInt8                                                  opType = 37
-	opInt16                                                 opType = 38
-	opInt32                                                 opType = 39
-	opInt64                                                 opType = 40
-	opUint                                                  opType = 41
-	opUint8                                                 opType = 42
-	opUint16                                                opType = 43
-	opUint32                                                opType = 44
-	opUint64                                                opType = 45
-	opFloat32                                               opType = 46
-	opFloat64                                               opType = 47
-	opBool                                                  opType = 48
-	opString                                                opType = 49
-	opBytes                                                 opType = 50
-	opArray                                                 opType = 51
-	opMap                                                   opType = 52
-	opMapLoad                                               opType = 53
-	opSlice                                                 opType = 54
-	opStruct                                                opType = 55
-	opMarshalJSON                                           opType = 56
-	opMarshalText                                           opType = 57
+	opStructFieldRecursiveEnd                               opType = 32
+	opStructEnd                                             opType = 33
+	opStructAnonymousEnd                                    opType = 34
+	opInt                                                   opType = 35
+	opInt8                                                  opType = 36
+	opInt16                                                 opType = 37
+	opInt32                                                 opType = 38
+	opInt64                                                 opType = 39
+	opUint                                                  opType = 40
+	opUint8                                                 opType = 41
+	opUint16                                                opType = 42
+	opUint32                                                opType = 43
+	opUint64                                                opType = 44
+	opFloat32                                               opType = 45
+	opFloat64                                               opType = 46
+	opBool                                                  opType = 47
+	opString                                                opType = 48
+	opBytes                                                 opType = 49
+	opArray                                                 opType = 50
+	opMap                                                   opType = 51
+	opMapLoad                                               opType = 52
+	opSlice                                                 opType = 53
+	opStruct                                                opType = 54
+	opMarshalJSON                                           opType = 55
+	opMarshalText                                           opType = 56
+	opRecursive                                             opType = 57
 	opStructFieldHeadInt                                    opType = 58
 	opStructFieldHeadInt8                                   opType = 59
 	opStructFieldHeadInt16                                  opType = 60
@@ -100,746 +100,778 @@ const (
 	opStructFieldHeadStruct                                 opType = 77
 	opStructFieldHeadMarshalJSON                            opType = 78
 	opStructFieldHeadMarshalText                            opType = 79
-	opStructFieldHeadOmitEmptyInt                           opType = 80
-	opStructFieldHeadOmitEmptyInt8                          opType = 81
-	opStructFieldHeadOmitEmptyInt16                         opType = 82
-	opStructFieldHeadOmitEmptyInt32                         opType = 83
-	opStructFieldHeadOmitEmptyInt64                         opType = 84
-	opStructFieldHeadOmitEmptyUint                          opType = 85
-	opStructFieldHeadOmitEmptyUint8                         opType = 86
-	opStructFieldHeadOmitEmptyUint16                        opType = 87
-	opStructFieldHeadOmitEmptyUint32                        opType = 88
-	opStructFieldHeadOmitEmptyUint64                        opType = 89
-	opStructFieldHeadOmitEmptyFloat32                       opType = 90
-	opStructFieldHeadOmitEmptyFloat64                       opType = 91
-	opStructFieldHeadOmitEmptyBool                          opType = 92
-	opStructFieldHeadOmitEmptyString                        opType = 93
-	opStructFieldHeadOmitEmptyBytes                         opType = 94
-	opStructFieldHeadOmitEmptyArray                         opType = 95
-	opStructFieldHeadOmitEmptyMap                           opType = 96
-	opStructFieldHeadOmitEmptyMapLoad                       opType = 97
-	opStructFieldHeadOmitEmptySlice                         opType = 98
-	opStructFieldHeadOmitEmptyStruct                        opType = 99
-	opStructFieldHeadOmitEmptyMarshalJSON                   opType = 100
-	opStructFieldHeadOmitEmptyMarshalText                   opType = 101
-	opStructFieldHeadStringTagInt                           opType = 102
-	opStructFieldHeadStringTagInt8                          opType = 103
-	opStructFieldHeadStringTagInt16                         opType = 104
-	opStructFieldHeadStringTagInt32                         opType = 105
-	opStructFieldHeadStringTagInt64                         opType = 106
-	opStructFieldHeadStringTagUint                          opType = 107
-	opStructFieldHeadStringTagUint8                         opType = 108
-	opStructFieldHeadStringTagUint16                        opType = 109
-	opStructFieldHeadStringTagUint32                        opType = 110
-	opStructFieldHeadStringTagUint64                        opType = 111
-	opStructFieldHeadStringTagFloat32                       opType = 112
-	opStructFieldHeadStringTagFloat64                       opType = 113
-	opStructFieldHeadStringTagBool                          opType = 114
-	opStructFieldHeadStringTagString                        opType = 115
-	opStructFieldHeadStringTagBytes                         opType = 116
-	opStructFieldHeadStringTagArray                         opType = 117
-	opStructFieldHeadStringTagMap                           opType = 118
-	opStructFieldHeadStringTagMapLoad                       opType = 119
-	opStructFieldHeadStringTagSlice                         opType = 120
-	opStructFieldHeadStringTagStruct                        opType = 121
-	opStructFieldHeadStringTagMarshalJSON                   opType = 122
-	opStructFieldHeadStringTagMarshalText                   opType = 123
-	opStructFieldAnonymousHeadInt                           opType = 124
-	opStructFieldAnonymousHeadInt8                          opType = 125
-	opStructFieldAnonymousHeadInt16                         opType = 126
-	opStructFieldAnonymousHeadInt32                         opType = 127
-	opStructFieldAnonymousHeadInt64                         opType = 128
-	opStructFieldAnonymousHeadUint                          opType = 129
-	opStructFieldAnonymousHeadUint8                         opType = 130
-	opStructFieldAnonymousHeadUint16                        opType = 131
-	opStructFieldAnonymousHeadUint32                        opType = 132
-	opStructFieldAnonymousHeadUint64                        opType = 133
-	opStructFieldAnonymousHeadFloat32                       opType = 134
-	opStructFieldAnonymousHeadFloat64                       opType = 135
-	opStructFieldAnonymousHeadBool                          opType = 136
-	opStructFieldAnonymousHeadString                        opType = 137
-	opStructFieldAnonymousHeadBytes                         opType = 138
-	opStructFieldAnonymousHeadArray                         opType = 139
-	opStructFieldAnonymousHeadMap                           opType = 140
-	opStructFieldAnonymousHeadMapLoad                       opType = 141
-	opStructFieldAnonymousHeadSlice                         opType = 142
-	opStructFieldAnonymousHeadStruct                        opType = 143
-	opStructFieldAnonymousHeadMarshalJSON                   opType = 144
-	opStructFieldAnonymousHeadMarshalText                   opType = 145
-	opStructFieldAnonymousHeadOmitEmptyInt                  opType = 146
-	opStructFieldAnonymousHeadOmitEmptyInt8                 opType = 147
-	opStructFieldAnonymousHeadOmitEmptyInt16                opType = 148
-	opStructFieldAnonymousHeadOmitEmptyInt32                opType = 149
-	opStructFieldAnonymousHeadOmitEmptyInt64                opType = 150
-	opStructFieldAnonymousHeadOmitEmptyUint                 opType = 151
-	opStructFieldAnonymousHeadOmitEmptyUint8                opType = 152
-	opStructFieldAnonymousHeadOmitEmptyUint16               opType = 153
-	opStructFieldAnonymousHeadOmitEmptyUint32               opType = 154
-	opStructFieldAnonymousHeadOmitEmptyUint64               opType = 155
-	opStructFieldAnonymousHeadOmitEmptyFloat32              opType = 156
-	opStructFieldAnonymousHeadOmitEmptyFloat64              opType = 157
-	opStructFieldAnonymousHeadOmitEmptyBool                 opType = 158
-	opStructFieldAnonymousHeadOmitEmptyString               opType = 159
-	opStructFieldAnonymousHeadOmitEmptyBytes                opType = 160
-	opStructFieldAnonymousHeadOmitEmptyArray                opType = 161
-	opStructFieldAnonymousHeadOmitEmptyMap                  opType = 162
-	opStructFieldAnonymousHeadOmitEmptyMapLoad              opType = 163
-	opStructFieldAnonymousHeadOmitEmptySlice                opType = 164
-	opStructFieldAnonymousHeadOmitEmptyStruct               opType = 165
-	opStructFieldAnonymousHeadOmitEmptyMarshalJSON          opType = 166
-	opStructFieldAnonymousHeadOmitEmptyMarshalText          opType = 167
-	opStructFieldAnonymousHeadStringTagInt                  opType = 168
-	opStructFieldAnonymousHeadStringTagInt8                 opType = 169
-	opStructFieldAnonymousHeadStringTagInt16                opType = 170
-	opStructFieldAnonymousHeadStringTagInt32                opType = 171
-	opStructFieldAnonymousHeadStringTagInt64                opType = 172
-	opStructFieldAnonymousHeadStringTagUint                 opType = 173
-	opStructFieldAnonymousHeadStringTagUint8                opType = 174
-	opStructFieldAnonymousHeadStringTagUint16               opType = 175
-	opStructFieldAnonymousHeadStringTagUint32               opType = 176
-	opStructFieldAnonymousHeadStringTagUint64               opType = 177
-	opStructFieldAnonymousHeadStringTagFloat32              opType = 178
-	opStructFieldAnonymousHeadStringTagFloat64              opType = 179
-	opStructFieldAnonymousHeadStringTagBool                 opType = 180
-	opStructFieldAnonymousHeadStringTagString               opType = 181
-	opStructFieldAnonymousHeadStringTagBytes                opType = 182
-	opStructFieldAnonymousHeadStringTagArray                opType = 183
-	opStructFieldAnonymousHeadStringTagMap                  opType = 184
-	opStructFieldAnonymousHeadStringTagMapLoad              opType = 185
-	opStructFieldAnonymousHeadStringTagSlice                opType = 186
-	opStructFieldAnonymousHeadStringTagStruct               opType = 187
-	opStructFieldAnonymousHeadStringTagMarshalJSON          opType = 188
-	opStructFieldAnonymousHeadStringTagMarshalText          opType = 189
-	opStructFieldPtrHeadInt                                 opType = 190
-	opStructFieldPtrHeadInt8                                opType = 191
-	opStructFieldPtrHeadInt16                               opType = 192
-	opStructFieldPtrHeadInt32                               opType = 193
-	opStructFieldPtrHeadInt64                               opType = 194
-	opStructFieldPtrHeadUint                                opType = 195
-	opStructFieldPtrHeadUint8                               opType = 196
-	opStructFieldPtrHeadUint16                              opType = 197
-	opStructFieldPtrHeadUint32                              opType = 198
-	opStructFieldPtrHeadUint64                              opType = 199
-	opStructFieldPtrHeadFloat32                             opType = 200
-	opStructFieldPtrHeadFloat64                             opType = 201
-	opStructFieldPtrHeadBool                                opType = 202
-	opStructFieldPtrHeadString                              opType = 203
-	opStructFieldPtrHeadBytes                               opType = 204
-	opStructFieldPtrHeadArray                               opType = 205
-	opStructFieldPtrHeadMap                                 opType = 206
-	opStructFieldPtrHeadMapLoad                             opType = 207
-	opStructFieldPtrHeadSlice                               opType = 208
-	opStructFieldPtrHeadStruct                              opType = 209
-	opStructFieldPtrHeadMarshalJSON                         opType = 210
-	opStructFieldPtrHeadMarshalText                         opType = 211
-	opStructFieldPtrHeadOmitEmptyInt                        opType = 212
-	opStructFieldPtrHeadOmitEmptyInt8                       opType = 213
-	opStructFieldPtrHeadOmitEmptyInt16                      opType = 214
-	opStructFieldPtrHeadOmitEmptyInt32                      opType = 215
-	opStructFieldPtrHeadOmitEmptyInt64                      opType = 216
-	opStructFieldPtrHeadOmitEmptyUint                       opType = 217
-	opStructFieldPtrHeadOmitEmptyUint8                      opType = 218
-	opStructFieldPtrHeadOmitEmptyUint16                     opType = 219
-	opStructFieldPtrHeadOmitEmptyUint32                     opType = 220
-	opStructFieldPtrHeadOmitEmptyUint64                     opType = 221
-	opStructFieldPtrHeadOmitEmptyFloat32                    opType = 222
-	opStructFieldPtrHeadOmitEmptyFloat64                    opType = 223
-	opStructFieldPtrHeadOmitEmptyBool                       opType = 224
-	opStructFieldPtrHeadOmitEmptyString                     opType = 225
-	opStructFieldPtrHeadOmitEmptyBytes                      opType = 226
-	opStructFieldPtrHeadOmitEmptyArray                      opType = 227
-	opStructFieldPtrHeadOmitEmptyMap                        opType = 228
-	opStructFieldPtrHeadOmitEmptyMapLoad                    opType = 229
-	opStructFieldPtrHeadOmitEmptySlice                      opType = 230
-	opStructFieldPtrHeadOmitEmptyStruct                     opType = 231
-	opStructFieldPtrHeadOmitEmptyMarshalJSON                opType = 232
-	opStructFieldPtrHeadOmitEmptyMarshalText                opType = 233
-	opStructFieldPtrHeadStringTagInt                        opType = 234
-	opStructFieldPtrHeadStringTagInt8                       opType = 235
-	opStructFieldPtrHeadStringTagInt16                      opType = 236
-	opStructFieldPtrHeadStringTagInt32                      opType = 237
-	opStructFieldPtrHeadStringTagInt64                      opType = 238
-	opStructFieldPtrHeadStringTagUint                       opType = 239
-	opStructFieldPtrHeadStringTagUint8                      opType = 240
-	opStructFieldPtrHeadStringTagUint16                     opType = 241
-	opStructFieldPtrHeadStringTagUint32                     opType = 242
-	opStructFieldPtrHeadStringTagUint64                     opType = 243
-	opStructFieldPtrHeadStringTagFloat32                    opType = 244
-	opStructFieldPtrHeadStringTagFloat64                    opType = 245
-	opStructFieldPtrHeadStringTagBool                       opType = 246
-	opStructFieldPtrHeadStringTagString                     opType = 247
-	opStructFieldPtrHeadStringTagBytes                      opType = 248
-	opStructFieldPtrHeadStringTagArray                      opType = 249
-	opStructFieldPtrHeadStringTagMap                        opType = 250
-	opStructFieldPtrHeadStringTagMapLoad                    opType = 251
-	opStructFieldPtrHeadStringTagSlice                      opType = 252
-	opStructFieldPtrHeadStringTagStruct                     opType = 253
-	opStructFieldPtrHeadStringTagMarshalJSON                opType = 254
-	opStructFieldPtrHeadStringTagMarshalText                opType = 255
-	opStructFieldPtrAnonymousHeadInt                        opType = 256
-	opStructFieldPtrAnonymousHeadInt8                       opType = 257
-	opStructFieldPtrAnonymousHeadInt16                      opType = 258
-	opStructFieldPtrAnonymousHeadInt32                      opType = 259
-	opStructFieldPtrAnonymousHeadInt64                      opType = 260
-	opStructFieldPtrAnonymousHeadUint                       opType = 261
-	opStructFieldPtrAnonymousHeadUint8                      opType = 262
-	opStructFieldPtrAnonymousHeadUint16                     opType = 263
-	opStructFieldPtrAnonymousHeadUint32                     opType = 264
-	opStructFieldPtrAnonymousHeadUint64                     opType = 265
-	opStructFieldPtrAnonymousHeadFloat32                    opType = 266
-	opStructFieldPtrAnonymousHeadFloat64                    opType = 267
-	opStructFieldPtrAnonymousHeadBool                       opType = 268
-	opStructFieldPtrAnonymousHeadString                     opType = 269
-	opStructFieldPtrAnonymousHeadBytes                      opType = 270
-	opStructFieldPtrAnonymousHeadArray                      opType = 271
-	opStructFieldPtrAnonymousHeadMap                        opType = 272
-	opStructFieldPtrAnonymousHeadMapLoad                    opType = 273
-	opStructFieldPtrAnonymousHeadSlice                      opType = 274
-	opStructFieldPtrAnonymousHeadStruct                     opType = 275
-	opStructFieldPtrAnonymousHeadMarshalJSON                opType = 276
-	opStructFieldPtrAnonymousHeadMarshalText                opType = 277
-	opStructFieldPtrAnonymousHeadOmitEmptyInt               opType = 278
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8              opType = 279
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16             opType = 280
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32             opType = 281
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64             opType = 282
-	opStructFieldPtrAnonymousHeadOmitEmptyUint              opType = 283
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8             opType = 284
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16            opType = 285
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32            opType = 286
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64            opType = 287
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32           opType = 288
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64           opType = 289
-	opStructFieldPtrAnonymousHeadOmitEmptyBool              opType = 290
-	opStructFieldPtrAnonymousHeadOmitEmptyString            opType = 291
-	opStructFieldPtrAnonymousHeadOmitEmptyBytes             opType = 292
-	opStructFieldPtrAnonymousHeadOmitEmptyArray             opType = 293
-	opStructFieldPtrAnonymousHeadOmitEmptyMap               opType = 294
-	opStructFieldPtrAnonymousHeadOmitEmptyMapLoad           opType = 295
-	opStructFieldPtrAnonymousHeadOmitEmptySlice             opType = 296
-	opStructFieldPtrAnonymousHeadOmitEmptyStruct            opType = 297
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON       opType = 298
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalText       opType = 299
-	opStructFieldPtrAnonymousHeadStringTagInt               opType = 300
-	opStructFieldPtrAnonymousHeadStringTagInt8              opType = 301
-	opStructFieldPtrAnonymousHeadStringTagInt16             opType = 302
-	opStructFieldPtrAnonymousHeadStringTagInt32             opType = 303
-	opStructFieldPtrAnonymousHeadStringTagInt64             opType = 304
-	opStructFieldPtrAnonymousHeadStringTagUint              opType = 305
-	opStructFieldPtrAnonymousHeadStringTagUint8             opType = 306
-	opStructFieldPtrAnonymousHeadStringTagUint16            opType = 307
-	opStructFieldPtrAnonymousHeadStringTagUint32            opType = 308
-	opStructFieldPtrAnonymousHeadStringTagUint64            opType = 309
-	opStructFieldPtrAnonymousHeadStringTagFloat32           opType = 310
-	opStructFieldPtrAnonymousHeadStringTagFloat64           opType = 311
-	opStructFieldPtrAnonymousHeadStringTagBool              opType = 312
-	opStructFieldPtrAnonymousHeadStringTagString            opType = 313
-	opStructFieldPtrAnonymousHeadStringTagBytes             opType = 314
-	opStructFieldPtrAnonymousHeadStringTagArray             opType = 315
-	opStructFieldPtrAnonymousHeadStringTagMap               opType = 316
-	opStructFieldPtrAnonymousHeadStringTagMapLoad           opType = 317
-	opStructFieldPtrAnonymousHeadStringTagSlice             opType = 318
-	opStructFieldPtrAnonymousHeadStringTagStruct            opType = 319
-	opStructFieldPtrAnonymousHeadStringTagMarshalJSON       opType = 320
-	opStructFieldPtrAnonymousHeadStringTagMarshalText       opType = 321
-	opStructFieldInt                                        opType = 322
-	opStructFieldInt8                                       opType = 323
-	opStructFieldInt16                                      opType = 324
-	opStructFieldInt32                                      opType = 325
-	opStructFieldInt64                                      opType = 326
-	opStructFieldUint                                       opType = 327
-	opStructFieldUint8                                      opType = 328
-	opStructFieldUint16                                     opType = 329
-	opStructFieldUint32                                     opType = 330
-	opStructFieldUint64                                     opType = 331
-	opStructFieldFloat32                                    opType = 332
-	opStructFieldFloat64                                    opType = 333
-	opStructFieldBool                                       opType = 334
-	opStructFieldString                                     opType = 335
-	opStructFieldBytes                                      opType = 336
-	opStructFieldArray                                      opType = 337
-	opStructFieldMap                                        opType = 338
-	opStructFieldMapLoad                                    opType = 339
-	opStructFieldSlice                                      opType = 340
-	opStructFieldStruct                                     opType = 341
-	opStructFieldMarshalJSON                                opType = 342
-	opStructFieldMarshalText                                opType = 343
-	opStructFieldPtrInt                                     opType = 344
-	opStructFieldPtrInt8                                    opType = 345
-	opStructFieldPtrInt16                                   opType = 346
-	opStructFieldPtrInt32                                   opType = 347
-	opStructFieldPtrInt64                                   opType = 348
-	opStructFieldPtrUint                                    opType = 349
-	opStructFieldPtrUint8                                   opType = 350
-	opStructFieldPtrUint16                                  opType = 351
-	opStructFieldPtrUint32                                  opType = 352
-	opStructFieldPtrUint64                                  opType = 353
-	opStructFieldPtrFloat32                                 opType = 354
-	opStructFieldPtrFloat64                                 opType = 355
-	opStructFieldPtrBool                                    opType = 356
-	opStructFieldPtrString                                  opType = 357
-	opStructFieldPtrBytes                                   opType = 358
-	opStructFieldPtrArray                                   opType = 359
-	opStructFieldPtrMap                                     opType = 360
-	opStructFieldPtrMapLoad                                 opType = 361
-	opStructFieldPtrSlice                                   opType = 362
-	opStructFieldPtrStruct                                  opType = 363
-	opStructFieldPtrMarshalJSON                             opType = 364
-	opStructFieldPtrMarshalText                             opType = 365
-	opStructFieldOmitEmptyInt                               opType = 366
-	opStructFieldOmitEmptyInt8                              opType = 367
-	opStructFieldOmitEmptyInt16                             opType = 368
-	opStructFieldOmitEmptyInt32                             opType = 369
-	opStructFieldOmitEmptyInt64                             opType = 370
-	opStructFieldOmitEmptyUint                              opType = 371
-	opStructFieldOmitEmptyUint8                             opType = 372
-	opStructFieldOmitEmptyUint16                            opType = 373
-	opStructFieldOmitEmptyUint32                            opType = 374
-	opStructFieldOmitEmptyUint64                            opType = 375
-	opStructFieldOmitEmptyFloat32                           opType = 376
-	opStructFieldOmitEmptyFloat64                           opType = 377
-	opStructFieldOmitEmptyBool                              opType = 378
-	opStructFieldOmitEmptyString                            opType = 379
-	opStructFieldOmitEmptyBytes                             opType = 380
-	opStructFieldOmitEmptyArray                             opType = 381
-	opStructFieldOmitEmptyMap                               opType = 382
-	opStructFieldOmitEmptyMapLoad                           opType = 383
-	opStructFieldOmitEmptySlice                             opType = 384
-	opStructFieldOmitEmptyStruct                            opType = 385
-	opStructFieldOmitEmptyMarshalJSON                       opType = 386
-	opStructFieldOmitEmptyMarshalText                       opType = 387
-	opStructFieldStringTagInt                               opType = 388
-	opStructFieldStringTagInt8                              opType = 389
-	opStructFieldStringTagInt16                             opType = 390
-	opStructFieldStringTagInt32                             opType = 391
-	opStructFieldStringTagInt64                             opType = 392
-	opStructFieldStringTagUint                              opType = 393
-	opStructFieldStringTagUint8                             opType = 394
-	opStructFieldStringTagUint16                            opType = 395
-	opStructFieldStringTagUint32                            opType = 396
-	opStructFieldStringTagUint64                            opType = 397
-	opStructFieldStringTagFloat32                           opType = 398
-	opStructFieldStringTagFloat64                           opType = 399
-	opStructFieldStringTagBool                              opType = 400
-	opStructFieldStringTagString                            opType = 401
-	opStructFieldStringTagBytes                             opType = 402
-	opStructFieldStringTagArray                             opType = 403
-	opStructFieldStringTagMap                               opType = 404
-	opStructFieldStringTagMapLoad                           opType = 405
-	opStructFieldStringTagSlice                             opType = 406
-	opStructFieldStringTagStruct                            opType = 407
-	opStructFieldStringTagMarshalJSON                       opType = 408
-	opStructFieldStringTagMarshalText                       opType = 409
-	opEndIndent                                             opType = 410
-	opInterfaceIndent                                       opType = 411
-	opInterfaceEndIndent                                    opType = 412
-	opPtrIndent                                             opType = 413
-	opSliceHeadIndent                                       opType = 414
-	opRootSliceHeadIndent                                   opType = 415
-	opSliceElemIndent                                       opType = 416
-	opRootSliceElemIndent                                   opType = 417
-	opSliceEndIndent                                        opType = 418
-	opArrayHeadIndent                                       opType = 419
-	opArrayElemIndent                                       opType = 420
-	opArrayEndIndent                                        opType = 421
-	opMapHeadIndent                                         opType = 422
-	opMapHeadLoadIndent                                     opType = 423
-	opMapKeyIndent                                          opType = 424
-	opMapValueIndent                                        opType = 425
-	opMapEndIndent                                          opType = 426
-	opStructFieldHeadIndent                                 opType = 427
-	opStructFieldHeadOmitEmptyIndent                        opType = 428
-	opStructFieldHeadStringTagIndent                        opType = 429
-	opStructFieldAnonymousHeadIndent                        opType = 430
-	opStructFieldAnonymousHeadOmitEmptyIndent               opType = 431
-	opStructFieldPtrAnonymousHeadOmitEmptyIndent            opType = 432
-	opStructFieldAnonymousHeadStringTagIndent               opType = 433
-	opStructFieldPtrAnonymousHeadStringTagIndent            opType = 434
-	opStructFieldPtrHeadIndent                              opType = 435
-	opStructFieldPtrHeadOmitEmptyIndent                     opType = 436
-	opStructFieldPtrHeadStringTagIndent                     opType = 437
-	opStructFieldPtrAnonymousHeadIndent                     opType = 438
-	opStructFieldIndent                                     opType = 439
-	opStructFieldOmitEmptyIndent                            opType = 440
-	opStructFieldStringTagIndent                            opType = 441
-	opStructFieldRecursiveIndent                            opType = 442
-	opStructFieldRecursiveEndIndent                         opType = 443
-	opStructEndIndent                                       opType = 444
-	opStructAnonymousEndIndent                              opType = 445
-	opIntIndent                                             opType = 446
-	opInt8Indent                                            opType = 447
-	opInt16Indent                                           opType = 448
-	opInt32Indent                                           opType = 449
-	opInt64Indent                                           opType = 450
-	opUintIndent                                            opType = 451
-	opUint8Indent                                           opType = 452
-	opUint16Indent                                          opType = 453
-	opUint32Indent                                          opType = 454
-	opUint64Indent                                          opType = 455
-	opFloat32Indent                                         opType = 456
-	opFloat64Indent                                         opType = 457
-	opBoolIndent                                            opType = 458
-	opStringIndent                                          opType = 459
-	opBytesIndent                                           opType = 460
-	opArrayIndent                                           opType = 461
-	opMapIndent                                             opType = 462
-	opMapLoadIndent                                         opType = 463
-	opSliceIndent                                           opType = 464
-	opStructIndent                                          opType = 465
-	opMarshalJSONIndent                                     opType = 466
-	opMarshalTextIndent                                     opType = 467
-	opStructFieldHeadIntIndent                              opType = 468
-	opStructFieldHeadInt8Indent                             opType = 469
-	opStructFieldHeadInt16Indent                            opType = 470
-	opStructFieldHeadInt32Indent                            opType = 471
-	opStructFieldHeadInt64Indent                            opType = 472
-	opStructFieldHeadUintIndent                             opType = 473
-	opStructFieldHeadUint8Indent                            opType = 474
-	opStructFieldHeadUint16Indent                           opType = 475
-	opStructFieldHeadUint32Indent                           opType = 476
-	opStructFieldHeadUint64Indent                           opType = 477
-	opStructFieldHeadFloat32Indent                          opType = 478
-	opStructFieldHeadFloat64Indent                          opType = 479
-	opStructFieldHeadBoolIndent                             opType = 480
-	opStructFieldHeadStringIndent                           opType = 481
-	opStructFieldHeadBytesIndent                            opType = 482
-	opStructFieldHeadArrayIndent                            opType = 483
-	opStructFieldHeadMapIndent                              opType = 484
-	opStructFieldHeadMapLoadIndent                          opType = 485
-	opStructFieldHeadSliceIndent                            opType = 486
-	opStructFieldHeadStructIndent                           opType = 487
-	opStructFieldHeadMarshalJSONIndent                      opType = 488
-	opStructFieldHeadMarshalTextIndent                      opType = 489
-	opStructFieldHeadOmitEmptyIntIndent                     opType = 490
-	opStructFieldHeadOmitEmptyInt8Indent                    opType = 491
-	opStructFieldHeadOmitEmptyInt16Indent                   opType = 492
-	opStructFieldHeadOmitEmptyInt32Indent                   opType = 493
-	opStructFieldHeadOmitEmptyInt64Indent                   opType = 494
-	opStructFieldHeadOmitEmptyUintIndent                    opType = 495
-	opStructFieldHeadOmitEmptyUint8Indent                   opType = 496
-	opStructFieldHeadOmitEmptyUint16Indent                  opType = 497
-	opStructFieldHeadOmitEmptyUint32Indent                  opType = 498
-	opStructFieldHeadOmitEmptyUint64Indent                  opType = 499
-	opStructFieldHeadOmitEmptyFloat32Indent                 opType = 500
-	opStructFieldHeadOmitEmptyFloat64Indent                 opType = 501
-	opStructFieldHeadOmitEmptyBoolIndent                    opType = 502
-	opStructFieldHeadOmitEmptyStringIndent                  opType = 503
-	opStructFieldHeadOmitEmptyBytesIndent                   opType = 504
-	opStructFieldHeadOmitEmptyArrayIndent                   opType = 505
-	opStructFieldHeadOmitEmptyMapIndent                     opType = 506
-	opStructFieldHeadOmitEmptyMapLoadIndent                 opType = 507
-	opStructFieldHeadOmitEmptySliceIndent                   opType = 508
-	opStructFieldHeadOmitEmptyStructIndent                  opType = 509
-	opStructFieldHeadOmitEmptyMarshalJSONIndent             opType = 510
-	opStructFieldHeadOmitEmptyMarshalTextIndent             opType = 511
-	opStructFieldHeadStringTagIntIndent                     opType = 512
-	opStructFieldHeadStringTagInt8Indent                    opType = 513
-	opStructFieldHeadStringTagInt16Indent                   opType = 514
-	opStructFieldHeadStringTagInt32Indent                   opType = 515
-	opStructFieldHeadStringTagInt64Indent                   opType = 516
-	opStructFieldHeadStringTagUintIndent                    opType = 517
-	opStructFieldHeadStringTagUint8Indent                   opType = 518
-	opStructFieldHeadStringTagUint16Indent                  opType = 519
-	opStructFieldHeadStringTagUint32Indent                  opType = 520
-	opStructFieldHeadStringTagUint64Indent                  opType = 521
-	opStructFieldHeadStringTagFloat32Indent                 opType = 522
-	opStructFieldHeadStringTagFloat64Indent                 opType = 523
-	opStructFieldHeadStringTagBoolIndent                    opType = 524
-	opStructFieldHeadStringTagStringIndent                  opType = 525
-	opStructFieldHeadStringTagBytesIndent                   opType = 526
-	opStructFieldHeadStringTagArrayIndent                   opType = 527
-	opStructFieldHeadStringTagMapIndent                     opType = 528
-	opStructFieldHeadStringTagMapLoadIndent                 opType = 529
-	opStructFieldHeadStringTagSliceIndent                   opType = 530
-	opStructFieldHeadStringTagStructIndent                  opType = 531
-	opStructFieldHeadStringTagMarshalJSONIndent             opType = 532
-	opStructFieldHeadStringTagMarshalTextIndent             opType = 533
-	opStructFieldAnonymousHeadIntIndent                     opType = 534
-	opStructFieldAnonymousHeadInt8Indent                    opType = 535
-	opStructFieldAnonymousHeadInt16Indent                   opType = 536
-	opStructFieldAnonymousHeadInt32Indent                   opType = 537
-	opStructFieldAnonymousHeadInt64Indent                   opType = 538
-	opStructFieldAnonymousHeadUintIndent                    opType = 539
-	opStructFieldAnonymousHeadUint8Indent                   opType = 540
-	opStructFieldAnonymousHeadUint16Indent                  opType = 541
-	opStructFieldAnonymousHeadUint32Indent                  opType = 542
-	opStructFieldAnonymousHeadUint64Indent                  opType = 543
-	opStructFieldAnonymousHeadFloat32Indent                 opType = 544
-	opStructFieldAnonymousHeadFloat64Indent                 opType = 545
-	opStructFieldAnonymousHeadBoolIndent                    opType = 546
-	opStructFieldAnonymousHeadStringIndent                  opType = 547
-	opStructFieldAnonymousHeadBytesIndent                   opType = 548
-	opStructFieldAnonymousHeadArrayIndent                   opType = 549
-	opStructFieldAnonymousHeadMapIndent                     opType = 550
-	opStructFieldAnonymousHeadMapLoadIndent                 opType = 551
-	opStructFieldAnonymousHeadSliceIndent                   opType = 552
-	opStructFieldAnonymousHeadStructIndent                  opType = 553
-	opStructFieldAnonymousHeadMarshalJSONIndent             opType = 554
-	opStructFieldAnonymousHeadMarshalTextIndent             opType = 555
-	opStructFieldAnonymousHeadOmitEmptyIntIndent            opType = 556
-	opStructFieldAnonymousHeadOmitEmptyInt8Indent           opType = 557
-	opStructFieldAnonymousHeadOmitEmptyInt16Indent          opType = 558
-	opStructFieldAnonymousHeadOmitEmptyInt32Indent          opType = 559
-	opStructFieldAnonymousHeadOmitEmptyInt64Indent          opType = 560
-	opStructFieldAnonymousHeadOmitEmptyUintIndent           opType = 561
-	opStructFieldAnonymousHeadOmitEmptyUint8Indent          opType = 562
-	opStructFieldAnonymousHeadOmitEmptyUint16Indent         opType = 563
-	opStructFieldAnonymousHeadOmitEmptyUint32Indent         opType = 564
-	opStructFieldAnonymousHeadOmitEmptyUint64Indent         opType = 565
-	opStructFieldAnonymousHeadOmitEmptyFloat32Indent        opType = 566
-	opStructFieldAnonymousHeadOmitEmptyFloat64Indent        opType = 567
-	opStructFieldAnonymousHeadOmitEmptyBoolIndent           opType = 568
-	opStructFieldAnonymousHeadOmitEmptyStringIndent         opType = 569
-	opStructFieldAnonymousHeadOmitEmptyBytesIndent          opType = 570
-	opStructFieldAnonymousHeadOmitEmptyArrayIndent          opType = 571
-	opStructFieldAnonymousHeadOmitEmptyMapIndent            opType = 572
-	opStructFieldAnonymousHeadOmitEmptyMapLoadIndent        opType = 573
-	opStructFieldAnonymousHeadOmitEmptySliceIndent          opType = 574
-	opStructFieldAnonymousHeadOmitEmptyStructIndent         opType = 575
-	opStructFieldAnonymousHeadOmitEmptyMarshalJSONIndent    opType = 576
-	opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent    opType = 577
-	opStructFieldAnonymousHeadStringTagIntIndent            opType = 578
-	opStructFieldAnonymousHeadStringTagInt8Indent           opType = 579
-	opStructFieldAnonymousHeadStringTagInt16Indent          opType = 580
-	opStructFieldAnonymousHeadStringTagInt32Indent          opType = 581
-	opStructFieldAnonymousHeadStringTagInt64Indent          opType = 582
-	opStructFieldAnonymousHeadStringTagUintIndent           opType = 583
-	opStructFieldAnonymousHeadStringTagUint8Indent          opType = 584
-	opStructFieldAnonymousHeadStringTagUint16Indent         opType = 585
-	opStructFieldAnonymousHeadStringTagUint32Indent         opType = 586
-	opStructFieldAnonymousHeadStringTagUint64Indent         opType = 587
-	opStructFieldAnonymousHeadStringTagFloat32Indent        opType = 588
-	opStructFieldAnonymousHeadStringTagFloat64Indent        opType = 589
-	opStructFieldAnonymousHeadStringTagBoolIndent           opType = 590
-	opStructFieldAnonymousHeadStringTagStringIndent         opType = 591
-	opStructFieldAnonymousHeadStringTagBytesIndent          opType = 592
-	opStructFieldAnonymousHeadStringTagArrayIndent          opType = 593
-	opStructFieldAnonymousHeadStringTagMapIndent            opType = 594
-	opStructFieldAnonymousHeadStringTagMapLoadIndent        opType = 595
-	opStructFieldAnonymousHeadStringTagSliceIndent          opType = 596
-	opStructFieldAnonymousHeadStringTagStructIndent         opType = 597
-	opStructFieldAnonymousHeadStringTagMarshalJSONIndent    opType = 598
-	opStructFieldAnonymousHeadStringTagMarshalTextIndent    opType = 599
-	opStructFieldPtrHeadIntIndent                           opType = 600
-	opStructFieldPtrHeadInt8Indent                          opType = 601
-	opStructFieldPtrHeadInt16Indent                         opType = 602
-	opStructFieldPtrHeadInt32Indent                         opType = 603
-	opStructFieldPtrHeadInt64Indent                         opType = 604
-	opStructFieldPtrHeadUintIndent                          opType = 605
-	opStructFieldPtrHeadUint8Indent                         opType = 606
-	opStructFieldPtrHeadUint16Indent                        opType = 607
-	opStructFieldPtrHeadUint32Indent                        opType = 608
-	opStructFieldPtrHeadUint64Indent                        opType = 609
-	opStructFieldPtrHeadFloat32Indent                       opType = 610
-	opStructFieldPtrHeadFloat64Indent                       opType = 611
-	opStructFieldPtrHeadBoolIndent                          opType = 612
-	opStructFieldPtrHeadStringIndent                        opType = 613
-	opStructFieldPtrHeadBytesIndent                         opType = 614
-	opStructFieldPtrHeadArrayIndent                         opType = 615
-	opStructFieldPtrHeadMapIndent                           opType = 616
-	opStructFieldPtrHeadMapLoadIndent                       opType = 617
-	opStructFieldPtrHeadSliceIndent                         opType = 618
-	opStructFieldPtrHeadStructIndent                        opType = 619
-	opStructFieldPtrHeadMarshalJSONIndent                   opType = 620
-	opStructFieldPtrHeadMarshalTextIndent                   opType = 621
-	opStructFieldPtrHeadOmitEmptyIntIndent                  opType = 622
-	opStructFieldPtrHeadOmitEmptyInt8Indent                 opType = 623
-	opStructFieldPtrHeadOmitEmptyInt16Indent                opType = 624
-	opStructFieldPtrHeadOmitEmptyInt32Indent                opType = 625
-	opStructFieldPtrHeadOmitEmptyInt64Indent                opType = 626
-	opStructFieldPtrHeadOmitEmptyUintIndent                 opType = 627
-	opStructFieldPtrHeadOmitEmptyUint8Indent                opType = 628
-	opStructFieldPtrHeadOmitEmptyUint16Indent               opType = 629
-	opStructFieldPtrHeadOmitEmptyUint32Indent               opType = 630
-	opStructFieldPtrHeadOmitEmptyUint64Indent               opType = 631
-	opStructFieldPtrHeadOmitEmptyFloat32Indent              opType = 632
-	opStructFieldPtrHeadOmitEmptyFloat64Indent              opType = 633
-	opStructFieldPtrHeadOmitEmptyBoolIndent                 opType = 634
-	opStructFieldPtrHeadOmitEmptyStringIndent               opType = 635
-	opStructFieldPtrHeadOmitEmptyBytesIndent                opType = 636
-	opStructFieldPtrHeadOmitEmptyArrayIndent                opType = 637
-	opStructFieldPtrHeadOmitEmptyMapIndent                  opType = 638
-	opStructFieldPtrHeadOmitEmptyMapLoadIndent              opType = 639
-	opStructFieldPtrHeadOmitEmptySliceIndent                opType = 640
-	opStructFieldPtrHeadOmitEmptyStructIndent               opType = 641
-	opStructFieldPtrHeadOmitEmptyMarshalJSONIndent          opType = 642
-	opStructFieldPtrHeadOmitEmptyMarshalTextIndent          opType = 643
-	opStructFieldPtrHeadStringTagIntIndent                  opType = 644
-	opStructFieldPtrHeadStringTagInt8Indent                 opType = 645
-	opStructFieldPtrHeadStringTagInt16Indent                opType = 646
-	opStructFieldPtrHeadStringTagInt32Indent                opType = 647
-	opStructFieldPtrHeadStringTagInt64Indent                opType = 648
-	opStructFieldPtrHeadStringTagUintIndent                 opType = 649
-	opStructFieldPtrHeadStringTagUint8Indent                opType = 650
-	opStructFieldPtrHeadStringTagUint16Indent               opType = 651
-	opStructFieldPtrHeadStringTagUint32Indent               opType = 652
-	opStructFieldPtrHeadStringTagUint64Indent               opType = 653
-	opStructFieldPtrHeadStringTagFloat32Indent              opType = 654
-	opStructFieldPtrHeadStringTagFloat64Indent              opType = 655
-	opStructFieldPtrHeadStringTagBoolIndent                 opType = 656
-	opStructFieldPtrHeadStringTagStringIndent               opType = 657
-	opStructFieldPtrHeadStringTagBytesIndent                opType = 658
-	opStructFieldPtrHeadStringTagArrayIndent                opType = 659
-	opStructFieldPtrHeadStringTagMapIndent                  opType = 660
-	opStructFieldPtrHeadStringTagMapLoadIndent              opType = 661
-	opStructFieldPtrHeadStringTagSliceIndent                opType = 662
-	opStructFieldPtrHeadStringTagStructIndent               opType = 663
-	opStructFieldPtrHeadStringTagMarshalJSONIndent          opType = 664
-	opStructFieldPtrHeadStringTagMarshalTextIndent          opType = 665
-	opStructFieldPtrAnonymousHeadIntIndent                  opType = 666
-	opStructFieldPtrAnonymousHeadInt8Indent                 opType = 667
-	opStructFieldPtrAnonymousHeadInt16Indent                opType = 668
-	opStructFieldPtrAnonymousHeadInt32Indent                opType = 669
-	opStructFieldPtrAnonymousHeadInt64Indent                opType = 670
-	opStructFieldPtrAnonymousHeadUintIndent                 opType = 671
-	opStructFieldPtrAnonymousHeadUint8Indent                opType = 672
-	opStructFieldPtrAnonymousHeadUint16Indent               opType = 673
-	opStructFieldPtrAnonymousHeadUint32Indent               opType = 674
-	opStructFieldPtrAnonymousHeadUint64Indent               opType = 675
-	opStructFieldPtrAnonymousHeadFloat32Indent              opType = 676
-	opStructFieldPtrAnonymousHeadFloat64Indent              opType = 677
-	opStructFieldPtrAnonymousHeadBoolIndent                 opType = 678
-	opStructFieldPtrAnonymousHeadStringIndent               opType = 679
-	opStructFieldPtrAnonymousHeadBytesIndent                opType = 680
-	opStructFieldPtrAnonymousHeadArrayIndent                opType = 681
-	opStructFieldPtrAnonymousHeadMapIndent                  opType = 682
-	opStructFieldPtrAnonymousHeadMapLoadIndent              opType = 683
-	opStructFieldPtrAnonymousHeadSliceIndent                opType = 684
-	opStructFieldPtrAnonymousHeadStructIndent               opType = 685
-	opStructFieldPtrAnonymousHeadMarshalJSONIndent          opType = 686
-	opStructFieldPtrAnonymousHeadMarshalTextIndent          opType = 687
-	opStructFieldPtrAnonymousHeadOmitEmptyIntIndent         opType = 688
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent        opType = 689
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent       opType = 690
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent       opType = 691
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent       opType = 692
-	opStructFieldPtrAnonymousHeadOmitEmptyUintIndent        opType = 693
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent       opType = 694
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent      opType = 695
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent      opType = 696
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent      opType = 697
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent     opType = 698
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent     opType = 699
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent        opType = 700
-	opStructFieldPtrAnonymousHeadOmitEmptyStringIndent      opType = 701
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesIndent       opType = 702
-	opStructFieldPtrAnonymousHeadOmitEmptyArrayIndent       opType = 703
-	opStructFieldPtrAnonymousHeadOmitEmptyMapIndent         opType = 704
-	opStructFieldPtrAnonymousHeadOmitEmptyMapLoadIndent     opType = 705
-	opStructFieldPtrAnonymousHeadOmitEmptySliceIndent       opType = 706
-	opStructFieldPtrAnonymousHeadOmitEmptyStructIndent      opType = 707
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent opType = 708
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent opType = 709
-	opStructFieldPtrAnonymousHeadStringTagIntIndent         opType = 710
-	opStructFieldPtrAnonymousHeadStringTagInt8Indent        opType = 711
-	opStructFieldPtrAnonymousHeadStringTagInt16Indent       opType = 712
-	opStructFieldPtrAnonymousHeadStringTagInt32Indent       opType = 713
-	opStructFieldPtrAnonymousHeadStringTagInt64Indent       opType = 714
-	opStructFieldPtrAnonymousHeadStringTagUintIndent        opType = 715
-	opStructFieldPtrAnonymousHeadStringTagUint8Indent       opType = 716
-	opStructFieldPtrAnonymousHeadStringTagUint16Indent      opType = 717
-	opStructFieldPtrAnonymousHeadStringTagUint32Indent      opType = 718
-	opStructFieldPtrAnonymousHeadStringTagUint64Indent      opType = 719
-	opStructFieldPtrAnonymousHeadStringTagFloat32Indent     opType = 720
-	opStructFieldPtrAnonymousHeadStringTagFloat64Indent     opType = 721
-	opStructFieldPtrAnonymousHeadStringTagBoolIndent        opType = 722
-	opStructFieldPtrAnonymousHeadStringTagStringIndent      opType = 723
-	opStructFieldPtrAnonymousHeadStringTagBytesIndent       opType = 724
-	opStructFieldPtrAnonymousHeadStringTagArrayIndent       opType = 725
-	opStructFieldPtrAnonymousHeadStringTagMapIndent         opType = 726
-	opStructFieldPtrAnonymousHeadStringTagMapLoadIndent     opType = 727
-	opStructFieldPtrAnonymousHeadStringTagSliceIndent       opType = 728
-	opStructFieldPtrAnonymousHeadStringTagStructIndent      opType = 729
-	opStructFieldPtrAnonymousHeadStringTagMarshalJSONIndent opType = 730
-	opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent opType = 731
-	opStructFieldIntIndent                                  opType = 732
-	opStructFieldInt8Indent                                 opType = 733
-	opStructFieldInt16Indent                                opType = 734
-	opStructFieldInt32Indent                                opType = 735
-	opStructFieldInt64Indent                                opType = 736
-	opStructFieldUintIndent                                 opType = 737
-	opStructFieldUint8Indent                                opType = 738
-	opStructFieldUint16Indent                               opType = 739
-	opStructFieldUint32Indent                               opType = 740
-	opStructFieldUint64Indent                               opType = 741
-	opStructFieldFloat32Indent                              opType = 742
-	opStructFieldFloat64Indent                              opType = 743
-	opStructFieldBoolIndent                                 opType = 744
-	opStructFieldStringIndent                               opType = 745
-	opStructFieldBytesIndent                                opType = 746
-	opStructFieldArrayIndent                                opType = 747
-	opStructFieldMapIndent                                  opType = 748
-	opStructFieldMapLoadIndent                              opType = 749
-	opStructFieldSliceIndent                                opType = 750
-	opStructFieldStructIndent                               opType = 751
-	opStructFieldMarshalJSONIndent                          opType = 752
-	opStructFieldMarshalTextIndent                          opType = 753
-	opStructFieldPtrIntIndent                               opType = 754
-	opStructFieldPtrInt8Indent                              opType = 755
-	opStructFieldPtrInt16Indent                             opType = 756
-	opStructFieldPtrInt32Indent                             opType = 757
-	opStructFieldPtrInt64Indent                             opType = 758
-	opStructFieldPtrUintIndent                              opType = 759
-	opStructFieldPtrUint8Indent                             opType = 760
-	opStructFieldPtrUint16Indent                            opType = 761
-	opStructFieldPtrUint32Indent                            opType = 762
-	opStructFieldPtrUint64Indent                            opType = 763
-	opStructFieldPtrFloat32Indent                           opType = 764
-	opStructFieldPtrFloat64Indent                           opType = 765
-	opStructFieldPtrBoolIndent                              opType = 766
-	opStructFieldPtrStringIndent                            opType = 767
-	opStructFieldPtrBytesIndent                             opType = 768
-	opStructFieldPtrArrayIndent                             opType = 769
-	opStructFieldPtrMapIndent                               opType = 770
-	opStructFieldPtrMapLoadIndent                           opType = 771
-	opStructFieldPtrSliceIndent                             opType = 772
-	opStructFieldPtrStructIndent                            opType = 773
-	opStructFieldPtrMarshalJSONIndent                       opType = 774
-	opStructFieldPtrMarshalTextIndent                       opType = 775
-	opStructFieldOmitEmptyIntIndent                         opType = 776
-	opStructFieldOmitEmptyInt8Indent                        opType = 777
-	opStructFieldOmitEmptyInt16Indent                       opType = 778
-	opStructFieldOmitEmptyInt32Indent                       opType = 779
-	opStructFieldOmitEmptyInt64Indent                       opType = 780
-	opStructFieldOmitEmptyUintIndent                        opType = 781
-	opStructFieldOmitEmptyUint8Indent                       opType = 782
-	opStructFieldOmitEmptyUint16Indent                      opType = 783
-	opStructFieldOmitEmptyUint32Indent                      opType = 784
-	opStructFieldOmitEmptyUint64Indent                      opType = 785
-	opStructFieldOmitEmptyFloat32Indent                     opType = 786
-	opStructFieldOmitEmptyFloat64Indent                     opType = 787
-	opStructFieldOmitEmptyBoolIndent                        opType = 788
-	opStructFieldOmitEmptyStringIndent                      opType = 789
-	opStructFieldOmitEmptyBytesIndent                       opType = 790
-	opStructFieldOmitEmptyArrayIndent                       opType = 791
-	opStructFieldOmitEmptyMapIndent                         opType = 792
-	opStructFieldOmitEmptyMapLoadIndent                     opType = 793
-	opStructFieldOmitEmptySliceIndent                       opType = 794
-	opStructFieldOmitEmptyStructIndent                      opType = 795
-	opStructFieldOmitEmptyMarshalJSONIndent                 opType = 796
-	opStructFieldOmitEmptyMarshalTextIndent                 opType = 797
-	opStructFieldStringTagIntIndent                         opType = 798
-	opStructFieldStringTagInt8Indent                        opType = 799
-	opStructFieldStringTagInt16Indent                       opType = 800
-	opStructFieldStringTagInt32Indent                       opType = 801
-	opStructFieldStringTagInt64Indent                       opType = 802
-	opStructFieldStringTagUintIndent                        opType = 803
-	opStructFieldStringTagUint8Indent                       opType = 804
-	opStructFieldStringTagUint16Indent                      opType = 805
-	opStructFieldStringTagUint32Indent                      opType = 806
-	opStructFieldStringTagUint64Indent                      opType = 807
-	opStructFieldStringTagFloat32Indent                     opType = 808
-	opStructFieldStringTagFloat64Indent                     opType = 809
-	opStructFieldStringTagBoolIndent                        opType = 810
-	opStructFieldStringTagStringIndent                      opType = 811
-	opStructFieldStringTagBytesIndent                       opType = 812
-	opStructFieldStringTagArrayIndent                       opType = 813
-	opStructFieldStringTagMapIndent                         opType = 814
-	opStructFieldStringTagMapLoadIndent                     opType = 815
-	opStructFieldStringTagSliceIndent                       opType = 816
-	opStructFieldStringTagStructIndent                      opType = 817
-	opStructFieldStringTagMarshalJSONIndent                 opType = 818
-	opStructFieldStringTagMarshalTextIndent                 opType = 819
+	opStructFieldHeadRecursive                              opType = 80
+	opStructFieldHeadOmitEmptyInt                           opType = 81
+	opStructFieldHeadOmitEmptyInt8                          opType = 82
+	opStructFieldHeadOmitEmptyInt16                         opType = 83
+	opStructFieldHeadOmitEmptyInt32                         opType = 84
+	opStructFieldHeadOmitEmptyInt64                         opType = 85
+	opStructFieldHeadOmitEmptyUint                          opType = 86
+	opStructFieldHeadOmitEmptyUint8                         opType = 87
+	opStructFieldHeadOmitEmptyUint16                        opType = 88
+	opStructFieldHeadOmitEmptyUint32                        opType = 89
+	opStructFieldHeadOmitEmptyUint64                        opType = 90
+	opStructFieldHeadOmitEmptyFloat32                       opType = 91
+	opStructFieldHeadOmitEmptyFloat64                       opType = 92
+	opStructFieldHeadOmitEmptyBool                          opType = 93
+	opStructFieldHeadOmitEmptyString                        opType = 94
+	opStructFieldHeadOmitEmptyBytes                         opType = 95
+	opStructFieldHeadOmitEmptyArray                         opType = 96
+	opStructFieldHeadOmitEmptyMap                           opType = 97
+	opStructFieldHeadOmitEmptyMapLoad                       opType = 98
+	opStructFieldHeadOmitEmptySlice                         opType = 99
+	opStructFieldHeadOmitEmptyStruct                        opType = 100
+	opStructFieldHeadOmitEmptyMarshalJSON                   opType = 101
+	opStructFieldHeadOmitEmptyMarshalText                   opType = 102
+	opStructFieldHeadOmitEmptyRecursive                     opType = 103
+	opStructFieldHeadStringTagInt                           opType = 104
+	opStructFieldHeadStringTagInt8                          opType = 105
+	opStructFieldHeadStringTagInt16                         opType = 106
+	opStructFieldHeadStringTagInt32                         opType = 107
+	opStructFieldHeadStringTagInt64                         opType = 108
+	opStructFieldHeadStringTagUint                          opType = 109
+	opStructFieldHeadStringTagUint8                         opType = 110
+	opStructFieldHeadStringTagUint16                        opType = 111
+	opStructFieldHeadStringTagUint32                        opType = 112
+	opStructFieldHeadStringTagUint64                        opType = 113
+	opStructFieldHeadStringTagFloat32                       opType = 114
+	opStructFieldHeadStringTagFloat64                       opType = 115
+	opStructFieldHeadStringTagBool                          opType = 116
+	opStructFieldHeadStringTagString                        opType = 117
+	opStructFieldHeadStringTagBytes                         opType = 118
+	opStructFieldHeadStringTagArray                         opType = 119
+	opStructFieldHeadStringTagMap                           opType = 120
+	opStructFieldHeadStringTagMapLoad                       opType = 121
+	opStructFieldHeadStringTagSlice                         opType = 122
+	opStructFieldHeadStringTagStruct                        opType = 123
+	opStructFieldHeadStringTagMarshalJSON                   opType = 124
+	opStructFieldHeadStringTagMarshalText                   opType = 125
+	opStructFieldHeadStringTagRecursive                     opType = 126
+	opStructFieldAnonymousHeadInt                           opType = 127
+	opStructFieldAnonymousHeadInt8                          opType = 128
+	opStructFieldAnonymousHeadInt16                         opType = 129
+	opStructFieldAnonymousHeadInt32                         opType = 130
+	opStructFieldAnonymousHeadInt64                         opType = 131
+	opStructFieldAnonymousHeadUint                          opType = 132
+	opStructFieldAnonymousHeadUint8                         opType = 133
+	opStructFieldAnonymousHeadUint16                        opType = 134
+	opStructFieldAnonymousHeadUint32                        opType = 135
+	opStructFieldAnonymousHeadUint64                        opType = 136
+	opStructFieldAnonymousHeadFloat32                       opType = 137
+	opStructFieldAnonymousHeadFloat64                       opType = 138
+	opStructFieldAnonymousHeadBool                          opType = 139
+	opStructFieldAnonymousHeadString                        opType = 140
+	opStructFieldAnonymousHeadBytes                         opType = 141
+	opStructFieldAnonymousHeadArray                         opType = 142
+	opStructFieldAnonymousHeadMap                           opType = 143
+	opStructFieldAnonymousHeadMapLoad                       opType = 144
+	opStructFieldAnonymousHeadSlice                         opType = 145
+	opStructFieldAnonymousHeadStruct                        opType = 146
+	opStructFieldAnonymousHeadMarshalJSON                   opType = 147
+	opStructFieldAnonymousHeadMarshalText                   opType = 148
+	opStructFieldAnonymousHeadRecursive                     opType = 149
+	opStructFieldAnonymousHeadOmitEmptyInt                  opType = 150
+	opStructFieldAnonymousHeadOmitEmptyInt8                 opType = 151
+	opStructFieldAnonymousHeadOmitEmptyInt16                opType = 152
+	opStructFieldAnonymousHeadOmitEmptyInt32                opType = 153
+	opStructFieldAnonymousHeadOmitEmptyInt64                opType = 154
+	opStructFieldAnonymousHeadOmitEmptyUint                 opType = 155
+	opStructFieldAnonymousHeadOmitEmptyUint8                opType = 156
+	opStructFieldAnonymousHeadOmitEmptyUint16               opType = 157
+	opStructFieldAnonymousHeadOmitEmptyUint32               opType = 158
+	opStructFieldAnonymousHeadOmitEmptyUint64               opType = 159
+	opStructFieldAnonymousHeadOmitEmptyFloat32              opType = 160
+	opStructFieldAnonymousHeadOmitEmptyFloat64              opType = 161
+	opStructFieldAnonymousHeadOmitEmptyBool                 opType = 162
+	opStructFieldAnonymousHeadOmitEmptyString               opType = 163
+	opStructFieldAnonymousHeadOmitEmptyBytes                opType = 164
+	opStructFieldAnonymousHeadOmitEmptyArray                opType = 165
+	opStructFieldAnonymousHeadOmitEmptyMap                  opType = 166
+	opStructFieldAnonymousHeadOmitEmptyMapLoad              opType = 167
+	opStructFieldAnonymousHeadOmitEmptySlice                opType = 168
+	opStructFieldAnonymousHeadOmitEmptyStruct               opType = 169
+	opStructFieldAnonymousHeadOmitEmptyMarshalJSON          opType = 170
+	opStructFieldAnonymousHeadOmitEmptyMarshalText          opType = 171
+	opStructFieldAnonymousHeadOmitEmptyRecursive            opType = 172
+	opStructFieldAnonymousHeadStringTagInt                  opType = 173
+	opStructFieldAnonymousHeadStringTagInt8                 opType = 174
+	opStructFieldAnonymousHeadStringTagInt16                opType = 175
+	opStructFieldAnonymousHeadStringTagInt32                opType = 176
+	opStructFieldAnonymousHeadStringTagInt64                opType = 177
+	opStructFieldAnonymousHeadStringTagUint                 opType = 178
+	opStructFieldAnonymousHeadStringTagUint8                opType = 179
+	opStructFieldAnonymousHeadStringTagUint16               opType = 180
+	opStructFieldAnonymousHeadStringTagUint32               opType = 181
+	opStructFieldAnonymousHeadStringTagUint64               opType = 182
+	opStructFieldAnonymousHeadStringTagFloat32              opType = 183
+	opStructFieldAnonymousHeadStringTagFloat64              opType = 184
+	opStructFieldAnonymousHeadStringTagBool                 opType = 185
+	opStructFieldAnonymousHeadStringTagString               opType = 186
+	opStructFieldAnonymousHeadStringTagBytes                opType = 187
+	opStructFieldAnonymousHeadStringTagArray                opType = 188
+	opStructFieldAnonymousHeadStringTagMap                  opType = 189
+	opStructFieldAnonymousHeadStringTagMapLoad              opType = 190
+	opStructFieldAnonymousHeadStringTagSlice                opType = 191
+	opStructFieldAnonymousHeadStringTagStruct               opType = 192
+	opStructFieldAnonymousHeadStringTagMarshalJSON          opType = 193
+	opStructFieldAnonymousHeadStringTagMarshalText          opType = 194
+	opStructFieldAnonymousHeadStringTagRecursive            opType = 195
+	opStructFieldPtrHeadInt                                 opType = 196
+	opStructFieldPtrHeadInt8                                opType = 197
+	opStructFieldPtrHeadInt16                               opType = 198
+	opStructFieldPtrHeadInt32                               opType = 199
+	opStructFieldPtrHeadInt64                               opType = 200
+	opStructFieldPtrHeadUint                                opType = 201
+	opStructFieldPtrHeadUint8                               opType = 202
+	opStructFieldPtrHeadUint16                              opType = 203
+	opStructFieldPtrHeadUint32                              opType = 204
+	opStructFieldPtrHeadUint64                              opType = 205
+	opStructFieldPtrHeadFloat32                             opType = 206
+	opStructFieldPtrHeadFloat64                             opType = 207
+	opStructFieldPtrHeadBool                                opType = 208
+	opStructFieldPtrHeadString                              opType = 209
+	opStructFieldPtrHeadBytes                               opType = 210
+	opStructFieldPtrHeadArray                               opType = 211
+	opStructFieldPtrHeadMap                                 opType = 212
+	opStructFieldPtrHeadMapLoad                             opType = 213
+	opStructFieldPtrHeadSlice                               opType = 214
+	opStructFieldPtrHeadStruct                              opType = 215
+	opStructFieldPtrHeadMarshalJSON                         opType = 216
+	opStructFieldPtrHeadMarshalText                         opType = 217
+	opStructFieldPtrHeadRecursive                           opType = 218
+	opStructFieldPtrHeadOmitEmptyInt                        opType = 219
+	opStructFieldPtrHeadOmitEmptyInt8                       opType = 220
+	opStructFieldPtrHeadOmitEmptyInt16                      opType = 221
+	opStructFieldPtrHeadOmitEmptyInt32                      opType = 222
+	opStructFieldPtrHeadOmitEmptyInt64                      opType = 223
+	opStructFieldPtrHeadOmitEmptyUint                       opType = 224
+	opStructFieldPtrHeadOmitEmptyUint8                      opType = 225
+	opStructFieldPtrHeadOmitEmptyUint16                     opType = 226
+	opStructFieldPtrHeadOmitEmptyUint32                     opType = 227
+	opStructFieldPtrHeadOmitEmptyUint64                     opType = 228
+	opStructFieldPtrHeadOmitEmptyFloat32                    opType = 229
+	opStructFieldPtrHeadOmitEmptyFloat64                    opType = 230
+	opStructFieldPtrHeadOmitEmptyBool                       opType = 231
+	opStructFieldPtrHeadOmitEmptyString                     opType = 232
+	opStructFieldPtrHeadOmitEmptyBytes                      opType = 233
+	opStructFieldPtrHeadOmitEmptyArray                      opType = 234
+	opStructFieldPtrHeadOmitEmptyMap                        opType = 235
+	opStructFieldPtrHeadOmitEmptyMapLoad                    opType = 236
+	opStructFieldPtrHeadOmitEmptySlice                      opType = 237
+	opStructFieldPtrHeadOmitEmptyStruct                     opType = 238
+	opStructFieldPtrHeadOmitEmptyMarshalJSON                opType = 239
+	opStructFieldPtrHeadOmitEmptyMarshalText                opType = 240
+	opStructFieldPtrHeadOmitEmptyRecursive                  opType = 241
+	opStructFieldPtrHeadStringTagInt                        opType = 242
+	opStructFieldPtrHeadStringTagInt8                       opType = 243
+	opStructFieldPtrHeadStringTagInt16                      opType = 244
+	opStructFieldPtrHeadStringTagInt32                      opType = 245
+	opStructFieldPtrHeadStringTagInt64                      opType = 246
+	opStructFieldPtrHeadStringTagUint                       opType = 247
+	opStructFieldPtrHeadStringTagUint8                      opType = 248
+	opStructFieldPtrHeadStringTagUint16                     opType = 249
+	opStructFieldPtrHeadStringTagUint32                     opType = 250
+	opStructFieldPtrHeadStringTagUint64                     opType = 251
+	opStructFieldPtrHeadStringTagFloat32                    opType = 252
+	opStructFieldPtrHeadStringTagFloat64                    opType = 253
+	opStructFieldPtrHeadStringTagBool                       opType = 254
+	opStructFieldPtrHeadStringTagString                     opType = 255
+	opStructFieldPtrHeadStringTagBytes                      opType = 256
+	opStructFieldPtrHeadStringTagArray                      opType = 257
+	opStructFieldPtrHeadStringTagMap                        opType = 258
+	opStructFieldPtrHeadStringTagMapLoad                    opType = 259
+	opStructFieldPtrHeadStringTagSlice                      opType = 260
+	opStructFieldPtrHeadStringTagStruct                     opType = 261
+	opStructFieldPtrHeadStringTagMarshalJSON                opType = 262
+	opStructFieldPtrHeadStringTagMarshalText                opType = 263
+	opStructFieldPtrHeadStringTagRecursive                  opType = 264
+	opStructFieldPtrAnonymousHeadInt                        opType = 265
+	opStructFieldPtrAnonymousHeadInt8                       opType = 266
+	opStructFieldPtrAnonymousHeadInt16                      opType = 267
+	opStructFieldPtrAnonymousHeadInt32                      opType = 268
+	opStructFieldPtrAnonymousHeadInt64                      opType = 269
+	opStructFieldPtrAnonymousHeadUint                       opType = 270
+	opStructFieldPtrAnonymousHeadUint8                      opType = 271
+	opStructFieldPtrAnonymousHeadUint16                     opType = 272
+	opStructFieldPtrAnonymousHeadUint32                     opType = 273
+	opStructFieldPtrAnonymousHeadUint64                     opType = 274
+	opStructFieldPtrAnonymousHeadFloat32                    opType = 275
+	opStructFieldPtrAnonymousHeadFloat64                    opType = 276
+	opStructFieldPtrAnonymousHeadBool                       opType = 277
+	opStructFieldPtrAnonymousHeadString                     opType = 278
+	opStructFieldPtrAnonymousHeadBytes                      opType = 279
+	opStructFieldPtrAnonymousHeadArray                      opType = 280
+	opStructFieldPtrAnonymousHeadMap                        opType = 281
+	opStructFieldPtrAnonymousHeadMapLoad                    opType = 282
+	opStructFieldPtrAnonymousHeadSlice                      opType = 283
+	opStructFieldPtrAnonymousHeadStruct                     opType = 284
+	opStructFieldPtrAnonymousHeadMarshalJSON                opType = 285
+	opStructFieldPtrAnonymousHeadMarshalText                opType = 286
+	opStructFieldPtrAnonymousHeadRecursive                  opType = 287
+	opStructFieldPtrAnonymousHeadOmitEmptyInt               opType = 288
+	opStructFieldPtrAnonymousHeadOmitEmptyInt8              opType = 289
+	opStructFieldPtrAnonymousHeadOmitEmptyInt16             opType = 290
+	opStructFieldPtrAnonymousHeadOmitEmptyInt32             opType = 291
+	opStructFieldPtrAnonymousHeadOmitEmptyInt64             opType = 292
+	opStructFieldPtrAnonymousHeadOmitEmptyUint              opType = 293
+	opStructFieldPtrAnonymousHeadOmitEmptyUint8             opType = 294
+	opStructFieldPtrAnonymousHeadOmitEmptyUint16            opType = 295
+	opStructFieldPtrAnonymousHeadOmitEmptyUint32            opType = 296
+	opStructFieldPtrAnonymousHeadOmitEmptyUint64            opType = 297
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32           opType = 298
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64           opType = 299
+	opStructFieldPtrAnonymousHeadOmitEmptyBool              opType = 300
+	opStructFieldPtrAnonymousHeadOmitEmptyString            opType = 301
+	opStructFieldPtrAnonymousHeadOmitEmptyBytes             opType = 302
+	opStructFieldPtrAnonymousHeadOmitEmptyArray             opType = 303
+	opStructFieldPtrAnonymousHeadOmitEmptyMap               opType = 304
+	opStructFieldPtrAnonymousHeadOmitEmptyMapLoad           opType = 305
+	opStructFieldPtrAnonymousHeadOmitEmptySlice             opType = 306
+	opStructFieldPtrAnonymousHeadOmitEmptyStruct            opType = 307
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON       opType = 308
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalText       opType = 309
+	opStructFieldPtrAnonymousHeadOmitEmptyRecursive         opType = 310
+	opStructFieldPtrAnonymousHeadStringTagInt               opType = 311
+	opStructFieldPtrAnonymousHeadStringTagInt8              opType = 312
+	opStructFieldPtrAnonymousHeadStringTagInt16             opType = 313
+	opStructFieldPtrAnonymousHeadStringTagInt32             opType = 314
+	opStructFieldPtrAnonymousHeadStringTagInt64             opType = 315
+	opStructFieldPtrAnonymousHeadStringTagUint              opType = 316
+	opStructFieldPtrAnonymousHeadStringTagUint8             opType = 317
+	opStructFieldPtrAnonymousHeadStringTagUint16            opType = 318
+	opStructFieldPtrAnonymousHeadStringTagUint32            opType = 319
+	opStructFieldPtrAnonymousHeadStringTagUint64            opType = 320
+	opStructFieldPtrAnonymousHeadStringTagFloat32           opType = 321
+	opStructFieldPtrAnonymousHeadStringTagFloat64           opType = 322
+	opStructFieldPtrAnonymousHeadStringTagBool              opType = 323
+	opStructFieldPtrAnonymousHeadStringTagString            opType = 324
+	opStructFieldPtrAnonymousHeadStringTagBytes             opType = 325
+	opStructFieldPtrAnonymousHeadStringTagArray             opType = 326
+	opStructFieldPtrAnonymousHeadStringTagMap               opType = 327
+	opStructFieldPtrAnonymousHeadStringTagMapLoad           opType = 328
+	opStructFieldPtrAnonymousHeadStringTagSlice             opType = 329
+	opStructFieldPtrAnonymousHeadStringTagStruct            opType = 330
+	opStructFieldPtrAnonymousHeadStringTagMarshalJSON       opType = 331
+	opStructFieldPtrAnonymousHeadStringTagMarshalText       opType = 332
+	opStructFieldPtrAnonymousHeadStringTagRecursive         opType = 333
+	opStructFieldInt                                        opType = 334
+	opStructFieldInt8                                       opType = 335
+	opStructFieldInt16                                      opType = 336
+	opStructFieldInt32                                      opType = 337
+	opStructFieldInt64                                      opType = 338
+	opStructFieldUint                                       opType = 339
+	opStructFieldUint8                                      opType = 340
+	opStructFieldUint16                                     opType = 341
+	opStructFieldUint32                                     opType = 342
+	opStructFieldUint64                                     opType = 343
+	opStructFieldFloat32                                    opType = 344
+	opStructFieldFloat64                                    opType = 345
+	opStructFieldBool                                       opType = 346
+	opStructFieldString                                     opType = 347
+	opStructFieldBytes                                      opType = 348
+	opStructFieldArray                                      opType = 349
+	opStructFieldMap                                        opType = 350
+	opStructFieldMapLoad                                    opType = 351
+	opStructFieldSlice                                      opType = 352
+	opStructFieldStruct                                     opType = 353
+	opStructFieldMarshalJSON                                opType = 354
+	opStructFieldMarshalText                                opType = 355
+	opStructFieldRecursive                                  opType = 356
+	opStructFieldPtrInt                                     opType = 357
+	opStructFieldPtrInt8                                    opType = 358
+	opStructFieldPtrInt16                                   opType = 359
+	opStructFieldPtrInt32                                   opType = 360
+	opStructFieldPtrInt64                                   opType = 361
+	opStructFieldPtrUint                                    opType = 362
+	opStructFieldPtrUint8                                   opType = 363
+	opStructFieldPtrUint16                                  opType = 364
+	opStructFieldPtrUint32                                  opType = 365
+	opStructFieldPtrUint64                                  opType = 366
+	opStructFieldPtrFloat32                                 opType = 367
+	opStructFieldPtrFloat64                                 opType = 368
+	opStructFieldPtrBool                                    opType = 369
+	opStructFieldPtrString                                  opType = 370
+	opStructFieldPtrBytes                                   opType = 371
+	opStructFieldPtrArray                                   opType = 372
+	opStructFieldPtrMap                                     opType = 373
+	opStructFieldPtrMapLoad                                 opType = 374
+	opStructFieldPtrSlice                                   opType = 375
+	opStructFieldPtrStruct                                  opType = 376
+	opStructFieldPtrMarshalJSON                             opType = 377
+	opStructFieldPtrMarshalText                             opType = 378
+	opStructFieldPtrRecursive                               opType = 379
+	opStructFieldOmitEmptyInt                               opType = 380
+	opStructFieldOmitEmptyInt8                              opType = 381
+	opStructFieldOmitEmptyInt16                             opType = 382
+	opStructFieldOmitEmptyInt32                             opType = 383
+	opStructFieldOmitEmptyInt64                             opType = 384
+	opStructFieldOmitEmptyUint                              opType = 385
+	opStructFieldOmitEmptyUint8                             opType = 386
+	opStructFieldOmitEmptyUint16                            opType = 387
+	opStructFieldOmitEmptyUint32                            opType = 388
+	opStructFieldOmitEmptyUint64                            opType = 389
+	opStructFieldOmitEmptyFloat32                           opType = 390
+	opStructFieldOmitEmptyFloat64                           opType = 391
+	opStructFieldOmitEmptyBool                              opType = 392
+	opStructFieldOmitEmptyString                            opType = 393
+	opStructFieldOmitEmptyBytes                             opType = 394
+	opStructFieldOmitEmptyArray                             opType = 395
+	opStructFieldOmitEmptyMap                               opType = 396
+	opStructFieldOmitEmptyMapLoad                           opType = 397
+	opStructFieldOmitEmptySlice                             opType = 398
+	opStructFieldOmitEmptyStruct                            opType = 399
+	opStructFieldOmitEmptyMarshalJSON                       opType = 400
+	opStructFieldOmitEmptyMarshalText                       opType = 401
+	opStructFieldOmitEmptyRecursive                         opType = 402
+	opStructFieldStringTagInt                               opType = 403
+	opStructFieldStringTagInt8                              opType = 404
+	opStructFieldStringTagInt16                             opType = 405
+	opStructFieldStringTagInt32                             opType = 406
+	opStructFieldStringTagInt64                             opType = 407
+	opStructFieldStringTagUint                              opType = 408
+	opStructFieldStringTagUint8                             opType = 409
+	opStructFieldStringTagUint16                            opType = 410
+	opStructFieldStringTagUint32                            opType = 411
+	opStructFieldStringTagUint64                            opType = 412
+	opStructFieldStringTagFloat32                           opType = 413
+	opStructFieldStringTagFloat64                           opType = 414
+	opStructFieldStringTagBool                              opType = 415
+	opStructFieldStringTagString                            opType = 416
+	opStructFieldStringTagBytes                             opType = 417
+	opStructFieldStringTagArray                             opType = 418
+	opStructFieldStringTagMap                               opType = 419
+	opStructFieldStringTagMapLoad                           opType = 420
+	opStructFieldStringTagSlice                             opType = 421
+	opStructFieldStringTagStruct                            opType = 422
+	opStructFieldStringTagMarshalJSON                       opType = 423
+	opStructFieldStringTagMarshalText                       opType = 424
+	opStructFieldStringTagRecursive                         opType = 425
+	opEndIndent                                             opType = 426
+	opInterfaceIndent                                       opType = 427
+	opInterfaceEndIndent                                    opType = 428
+	opPtrIndent                                             opType = 429
+	opSliceHeadIndent                                       opType = 430
+	opRootSliceHeadIndent                                   opType = 431
+	opSliceElemIndent                                       opType = 432
+	opRootSliceElemIndent                                   opType = 433
+	opSliceEndIndent                                        opType = 434
+	opArrayHeadIndent                                       opType = 435
+	opArrayElemIndent                                       opType = 436
+	opArrayEndIndent                                        opType = 437
+	opMapHeadIndent                                         opType = 438
+	opMapHeadLoadIndent                                     opType = 439
+	opMapKeyIndent                                          opType = 440
+	opMapValueIndent                                        opType = 441
+	opMapEndIndent                                          opType = 442
+	opStructFieldHeadIndent                                 opType = 443
+	opStructFieldHeadOmitEmptyIndent                        opType = 444
+	opStructFieldHeadStringTagIndent                        opType = 445
+	opStructFieldAnonymousHeadIndent                        opType = 446
+	opStructFieldAnonymousHeadOmitEmptyIndent               opType = 447
+	opStructFieldPtrAnonymousHeadOmitEmptyIndent            opType = 448
+	opStructFieldAnonymousHeadStringTagIndent               opType = 449
+	opStructFieldPtrAnonymousHeadStringTagIndent            opType = 450
+	opStructFieldPtrHeadIndent                              opType = 451
+	opStructFieldPtrHeadOmitEmptyIndent                     opType = 452
+	opStructFieldPtrHeadStringTagIndent                     opType = 453
+	opStructFieldPtrAnonymousHeadIndent                     opType = 454
+	opStructFieldIndent                                     opType = 455
+	opStructFieldOmitEmptyIndent                            opType = 456
+	opStructFieldStringTagIndent                            opType = 457
+	opStructFieldRecursiveEndIndent                         opType = 458
+	opStructEndIndent                                       opType = 459
+	opStructAnonymousEndIndent                              opType = 460
+	opIntIndent                                             opType = 461
+	opInt8Indent                                            opType = 462
+	opInt16Indent                                           opType = 463
+	opInt32Indent                                           opType = 464
+	opInt64Indent                                           opType = 465
+	opUintIndent                                            opType = 466
+	opUint8Indent                                           opType = 467
+	opUint16Indent                                          opType = 468
+	opUint32Indent                                          opType = 469
+	opUint64Indent                                          opType = 470
+	opFloat32Indent                                         opType = 471
+	opFloat64Indent                                         opType = 472
+	opBoolIndent                                            opType = 473
+	opStringIndent                                          opType = 474
+	opBytesIndent                                           opType = 475
+	opArrayIndent                                           opType = 476
+	opMapIndent                                             opType = 477
+	opMapLoadIndent                                         opType = 478
+	opSliceIndent                                           opType = 479
+	opStructIndent                                          opType = 480
+	opMarshalJSONIndent                                     opType = 481
+	opMarshalTextIndent                                     opType = 482
+	opRecursiveIndent                                       opType = 483
+	opStructFieldHeadIntIndent                              opType = 484
+	opStructFieldHeadInt8Indent                             opType = 485
+	opStructFieldHeadInt16Indent                            opType = 486
+	opStructFieldHeadInt32Indent                            opType = 487
+	opStructFieldHeadInt64Indent                            opType = 488
+	opStructFieldHeadUintIndent                             opType = 489
+	opStructFieldHeadUint8Indent                            opType = 490
+	opStructFieldHeadUint16Indent                           opType = 491
+	opStructFieldHeadUint32Indent                           opType = 492
+	opStructFieldHeadUint64Indent                           opType = 493
+	opStructFieldHeadFloat32Indent                          opType = 494
+	opStructFieldHeadFloat64Indent                          opType = 495
+	opStructFieldHeadBoolIndent                             opType = 496
+	opStructFieldHeadStringIndent                           opType = 497
+	opStructFieldHeadBytesIndent                            opType = 498
+	opStructFieldHeadArrayIndent                            opType = 499
+	opStructFieldHeadMapIndent                              opType = 500
+	opStructFieldHeadMapLoadIndent                          opType = 501
+	opStructFieldHeadSliceIndent                            opType = 502
+	opStructFieldHeadStructIndent                           opType = 503
+	opStructFieldHeadMarshalJSONIndent                      opType = 504
+	opStructFieldHeadMarshalTextIndent                      opType = 505
+	opStructFieldHeadRecursiveIndent                        opType = 506
+	opStructFieldHeadOmitEmptyIntIndent                     opType = 507
+	opStructFieldHeadOmitEmptyInt8Indent                    opType = 508
+	opStructFieldHeadOmitEmptyInt16Indent                   opType = 509
+	opStructFieldHeadOmitEmptyInt32Indent                   opType = 510
+	opStructFieldHeadOmitEmptyInt64Indent                   opType = 511
+	opStructFieldHeadOmitEmptyUintIndent                    opType = 512
+	opStructFieldHeadOmitEmptyUint8Indent                   opType = 513
+	opStructFieldHeadOmitEmptyUint16Indent                  opType = 514
+	opStructFieldHeadOmitEmptyUint32Indent                  opType = 515
+	opStructFieldHeadOmitEmptyUint64Indent                  opType = 516
+	opStructFieldHeadOmitEmptyFloat32Indent                 opType = 517
+	opStructFieldHeadOmitEmptyFloat64Indent                 opType = 518
+	opStructFieldHeadOmitEmptyBoolIndent                    opType = 519
+	opStructFieldHeadOmitEmptyStringIndent                  opType = 520
+	opStructFieldHeadOmitEmptyBytesIndent                   opType = 521
+	opStructFieldHeadOmitEmptyArrayIndent                   opType = 522
+	opStructFieldHeadOmitEmptyMapIndent                     opType = 523
+	opStructFieldHeadOmitEmptyMapLoadIndent                 opType = 524
+	opStructFieldHeadOmitEmptySliceIndent                   opType = 525
+	opStructFieldHeadOmitEmptyStructIndent                  opType = 526
+	opStructFieldHeadOmitEmptyMarshalJSONIndent             opType = 527
+	opStructFieldHeadOmitEmptyMarshalTextIndent             opType = 528
+	opStructFieldHeadOmitEmptyRecursiveIndent               opType = 529
+	opStructFieldHeadStringTagIntIndent                     opType = 530
+	opStructFieldHeadStringTagInt8Indent                    opType = 531
+	opStructFieldHeadStringTagInt16Indent                   opType = 532
+	opStructFieldHeadStringTagInt32Indent                   opType = 533
+	opStructFieldHeadStringTagInt64Indent                   opType = 534
+	opStructFieldHeadStringTagUintIndent                    opType = 535
+	opStructFieldHeadStringTagUint8Indent                   opType = 536
+	opStructFieldHeadStringTagUint16Indent                  opType = 537
+	opStructFieldHeadStringTagUint32Indent                  opType = 538
+	opStructFieldHeadStringTagUint64Indent                  opType = 539
+	opStructFieldHeadStringTagFloat32Indent                 opType = 540
+	opStructFieldHeadStringTagFloat64Indent                 opType = 541
+	opStructFieldHeadStringTagBoolIndent                    opType = 542
+	opStructFieldHeadStringTagStringIndent                  opType = 543
+	opStructFieldHeadStringTagBytesIndent                   opType = 544
+	opStructFieldHeadStringTagArrayIndent                   opType = 545
+	opStructFieldHeadStringTagMapIndent                     opType = 546
+	opStructFieldHeadStringTagMapLoadIndent                 opType = 547
+	opStructFieldHeadStringTagSliceIndent                   opType = 548
+	opStructFieldHeadStringTagStructIndent                  opType = 549
+	opStructFieldHeadStringTagMarshalJSONIndent             opType = 550
+	opStructFieldHeadStringTagMarshalTextIndent             opType = 551
+	opStructFieldHeadStringTagRecursiveIndent               opType = 552
+	opStructFieldAnonymousHeadIntIndent                     opType = 553
+	opStructFieldAnonymousHeadInt8Indent                    opType = 554
+	opStructFieldAnonymousHeadInt16Indent                   opType = 555
+	opStructFieldAnonymousHeadInt32Indent                   opType = 556
+	opStructFieldAnonymousHeadInt64Indent                   opType = 557
+	opStructFieldAnonymousHeadUintIndent                    opType = 558
+	opStructFieldAnonymousHeadUint8Indent                   opType = 559
+	opStructFieldAnonymousHeadUint16Indent                  opType = 560
+	opStructFieldAnonymousHeadUint32Indent                  opType = 561
+	opStructFieldAnonymousHeadUint64Indent                  opType = 562
+	opStructFieldAnonymousHeadFloat32Indent                 opType = 563
+	opStructFieldAnonymousHeadFloat64Indent                 opType = 564
+	opStructFieldAnonymousHeadBoolIndent                    opType = 565
+	opStructFieldAnonymousHeadStringIndent                  opType = 566
+	opStructFieldAnonymousHeadBytesIndent                   opType = 567
+	opStructFieldAnonymousHeadArrayIndent                   opType = 568
+	opStructFieldAnonymousHeadMapIndent                     opType = 569
+	opStructFieldAnonymousHeadMapLoadIndent                 opType = 570
+	opStructFieldAnonymousHeadSliceIndent                   opType = 571
+	opStructFieldAnonymousHeadStructIndent                  opType = 572
+	opStructFieldAnonymousHeadMarshalJSONIndent             opType = 573
+	opStructFieldAnonymousHeadMarshalTextIndent             opType = 574
+	opStructFieldAnonymousHeadRecursiveIndent               opType = 575
+	opStructFieldAnonymousHeadOmitEmptyIntIndent            opType = 576
+	opStructFieldAnonymousHeadOmitEmptyInt8Indent           opType = 577
+	opStructFieldAnonymousHeadOmitEmptyInt16Indent          opType = 578
+	opStructFieldAnonymousHeadOmitEmptyInt32Indent          opType = 579
+	opStructFieldAnonymousHeadOmitEmptyInt64Indent          opType = 580
+	opStructFieldAnonymousHeadOmitEmptyUintIndent           opType = 581
+	opStructFieldAnonymousHeadOmitEmptyUint8Indent          opType = 582
+	opStructFieldAnonymousHeadOmitEmptyUint16Indent         opType = 583
+	opStructFieldAnonymousHeadOmitEmptyUint32Indent         opType = 584
+	opStructFieldAnonymousHeadOmitEmptyUint64Indent         opType = 585
+	opStructFieldAnonymousHeadOmitEmptyFloat32Indent        opType = 586
+	opStructFieldAnonymousHeadOmitEmptyFloat64Indent        opType = 587
+	opStructFieldAnonymousHeadOmitEmptyBoolIndent           opType = 588
+	opStructFieldAnonymousHeadOmitEmptyStringIndent         opType = 589
+	opStructFieldAnonymousHeadOmitEmptyBytesIndent          opType = 590
+	opStructFieldAnonymousHeadOmitEmptyArrayIndent          opType = 591
+	opStructFieldAnonymousHeadOmitEmptyMapIndent            opType = 592
+	opStructFieldAnonymousHeadOmitEmptyMapLoadIndent        opType = 593
+	opStructFieldAnonymousHeadOmitEmptySliceIndent          opType = 594
+	opStructFieldAnonymousHeadOmitEmptyStructIndent         opType = 595
+	opStructFieldAnonymousHeadOmitEmptyMarshalJSONIndent    opType = 596
+	opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent    opType = 597
+	opStructFieldAnonymousHeadOmitEmptyRecursiveIndent      opType = 598
+	opStructFieldAnonymousHeadStringTagIntIndent            opType = 599
+	opStructFieldAnonymousHeadStringTagInt8Indent           opType = 600
+	opStructFieldAnonymousHeadStringTagInt16Indent          opType = 601
+	opStructFieldAnonymousHeadStringTagInt32Indent          opType = 602
+	opStructFieldAnonymousHeadStringTagInt64Indent          opType = 603
+	opStructFieldAnonymousHeadStringTagUintIndent           opType = 604
+	opStructFieldAnonymousHeadStringTagUint8Indent          opType = 605
+	opStructFieldAnonymousHeadStringTagUint16Indent         opType = 606
+	opStructFieldAnonymousHeadStringTagUint32Indent         opType = 607
+	opStructFieldAnonymousHeadStringTagUint64Indent         opType = 608
+	opStructFieldAnonymousHeadStringTagFloat32Indent        opType = 609
+	opStructFieldAnonymousHeadStringTagFloat64Indent        opType = 610
+	opStructFieldAnonymousHeadStringTagBoolIndent           opType = 611
+	opStructFieldAnonymousHeadStringTagStringIndent         opType = 612
+	opStructFieldAnonymousHeadStringTagBytesIndent          opType = 613
+	opStructFieldAnonymousHeadStringTagArrayIndent          opType = 614
+	opStructFieldAnonymousHeadStringTagMapIndent            opType = 615
+	opStructFieldAnonymousHeadStringTagMapLoadIndent        opType = 616
+	opStructFieldAnonymousHeadStringTagSliceIndent          opType = 617
+	opStructFieldAnonymousHeadStringTagStructIndent         opType = 618
+	opStructFieldAnonymousHeadStringTagMarshalJSONIndent    opType = 619
+	opStructFieldAnonymousHeadStringTagMarshalTextIndent    opType = 620
+	opStructFieldAnonymousHeadStringTagRecursiveIndent      opType = 621
+	opStructFieldPtrHeadIntIndent                           opType = 622
+	opStructFieldPtrHeadInt8Indent                          opType = 623
+	opStructFieldPtrHeadInt16Indent                         opType = 624
+	opStructFieldPtrHeadInt32Indent                         opType = 625
+	opStructFieldPtrHeadInt64Indent                         opType = 626
+	opStructFieldPtrHeadUintIndent                          opType = 627
+	opStructFieldPtrHeadUint8Indent                         opType = 628
+	opStructFieldPtrHeadUint16Indent                        opType = 629
+	opStructFieldPtrHeadUint32Indent                        opType = 630
+	opStructFieldPtrHeadUint64Indent                        opType = 631
+	opStructFieldPtrHeadFloat32Indent                       opType = 632
+	opStructFieldPtrHeadFloat64Indent                       opType = 633
+	opStructFieldPtrHeadBoolIndent                          opType = 634
+	opStructFieldPtrHeadStringIndent                        opType = 635
+	opStructFieldPtrHeadBytesIndent                         opType = 636
+	opStructFieldPtrHeadArrayIndent                         opType = 637
+	opStructFieldPtrHeadMapIndent                           opType = 638
+	opStructFieldPtrHeadMapLoadIndent                       opType = 639
+	opStructFieldPtrHeadSliceIndent                         opType = 640
+	opStructFieldPtrHeadStructIndent                        opType = 641
+	opStructFieldPtrHeadMarshalJSONIndent                   opType = 642
+	opStructFieldPtrHeadMarshalTextIndent                   opType = 643
+	opStructFieldPtrHeadRecursiveIndent                     opType = 644
+	opStructFieldPtrHeadOmitEmptyIntIndent                  opType = 645
+	opStructFieldPtrHeadOmitEmptyInt8Indent                 opType = 646
+	opStructFieldPtrHeadOmitEmptyInt16Indent                opType = 647
+	opStructFieldPtrHeadOmitEmptyInt32Indent                opType = 648
+	opStructFieldPtrHeadOmitEmptyInt64Indent                opType = 649
+	opStructFieldPtrHeadOmitEmptyUintIndent                 opType = 650
+	opStructFieldPtrHeadOmitEmptyUint8Indent                opType = 651
+	opStructFieldPtrHeadOmitEmptyUint16Indent               opType = 652
+	opStructFieldPtrHeadOmitEmptyUint32Indent               opType = 653
+	opStructFieldPtrHeadOmitEmptyUint64Indent               opType = 654
+	opStructFieldPtrHeadOmitEmptyFloat32Indent              opType = 655
+	opStructFieldPtrHeadOmitEmptyFloat64Indent              opType = 656
+	opStructFieldPtrHeadOmitEmptyBoolIndent                 opType = 657
+	opStructFieldPtrHeadOmitEmptyStringIndent               opType = 658
+	opStructFieldPtrHeadOmitEmptyBytesIndent                opType = 659
+	opStructFieldPtrHeadOmitEmptyArrayIndent                opType = 660
+	opStructFieldPtrHeadOmitEmptyMapIndent                  opType = 661
+	opStructFieldPtrHeadOmitEmptyMapLoadIndent              opType = 662
+	opStructFieldPtrHeadOmitEmptySliceIndent                opType = 663
+	opStructFieldPtrHeadOmitEmptyStructIndent               opType = 664
+	opStructFieldPtrHeadOmitEmptyMarshalJSONIndent          opType = 665
+	opStructFieldPtrHeadOmitEmptyMarshalTextIndent          opType = 666
+	opStructFieldPtrHeadOmitEmptyRecursiveIndent            opType = 667
+	opStructFieldPtrHeadStringTagIntIndent                  opType = 668
+	opStructFieldPtrHeadStringTagInt8Indent                 opType = 669
+	opStructFieldPtrHeadStringTagInt16Indent                opType = 670
+	opStructFieldPtrHeadStringTagInt32Indent                opType = 671
+	opStructFieldPtrHeadStringTagInt64Indent                opType = 672
+	opStructFieldPtrHeadStringTagUintIndent                 opType = 673
+	opStructFieldPtrHeadStringTagUint8Indent                opType = 674
+	opStructFieldPtrHeadStringTagUint16Indent               opType = 675
+	opStructFieldPtrHeadStringTagUint32Indent               opType = 676
+	opStructFieldPtrHeadStringTagUint64Indent               opType = 677
+	opStructFieldPtrHeadStringTagFloat32Indent              opType = 678
+	opStructFieldPtrHeadStringTagFloat64Indent              opType = 679
+	opStructFieldPtrHeadStringTagBoolIndent                 opType = 680
+	opStructFieldPtrHeadStringTagStringIndent               opType = 681
+	opStructFieldPtrHeadStringTagBytesIndent                opType = 682
+	opStructFieldPtrHeadStringTagArrayIndent                opType = 683
+	opStructFieldPtrHeadStringTagMapIndent                  opType = 684
+	opStructFieldPtrHeadStringTagMapLoadIndent              opType = 685
+	opStructFieldPtrHeadStringTagSliceIndent                opType = 686
+	opStructFieldPtrHeadStringTagStructIndent               opType = 687
+	opStructFieldPtrHeadStringTagMarshalJSONIndent          opType = 688
+	opStructFieldPtrHeadStringTagMarshalTextIndent          opType = 689
+	opStructFieldPtrHeadStringTagRecursiveIndent            opType = 690
+	opStructFieldPtrAnonymousHeadIntIndent                  opType = 691
+	opStructFieldPtrAnonymousHeadInt8Indent                 opType = 692
+	opStructFieldPtrAnonymousHeadInt16Indent                opType = 693
+	opStructFieldPtrAnonymousHeadInt32Indent                opType = 694
+	opStructFieldPtrAnonymousHeadInt64Indent                opType = 695
+	opStructFieldPtrAnonymousHeadUintIndent                 opType = 696
+	opStructFieldPtrAnonymousHeadUint8Indent                opType = 697
+	opStructFieldPtrAnonymousHeadUint16Indent               opType = 698
+	opStructFieldPtrAnonymousHeadUint32Indent               opType = 699
+	opStructFieldPtrAnonymousHeadUint64Indent               opType = 700
+	opStructFieldPtrAnonymousHeadFloat32Indent              opType = 701
+	opStructFieldPtrAnonymousHeadFloat64Indent              opType = 702
+	opStructFieldPtrAnonymousHeadBoolIndent                 opType = 703
+	opStructFieldPtrAnonymousHeadStringIndent               opType = 704
+	opStructFieldPtrAnonymousHeadBytesIndent                opType = 705
+	opStructFieldPtrAnonymousHeadArrayIndent                opType = 706
+	opStructFieldPtrAnonymousHeadMapIndent                  opType = 707
+	opStructFieldPtrAnonymousHeadMapLoadIndent              opType = 708
+	opStructFieldPtrAnonymousHeadSliceIndent                opType = 709
+	opStructFieldPtrAnonymousHeadStructIndent               opType = 710
+	opStructFieldPtrAnonymousHeadMarshalJSONIndent          opType = 711
+	opStructFieldPtrAnonymousHeadMarshalTextIndent          opType = 712
+	opStructFieldPtrAnonymousHeadRecursiveIndent            opType = 713
+	opStructFieldPtrAnonymousHeadOmitEmptyIntIndent         opType = 714
+	opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent        opType = 715
+	opStructFieldPtrAnonymousHeadOmitEmptyInt16Indent       opType = 716
+	opStructFieldPtrAnonymousHeadOmitEmptyInt32Indent       opType = 717
+	opStructFieldPtrAnonymousHeadOmitEmptyInt64Indent       opType = 718
+	opStructFieldPtrAnonymousHeadOmitEmptyUintIndent        opType = 719
+	opStructFieldPtrAnonymousHeadOmitEmptyUint8Indent       opType = 720
+	opStructFieldPtrAnonymousHeadOmitEmptyUint16Indent      opType = 721
+	opStructFieldPtrAnonymousHeadOmitEmptyUint32Indent      opType = 722
+	opStructFieldPtrAnonymousHeadOmitEmptyUint64Indent      opType = 723
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Indent     opType = 724
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Indent     opType = 725
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolIndent        opType = 726
+	opStructFieldPtrAnonymousHeadOmitEmptyStringIndent      opType = 727
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesIndent       opType = 728
+	opStructFieldPtrAnonymousHeadOmitEmptyArrayIndent       opType = 729
+	opStructFieldPtrAnonymousHeadOmitEmptyMapIndent         opType = 730
+	opStructFieldPtrAnonymousHeadOmitEmptyMapLoadIndent     opType = 731
+	opStructFieldPtrAnonymousHeadOmitEmptySliceIndent       opType = 732
+	opStructFieldPtrAnonymousHeadOmitEmptyStructIndent      opType = 733
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent opType = 734
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent opType = 735
+	opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent   opType = 736
+	opStructFieldPtrAnonymousHeadStringTagIntIndent         opType = 737
+	opStructFieldPtrAnonymousHeadStringTagInt8Indent        opType = 738
+	opStructFieldPtrAnonymousHeadStringTagInt16Indent       opType = 739
+	opStructFieldPtrAnonymousHeadStringTagInt32Indent       opType = 740
+	opStructFieldPtrAnonymousHeadStringTagInt64Indent       opType = 741
+	opStructFieldPtrAnonymousHeadStringTagUintIndent        opType = 742
+	opStructFieldPtrAnonymousHeadStringTagUint8Indent       opType = 743
+	opStructFieldPtrAnonymousHeadStringTagUint16Indent      opType = 744
+	opStructFieldPtrAnonymousHeadStringTagUint32Indent      opType = 745
+	opStructFieldPtrAnonymousHeadStringTagUint64Indent      opType = 746
+	opStructFieldPtrAnonymousHeadStringTagFloat32Indent     opType = 747
+	opStructFieldPtrAnonymousHeadStringTagFloat64Indent     opType = 748
+	opStructFieldPtrAnonymousHeadStringTagBoolIndent        opType = 749
+	opStructFieldPtrAnonymousHeadStringTagStringIndent      opType = 750
+	opStructFieldPtrAnonymousHeadStringTagBytesIndent       opType = 751
+	opStructFieldPtrAnonymousHeadStringTagArrayIndent       opType = 752
+	opStructFieldPtrAnonymousHeadStringTagMapIndent         opType = 753
+	opStructFieldPtrAnonymousHeadStringTagMapLoadIndent     opType = 754
+	opStructFieldPtrAnonymousHeadStringTagSliceIndent       opType = 755
+	opStructFieldPtrAnonymousHeadStringTagStructIndent      opType = 756
+	opStructFieldPtrAnonymousHeadStringTagMarshalJSONIndent opType = 757
+	opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent opType = 758
+	opStructFieldPtrAnonymousHeadStringTagRecursiveIndent   opType = 759
+	opStructFieldIntIndent                                  opType = 760
+	opStructFieldInt8Indent                                 opType = 761
+	opStructFieldInt16Indent                                opType = 762
+	opStructFieldInt32Indent                                opType = 763
+	opStructFieldInt64Indent                                opType = 764
+	opStructFieldUintIndent                                 opType = 765
+	opStructFieldUint8Indent                                opType = 766
+	opStructFieldUint16Indent                               opType = 767
+	opStructFieldUint32Indent                               opType = 768
+	opStructFieldUint64Indent                               opType = 769
+	opStructFieldFloat32Indent                              opType = 770
+	opStructFieldFloat64Indent                              opType = 771
+	opStructFieldBoolIndent                                 opType = 772
+	opStructFieldStringIndent                               opType = 773
+	opStructFieldBytesIndent                                opType = 774
+	opStructFieldArrayIndent                                opType = 775
+	opStructFieldMapIndent                                  opType = 776
+	opStructFieldMapLoadIndent                              opType = 777
+	opStructFieldSliceIndent                                opType = 778
+	opStructFieldStructIndent                               opType = 779
+	opStructFieldMarshalJSONIndent                          opType = 780
+	opStructFieldMarshalTextIndent                          opType = 781
+	opStructFieldRecursiveIndent                            opType = 782
+	opStructFieldPtrIntIndent                               opType = 783
+	opStructFieldPtrInt8Indent                              opType = 784
+	opStructFieldPtrInt16Indent                             opType = 785
+	opStructFieldPtrInt32Indent                             opType = 786
+	opStructFieldPtrInt64Indent                             opType = 787
+	opStructFieldPtrUintIndent                              opType = 788
+	opStructFieldPtrUint8Indent                             opType = 789
+	opStructFieldPtrUint16Indent                            opType = 790
+	opStructFieldPtrUint32Indent                            opType = 791
+	opStructFieldPtrUint64Indent                            opType = 792
+	opStructFieldPtrFloat32Indent                           opType = 793
+	opStructFieldPtrFloat64Indent                           opType = 794
+	opStructFieldPtrBoolIndent                              opType = 795
+	opStructFieldPtrStringIndent                            opType = 796
+	opStructFieldPtrBytesIndent                             opType = 797
+	opStructFieldPtrArrayIndent                             opType = 798
+	opStructFieldPtrMapIndent                               opType = 799
+	opStructFieldPtrMapLoadIndent                           opType = 800
+	opStructFieldPtrSliceIndent                             opType = 801
+	opStructFieldPtrStructIndent                            opType = 802
+	opStructFieldPtrMarshalJSONIndent                       opType = 803
+	opStructFieldPtrMarshalTextIndent                       opType = 804
+	opStructFieldPtrRecursiveIndent                         opType = 805
+	opStructFieldOmitEmptyIntIndent                         opType = 806
+	opStructFieldOmitEmptyInt8Indent                        opType = 807
+	opStructFieldOmitEmptyInt16Indent                       opType = 808
+	opStructFieldOmitEmptyInt32Indent                       opType = 809
+	opStructFieldOmitEmptyInt64Indent                       opType = 810
+	opStructFieldOmitEmptyUintIndent                        opType = 811
+	opStructFieldOmitEmptyUint8Indent                       opType = 812
+	opStructFieldOmitEmptyUint16Indent                      opType = 813
+	opStructFieldOmitEmptyUint32Indent                      opType = 814
+	opStructFieldOmitEmptyUint64Indent                      opType = 815
+	opStructFieldOmitEmptyFloat32Indent                     opType = 816
+	opStructFieldOmitEmptyFloat64Indent                     opType = 817
+	opStructFieldOmitEmptyBoolIndent                        opType = 818
+	opStructFieldOmitEmptyStringIndent                      opType = 819
+	opStructFieldOmitEmptyBytesIndent                       opType = 820
+	opStructFieldOmitEmptyArrayIndent                       opType = 821
+	opStructFieldOmitEmptyMapIndent                         opType = 822
+	opStructFieldOmitEmptyMapLoadIndent                     opType = 823
+	opStructFieldOmitEmptySliceIndent                       opType = 824
+	opStructFieldOmitEmptyStructIndent                      opType = 825
+	opStructFieldOmitEmptyMarshalJSONIndent                 opType = 826
+	opStructFieldOmitEmptyMarshalTextIndent                 opType = 827
+	opStructFieldOmitEmptyRecursiveIndent                   opType = 828
+	opStructFieldStringTagIntIndent                         opType = 829
+	opStructFieldStringTagInt8Indent                        opType = 830
+	opStructFieldStringTagInt16Indent                       opType = 831
+	opStructFieldStringTagInt32Indent                       opType = 832
+	opStructFieldStringTagInt64Indent                       opType = 833
+	opStructFieldStringTagUintIndent                        opType = 834
+	opStructFieldStringTagUint8Indent                       opType = 835
+	opStructFieldStringTagUint16Indent                      opType = 836
+	opStructFieldStringTagUint32Indent                      opType = 837
+	opStructFieldStringTagUint64Indent                      opType = 838
+	opStructFieldStringTagFloat32Indent                     opType = 839
+	opStructFieldStringTagFloat64Indent                     opType = 840
+	opStructFieldStringTagBoolIndent                        opType = 841
+	opStructFieldStringTagStringIndent                      opType = 842
+	opStructFieldStringTagBytesIndent                       opType = 843
+	opStructFieldStringTagArrayIndent                       opType = 844
+	opStructFieldStringTagMapIndent                         opType = 845
+	opStructFieldStringTagMapLoadIndent                     opType = 846
+	opStructFieldStringTagSliceIndent                       opType = 847
+	opStructFieldStringTagStructIndent                      opType = 848
+	opStructFieldStringTagMarshalJSONIndent                 opType = 849
+	opStructFieldStringTagMarshalTextIndent                 opType = 850
+	opStructFieldStringTagRecursiveIndent                   opType = 851
 )
 
 func (t opType) String() string {
@@ -908,8 +940,6 @@ func (t opType) String() string {
 		return "StructFieldOmitEmpty"
 	case opStructFieldStringTag:
 		return "StructFieldStringTag"
-	case opStructFieldRecursive:
-		return "StructFieldRecursive"
 	case opStructFieldRecursiveEnd:
 		return "StructFieldRecursiveEnd"
 	case opStructEnd:
@@ -960,6 +990,8 @@ func (t opType) String() string {
 		return "MarshalJSON"
 	case opMarshalText:
 		return "MarshalText"
+	case opRecursive:
+		return "Recursive"
 	case opStructFieldHeadInt:
 		return "StructFieldHeadInt"
 	case opStructFieldHeadInt8:
@@ -1004,6 +1036,8 @@ func (t opType) String() string {
 		return "StructFieldHeadMarshalJSON"
 	case opStructFieldHeadMarshalText:
 		return "StructFieldHeadMarshalText"
+	case opStructFieldHeadRecursive:
+		return "StructFieldHeadRecursive"
 	case opStructFieldHeadOmitEmptyInt:
 		return "StructFieldHeadOmitEmptyInt"
 	case opStructFieldHeadOmitEmptyInt8:
@@ -1048,6 +1082,8 @@ func (t opType) String() string {
 		return "StructFieldHeadOmitEmptyMarshalJSON"
 	case opStructFieldHeadOmitEmptyMarshalText:
 		return "StructFieldHeadOmitEmptyMarshalText"
+	case opStructFieldHeadOmitEmptyRecursive:
+		return "StructFieldHeadOmitEmptyRecursive"
 	case opStructFieldHeadStringTagInt:
 		return "StructFieldHeadStringTagInt"
 	case opStructFieldHeadStringTagInt8:
@@ -1092,6 +1128,8 @@ func (t opType) String() string {
 		return "StructFieldHeadStringTagMarshalJSON"
 	case opStructFieldHeadStringTagMarshalText:
 		return "StructFieldHeadStringTagMarshalText"
+	case opStructFieldHeadStringTagRecursive:
+		return "StructFieldHeadStringTagRecursive"
 	case opStructFieldAnonymousHeadInt:
 		return "StructFieldAnonymousHeadInt"
 	case opStructFieldAnonymousHeadInt8:
@@ -1136,6 +1174,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadMarshalJSON"
 	case opStructFieldAnonymousHeadMarshalText:
 		return "StructFieldAnonymousHeadMarshalText"
+	case opStructFieldAnonymousHeadRecursive:
+		return "StructFieldAnonymousHeadRecursive"
 	case opStructFieldAnonymousHeadOmitEmptyInt:
 		return "StructFieldAnonymousHeadOmitEmptyInt"
 	case opStructFieldAnonymousHeadOmitEmptyInt8:
@@ -1180,6 +1220,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadOmitEmptyMarshalJSON"
 	case opStructFieldAnonymousHeadOmitEmptyMarshalText:
 		return "StructFieldAnonymousHeadOmitEmptyMarshalText"
+	case opStructFieldAnonymousHeadOmitEmptyRecursive:
+		return "StructFieldAnonymousHeadOmitEmptyRecursive"
 	case opStructFieldAnonymousHeadStringTagInt:
 		return "StructFieldAnonymousHeadStringTagInt"
 	case opStructFieldAnonymousHeadStringTagInt8:
@@ -1224,6 +1266,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadStringTagMarshalJSON"
 	case opStructFieldAnonymousHeadStringTagMarshalText:
 		return "StructFieldAnonymousHeadStringTagMarshalText"
+	case opStructFieldAnonymousHeadStringTagRecursive:
+		return "StructFieldAnonymousHeadStringTagRecursive"
 	case opStructFieldPtrHeadInt:
 		return "StructFieldPtrHeadInt"
 	case opStructFieldPtrHeadInt8:
@@ -1268,6 +1312,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadMarshalJSON"
 	case opStructFieldPtrHeadMarshalText:
 		return "StructFieldPtrHeadMarshalText"
+	case opStructFieldPtrHeadRecursive:
+		return "StructFieldPtrHeadRecursive"
 	case opStructFieldPtrHeadOmitEmptyInt:
 		return "StructFieldPtrHeadOmitEmptyInt"
 	case opStructFieldPtrHeadOmitEmptyInt8:
@@ -1312,6 +1358,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadOmitEmptyMarshalJSON"
 	case opStructFieldPtrHeadOmitEmptyMarshalText:
 		return "StructFieldPtrHeadOmitEmptyMarshalText"
+	case opStructFieldPtrHeadOmitEmptyRecursive:
+		return "StructFieldPtrHeadOmitEmptyRecursive"
 	case opStructFieldPtrHeadStringTagInt:
 		return "StructFieldPtrHeadStringTagInt"
 	case opStructFieldPtrHeadStringTagInt8:
@@ -1356,6 +1404,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadStringTagMarshalJSON"
 	case opStructFieldPtrHeadStringTagMarshalText:
 		return "StructFieldPtrHeadStringTagMarshalText"
+	case opStructFieldPtrHeadStringTagRecursive:
+		return "StructFieldPtrHeadStringTagRecursive"
 	case opStructFieldPtrAnonymousHeadInt:
 		return "StructFieldPtrAnonymousHeadInt"
 	case opStructFieldPtrAnonymousHeadInt8:
@@ -1400,6 +1450,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadMarshalJSON"
 	case opStructFieldPtrAnonymousHeadMarshalText:
 		return "StructFieldPtrAnonymousHeadMarshalText"
+	case opStructFieldPtrAnonymousHeadRecursive:
+		return "StructFieldPtrAnonymousHeadRecursive"
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt:
 		return "StructFieldPtrAnonymousHeadOmitEmptyInt"
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
@@ -1444,6 +1496,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadOmitEmptyMarshalJSON"
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalText:
 		return "StructFieldPtrAnonymousHeadOmitEmptyMarshalText"
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursive:
+		return "StructFieldPtrAnonymousHeadOmitEmptyRecursive"
 	case opStructFieldPtrAnonymousHeadStringTagInt:
 		return "StructFieldPtrAnonymousHeadStringTagInt"
 	case opStructFieldPtrAnonymousHeadStringTagInt8:
@@ -1488,6 +1542,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadStringTagMarshalJSON"
 	case opStructFieldPtrAnonymousHeadStringTagMarshalText:
 		return "StructFieldPtrAnonymousHeadStringTagMarshalText"
+	case opStructFieldPtrAnonymousHeadStringTagRecursive:
+		return "StructFieldPtrAnonymousHeadStringTagRecursive"
 	case opStructFieldInt:
 		return "StructFieldInt"
 	case opStructFieldInt8:
@@ -1532,6 +1588,8 @@ func (t opType) String() string {
 		return "StructFieldMarshalJSON"
 	case opStructFieldMarshalText:
 		return "StructFieldMarshalText"
+	case opStructFieldRecursive:
+		return "StructFieldRecursive"
 	case opStructFieldPtrInt:
 		return "StructFieldPtrInt"
 	case opStructFieldPtrInt8:
@@ -1576,6 +1634,8 @@ func (t opType) String() string {
 		return "StructFieldPtrMarshalJSON"
 	case opStructFieldPtrMarshalText:
 		return "StructFieldPtrMarshalText"
+	case opStructFieldPtrRecursive:
+		return "StructFieldPtrRecursive"
 	case opStructFieldOmitEmptyInt:
 		return "StructFieldOmitEmptyInt"
 	case opStructFieldOmitEmptyInt8:
@@ -1620,6 +1680,8 @@ func (t opType) String() string {
 		return "StructFieldOmitEmptyMarshalJSON"
 	case opStructFieldOmitEmptyMarshalText:
 		return "StructFieldOmitEmptyMarshalText"
+	case opStructFieldOmitEmptyRecursive:
+		return "StructFieldOmitEmptyRecursive"
 	case opStructFieldStringTagInt:
 		return "StructFieldStringTagInt"
 	case opStructFieldStringTagInt8:
@@ -1664,6 +1726,8 @@ func (t opType) String() string {
 		return "StructFieldStringTagMarshalJSON"
 	case opStructFieldStringTagMarshalText:
 		return "StructFieldStringTagMarshalText"
+	case opStructFieldStringTagRecursive:
+		return "StructFieldStringTagRecursive"
 	case opEndIndent:
 		return "EndIndent"
 	case opInterfaceIndent:
@@ -1728,8 +1792,6 @@ func (t opType) String() string {
 		return "StructFieldOmitEmptyIndent"
 	case opStructFieldStringTagIndent:
 		return "StructFieldStringTagIndent"
-	case opStructFieldRecursiveIndent:
-		return "StructFieldRecursiveIndent"
 	case opStructFieldRecursiveEndIndent:
 		return "StructFieldRecursiveEndIndent"
 	case opStructEndIndent:
@@ -1780,6 +1842,8 @@ func (t opType) String() string {
 		return "MarshalJSONIndent"
 	case opMarshalTextIndent:
 		return "MarshalTextIndent"
+	case opRecursiveIndent:
+		return "RecursiveIndent"
 	case opStructFieldHeadIntIndent:
 		return "StructFieldHeadIntIndent"
 	case opStructFieldHeadInt8Indent:
@@ -1824,6 +1888,8 @@ func (t opType) String() string {
 		return "StructFieldHeadMarshalJSONIndent"
 	case opStructFieldHeadMarshalTextIndent:
 		return "StructFieldHeadMarshalTextIndent"
+	case opStructFieldHeadRecursiveIndent:
+		return "StructFieldHeadRecursiveIndent"
 	case opStructFieldHeadOmitEmptyIntIndent:
 		return "StructFieldHeadOmitEmptyIntIndent"
 	case opStructFieldHeadOmitEmptyInt8Indent:
@@ -1868,6 +1934,8 @@ func (t opType) String() string {
 		return "StructFieldHeadOmitEmptyMarshalJSONIndent"
 	case opStructFieldHeadOmitEmptyMarshalTextIndent:
 		return "StructFieldHeadOmitEmptyMarshalTextIndent"
+	case opStructFieldHeadOmitEmptyRecursiveIndent:
+		return "StructFieldHeadOmitEmptyRecursiveIndent"
 	case opStructFieldHeadStringTagIntIndent:
 		return "StructFieldHeadStringTagIntIndent"
 	case opStructFieldHeadStringTagInt8Indent:
@@ -1912,6 +1980,8 @@ func (t opType) String() string {
 		return "StructFieldHeadStringTagMarshalJSONIndent"
 	case opStructFieldHeadStringTagMarshalTextIndent:
 		return "StructFieldHeadStringTagMarshalTextIndent"
+	case opStructFieldHeadStringTagRecursiveIndent:
+		return "StructFieldHeadStringTagRecursiveIndent"
 	case opStructFieldAnonymousHeadIntIndent:
 		return "StructFieldAnonymousHeadIntIndent"
 	case opStructFieldAnonymousHeadInt8Indent:
@@ -1956,6 +2026,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadMarshalJSONIndent"
 	case opStructFieldAnonymousHeadMarshalTextIndent:
 		return "StructFieldAnonymousHeadMarshalTextIndent"
+	case opStructFieldAnonymousHeadRecursiveIndent:
+		return "StructFieldAnonymousHeadRecursiveIndent"
 	case opStructFieldAnonymousHeadOmitEmptyIntIndent:
 		return "StructFieldAnonymousHeadOmitEmptyIntIndent"
 	case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
@@ -2000,6 +2072,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadOmitEmptyMarshalJSONIndent"
 	case opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent:
 		return "StructFieldAnonymousHeadOmitEmptyMarshalTextIndent"
+	case opStructFieldAnonymousHeadOmitEmptyRecursiveIndent:
+		return "StructFieldAnonymousHeadOmitEmptyRecursiveIndent"
 	case opStructFieldAnonymousHeadStringTagIntIndent:
 		return "StructFieldAnonymousHeadStringTagIntIndent"
 	case opStructFieldAnonymousHeadStringTagInt8Indent:
@@ -2044,6 +2118,8 @@ func (t opType) String() string {
 		return "StructFieldAnonymousHeadStringTagMarshalJSONIndent"
 	case opStructFieldAnonymousHeadStringTagMarshalTextIndent:
 		return "StructFieldAnonymousHeadStringTagMarshalTextIndent"
+	case opStructFieldAnonymousHeadStringTagRecursiveIndent:
+		return "StructFieldAnonymousHeadStringTagRecursiveIndent"
 	case opStructFieldPtrHeadIntIndent:
 		return "StructFieldPtrHeadIntIndent"
 	case opStructFieldPtrHeadInt8Indent:
@@ -2088,6 +2164,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadMarshalJSONIndent"
 	case opStructFieldPtrHeadMarshalTextIndent:
 		return "StructFieldPtrHeadMarshalTextIndent"
+	case opStructFieldPtrHeadRecursiveIndent:
+		return "StructFieldPtrHeadRecursiveIndent"
 	case opStructFieldPtrHeadOmitEmptyIntIndent:
 		return "StructFieldPtrHeadOmitEmptyIntIndent"
 	case opStructFieldPtrHeadOmitEmptyInt8Indent:
@@ -2132,6 +2210,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadOmitEmptyMarshalJSONIndent"
 	case opStructFieldPtrHeadOmitEmptyMarshalTextIndent:
 		return "StructFieldPtrHeadOmitEmptyMarshalTextIndent"
+	case opStructFieldPtrHeadOmitEmptyRecursiveIndent:
+		return "StructFieldPtrHeadOmitEmptyRecursiveIndent"
 	case opStructFieldPtrHeadStringTagIntIndent:
 		return "StructFieldPtrHeadStringTagIntIndent"
 	case opStructFieldPtrHeadStringTagInt8Indent:
@@ -2176,6 +2256,8 @@ func (t opType) String() string {
 		return "StructFieldPtrHeadStringTagMarshalJSONIndent"
 	case opStructFieldPtrHeadStringTagMarshalTextIndent:
 		return "StructFieldPtrHeadStringTagMarshalTextIndent"
+	case opStructFieldPtrHeadStringTagRecursiveIndent:
+		return "StructFieldPtrHeadStringTagRecursiveIndent"
 	case opStructFieldPtrAnonymousHeadIntIndent:
 		return "StructFieldPtrAnonymousHeadIntIndent"
 	case opStructFieldPtrAnonymousHeadInt8Indent:
@@ -2220,6 +2302,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadMarshalJSONIndent"
 	case opStructFieldPtrAnonymousHeadMarshalTextIndent:
 		return "StructFieldPtrAnonymousHeadMarshalTextIndent"
+	case opStructFieldPtrAnonymousHeadRecursiveIndent:
+		return "StructFieldPtrAnonymousHeadRecursiveIndent"
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
 		return "StructFieldPtrAnonymousHeadOmitEmptyIntIndent"
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
@@ -2264,6 +2348,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent"
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent:
 		return "StructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent"
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent:
+		return "StructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent"
 	case opStructFieldPtrAnonymousHeadStringTagIntIndent:
 		return "StructFieldPtrAnonymousHeadStringTagIntIndent"
 	case opStructFieldPtrAnonymousHeadStringTagInt8Indent:
@@ -2308,6 +2394,8 @@ func (t opType) String() string {
 		return "StructFieldPtrAnonymousHeadStringTagMarshalJSONIndent"
 	case opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent:
 		return "StructFieldPtrAnonymousHeadStringTagMarshalTextIndent"
+	case opStructFieldPtrAnonymousHeadStringTagRecursiveIndent:
+		return "StructFieldPtrAnonymousHeadStringTagRecursiveIndent"
 	case opStructFieldIntIndent:
 		return "StructFieldIntIndent"
 	case opStructFieldInt8Indent:
@@ -2352,6 +2440,8 @@ func (t opType) String() string {
 		return "StructFieldMarshalJSONIndent"
 	case opStructFieldMarshalTextIndent:
 		return "StructFieldMarshalTextIndent"
+	case opStructFieldRecursiveIndent:
+		return "StructFieldRecursiveIndent"
 	case opStructFieldPtrIntIndent:
 		return "StructFieldPtrIntIndent"
 	case opStructFieldPtrInt8Indent:
@@ -2396,6 +2486,8 @@ func (t opType) String() string {
 		return "StructFieldPtrMarshalJSONIndent"
 	case opStructFieldPtrMarshalTextIndent:
 		return "StructFieldPtrMarshalTextIndent"
+	case opStructFieldPtrRecursiveIndent:
+		return "StructFieldPtrRecursiveIndent"
 	case opStructFieldOmitEmptyIntIndent:
 		return "StructFieldOmitEmptyIntIndent"
 	case opStructFieldOmitEmptyInt8Indent:
@@ -2440,6 +2532,8 @@ func (t opType) String() string {
 		return "StructFieldOmitEmptyMarshalJSONIndent"
 	case opStructFieldOmitEmptyMarshalTextIndent:
 		return "StructFieldOmitEmptyMarshalTextIndent"
+	case opStructFieldOmitEmptyRecursiveIndent:
+		return "StructFieldOmitEmptyRecursiveIndent"
 	case opStructFieldStringTagIntIndent:
 		return "StructFieldStringTagIntIndent"
 	case opStructFieldStringTagInt8Indent:
@@ -2484,6 +2578,8 @@ func (t opType) String() string {
 		return "StructFieldStringTagMarshalJSONIndent"
 	case opStructFieldStringTagMarshalTextIndent:
 		return "StructFieldStringTagMarshalTextIndent"
+	case opStructFieldStringTagRecursiveIndent:
+		return "StructFieldStringTagRecursiveIndent"
 	}
 	return ""
 }
@@ -2554,8 +2650,6 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldStringTag:
 		return codeStructField
-	case opStructFieldRecursive:
-		return codeStructFieldRecursive
 	case opStructFieldRecursiveEnd:
 		return codeOp
 	case opStructEnd:
@@ -2606,6 +2700,8 @@ func (t opType) codeType() codeType {
 		return codeOp
 	case opMarshalText:
 		return codeOp
+	case opRecursive:
+		return codeOp
 	case opStructFieldHeadInt:
 		return codeStructField
 	case opStructFieldHeadInt8:
@@ -2649,6 +2745,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldHeadMarshalJSON:
 		return codeStructField
 	case opStructFieldHeadMarshalText:
+		return codeStructField
+	case opStructFieldHeadRecursive:
 		return codeStructField
 	case opStructFieldHeadOmitEmptyInt:
 		return codeStructField
@@ -2694,6 +2792,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldHeadOmitEmptyMarshalText:
 		return codeStructField
+	case opStructFieldHeadOmitEmptyRecursive:
+		return codeStructField
 	case opStructFieldHeadStringTagInt:
 		return codeStructField
 	case opStructFieldHeadStringTagInt8:
@@ -2737,6 +2837,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldHeadStringTagMarshalJSON:
 		return codeStructField
 	case opStructFieldHeadStringTagMarshalText:
+		return codeStructField
+	case opStructFieldHeadStringTagRecursive:
 		return codeStructField
 	case opStructFieldAnonymousHeadInt:
 		return codeStructField
@@ -2782,6 +2884,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldAnonymousHeadMarshalText:
 		return codeStructField
+	case opStructFieldAnonymousHeadRecursive:
+		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyInt:
 		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyInt8:
@@ -2825,6 +2929,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldAnonymousHeadOmitEmptyMarshalJSON:
 		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyMarshalText:
+		return codeStructField
+	case opStructFieldAnonymousHeadOmitEmptyRecursive:
 		return codeStructField
 	case opStructFieldAnonymousHeadStringTagInt:
 		return codeStructField
@@ -2870,6 +2976,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldAnonymousHeadStringTagMarshalText:
 		return codeStructField
+	case opStructFieldAnonymousHeadStringTagRecursive:
+		return codeStructField
 	case opStructFieldPtrHeadInt:
 		return codeStructField
 	case opStructFieldPtrHeadInt8:
@@ -2913,6 +3021,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrHeadMarshalJSON:
 		return codeStructField
 	case opStructFieldPtrHeadMarshalText:
+		return codeStructField
+	case opStructFieldPtrHeadRecursive:
 		return codeStructField
 	case opStructFieldPtrHeadOmitEmptyInt:
 		return codeStructField
@@ -2958,6 +3068,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrHeadOmitEmptyMarshalText:
 		return codeStructField
+	case opStructFieldPtrHeadOmitEmptyRecursive:
+		return codeStructField
 	case opStructFieldPtrHeadStringTagInt:
 		return codeStructField
 	case opStructFieldPtrHeadStringTagInt8:
@@ -3001,6 +3113,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrHeadStringTagMarshalJSON:
 		return codeStructField
 	case opStructFieldPtrHeadStringTagMarshalText:
+		return codeStructField
+	case opStructFieldPtrHeadStringTagRecursive:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadInt:
 		return codeStructField
@@ -3046,6 +3160,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadMarshalText:
 		return codeStructField
+	case opStructFieldPtrAnonymousHeadRecursive:
+		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
@@ -3089,6 +3205,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalText:
+		return codeStructField
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursive:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadStringTagInt:
 		return codeStructField
@@ -3134,6 +3252,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadStringTagMarshalText:
 		return codeStructField
+	case opStructFieldPtrAnonymousHeadStringTagRecursive:
+		return codeStructField
 	case opStructFieldInt:
 		return codeStructField
 	case opStructFieldInt8:
@@ -3177,6 +3297,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldMarshalJSON:
 		return codeStructField
 	case opStructFieldMarshalText:
+		return codeStructField
+	case opStructFieldRecursive:
 		return codeStructField
 	case opStructFieldPtrInt:
 		return codeStructField
@@ -3222,6 +3344,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrMarshalText:
 		return codeStructField
+	case opStructFieldPtrRecursive:
+		return codeStructField
 	case opStructFieldOmitEmptyInt:
 		return codeStructField
 	case opStructFieldOmitEmptyInt8:
@@ -3266,6 +3390,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldOmitEmptyMarshalText:
 		return codeStructField
+	case opStructFieldOmitEmptyRecursive:
+		return codeStructField
 	case opStructFieldStringTagInt:
 		return codeStructField
 	case opStructFieldStringTagInt8:
@@ -3309,6 +3435,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldStringTagMarshalJSON:
 		return codeStructField
 	case opStructFieldStringTagMarshalText:
+		return codeStructField
+	case opStructFieldStringTagRecursive:
 		return codeStructField
 	case opEndIndent:
 		return codeOp
@@ -3374,8 +3502,6 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldStringTagIndent:
 		return codeStructField
-	case opStructFieldRecursiveIndent:
-		return codeStructFieldRecursive
 	case opStructFieldRecursiveEndIndent:
 		return codeOp
 	case opStructEndIndent:
@@ -3426,6 +3552,8 @@ func (t opType) codeType() codeType {
 		return codeOp
 	case opMarshalTextIndent:
 		return codeOp
+	case opRecursiveIndent:
+		return codeOp
 	case opStructFieldHeadIntIndent:
 		return codeStructField
 	case opStructFieldHeadInt8Indent:
@@ -3469,6 +3597,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldHeadMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldHeadMarshalTextIndent:
+		return codeStructField
+	case opStructFieldHeadRecursiveIndent:
 		return codeStructField
 	case opStructFieldHeadOmitEmptyIntIndent:
 		return codeStructField
@@ -3514,6 +3644,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldHeadOmitEmptyMarshalTextIndent:
 		return codeStructField
+	case opStructFieldHeadOmitEmptyRecursiveIndent:
+		return codeStructField
 	case opStructFieldHeadStringTagIntIndent:
 		return codeStructField
 	case opStructFieldHeadStringTagInt8Indent:
@@ -3557,6 +3689,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldHeadStringTagMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldHeadStringTagMarshalTextIndent:
+		return codeStructField
+	case opStructFieldHeadStringTagRecursiveIndent:
 		return codeStructField
 	case opStructFieldAnonymousHeadIntIndent:
 		return codeStructField
@@ -3602,6 +3736,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldAnonymousHeadMarshalTextIndent:
 		return codeStructField
+	case opStructFieldAnonymousHeadRecursiveIndent:
+		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyIntIndent:
 		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
@@ -3645,6 +3781,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldAnonymousHeadOmitEmptyMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent:
+		return codeStructField
+	case opStructFieldAnonymousHeadOmitEmptyRecursiveIndent:
 		return codeStructField
 	case opStructFieldAnonymousHeadStringTagIntIndent:
 		return codeStructField
@@ -3690,6 +3828,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldAnonymousHeadStringTagMarshalTextIndent:
 		return codeStructField
+	case opStructFieldAnonymousHeadStringTagRecursiveIndent:
+		return codeStructField
 	case opStructFieldPtrHeadIntIndent:
 		return codeStructField
 	case opStructFieldPtrHeadInt8Indent:
@@ -3733,6 +3873,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrHeadMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldPtrHeadMarshalTextIndent:
+		return codeStructField
+	case opStructFieldPtrHeadRecursiveIndent:
 		return codeStructField
 	case opStructFieldPtrHeadOmitEmptyIntIndent:
 		return codeStructField
@@ -3778,6 +3920,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrHeadOmitEmptyMarshalTextIndent:
 		return codeStructField
+	case opStructFieldPtrHeadOmitEmptyRecursiveIndent:
+		return codeStructField
 	case opStructFieldPtrHeadStringTagIntIndent:
 		return codeStructField
 	case opStructFieldPtrHeadStringTagInt8Indent:
@@ -3821,6 +3965,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrHeadStringTagMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldPtrHeadStringTagMarshalTextIndent:
+		return codeStructField
+	case opStructFieldPtrHeadStringTagRecursiveIndent:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadIntIndent:
 		return codeStructField
@@ -3866,6 +4012,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadMarshalTextIndent:
 		return codeStructField
+	case opStructFieldPtrAnonymousHeadRecursiveIndent:
+		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
@@ -3909,6 +4057,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent:
+		return codeStructField
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent:
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadStringTagIntIndent:
 		return codeStructField
@@ -3954,6 +4104,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent:
 		return codeStructField
+	case opStructFieldPtrAnonymousHeadStringTagRecursiveIndent:
+		return codeStructField
 	case opStructFieldIntIndent:
 		return codeStructField
 	case opStructFieldInt8Indent:
@@ -3997,6 +4149,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldMarshalTextIndent:
+		return codeStructField
+	case opStructFieldRecursiveIndent:
 		return codeStructField
 	case opStructFieldPtrIntIndent:
 		return codeStructField
@@ -4042,6 +4196,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldPtrMarshalTextIndent:
 		return codeStructField
+	case opStructFieldPtrRecursiveIndent:
+		return codeStructField
 	case opStructFieldOmitEmptyIntIndent:
 		return codeStructField
 	case opStructFieldOmitEmptyInt8Indent:
@@ -4086,6 +4242,8 @@ func (t opType) codeType() codeType {
 		return codeStructField
 	case opStructFieldOmitEmptyMarshalTextIndent:
 		return codeStructField
+	case opStructFieldOmitEmptyRecursiveIndent:
+		return codeStructField
 	case opStructFieldStringTagIntIndent:
 		return codeStructField
 	case opStructFieldStringTagInt8Indent:
@@ -4129,6 +4287,8 @@ func (t opType) codeType() codeType {
 	case opStructFieldStringTagMarshalJSONIndent:
 		return codeStructField
 	case opStructFieldStringTagMarshalTextIndent:
+		return codeStructField
+	case opStructFieldStringTagRecursiveIndent:
 		return codeStructField
 	}
 	return codeOp
@@ -4200,8 +4360,6 @@ func (t opType) toIndent() opType {
 		return opStructFieldOmitEmptyIndent
 	case opStructFieldStringTag:
 		return opStructFieldStringTagIndent
-	case opStructFieldRecursive:
-		return opStructFieldRecursiveIndent
 	case opStructFieldRecursiveEnd:
 		return opStructFieldRecursiveEndIndent
 	case opStructEnd:
@@ -4252,6 +4410,8 @@ func (t opType) toIndent() opType {
 		return opMarshalJSONIndent
 	case opMarshalText:
 		return opMarshalTextIndent
+	case opRecursive:
+		return opRecursiveIndent
 	case opStructFieldHeadInt:
 		return opStructFieldHeadIntIndent
 	case opStructFieldHeadInt8:
@@ -4296,6 +4456,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadMarshalJSONIndent
 	case opStructFieldHeadMarshalText:
 		return opStructFieldHeadMarshalTextIndent
+	case opStructFieldHeadRecursive:
+		return opStructFieldHeadRecursiveIndent
 	case opStructFieldHeadOmitEmptyInt:
 		return opStructFieldHeadOmitEmptyIntIndent
 	case opStructFieldHeadOmitEmptyInt8:
@@ -4340,6 +4502,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldHeadOmitEmptyMarshalText:
 		return opStructFieldHeadOmitEmptyMarshalTextIndent
+	case opStructFieldHeadOmitEmptyRecursive:
+		return opStructFieldHeadOmitEmptyRecursiveIndent
 	case opStructFieldHeadStringTagInt:
 		return opStructFieldHeadStringTagIntIndent
 	case opStructFieldHeadStringTagInt8:
@@ -4384,6 +4548,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadStringTagMarshalJSONIndent
 	case opStructFieldHeadStringTagMarshalText:
 		return opStructFieldHeadStringTagMarshalTextIndent
+	case opStructFieldHeadStringTagRecursive:
+		return opStructFieldHeadStringTagRecursiveIndent
 	case opStructFieldAnonymousHeadInt:
 		return opStructFieldAnonymousHeadIntIndent
 	case opStructFieldAnonymousHeadInt8:
@@ -4428,6 +4594,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadMarshalJSONIndent
 	case opStructFieldAnonymousHeadMarshalText:
 		return opStructFieldAnonymousHeadMarshalTextIndent
+	case opStructFieldAnonymousHeadRecursive:
+		return opStructFieldAnonymousHeadRecursiveIndent
 	case opStructFieldAnonymousHeadOmitEmptyInt:
 		return opStructFieldAnonymousHeadOmitEmptyIntIndent
 	case opStructFieldAnonymousHeadOmitEmptyInt8:
@@ -4472,6 +4640,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldAnonymousHeadOmitEmptyMarshalText:
 		return opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent
+	case opStructFieldAnonymousHeadOmitEmptyRecursive:
+		return opStructFieldAnonymousHeadOmitEmptyRecursiveIndent
 	case opStructFieldAnonymousHeadStringTagInt:
 		return opStructFieldAnonymousHeadStringTagIntIndent
 	case opStructFieldAnonymousHeadStringTagInt8:
@@ -4516,6 +4686,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadStringTagMarshalJSONIndent
 	case opStructFieldAnonymousHeadStringTagMarshalText:
 		return opStructFieldAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldAnonymousHeadStringTagRecursive:
+		return opStructFieldAnonymousHeadStringTagRecursiveIndent
 	case opStructFieldPtrHeadInt:
 		return opStructFieldPtrHeadIntIndent
 	case opStructFieldPtrHeadInt8:
@@ -4560,6 +4732,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadMarshalJSONIndent
 	case opStructFieldPtrHeadMarshalText:
 		return opStructFieldPtrHeadMarshalTextIndent
+	case opStructFieldPtrHeadRecursive:
+		return opStructFieldPtrHeadRecursiveIndent
 	case opStructFieldPtrHeadOmitEmptyInt:
 		return opStructFieldPtrHeadOmitEmptyIntIndent
 	case opStructFieldPtrHeadOmitEmptyInt8:
@@ -4604,6 +4778,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldPtrHeadOmitEmptyMarshalText:
 		return opStructFieldPtrHeadOmitEmptyMarshalTextIndent
+	case opStructFieldPtrHeadOmitEmptyRecursive:
+		return opStructFieldPtrHeadOmitEmptyRecursiveIndent
 	case opStructFieldPtrHeadStringTagInt:
 		return opStructFieldPtrHeadStringTagIntIndent
 	case opStructFieldPtrHeadStringTagInt8:
@@ -4648,6 +4824,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadStringTagMarshalJSONIndent
 	case opStructFieldPtrHeadStringTagMarshalText:
 		return opStructFieldPtrHeadStringTagMarshalTextIndent
+	case opStructFieldPtrHeadStringTagRecursive:
+		return opStructFieldPtrHeadStringTagRecursiveIndent
 	case opStructFieldPtrAnonymousHeadInt:
 		return opStructFieldPtrAnonymousHeadIntIndent
 	case opStructFieldPtrAnonymousHeadInt8:
@@ -4692,6 +4870,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadMarshalText:
 		return opStructFieldPtrAnonymousHeadMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadRecursive:
+		return opStructFieldPtrAnonymousHeadRecursiveIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt:
 		return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
@@ -4736,6 +4916,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalText:
 		return opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursive:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent
 	case opStructFieldPtrAnonymousHeadStringTagInt:
 		return opStructFieldPtrAnonymousHeadStringTagIntIndent
 	case opStructFieldPtrAnonymousHeadStringTagInt8:
@@ -4780,6 +4962,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadStringTagMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadStringTagMarshalText:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadStringTagRecursive:
+		return opStructFieldPtrAnonymousHeadStringTagRecursiveIndent
 	case opStructFieldInt:
 		return opStructFieldIntIndent
 	case opStructFieldInt8:
@@ -4824,6 +5008,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldMarshalJSONIndent
 	case opStructFieldMarshalText:
 		return opStructFieldMarshalTextIndent
+	case opStructFieldRecursive:
+		return opStructFieldRecursiveIndent
 	case opStructFieldPtrInt:
 		return opStructFieldPtrIntIndent
 	case opStructFieldPtrInt8:
@@ -4868,6 +5054,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrMarshalJSONIndent
 	case opStructFieldPtrMarshalText:
 		return opStructFieldPtrMarshalTextIndent
+	case opStructFieldPtrRecursive:
+		return opStructFieldPtrRecursiveIndent
 	case opStructFieldOmitEmptyInt:
 		return opStructFieldOmitEmptyIntIndent
 	case opStructFieldOmitEmptyInt8:
@@ -4912,6 +5100,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldOmitEmptyMarshalJSONIndent
 	case opStructFieldOmitEmptyMarshalText:
 		return opStructFieldOmitEmptyMarshalTextIndent
+	case opStructFieldOmitEmptyRecursive:
+		return opStructFieldOmitEmptyRecursiveIndent
 	case opStructFieldStringTagInt:
 		return opStructFieldStringTagIntIndent
 	case opStructFieldStringTagInt8:
@@ -4956,6 +5146,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldStringTagMarshalJSONIndent
 	case opStructFieldStringTagMarshalText:
 		return opStructFieldStringTagMarshalTextIndent
+	case opStructFieldStringTagRecursive:
+		return opStructFieldStringTagRecursiveIndent
 	case opEndIndent:
 		return opEndIndent
 	case opInterfaceIndent:
@@ -5020,8 +5212,6 @@ func (t opType) toIndent() opType {
 		return opStructFieldOmitEmptyIndent
 	case opStructFieldStringTagIndent:
 		return opStructFieldStringTagIndent
-	case opStructFieldRecursiveIndent:
-		return opStructFieldRecursiveIndent
 	case opStructFieldRecursiveEndIndent:
 		return opStructFieldRecursiveEndIndent
 	case opStructEndIndent:
@@ -5072,6 +5262,8 @@ func (t opType) toIndent() opType {
 		return opMarshalJSONIndent
 	case opMarshalTextIndent:
 		return opMarshalTextIndent
+	case opRecursiveIndent:
+		return opRecursiveIndent
 	case opStructFieldHeadIntIndent:
 		return opStructFieldHeadIntIndent
 	case opStructFieldHeadInt8Indent:
@@ -5116,6 +5308,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadMarshalJSONIndent
 	case opStructFieldHeadMarshalTextIndent:
 		return opStructFieldHeadMarshalTextIndent
+	case opStructFieldHeadRecursiveIndent:
+		return opStructFieldHeadRecursiveIndent
 	case opStructFieldHeadOmitEmptyIntIndent:
 		return opStructFieldHeadOmitEmptyIntIndent
 	case opStructFieldHeadOmitEmptyInt8Indent:
@@ -5160,6 +5354,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldHeadOmitEmptyMarshalTextIndent:
 		return opStructFieldHeadOmitEmptyMarshalTextIndent
+	case opStructFieldHeadOmitEmptyRecursiveIndent:
+		return opStructFieldHeadOmitEmptyRecursiveIndent
 	case opStructFieldHeadStringTagIntIndent:
 		return opStructFieldHeadStringTagIntIndent
 	case opStructFieldHeadStringTagInt8Indent:
@@ -5204,6 +5400,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldHeadStringTagMarshalJSONIndent
 	case opStructFieldHeadStringTagMarshalTextIndent:
 		return opStructFieldHeadStringTagMarshalTextIndent
+	case opStructFieldHeadStringTagRecursiveIndent:
+		return opStructFieldHeadStringTagRecursiveIndent
 	case opStructFieldAnonymousHeadIntIndent:
 		return opStructFieldAnonymousHeadIntIndent
 	case opStructFieldAnonymousHeadInt8Indent:
@@ -5248,6 +5446,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadMarshalJSONIndent
 	case opStructFieldAnonymousHeadMarshalTextIndent:
 		return opStructFieldAnonymousHeadMarshalTextIndent
+	case opStructFieldAnonymousHeadRecursiveIndent:
+		return opStructFieldAnonymousHeadRecursiveIndent
 	case opStructFieldAnonymousHeadOmitEmptyIntIndent:
 		return opStructFieldAnonymousHeadOmitEmptyIntIndent
 	case opStructFieldAnonymousHeadOmitEmptyInt8Indent:
@@ -5292,6 +5492,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent:
 		return opStructFieldAnonymousHeadOmitEmptyMarshalTextIndent
+	case opStructFieldAnonymousHeadOmitEmptyRecursiveIndent:
+		return opStructFieldAnonymousHeadOmitEmptyRecursiveIndent
 	case opStructFieldAnonymousHeadStringTagIntIndent:
 		return opStructFieldAnonymousHeadStringTagIntIndent
 	case opStructFieldAnonymousHeadStringTagInt8Indent:
@@ -5336,6 +5538,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldAnonymousHeadStringTagMarshalJSONIndent
 	case opStructFieldAnonymousHeadStringTagMarshalTextIndent:
 		return opStructFieldAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldAnonymousHeadStringTagRecursiveIndent:
+		return opStructFieldAnonymousHeadStringTagRecursiveIndent
 	case opStructFieldPtrHeadIntIndent:
 		return opStructFieldPtrHeadIntIndent
 	case opStructFieldPtrHeadInt8Indent:
@@ -5380,6 +5584,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadMarshalJSONIndent
 	case opStructFieldPtrHeadMarshalTextIndent:
 		return opStructFieldPtrHeadMarshalTextIndent
+	case opStructFieldPtrHeadRecursiveIndent:
+		return opStructFieldPtrHeadRecursiveIndent
 	case opStructFieldPtrHeadOmitEmptyIntIndent:
 		return opStructFieldPtrHeadOmitEmptyIntIndent
 	case opStructFieldPtrHeadOmitEmptyInt8Indent:
@@ -5424,6 +5630,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldPtrHeadOmitEmptyMarshalTextIndent:
 		return opStructFieldPtrHeadOmitEmptyMarshalTextIndent
+	case opStructFieldPtrHeadOmitEmptyRecursiveIndent:
+		return opStructFieldPtrHeadOmitEmptyRecursiveIndent
 	case opStructFieldPtrHeadStringTagIntIndent:
 		return opStructFieldPtrHeadStringTagIntIndent
 	case opStructFieldPtrHeadStringTagInt8Indent:
@@ -5468,6 +5676,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrHeadStringTagMarshalJSONIndent
 	case opStructFieldPtrHeadStringTagMarshalTextIndent:
 		return opStructFieldPtrHeadStringTagMarshalTextIndent
+	case opStructFieldPtrHeadStringTagRecursiveIndent:
+		return opStructFieldPtrHeadStringTagRecursiveIndent
 	case opStructFieldPtrAnonymousHeadIntIndent:
 		return opStructFieldPtrAnonymousHeadIntIndent
 	case opStructFieldPtrAnonymousHeadInt8Indent:
@@ -5512,6 +5722,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadMarshalTextIndent:
 		return opStructFieldPtrAnonymousHeadMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadRecursiveIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntIndent:
 		return opStructFieldPtrAnonymousHeadOmitEmptyIntIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8Indent:
@@ -5556,6 +5768,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent:
 		return opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent
 	case opStructFieldPtrAnonymousHeadStringTagIntIndent:
 		return opStructFieldPtrAnonymousHeadStringTagIntIndent
 	case opStructFieldPtrAnonymousHeadStringTagInt8Indent:
@@ -5600,6 +5814,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrAnonymousHeadStringTagMarshalJSONIndent
 	case opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldPtrAnonymousHeadStringTagRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadStringTagRecursiveIndent
 	case opStructFieldIntIndent:
 		return opStructFieldIntIndent
 	case opStructFieldInt8Indent:
@@ -5644,6 +5860,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldMarshalJSONIndent
 	case opStructFieldMarshalTextIndent:
 		return opStructFieldMarshalTextIndent
+	case opStructFieldRecursiveIndent:
+		return opStructFieldRecursiveIndent
 	case opStructFieldPtrIntIndent:
 		return opStructFieldPtrIntIndent
 	case opStructFieldPtrInt8Indent:
@@ -5688,6 +5906,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldPtrMarshalJSONIndent
 	case opStructFieldPtrMarshalTextIndent:
 		return opStructFieldPtrMarshalTextIndent
+	case opStructFieldPtrRecursiveIndent:
+		return opStructFieldPtrRecursiveIndent
 	case opStructFieldOmitEmptyIntIndent:
 		return opStructFieldOmitEmptyIntIndent
 	case opStructFieldOmitEmptyInt8Indent:
@@ -5732,6 +5952,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldOmitEmptyMarshalJSONIndent
 	case opStructFieldOmitEmptyMarshalTextIndent:
 		return opStructFieldOmitEmptyMarshalTextIndent
+	case opStructFieldOmitEmptyRecursiveIndent:
+		return opStructFieldOmitEmptyRecursiveIndent
 	case opStructFieldStringTagIntIndent:
 		return opStructFieldStringTagIntIndent
 	case opStructFieldStringTagInt8Indent:
@@ -5776,6 +5998,8 @@ func (t opType) toIndent() opType {
 		return opStructFieldStringTagMarshalJSONIndent
 	case opStructFieldStringTagMarshalTextIndent:
 		return opStructFieldStringTagMarshalTextIndent
+	case opStructFieldStringTagRecursiveIndent:
+		return opStructFieldStringTagRecursiveIndent
 	}
 	return t
 }
@@ -6058,6 +6282,18 @@ func (t opType) headToPtrHead() opType {
 		return opStructFieldPtrHeadStringTagMarshalText
 	case opStructFieldAnonymousHeadStringTagMarshalText:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalText
+	case opStructFieldHeadRecursive:
+		return opStructFieldPtrHeadRecursive
+	case opStructFieldAnonymousHeadRecursive:
+		return opStructFieldPtrAnonymousHeadRecursive
+	case opStructFieldHeadOmitEmptyRecursive:
+		return opStructFieldPtrHeadOmitEmptyRecursive
+	case opStructFieldAnonymousHeadOmitEmptyRecursive:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursive
+	case opStructFieldHeadStringTagRecursive:
+		return opStructFieldPtrHeadStringTagRecursive
+	case opStructFieldAnonymousHeadStringTagRecursive:
+		return opStructFieldPtrAnonymousHeadStringTagRecursive
 	case opStructFieldHeadIndent:
 		return opStructFieldPtrHeadIndent
 	case opStructFieldAnonymousHeadIndent:
@@ -6334,6 +6570,18 @@ func (t opType) headToPtrHead() opType {
 		return opStructFieldPtrHeadStringTagMarshalTextIndent
 	case opStructFieldAnonymousHeadStringTagMarshalTextIndent:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldHeadRecursiveIndent:
+		return opStructFieldPtrHeadRecursiveIndent
+	case opStructFieldAnonymousHeadRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadRecursiveIndent
+	case opStructFieldHeadOmitEmptyRecursiveIndent:
+		return opStructFieldPtrHeadOmitEmptyRecursiveIndent
+	case opStructFieldAnonymousHeadOmitEmptyRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent
+	case opStructFieldHeadStringTagRecursiveIndent:
+		return opStructFieldPtrHeadStringTagRecursiveIndent
+	case opStructFieldAnonymousHeadStringTagRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadStringTagRecursiveIndent
 	}
 	return t
 }
@@ -6616,6 +6864,18 @@ func (t opType) headToAnonymousHead() opType {
 		return opStructFieldAnonymousHeadStringTagMarshalText
 	case opStructFieldPtrHeadStringTagMarshalText:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalText
+	case opStructFieldHeadRecursive:
+		return opStructFieldAnonymousHeadRecursive
+	case opStructFieldPtrHeadRecursive:
+		return opStructFieldPtrAnonymousHeadRecursive
+	case opStructFieldHeadOmitEmptyRecursive:
+		return opStructFieldAnonymousHeadOmitEmptyRecursive
+	case opStructFieldPtrHeadOmitEmptyRecursive:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursive
+	case opStructFieldHeadStringTagRecursive:
+		return opStructFieldAnonymousHeadStringTagRecursive
+	case opStructFieldPtrHeadStringTagRecursive:
+		return opStructFieldPtrAnonymousHeadStringTagRecursive
 	case opStructFieldHeadIndent:
 		return opStructFieldAnonymousHeadIndent
 	case opStructFieldPtrHeadIndent:
@@ -6892,6 +7152,18 @@ func (t opType) headToAnonymousHead() opType {
 		return opStructFieldAnonymousHeadStringTagMarshalTextIndent
 	case opStructFieldPtrHeadStringTagMarshalTextIndent:
 		return opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldHeadRecursiveIndent:
+		return opStructFieldAnonymousHeadRecursiveIndent
+	case opStructFieldPtrHeadRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadRecursiveIndent
+	case opStructFieldHeadOmitEmptyRecursiveIndent:
+		return opStructFieldAnonymousHeadOmitEmptyRecursiveIndent
+	case opStructFieldPtrHeadOmitEmptyRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent
+	case opStructFieldHeadStringTagRecursiveIndent:
+		return opStructFieldAnonymousHeadStringTagRecursiveIndent
+	case opStructFieldPtrHeadStringTagRecursiveIndent:
+		return opStructFieldPtrAnonymousHeadStringTagRecursiveIndent
 	}
 	return t
 }
@@ -6990,6 +7262,10 @@ func (t opType) headToOmitEmptyHead() opType {
 		return opStructFieldHeadOmitEmptyMarshalText
 	case opStructFieldPtrHeadMarshalText:
 		return opStructFieldPtrHeadOmitEmptyMarshalText
+	case opStructFieldHeadRecursive:
+		return opStructFieldHeadOmitEmptyRecursive
+	case opStructFieldPtrHeadRecursive:
+		return opStructFieldPtrHeadOmitEmptyRecursive
 	case opStructFieldHeadIndent:
 		return opStructFieldHeadOmitEmptyIndent
 	case opStructFieldPtrHeadIndent:
@@ -7082,6 +7358,10 @@ func (t opType) headToOmitEmptyHead() opType {
 		return opStructFieldHeadOmitEmptyMarshalTextIndent
 	case opStructFieldPtrHeadMarshalTextIndent:
 		return opStructFieldPtrHeadOmitEmptyMarshalTextIndent
+	case opStructFieldHeadRecursiveIndent:
+		return opStructFieldHeadOmitEmptyRecursiveIndent
+	case opStructFieldPtrHeadRecursiveIndent:
+		return opStructFieldPtrHeadOmitEmptyRecursiveIndent
 	}
 	return t
 }
@@ -7180,6 +7460,10 @@ func (t opType) headToStringTagHead() opType {
 		return opStructFieldHeadStringTagMarshalText
 	case opStructFieldPtrHeadMarshalText:
 		return opStructFieldPtrHeadStringTagMarshalText
+	case opStructFieldHeadRecursive:
+		return opStructFieldHeadStringTagRecursive
+	case opStructFieldPtrHeadRecursive:
+		return opStructFieldPtrHeadStringTagRecursive
 	case opStructFieldHeadIndent:
 		return opStructFieldHeadStringTagIndent
 	case opStructFieldPtrHeadIndent:
@@ -7272,6 +7556,10 @@ func (t opType) headToStringTagHead() opType {
 		return opStructFieldHeadStringTagMarshalTextIndent
 	case opStructFieldPtrHeadMarshalTextIndent:
 		return opStructFieldPtrHeadStringTagMarshalTextIndent
+	case opStructFieldHeadRecursiveIndent:
+		return opStructFieldHeadStringTagRecursiveIndent
+	case opStructFieldPtrHeadRecursiveIndent:
+		return opStructFieldPtrHeadStringTagRecursiveIndent
 	}
 	return t
 }
@@ -7554,6 +7842,18 @@ func (t opType) ptrHeadToHead() opType {
 		return opStructFieldHeadStringTagMarshalText
 	case opStructFieldPtrAnonymousHeadStringTagMarshalText:
 		return opStructFieldAnonymousHeadStringTagMarshalText
+	case opStructFieldPtrHeadRecursive:
+		return opStructFieldHeadRecursive
+	case opStructFieldPtrAnonymousHeadRecursive:
+		return opStructFieldAnonymousHeadRecursive
+	case opStructFieldPtrHeadOmitEmptyRecursive:
+		return opStructFieldHeadOmitEmptyRecursive
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursive:
+		return opStructFieldAnonymousHeadOmitEmptyRecursive
+	case opStructFieldPtrHeadStringTagRecursive:
+		return opStructFieldHeadStringTagRecursive
+	case opStructFieldPtrAnonymousHeadStringTagRecursive:
+		return opStructFieldAnonymousHeadStringTagRecursive
 	case opStructFieldPtrHeadIndent:
 		return opStructFieldHeadIndent
 	case opStructFieldPtrAnonymousHeadIndent:
@@ -7830,6 +8130,18 @@ func (t opType) ptrHeadToHead() opType {
 		return opStructFieldHeadStringTagMarshalTextIndent
 	case opStructFieldPtrAnonymousHeadStringTagMarshalTextIndent:
 		return opStructFieldAnonymousHeadStringTagMarshalTextIndent
+	case opStructFieldPtrHeadRecursiveIndent:
+		return opStructFieldHeadRecursiveIndent
+	case opStructFieldPtrAnonymousHeadRecursiveIndent:
+		return opStructFieldAnonymousHeadRecursiveIndent
+	case opStructFieldPtrHeadOmitEmptyRecursiveIndent:
+		return opStructFieldHeadOmitEmptyRecursiveIndent
+	case opStructFieldPtrAnonymousHeadOmitEmptyRecursiveIndent:
+		return opStructFieldAnonymousHeadOmitEmptyRecursiveIndent
+	case opStructFieldPtrHeadStringTagRecursiveIndent:
+		return opStructFieldHeadStringTagRecursiveIndent
+	case opStructFieldPtrAnonymousHeadStringTagRecursiveIndent:
+		return opStructFieldAnonymousHeadStringTagRecursiveIndent
 	}
 	return t
 }
@@ -7882,6 +8194,8 @@ func (t opType) fieldToOmitEmptyField() opType {
 		return opStructFieldOmitEmptyMarshalJSON
 	case opStructFieldMarshalText:
 		return opStructFieldOmitEmptyMarshalText
+	case opStructFieldRecursive:
+		return opStructFieldOmitEmptyRecursive
 	case opStructFieldIndent:
 		return opStructFieldOmitEmptyIndent
 	case opStructFieldIntIndent:
@@ -7928,6 +8242,8 @@ func (t opType) fieldToOmitEmptyField() opType {
 		return opStructFieldOmitEmptyMarshalJSONIndent
 	case opStructFieldMarshalTextIndent:
 		return opStructFieldOmitEmptyMarshalTextIndent
+	case opStructFieldRecursiveIndent:
+		return opStructFieldOmitEmptyRecursiveIndent
 	}
 	return t
 }
@@ -7980,6 +8296,8 @@ func (t opType) fieldToStringTagField() opType {
 		return opStructFieldStringTagMarshalJSON
 	case opStructFieldMarshalText:
 		return opStructFieldStringTagMarshalText
+	case opStructFieldRecursive:
+		return opStructFieldStringTagRecursive
 	case opStructFieldIndent:
 		return opStructFieldStringTagIndent
 	case opStructFieldIntIndent:
@@ -8026,6 +8344,8 @@ func (t opType) fieldToStringTagField() opType {
 		return opStructFieldStringTagMarshalJSONIndent
 	case opStructFieldMarshalTextIndent:
 		return opStructFieldStringTagMarshalTextIndent
+	case opStructFieldRecursiveIndent:
+		return opStructFieldStringTagRecursiveIndent
 	}
 	return t
 }

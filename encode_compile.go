@@ -906,6 +906,10 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		}
 
 		if field.Anonymous {
+			if valueCode.op == opPtr && valueCode.next.op == opStructFieldRecursive {
+				valueCode = valueCode.next
+				valueCode.op = opStructFieldPtrHeadRecursive
+			}
 			for k, v := range e.anonymousStructFieldPairMap(typ, tags, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
@@ -997,8 +1001,8 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	head.end = structEndCode
 	code.next = structEndCode
 
-	e.optimizeConflictAnonymousFields(anonymousFields)
-	e.optimizeAnonymousFields(head)
+	//e.optimizeConflictAnonymousFields(anonymousFields)
+	//e.optimizeAnonymousFields(head)
 
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret

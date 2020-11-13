@@ -38,9 +38,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	seenPtr := map[uintptr]struct{}{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+	fmt.Println(code.dump())
 
 	for {
+		fmt.Printf("[%d]:[%s]\n", code.displayIdx, code.op)
 		switch code.op {
+		default:
+			return fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
 		case opPtr:
 			ptr := load(ctxptr, code.idx)
 			code = code.next
@@ -747,6 +751,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.buf = e.buf[:pos[0]]
 			e.buf = append(e.buf, buf...)
 			code = code.next
+		case opStructFieldPtrAnonymousHeadRecursive:
+			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldAnonymousHeadRecursive:
+			fallthrough
 		case opStructFieldRecursive:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

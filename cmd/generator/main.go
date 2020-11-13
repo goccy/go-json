@@ -213,7 +213,7 @@ func (t opType) fieldToStringTagField() opType {
 		"int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
 		"float32", "float64", "bool", "string", "bytes",
-		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText",
+		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
@@ -252,7 +252,6 @@ func (t opType) fieldToStringTagField() opType {
 		{"StructField", "StructFieldIndent", "StructField"},
 		{"StructFieldOmitEmpty", "StructFieldOmitEmptyIndent", "StructField"},
 		{"StructFieldStringTag", "StructFieldStringTagIndent", "StructField"},
-		{"StructFieldRecursive", "StructFieldRecursiveIndent", "StructFieldRecursive"},
 		{"StructFieldRecursiveEnd", "StructFieldRecursiveEndIndent", "Op"},
 		{"StructEnd", "StructEndIndent", "StructField"},
 		{"StructAnonymousEnd", "StructAnonymousEndIndent", "StructField"},

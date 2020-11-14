@@ -745,6 +745,13 @@ type structFieldPair struct {
 	linked      bool
 }
 
+func (e *Encoder) isAnonymousStructType(code *opcode) bool {
+	if code.op == opPtr {
+		code = code.next
+	}
+	return code.op.codeType() == codeStructField
+}
+
 func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, valueCode *opcode) map[string][]structFieldPair {
 	anonymousFields := map[string][]structFieldPair{}
 	f := valueCode
@@ -930,7 +937,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			idx:          opcodeOffset(fieldPtrIndex),
 			next:         valueCode,
 			indent:       ctx.indent,
-			anonymousKey: field.Anonymous,
+			anonymousKey: e.isAnonymousStructType(valueCode) && field.Anonymous,
 			key:          []byte(key),
 			escapedKey:   []byte(escapedKey),
 			isTaggedKey:  tag.isTaggedKey,

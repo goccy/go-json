@@ -38,7 +38,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	seenPtr := map[uintptr]struct{}{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
-	//fmt.Println(code.dump())
+	fmt.Println(code.dump())
 
 	for {
 		//fmt.Printf("[%d][%s]\n", code.displayIdx, code.op)
@@ -443,12 +443,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 		case opSliceHeadIndent:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
-				e.encodeIndent(code.indent)
+			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
+			if p == 0 || header.Data == 0 {
 				e.encodeNull()
 				code = code.end.next
 			} else {
-				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
 				store(ctxptr, code.elemIdx, 0)
 				store(ctxptr, code.length, uintptr(header.Len))
 				store(ctxptr, code.idx, header.Data)
@@ -806,7 +805,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 
 					code = code.next
 				} else {
-					e.encodeIndent(code.indent)
 					e.encodeBytes([]byte{'{', '}'})
 					code = code.end.next
 				}
@@ -965,7 +963,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				if code.op == opStructFieldPtrHead || code.next.op == opPtr {
+				if !code.anonymousKey && (code.op == opStructFieldPtrHead || code.next.op == opPtr) {
 					e.encodeNull()
 				} else {
 					e.encodeBytes([]byte{'{', '}'})
@@ -1000,8 +998,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeKey(code)
+				p := ptr + code.offset
 				code = code.next
-				store(ctxptr, code.idx, ptr)
+				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldPtrHeadInt:
 			p := load(ctxptr, code.idx)
@@ -2108,6 +2107,40 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				p := ptr + code.offset
+				if code.next.op == opMarshalJSON {
+					p := unsafe.Pointer(ptr + code.offset)
+					isPtr := code.typ.Kind() == reflect.Ptr
+					if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
+						code = code.nextField
+					} else {
+						v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
+						b, err := v.(Marshaler).MarshalJSON()
+						if err != nil {
+							return &MarshalerError{
+								Type: rtype2type(code.typ),
+								Err:  err,
+							}
+						}
+						if len(b) == 0 {
+							if isPtr {
+								return errUnexpectedEndOfJSON(
+									fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+									0,
+								)
+							}
+							code = code.nextField
+						} else {
+							var buf bytes.Buffer
+							if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
+								return err
+							}
+							e.encodeKey(code)
+							e.encodeBytes(buf.Bytes())
+							code = code.nextField
+						}
+					}
+					break
+				}
 				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 					code = code.nextField
 				} else {
@@ -3358,6 +3391,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if !code.anonymousKey {
 				e.encodeKey(code)
 			}
+			fmt.Println("key = ", code.displayKey)
 			ptr := load(ctxptr, code.headIdx) + code.offset
 			if code.next.op == opPtr && e.ptrToPtr(ptr) == 0 {
 				e.encodeNull()
@@ -3781,8 +3815,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			code = code.next
-			store(ctxptr, code.idx, p)
+			if code.next.op == opPtr && e.ptrToPtr(p) == 0 {
+				e.encodeNull()
+				code = code.nextField
+			} else {
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
 		case opStructFieldIntIndent:
 			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
 				e.encodeBytes([]byte{',', '\n'})
@@ -4356,6 +4395,27 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
+			if code.next.op == opMapHeadLoadIndent {
+				p = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(p)))
+				mlen := maplen(unsafe.Pointer(p))
+				if mlen == 0 {
+					code = code.nextField
+					break
+				}
+			} else if code.next.op == opStructFieldHeadIndent {
+				if code.next.next == code.next.end {
+					// not exists fields
+					if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
+						e.encodeBytes([]byte{',', '\n'})
+					}
+					e.encodeIndent(code.indent)
+					e.encodeKey(code)
+					e.encodeByte(' ')
+					e.encodeBytes([]byte{'{', '}'})
+					code = code.nextField
+					break
+				}
+			}
 			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 				code = code.nextField
 			} else {

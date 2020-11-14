@@ -175,8 +175,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 		case opBytes:
 			ptr := load(ctxptr, code.idx)
-			header := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
-			if ptr == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(ptr))
+			if ptr == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 			} else {
 				e.encodeByteSlice(e.ptrToBytes(ptr))
@@ -498,19 +498,19 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(header.Len))
-				store(ctxptr, code.idx, header.Data)
-				if header.Len > 0 {
+				store(ctxptr, code.length, uintptr(header.len))
+				store(ctxptr, code.idx, uintptr(header.data))
+				if header.len > 0 {
 					e.encodeByte('[')
 					code = code.next
-					store(ctxptr, code.idx, header.Data)
+					store(ctxptr, code.idx, uintptr(header.data))
 				} else {
 					e.encodeBytes([]byte{'[', ']', ','})
 					code = code.end.next
@@ -540,15 +540,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
+				header := (*sliceHeader)(unsafe.Pointer(p))
 				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(header.Len))
-				store(ctxptr, code.idx, header.Data)
-				if header.Len > 0 {
+				store(ctxptr, code.length, uintptr(header.len))
+				store(ctxptr, code.idx, uintptr(header.data))
+				if header.len > 0 {
 					e.encodeBytes([]byte{'[', '\n'})
 					e.encodeIndent(code.indent + 1)
 					code = code.next
-					store(ctxptr, code.idx, header.Data)
+					store(ctxptr, code.idx, uintptr(header.data))
 				} else {
 					e.encodeIndent(code.indent)
 					e.encodeBytes([]byte{'[', ']', '\n'})
@@ -563,15 +563,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
+				header := (*sliceHeader)(unsafe.Pointer(p))
 				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(header.Len))
-				store(ctxptr, code.idx, header.Data)
-				if header.Len > 0 {
+				store(ctxptr, code.length, uintptr(header.len))
+				store(ctxptr, code.idx, uintptr(header.data))
+				if header.len > 0 {
 					e.encodeBytes([]byte{'[', '\n'})
 					e.encodeIndent(code.indent + 1)
 					code = code.next
-					store(ctxptr, code.idx, header.Data)
+					store(ctxptr, code.idx, uintptr(header.data))
 				} else {
 					e.encodeIndent(code.indent)
 					e.encodeBytes([]byte{'[', ']', ',', '\n'})
@@ -5229,8 +5229,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.nextField
@@ -5243,8 +5243,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.nextField
@@ -5509,8 +5509,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyArray:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
 				code = code.next
@@ -5518,8 +5518,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptySlice:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
 				code = code.next
@@ -5740,8 +5740,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyArrayIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
 				e.encodeIndent(code.indent)
@@ -5752,8 +5752,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptySliceIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
-			if p == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(p))
+			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
 				e.encodeIndent(code.indent)

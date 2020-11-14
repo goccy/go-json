@@ -1,7 +1,6 @@
 package json
 
 import (
-	"reflect"
 	"sync"
 	"unsafe"
 )
@@ -51,7 +50,7 @@ func (d *sliceDecoder) releaseSlice(p *sliceHeader) {
 }
 
 //go:linkname copySlice reflect.typedslicecopy
-func copySlice(elemType *rtype, dst, src reflect.SliceHeader) int
+func copySlice(elemType *rtype, dst, src sliceHeader) int
 
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
@@ -71,10 +70,10 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 			s.cursor++
 			s.skipWhiteSpace()
 			if s.char() == ']' {
-				*(*reflect.SliceHeader)(unsafe.Pointer(p)) = reflect.SliceHeader{
-					Data: uintptr(newArray(d.elemType, 0)),
-					Len:  0,
-					Cap:  0,
+				*(*sliceHeader)(unsafe.Pointer(p)) = sliceHeader{
+					data: newArray(d.elemType, 0),
+					len:  0,
+					cap:  0,
 				}
 				s.cursor++
 				return nil
@@ -85,10 +84,10 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 			data := slice.data
 			for {
 				if cap <= idx {
-					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
+					src := sliceHeader{data: data, len: idx, cap: cap}
 					cap *= 2
 					data = newArray(d.elemType, cap)
-					dst := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
+					dst := sliceHeader{data: data, len: idx, cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
 				if err := d.valueDecoder.decodeStream(s, uintptr(data)+uintptr(idx)*d.size); err != nil {
@@ -102,17 +101,17 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					slice.len = idx + 1
 					slice.data = data
 					dstCap := idx + 1
-					dst := reflect.SliceHeader{
-						Data: uintptr(newArray(d.elemType, dstCap)),
-						Len:  idx + 1,
-						Cap:  dstCap,
+					dst := sliceHeader{
+						data: newArray(d.elemType, dstCap),
+						len:  idx + 1,
+						cap:  dstCap,
 					}
-					copySlice(d.elemType, dst, reflect.SliceHeader{
-						Data: uintptr(slice.data),
-						Len:  slice.len,
-						Cap:  slice.cap,
+					copySlice(d.elemType, dst, sliceHeader{
+						data: slice.data,
+						len:  slice.len,
+						cap:  slice.cap,
 					})
-					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
+					*(*sliceHeader)(unsafe.Pointer(p)) = dst
 					d.releaseSlice(slice)
 					s.cursor++
 					return nil
@@ -171,10 +170,10 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {
-				*(*reflect.SliceHeader)(unsafe.Pointer(p)) = reflect.SliceHeader{
-					Data: uintptr(newArray(d.elemType, 0)),
-					Len:  0,
-					Cap:  0,
+				*(*sliceHeader)(unsafe.Pointer(p)) = sliceHeader{
+					data: newArray(d.elemType, 0),
+					len:  0,
+					cap:  0,
 				}
 				cursor++
 				return cursor, nil
@@ -185,10 +184,10 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 			data := slice.data
 			for {
 				if cap <= idx {
-					src := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
+					src := sliceHeader{data: data, len: idx, cap: cap}
 					cap *= 2
 					data = newArray(d.elemType, cap)
-					dst := reflect.SliceHeader{Data: uintptr(data), Len: idx, Cap: cap}
+					dst := sliceHeader{data: data, len: idx, cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, uintptr(data)+uintptr(idx)*d.size)
@@ -203,17 +202,17 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 					slice.len = idx + 1
 					slice.data = data
 					dstCap := idx + 1
-					dst := reflect.SliceHeader{
-						Data: uintptr(newArray(d.elemType, dstCap)),
-						Len:  idx + 1,
-						Cap:  dstCap,
+					dst := sliceHeader{
+						data: newArray(d.elemType, dstCap),
+						len:  idx + 1,
+						cap:  dstCap,
 					}
-					copySlice(d.elemType, dst, reflect.SliceHeader{
-						Data: uintptr(slice.data),
-						Len:  slice.len,
-						Cap:  slice.cap,
+					copySlice(d.elemType, dst, sliceHeader{
+						data: slice.data,
+						len:  slice.len,
+						cap:  slice.cap,
 					})
-					*(*reflect.SliceHeader)(unsafe.Pointer(p)) = dst
+					*(*sliceHeader)(unsafe.Pointer(p)) = dst
 					d.releaseSlice(slice)
 					cursor++
 					return cursor, nil

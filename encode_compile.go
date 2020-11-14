@@ -139,13 +139,15 @@ func (e *Encoder) compilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	ptrHeadOp := code.op.headToPtrHead()
-	if code.op != ptrHeadOp {
-		code.op = ptrHeadOp
-		code.decOpcodeIndex()
-		ctx.decIndex()
-		return code, nil
-	}
+	/*
+		ptrHeadOp := code.op.headToPtrHead()
+		if code.op != ptrHeadOp {
+			code.op = ptrHeadOp
+			code.decOpcodeIndex()
+			ctx.decIndex()
+			return code, nil
+		}
+	*/
 	c := ctx.context()
 	c.opcodeIndex = ptrOpcodeIndex
 	return newOpCodeWithNext(c, opPtr, code), nil
@@ -571,12 +573,10 @@ func (e *Encoder) typeToFieldType(code *opcode) opType {
 }
 
 func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent bool) opType {
-	headType := e.typeToHeaderType(op)
+	headType := opStructFieldHead // e.typeToHeaderType(op)
 	switch {
 	case tag.isOmitEmpty:
 		headType = headType.headToOmitEmptyHead()
-	case tag.isString:
-		headType = headType.headToStringTagHead()
 	}
 	if withIndent {
 		return headType.toIndent()
@@ -585,12 +585,10 @@ func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent boo
 }
 
 func (e *Encoder) optimizeStructField(code *opcode, tag *structTag, withIndent bool) opType {
-	fieldType := e.typeToFieldType(code)
+	fieldType := opStructField // e.typeToFieldType(code)
 	switch {
 	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
-	case tag.isString:
-		fieldType = fieldType.fieldToStringTagField()
 	}
 	if withIndent {
 		return fieldType.toIndent()
@@ -636,7 +634,6 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 		opStructFieldHeadOmitEmptyMap,
 		opStructFieldHeadOmitEmptyMapLoad,
 		opStructFieldHeadOmitEmptyStruct,
-		opStructFieldHeadStringTag,
 		opStructFieldHeadIndent,
 		opStructFieldHeadSliceIndent,
 		opStructFieldHeadArrayIndent,
@@ -648,8 +645,7 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 		opStructFieldHeadOmitEmptyArrayIndent,
 		opStructFieldHeadOmitEmptyMapIndent,
 		opStructFieldHeadOmitEmptyMapLoadIndent,
-		opStructFieldHeadOmitEmptyStructIndent,
-		opStructFieldHeadStringTagIndent:
+		opStructFieldHeadOmitEmptyStructIndent:
 		return valueCode.beforeLastCode()
 	}
 	ctx.decOpcodeIndex()
@@ -673,7 +669,6 @@ func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valu
 		opStructFieldOmitEmptyMap,
 		opStructFieldOmitEmptyMapLoad,
 		opStructFieldOmitEmptyStruct,
-		opStructFieldStringTag,
 		opStructFieldIndent,
 		opStructFieldSliceIndent,
 		opStructFieldArrayIndent,
@@ -685,8 +680,7 @@ func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valu
 		opStructFieldOmitEmptyArrayIndent,
 		opStructFieldOmitEmptyMapIndent,
 		opStructFieldOmitEmptyMapLoadIndent,
-		opStructFieldOmitEmptyStructIndent,
-		opStructFieldStringTagIndent:
+		opStructFieldOmitEmptyStructIndent:
 		return valueCode.beforeLastCode()
 	}
 	ctx.decIndex()
@@ -754,13 +748,16 @@ type structFieldPair struct {
 func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, valueCode *opcode) map[string][]structFieldPair {
 	anonymousFields := map[string][]structFieldPair{}
 	f := valueCode
+	if f.op == opPtr {
+		f = f.next
+	}
 	var prevAnonymousField *opcode
 	for {
-		existsKey := tags.existsKey(f.displayKey)
 		op := f.op.headToAnonymousHead()
+		existsKey := tags.existsKey(f.displayKey)
 		if op != f.op {
 			if existsKey {
-				f.op = opStructFieldAnonymousHead
+				f.op = opStructFieldAnonymousSkipHead
 			} else {
 				f.op = op
 			}
@@ -773,7 +770,6 @@ func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, value
 			}
 			linkPrevToNextField(prevAnonymousField, f)
 		}
-
 		if f.displayKey == "" {
 			if f.nextField == nil {
 				break
@@ -802,7 +798,7 @@ func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, value
 	return anonymousFields
 }
 
-func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]structFieldPair) {
+func (e *Encoder) removeConflictAnonymousFields(anonymousFields map[string][]structFieldPair) {
 	for _, fieldPairs := range anonymousFields {
 		if len(fieldPairs) == 1 {
 			continue
@@ -816,7 +812,7 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 				if !fieldPair.linked {
 					if fieldPair.prevField == nil {
 						// head operation
-						fieldPair.curField.op = opStructFieldAnonymousHead
+						fieldPair.curField.op = opStructFieldAnonymousSkipHead
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
@@ -833,7 +829,7 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 				if !fieldPair.linked {
 					if fieldPair.prevField == nil {
 						// head operation
-						fieldPair.curField.op = opStructFieldAnonymousHead
+						fieldPair.curField.op = opStructFieldAnonymousSkipHead
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
@@ -941,6 +937,9 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			displayKey:   tag.key,
 			offset:       field.Offset,
 		}
+		if tag.isString {
+			valueCode.op = valueCode.op.toString()
+		}
 		if fieldIdx == 0 {
 			fieldCode.headIdx = fieldCode.idx
 			code = e.structHeader(ctx, fieldCode, valueCode, tag)
@@ -997,8 +996,8 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	head.end = structEndCode
 	code.next = structEndCode
 
-	e.optimizeConflictAnonymousFields(anonymousFields)
-	e.optimizeAnonymousFields(head)
+	e.removeConflictAnonymousFields(anonymousFields)
+	//e.optimizeAnonymousFields(head)
 
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret

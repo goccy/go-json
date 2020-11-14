@@ -38,8 +38,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	seenPtr := map[uintptr]struct{}{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+	//fmt.Println(code.dump())
 
 	for {
+		//fmt.Printf("[%d][%s]\n", code.displayIdx, code.op)
 		switch code.op {
 		case opPtr:
 			ptr := load(ctxptr, code.idx)
@@ -48,35 +50,68 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opInt:
 			e.encodeInt(e.ptrToInt(load(ctxptr, code.idx)))
 			code = code.next
+		case opIntString:
+			e.encodeString(fmt.Sprint(e.ptrToInt(load(ctxptr, code.idx))))
+			code = code.next
 		case opInt8:
 			e.encodeInt8(e.ptrToInt8(load(ctxptr, code.idx)))
+			code = code.next
+		case opInt8String:
+			e.encodeString(fmt.Sprint(e.ptrToInt8(load(ctxptr, code.idx))))
 			code = code.next
 		case opInt16:
 			e.encodeInt16(e.ptrToInt16(load(ctxptr, code.idx)))
 			code = code.next
+		case opInt16String:
+			e.encodeString(fmt.Sprint(e.ptrToInt16(load(ctxptr, code.idx))))
+			code = code.next
 		case opInt32:
 			e.encodeInt32(e.ptrToInt32(load(ctxptr, code.idx)))
+			code = code.next
+		case opInt32String:
+			e.encodeString(fmt.Sprint(e.ptrToInt32(load(ctxptr, code.idx))))
 			code = code.next
 		case opInt64:
 			e.encodeInt64(e.ptrToInt64(load(ctxptr, code.idx)))
 			code = code.next
+		case opInt64String:
+			e.encodeString(fmt.Sprint(e.ptrToInt64(load(ctxptr, code.idx))))
+			code = code.next
 		case opUint:
 			e.encodeUint(e.ptrToUint(load(ctxptr, code.idx)))
+			code = code.next
+		case opUintString:
+			e.encodeString(fmt.Sprint(e.ptrToUint(load(ctxptr, code.idx))))
 			code = code.next
 		case opUint8:
 			e.encodeUint8(e.ptrToUint8(load(ctxptr, code.idx)))
 			code = code.next
+		case opUint8String:
+			e.encodeString(fmt.Sprint(e.ptrToUint8(load(ctxptr, code.idx))))
+			code = code.next
 		case opUint16:
 			e.encodeUint16(e.ptrToUint16(load(ctxptr, code.idx)))
+			code = code.next
+		case opUint16String:
+			e.encodeString(fmt.Sprint(e.ptrToUint16(load(ctxptr, code.idx))))
 			code = code.next
 		case opUint32:
 			e.encodeUint32(e.ptrToUint32(load(ctxptr, code.idx)))
 			code = code.next
+		case opUint32String:
+			e.encodeString(fmt.Sprint(e.ptrToUint32(load(ctxptr, code.idx))))
+			code = code.next
 		case opUint64:
 			e.encodeUint64(e.ptrToUint64(load(ctxptr, code.idx)))
 			code = code.next
+		case opUint64String:
+			e.encodeString(fmt.Sprint(e.ptrToUint64(load(ctxptr, code.idx))))
+			code = code.next
 		case opFloat32:
 			e.encodeFloat32(e.ptrToFloat32(load(ctxptr, code.idx)))
+			code = code.next
+		case opFloat32String:
+			e.encodeString(fmt.Sprint(e.ptrToFloat32(load(ctxptr, code.idx))))
 			code = code.next
 		case opFloat64:
 			v := e.ptrToFloat64(load(ctxptr, code.idx))
@@ -88,17 +123,51 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			e.encodeFloat64(v)
 			code = code.next
+		case opFloat64String:
+			v := e.ptrToFloat64(load(ctxptr, code.idx))
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   strconv.FormatFloat(v, 'g', -1, 64),
+				}
+			}
+			e.encodeString(fmt.Sprint(v))
+			code = code.next
 		case opString:
 			e.encodeString(e.ptrToString(load(ctxptr, code.idx)))
 			code = code.next
+		case opStringString:
+			var buf bytes.Buffer
+			enc := NewEncoder(&buf)
+			s := e.ptrToString(load(ctxptr, code.idx))
+			if e.enabledHTMLEscape {
+				enc.encodeEscapedString(s)
+			} else {
+				enc.encodeNoEscapedString(s)
+			}
+			e.encodeString(string(enc.buf))
+			enc.release()
+			code = code.next
 		case opBool:
 			e.encodeBool(e.ptrToBool(load(ctxptr, code.idx)))
+			code = code.next
+		case opBoolString:
+			e.encodeString(fmt.Sprint(e.ptrToBool(load(ctxptr, code.idx))))
 			code = code.next
 		case opBytes:
 			ptr := load(ctxptr, code.idx)
 			header := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
 			if ptr == 0 || header.Data == 0 {
 				e.encodeNull()
+			} else {
+				e.encodeByteSlice(e.ptrToBytes(ptr))
+			}
+			code = code.next
+		case opBytesString:
+			ptr := load(ctxptr, code.idx)
+			header := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
+			if ptr == 0 || header.Data == 0 {
+				e.encodeBytes([]byte{'"', '"'})
 			} else {
 				e.encodeByteSlice(e.ptrToBytes(ptr))
 			}
@@ -196,7 +265,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				typ: code.typ,
 				ptr: unsafe.Pointer(ptr),
 			}))
-			b, err := v.(Marshaler).MarshalJSON()
+			rv := reflect.ValueOf(v)
+			if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
+				e.encodeNull()
+				code = code.next
+				break
+			}
+			b, err := rv.Interface().(Marshaler).MarshalJSON()
 			if err != nil {
 				return &MarshalerError{
 					Type: rtype2type(code.typ),
@@ -226,6 +301,48 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			e.encodeBytes(buf.Bytes())
 			code = code.next
+		case opMarshalJSONString:
+			ptr := load(ctxptr, code.idx)
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			rv := reflect.ValueOf(v)
+			if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
+				e.encodeBytes([]byte{'"', '"'})
+				code = code.next
+				break
+			}
+			b, err := rv.Interface().(Marshaler).MarshalJSON()
+			if err != nil {
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
+			}
+			if len(b) == 0 {
+				return errUnexpectedEndOfJSON(
+					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+					0,
+				)
+			}
+			var buf bytes.Buffer
+			if e.enabledIndent {
+				if err := encodeWithIndent(
+					&buf,
+					b,
+					string(e.prefix)+string(bytes.Repeat(e.indentStr, code.indent)),
+					string(e.indentStr),
+				); err != nil {
+					return err
+				}
+			} else {
+				if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
+					return err
+				}
+			}
+			e.encodeString(buf.String())
+			code = code.next
 		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
@@ -242,7 +359,45 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					typ: code.typ,
 					ptr: p,
 				}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				rv := reflect.ValueOf(v)
+				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
+					e.encodeNull()
+					code = code.next
+					break
+				}
+				bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			}
+			code = code.next
+		case opMarshalTextString:
+			ptr := load(ctxptr, code.idx)
+			isPtr := code.typ.Kind() == reflect.Ptr
+			p := unsafe.Pointer(ptr)
+			if p == nil {
+				e.encodeBytes([]byte{'"', '"'})
+			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
+				e.encodeBytes([]byte{'"', '"'})
+			} else {
+				if isPtr && code.typ.Elem().Implements(marshalTextType) {
+					p = *(*unsafe.Pointer)(p)
+				}
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: p,
+				}))
+				rv := reflect.ValueOf(v)
+				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
+					e.encodeNull()
+					code = code.next
+					break
+				}
+				bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
 				if err != nil {
 					return &MarshalerError{
 						Type: rtype2type(code.typ),
@@ -810,7 +965,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				if code.op == opStructFieldPtrHead {
+				if code.op == opStructFieldPtrHead || code.next.op == opPtr {
 					e.encodeNull()
 				} else {
 					e.encodeBytes([]byte{'{', '}'})
@@ -821,15 +976,30 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if !code.anonymousKey {
 					e.encodeKey(code)
 				}
-				p := ptr + code.offset
-				code = code.next
-				store(ctxptr, code.idx, p)
+				if code.next.op == opPtr && e.ptrToPtr(ptr) == 0 {
+					if !code.anonymousKey {
+						e.encodeNull()
+					}
+					code = code.nextField
+				} else {
+					p := ptr + code.offset
+					code = code.next
+					store(ctxptr, code.idx, p)
+				}
+			}
+		case opStructFieldAnonymousSkipHead:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				code = code.end.next
+			} else {
+				code = code.nextField
 			}
 		case opStructFieldAnonymousHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
 			} else {
+				e.encodeKey(code)
 				code = code.next
 				store(ctxptr, code.idx, ptr)
 			}
@@ -1631,12 +1801,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else if code.next == code.end {
 				// not exists fields
-				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '}'})
 				code = code.end.next
 				store(ctxptr, code.idx, ptr)
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})
 				e.encodeIndent(code.indent + 1)
 				e.encodeKey(code)
@@ -3183,1018 +3351,21 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				p := ptr + code.offset
-				e.encodeKey(code)
-				code = code.next
-				store(ctxptr, code.idx, p)
-			}
-		case opStructFieldPtrAnonymousHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				code = code.next
-				store(ctxptr, code.idx, ptr+code.offset)
-			}
-		case opStructFieldPtrHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagFloat32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagFloat32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagFloat32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagFloat64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagFloat64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				v := e.ptrToFloat64(ptr + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
-				}
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(v))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagFloat64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := e.ptrToFloat64(ptr + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
-				}
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(v))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagString:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagString:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				var buf bytes.Buffer
-				enc := NewEncoder(&buf)
-				s := e.ptrToString(ptr + code.offset)
-				if e.enabledHTMLEscape {
-					enc.encodeEscapedString(s)
-				} else {
-					enc.encodeNoEscapedString(s)
-				}
-				e.encodeString(string(enc.buf))
-				enc.release()
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagString:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagString:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagBool:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagBool:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagBool:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagBool:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagBytes:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagBytes:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				e.encodeKey(code)
-				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagBytes:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagBytes:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				e.encodeKey(code)
-				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
-				isPtr := code.typ.Kind() == reflect.Ptr
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
-				b, err := v.(Marshaler).MarshalJSON()
-				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
-				}
-				if len(b) == 0 {
-					if isPtr {
-						return errUnexpectedEndOfJSON(
-							fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-							0,
-						)
-					}
-					e.encodeKey(code)
-					e.encodeBytes([]byte{'"', '"'})
-					code = code.nextField
-				} else {
-					var buf bytes.Buffer
-					if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
-						return err
-					}
-					e.encodeString(buf.String())
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				p := unsafe.Pointer(ptr + code.offset)
-				isPtr := code.typ.Kind() == reflect.Ptr
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
-				b, err := v.(Marshaler).MarshalJSON()
-				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
-				}
-				if len(b) == 0 {
-					if isPtr {
-						return errUnexpectedEndOfJSON(
-							fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-							0,
-						)
-					}
-					e.encodeKey(code)
-					e.encodeBytes([]byte{'"', '"'})
-					code = code.nextField
-				} else {
-					var buf bytes.Buffer
-					if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
-						return err
-					}
-					e.encodeKey(code)
-					e.encodeString(buf.String())
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagMarshalText:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagMarshalText:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
-				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
-				}
-				e.encodeKey(code)
-				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagMarshalText:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagMarshalText:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				p := unsafe.Pointer(ptr + code.offset)
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
-				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
-				}
-				e.encodeKey(code)
-				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				p := ptr + code.offset
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				code = code.next
-				store(ctxptr, code.idx, p)
-			}
-		case opStructFieldPtrHeadStringTagIntIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagIntIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt8Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt8Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt16Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt16Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUintIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUintIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint8Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint8Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint16Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint16Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagFloat32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagFloat32Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagFloat64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagFloat64Indent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				v := e.ptrToFloat64(ptr + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
-				}
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(v))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagStringIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagStringIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagBoolIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagBoolIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagBytesIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, e.ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagBytesIndent:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				e.encodeIndent(code.indent)
-				e.encodeNull()
-				code = code.end.next
-			} else {
-				e.encodeBytes([]byte{'{', '\n'})
-				e.encodeIndent(code.indent + 1)
-				e.encodeKey(code)
-				e.encodeByte(' ')
-				s := base64.StdEncoding.EncodeToString(
-					e.ptrToBytes(ptr + code.offset),
-				)
-				e.encodeByte('"')
-				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-				e.encodeByte('"')
-				code = code.next
-			}
 		case opStructField:
-			if e.buf[len(e.buf)-1] != '{' {
+			if e.buf[len(e.buf)-1] != '{' && e.buf[len(e.buf)-1] != ',' {
 				e.encodeByte(',')
 			}
 			if !code.anonymousKey {
 				e.encodeKey(code)
 			}
 			ptr := load(ctxptr, code.headIdx) + code.offset
-			code = code.next
-			store(ctxptr, code.idx, ptr)
+			if code.next.op == opPtr && e.ptrToPtr(ptr) == 0 {
+				e.encodeNull()
+				code = code.nextField
+			} else {
+				code = code.next
+				store(ctxptr, code.idx, ptr)
+			}
 		case opStructFieldPtrInt:
 			if e.buf[len(e.buf)-1] != '{' {
 				e.encodeByte(',')
@@ -5492,406 +4663,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					store(ctxptr, code.idx, p)
 				}
 			}
-		case opStructFieldStringTag:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldStringTagInt:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt8:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt16:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt32:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt64:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint8:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint16:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint32:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint64:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagFloat32:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagFloat64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
-			}
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(v))
-			code = code.next
-		case opStructFieldStringTagString:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagBool:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagBytes:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToBytes(ptr + code.offset)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
-			e.encodeKey(code)
-			e.encodeByteSlice(v)
-			code = code.next
-		case opStructFieldStringTagMarshalJSON:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
-				ptr: unsafe.Pointer(p),
-			}))
-			b, err := v.(Marshaler).MarshalJSON()
-			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
-			}
-			var buf bytes.Buffer
-			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
-				return err
-			}
-			e.encodeString(buf.String())
-			code = code.next
-		case opStructFieldStringTagMarshalText:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
-				ptr: unsafe.Pointer(p),
-			}))
-			bytes, err := v.(encoding.TextMarshaler).MarshalText()
-			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
-			}
-			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
-			code = code.next
-		case opStructFieldStringTagIndent:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldStringTagIntIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt8Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt16Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt32Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagInt64Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUintIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint8Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint16Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint32Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagUint64Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagFloat32Indent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagFloat64Indent:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
-			}
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(v))
-			code = code.next
-		case opStructFieldStringTagStringIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			var b bytes.Buffer
-			enc := NewEncoder(&b)
-			enc.encodeString(e.ptrToString(ptr + code.offset))
-			e.encodeString(string(enc.buf))
-			enc.release()
-			code = code.next
-		case opStructFieldStringTagBoolIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
-			code = code.next
-		case opStructFieldStringTagBytesIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			s := base64.StdEncoding.EncodeToString(
-				e.ptrToBytes(ptr + code.offset),
-			)
-			e.encodeByte('"')
-			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
-			e.encodeByte('"')
-			code = code.next
-		case opStructFieldStringTagMarshalJSONIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			p := ptr + code.offset
-			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
-				ptr: unsafe.Pointer(p),
-			}))
-			b, err := v.(Marshaler).MarshalJSON()
-			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
-			}
-			var buf bytes.Buffer
-			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
-				return err
-			}
-			e.encodeString(buf.String())
-			code = code.next
-		case opStructFieldStringTagMarshalTextIndent:
-			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
-			e.encodeIndent(code.indent)
-			e.encodeKey(code)
-			e.encodeByte(' ')
-			p := ptr + code.offset
-			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: code.typ,
-				ptr: unsafe.Pointer(p),
-			}))
-			bytes, err := v.(encoding.TextMarshaler).MarshalText()
-			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
-			}
-			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
-			code = code.next
 		case opStructEnd:
-			e.encodeByte('}')
+			if e.buf[len(e.buf)-1] == ',' {
+				e.buf[len(e.buf)-1] = '}'
+			} else {
+				e.encodeByte('}')
+			}
 			code = code.next
 		case opStructAnonymousEnd:
 			code = code.next

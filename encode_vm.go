@@ -15,17 +15,19 @@ import (
 const startDetectingCyclesAfter = 1000
 
 func load(base uintptr, idx uintptr) uintptr {
-	return *(*uintptr)(unsafe.Pointer(base + idx))
+	addr := base + idx
+	return **(**uintptr)(unsafe.Pointer(&addr))
 }
 
 func store(base uintptr, idx uintptr, p uintptr) {
-	*(*uintptr)(unsafe.Pointer(base + idx)) = p
+	addr := base + idx
+	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
 func errUnsupportedValue(code *opcode, ptr uintptr) *UnsupportedValueError {
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: code.typ,
-		ptr: unsafe.Pointer(ptr),
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 	}))
 	return &UnsupportedValueError{
 		Value: reflect.ValueOf(v),
@@ -175,7 +177,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 		case opBytes:
 			ptr := load(ctxptr, code.idx)
-			header := (*sliceHeader)(unsafe.Pointer(ptr))
+			header := *(**sliceHeader)(unsafe.Pointer(&ptr))
 			if ptr == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 			} else {
@@ -285,7 +287,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(ptr),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 			}))
 			if _, exists := seenPtr[ptr]; exists {
 				return &UnsupportedValueError{
@@ -368,7 +370,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(ptr),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -441,7 +443,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
-			p := unsafe.Pointer(ptr)
+			p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 			if p == nil {
 				e.encodeNull()
 				e.encodeByte(',')
@@ -498,7 +500,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeByte(',')
@@ -540,7 +542,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				header := (*sliceHeader)(unsafe.Pointer(p))
+				header := *(**sliceHeader)(unsafe.Pointer(&p))
 				store(ctxptr, code.elemIdx, 0)
 				store(ctxptr, code.length, uintptr(header.len))
 				store(ctxptr, code.idx, uintptr(header.data))
@@ -563,7 +565,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				header := (*sliceHeader)(unsafe.Pointer(p))
+				header := *(**sliceHeader)(unsafe.Pointer(&p))
 				store(ctxptr, code.elemIdx, 0)
 				store(ctxptr, code.length, uintptr(header.len))
 				store(ctxptr, code.idx, uintptr(header.data))
@@ -688,10 +690,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte(',')
 				code = code.end.next
 			} else {
-				mlen := maplen(unsafe.Pointer(ptr))
+				uptr := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
+				mlen := maplen(uptr)
 				if mlen > 0 {
 					e.encodeByte('{')
-					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					iter := mapiterinit(code.typ, uptr)
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
@@ -719,17 +722,18 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				// load pointer
-				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
+				ptr = uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&ptr)))
+				uptr := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				if ptr == 0 {
 					e.encodeNull()
 					e.encodeByte(',')
 					code = code.end.next
 					break
 				}
-				mlen := maplen(unsafe.Pointer(ptr))
+				mlen := maplen(uptr)
 				if mlen > 0 {
 					e.encodeByte('{')
-					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					iter := mapiterinit(code.typ, uptr)
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
@@ -755,7 +759,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			idx++
 			if e.unorderedMap {
 				if idx < length {
-					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+					ptr := load(ctxptr, code.mapIter)
+					iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 					store(ctxptr, code.elemIdx, idx)
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
@@ -767,10 +772,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.end.next
 				}
 			} else {
-				posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+				ptr := load(ctxptr, code.end.mapPos)
+				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 				*posPtr = append(*posPtr, len(e.buf))
 				if idx < length {
-					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+					ptr := load(ctxptr, code.mapIter)
+					iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 					store(ctxptr, code.elemIdx, idx)
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
@@ -784,10 +791,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				last := len(e.buf) - 1
 				e.buf[last] = ':'
 			} else {
-				posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+				ptr := load(ctxptr, code.end.mapPos)
+				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 				*posPtr = append(*posPtr, len(e.buf))
 			}
-			iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+			ptr := load(ctxptr, code.mapIter)
+			iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 			value := mapitervalue(iter)
 			store(ctxptr, code.next.idx, uintptr(value))
 			mapiternext(iter)
@@ -800,7 +809,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				value string
 			}
 			kvs := make([]mapKV, 0, length)
-			posPtr := unsafe.Pointer(load(ctxptr, code.mapPos))
+			ptr := load(ctxptr, code.mapPos)
+			posPtr := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 			pos := *(*[]int)(posPtr)
 			for i := 0; i < length; i++ {
 				startKey := pos[i*2]
@@ -839,10 +849,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				mlen := maplen(unsafe.Pointer(ptr))
+				uptr := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
+				mlen := maplen(uptr)
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
-					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					iter := mapiterinit(code.typ, uptr)
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
@@ -875,18 +886,19 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				// load pointer
-				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
-				if ptr == 0 {
+				ptr = uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&ptr)))
+				uptr := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
+				if uintptr(uptr) == 0 {
 					e.encodeIndent(code.indent)
 					e.encodeNull()
 					e.encodeBytes([]byte{',', '\n'})
 					code = code.end.next
 					break
 				}
-				mlen := maplen(unsafe.Pointer(ptr))
+				mlen := maplen(uptr)
 				if mlen > 0 {
 					e.encodeBytes([]byte{'{', '\n'})
-					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
+					iter := mapiterinit(code.typ, uptr)
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
 					store(ctxptr, code.length, uintptr(mlen))
@@ -919,7 +931,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if idx < length {
 					e.encodeIndent(code.indent)
 					store(ctxptr, code.elemIdx, idx)
-					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+					ptr := load(ctxptr, code.mapIter)
+					iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
@@ -931,10 +944,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.end.next
 				}
 			} else {
-				posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+				ptr := load(ctxptr, code.end.mapPos)
+				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 				*posPtr = append(*posPtr, len(e.buf))
 				if idx < length {
-					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+					ptr := load(ctxptr, code.mapIter)
+					iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 					store(ctxptr, code.elemIdx, idx)
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
@@ -947,10 +962,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if e.unorderedMap {
 				e.encodeBytes([]byte{':', ' '})
 			} else {
-				posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
+				ptr := load(ctxptr, code.end.mapPos)
+				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 				*posPtr = append(*posPtr, len(e.buf))
 			}
-			iter := unsafe.Pointer(load(ctxptr, code.mapIter))
+			ptr := load(ctxptr, code.mapIter)
+			iter := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 			value := mapitervalue(iter)
 			store(ctxptr, code.next.idx, uintptr(value))
 			mapiternext(iter)
@@ -963,7 +980,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				value string
 			}
 			kvs := make([]mapKV, 0, length)
-			pos := *(*[]int)(unsafe.Pointer(load(ctxptr, code.mapPos)))
+			ptr := load(ctxptr, code.mapPos)
+			pos := *(*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 			for i := 0; i < length; i++ {
 				startKey := pos[i*2]
 				startValue := pos[i*2+1]
@@ -1053,7 +1071,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
-			code = (*opcode)(unsafe.Pointer(load(ctxptr, code.elemIdx)))
+			ptr := load(ctxptr, code.elemIdx)
+			code = (*opcode)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
 			ctxptr = ctx.ptr() + offset
 			ptrOffset = offset
 		case opStructFieldPtrHead:
@@ -1807,9 +1826,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
+				ptr += code.offset
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr + code.offset),
+					ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1847,9 +1867,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeKey(code)
+				ptr += code.offset
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr + code.offset),
+					ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1897,9 +1918,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
+				ptr += code.offset
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr + code.offset),
+					ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -1928,9 +1950,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeKey(code)
+				ptr += code.offset
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(ptr + code.offset),
+					ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 				}))
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
@@ -2304,7 +2327,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('{')
 				p := ptr + code.offset
-				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+				if p == 0 || *(*uintptr)(*(*unsafe.Pointer)(unsafe.Pointer(&p))) == 0 {
 					code = code.nextField
 				} else {
 					e.encodeKey(code)
@@ -2324,7 +2347,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				p := ptr + code.offset
-				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+				if p == 0 || *(*uintptr)(*(*unsafe.Pointer)(unsafe.Pointer(&p))) == 0 {
 					code = code.nextField
 				} else {
 					e.encodeKey(code)
@@ -3033,7 +3056,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
 					code = code.nextField
@@ -3077,7 +3101,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
 					code = code.nextField
@@ -3124,7 +3149,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
 					code = code.nextField
@@ -3154,7 +3180,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
 					code = code.nextField
@@ -3190,7 +3217,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})
 				p := ptr + code.offset
-				if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+				if p == 0 || *(*uintptr)(*(*unsafe.Pointer)(unsafe.Pointer(&p))) == 0 {
 					code = code.nextField
 				} else {
 					e.encodeIndent(code.indent + 1)
@@ -4225,7 +4252,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
 				b, err := v.(Marshaler).MarshalJSON()
@@ -4267,7 +4295,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				isPtr := code.typ.Kind() == reflect.Ptr
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
 				b, err := v.(Marshaler).MarshalJSON()
@@ -4313,7 +4342,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
@@ -4338,7 +4368,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				p := unsafe.Pointer(ptr + code.offset)
+				ptr += code.offset
+				p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
@@ -4997,7 +5028,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -5019,7 +5050,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
@@ -5207,7 +5238,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -5229,7 +5260,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeBytes([]byte{',', '\n'})
@@ -5243,7 +5274,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 				e.encodeBytes([]byte{',', '\n'})
@@ -5261,7 +5292,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeNull()
 				code = code.nextField
 			} else {
-				mlen := maplen(unsafe.Pointer(p))
+				p = uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
+				mlen := maplen(*(*unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					mapCode := code.next
@@ -5280,8 +5312,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeNull()
 				code = code.nextField
 			} else {
-				p = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(p)))
-				mlen := maplen(unsafe.Pointer(p))
+				p = uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
+				mlen := maplen(*(*unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.nextField
@@ -5312,7 +5344,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmpty:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
 				code = code.nextField
 			} else {
 				e.encodeKey(code)
@@ -5465,7 +5497,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			if v != nil {
 				b, err := v.(Marshaler).MarshalJSON()
@@ -5488,12 +5520,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			if v != nil {
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
-					ptr: unsafe.Pointer(p),
+					ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 				}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
@@ -5509,7 +5541,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyArray:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
@@ -5518,7 +5550,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptySlice:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
@@ -5530,7 +5562,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				code = code.nextField
 			} else {
-				mlen := maplen(unsafe.Pointer(p))
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					code = code.nextField
 				} else {
@@ -5543,8 +5575,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				code = code.nextField
 			} else {
-				p = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(p)))
-				mlen := maplen(unsafe.Pointer(p))
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					code = code.nextField
 				} else {
@@ -5554,7 +5585,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
+			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
 				code = code.nextField
 			} else {
 				e.encodeIndent(code.indent)
@@ -5740,7 +5771,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptyArrayIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
@@ -5752,7 +5783,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldOmitEmptySliceIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			header := (*sliceHeader)(unsafe.Pointer(p))
+			header := *(**sliceHeader)(unsafe.Pointer(&p))
 			if p == 0 || uintptr(header.data) == 0 {
 				code = code.nextField
 			} else {
@@ -5767,7 +5798,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				code = code.nextField
 			} else {
-				mlen := maplen(unsafe.Pointer(p))
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					code = code.nextField
 				} else {
@@ -5783,8 +5814,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				code = code.nextField
 			} else {
-				p = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(p)))
-				mlen := maplen(unsafe.Pointer(p))
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 				if mlen == 0 {
 					code = code.nextField
 				} else {
@@ -5924,7 +5954,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -5945,7 +5975,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
@@ -6109,7 +6139,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -6133,7 +6163,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := ptr + code.offset
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(p),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
@@ -6175,20 +6205,20 @@ END:
 	return nil
 }
 
-func (e *Encoder) ptrToPtr(p uintptr) uintptr     { return *(*uintptr)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToInt(p uintptr) int         { return *(*int)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToInt8(p uintptr) int8       { return *(*int8)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToInt16(p uintptr) int16     { return *(*int16)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToInt32(p uintptr) int32     { return *(*int32)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToInt64(p uintptr) int64     { return *(*int64)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToUint(p uintptr) uint       { return *(*uint)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToUint8(p uintptr) uint8     { return *(*uint8)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToUint16(p uintptr) uint16   { return *(*uint16)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToUint32(p uintptr) uint32   { return *(*uint32)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToUint64(p uintptr) uint64   { return *(*uint64)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToFloat32(p uintptr) float32 { return *(*float32)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToFloat64(p uintptr) float64 { return *(*float64)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToBool(p uintptr) bool       { return *(*bool)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToByte(p uintptr) byte       { return *(*byte)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToBytes(p uintptr) []byte    { return *(*[]byte)(unsafe.Pointer(p)) }
-func (e *Encoder) ptrToString(p uintptr) string   { return *(*string)(unsafe.Pointer(p)) }
+func (e *Encoder) ptrToPtr(p uintptr) uintptr     { return **(**uintptr)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToInt(p uintptr) int         { return **(**int)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToInt8(p uintptr) int8       { return **(**int8)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToInt16(p uintptr) int16     { return **(**int16)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToInt32(p uintptr) int32     { return **(**int32)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToInt64(p uintptr) int64     { return **(**int64)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToUint(p uintptr) uint       { return **(**uint)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToUint8(p uintptr) uint8     { return **(**uint8)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToUint16(p uintptr) uint16   { return **(**uint16)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToUint32(p uintptr) uint32   { return **(**uint32)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToUint64(p uintptr) uint64   { return **(**uint64)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToFloat32(p uintptr) float32 { return **(**float32)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToFloat64(p uintptr) float64 { return **(**float64)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToBool(p uintptr) bool       { return **(**bool)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToByte(p uintptr) byte       { return **(**byte)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToBytes(p uintptr) []byte    { return **(**[]byte)(unsafe.Pointer(&p)) }
+func (e *Encoder) ptrToString(p uintptr) string   { return **(**string)(unsafe.Pointer(&p)) }

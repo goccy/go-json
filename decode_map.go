@@ -65,7 +65,7 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 	s.skipWhiteSpace()
 	mapValue := makemap(d.mapType, 0)
 	if s.buf[s.cursor+1] == '}' {
-		*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 		s.cursor++
 		return nil
 	}
@@ -96,7 +96,7 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 			s.read()
 		}
 		if s.char() == '}' {
-			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 			s.cursor++
 			return nil
 		}
@@ -137,7 +137,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) 
 	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := makemap(d.mapType, 0)
 	if buf[cursor] == '}' {
-		*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 		cursor++
 		return cursor, nil
 	}
@@ -165,7 +165,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) 
 		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
-			*(*unsafe.Pointer)(unsafe.Pointer(p)) = mapValue
+			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 			cursor++
 			return cursor, nil
 		}

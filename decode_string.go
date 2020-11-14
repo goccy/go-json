@@ -16,7 +16,7 @@ func (d *stringDecoder) decodeStream(s *stream, p uintptr) error {
 	if err != nil {
 		return err
 	}
-	*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&bytes))
+	**(**string)(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&bytes))
 	return nil
 }
 
@@ -26,7 +26,7 @@ func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, erro
 		return 0, err
 	}
 	cursor = c
-	*(*string)(unsafe.Pointer(p)) = *(*string)(unsafe.Pointer(&bytes))
+	**(**string)(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&bytes))
 	return cursor, nil
 }
 

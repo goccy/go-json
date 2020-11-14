@@ -66,13 +66,13 @@ func (d *boolDecoder) decodeStream(s *stream, p uintptr) error {
 			if err := trueBytes(s); err != nil {
 				return err
 			}
-			*(*bool)(unsafe.Pointer(p)) = true
+			**(**bool)(unsafe.Pointer(&p)) = true
 			return nil
 		case 'f':
 			if err := falseBytes(s); err != nil {
 				return err
 			}
-			*(*bool)(unsafe.Pointer(p)) = false
+			**(**bool)(unsafe.Pointer(&p)) = false
 			return nil
 		case nul:
 			if s.read() {
@@ -104,7 +104,7 @@ func (d *boolDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error)
 			return 0, errInvalidCharacter(buf[cursor+3], "bool(true)", cursor)
 		}
 		cursor += 4
-		*(*bool)(unsafe.Pointer(p)) = true
+		**(**bool)(unsafe.Pointer(&p)) = true
 		return cursor, nil
 	case 'f':
 		if cursor+4 >= buflen {
@@ -123,7 +123,7 @@ func (d *boolDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error)
 			return 0, errInvalidCharacter(buf[cursor+4], "bool(false)", cursor)
 		}
 		cursor += 5
-		*(*bool)(unsafe.Pointer(p)) = false
+		**(**bool)(unsafe.Pointer(&p)) = false
 		return cursor, nil
 	}
 	return 0, errUnexpectedEndOfJSON("bool", cursor)

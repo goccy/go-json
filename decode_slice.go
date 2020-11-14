@@ -70,7 +70,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 			s.cursor++
 			s.skipWhiteSpace()
 			if s.char() == ']' {
-				*(*sliceHeader)(unsafe.Pointer(p)) = sliceHeader{
+				**(**sliceHeader)(unsafe.Pointer(&p)) = sliceHeader{
 					data: newArray(d.elemType, 0),
 					len:  0,
 					cap:  0,
@@ -111,7 +111,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 						len:  slice.len,
 						cap:  slice.cap,
 					})
-					*(*sliceHeader)(unsafe.Pointer(p)) = dst
+					**(**sliceHeader)(unsafe.Pointer(&p)) = dst
 					d.releaseSlice(slice)
 					s.cursor++
 					return nil
@@ -170,7 +170,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {
-				*(*sliceHeader)(unsafe.Pointer(p)) = sliceHeader{
+				**(**sliceHeader)(unsafe.Pointer(&p)) = sliceHeader{
 					data: newArray(d.elemType, 0),
 					len:  0,
 					cap:  0,
@@ -212,7 +212,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 						len:  slice.len,
 						cap:  slice.cap,
 					})
-					*(*sliceHeader)(unsafe.Pointer(p)) = dst
+					**(**sliceHeader)(unsafe.Pointer(&p)) = dst
 					d.releaseSlice(slice)
 					cursor++
 					return cursor, nil

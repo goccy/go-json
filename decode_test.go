@@ -1716,7 +1716,6 @@ func TestMarshalBadUTF8(t *testing.T) {
 	}
 }
 
-/*
 func TestMarshalNumberZeroVal(t *testing.T) {
 	var n json.Number
 	out, err := json.Marshal(n)

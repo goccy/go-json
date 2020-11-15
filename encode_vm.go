@@ -38,10 +38,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	seenPtr := map[uintptr]struct{}{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
-	fmt.Println(code.dump())
+	//fmt.Println(code.dump())
 
 	for {
-		fmt.Printf("[%d]:[%s]\n", code.displayIdx, code.op)
+		//fmt.Printf("[%d]:[%s]\n", code.displayIdx, code.op)
 		switch code.op {
 		default:
 			return fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
@@ -4195,7 +4195,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.next
 			}
 		case opStructField:
-			if e.buf[len(e.buf)-1] != '{' {
+			if e.buf[len(e.buf)-1] != '{' && e.buf[len(e.buf)-1] != ',' {
 				e.encodeByte(',')
 			}
 			if !code.anonymousKey {
@@ -4218,7 +4218,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			code = code.next
 		case opStructFieldInt:
-			if e.buf[len(e.buf)-1] != '{' {
+			if e.buf[len(e.buf)-1] != '{' && e.buf[len(e.buf)-1] != ',' {
 				e.encodeByte(',')
 			}
 			ptr := load(ctxptr, code.headIdx)
@@ -5900,7 +5900,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			code = code.next
 		case opStructEnd:
-			e.encodeByte('}')
+			last := len(e.buf) - 1
+			if e.buf[last] == ',' {
+				e.buf[last] = '}'
+			} else {
+				e.encodeByte('}')
+			}
 			code = code.next
 		case opStructAnonymousEnd:
 			code = code.next

@@ -317,6 +317,9 @@ func (n Number) Int64() (int64, error) {
 }
 
 func (n Number) MarshalJSON() ([]byte, error) {
+	if n == "" {
+		return []byte("0"), nil
+	}
 	if _, err := n.Float64(); err != nil {
 		return nil, err
 	}

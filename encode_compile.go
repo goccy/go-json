@@ -765,10 +765,10 @@ func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, named
 		} else if op != f.op {
 			if existsKey {
 				f.op = opStructFieldAnonymousHead
-			} else {
+			} else if named == "" {
 				f.op = op
 			}
-		} else if f.op == opStructEnd {
+		} else if named == "" && f.op == opStructEnd {
 			f.op = opStructAnonymousEnd
 		} else if existsKey {
 			diff := f.nextField.displayIdx - f.displayIdx
@@ -808,9 +808,9 @@ func (e *Encoder) anonymousStructFieldPairMap(typ *rtype, tags structTags, named
 }
 
 func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]structFieldPair) {
-	fmt.Printf("anonymousFields = %+v\n", anonymousFields)
+	//fmt.Printf("anonymousFields = %+v\n", anonymousFields)
 	removedFields := map[*opcode]struct{}{}
-	for name, fieldPairs := range anonymousFields {
+	for _, fieldPairs := range anonymousFields {
 		if len(fieldPairs) == 1 {
 			continue
 		}
@@ -823,24 +823,24 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 				if !fieldPair.linked {
 					if fieldPair.prevField == nil {
 						// head operation
-						fmt.Println("omit:", fieldPair.curField.displayKey)
+						//fmt.Println("omit:", fieldPair.curField.displayKey)
 						fieldPair.curField.op = opStructFieldAnonymousHead
 					} else {
-						fmt.Println("remove", name)
+						//fmt.Println("remove", name)
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
-						fmt.Println("link:", fieldPair.prevField.displayKey, "=>", fieldPair.curField.nextField.displayKey)
-						fmt.Println("diff = ", diff)
+						//fmt.Println("link:", fieldPair.prevField.displayKey, "=>", fieldPair.curField.nextField.displayKey)
+						//fmt.Println("diff = ", diff)
 						for i := 0; i < diff; i++ {
 							fieldPair.curField.nextField.decOpcodeIndex()
 						}
-						fmt.Println("cur.nextField")
-						fmt.Println(fieldPair.curField.nextField.dump())
-						fmt.Println("===========")
+						//fmt.Println("cur.nextField")
+						//fmt.Println(fieldPair.curField.nextField.dump())
+						//fmt.Println("===========")
 						removedFields[fieldPair.curField] = struct{}{}
 						linkPrevToNextField(fieldPair.curField, removedFields)
-						fmt.Println("linked. prevField")
-						fmt.Println(fieldPair.prevField.dump())
-						fmt.Println("===========")
+						//fmt.Println("linked. prevField")
+						//fmt.Println(fieldPair.prevField.dump())
+						//fmt.Println("===========")
 						// tagggedPairs に入れた方にもこの結果を反映させないといけない
 					}
 					fieldPair.linked = true
@@ -854,13 +854,13 @@ func (e *Encoder) optimizeConflictAnonymousFields(anonymousFields map[string][]s
 						// head operation
 						fieldPair.curField.op = opStructFieldAnonymousHead
 					} else {
-						fmt.Println("TAGGED PAIRS REMOVE")
-						fmt.Println("remove", name)
-						fmt.Println("removedFields = ", removedFields)
-						fmt.Printf("prev = %p cur = %p next = %p\n", fieldPair.curField.prevField, fieldPair.curField, fieldPair.curField.nextField)
+						//fmt.Println("TAGGED PAIRS REMOVE")
+						//fmt.Println("remove", name)
+						//fmt.Println("removedFields = ", removedFields)
+						//fmt.Printf("prev = %p cur = %p next = %p\n", fieldPair.curField.prevField, fieldPair.curField, fieldPair.curField.nextField)
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
-						fmt.Println("link:", fieldPair.prevField.displayKey, "=>", fieldPair.curField.nextField.displayKey)
-						fmt.Println("diff = ", diff)
+						//fmt.Println("link:", fieldPair.prevField.displayKey, "=>", fieldPair.curField.nextField.displayKey)
+						//fmt.Println("diff = ", diff)
 						removedFields[fieldPair.curField] = struct{}{}
 						for i := 0; i < diff; i++ {
 							fieldPair.curField.nextField.decOpcodeIndex()
@@ -1035,23 +1035,23 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 
 	head.end = structEndCode
 	code.next = structEndCode
-
-	fmt.Println("head")
-	fmt.Println(head.dump())
-	fmt.Println("===============")
-
+	/*
+		fmt.Println("head")
+		fmt.Println(head.dump())
+		fmt.Println("===============")
+	*/
 	e.optimizeConflictAnonymousFields(anonymousFields)
-
-	fmt.Println("remove conflicted key head")
-	fmt.Println(head.dump())
-	fmt.Println("===============")
-
+	/*
+		fmt.Println("remove conflicted key head")
+		fmt.Println(head.dump())
+		fmt.Println("===============")
+	*/
 	e.optimizeAnonymousFields(head)
-
-	fmt.Println("optimized head")
-	fmt.Println(head.dump())
-	fmt.Println("===============")
-
+	/*
+		fmt.Println("optimized head")
+		fmt.Println(head.dump())
+		fmt.Println("===============")
+	*/
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret
 

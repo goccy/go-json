@@ -33,6 +33,7 @@ type opcode struct {
 	mapValue  *opcode       // map value
 	elem      *opcode       // array/slice elem
 	end       *opcode       // array/slice/struct/map end
+	prevField *opcode       // prev struct field
 	nextField *opcode       // next struct field
 	next      *opcode       // next opcode
 	jmp       *compiledCode // for recursive call
@@ -102,6 +103,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 	copied.mapValue = c.mapValue.copy(codeMap)
 	copied.elem = c.elem.copy(codeMap)
 	copied.end = c.end.copy(codeMap)
+	copied.prevField = c.prevField.copy(codeMap)
 	copied.nextField = c.nextField.copy(codeMap)
 	copied.next = c.next.copy(codeMap)
 	copied.jmp = c.jmp
@@ -309,8 +311,23 @@ func (c *opcode) dump() string {
 	return strings.Join(codes, "\n")
 }
 
-func linkPrevToNextField(prev, cur *opcode) {
-	prev.nextField = cur.nextField
+func prevField(code *opcode, removedFields map[*opcode]struct{}) *opcode {
+	if _, exists := removedFields[code]; exists {
+		return prevField(code.prevField, removedFields)
+	}
+	return code
+}
+
+func nextField(code *opcode, removedFields map[*opcode]struct{}) *opcode {
+	if _, exists := removedFields[code]; exists {
+		return nextField(code.nextField, removedFields)
+	}
+	return code
+}
+
+func linkPrevToNextField(cur *opcode, removedFields map[*opcode]struct{}) {
+	prev := prevField(cur.prevField, removedFields)
+	prev.nextField = nextField(cur.nextField, removedFields)
 	code := prev
 	fcode := cur
 	for {

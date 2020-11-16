@@ -1000,6 +1000,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.buf = e.buf[:pos[0]]
 			e.buf = append(e.buf, buf...)
 			code = code.next
+		case opStructFieldPtrAnonymousHeadRecursive:
+			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldAnonymousHeadRecursive:
+			fallthrough
 		case opStructFieldRecursive:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

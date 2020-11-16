@@ -1,17 +1,18 @@
 name: Go
-on: [push]
+on: [push, pull_request]
 jobs:
   build:
     name: Test
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
+        go-version: [ "1.13", "1.14", "1.15" ]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Set up Go 1.13
-      uses: actions/setup-go@v1
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.13
+        go-version: ${{ matrix.go-version }}
       id: go
 
     - name: Check out code into the Go module directory
@@ -19,3 +20,6 @@ jobs:
 
     - name: Test
       run: go test -v ./
+
+    - name: Test with race detector
+      run: go test -v -race ./

@@ -187,8 +187,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 		case opBytesIndent:
 			ptr := load(ctxptr, code.idx)
-			header := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
-			if ptr == 0 || header.Data == 0 {
+			header := (*sliceHeader)(unsafe.Pointer(&ptr))
+			if ptr == 0 || uintptr(header.data) == 0 {
 				e.encodeNull()
 			} else {
 				e.encodeByteSlice(e.ptrToBytes(ptr))
@@ -205,7 +205,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(ptr),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 			}))
 			if _, exists := seenPtr[ptr]; exists {
 				return &UnsupportedValueError{
@@ -407,7 +407,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 				typ: code.typ,
-				ptr: unsafe.Pointer(ptr),
+				ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -472,7 +472,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opMarshalTextIndent:
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
-			p := unsafe.Pointer(ptr)
+			p := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 			if p == nil {
 				e.encodeNull()
 				e.encodeBytes([]byte{',', '\n'})

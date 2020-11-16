@@ -45,42 +45,97 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		switch code.op {
 		default:
 			return fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
-		case opPtr:
+		case opPtr, opPtrIndent:
 			ptr := load(ctxptr, code.idx)
 			code = code.next
 			store(ctxptr, code.idx, e.ptrToPtr(ptr))
 		case opInt:
 			e.encodeInt(e.ptrToInt(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opIntIndent:
+			e.encodeInt(e.ptrToInt(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opInt8:
 			e.encodeInt8(e.ptrToInt8(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opInt8Indent:
+			e.encodeInt8(e.ptrToInt8(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opInt16:
 			e.encodeInt16(e.ptrToInt16(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opInt16Indent:
+			e.encodeInt16(e.ptrToInt16(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opInt32:
 			e.encodeInt32(e.ptrToInt32(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opInt32Indent:
+			e.encodeInt32(e.ptrToInt32(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opInt64:
 			e.encodeInt64(e.ptrToInt64(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opInt64Indent:
+			e.encodeInt64(e.ptrToInt64(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opUint:
 			e.encodeUint(e.ptrToUint(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opUintIndent:
+			e.encodeUint(e.ptrToUint(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opUint8:
 			e.encodeUint8(e.ptrToUint8(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opUint8Indent:
+			e.encodeUint8(e.ptrToUint8(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opUint16:
 			e.encodeUint16(e.ptrToUint16(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opUint16Indent:
+			e.encodeUint16(e.ptrToUint16(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opUint32:
 			e.encodeUint32(e.ptrToUint32(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opUint32Indent:
+			e.encodeUint32(e.ptrToUint32(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opUint64:
 			e.encodeUint64(e.ptrToUint64(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opUint64Indent:
+			e.encodeUint64(e.ptrToUint64(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opFloat32:
 			e.encodeFloat32(e.ptrToFloat32(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opFloat32Indent:
+			e.encodeFloat32(e.ptrToFloat32(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opFloat64:
 			v := e.ptrToFloat64(load(ctxptr, code.idx))
@@ -91,12 +146,34 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeFloat64(v)
+			e.encodeByte(',')
+			code = code.next
+		case opFloat64Indent:
+			v := e.ptrToFloat64(load(ctxptr, code.idx))
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   strconv.FormatFloat(v, 'g', -1, 64),
+				}
+			}
+			e.encodeFloat64(v)
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opString:
 			e.encodeString(e.ptrToString(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opStringIndent:
+			e.encodeString(e.ptrToString(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opBool:
 			e.encodeBool(e.ptrToBool(load(ctxptr, code.idx)))
+			e.encodeByte(',')
+			code = code.next
+		case opBoolIndent:
+			e.encodeBool(e.ptrToBool(load(ctxptr, code.idx)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opBytes:
 			ptr := load(ctxptr, code.idx)
@@ -106,11 +183,23 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByteSlice(e.ptrToBytes(ptr))
 			}
+			e.encodeByte(',')
+			code = code.next
+		case opBytesIndent:
+			ptr := load(ctxptr, code.idx)
+			header := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
+			if ptr == 0 || header.Data == 0 {
+				e.encodeNull()
+			} else {
+				e.encodeByteSlice(e.ptrToBytes(ptr))
+			}
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opInterface:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.next
 				break
 			}
@@ -128,6 +217,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			rv := reflect.ValueOf(v)
 			if rv.IsNil() {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.next
 				break
 			}
@@ -187,7 +277,89 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 
 			code = c
 			recursiveLevel++
-		case opInterfaceEnd:
+		case opInterfaceIndent:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
+				code = code.next
+				break
+			}
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			if _, exists := seenPtr[ptr]; exists {
+				return &UnsupportedValueError{
+					Value: reflect.ValueOf(v),
+					Str:   fmt.Sprintf("encountered a cycle via %s", code.typ),
+				}
+			}
+			seenPtr[ptr] = struct{}{}
+			rv := reflect.ValueOf(v)
+			if rv.IsNil() {
+				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
+				code = code.next
+				break
+			}
+			vv := rv.Interface()
+			header := (*interfaceHeader)(unsafe.Pointer(&vv))
+			typ := header.typ
+			if typ.Kind() == reflect.Ptr {
+				typ = typ.Elem()
+			}
+			var c *opcode
+			if typ.Kind() == reflect.Map {
+				code, err := e.compileMap(&encodeCompileContext{
+					typ:        typ,
+					root:       code.root,
+					withIndent: e.enabledIndent,
+					indent:     code.indent,
+				}, false)
+				if err != nil {
+					return err
+				}
+				c = code
+			} else {
+				code, err := e.compile(&encodeCompileContext{
+					typ:        typ,
+					root:       code.root,
+					withIndent: e.enabledIndent,
+					indent:     code.indent,
+				})
+				if err != nil {
+					return err
+				}
+				c = code
+			}
+
+			beforeLastCode := c.beforeLastCode()
+			lastCode := beforeLastCode.next
+			lastCode.idx = beforeLastCode.idx + uintptrSize
+			totalLength := uintptr(code.totalLength())
+			nextTotalLength := uintptr(c.totalLength())
+			curlen := uintptr(len(ctx.ptrs))
+			offsetNum := ptrOffset / uintptrSize
+			oldOffset := ptrOffset
+			ptrOffset += totalLength * uintptrSize
+
+			newLen := offsetNum + totalLength + nextTotalLength
+			if curlen < newLen {
+				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
+			}
+			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+
+			store(ctxptr, 0, uintptr(header.ptr))
+			store(ctxptr, lastCode.idx, oldOffset)
+
+			// link lastCode ( opInterfaceEnd ) => code.next
+			lastCode.op = opInterfaceEnd
+			lastCode.next = code.next
+
+			code = c
+			recursiveLevel++
+		case opInterfaceEnd, opInterfaceEndIndent:
 			recursiveLevel--
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
@@ -229,6 +401,44 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeBytes(buf.Bytes())
+			e.encodeByte(',')
+			code = code.next
+		case opMarshalJSONIndent:
+			ptr := load(ctxptr, code.idx)
+			v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+				typ: code.typ,
+				ptr: unsafe.Pointer(ptr),
+			}))
+			b, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return &MarshalerError{
+					Type: rtype2type(code.typ),
+					Err:  err,
+				}
+			}
+			if len(b) == 0 {
+				return errUnexpectedEndOfJSON(
+					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
+					0,
+				)
+			}
+			var buf bytes.Buffer
+			if e.enabledIndent {
+				if err := encodeWithIndent(
+					&buf,
+					b,
+					string(e.prefix)+string(bytes.Repeat(e.indentStr, code.indent)),
+					string(e.indentStr),
+				); err != nil {
+					return err
+				}
+			} else {
+				if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
+					return err
+				}
+			}
+			e.encodeBytes(buf.Bytes())
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
@@ -236,8 +446,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := unsafe.Pointer(ptr)
 			if p == nil {
 				e.encodeNull()
+				e.encodeByte(',')
 			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
 				e.encodeBytes([]byte{'"', '"'})
+				e.encodeByte(',')
 			} else {
 				if isPtr && code.typ.Elem().Implements(marshalTextType) {
 					p = *(*unsafe.Pointer)(p)
@@ -254,6 +466,36 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
+			}
+			code = code.next
+		case opMarshalTextIndent:
+			ptr := load(ctxptr, code.idx)
+			isPtr := code.typ.Kind() == reflect.Ptr
+			p := unsafe.Pointer(ptr)
+			if p == nil {
+				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
+			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
+				e.encodeBytes([]byte{'"', '"'})
+				e.encodeBytes([]byte{',', '\n'})
+			} else {
+				if isPtr && code.typ.Elem().Implements(marshalTextType) {
+					p = *(*unsafe.Pointer)(p)
+				}
+				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+					typ: code.typ,
+					ptr: p,
+				}))
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return &MarshalerError{
+						Type: rtype2type(code.typ),
+						Err:  err,
+					}
+				}
+				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opSliceHead:
@@ -261,17 +503,18 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
 			if p == 0 || header.Data == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
-				e.encodeByte('[')
 				store(ctxptr, code.elemIdx, 0)
 				store(ctxptr, code.length, uintptr(header.Len))
 				store(ctxptr, code.idx, header.Data)
 				if header.Len > 0 {
+					e.encodeByte('[')
 					code = code.next
 					store(ctxptr, code.idx, header.Data)
 				} else {
-					e.encodeByte(']')
+					e.encodeBytes([]byte{'[', ']', ','})
 					code = code.end.next
 				}
 			}
@@ -280,14 +523,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			length := load(ctxptr, code.length)
 			idx++
 			if idx < length {
-				e.encodeByte(',')
 				store(ctxptr, code.elemIdx, idx)
 				data := load(ctxptr, code.headIdx)
 				size := code.size
 				code = code.next
 				store(ctxptr, code.idx, data+idx*size)
 			} else {
-				e.encodeByte(']')
+				last := len(e.buf) - 1
+				e.buf[last] = ']'
+				e.encodeByte(',')
 				code = code.end.next
 			}
 		case opSliceHeadIndent:
@@ -295,6 +539,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
@@ -308,7 +553,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					store(ctxptr, code.idx, header.Data)
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'[', ']'})
+					e.encodeBytes([]byte{'[', ']', '\n'})
 					code = code.end.next
 				}
 			}
@@ -317,6 +562,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				header := (*reflect.SliceHeader)(unsafe.Pointer(p))
@@ -330,7 +576,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					store(ctxptr, code.idx, header.Data)
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'[', ']'})
+					e.encodeBytes([]byte{'[', ']', ',', '\n'})
 					code = code.end.next
 				}
 			}
@@ -339,7 +585,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			length := load(ctxptr, code.length)
 			idx++
 			if idx < length {
-				e.encodeBytes([]byte{',', '\n'})
 				e.encodeIndent(code.indent + 1)
 				store(ctxptr, code.elemIdx, idx)
 				data := load(ctxptr, code.headIdx)
@@ -347,9 +592,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.next
 				store(ctxptr, code.idx, data+idx*size)
 			} else {
+				e.buf = e.buf[:len(e.buf)-2]
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
-				e.encodeByte(']')
+				e.encodeBytes([]byte{']', ',', '\n'})
 				code = code.end.next
 			}
 		case opRootSliceElemIndent:
@@ -357,7 +603,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			length := load(ctxptr, code.length)
 			idx++
 			if idx < length {
-				e.encodeBytes([]byte{',', '\n'})
 				e.encodeIndent(code.indent + 1)
 				store(ctxptr, code.elemIdx, idx)
 				code = code.next
@@ -373,15 +618,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
-				e.encodeByte('[')
 				if code.length > 0 {
+					e.encodeByte('[')
 					store(ctxptr, code.elemIdx, 0)
 					code = code.next
 					store(ctxptr, code.idx, p)
 				} else {
-					e.encodeByte(']')
+					e.encodeBytes([]byte{'[', ']', ','})
 					code = code.end.next
 				}
 			}
@@ -389,14 +635,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			idx := load(ctxptr, code.elemIdx)
 			idx++
 			if idx < code.length {
-				e.encodeByte(',')
 				store(ctxptr, code.elemIdx, idx)
 				p := load(ctxptr, code.headIdx)
 				size := code.size
 				code = code.next
 				store(ctxptr, code.idx, p+idx*size)
 			} else {
-				e.encodeByte(']')
+				last := len(e.buf) - 1
+				e.buf[last] = ']'
+				e.encodeByte(',')
 				code = code.end.next
 			}
 		case opArrayHeadIndent:
@@ -404,17 +651,18 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
-				e.encodeBytes([]byte{'[', '\n'})
 				if code.length > 0 {
+					e.encodeBytes([]byte{'[', '\n'})
 					e.encodeIndent(code.indent + 1)
 					store(ctxptr, code.elemIdx, 0)
 					code = code.next
 					store(ctxptr, code.idx, p)
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{']', '\n'})
+					e.encodeBytes([]byte{'[', ']', ',', '\n'})
 					code = code.end.next
 				}
 			}
@@ -422,7 +670,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			idx := load(ctxptr, code.elemIdx)
 			idx++
 			if idx < code.length {
-				e.encodeBytes([]byte{',', '\n'})
 				e.encodeIndent(code.indent + 1)
 				store(ctxptr, code.elemIdx, idx)
 				p := load(ctxptr, code.headIdx)
@@ -430,20 +677,22 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				code = code.next
 				store(ctxptr, code.idx, p+idx*size)
 			} else {
+				e.buf = e.buf[:len(e.buf)-2]
 				e.encodeByte('\n')
 				e.encodeIndent(code.indent)
-				e.encodeBytes([]byte{']', '\n'})
+				e.encodeBytes([]byte{']', ',', '\n'})
 				code = code.end.next
 			}
 		case opMapHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
-				e.encodeByte('{')
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
+					e.encodeByte('{')
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
@@ -460,7 +709,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
 				} else {
-					e.encodeByte('}')
+					e.encodeBytes([]byte{'{', '}', ','})
 					code = code.end.next
 				}
 			}
@@ -468,18 +717,20 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				// load pointer
 				ptr = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(ptr)))
 				if ptr == 0 {
 					e.encodeNull()
+					e.encodeByte(',')
 					code = code.end.next
 					break
 				}
-				e.encodeByte('{')
 				mlen := maplen(unsafe.Pointer(ptr))
 				if mlen > 0 {
+					e.encodeByte('{')
 					iter := mapiterinit(code.typ, unsafe.Pointer(ptr))
 					ctx.keepRefs = append(ctx.keepRefs, iter)
 					store(ctxptr, code.elemIdx, 0)
@@ -496,7 +747,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					code = code.next
 				} else {
-					e.encodeByte('}')
+					e.encodeBytes([]byte{'{', '}', ','})
 					code = code.end.next
 				}
 			}
@@ -506,14 +757,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			idx++
 			if e.unorderedMap {
 				if idx < length {
-					e.encodeByte(',')
 					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
 					store(ctxptr, code.elemIdx, idx)
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
 				} else {
-					e.encodeByte('}')
+					last := len(e.buf) - 1
+					e.buf[last] = '}'
+					e.encodeByte(',')
 					code = code.end.next
 				}
 			} else {
@@ -531,7 +783,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 		case opMapValue:
 			if e.unorderedMap {
-				e.encodeByte(':')
+				last := len(e.buf) - 1
+				e.buf[last] = ':'
 			} else {
 				posPtr := (*[]int)(unsafe.Pointer(load(ctxptr, code.end.mapPos)))
 				*posPtr = append(*posPtr, len(e.buf))
@@ -570,15 +823,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			})
 			buf := e.buf[pos[0]:]
 			buf = buf[:0]
-			for idx, kv := range kvs {
-				if idx != 0 {
-					buf = append(buf, ',')
-				}
+			for _, kv := range kvs {
 				buf = append(buf, []byte(kv.key)...)
-				buf = append(buf, ':')
+				buf[len(buf)-1] = ':'
 				buf = append(buf, []byte(kv.value)...)
 			}
-			buf = append(buf, '}')
+			buf[len(buf)-1] = '}'
+			buf = append(buf, ',')
 			e.buf = e.buf[:pos[0]]
 			e.buf = append(e.buf, buf...)
 			code = code.next
@@ -587,6 +838,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				mlen := maplen(unsafe.Pointer(ptr))
@@ -613,7 +865,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.next
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.end.next
 				}
 			}
@@ -629,6 +881,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if ptr == 0 {
 					e.encodeIndent(code.indent)
 					e.encodeNull()
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.end.next
 					break
 				}
@@ -656,7 +909,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.next
 				} else {
 					e.encodeIndent(code.indent)
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.end.next
 				}
 			}
@@ -666,7 +919,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			idx++
 			if e.unorderedMap {
 				if idx < length {
-					e.encodeBytes([]byte{',', '\n'})
 					e.encodeIndent(code.indent)
 					store(ctxptr, code.elemIdx, idx)
 					iter := unsafe.Pointer(load(ctxptr, code.mapIter))
@@ -674,9 +926,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
 				} else {
-					e.encodeByte('\n')
+					last := len(e.buf) - 1
+					e.buf[last] = '\n'
 					e.encodeIndent(code.indent - 1)
-					e.encodeByte('}')
+					e.encodeBytes([]byte{'}', ',', '\n'})
 					code = code.end.next
 				}
 			} else {
@@ -732,22 +985,20 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			})
 			buf := e.buf[pos[0]:]
 			buf = buf[:0]
-			for idx, kv := range kvs {
-				if idx != 0 {
-					buf = append(buf, []byte{',', '\n'}...)
-				}
-
+			for _, kv := range kvs {
 				buf = append(buf, e.prefix...)
 				buf = append(buf, bytes.Repeat(e.indentStr, code.indent+1)...)
 
 				buf = append(buf, []byte(kv.key)...)
-				buf = append(buf, []byte{':', ' '}...)
+				buf[len(buf)-2] = ':'
+				buf[len(buf)-1] = ' '
 				buf = append(buf, []byte(kv.value)...)
 			}
+			buf = buf[:len(buf)-2]
 			buf = append(buf, '\n')
 			buf = append(buf, e.prefix...)
 			buf = append(buf, bytes.Repeat(e.indentStr, code.indent)...)
-			buf = append(buf, '}')
+			buf = append(buf, '}', ',', '\n')
 			e.buf = e.buf[:pos[0]]
 			e.buf = append(e.buf, buf...)
 			code = code.next
@@ -821,8 +1072,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHead {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
@@ -846,6 +1098,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -856,14 +1109,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadInt {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeInt(e.ptrToInt(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadInt:
@@ -876,12 +1131,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeInt(e.ptrToInt(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt8:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -892,14 +1149,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadInt8 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeInt8(e.ptrToInt8(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadInt8:
@@ -912,12 +1171,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeInt8(e.ptrToInt8(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt16:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -928,14 +1189,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadInt16 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeInt16(e.ptrToInt16(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadInt16:
@@ -948,12 +1211,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeInt16(e.ptrToInt16(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt32:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -964,14 +1229,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadInt32 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeInt32(e.ptrToInt32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadInt32:
@@ -984,12 +1251,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeInt32(e.ptrToInt32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt64:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1000,14 +1269,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadInt64 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeInt64(e.ptrToInt64(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadInt64:
@@ -1020,12 +1291,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeInt64(e.ptrToInt64(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1036,14 +1309,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadUint {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeUint(e.ptrToUint(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadUint:
@@ -1056,12 +1331,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeUint(e.ptrToUint(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint8:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1072,14 +1349,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadUint8 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeUint8(e.ptrToUint8(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadUint8:
@@ -1092,12 +1371,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeUint8(e.ptrToUint8(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint16:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1108,14 +1389,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadUint16 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeUint16(e.ptrToUint16(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadUint16:
@@ -1128,12 +1411,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeUint16(e.ptrToUint16(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint32:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1144,14 +1429,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadUint32 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeUint32(e.ptrToUint32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadUint32:
@@ -1164,12 +1451,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeUint32(e.ptrToUint32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint64:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1180,14 +1469,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadUint64 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeUint64(e.ptrToUint64(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadUint64:
@@ -1200,12 +1491,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeUint64(e.ptrToUint64(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadFloat32:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1216,14 +1509,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadFloat32 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeFloat32(e.ptrToFloat32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadFloat32:
@@ -1236,12 +1531,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeFloat32(e.ptrToFloat32(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadFloat64:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1252,8 +1549,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadFloat64 {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
@@ -1267,6 +1565,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeFloat64(v)
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadFloat64:
@@ -1286,12 +1585,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				e.encodeKey(code)
 				e.encodeFloat64(v)
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadString:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1302,14 +1603,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadString {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(e.ptrToString(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadString:
@@ -1322,12 +1625,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(e.ptrToString(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadBool:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1338,14 +1643,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadBool {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeBool(e.ptrToBool(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadBool:
@@ -1358,12 +1665,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeBool(e.ptrToBool(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadBytes:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1374,14 +1683,16 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadBytes {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ','})
 				}
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadBytes:
@@ -1394,12 +1705,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadArray:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1410,8 +1723,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				if code.op == opStructFieldPtrHeadArray {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'[', ']'})
+					e.encodeBytes([]byte{'[', ']', ','})
 				}
 				code = code.end.next
 			} else {
@@ -1438,6 +1752,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1449,8 +1764,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				if code.op == opStructFieldPtrHeadSlice {
 					e.encodeNull()
+					e.encodeByte(',')
 				} else {
-					e.encodeBytes([]byte{'[', ']'})
+					e.encodeBytes([]byte{'[', ']', ','})
 				}
 				code = code.end.next
 			} else {
@@ -1478,6 +1794,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1487,6 +1804,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -1519,6 +1837,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					return err
 				}
 				e.encodeBytes(buf.Bytes())
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadMarshalJSON:
@@ -1558,12 +1877,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					return err
 				}
 				e.encodeBytes(buf.Bytes())
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadMarshalText:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 				break
 			}
@@ -1573,6 +1894,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -1584,6 +1906,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
 					e.encodeNull()
+					e.encodeByte(',')
 					code = code.end
 					break
 				}
@@ -1595,6 +1918,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadMarshalText:
@@ -1613,6 +1937,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				rv := reflect.ValueOf(v)
 				if rv.Type().Kind() == reflect.Interface && rv.IsNil() {
 					e.encodeNull()
+					e.encodeByte(',')
 					code = code.end.next
 					break
 				}
@@ -1624,6 +1949,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadIndent:
@@ -1637,15 +1963,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else if code.next == code.end {
 				// not exists fields
 				e.encodeIndent(code.indent)
-				e.encodeBytes([]byte{'{', '}'})
+				e.encodeBytes([]byte{'{', '}', ',', '\n'})
 				code = code.end.next
 				store(ctxptr, code.idx, ptr)
 			} else {
-				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})
 				e.encodeIndent(code.indent + 1)
 				e.encodeKey(code)
@@ -1662,8 +1988,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if code.op == opStructFieldPtrHeadIntIndent {
 					e.encodeIndent(code.indent)
 					e.encodeNull()
+					e.encodeBytes([]byte{',', '\n'})
 				} else {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 				}
 				code = code.end.next
 			} else {
@@ -1672,6 +1999,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt(e.ptrToInt(ptr + code.offset))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt8Indent:
@@ -1682,6 +2010,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1690,6 +2019,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt8(e.ptrToInt8(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt16Indent:
@@ -1699,6 +2029,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1707,6 +2038,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt16(e.ptrToInt16(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt32Indent:
@@ -1717,6 +2049,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1725,6 +2058,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt32(e.ptrToInt32(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadInt64Indent:
@@ -1735,6 +2069,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1743,6 +2078,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt64(e.ptrToInt64(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadUintIndent:
@@ -1753,6 +2089,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1761,6 +2098,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint(e.ptrToUint(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint8Indent:
@@ -1771,6 +2109,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1779,6 +2118,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint8(e.ptrToUint8(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint16Indent:
@@ -1789,6 +2129,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1797,6 +2138,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint16(e.ptrToUint16(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint32Indent:
@@ -1807,6 +2149,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1815,6 +2158,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint32(e.ptrToUint32(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadUint64Indent:
@@ -1825,6 +2169,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1833,6 +2178,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint64(e.ptrToUint64(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadFloat32Indent:
@@ -1843,6 +2189,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1851,6 +2198,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeFloat32(e.ptrToFloat32(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadFloat64Indent:
@@ -1861,6 +2209,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				v := e.ptrToFloat64(ptr)
@@ -1876,6 +2225,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeFloat64(v)
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringIndent:
@@ -1886,6 +2236,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1894,6 +2245,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(e.ptrToString(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadBoolIndent:
@@ -1904,6 +2256,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1912,6 +2265,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeBool(e.ptrToBool(ptr))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadBytesIndent:
@@ -1922,6 +2276,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -1933,6 +2288,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte('"')
 				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 				e.encodeByte('"')
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadOmitEmpty:
@@ -1945,6 +2301,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -1987,6 +2344,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -1996,6 +2354,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2016,6 +2375,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2029,6 +2389,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2038,6 +2399,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt8(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2058,6 +2420,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt8(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2071,6 +2434,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2080,6 +2444,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt16(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2100,6 +2465,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt16(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2113,6 +2479,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2122,6 +2489,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2142,6 +2510,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2155,6 +2524,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2164,6 +2534,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2184,6 +2555,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeInt64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2197,6 +2569,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2206,6 +2579,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2226,6 +2600,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2239,6 +2614,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2248,6 +2624,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint8(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2268,6 +2645,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint8(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2281,6 +2659,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2290,6 +2669,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint16(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2310,6 +2690,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint16(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2323,6 +2704,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2332,6 +2714,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2352,6 +2735,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2365,6 +2749,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2374,6 +2759,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2394,6 +2780,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeUint64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2407,6 +2794,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2416,6 +2804,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeFloat32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2436,6 +2825,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeFloat32(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2449,6 +2839,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2464,6 +2855,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeFloat64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2490,6 +2882,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeFloat64(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2503,6 +2896,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2512,6 +2906,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeString(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2532,6 +2927,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeString(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2545,6 +2941,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2554,6 +2951,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeBool(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2574,6 +2972,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeBool(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2587,6 +2986,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2596,6 +2996,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeByteSlice(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2616,6 +3017,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				} else {
 					e.encodeKey(code)
 					e.encodeByteSlice(v)
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2629,6 +3031,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2660,6 +3063,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 						}
 						e.encodeKey(code)
 						e.encodeBytes(buf.Bytes())
+						e.encodeByte(',')
 						code = code.next
 					}
 				}
@@ -2703,6 +3107,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 						}
 						e.encodeKey(code)
 						e.encodeBytes(buf.Bytes())
+						e.encodeByte(',')
 						code = code.next
 					}
 				}
@@ -2717,6 +3122,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -2735,6 +3141,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2764,6 +3171,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -2778,6 +3186,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2804,6 +3213,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2816,6 +3226,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeInt(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2830,6 +3241,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2842,6 +3254,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeInt8(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2856,6 +3269,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2868,6 +3282,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeInt16(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2882,6 +3297,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2894,6 +3310,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeInt32(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2908,6 +3325,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2920,6 +3338,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeInt64(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2934,6 +3353,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2946,6 +3366,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeUint(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2960,6 +3381,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2972,6 +3394,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeUint8(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -2986,6 +3409,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -2998,6 +3422,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeUint16(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3012,6 +3437,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3024,6 +3450,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeUint32(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3038,6 +3465,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3050,6 +3478,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeUint64(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3064,6 +3493,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3076,6 +3506,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeFloat32(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3090,6 +3521,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3108,6 +3540,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeFloat64(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3122,6 +3555,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3134,6 +3568,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeString(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3148,6 +3583,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3160,6 +3596,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeKey(code)
 					e.encodeByte(' ')
 					e.encodeBool(v)
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3174,6 +3611,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeIndent(code.indent)
@@ -3189,6 +3627,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					e.encodeByte('"')
 					e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 					e.encodeByte('"')
+					e.encodeBytes([]byte{',', '\n'})
 					code = code.next
 				}
 			}
@@ -3202,6 +3641,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -3235,11 +3675,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt:
@@ -3255,6 +3697,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt8:
@@ -3267,11 +3710,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt8:
@@ -3287,6 +3732,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt16:
@@ -3299,11 +3745,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt16:
@@ -3319,6 +3767,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt32:
@@ -3331,11 +3780,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt32:
@@ -3351,6 +3802,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt64:
@@ -3363,11 +3815,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt64:
@@ -3383,6 +3837,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint:
@@ -3395,11 +3850,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagUint:
@@ -3415,6 +3872,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint8:
@@ -3427,11 +3885,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagUint8:
@@ -3447,6 +3907,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint16:
@@ -3459,11 +3920,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagUint16:
@@ -3479,6 +3942,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint32:
@@ -3491,11 +3955,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagUint32:
@@ -3511,6 +3977,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint64:
@@ -3523,11 +3990,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagUint64:
@@ -3543,6 +4012,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagFloat32:
@@ -3555,11 +4025,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagFloat32:
@@ -3575,6 +4047,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagFloat64:
@@ -3587,6 +4060,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -3599,6 +4073,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(v))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagFloat64:
@@ -3621,6 +4096,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(v))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagString:
@@ -3633,6 +4109,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -3646,6 +4123,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					enc.encodeNoEscapedString(s)
 				}
 				e.encodeString(string(enc.buf))
+				e.encodeByte(',')
 				enc.release()
 				code = code.next
 			}
@@ -3662,6 +4140,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagBool:
@@ -3674,11 +4153,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagBool:
@@ -3694,6 +4175,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagBytes:
@@ -3706,11 +4188,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
 				e.encodeKey(code)
 				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagBytes:
@@ -3726,6 +4210,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeKey(code)
 				e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagMarshalJSON:
@@ -3738,6 +4223,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -3760,6 +4246,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeBytes([]byte{'"', '"'})
+					e.encodeByte(',')
 					code = code.nextField
 				} else {
 					var buf bytes.Buffer
@@ -3767,6 +4254,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 						return err
 					}
 					e.encodeString(buf.String())
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -3800,6 +4288,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeBytes([]byte{'"', '"'})
+					e.encodeByte(',')
 					code = code.nextField
 				} else {
 					var buf bytes.Buffer
@@ -3808,6 +4297,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 					e.encodeKey(code)
 					e.encodeString(buf.String())
+					e.encodeByte(',')
 					code = code.next
 				}
 			}
@@ -3821,6 +4311,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.end.next
 			} else {
 				e.encodeByte('{')
@@ -3835,6 +4326,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				e.encodeKey(code)
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagMarshalText:
@@ -3859,6 +4351,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				e.encodeKey(code)
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagIndent:
@@ -3872,6 +4365,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3893,6 +4387,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3900,6 +4395,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt8Indent:
@@ -3913,6 +4409,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3920,6 +4417,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt16Indent:
@@ -3933,6 +4431,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3940,6 +4439,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt32Indent:
@@ -3953,6 +4453,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3960,6 +4461,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagInt64Indent:
@@ -3973,6 +4475,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -3980,6 +4483,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUintIndent:
@@ -3993,6 +4497,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4000,6 +4505,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint8Indent:
@@ -4013,6 +4519,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4020,6 +4527,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint16Indent:
@@ -4033,6 +4541,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4040,6 +4549,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint32Indent:
@@ -4053,6 +4563,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4060,6 +4571,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagUint64Indent:
@@ -4073,6 +4585,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4080,6 +4593,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagFloat32Indent:
@@ -4093,6 +4607,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4100,6 +4615,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagFloat64Indent:
@@ -4113,6 +4629,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4127,6 +4644,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(v))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagStringIndent:
@@ -4140,13 +4658,23 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
 				e.encodeIndent(code.indent + 1)
 				e.encodeKey(code)
 				e.encodeByte(' ')
-				e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				s := e.ptrToString(ptr + code.offset)
+				if e.enabledHTMLEscape {
+					enc.encodeEscapedString(s)
+				} else {
+					enc.encodeNoEscapedString(s)
+				}
+				e.encodeString(string(enc.buf))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagBoolIndent:
@@ -4160,6 +4688,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4167,6 +4696,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagBytesIndent:
@@ -4180,6 +4710,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if ptr == 0 {
 				e.encodeIndent(code.indent)
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.end.next
 			} else {
 				e.encodeBytes([]byte{'{', '\n'})
@@ -4192,12 +4723,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte('"')
 				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 				e.encodeByte('"')
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.next
 			}
 		case opStructField:
-			if e.buf[len(e.buf)-1] != '{' && e.buf[len(e.buf)-1] != ',' {
-				e.encodeByte(',')
-			}
 			if !code.anonymousKey {
 				e.encodeKey(code)
 			}
@@ -4205,9 +4734,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 			store(ctxptr, code.idx, ptr)
 		case opStructFieldPtrInt:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4216,19 +4742,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeInt(e.ptrToInt(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldInt:
-			if e.buf[len(e.buf)-1] != '{' && e.buf[len(e.buf)-1] != ',' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeInt(e.ptrToInt(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrInt8:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4237,19 +4759,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeInt8(e.ptrToInt8(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldInt8:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeInt8(e.ptrToInt8(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrInt16:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4258,19 +4776,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeInt16(e.ptrToInt16(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldInt16:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeInt16(e.ptrToInt16(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrInt32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4279,19 +4793,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeInt32(e.ptrToInt32(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldInt32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeInt32(e.ptrToInt32(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrInt64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4300,19 +4810,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeInt64(e.ptrToInt64(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldInt64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeInt64(e.ptrToInt64(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrUint:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4321,19 +4827,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeUint(e.ptrToUint(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldUint:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeUint(e.ptrToUint(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrUint8:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4342,19 +4844,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeUint8(e.ptrToUint8(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldUint8:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeUint8(e.ptrToUint8(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrUint16:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4363,19 +4861,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeUint16(e.ptrToUint16(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldUint16:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeUint16(e.ptrToUint16(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrUint32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4384,19 +4878,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeUint32(e.ptrToUint32(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldUint32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeUint32(e.ptrToUint32(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrUint64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4405,19 +4895,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeUint64(e.ptrToUint64(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldUint64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeUint64(e.ptrToUint64(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrFloat32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4426,24 +4912,21 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeFloat32(e.ptrToFloat32(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldFloat32:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeFloat32(e.ptrToFloat32(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrFloat64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
 			if p == 0 {
 				e.encodeNull()
+				e.encodeByte(',')
 				code = code.next
 				break
 			}
@@ -4455,11 +4938,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeFloat64(v)
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldFloat64:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			v := e.ptrToFloat64(ptr + code.offset)
@@ -4470,11 +4951,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeFloat64(v)
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrString:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4483,19 +4962,15 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeString(e.ptrToString(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldString:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeString(e.ptrToString(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldPtrBool:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := e.ptrToPtr(ptr + code.offset)
@@ -4504,27 +4979,21 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeBool(e.ptrToBool(p))
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldBool:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeBool(e.ptrToBool(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldBytes:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			e.encodeByteSlice(e.ptrToBytes(ptr + code.offset))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldMarshalJSON:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			p := ptr + code.offset
@@ -4544,11 +5013,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				return err
 			}
 			e.encodeBytes(buf.Bytes())
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldMarshalText:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeKey(code)
 			p := ptr + code.offset
@@ -4564,56 +5031,39 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldArray:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldSlice:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldMap:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldMapLoad:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldStruct:
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4622,119 +5072,94 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldIntIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeInt(e.ptrToInt(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldInt8Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeInt8(e.ptrToInt8(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldInt16Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeInt16(e.ptrToInt16(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldInt32Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeInt32(e.ptrToInt32(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldInt64Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeInt64(e.ptrToInt64(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldUintIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeUint(e.ptrToUint(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldUint8Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeUint8(e.ptrToUint8(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldUint16Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeUint16(e.ptrToUint16(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldUint32Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeUint32(e.ptrToUint32(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldUint64Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeUint64(e.ptrToUint64(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldFloat32Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeFloat32(e.ptrToFloat32(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldFloat64Indent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4747,31 +5172,25 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeFloat64(v)
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeString(e.ptrToString(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldBoolIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			ptr := load(ctxptr, code.headIdx)
 			e.encodeBool(e.ptrToBool(ptr + code.offset))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldBytesIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4780,11 +5199,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte('"')
 			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 			e.encodeByte('"')
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldMarshalJSONIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeByte(',')
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4806,11 +5223,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				return err
 			}
 			e.encodeBytes(buf.Bytes())
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldArrayIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4819,14 +5234,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
 			if p == 0 || header.Data == 0 {
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.nextField
 			} else {
 				code = code.next
 			}
 		case opStructFieldSliceIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4835,14 +5248,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			header := (*reflect.SliceHeader)(unsafe.Pointer(p))
 			if p == 0 || header.Data == 0 {
 				e.encodeNull()
+				e.encodeBytes([]byte{',', '\n'})
 				code = code.nextField
 			} else {
 				code = code.next
 			}
 		case opStructFieldMapIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4854,7 +5265,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				mlen := maplen(unsafe.Pointer(p))
 				if mlen == 0 {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					mapCode := code.next
 					code = mapCode.end.next
 				} else {
@@ -4862,9 +5273,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 		case opStructFieldMapLoadIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -4877,29 +5285,26 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				p = uintptr(*(*unsafe.Pointer)(unsafe.Pointer(p)))
 				mlen := maplen(unsafe.Pointer(p))
 				if mlen == 0 {
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.nextField
 				} else {
 					code = code.next
 				}
 			}
 		case opStructFieldStructIndent:
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			if p == 0 {
-				e.encodeBytes([]byte{'{', '}'})
+				e.encodeBytes([]byte{'{', '}', ',', '\n'})
 				code = code.nextField
 			} else {
 				headCode := code.next
 				if headCode.next == headCode.end {
 					// not exists fields
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.nextField
 				} else {
 					code = code.next
@@ -4912,9 +5317,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				code = code.next
 				store(ctxptr, code.idx, p)
@@ -4923,121 +5325,99 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeInt(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeInt8(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt16(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeInt16(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeInt32(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt64(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeInt64(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeUint(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint8(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeUint8(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint16(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeUint16(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeUint32(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint64(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeUint64(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyFloat32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeFloat32(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyFloat64:
@@ -5050,44 +5430,36 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 						Str:   strconv.FormatFloat(v, 'g', -1, 64),
 					}
 				}
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeFloat64(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyString:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToString(ptr + code.offset)
 			if v != "" {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeString(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyBool:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBool(ptr + code.offset)
 			if v {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeBool(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyBytes:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				e.encodeKey(code)
 				e.encodeByteSlice(v)
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyMarshalJSON:
@@ -5110,6 +5482,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					return err
 				}
 				e.encodeBytes(buf.Bytes())
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyMarshalText:
@@ -5132,6 +5505,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					}
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+				e.encodeByte(',')
 			}
 			code = code.next
 		case opStructFieldOmitEmptyArray:
@@ -5141,9 +5515,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || header.Data == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				code = code.next
 			}
 		case opStructFieldOmitEmptySlice:
@@ -5153,9 +5524,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || header.Data == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-1] != '{' {
-					e.encodeByte(',')
-				}
 				code = code.next
 			}
 		case opStructFieldOmitEmptyMap:
@@ -5168,9 +5536,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					if e.buf[len(e.buf)-1] != '{' {
-						e.encodeByte(',')
-					}
 					code = code.next
 				}
 			}
@@ -5185,9 +5550,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					if e.buf[len(e.buf)-1] != '{' {
-						e.encodeByte(',')
-					}
 					code = code.next
 				}
 			}
@@ -5197,9 +5559,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || *(*uintptr)(unsafe.Pointer(p)) == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
@@ -5210,143 +5569,121 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt8(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt16(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt16(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt32(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt64(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeInt64(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUintIndent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint8(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint8(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint16(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint16(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint32(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint64(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeUint64(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat32(ptr + code.offset)
 			if v != 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeFloat32(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyFloat64Indent:
@@ -5359,48 +5696,39 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 						Str:   strconv.FormatFloat(v, 'g', -1, 64),
 					}
 				}
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeFloat64(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyStringIndent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToString(ptr + code.offset)
 			if v != "" {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeString(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBool(ptr + code.offset)
 			if v {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				e.encodeBool(v)
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
@@ -5408,6 +5736,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte('"')
 				e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 				e.encodeByte('"')
+				e.encodeBytes([]byte{',', '\n'})
 			}
 			code = code.next
 		case opStructFieldOmitEmptyArrayIndent:
@@ -5417,9 +5746,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || header.Data == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
@@ -5432,9 +5758,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 || header.Data == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
@@ -5450,9 +5773,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-						e.encodeBytes([]byte{',', '\n'})
-					}
 					e.encodeIndent(code.indent)
 					e.encodeKey(code)
 					e.encodeByte(' ')
@@ -5470,9 +5790,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-						e.encodeBytes([]byte{',', '\n'})
-					}
 					e.encodeIndent(code.indent)
 					e.encodeKey(code)
 					e.encodeByte(' ')
@@ -5485,16 +5802,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if p == 0 {
 				code = code.nextField
 			} else {
-				if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-					e.encodeBytes([]byte{',', '\n'})
-				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
 				e.encodeByte(' ')
 				headCode := code.next
 				if headCode.next == headCode.end {
 					// not exists fields
-					e.encodeBytes([]byte{'{', '}'})
+					e.encodeBytes([]byte{'{', '}', ',', '\n'})
 					code = code.nextField
 				} else {
 					code = code.next
@@ -5504,99 +5818,74 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opStructFieldStringTag:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagFloat64:
 			ptr := load(ctxptr, code.headIdx)
@@ -5607,36 +5896,30 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					Str:   strconv.FormatFloat(v, 'g', -1, 64),
 				}
 			}
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(v))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagString:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
-			e.encodeString(strconv.Quote(e.ptrToString(ptr + code.offset)))
+			var b bytes.Buffer
+			enc := NewEncoder(&b)
+			enc.encodeString(e.ptrToString(ptr + code.offset))
+			e.encodeString(string(enc.buf))
 			code = code.next
 		case opStructFieldStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBytes(ptr + code.offset)
-			if e.buf[len(e.buf)-1] != '{' {
-				e.encodeByte(',')
-			}
 			e.encodeKey(code)
 			e.encodeByteSlice(v)
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
@@ -5657,6 +5940,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				return err
 			}
 			e.encodeString(buf.String())
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)
@@ -5673,13 +5957,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			e.encodeByte(',')
 			code = code.next
 		case opStructFieldStringTagIndent:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -5687,113 +5969,91 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			store(ctxptr, code.idx, p)
 		case opStructFieldStringTagIntIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToInt(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToInt8(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToInt16(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToInt32(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToInt64(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagUintIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToUint(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToUint8(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToUint16(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToUint32(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToUint64(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToFloat32(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagFloat64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -5804,19 +6064,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					Str:   strconv.FormatFloat(v, 'g', -1, 64),
 				}
 			}
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(v))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagStringIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -5824,23 +6079,19 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			enc := NewEncoder(&b)
 			enc.encodeString(e.ptrToString(ptr + code.offset))
 			e.encodeString(string(enc.buf))
+			e.encodeBytes([]byte{',', '\n'})
 			enc.release()
 			code = code.next
 		case opStructFieldStringTagBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
 			e.encodeString(fmt.Sprint(e.ptrToBool(ptr + code.offset)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -5850,12 +6101,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeByte('"')
 			e.encodeBytes(*(*[]byte)(unsafe.Pointer(&s)))
 			e.encodeByte('"')
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagMarshalJSONIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -5876,12 +6125,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				return err
 			}
 			e.encodeString(buf.String())
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructFieldStringTagMarshalTextIndent:
 			ptr := load(ctxptr, code.headIdx)
-			if e.buf[len(e.buf)-2] != '{' || e.buf[len(e.buf)-1] == '}' {
-				e.encodeBytes([]byte{',', '\n'})
-			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)
 			e.encodeByte(' ')
@@ -5898,6 +6145,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opStructEnd:
 			last := len(e.buf) - 1
@@ -5906,13 +6154,20 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				e.encodeByte('}')
 			}
+			e.encodeByte(',')
 			code = code.next
 		case opStructAnonymousEnd:
 			code = code.next
 		case opStructEndIndent:
+			last := len(e.buf) - 1
+			if e.buf[last] == '\n' {
+				// to remove ',' and '\n' characters
+				e.buf = e.buf[:len(e.buf)-2]
+			}
 			e.encodeByte('\n')
 			e.encodeIndent(code.indent)
 			e.encodeByte('}')
+			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
 		case opEnd:
 			goto END

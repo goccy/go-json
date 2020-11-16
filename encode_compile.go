@@ -427,32 +427,60 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 	switch op {
 	case opInt:
 		return opStructFieldHeadInt
+	case opIntIndent:
+		return opStructFieldHeadIntIndent
 	case opInt8:
 		return opStructFieldHeadInt8
+	case opInt8Indent:
+		return opStructFieldHeadInt8Indent
 	case opInt16:
 		return opStructFieldHeadInt16
+	case opInt16Indent:
+		return opStructFieldHeadInt16Indent
 	case opInt32:
 		return opStructFieldHeadInt32
+	case opInt32Indent:
+		return opStructFieldHeadInt32Indent
 	case opInt64:
 		return opStructFieldHeadInt64
+	case opInt64Indent:
+		return opStructFieldHeadInt64Indent
 	case opUint:
 		return opStructFieldHeadUint
+	case opUintIndent:
+		return opStructFieldHeadUintIndent
 	case opUint8:
 		return opStructFieldHeadUint8
+	case opUint8Indent:
+		return opStructFieldHeadUint8Indent
 	case opUint16:
 		return opStructFieldHeadUint16
+	case opUint16Indent:
+		return opStructFieldHeadUint16Indent
 	case opUint32:
 		return opStructFieldHeadUint32
+	case opUint32Indent:
+		return opStructFieldHeadUint32Indent
 	case opUint64:
 		return opStructFieldHeadUint64
+	case opUint64Indent:
+		return opStructFieldHeadUint64Indent
 	case opFloat32:
 		return opStructFieldHeadFloat32
+	case opFloat32Indent:
+		return opStructFieldHeadFloat32Indent
 	case opFloat64:
 		return opStructFieldHeadFloat64
+	case opFloat64Indent:
+		return opStructFieldHeadFloat64Indent
 	case opString:
 		return opStructFieldHeadString
+	case opStringIndent:
+		return opStructFieldHeadStringIndent
 	case opBool:
 		return opStructFieldHeadBool
+	case opBoolIndent:
+		return opStructFieldHeadBoolIndent
 	case opMapHead:
 		return opStructFieldHeadMap
 	case opMapHeadLoad:
@@ -475,8 +503,12 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 		return opStructFieldHeadStructIndent
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
+	case opMarshalJSONIndent:
+		return opStructFieldHeadMarshalJSONIndent
 	case opMarshalText:
 		return opStructFieldHeadMarshalText
+	case opMarshalTextIndent:
+		return opStructFieldHeadMarshalTextIndent
 	}
 	return opStructFieldHead
 }
@@ -516,32 +548,60 @@ func (e *Encoder) typeToFieldType(code *opcode) opType {
 		}
 	case opInt:
 		return opStructFieldInt
+	case opIntIndent:
+		return opStructFieldIntIndent
 	case opInt8:
 		return opStructFieldInt8
+	case opInt8Indent:
+		return opStructFieldInt8Indent
 	case opInt16:
 		return opStructFieldInt16
+	case opInt16Indent:
+		return opStructFieldInt16Indent
 	case opInt32:
 		return opStructFieldInt32
+	case opInt32Indent:
+		return opStructFieldInt32Indent
 	case opInt64:
 		return opStructFieldInt64
+	case opInt64Indent:
+		return opStructFieldInt64Indent
 	case opUint:
 		return opStructFieldUint
+	case opUintIndent:
+		return opStructFieldUintIndent
 	case opUint8:
 		return opStructFieldUint8
+	case opUint8Indent:
+		return opStructFieldUint8Indent
 	case opUint16:
 		return opStructFieldUint16
+	case opUint16Indent:
+		return opStructFieldUint16Indent
 	case opUint32:
 		return opStructFieldUint32
+	case opUint32Indent:
+		return opStructFieldUint32Indent
 	case opUint64:
 		return opStructFieldUint64
+	case opUint64Indent:
+		return opStructFieldUint64Indent
 	case opFloat32:
 		return opStructFieldFloat32
+	case opFloat32Indent:
+		return opStructFieldFloat32Indent
 	case opFloat64:
 		return opStructFieldFloat64
+	case opFloat64Indent:
+		return opStructFieldFloat64Indent
 	case opString:
 		return opStructFieldString
+	case opStringIndent:
+		return opStructFieldStringIndent
 	case opBool:
 		return opStructFieldBool
+	case opBoolIndent:
+		return opStructFieldBoolIndent
 	case opMapHead:
 		return opStructFieldMap
 	case opMapHeadLoad:
@@ -564,8 +624,12 @@ func (e *Encoder) typeToFieldType(code *opcode) opType {
 		return opStructFieldStructIndent
 	case opMarshalJSON:
 		return opStructFieldMarshalJSON
+	case opMarshalJSONIndent:
+		return opStructFieldMarshalJSONIndent
 	case opMarshalText:
 		return opStructFieldMarshalText
+	case opMarshalTextIndent:
+		return opStructFieldMarshalTextIndent
 	}
 	return opStructField
 }

@@ -391,7 +391,7 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	enc := NewEncoder(dst)
 	enc.SetEscapeHTML(true)
 	enc.encode(v)
-	dst.Write(enc.buf)
+	dst.Write(enc.buf[:len(enc.buf)-1]) // remove last ',' character
 }
 
 // Valid reports whether data is a valid JSON encoding.

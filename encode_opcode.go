@@ -52,6 +52,9 @@ func copyOpcode(code *opcode) *opcode {
 }
 
 func newOpCodeWithNext(ctx *encodeCompileContext, op opType, next *opcode) *opcode {
+	if op != opEnd && ctx.withIndent {
+		op = op.toIndent()
+	}
 	return &opcode{
 		op:         op,
 		typ:        ctx.typ,

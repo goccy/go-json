@@ -1,7 +1,6 @@
 package json
 
 import (
-	"reflect"
 	"unsafe"
 )
 
@@ -95,6 +94,6 @@ func (c *encodeRuntimeContext) init(p uintptr) {
 }
 
 func (c *encodeRuntimeContext) ptr() uintptr {
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&c.ptrs))
-	return header.Data
+	header := (*sliceHeader)(unsafe.Pointer(&c.ptrs))
+	return uintptr(header.data)
 }

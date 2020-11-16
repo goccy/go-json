@@ -85,7 +85,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	typeptr := uintptr(unsafe.Pointer(typ))
 
 	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := (*rtype)(unsafe.Pointer(typeptr))
+	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 	ptr := uintptr(header.ptr)
 
 	if err := d.validateType(copiedType, ptr); err != nil {
@@ -150,7 +150,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	ptr := uintptr(header.ptr)
 	typeptr := uintptr(unsafe.Pointer(typ))
 	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := (*rtype)(unsafe.Pointer(typeptr))
+	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 
 	if err := d.validateType(copiedType, ptr); err != nil {
 		return err

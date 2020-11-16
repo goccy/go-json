@@ -191,7 +191,7 @@ func (e *Encoder) encode(v interface{}) error {
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := (*rtype)(unsafe.Pointer(typeptr))
+	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 
 	codeIndent, err := e.compileHead(&encodeCompileContext{
 		typ:        copiedType,

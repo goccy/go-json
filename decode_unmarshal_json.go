@@ -21,7 +21,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p uintptr) error {
 	src := s.buf[start:s.cursor]
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: unsafe.Pointer(p),
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
 		return err
@@ -39,7 +39,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p uintptr) (int6
 	src := buf[start:end]
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: unsafe.Pointer(p),
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
 		return 0, err

@@ -28,7 +28,7 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p uintptr) error {
 	}
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: unsafe.Pointer(p),
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
 		return err
@@ -49,7 +49,7 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p uintptr) (int6
 	}
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: unsafe.Pointer(p),
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
 		return 0, err

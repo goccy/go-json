@@ -102,6 +102,11 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 	if err := e.encode(v); err != nil {
 		return err
 	}
+	if e.enabledIndent {
+		e.buf = e.buf[:len(e.buf)-2]
+	} else {
+		e.buf = e.buf[:len(e.buf)-1]
+	}
 	e.buf = append(e.buf, '\n')
 	if _, err := e.w.Write(e.buf); err != nil {
 		return err
@@ -147,16 +152,11 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 		return nil, err
 	}
 	if e.enabledIndent {
-		last := len(e.buf) - 1
-		if e.buf[last] == '\n' {
-			last--
-		}
-		length := last + 1
-		copied := make([]byte, length)
-		copy(copied, e.buf[0:length])
+		copied := make([]byte, len(e.buf)-2)
+		copy(copied, e.buf)
 		return copied, nil
 	}
-	copied := make([]byte, len(e.buf))
+	copied := make([]byte, len(e.buf)-1)
 	copy(copied, e.buf)
 	return copied, nil
 }
@@ -164,6 +164,11 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 func (e *Encoder) encode(v interface{}) error {
 	if v == nil {
 		e.encodeNull()
+		if e.enabledIndent {
+			e.encodeBytes([]byte{',', '\n'})
+		} else {
+			e.encodeByte(',')
+		}
 		return nil
 	}
 	header := (*interfaceHeader)(unsafe.Pointer(&v))

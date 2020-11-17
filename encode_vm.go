@@ -1533,10 +1533,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				v := e.ptrToFloat64(ptr + code.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeByte('{')
 				e.encodeKey(code)
@@ -1554,10 +1551,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				v := e.ptrToFloat64(ptr + code.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeKey(code)
 				e.encodeFloat64(v)
@@ -2170,10 +2164,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				v := e.ptrToFloat64(ptr)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeIndent(code.indent)
 				e.encodeBytes([]byte{'{', '\n'})
@@ -2804,10 +2795,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.nextField
 				} else {
 					if math.IsInf(v, 0) || math.IsNaN(v) {
-						return &UnsupportedValueError{
-							Value: reflect.ValueOf(v),
-							Str:   strconv.FormatFloat(v, 'g', -1, 64),
-						}
+						return errUnsupportedFloat(v)
 					}
 					e.encodeKey(code)
 					e.encodeFloat64(v)
@@ -2831,10 +2819,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.nextField
 				} else {
 					if math.IsInf(v, 0) || math.IsNaN(v) {
-						return &UnsupportedValueError{
-							Value: reflect.ValueOf(v),
-							Str:   strconv.FormatFloat(v, 'g', -1, 64),
-						}
+						return errUnsupportedFloat(v)
 					}
 					e.encodeKey(code)
 					e.encodeFloat64(v)
@@ -3491,10 +3476,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 					code = code.nextField
 				} else {
 					if math.IsInf(v, 0) || math.IsNaN(v) {
-						return &UnsupportedValueError{
-							Value: reflect.ValueOf(v),
-							Str:   strconv.FormatFloat(v, 'g', -1, 64),
-						}
+						return errUnsupportedFloat(v)
 					}
 					e.encodeIndent(code.indent + 1)
 					e.encodeKey(code)
@@ -4026,10 +4008,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeByte('{')
 				v := e.ptrToFloat64(ptr + code.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(v))
@@ -4049,10 +4028,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			} else {
 				v := e.ptrToFloat64(ptr + code.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeKey(code)
 				e.encodeString(fmt.Sprint(v))
@@ -4596,10 +4572,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				e.encodeBytes([]byte{'{', '\n'})
 				v := e.ptrToFloat64(ptr + code.offset)
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeIndent(code.indent + 1)
 				e.encodeKey(code)
@@ -4893,10 +4866,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			v := e.ptrToFloat64(p)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeFloat64(v)
 			e.encodeByte(',')
@@ -4906,10 +4876,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeKey(code)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeFloat64(v)
 			e.encodeByte(',')
@@ -5115,10 +5082,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeFloat64(v)
 			e.encodeBytes([]byte{',', '\n'})
@@ -5369,10 +5333,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			v := e.ptrToFloat64(ptr + code.offset)
 			if v != 0 {
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeKey(code)
 				e.encodeFloat64(v)
@@ -5618,10 +5579,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			v := e.ptrToFloat64(ptr + code.offset)
 			if v != 0 {
 				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return &UnsupportedValueError{
-						Value: reflect.ValueOf(v),
-						Str:   strconv.FormatFloat(v, 'g', -1, 64),
-					}
+					return errUnsupportedFloat(v)
 				}
 				e.encodeIndent(code.indent)
 				e.encodeKey(code)
@@ -5817,10 +5775,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeKey(code)
 			e.encodeString(fmt.Sprint(v))
@@ -5973,10 +5928,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeIndent(code.indent)
 			e.encodeKey(code)

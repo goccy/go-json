@@ -41,6 +41,14 @@ func errUnsupportedFloat(v float64) *UnsupportedValueError {
 		Str:   strconv.FormatFloat(v, 'g', -1, 64),
 	}
 }
+
+func errMarshaler(code *opcode, err error) *MarshalerError {
+	return &MarshalerError{
+		Type: rtype2type(code.typ),
+		Err:  err,
+	}
+}
+
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -374,10 +382,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			if len(b) == 0 {
 				return errUnexpectedEndOfJSON(
@@ -411,10 +416,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			if len(b) == 0 {
 				return errUnexpectedEndOfJSON(
@@ -460,10 +462,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				e.encodeByte(',')
@@ -489,10 +488,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				e.encodeBytes([]byte{',', '\n'})
@@ -1839,10 +1835,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				b, err := rv.Interface().(Marshaler).MarshalJSON()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				if len(b) == 0 {
 					return errUnexpectedEndOfJSON(
@@ -1880,10 +1873,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				b, err := rv.Interface().(Marshaler).MarshalJSON()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				if len(b) == 0 {
 					return errUnexpectedEndOfJSON(
@@ -1932,10 +1922,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				e.encodeByte(',')
@@ -1964,10 +1951,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}
 				bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				e.encodeByte(',')
@@ -4373,10 +4357,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeKey(code)
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
@@ -5032,10 +5013,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
 			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
@@ -5054,10 +5032,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			e.encodeByte(',')
@@ -5242,10 +5217,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
 			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
@@ -5502,10 +5474,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			if v != nil {
 				b, err := v.(Marshaler).MarshalJSON()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				var buf bytes.Buffer
 				if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
@@ -5529,10 +5498,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 				}))
 				bytes, err := v.(encoding.TextMarshaler).MarshalText()
 				if err != nil {
-					return &MarshalerError{
-						Type: rtype2type(code.typ),
-						Err:  err,
-					}
+					return errMarshaler(code, err)
 				}
 				e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 				e.encodeByte(',')
@@ -5958,10 +5924,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
 			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
@@ -5979,10 +5942,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			e.encodeByte(',')
@@ -6143,10 +6103,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			b, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
 			if err := compact(&buf, b, e.enabledHTMLEscape); err != nil {
@@ -6167,10 +6124,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}))
 			bytes, err := v.(encoding.TextMarshaler).MarshalText()
 			if err != nil {
-				return &MarshalerError{
-					Type: rtype2type(code.typ),
-					Err:  err,
-				}
+				return errMarshaler(code, err)
 			}
 			e.encodeString(*(*string)(unsafe.Pointer(&bytes)))
 			e.encodeBytes([]byte{',', '\n'})

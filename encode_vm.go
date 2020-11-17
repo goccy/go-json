@@ -35,6 +35,12 @@ func errUnsupportedValue(code *opcode, ptr uintptr) *UnsupportedValueError {
 	}
 }
 
+func errUnsupportedFloat(v float64) *UnsupportedValueError {
+	return &UnsupportedValueError{
+		Value: reflect.ValueOf(v),
+		Str:   strconv.FormatFloat(v, 'g', -1, 64),
+	}
+}
 func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 	recursiveLevel := 0
 	seenPtr := map[uintptr]struct{}{}
@@ -140,10 +146,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opFloat64:
 			v := e.ptrToFloat64(load(ctxptr, code.idx))
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeFloat64(v)
 			e.encodeByte(',')
@@ -151,10 +154,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 		case opFloat64Indent:
 			v := e.ptrToFloat64(load(ctxptr, code.idx))
 			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return &UnsupportedValueError{
-					Value: reflect.ValueOf(v),
-					Str:   strconv.FormatFloat(v, 'g', -1, 64),
-				}
+				return errUnsupportedFloat(v)
 			}
 			e.encodeFloat64(v)
 			e.encodeBytes([]byte{',', '\n'})

@@ -225,9 +225,6 @@ var (
 )
 
 func initBig() {
-	if len(jsonBig) > 0 {
-		return
-	}
 	n := 10000
 	if testing.Short() {
 		n = 100

@@ -21,5 +21,8 @@ jobs:
     - name: Test
       run: go test -v ./
 
+    - name: Test with GC
+      run: GOGC=1 go test -v ./
+
     - name: Test with race detector
       run: go test -v -race ./

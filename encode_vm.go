@@ -216,6 +216,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			seenPtr[ptr] = struct{}{}
 			v := e.ptrToInterface(code, ptr)
+			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
 			rv := reflect.ValueOf(v)
 			if rv.IsNil() {
 				e.encodeNull()
@@ -292,6 +293,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			seenPtr[ptr] = struct{}{}
 			v := e.ptrToInterface(code, ptr)
+			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
 			rv := reflect.ValueOf(v)
 			if rv.IsNil() {
 				e.encodeNull()

@@ -88,74 +88,74 @@ func (d *Decoder) compilePtr(typ *rtype) (decoder, error) {
 }
 
 func (d *Decoder) compileInt() (decoder, error) {
-	return newIntDecoder(func(p uintptr, v int64) {
-		**(**int)(unsafe.Pointer(&p)) = int(v)
+	return newIntDecoder(func(p unsafe.Pointer, v int64) {
+		*(*int)(p) = int(v)
 	}), nil
 }
 
 func (d *Decoder) compileInt8() (decoder, error) {
-	return newIntDecoder(func(p uintptr, v int64) {
-		**(**int8)(unsafe.Pointer(&p)) = int8(v)
+	return newIntDecoder(func(p unsafe.Pointer, v int64) {
+		*(*int8)(p) = int8(v)
 	}), nil
 }
 
 func (d *Decoder) compileInt16() (decoder, error) {
-	return newIntDecoder(func(p uintptr, v int64) {
-		**(**int16)(unsafe.Pointer(&p)) = int16(v)
+	return newIntDecoder(func(p unsafe.Pointer, v int64) {
+		*(*int16)(p) = int16(v)
 	}), nil
 }
 
 func (d *Decoder) compileInt32() (decoder, error) {
-	return newIntDecoder(func(p uintptr, v int64) {
-		**(**int32)(unsafe.Pointer(&p)) = int32(v)
+	return newIntDecoder(func(p unsafe.Pointer, v int64) {
+		*(*int32)(p) = int32(v)
 	}), nil
 }
 
 func (d *Decoder) compileInt64() (decoder, error) {
-	return newIntDecoder(func(p uintptr, v int64) {
-		**(**int64)(unsafe.Pointer(&p)) = v
+	return newIntDecoder(func(p unsafe.Pointer, v int64) {
+		*(*int64)(p) = v
 	}), nil
 }
 
 func (d *Decoder) compileUint() (decoder, error) {
-	return newUintDecoder(func(p uintptr, v uint64) {
-		**(**uint)(unsafe.Pointer(&p)) = uint(v)
+	return newUintDecoder(func(p unsafe.Pointer, v uint64) {
+		*(*uint)(p) = uint(v)
 	}), nil
 }
 
 func (d *Decoder) compileUint8() (decoder, error) {
-	return newUintDecoder(func(p uintptr, v uint64) {
-		**(**uint8)(unsafe.Pointer(&p)) = uint8(v)
+	return newUintDecoder(func(p unsafe.Pointer, v uint64) {
+		*(*uint8)(p) = uint8(v)
 	}), nil
 }
 
 func (d *Decoder) compileUint16() (decoder, error) {
-	return newUintDecoder(func(p uintptr, v uint64) {
-		**(**uint16)(unsafe.Pointer(&p)) = uint16(v)
+	return newUintDecoder(func(p unsafe.Pointer, v uint64) {
+		*(*uint16)(p) = uint16(v)
 	}), nil
 }
 
 func (d *Decoder) compileUint32() (decoder, error) {
-	return newUintDecoder(func(p uintptr, v uint64) {
-		**(**uint32)(unsafe.Pointer(&p)) = uint32(v)
+	return newUintDecoder(func(p unsafe.Pointer, v uint64) {
+		*(*uint32)(p) = uint32(v)
 	}), nil
 }
 
 func (d *Decoder) compileUint64() (decoder, error) {
-	return newUintDecoder(func(p uintptr, v uint64) {
-		**(**uint64)(unsafe.Pointer(&p)) = v
+	return newUintDecoder(func(p unsafe.Pointer, v uint64) {
+		*(*uint64)(p) = v
 	}), nil
 }
 
 func (d *Decoder) compileFloat32() (decoder, error) {
-	return newFloatDecoder(func(p uintptr, v float64) {
-		**(**float32)(unsafe.Pointer(&p)) = float32(v)
+	return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+		*(*float32)(p) = float32(v)
 	}), nil
 }
 
 func (d *Decoder) compileFloat64() (decoder, error) {
-	return newFloatDecoder(func(p uintptr, v float64) {
-		**(**float64)(unsafe.Pointer(&p)) = v
+	return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+		*(*float64)(p) = v
 	}), nil
 }
 

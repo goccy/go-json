@@ -6,17 +6,17 @@ import (
 
 type numberDecoder struct {
 	*floatDecoder
-	op func(uintptr, Number)
+	op func(unsafe.Pointer, Number)
 }
 
-func newNumberDecoder(op func(uintptr, Number)) *numberDecoder {
+func newNumberDecoder(op func(unsafe.Pointer, Number)) *numberDecoder {
 	return &numberDecoder{
 		floatDecoder: newFloatDecoder(nil),
 		op:           op,
 	}
 }
 
-func (d *numberDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *numberDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.floatDecoder.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func (d *numberDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *numberDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *numberDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.floatDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

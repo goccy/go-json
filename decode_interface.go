@@ -18,12 +18,12 @@ func newInterfaceDecoder(typ *rtype) *interfaceDecoder {
 
 func (d *interfaceDecoder) numDecoder(s *stream) decoder {
 	if s.useNumber {
-		return newNumberDecoder(func(p uintptr, v Number) {
-			**(**interface{})(unsafe.Pointer(&p)) = v
+		return newNumberDecoder(func(p unsafe.Pointer, v Number) {
+			*(*interface{})(p) = v
 		})
 	}
-	return newFloatDecoder(func(p uintptr, v float64) {
-		**(**interface{})(unsafe.Pointer(&p)) = v
+	return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+		*(*interface{})(p) = v
 	})
 }
 
@@ -33,7 +33,7 @@ var (
 	)
 )
 
-func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	for {
 		switch s.char() {
@@ -45,7 +45,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 				interfaceMapType,
 				newStringDecoder(),
 				newInterfaceDecoder(d.typ),
-			).decodeStream(s, uintptr(ptr)); err != nil {
+			).decodeStream(s, ptr); err != nil {
 				return err
 			}
 			**(**interface{})(unsafe.Pointer(&p)) = v
@@ -58,7 +58,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 				newInterfaceDecoder(d.typ),
 				d.typ,
 				d.typ.Size(),
-			).decodeStream(s, uintptr(ptr)); err != nil {
+			).decodeStream(s, ptr); err != nil {
 				return err
 			}
 			**(**interface{})(unsafe.Pointer(&p)) = v
@@ -116,7 +116,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p uintptr) error {
 	return errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
@@ -128,7 +128,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 			newStringDecoder(),
 			newInterfaceDecoder(d.typ),
 		)
-		cursor, err := dec.decode(buf, cursor, uintptr(ptr))
+		cursor, err := dec.decode(buf, cursor, ptr)
 		if err != nil {
 			return 0, err
 		}
@@ -143,15 +143,15 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, e
 			d.typ,
 			d.typ.Size(),
 		)
-		cursor, err := dec.decode(buf, cursor, uintptr(ptr))
+		cursor, err := dec.decode(buf, cursor, ptr)
 		if err != nil {
 			return 0, err
 		}
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return newFloatDecoder(func(p uintptr, v float64) {
-			**(**interface{})(unsafe.Pointer(&p)) = v
+		return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+			*(*interface{})(p) = v
 		}).decode(buf, cursor, p)
 	case '"':
 		cursor++

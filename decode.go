@@ -16,8 +16,8 @@ func (d Delim) String() string {
 }
 
 type decoder interface {
-	decode([]byte, int64, uintptr) (int64, error)
-	decodeStream(*stream, uintptr) error
+	decode([]byte, int64, unsafe.Pointer) (int64, error)
+	decodeStream(*stream, unsafe.Pointer) error
 }
 
 type Decoder struct {
@@ -101,7 +101,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 		cachedDecoder.set(typeptr, compiledDec)
 		dec = compiledDec
 	}
-	if _, err := dec.decode(src, 0, ptr); err != nil {
+	if _, err := dec.decode(src, 0, header.ptr); err != nil {
 		return err
 	}
 	return nil
@@ -170,7 +170,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 	s := d.s
-	if err := dec.decodeStream(s, ptr); err != nil {
+	if err := dec.decodeStream(s, header.ptr); err != nil {
 		return err
 	}
 	return nil

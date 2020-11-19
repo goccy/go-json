@@ -8,7 +8,6 @@ type mapDecoder struct {
 	mapType      *rtype
 	keyDecoder   decoder
 	valueDecoder decoder
-	dummy        *interfaceHeader
 }
 
 func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder) *mapDecoder {
@@ -28,29 +27,25 @@ func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
 func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
-	return d.keyDecoder.decode(buf, cursor, uintptr(header.ptr))
+	return d.keyDecoder.decode(buf, cursor, header.ptr)
 }
 
 func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
-	return d.valueDecoder.decode(buf, cursor, uintptr(header.ptr))
+	return d.valueDecoder.decode(buf, cursor, header.ptr)
 }
 
 func (d *mapDecoder) setKeyStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
-	return d.keyDecoder.decodeStream(s, uintptr(header.ptr))
+	return d.keyDecoder.decodeStream(s, header.ptr)
 }
 
 func (d *mapDecoder) setValueStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
-	return d.valueDecoder.decodeStream(s, uintptr(header.ptr))
+	return d.valueDecoder.decodeStream(s, header.ptr)
 }
 
-func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	switch s.char() {
 	case 'n':
@@ -107,7 +102,7 @@ func (d *mapDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *mapDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	buflen := int64(len(buf))
 	if buflen < 2 {

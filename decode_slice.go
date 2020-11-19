@@ -55,7 +55,7 @@ func copySlice(elemType *rtype, dst, src sliceHeader) int
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
 
-func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -90,7 +90,8 @@ func (d *sliceDecoder) decodeStream(s *stream, p uintptr) error {
 					dst := sliceHeader{data: data, len: idx, cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
-				if err := d.valueDecoder.decodeStream(s, uintptr(data)+uintptr(idx)*d.size); err != nil {
+				addr := uintptr(data) + uintptr(idx)*d.size
+				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(addr)); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
@@ -144,7 +145,7 @@ ERROR:
 	return errUnexpectedEndOfJSON("slice", s.totalOffset())
 }
 
-func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
@@ -190,7 +191,8 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error
 					dst := sliceHeader{data: data, len: idx, cap: cap}
 					copySlice(d.elemType, dst, src)
 				}
-				c, err := d.valueDecoder.decode(buf, cursor, uintptr(data)+uintptr(idx)*d.size)
+				addr := uintptr(data) + uintptr(idx)*d.size
+				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(addr))
 				if err != nil {
 					return 0, err
 				}

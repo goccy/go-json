@@ -58,7 +58,7 @@ func falseBytes(s *stream) error {
 	return nil
 }
 
-func (d *boolDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *boolDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	for {
 		switch s.char() {
@@ -86,7 +86,7 @@ ERROR:
 	return errUnexpectedEndOfJSON("bool", s.totalOffset())
 }
 
-func (d *boolDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *boolDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {

@@ -6,10 +6,10 @@ import (
 )
 
 type floatDecoder struct {
-	op func(uintptr, float64)
+	op func(unsafe.Pointer, float64)
 }
 
-func newFloatDecoder(op func(uintptr, float64)) *floatDecoder {
+func newFloatDecoder(op func(unsafe.Pointer, float64)) *floatDecoder {
 	return &floatDecoder{op: op}
 }
 
@@ -107,7 +107,7 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 	return nil, 0, errUnexpectedEndOfJSON("float", cursor)
 }
 
-func (d *floatDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (d *floatDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *floatDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *floatDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

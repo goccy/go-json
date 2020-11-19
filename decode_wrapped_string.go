@@ -1,5 +1,7 @@
 package json
 
+import "unsafe"
+
 type wrappedStringDecoder struct {
 	dec           decoder
 	stringDecoder *stringDecoder
@@ -12,7 +14,7 @@ func newWrappedStringDecoder(dec decoder) *wrappedStringDecoder {
 	}
 }
 
-func (d *wrappedStringDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *wrappedStringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.stringDecoder.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -39,7 +41,7 @@ func (d *wrappedStringDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *wrappedStringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *wrappedStringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.stringDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

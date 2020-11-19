@@ -11,7 +11,7 @@ func newStringDecoder() *stringDecoder {
 	return &stringDecoder{}
 }
 
-func (d *stringDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -20,7 +20,7 @@ func (d *stringDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *stringDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *stringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

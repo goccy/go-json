@@ -16,7 +16,7 @@ func newUnmarshalTextDecoder(typ *rtype) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{typ: typ}
 }
 
-func (d *unmarshalTextDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	start := s.cursor
 	if err := s.skipValue(); err != nil {
@@ -36,7 +36,7 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor)

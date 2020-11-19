@@ -1,10 +1,12 @@
 package json
 
+import "unsafe"
+
 type intDecoder struct {
-	op func(uintptr, int64)
+	op func(unsafe.Pointer, int64)
 }
 
-func newIntDecoder(op func(uintptr, int64)) *intDecoder {
+func newIntDecoder(op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{op: op}
 }
 
@@ -128,7 +130,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 	return nil, 0, errUnexpectedEndOfJSON("number(integer)", cursor)
 }
 
-func (d *intDecoder) decodeStream(s *stream, p uintptr) error {
+func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -137,7 +139,7 @@ func (d *intDecoder) decodeStream(s *stream, p uintptr) error {
 	return nil
 }
 
-func (d *intDecoder) decode(buf []byte, cursor int64, p uintptr) (int64, error) {
+func (d *intDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

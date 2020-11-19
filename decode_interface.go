@@ -6,8 +6,7 @@ import (
 )
 
 type interfaceDecoder struct {
-	typ   *rtype
-	dummy unsafe.Pointer // for escape value
+	typ *rtype
 }
 
 func newInterfaceDecoder(typ *rtype) *interfaceDecoder {
@@ -40,7 +39,6 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		case '{':
 			var v map[string]interface{}
 			ptr := unsafe.Pointer(&v)
-			d.dummy = ptr
 			if err := newMapDecoder(
 				interfaceMapType,
 				newStringDecoder(),
@@ -53,7 +51,6 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		case '[':
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
-			d.dummy = ptr // escape ptr
 			if err := newSliceDecoder(
 				newInterfaceDecoder(d.typ),
 				d.typ,
@@ -122,7 +119,6 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 	case '{':
 		var v map[string]interface{}
 		ptr := unsafe.Pointer(&v)
-		d.dummy = ptr
 		dec := newMapDecoder(
 			interfaceMapType,
 			newStringDecoder(),
@@ -137,7 +133,6 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 	case '[':
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
-		d.dummy = ptr // escape ptr
 		dec := newSliceDecoder(
 			newInterfaceDecoder(d.typ),
 			d.typ,

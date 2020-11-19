@@ -8,7 +8,6 @@ type mapDecoder struct {
 	mapType      *rtype
 	keyDecoder   decoder
 	valueDecoder decoder
-	dummy        *interfaceHeader
 }
 
 func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder) *mapDecoder {
@@ -28,25 +27,21 @@ func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
 func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
 	return d.keyDecoder.decode(buf, cursor, header.ptr)
 }
 
 func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
 	return d.valueDecoder.decode(buf, cursor, header.ptr)
 }
 
 func (d *mapDecoder) setKeyStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
 	return d.keyDecoder.decodeStream(s, header.ptr)
 }
 
 func (d *mapDecoder) setValueStream(s *stream, key interface{}) error {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	d.dummy = header
 	return d.valueDecoder.decodeStream(s, header.ptr)
 }
 

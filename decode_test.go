@@ -265,7 +265,7 @@ func Test_UnmarshalJSON(t *testing.T) {
 	t.Run("*struct", func(t *testing.T) {
 		var v unmarshalJSON
 		assertErr(t, json.Unmarshal([]byte(`10`), &v))
-		assertEq(t, "unmarshal", v.v, 10)
+		assertEq(t, "unmarshal", 10, v.v)
 	})
 }
 

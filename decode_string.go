@@ -115,7 +115,9 @@ func stringBytes(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case '\\':
-			s.cursor++
+			if err := decodeEscapeString(s); err != nil {
+				return nil, err
+			}
 		case '"':
 			literal := s.buf[start:s.cursor]
 			s.cursor++

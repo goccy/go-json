@@ -26,13 +26,15 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if s, ok := unquoteBytes(src); ok {
 		src = s
 	}
+	newptr := unsafe_New(d.typ.Elem())
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
+		ptr: newptr,
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
 		return err
 	}
+	*(*unsafe.Pointer)(p) = newptr
 	return nil
 }
 

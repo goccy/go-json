@@ -5,7 +5,8 @@ import (
 )
 
 type unmarshalJSONDecoder struct {
-	typ *rtype
+	typ             *rtype
+	isDoublePointer bool
 }
 
 func newUnmarshalJSONDecoder(typ *rtype) *unmarshalJSONDecoder {
@@ -19,12 +20,24 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	src := s.buf[start:s.cursor]
-	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-		typ: d.typ,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
-	}))
-	if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-		return err
+	if d.isDoublePointer {
+		newptr := unsafe_New(d.typ.Elem())
+		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+			typ: d.typ,
+			ptr: newptr,
+		}))
+		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			return err
+		}
+		*(*unsafe.Pointer)(p) = newptr
+	} else {
+		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+			typ: d.typ,
+			ptr: p,
+		}))
+		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -37,12 +50,24 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		return 0, err
 	}
 	src := buf[start:end]
-	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-		typ: d.typ,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
-	}))
-	if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-		return 0, err
+	if d.isDoublePointer {
+		newptr := unsafe_New(d.typ.Elem())
+		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+			typ: d.typ,
+			ptr: newptr,
+		}))
+		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			return 0, err
+		}
+		*(*unsafe.Pointer)(p) = newptr
+	} else {
+		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+			typ: d.typ,
+			ptr: p,
+		}))
+		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			return 0, err
+		}
 	}
 	return end, nil
 }

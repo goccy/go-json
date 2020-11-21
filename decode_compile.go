@@ -10,7 +10,7 @@ func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
 	switch {
 	case typ.Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(typ), nil
-	case rtype_ptrTo(typ).Implements(marshalJSONType):
+	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(rtype_ptrTo(typ)), nil
 	case typ.Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(typ), nil
@@ -24,7 +24,7 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	switch {
 	case typ.Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(typ), nil
-	case rtype_ptrTo(typ).Implements(marshalJSONType):
+	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(rtype_ptrTo(typ)), nil
 	case typ.Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(typ), nil
@@ -38,6 +38,10 @@ func (d *Decoder) compile(typ *rtype) (decoder, error) {
 	case reflect.Struct:
 		return d.compileStruct(typ)
 	case reflect.Slice:
+		elem := typ.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			return d.compileBytes()
+		}
 		return d.compileSlice(typ)
 	case reflect.Array:
 		return d.compileArray(typ)
@@ -165,6 +169,10 @@ func (d *Decoder) compileString() (decoder, error) {
 
 func (d *Decoder) compileBool() (decoder, error) {
 	return newBoolDecoder(), nil
+}
+
+func (d *Decoder) compileBytes() (decoder, error) {
+	return newBytesDecoder(), nil
 }
 
 func (d *Decoder) compileSlice(typ *rtype) (decoder, error) {

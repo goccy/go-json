@@ -262,3 +262,9 @@ type interfaceHeader struct {
 func type2rtype(t reflect.Type) *rtype {
 	return (*rtype)(((*interfaceHeader)(unsafe.Pointer(&t))).ptr)
 }
+
+//go:nosplit
+func noescape(p unsafe.Pointer) unsafe.Pointer {
+	x := uintptr(p)
+	return unsafe.Pointer(x ^ 0)
+}

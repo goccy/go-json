@@ -1,6 +1,8 @@
 package json
 
 import (
+	"unicode"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -58,11 +60,11 @@ var (
 )
 
 func unicodeToRune(code []byte) rune {
-	sum := 0
+	var r rune
 	for i := 0; i < len(code); i++ {
-		sum += hexToInt[code[i]] << (uint(len(code)-i-1) * 4)
+		r = r*16 + rune(hexToInt[code[i]])
 	}
-	return rune(sum)
+	return r
 }
 
 func decodeEscapeString(s *stream) error {
@@ -91,10 +93,31 @@ RETRY:
 				return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 			}
 		}
-		code := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
-		unicode := []byte(string(code))
-		s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
-		s.cursor--
+		r := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
+		if utf16.IsSurrogate(r) {
+			if s.cursor+11 >= s.length || s.buf[s.cursor+5] != '\\' || s.buf[s.cursor+6] != 'u' {
+				r = unicode.ReplacementChar
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+				return nil
+			}
+			r2 := unicodeToRune(s.buf[s.cursor+7 : s.cursor+11])
+			if r := utf16.DecodeRune(r, r2); r != unicode.ReplacementChar {
+				// valid surrogate pair
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+11:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+			} else {
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+			}
+		} else {
+			unicode := []byte(string(r))
+			s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+			s.cursor = s.cursor - 2 + int64(len(unicode))
+		}
 		return nil
 	case nul:
 		if !s.read() {

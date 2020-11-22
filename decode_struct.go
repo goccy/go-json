@@ -55,7 +55,7 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		field, exists := d.fieldMap[k]
 		if exists {
 			addr := uintptr(p) + field.offset
-			if err := field.dec.decodeStream(s, unsafe.Pointer(addr)); err != nil {
+			if err := field.dec.decodeStream(s, *(*unsafe.Pointer)(unsafe.Pointer(&addr))); err != nil {
 				return err
 			}
 		} else if s.disallowUnknownFields {
@@ -110,7 +110,7 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 		field, exists := d.fieldMap[k]
 		if exists {
 			addr := uintptr(p) + field.offset
-			c, err := field.dec.decode(buf, cursor, unsafe.Pointer(addr))
+			c, err := field.dec.decode(buf, cursor, *(*unsafe.Pointer)(unsafe.Pointer(&addr)))
 			if err != nil {
 				return 0, err
 			}

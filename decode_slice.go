@@ -91,7 +91,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 					copySlice(d.elemType, dst, src)
 				}
 				addr := uintptr(data) + uintptr(idx)*d.size
-				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(addr)); err != nil {
+				if err := d.valueDecoder.decodeStream(s, *(*unsafe.Pointer)(unsafe.Pointer(&addr))); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
@@ -192,7 +192,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					copySlice(d.elemType, dst, src)
 				}
 				addr := uintptr(data) + uintptr(idx)*d.size
-				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(addr))
+				c, err := d.valueDecoder.decode(buf, cursor, *(*unsafe.Pointer)(unsafe.Pointer(&addr)))
 				if err != nil {
 					return 0, err
 				}

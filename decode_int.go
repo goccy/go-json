@@ -3,11 +3,13 @@ package json
 import "unsafe"
 
 type intDecoder struct {
-	op func(unsafe.Pointer, int64)
+	op         func(unsafe.Pointer, int64)
+	structName string
+	fieldName  string
 }
 
-func newIntDecoder(op func(unsafe.Pointer, int64)) *intDecoder {
-	return &intDecoder{op: op}
+func newIntDecoder(structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
+	return &intDecoder{op: op, structName: structName, fieldName: fieldName}
 }
 
 var (

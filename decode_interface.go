@@ -6,22 +6,26 @@ import (
 )
 
 type interfaceDecoder struct {
-	typ *rtype
+	typ        *rtype
+	structName string
+	fieldName  string
 }
 
-func newInterfaceDecoder(typ *rtype) *interfaceDecoder {
+func newInterfaceDecoder(typ *rtype, structName, fieldName string) *interfaceDecoder {
 	return &interfaceDecoder{
-		typ: typ,
+		typ:        typ,
+		structName: structName,
+		fieldName:  fieldName,
 	}
 }
 
 func (d *interfaceDecoder) numDecoder(s *stream) decoder {
 	if s.useNumber {
-		return newNumberDecoder(func(p unsafe.Pointer, v Number) {
+		return newNumberDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v Number) {
 			*(*interface{})(p) = v
 		})
 	}
-	return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+	return newFloatDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v float64) {
 		*(*interface{})(p) = v
 	})
 }
@@ -41,8 +45,10 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr := unsafe.Pointer(&v)
 			if err := newMapDecoder(
 				interfaceMapType,
-				newStringDecoder(),
-				newInterfaceDecoder(d.typ),
+				newStringDecoder(d.structName, d.fieldName),
+				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+				d.structName,
+				d.fieldName,
 			).decodeStream(s, ptr); err != nil {
 				return err
 			}
@@ -52,9 +58,11 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
 			if err := newSliceDecoder(
-				newInterfaceDecoder(d.typ),
+				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
 				d.typ,
 				d.typ.Size(),
+				d.structName,
+				d.fieldName,
 			).decodeStream(s, ptr); err != nil {
 				return err
 			}
@@ -121,8 +129,9 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		ptr := unsafe.Pointer(&v)
 		dec := newMapDecoder(
 			interfaceMapType,
-			newStringDecoder(),
-			newInterfaceDecoder(d.typ),
+			newStringDecoder(d.structName, d.fieldName),
+			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+			d.structName, d.fieldName,
 		)
 		cursor, err := dec.decode(buf, cursor, ptr)
 		if err != nil {
@@ -134,9 +143,10 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
 		dec := newSliceDecoder(
-			newInterfaceDecoder(d.typ),
+			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
 			d.typ,
 			d.typ.Size(),
+			d.structName, d.fieldName,
 		)
 		cursor, err := dec.decode(buf, cursor, ptr)
 		if err != nil {
@@ -145,7 +155,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return newFloatDecoder(func(p unsafe.Pointer, v float64) {
+		return newFloatDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v float64) {
 			*(*interface{})(p) = v
 		}).decode(buf, cursor, p)
 	case '"':

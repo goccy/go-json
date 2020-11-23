@@ -5,12 +5,16 @@ import "unsafe"
 type wrappedStringDecoder struct {
 	dec           decoder
 	stringDecoder *stringDecoder
+	structName    string
+	fieldName     string
 }
 
-func newWrappedStringDecoder(dec decoder) *wrappedStringDecoder {
+func newWrappedStringDecoder(dec decoder, structName, fieldName string) *wrappedStringDecoder {
 	return &wrappedStringDecoder{
 		dec:           dec,
-		stringDecoder: newStringDecoder(),
+		stringDecoder: newStringDecoder(structName, fieldName),
+		structName:    structName,
+		fieldName:     fieldName,
 	}
 }
 

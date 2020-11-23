@@ -5,10 +5,13 @@ import (
 	"unsafe"
 )
 
-type bytesDecoder struct{}
+type bytesDecoder struct {
+	structName string
+	fieldName  string
+}
 
-func newBytesDecoder() *bytesDecoder {
-	return &bytesDecoder{}
+func newBytesDecoder(structName string, fieldName string) *bytesDecoder {
+	return &bytesDecoder{structName: structName, fieldName: fieldName}
 }
 
 func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {

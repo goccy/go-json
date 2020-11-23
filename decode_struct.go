@@ -13,12 +13,16 @@ type structFieldSet struct {
 type structDecoder struct {
 	fieldMap   map[string]*structFieldSet
 	keyDecoder *stringDecoder
+	structName string
+	fieldName  string
 }
 
-func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
+func newStructDecoder(structName, fieldName string, fieldMap map[string]*structFieldSet) *structDecoder {
 	return &structDecoder{
 		fieldMap:   fieldMap,
-		keyDecoder: newStringDecoder(),
+		keyDecoder: newStringDecoder(structName, fieldName),
+		structName: structName,
+		fieldName:  fieldName,
 	}
 }
 

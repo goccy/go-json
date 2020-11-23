@@ -6,13 +6,17 @@ import (
 
 type numberDecoder struct {
 	*floatDecoder
-	op func(unsafe.Pointer, Number)
+	op         func(unsafe.Pointer, Number)
+	structName string
+	fieldName  string
 }
 
-func newNumberDecoder(op func(unsafe.Pointer, Number)) *numberDecoder {
+func newNumberDecoder(structName, fieldName string, op func(unsafe.Pointer, Number)) *numberDecoder {
 	return &numberDecoder{
-		floatDecoder: newFloatDecoder(nil),
+		floatDecoder: newFloatDecoder(structName, fieldName, nil),
 		op:           op,
+		structName:   structName,
+		fieldName:    fieldName,
 	}
 }
 

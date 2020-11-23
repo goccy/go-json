@@ -8,13 +8,17 @@ type mapDecoder struct {
 	mapType      *rtype
 	keyDecoder   decoder
 	valueDecoder decoder
+	structName   string
+	fieldName    string
 }
 
-func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder) *mapDecoder {
+func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder, structName, fieldName string) *mapDecoder {
 	return &mapDecoder{
 		mapType:      mapType,
 		keyDecoder:   keyDec,
 		valueDecoder: valueDec,
+		structName:   structName,
+		fieldName:    fieldName,
 	}
 }
 

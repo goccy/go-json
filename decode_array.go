@@ -7,14 +7,18 @@ type arrayDecoder struct {
 	size         uintptr
 	valueDecoder decoder
 	alen         int
+	structName   string
+	fieldName    string
 }
 
-func newArrayDecoder(dec decoder, elemType *rtype, alen int) *arrayDecoder {
+func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldName string) *arrayDecoder {
 	return &arrayDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
 		size:         elemType.Size(),
 		alen:         alen,
+		structName:   structName,
+		fieldName:    fieldName,
 	}
 }
 

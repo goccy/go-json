@@ -10,6 +10,8 @@ type sliceDecoder struct {
 	valueDecoder decoder
 	size         uintptr
 	arrayPool    sync.Pool
+	structName   string
+	fieldName    string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -21,7 +23,7 @@ type sliceHeader struct {
 	cap  int
 }
 
-func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
+func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
@@ -36,6 +38,8 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
 				}
 			},
 		},
+		structName: structName,
+		fieldName:  fieldName,
 	}
 }
 

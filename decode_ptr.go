@@ -5,12 +5,19 @@ import (
 )
 
 type ptrDecoder struct {
-	dec decoder
-	typ *rtype
+	dec        decoder
+	typ        *rtype
+	structName string
+	fieldName  string
 }
 
-func newPtrDecoder(dec decoder, typ *rtype) *ptrDecoder {
-	return &ptrDecoder{dec: dec, typ: typ}
+func newPtrDecoder(dec decoder, typ *rtype, structName, fieldName string) *ptrDecoder {
+	return &ptrDecoder{
+		dec:        dec,
+		typ:        typ,
+		structName: structName,
+		fieldName:  fieldName,
+	}
 }
 
 //go:linkname unsafe_New reflect.unsafe_New

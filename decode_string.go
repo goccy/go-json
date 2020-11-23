@@ -1,16 +1,32 @@
 package json
 
 import (
+	"reflect"
 	"unicode"
 	"unicode/utf16"
 	"unsafe"
 )
 
 type stringDecoder struct {
+	structName string
+	fieldName  string
 }
 
-func newStringDecoder() *stringDecoder {
-	return &stringDecoder{}
+func newStringDecoder(structName, fieldName string) *stringDecoder {
+	return &stringDecoder{
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  typeName,
+		Type:   reflect.TypeOf(""),
+		Offset: offset,
+		Struct: d.structName,
+		Field:  d.fieldName,
+	}
 }
 
 func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
@@ -186,6 +202,10 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
 			continue
+		case '[':
+			return nil, d.errUnmarshalType("array", s.totalOffset())
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return nil, d.errUnmarshalType("number", s.totalOffset())
 		case '"':
 			return stringBytes(s)
 		case 'n':
@@ -208,6 +228,10 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
 			cursor++
+		case '[':
+			return nil, 0, d.errUnmarshalType("array", cursor)
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return nil, 0, d.errUnmarshalType("number", cursor)
 		case '"':
 			cursor++
 			start := cursor

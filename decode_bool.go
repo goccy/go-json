@@ -4,10 +4,13 @@ import (
 	"unsafe"
 )
 
-type boolDecoder struct{}
+type boolDecoder struct {
+	structName string
+	fieldName  string
+}
 
-func newBoolDecoder() *boolDecoder {
-	return &boolDecoder{}
+func newBoolDecoder(structName, fieldName string) *boolDecoder {
+	return &boolDecoder{structName: structName, fieldName: fieldName}
 }
 
 func trueBytes(s *stream) error {

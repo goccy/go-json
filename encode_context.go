@@ -93,6 +93,17 @@ func (c *encodeRuntimeContext) init(p uintptr) {
 	c.keepRefs = c.keepRefs[:0]
 }
 
+// done cleans c.keepRefs, so it can be garbage collected.
+//
+// It is important to call c.done() once it's not used anymore. Otherwise,
+// c.keepRefs maybe kept longer than expected, so if the garbage collector
+// run, it will see an invalid pointer.
+func (c *encodeRuntimeContext) done() {
+	for i := range c.keepRefs {
+		c.keepRefs[i] = nil
+	}
+}
+
 func (c *encodeRuntimeContext) ptr() uintptr {
 	header := (*sliceHeader)(unsafe.Pointer(&c.ptrs))
 	return uintptr(header.data)

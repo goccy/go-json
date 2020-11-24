@@ -186,6 +186,7 @@ func (e *Encoder) encode(v interface{}) error {
 		p := uintptr(header.ptr)
 		ctx.init(p)
 		err := e.run(ctx, code)
+		ctx.done()
 		codeSet.ctx.Put(ctx)
 		return err
 	}
@@ -236,12 +237,10 @@ func (e *Encoder) encode(v interface{}) error {
 		c = code
 	}
 
-	if err := e.run(ctx, c); err != nil {
-		codeSet.ctx.Put(ctx)
-		return err
-	}
+	err = e.run(ctx, c)
+	ctx.done()
 	codeSet.ctx.Put(ctx)
-	return nil
+	return err
 }
 
 func (e *Encoder) encodeInt(v int) {

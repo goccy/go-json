@@ -7,10 +7,24 @@ import (
 type unmarshalJSONDecoder struct {
 	typ             *rtype
 	isDoublePointer bool
+	structName      string
+	fieldName       string
 }
 
-func newUnmarshalJSONDecoder(typ *rtype) *unmarshalJSONDecoder {
-	return &unmarshalJSONDecoder{typ: typ}
+func newUnmarshalJSONDecoder(typ *rtype, structName, fieldName string) *unmarshalJSONDecoder {
+	return &unmarshalJSONDecoder{
+		typ:        typ,
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *unmarshalJSONDecoder) annotateError(err error) {
+	ut, ok := err.(*UnmarshalTypeError)
+	if ok {
+		ut.Struct = d.structName
+		ut.Field = d.fieldName
+	}
 }
 
 func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
@@ -27,6 +41,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr: newptr,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			d.annotateError(err)
 			return err
 		}
 		*(*unsafe.Pointer)(p) = newptr
@@ -36,6 +51,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr: p,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			d.annotateError(err)
 			return err
 		}
 	}
@@ -57,6 +73,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 			ptr: newptr,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			d.annotateError(err)
 			return 0, err
 		}
 		*(*unsafe.Pointer)(p) = newptr
@@ -66,6 +83,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 			ptr: p,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+			d.annotateError(err)
 			return 0, err
 		}
 	}

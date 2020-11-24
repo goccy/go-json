@@ -35,6 +35,9 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return errNotAtBeginningOfValue(s.totalOffset())
 	}
 	s.cursor++
+	if s.char() == '}' {
+		return nil
+	}
 	for {
 		s.reset()
 		key, err := d.keyDecoder.decodeStreamByte(s)

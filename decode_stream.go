@@ -111,11 +111,18 @@ func (s *stream) skipValue() error {
 	s.skipWhiteSpace()
 	braceCount := 0
 	bracketCount := 0
+	start := s.cursor
 	for {
 		switch s.char() {
 		case nul:
 			if s.read() {
 				continue
+			}
+			if start == s.cursor {
+				return errUnexpectedEndOfJSON("value of object", s.totalOffset())
+			}
+			if braceCount == 0 && bracketCount == 0 {
+				return nil
 			}
 			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
 		case '{':
@@ -129,7 +136,7 @@ func (s *stream) skipValue() error {
 			}
 		case ']':
 			bracketCount--
-			if braceCount == 0 && bracketCount == 0 {
+			if braceCount == 0 && bracketCount == -1 {
 				return nil
 			}
 		case ',':

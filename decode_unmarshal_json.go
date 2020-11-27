@@ -19,11 +19,13 @@ func newUnmarshalJSONDecoder(typ *rtype, structName, fieldName string) *unmarsha
 	}
 }
 
-func (d *unmarshalJSONDecoder) annotateError(err error) {
-	ut, ok := err.(*UnmarshalTypeError)
-	if ok {
-		ut.Struct = d.structName
-		ut.Field = d.fieldName
+func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
+	switch e := err.(type) {
+	case *UnmarshalTypeError:
+		e.Struct = d.structName
+		e.Field = d.fieldName
+	case *SyntaxError:
+		e.Offset = cursor
 	}
 }
 
@@ -41,7 +43,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr: newptr,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-			d.annotateError(err)
+			d.annotateError(s.cursor, err)
 			return err
 		}
 		*(*unsafe.Pointer)(p) = newptr
@@ -51,7 +53,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr: p,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-			d.annotateError(err)
+			d.annotateError(s.cursor, err)
 			return err
 		}
 	}
@@ -73,7 +75,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 			ptr: newptr,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-			d.annotateError(err)
+			d.annotateError(cursor, err)
 			return 0, err
 		}
 		*(*unsafe.Pointer)(p) = newptr
@@ -83,7 +85,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 			ptr: p,
 		}))
 		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
-			d.annotateError(err)
+			d.annotateError(cursor, err)
 			return 0, err
 		}
 	}

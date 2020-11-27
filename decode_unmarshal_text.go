@@ -22,11 +22,13 @@ func newUnmarshalTextDecoder(typ *rtype, structName, fieldName string) *unmarsha
 	}
 }
 
-func (d *unmarshalTextDecoder) annotateError(err error) {
-	ut, ok := err.(*UnmarshalTypeError)
-	if ok {
-		ut.Struct = d.structName
-		ut.Field = d.fieldName
+func (d *unmarshalTextDecoder) annotateError(cursor int64, err error) {
+	switch e := err.(type) {
+	case *UnmarshalTypeError:
+		e.Struct = d.structName
+		e.Field = d.fieldName
+	case *SyntaxError:
+		e.Offset = cursor
 	}
 }
 
@@ -46,7 +48,7 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		ptr: newptr,
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
-		d.annotateError(err)
+		d.annotateError(s.cursor, err)
 		return err
 	}
 	*(*unsafe.Pointer)(p) = newptr
@@ -69,7 +71,7 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
-		d.annotateError(err)
+		d.annotateError(cursor, err)
 		return 0, err
 	}
 	return end, nil

@@ -129,6 +129,9 @@ func (s *stream) skipValue() error {
 			}
 		case ']':
 			bracketCount--
+			if braceCount == 0 && bracketCount == 0 {
+				return nil
+			}
 		case ',':
 			if bracketCount == 0 && braceCount == 0 {
 				return nil

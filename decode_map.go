@@ -64,8 +64,8 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	mapValue := makemap(d.mapType, 0)
 	if s.buf[s.cursor+1] == '}' {
-		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
-		s.cursor++
+		*(*unsafe.Pointer)(p) = mapValue
+		s.cursor += 2
 		return nil
 	}
 	for {
@@ -82,9 +82,6 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			return errExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
-		if s.end() {
-			return errUnexpectedEndOfJSON("map", s.totalOffset())
-		}
 		var value interface{}
 		if err := d.setValueStream(s, &value); err != nil {
 			return err

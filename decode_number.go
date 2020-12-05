@@ -25,8 +25,8 @@ func (d *numberDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	str := *(*string)(unsafe.Pointer(&bytes))
-	d.op(p, Number(str))
+	d.op(p, Number(string(bytes)))
+	s.reset()
 	return nil
 }
 

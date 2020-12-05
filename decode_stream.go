@@ -6,18 +6,27 @@ import (
 )
 
 const (
-	readChunkSize = 512
+	initBufSize = 512
 )
 
 type stream struct {
 	buf                   []byte
+	bufSize               int64
 	length                int64
 	r                     io.Reader
 	offset                int64
 	cursor                int64
+	readPos               int64
 	allRead               bool
 	useNumber             bool
 	disallowUnknownFields bool
+}
+
+func newStream(r io.Reader) *stream {
+	return &stream{
+		r:       r,
+		bufSize: initBufSize,
+	}
 }
 
 func (s *stream) buffered() io.Reader {
@@ -36,59 +45,33 @@ func (s *stream) char() byte {
 	return s.buf[s.cursor]
 }
 
-func (s *stream) end() bool {
-	return s.allRead && s.length <= s.cursor
-}
-
-func (s *stream) progressN(n int64) bool {
-	if s.cursor+n < s.length-1 || s.read() {
-		s.cursor += n
-		return true
-	}
-	s.cursor = s.length
-	return false
-}
-
 func (s *stream) reset() {
+	s.offset += s.cursor
 	s.buf = s.buf[s.cursor:]
-	s.length -= s.cursor
 	s.cursor = 0
+	s.length = int64(len(s.buf))
+}
+
+func (s *stream) readBuf() []byte {
+	s.bufSize *= 2
+	remainBuf := s.buf
+	s.buf = make([]byte, s.bufSize)
+	copy(s.buf, remainBuf)
+	return s.buf[s.cursor:]
 }
 
 func (s *stream) read() bool {
 	if s.allRead {
 		return false
 	}
-	buf := make([]byte, readChunkSize)
-	n, err := s.r.Read(buf)
-	if err != nil && err != io.EOF {
-		return false
-	}
-	if n < readChunkSize || err == io.EOF {
+	buf := s.readBuf()
+	last := len(buf) - 1
+	buf[last] = nul
+	n, err := s.r.Read(buf[:last])
+	s.length = s.cursor + int64(n)
+	if n < last || err == io.EOF {
 		s.allRead = true
-	}
-	// extend buffer (2) is protect ( s.cursor++ x2 )
-	// e.g.) decodeEscapeString
-	const extendBufLength = int64(2)
-
-	totalSize := s.length + int64(n) + extendBufLength
-	if totalSize > readChunkSize {
-		newBuf := make([]byte, totalSize)
-		copy(newBuf, s.buf)
-		copy(newBuf[s.length:], buf)
-		s.buf = newBuf
-		s.length = totalSize - extendBufLength
-	} else if s.length > 0 {
-		copy(buf[s.length:], buf)
-		copy(buf, s.buf[:s.length])
-		s.buf = buf
-		s.length = totalSize - extendBufLength
-	} else {
-		s.buf = buf
-		s.length = totalSize - extendBufLength
-	}
-	s.offset += s.cursor
-	if n == 0 {
+	} else if err != nil {
 		return false
 	}
 	return true

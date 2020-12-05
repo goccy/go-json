@@ -60,7 +60,7 @@ const (
 // The decoder introduces its own buffering and may
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
-	s := &stream{r: r}
+	s := newStream(r)
 	s.read()
 	return &Decoder{
 		s: s,

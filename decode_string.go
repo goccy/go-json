@@ -34,7 +34,8 @@ func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	**(**string)(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&bytes))
+	*(*string)(p) = string(bytes)
+	s.reset()
 	return nil
 }
 
@@ -160,7 +161,6 @@ func stringBytes(s *stream) ([]byte, error) {
 		case '"':
 			literal := s.buf[start:s.cursor]
 			s.cursor++
-			s.reset()
 			return literal, nil
 		case nul:
 			if s.read() {

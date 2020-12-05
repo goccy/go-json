@@ -19,12 +19,17 @@ func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
+	if bytes == nil {
+		s.reset()
+		return nil
+	}
 	decodedLen := base64.StdEncoding.DecodedLen(len(bytes))
 	buf := make([]byte, decodedLen)
 	if _, err := base64.StdEncoding.Decode(buf, bytes); err != nil {
 		return err
 	}
 	*(*[]byte)(p) = buf
+	s.reset()
 	return nil
 }
 
@@ -51,7 +56,6 @@ func binaryBytes(s *stream) ([]byte, error) {
 		case '"':
 			literal := s.buf[start:s.cursor]
 			s.cursor++
-			s.reset()
 			return literal, nil
 		case nul:
 			if s.read() {
@@ -77,7 +81,7 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream) ([]byte, error) {
 			if err := nullBytes(s); err != nil {
 				return nil, err
 			}
-			return []byte{}, nil
+			return nil, nil
 		case nul:
 			if s.read() {
 				continue

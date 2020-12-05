@@ -1,6 +1,8 @@
 package json
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type intDecoder struct {
 	op         func(unsafe.Pointer, int64)
@@ -74,7 +76,6 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				break
 			}
 			num := s.buf[start:s.cursor]
-			s.reset()
 			if len(num) < 2 {
 				goto ERROR
 			}
@@ -94,7 +95,6 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				break
 			}
 			num := s.buf[start:s.cursor]
-			s.reset()
 			return num, nil
 		case nul:
 			if s.read() {
@@ -138,6 +138,7 @@ func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	d.op(p, d.parseInt(bytes))
+	s.reset()
 	return nil
 }
 

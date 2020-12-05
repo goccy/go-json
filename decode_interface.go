@@ -52,7 +52,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			).decodeStream(s, ptr); err != nil {
 				return err
 			}
-			**(**interface{})(unsafe.Pointer(&p)) = v
+			*(*interface{})(p) = v
 			return nil
 		case '[':
 			var v []interface{}
@@ -66,7 +66,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			).decodeStream(s, ptr); err != nil {
 				return err
 			}
-			**(**interface{})(unsafe.Pointer(&p)) = v
+			*(*interface{})(p) = v
 			return nil
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return d.numDecoder(s).decodeStream(s, p)
@@ -82,7 +82,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 				case '"':
 					literal := s.buf[start:s.cursor]
 					s.cursor++
-					**(**interface{})(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&literal))
+					*(*interface{})(p) = string(literal)
 					return nil
 				case nul:
 					if s.read() {
@@ -109,7 +109,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			if err := nullBytes(s); err != nil {
 				return err
 			}
-			**(**interface{})(unsafe.Pointer(&p)) = nil
+			*(*interface{})(p) = nil
 			return nil
 		case nul:
 			if s.read() {

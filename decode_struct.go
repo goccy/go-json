@@ -53,10 +53,9 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		}
 		s.cursor++
 		if s.char() == nul {
-			s.read()
-		}
-		if s.end() {
-			return errExpected("object value after colon", s.totalOffset())
+			if !s.read() {
+				return errExpected("object value after colon", s.totalOffset())
+			}
 		}
 		k := *(*string)(unsafe.Pointer(&key))
 		field, exists := d.fieldMap[k]

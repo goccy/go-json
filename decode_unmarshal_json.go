@@ -36,13 +36,15 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	src := s.buf[start:s.cursor]
+	dst := make([]byte, len(src))
+	copy(dst, src)
 	if d.isDoublePointer {
 		newptr := unsafe_New(d.typ.Elem())
 		v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 			typ: d.typ,
 			ptr: newptr,
 		}))
-		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+		if err := v.(Unmarshaler).UnmarshalJSON(dst); err != nil {
 			d.annotateError(s.cursor, err)
 			return err
 		}
@@ -52,7 +54,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			typ: d.typ,
 			ptr: p,
 		}))
-		if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+		if err := v.(Unmarshaler).UnmarshalJSON(dst); err != nil {
 			d.annotateError(s.cursor, err)
 			return err
 		}

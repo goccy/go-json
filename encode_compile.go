@@ -134,6 +134,7 @@ func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 
 func (e *Encoder) compilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	ptrOpcodeIndex := ctx.opcodeIndex
+	ptrIndex := ctx.ptrIndex
 	ctx.incIndex()
 	code, err := e.compile(ctx.withType(ctx.typ.Elem()))
 	if err != nil {
@@ -148,6 +149,7 @@ func (e *Encoder) compilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	}
 	c := ctx.context()
 	c.opcodeIndex = ptrOpcodeIndex
+	c.ptrIndex = ptrIndex
 	return newOpCodeWithNext(c, opPtr, code), nil
 }
 

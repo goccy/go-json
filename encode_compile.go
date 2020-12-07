@@ -20,6 +20,7 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 		return e.compileMarshalTextPtr(ctx)
 	}
 	isPtr := false
+	orgType := typ
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 		isPtr = true
@@ -28,6 +29,10 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 		return e.compileMap(ctx.withType(typ), isPtr)
 	} else if typ.Kind() == reflect.Struct {
 		return e.compileStruct(ctx.withType(typ), isPtr)
+	} else if isPtr && typ.Implements(marshalTextType) {
+		typ = orgType
+	} else if isPtr && typ.Implements(marshalJSONType) {
+		typ = orgType
 	}
 	return e.compile(ctx.withType(typ))
 }
@@ -112,12 +117,8 @@ func (e *Encoder) compile(ctx *encodeCompileContext) (*opcode, error) {
 func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	case typ.Implements(marshalJSONType):
-		return e.compileMarshalJSON(ctx)
 	case rtype_ptrTo(typ).Implements(marshalJSONType):
 		return e.compileMarshalJSONPtr(ctx)
-	case typ.Implements(marshalTextType):
-		return e.compileMarshalText(ctx)
 	case rtype_ptrTo(typ).Implements(marshalTextType):
 		return e.compileMarshalTextPtr(ctx)
 	}

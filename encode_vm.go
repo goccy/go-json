@@ -402,14 +402,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			isPtr := code.typ.Kind() == reflect.Ptr
 			p := e.ptrToUnsafePtr(ptr)
 			if p == nil {
-				e.encodeNull()
-				e.encodeByte(',')
+				e.encodeBytes([]byte{'"', '"', ','})
 			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
 				e.encodeBytes([]byte{'"', '"', ','})
 			} else {
-				if isPtr && code.typ.Elem().Implements(marshalTextType) {
-					p = *(*unsafe.Pointer)(p)
-				}
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 					typ: code.typ,
 					ptr: p,

@@ -226,35 +226,23 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			}
 			vv := rv.Interface()
 			header := (*interfaceHeader)(unsafe.Pointer(&vv))
-			typ := header.typ
-			if typ.Kind() == reflect.Ptr {
-				typ = typ.Elem()
-			}
-			var c *opcode
-			if typ.Kind() == reflect.Map {
-				code, err := e.compileMap(&encodeCompileContext{
-					typ:        typ,
-					root:       code.root,
-					withIndent: e.enabledIndent,
-					indent:     code.indent,
-				}, false)
-				if err != nil {
-					return err
+			if header.typ.Kind() == reflect.Ptr {
+				if rv.Elem().IsNil() {
+					e.encodeNull()
+					e.encodeByte(',')
+					code = code.next
+					break
 				}
-				c = code
-			} else {
-				code, err := e.compile(&encodeCompileContext{
-					typ:        typ,
-					root:       code.root,
-					withIndent: e.enabledIndent,
-					indent:     code.indent,
-				})
-				if err != nil {
-					return err
-				}
-				c = code
 			}
-
+			c, err := e.compileHead(&encodeCompileContext{
+				typ:        header.typ,
+				root:       code.root,
+				withIndent: e.enabledIndent,
+				indent:     code.indent,
+			})
+			if err != nil {
+				return err
+			}
 			beforeLastCode := c.beforeLastCode()
 			lastCode := beforeLastCode.next
 			lastCode.idx = beforeLastCode.idx + uintptrSize

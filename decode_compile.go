@@ -8,12 +8,8 @@ import (
 
 func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
 	switch {
-	case typ.Implements(unmarshalJSONType):
-		return newUnmarshalJSONDecoder(typ, "", ""), nil
 	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(rtype_ptrTo(typ), "", ""), nil
-	case typ.Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(typ, "", ""), nil
 	case rtype_ptrTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(rtype_ptrTo(typ), "", ""), nil
 	}
@@ -22,12 +18,8 @@ func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
 
 func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, error) {
 	switch {
-	case typ.Implements(unmarshalJSONType):
-		return newUnmarshalJSONDecoder(typ, structName, fieldName), nil
 	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
 		return newUnmarshalJSONDecoder(rtype_ptrTo(typ), structName, fieldName), nil
-	case typ.Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(typ, structName, fieldName), nil
 	case rtype_ptrTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName), nil
 	}

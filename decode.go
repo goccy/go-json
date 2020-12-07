@@ -61,7 +61,6 @@ const (
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
 	s := newStream(r)
-	s.read()
 	return &Decoder{
 		s: s,
 	}

@@ -26,6 +26,7 @@ func newStream(r io.Reader) *stream {
 	return &stream{
 		r:       r,
 		bufSize: initBufSize,
+		buf:     []byte{nul},
 	}
 }
 

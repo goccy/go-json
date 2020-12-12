@@ -129,6 +129,26 @@ func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 		return e.compileInterface(ctx)
 	case reflect.String:
 		return e.compileString(ctx)
+	case reflect.Int:
+		return e.compileIntString(ctx)
+	case reflect.Int8:
+		return e.compileInt8String(ctx)
+	case reflect.Int16:
+		return e.compileInt16String(ctx)
+	case reflect.Int32:
+		return e.compileInt32String(ctx)
+	case reflect.Int64:
+		return e.compileInt64String(ctx)
+	case reflect.Uint:
+		return e.compileUintString(ctx)
+	case reflect.Uint8:
+		return e.compileUint8String(ctx)
+	case reflect.Uint16:
+		return e.compileUint16String(ctx)
+	case reflect.Uint32:
+		return e.compileUint32String(ctx)
+	case reflect.Uint64:
+		return e.compileUint64String(ctx)
 	}
 	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
@@ -234,6 +254,66 @@ func (e *Encoder) compileUint32(ctx *encodeCompileContext) (*opcode, error) {
 
 func (e *Encoder) compileUint64(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUint64)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileIntString(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opIntString)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileInt8String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opInt8String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileInt16String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opInt16String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileInt32String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opInt32String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileInt64String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opInt64String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileUintString(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opUintString)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileUint8String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opUint8String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileUint16String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opUint16String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileUint32String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opUint32String)
+	ctx.incIndex()
+	return code, nil
+}
+
+func (e *Encoder) compileUint64String(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opUint64String)
 	ctx.incIndex()
 	return code, nil
 }

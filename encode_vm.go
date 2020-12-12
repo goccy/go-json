@@ -143,6 +143,86 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, code *opcode) error {
 			e.encodeUint64(e.ptrToUint64(load(ctxptr, code.idx)))
 			e.encodeBytes([]byte{',', '\n'})
 			code = code.next
+		case opIntString:
+			e.encodeString(fmt.Sprint(e.ptrToInt(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opIntStringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToInt(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opInt8String:
+			e.encodeString(fmt.Sprint(e.ptrToInt8(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opInt8StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToInt8(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opInt16String:
+			e.encodeString(fmt.Sprint(e.ptrToInt16(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opInt16StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToInt16(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opInt32String:
+			e.encodeString(fmt.Sprint(e.ptrToInt32(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opInt32StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToInt32(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opInt64String:
+			e.encodeString(fmt.Sprint(e.ptrToInt64(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opInt64StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToInt64(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opUintString:
+			e.encodeString(fmt.Sprint(e.ptrToUint(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opUintStringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToUint(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opUint8String:
+			e.encodeString(fmt.Sprint(e.ptrToUint8(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opUint8StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToUint8(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opUint16String:
+			e.encodeString(fmt.Sprint(e.ptrToUint16(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opUint16StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToUint16(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opUint32String:
+			e.encodeString(fmt.Sprint(e.ptrToUint32(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opUint32StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToUint32(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
+		case opUint64String:
+			e.encodeString(fmt.Sprint(e.ptrToUint64(load(ctxptr, code.idx))))
+			e.encodeByte(',')
+			code = code.next
+		case opUint64StringIndent:
+			e.encodeString(fmt.Sprint(e.ptrToUint64(load(ctxptr, code.idx))))
+			e.encodeBytes([]byte{',', '\n'})
+			code = code.next
 		case opFloat32:
 			e.encodeFloat32(e.ptrToFloat32(load(ctxptr, code.idx)))
 			e.encodeByte(',')

@@ -75,6 +75,27 @@ func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, er
 	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
 
+func (d *Decoder) compileMapKey(typ *rtype, structName, fieldName string) (decoder, error) {
+	dec, err := d.compile(typ, structName, fieldName)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		switch t := dec.(type) {
+		case *stringDecoder, *interfaceDecoder, *unmarshalJSONDecoder, *unmarshalTextDecoder:
+			return dec, nil
+		case *boolDecoder, *intDecoder, *uintDecoder, *numberDecoder:
+			return newWrappedStringDecoder(dec, structName, fieldName), nil
+		case *ptrDecoder:
+			dec = t.dec
+		default:
+			goto ERROR
+		}
+	}
+ERROR:
+	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
+}
+
 func (d *Decoder) compilePtr(typ *rtype, structName, fieldName string) (decoder, error) {
 	dec, err := d.compile(typ.Elem(), structName, fieldName)
 	if err != nil {
@@ -186,7 +207,7 @@ func (d *Decoder) compileArray(typ *rtype, structName, fieldName string) (decode
 }
 
 func (d *Decoder) compileMap(typ *rtype, structName, fieldName string) (decoder, error) {
-	keyDec, err := d.compile(typ.Key(), structName, fieldName)
+	keyDec, err := d.compileMapKey(typ.Key(), structName, fieldName)
 	if err != nil {
 		return nil, err
 	}

@@ -1,17 +1,42 @@
 package json
 
 import (
+	"fmt"
 	"unsafe"
 )
 
 type intDecoder struct {
+	typ        *rtype
 	op         func(unsafe.Pointer, int64)
 	structName string
 	fieldName  string
 }
 
-func newIntDecoder(structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
-	return &intDecoder{op: op, structName: structName, fieldName: fieldName}
+func newIntDecoder(typ *rtype, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
+	return &intDecoder{
+		typ:        typ,
+		op:         op,
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *intDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  fmt.Sprintf("number %s", string(buf)),
+		Type:   rtype2type(d.typ),
+		Offset: offset,
+	}
+}
+
+func (d *intDecoder) annotateError(cursor int64, err error) {
+	switch e := err.(type) {
+	case *UnmarshalTypeError:
+		e.Struct = d.structName
+		e.Field = d.fieldName
+	case *SyntaxError:
+		e.Offset = cursor
+	}
 }
 
 var (
@@ -102,7 +127,7 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			}
 			goto ERROR
 		default:
-			goto ERROR
+			return nil, d.typeError([]byte{s.char()}, s.totalOffset())
 		}
 	}
 ERROR:
@@ -126,7 +151,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			num := buf[start:cursor]
 			return num, cursor, nil
 		default:
-			return nil, 0, errInvalidCharacter(buf[cursor], "number(integer)", cursor)
+			return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
 		}
 	}
 	return nil, 0, errUnexpectedEndOfJSON("number(integer)", cursor)

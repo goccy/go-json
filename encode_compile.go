@@ -149,6 +149,8 @@ func (e *Encoder) compileKey(ctx *encodeCompileContext) (*opcode, error) {
 		return e.compileUint32String(ctx)
 	case reflect.Uint64:
 		return e.compileUint64String(ctx)
+	case reflect.Uintptr:
+		return e.compileUintString(ctx)
 	}
 	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -33,31 +34,32 @@ const (
 	bufSize = 1024
 )
 
-type opcodeMap struct {
-	sync.Map
-}
-
 type opcodeSet struct {
 	codeIndent *opcode
 	code       *opcode
 	ctx        sync.Pool
 }
 
-func (m *opcodeMap) get(k uintptr) *opcodeSet {
-	if v, ok := m.Load(k); ok {
-		return v.(*opcodeSet)
-	}
-	return nil
+func loadOpcodeMap() map[uintptr]*opcodeSet {
+	p := atomic.LoadPointer(&cachedOpcode)
+	return *(*map[uintptr]*opcodeSet)(unsafe.Pointer(&p))
 }
 
-func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
-	m.Store(k, op)
+func storeOpcodeSet(typ uintptr, set *opcodeSet, m map[uintptr]*opcodeSet) {
+	newOpcodeMap := make(map[uintptr]*opcodeSet, len(m)+1)
+	newOpcodeMap[typ] = set
+
+	for k, v := range m {
+		newOpcodeMap[k] = v
+	}
+
+	atomic.StorePointer(&cachedOpcode, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
 }
 
 var (
 	encPool         sync.Pool
 	codePool        sync.Pool
-	cachedOpcode    opcodeMap
+	cachedOpcode    unsafe.Pointer // map[uintptr]*opcodeSet
 	marshalJSONType reflect.Type
 	marshalTextType reflect.Type
 )
@@ -72,7 +74,6 @@ func init() {
 			}
 		},
 	}
-	cachedOpcode = opcodeMap{}
 	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 }
@@ -175,7 +176,8 @@ func (e *Encoder) encode(v interface{}) error {
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
+	opcodeMap := loadOpcodeMap()
+	if codeSet, exists := opcodeMap[typeptr]; exists {
 		var code *opcode
 		if e.enabledIndent {
 			code = codeSet.codeIndent
@@ -224,7 +226,8 @@ func (e *Encoder) encode(v interface{}) error {
 			},
 		},
 	}
-	cachedOpcode.set(typeptr, codeSet)
+
+	storeOpcodeSet(typeptr, codeSet, opcodeMap)
 	p := uintptr(header.ptr)
 	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
 	ctx.init(p)

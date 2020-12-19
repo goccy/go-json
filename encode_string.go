@@ -725,7 +725,12 @@ func escapeIndexWithHTMLEscape(s string) int {
 		// combine masks before checking for the MSB of each byte. We include
 		// `n` in the mask to check whether any of the *input* byte MSBs were
 		// set (i.e. the byte was outside the ASCII range).
-		mask := n | below(n, 0x20) | contains(n, '"') | contains(n, '\\') | contains(n, '<') | contains(n, '>') | contains(n, '&')
+		mask := n | (n - (lsb * 0x20)) |
+			((n ^ (lsb * '"')) - lsb) |
+			((n ^ (lsb * '\\')) - lsb) |
+			((n ^ (lsb * '<')) - lsb) |
+			((n ^ (lsb * '>')) - lsb) |
+			((n ^ (lsb * '&')) - lsb)
 		if (mask & msb) != 0 {
 			return bits.TrailingZeros64(mask&msb) / 8
 		}
@@ -776,18 +781,40 @@ func encodeEscapedString(buf []byte, s string) []byte {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	var escapeIdx int
+	var (
+		i, j int
+	)
 	if valLen >= 8 {
-		if escapeIdx = escapeIndexWithHTMLEscape(s); escapeIdx < 0 {
-			return append(append(buf, s...), '"')
+		chunks := stringToUint64Slice(s)
+		for _, n := range chunks {
+			// combine masks before checking for the MSB of each byte. We include
+			// `n` in the mask to check whether any of the *input* byte MSBs were
+			// set (i.e. the byte was outside the ASCII range).
+			mask := n | (n - (lsb * 0x20)) |
+				((n ^ (lsb * '"')) - lsb) |
+				((n ^ (lsb * '\\')) - lsb) |
+				((n ^ (lsb * '<')) - lsb) |
+				((n ^ (lsb * '>')) - lsb) |
+				((n ^ (lsb * '&')) - lsb)
+			if (mask & msb) != 0 {
+				j = bits.TrailingZeros64(mask&msb) / 8
+				goto ESCAPE_END
+			}
 		}
+		for i := len(chunks) * 8; i < valLen; i++ {
+			if needEscapeWithHTML[s[i]] {
+				j = i
+				goto ESCAPE_END
+			}
+		}
+		// no found any escape characters.
+		return append(append(buf, s...), '"')
 	}
-	i := 0
-	j := escapeIdx
+ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 
-		if c >= 0x20 && c <= 0x7f && c != '\\' && c != '"' && (c != '<' && c != '>' && c != '&') {
+		if !needEscapeWithHTML[c] {
 			// fast path: most of the time, printable ascii characters are used
 			j++
 			continue

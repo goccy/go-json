@@ -16,6 +16,7 @@ import (
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
 	w                              io.Writer
+	ctx                            *encodeRuntimeContext
 	buf                            []byte
 	enabledIndent                  bool
 	enabledHTMLEscape              bool
@@ -37,7 +38,7 @@ const (
 type opcodeSet struct {
 	codeIndent *opcode
 	code       *opcode
-	ctx        sync.Pool
+	codeLength int
 }
 
 func loadOpcodeMap() map[uintptr]*opcodeSet {
@@ -68,6 +69,10 @@ func init() {
 	encPool = sync.Pool{
 		New: func() interface{} {
 			return &Encoder{
+				ctx: &encodeRuntimeContext{
+					ptrs:     make([]uintptr, 128),
+					keepRefs: make([]unsafe.Pointer, 0, 8),
+				},
 				buf:                            make([]byte, 0, bufSize),
 				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
 				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
@@ -187,12 +192,10 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 		} else {
 			code = codeSet.code
 		}
-		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
+		ctx := e.ctx
 		p := uintptr(header.ptr)
-		ctx.init(p)
-		b, err := e.run(ctx, b, code)
-		codeSet.ctx.Put(ctx)
-		return b, err
+		ctx.init(p, codeSet.codeLength)
+		return e.run(ctx, b, code)
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -220,20 +223,13 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	codeSet := &opcodeSet{
 		codeIndent: codeIndent,
 		code:       code,
-		ctx: sync.Pool{
-			New: func() interface{} {
-				return &encodeRuntimeContext{
-					ptrs:     make([]uintptr, codeLength),
-					keepRefs: make([]unsafe.Pointer, 8),
-				}
-			},
-		},
+		codeLength: codeLength,
 	}
 
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
 	p := uintptr(header.ptr)
-	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
-	ctx.init(p)
+	ctx := e.ctx
+	ctx.init(p, codeLength)
 
 	var c *opcode
 	if e.enabledIndent {
@@ -244,10 +240,8 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 
 	b, err = e.run(ctx, b, c)
 	if err != nil {
-		codeSet.ctx.Put(ctx)
 		return nil, err
 	}
-	codeSet.ctx.Put(ctx)
 	return b, nil
 }
 

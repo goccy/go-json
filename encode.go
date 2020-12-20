@@ -245,46 +245,6 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	return b, nil
 }
 
-func encodeInt(b []byte, v int) []byte {
-	return appendInt(b, int64(v))
-}
-
-func encodeInt8(b []byte, v int8) []byte {
-	return appendInt(b, int64(v))
-}
-
-func encodeInt16(b []byte, v int16) []byte {
-	return appendInt(b, int64(v))
-}
-
-func encodeInt32(b []byte, v int32) []byte {
-	return appendInt(b, int64(v))
-}
-
-func encodeInt64(b []byte, v int64) []byte {
-	return appendInt(b, v)
-}
-
-func encodeUint(b []byte, v uint) []byte {
-	return appendUint(b, uint64(v))
-}
-
-func encodeUint8(b []byte, v uint8) []byte {
-	return appendUint(b, uint64(v))
-}
-
-func encodeUint16(b []byte, v uint16) []byte {
-	return appendUint(b, uint64(v))
-}
-
-func encodeUint32(b []byte, v uint32) []byte {
-	return appendUint(b, uint64(v))
-}
-
-func encodeUint64(b []byte, v uint64) []byte {
-	return appendUint(b, v)
-}
-
 func encodeFloat32(b []byte, v float32) []byte {
 	f64 := float64(v)
 	abs := math.Abs(f64)

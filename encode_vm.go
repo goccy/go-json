@@ -64,83 +64,83 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			code = code.next
 			store(ctxptr, code.idx, e.ptrToPtr(ptr))
 		case opInt:
-			b = encodeInt(b, e.ptrToInt(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opIntIndent:
-			b = encodeInt(b, e.ptrToInt(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opInt8:
-			b = encodeInt8(b, e.ptrToInt8(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt8(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opInt8Indent:
-			b = encodeInt8(b, e.ptrToInt8(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt8(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opInt16:
-			b = encodeInt16(b, e.ptrToInt16(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt16(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opInt16Indent:
-			b = encodeInt16(b, e.ptrToInt16(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt16(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opInt32:
-			b = encodeInt32(b, e.ptrToInt32(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt32(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opInt32Indent:
-			b = encodeInt32(b, e.ptrToInt32(load(ctxptr, code.idx)))
+			b = appendInt(b, int64(e.ptrToInt32(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opInt64:
-			b = encodeInt64(b, e.ptrToInt64(load(ctxptr, code.idx)))
+			b = appendInt(b, e.ptrToInt64(load(ctxptr, code.idx)))
 			b = encodeComma(b)
 			code = code.next
 		case opInt64Indent:
-			b = encodeInt64(b, e.ptrToInt64(load(ctxptr, code.idx)))
+			b = appendInt(b, e.ptrToInt64(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opUint:
-			b = encodeUint(b, e.ptrToUint(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opUintIndent:
-			b = encodeUint(b, e.ptrToUint(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opUint8:
-			b = encodeUint8(b, e.ptrToUint8(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint8(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opUint8Indent:
-			b = encodeUint8(b, e.ptrToUint8(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint8(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opUint16:
-			b = encodeUint16(b, e.ptrToUint16(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint16(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opUint16Indent:
-			b = encodeUint16(b, e.ptrToUint16(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint16(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opUint32:
-			b = encodeUint32(b, e.ptrToUint32(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint32(load(ctxptr, code.idx))))
 			b = encodeComma(b)
 			code = code.next
 		case opUint32Indent:
-			b = encodeUint32(b, e.ptrToUint32(load(ctxptr, code.idx)))
+			b = appendUint(b, uint64(e.ptrToUint32(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opUint64:
-			b = encodeUint64(b, e.ptrToUint64(load(ctxptr, code.idx)))
+			b = appendUint(b, e.ptrToUint64(load(ctxptr, code.idx)))
 			b = encodeComma(b)
 			code = code.next
 		case opUint64Indent:
-			b = encodeUint64(b, e.ptrToUint64(load(ctxptr, code.idx)))
+			b = appendUint(b, e.ptrToUint64(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opFloat32:
@@ -1103,7 +1103,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeInt(b, e.ptrToInt(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1116,7 +1116,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeInt(b, e.ptrToInt(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1143,7 +1143,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeInt8(b, e.ptrToInt8(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1156,7 +1156,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeInt8(b, e.ptrToInt8(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1183,7 +1183,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeInt16(b, e.ptrToInt16(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1196,7 +1196,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeInt16(b, e.ptrToInt16(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1223,7 +1223,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeInt32(b, e.ptrToInt32(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1236,7 +1236,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeInt32(b, e.ptrToInt32(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1263,7 +1263,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeInt64(b, e.ptrToInt64(ptr+code.offset))
+				b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1276,7 +1276,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeInt64(b, e.ptrToInt64(ptr+code.offset))
+				b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1303,7 +1303,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeUint(b, e.ptrToUint(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1316,7 +1316,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeUint(b, e.ptrToUint(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1343,7 +1343,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeUint8(b, e.ptrToUint8(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1356,7 +1356,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeUint8(b, e.ptrToUint8(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1383,7 +1383,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeUint16(b, e.ptrToUint16(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1396,7 +1396,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeUint16(b, e.ptrToUint16(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1423,7 +1423,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeUint32(b, e.ptrToUint32(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1436,7 +1436,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeUint32(b, e.ptrToUint32(ptr+code.offset))
+				b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1463,7 +1463,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				b = encodeUint64(b, e.ptrToUint64(ptr+code.offset))
+				b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1476,7 +1476,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.end.next
 			} else {
 				b = e.encodeKey(b, code)
-				b = encodeUint64(b, e.ptrToUint64(ptr+code.offset))
+				b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1958,7 +1958,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt(b, e.ptrToInt(ptr+code.offset))
+				b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 				b = encodeIndentComma(b)
 				code = code.next
 			}
@@ -1978,7 +1978,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt8(b, e.ptrToInt8(ptr))
+				b = appendInt(b, int64(e.ptrToInt8(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -1997,7 +1997,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt16(b, e.ptrToInt16(ptr))
+				b = appendInt(b, int64(e.ptrToInt16(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -2017,7 +2017,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt32(b, e.ptrToInt32(ptr))
+				b = appendInt(b, int64(e.ptrToInt32(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -2037,7 +2037,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt64(b, e.ptrToInt64(ptr))
+				b = appendInt(b, int64(e.ptrToInt64(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -2057,7 +2057,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint(b, e.ptrToUint(ptr))
+				b = appendUint(b, uint64(e.ptrToUint(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -2077,7 +2077,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint8(b, e.ptrToUint8(ptr))
+				b = appendUint(b, uint64(e.ptrToUint8(ptr)))
 				b = append(b, ',', '\n')
 				code = code.next
 			}
@@ -2097,7 +2097,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint16(b, e.ptrToUint16(ptr))
+				b = appendUint(b, uint64(e.ptrToUint16(ptr)))
 				b = encodeIndentComma(b)
 				code = code.next
 			}
@@ -2117,7 +2117,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint32(b, e.ptrToUint32(ptr))
+				b = appendUint(b, uint64(e.ptrToUint32(ptr)))
 				b = encodeIndentComma(b)
 				code = code.next
 			}
@@ -2137,7 +2137,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint64(b, e.ptrToUint64(ptr))
+				b = appendUint(b, e.ptrToUint64(ptr))
 				b = encodeIndentComma(b)
 				code = code.next
 			}
@@ -2309,7 +2309,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2330,7 +2330,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2354,7 +2354,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt8(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2375,7 +2375,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt8(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2399,7 +2399,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt16(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2420,7 +2420,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt16(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2444,7 +2444,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt32(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2465,7 +2465,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt32(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2489,7 +2489,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt64(b, v)
+					b = appendInt(b, v)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2510,7 +2510,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeInt64(b, v)
+					b = appendInt(b, v)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2534,7 +2534,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2555,7 +2555,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2579,7 +2579,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint8(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2600,7 +2600,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint8(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2624,7 +2624,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint16(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2645,7 +2645,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint16(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2669,7 +2669,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint32(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2690,7 +2690,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint32(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2714,7 +2714,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint64(b, v)
+					b = appendUint(b, v)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2735,7 +2735,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					code = code.nextField
 				} else {
 					b = e.encodeKey(b, code)
-					b = encodeUint64(b, v)
+					b = appendUint(b, v)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -3179,7 +3179,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeInt(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3207,7 +3207,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeInt8(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3235,7 +3235,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeInt16(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3263,7 +3263,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeInt32(b, v)
+					b = appendInt(b, int64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3291,7 +3291,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeInt64(b, v)
+					b = appendInt(b, v)
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3319,7 +3319,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeUint(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3347,7 +3347,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeUint8(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3375,7 +3375,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeUint16(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3403,7 +3403,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeUint32(b, v)
+					b = appendUint(b, uint64(v))
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -3431,7 +3431,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 					b = e.encodeIndent(b, code.indent+1)
 					b = e.encodeKey(b, code)
 					b = append(b, ' ')
-					b = encodeUint64(b, v)
+					b = appendUint(b, v)
 					b = encodeIndentComma(b)
 					code = code.next
 				}
@@ -4683,14 +4683,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeInt(b, e.ptrToInt(p))
+				b = appendInt(b, int64(e.ptrToInt(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeInt(b, e.ptrToInt(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrInt8:
@@ -4700,14 +4700,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeInt8(b, e.ptrToInt8(p))
+				b = appendInt(b, int64(e.ptrToInt8(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldInt8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeInt8(b, e.ptrToInt8(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrInt16:
@@ -4717,14 +4717,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeInt16(b, e.ptrToInt16(p))
+				b = appendInt(b, int64(e.ptrToInt16(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldInt16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeInt16(b, e.ptrToInt16(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrInt32:
@@ -4734,14 +4734,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeInt32(b, e.ptrToInt32(p))
+				b = appendInt(b, int64(e.ptrToInt32(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldInt32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeInt32(b, e.ptrToInt32(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrInt64:
@@ -4751,14 +4751,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeInt64(b, e.ptrToInt64(p))
+				b = appendInt(b, e.ptrToInt64(p))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldInt64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeInt64(b, e.ptrToInt64(ptr+code.offset))
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrUint:
@@ -4768,14 +4768,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeUint(b, e.ptrToUint(p))
+				b = appendUint(b, uint64(e.ptrToUint(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeUint(b, e.ptrToUint(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrUint8:
@@ -4785,14 +4785,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeUint8(b, e.ptrToUint8(p))
+				b = appendUint(b, uint64(e.ptrToUint8(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeUint8(b, e.ptrToUint8(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrUint16:
@@ -4802,14 +4802,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeUint16(b, e.ptrToUint16(p))
+				b = appendUint(b, uint64(e.ptrToUint16(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeUint16(b, e.ptrToUint16(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrUint32:
@@ -4819,14 +4819,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeUint32(b, e.ptrToUint32(p))
+				b = appendUint(b, uint64(e.ptrToUint32(p)))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeUint32(b, e.ptrToUint32(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrUint64:
@@ -4836,14 +4836,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = encodeUint64(b, e.ptrToUint64(p))
+				b = appendUint(b, e.ptrToUint64(p))
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			b = encodeUint64(b, e.ptrToUint64(ptr+code.offset))
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrFloat32:
@@ -5001,7 +5001,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeInt(b, e.ptrToInt(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt8Indent:
@@ -5009,7 +5009,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeInt8(b, e.ptrToInt8(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt16Indent:
@@ -5017,7 +5017,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeInt16(b, e.ptrToInt16(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt32Indent:
@@ -5025,7 +5025,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeInt32(b, e.ptrToInt32(ptr+code.offset))
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt64Indent:
@@ -5033,7 +5033,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeInt64(b, e.ptrToInt64(ptr+code.offset))
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUintIndent:
@@ -5041,7 +5041,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeUint(b, e.ptrToUint(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint8Indent:
@@ -5049,7 +5049,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeUint8(b, e.ptrToUint8(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint16Indent:
@@ -5057,7 +5057,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeUint16(b, e.ptrToUint16(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint32Indent:
@@ -5065,7 +5065,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeUint32(b, e.ptrToUint32(ptr+code.offset))
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint64Indent:
@@ -5073,7 +5073,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeUint64(b, e.ptrToUint64(ptr+code.offset))
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldFloat32Indent:
@@ -5243,7 +5243,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToInt(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeInt(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5252,7 +5252,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToInt8(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeInt8(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5261,7 +5261,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToInt16(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeInt16(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5270,7 +5270,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToInt32(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeInt32(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5279,7 +5279,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToInt64(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeInt64(b, v)
+				b = appendInt(b, v)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5288,7 +5288,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToUint(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeUint(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5297,7 +5297,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToUint8(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeUint8(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5306,7 +5306,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToUint16(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeUint16(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5315,7 +5315,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToUint32(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeUint32(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5324,7 +5324,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			v := e.ptrToUint64(ptr + code.offset)
 			if v != 0 {
 				b = e.encodeKey(b, code)
-				b = encodeUint64(b, v)
+				b = appendUint(b, v)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -5469,7 +5469,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5480,7 +5480,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt8(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5491,7 +5491,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt16(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5502,7 +5502,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt32(b, v)
+				b = appendInt(b, int64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5513,7 +5513,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeInt64(b, v)
+				b = appendInt(b, v)
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5524,7 +5524,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5535,7 +5535,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint8(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5546,7 +5546,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint16(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5557,7 +5557,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint32(b, v)
+				b = appendUint(b, uint64(v))
 				b = encodeIndentComma(b)
 			}
 			code = code.next
@@ -5568,7 +5568,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				b = encodeUint64(b, v)
+				b = appendUint(b, v)
 				b = encodeIndentComma(b)
 			}
 			code = code.next

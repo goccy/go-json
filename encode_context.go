@@ -88,7 +88,10 @@ type encodeRuntimeContext struct {
 	keepRefs []unsafe.Pointer
 }
 
-func (c *encodeRuntimeContext) init(p uintptr) {
+func (c *encodeRuntimeContext) init(p uintptr, codelen int) {
+	if len(c.ptrs) < codelen {
+		c.ptrs = make([]uintptr, codelen)
+	}
 	c.ptrs[0] = p
 	c.keepRefs = c.keepRefs[:0]
 }

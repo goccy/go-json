@@ -51,7 +51,7 @@ func errMarshaler(code *opcode, err error) *MarshalerError {
 
 func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte, error) {
 	recursiveLevel := 0
-	seenPtr := map[uintptr]struct{}{}
+	var seenPtr map[uintptr]struct{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 
@@ -211,6 +211,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				code = code.next
 				break
 			}
+			if seenPtr == nil {
+				seenPtr = map[uintptr]struct{}{}
+			}
 			if _, exists := seenPtr[ptr]; exists {
 				return nil, errUnsupportedValue(code, ptr)
 			}
@@ -287,6 +290,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = encodeIndentComma(b)
 				code = code.next
 				break
+			}
+			if seenPtr == nil {
+				seenPtr = map[uintptr]struct{}{}
 			}
 			if _, exists := seenPtr[ptr]; exists {
 				return nil, errUnsupportedValue(code, ptr)
@@ -991,6 +997,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 						return nil, errUnsupportedValue(code, ptr)
 					}
 				}
+			}
+			if seenPtr == nil {
+				seenPtr = map[uintptr]struct{}{}
 			}
 			seenPtr[ptr] = struct{}{}
 			c := code.jmp.code

@@ -42,7 +42,7 @@ func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, er
 	case reflect.Interface:
 		return d.compileInterface(typ, structName, fieldName)
 	case reflect.Uintptr:
-		return d.compileUint(structName, fieldName)
+		return d.compileUint(typ, structName, fieldName)
 	case reflect.Int:
 		return d.compileInt(typ, structName, fieldName)
 	case reflect.Int8:
@@ -54,15 +54,15 @@ func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, er
 	case reflect.Int64:
 		return d.compileInt64(typ, structName, fieldName)
 	case reflect.Uint:
-		return d.compileUint(structName, fieldName)
+		return d.compileUint(typ, structName, fieldName)
 	case reflect.Uint8:
-		return d.compileUint8(structName, fieldName)
+		return d.compileUint8(typ, structName, fieldName)
 	case reflect.Uint16:
-		return d.compileUint16(structName, fieldName)
+		return d.compileUint16(typ, structName, fieldName)
 	case reflect.Uint32:
-		return d.compileUint32(structName, fieldName)
+		return d.compileUint32(typ, structName, fieldName)
 	case reflect.Uint64:
-		return d.compileUint64(structName, fieldName)
+		return d.compileUint64(typ, structName, fieldName)
 	case reflect.String:
 		return d.compileString(structName, fieldName)
 	case reflect.Bool:
@@ -134,32 +134,32 @@ func (d *Decoder) compileInt64(typ *rtype, structName, fieldName string) (decode
 	}), nil
 }
 
-func (d *Decoder) compileUint(structName, fieldName string) (decoder, error) {
-	return newUintDecoder(structName, fieldName, func(p unsafe.Pointer, v uint64) {
+func (d *Decoder) compileUint(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint)(p) = uint(v)
 	}), nil
 }
 
-func (d *Decoder) compileUint8(structName, fieldName string) (decoder, error) {
-	return newUintDecoder(structName, fieldName, func(p unsafe.Pointer, v uint64) {
+func (d *Decoder) compileUint8(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint8)(p) = uint8(v)
 	}), nil
 }
 
-func (d *Decoder) compileUint16(structName, fieldName string) (decoder, error) {
-	return newUintDecoder(structName, fieldName, func(p unsafe.Pointer, v uint64) {
+func (d *Decoder) compileUint16(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint16)(p) = uint16(v)
 	}), nil
 }
 
-func (d *Decoder) compileUint32(structName, fieldName string) (decoder, error) {
-	return newUintDecoder(structName, fieldName, func(p unsafe.Pointer, v uint64) {
+func (d *Decoder) compileUint32(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint32)(p) = uint32(v)
 	}), nil
 }
 
-func (d *Decoder) compileUint64(structName, fieldName string) (decoder, error) {
-	return newUintDecoder(structName, fieldName, func(p unsafe.Pointer, v uint64) {
+func (d *Decoder) compileUint64(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint64)(p) = v
 	}), nil
 }

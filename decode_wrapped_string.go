@@ -1,6 +1,8 @@
 package json
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type wrappedStringDecoder struct {
 	dec           decoder

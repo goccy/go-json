@@ -2,11 +2,13 @@ package json
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 )
 
 type intDecoder struct {
 	typ        *rtype
+	kind       reflect.Kind
 	op         func(unsafe.Pointer, int64)
 	structName string
 	fieldName  string
@@ -15,6 +17,7 @@ type intDecoder struct {
 func newIntDecoder(typ *rtype, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{
 		typ:        typ,
+		kind:       typ.Kind(),
 		op:         op,
 		structName: structName,
 		fieldName:  fieldName,
@@ -26,16 +29,6 @@ func (d *intDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
 		Value:  fmt.Sprintf("number %s", string(buf)),
 		Type:   rtype2type(d.typ),
 		Offset: offset,
-	}
-}
-
-func (d *intDecoder) annotateError(cursor int64, err error) {
-	switch e := err.(type) {
-	case *UnmarshalTypeError:
-		e.Struct = d.structName
-		e.Field = d.fieldName
-	case *SyntaxError:
-		e.Offset = cursor
 	}
 }
 
@@ -162,7 +155,22 @@ func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	d.op(p, d.parseInt(bytes))
+	i64 := d.parseInt(bytes)
+	switch d.kind {
+	case reflect.Int8:
+		if i64 <= -1*(1<<7) || (1<<7) <= i64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	case reflect.Int16:
+		if i64 <= -1*(1<<15) || (1<<15) <= i64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	case reflect.Int32:
+		if i64 <= -1*(1<<31) || (1<<31) <= i64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	}
+	d.op(p, i64)
 	s.reset()
 	return nil
 }
@@ -173,6 +181,21 @@ func (d *intDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		return 0, err
 	}
 	cursor = c
-	d.op(p, d.parseInt(bytes))
+	i64 := d.parseInt(bytes)
+	switch d.kind {
+	case reflect.Int8:
+		if i64 <= -1*(1<<7) || (1<<7) <= i64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	case reflect.Int16:
+		if i64 <= -1*(1<<15) || (1<<15) <= i64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	case reflect.Int32:
+		if i64 <= -1*(1<<31) || (1<<31) <= i64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	}
+	d.op(p, i64)
 	return cursor, nil
 }

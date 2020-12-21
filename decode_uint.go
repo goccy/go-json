@@ -1,15 +1,35 @@
 package json
 
-import "unsafe"
+import (
+	"fmt"
+	"reflect"
+	"unsafe"
+)
 
 type uintDecoder struct {
+	typ        *rtype
+	kind       reflect.Kind
 	op         func(unsafe.Pointer, uint64)
 	structName string
 	fieldName  string
 }
 
-func newUintDecoder(structName, fieldName string, op func(unsafe.Pointer, uint64)) *uintDecoder {
-	return &uintDecoder{op: op, structName: structName, fieldName: fieldName}
+func newUintDecoder(typ *rtype, structName, fieldName string, op func(unsafe.Pointer, uint64)) *uintDecoder {
+	return &uintDecoder{
+		typ:        typ,
+		kind:       typ.Kind(),
+		op:         op,
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *uintDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  fmt.Sprintf("number %s", string(buf)),
+		Type:   rtype2type(d.typ),
+		Offset: offset,
+	}
 }
 
 var pow10u64 = [...]uint64{
@@ -50,6 +70,8 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			}
 			num := s.buf[start:s.cursor]
 			return num, nil
+		default:
+			return nil, d.typeError([]byte{s.char()}, s.totalOffset())
 		case nul:
 			if s.read() {
 				continue
@@ -79,7 +101,7 @@ func (d *uintDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error
 			num := buf[start:cursor]
 			return num, cursor, nil
 		default:
-			return nil, 0, errInvalidCharacter(buf[cursor], "number(unsigned integer)", cursor)
+			return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
 		}
 	}
 	return nil, 0, errUnexpectedEndOfJSON("number(unsigned integer)", cursor)
@@ -90,7 +112,22 @@ func (d *uintDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	d.op(p, d.parseUint(bytes))
+	u64 := d.parseUint(bytes)
+	switch d.kind {
+	case reflect.Uint8:
+		if (1 << 8) <= u64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	case reflect.Uint16:
+		if (1 << 16) <= u64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	case reflect.Uint32:
+		if (1 << 32) <= u64 {
+			return d.typeError(bytes, s.totalOffset())
+		}
+	}
+	d.op(p, u64)
 	return nil
 }
 
@@ -100,6 +137,21 @@ func (d *uintDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64,
 		return 0, err
 	}
 	cursor = c
-	d.op(p, d.parseUint(bytes))
+	u64 := d.parseUint(bytes)
+	switch d.kind {
+	case reflect.Uint8:
+		if (1 << 8) <= u64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	case reflect.Uint16:
+		if (1 << 16) <= u64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	case reflect.Uint32:
+		if (1 << 32) <= u64 {
+			return 0, d.typeError(bytes, cursor)
+		}
+	}
+	d.op(p, u64)
 	return cursor, nil
 }

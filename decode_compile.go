@@ -215,15 +215,59 @@ func (d *Decoder) compileMap(typ *rtype, structName, fieldName string) (decoder,
 	if err != nil {
 		return nil, err
 	}
-	return newMapDecoder(typ, keyDec, valueDec, structName, fieldName), nil
+	return newMapDecoder(typ, typ.Key(), keyDec, typ.Elem(), valueDec, structName, fieldName), nil
 }
 
 func (d *Decoder) compileInterface(typ *rtype, structName, fieldName string) (decoder, error) {
 	return newInterfaceDecoder(typ, structName, fieldName), nil
 }
 
+func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, baseOffset uintptr) {
+	for k, v := range dec.fieldMap {
+		if _, exists := conflictedMap[k]; exists {
+			// already conflicted key
+			continue
+		}
+		set, exists := fieldMap[k]
+		if !exists {
+			fieldSet := &structFieldSet{
+				dec:         v.dec,
+				offset:      baseOffset + v.offset,
+				isTaggedKey: v.isTaggedKey,
+			}
+			fieldMap[k] = fieldSet
+			fieldMap[strings.ToLower(k)] = fieldSet
+			continue
+		}
+		if set.isTaggedKey {
+			if v.isTaggedKey {
+				// conflict tag key
+				delete(fieldMap, k)
+				conflictedMap[k] = struct{}{}
+				conflictedMap[strings.ToLower(k)] = struct{}{}
+			}
+		} else {
+			if v.isTaggedKey {
+				fieldSet := &structFieldSet{
+					dec:         v.dec,
+					offset:      baseOffset + v.offset,
+					isTaggedKey: v.isTaggedKey,
+				}
+				fieldMap[k] = fieldSet
+				fieldMap[strings.ToLower(k)] = fieldSet
+			} else {
+				// conflict tag key
+				delete(fieldMap, k)
+				conflictedMap[k] = struct{}{}
+				conflictedMap[strings.ToLower(k)] = struct{}{}
+			}
+		}
+	}
+}
+
 func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decoder, error) {
 	fieldNum := typ.NumField()
+	conflictedMap := map[string]struct{}{}
 	fieldMap := map[string]*structFieldSet{}
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if dec, exists := d.structTypeToDecoder[typeptr]; exists {
@@ -242,13 +286,75 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 		if err != nil {
 			return nil, err
 		}
-		if tag.isString {
-			dec = newWrappedStringDecoder(dec, structName, field.Name)
+		if field.Anonymous && !tag.isTaggedKey {
+			if stDec, ok := dec.(*structDecoder); ok {
+				if type2rtype(field.Type) == typ {
+					// recursive definition
+					continue
+				}
+				d.removeConflictFields(fieldMap, conflictedMap, stDec, uintptr(field.Offset))
+			} else if pdec, ok := dec.(*ptrDecoder); ok {
+				contentDec := pdec.contentDecoder()
+				if pdec.typ == typ {
+					// recursive definition
+					continue
+				}
+				if dec, ok := contentDec.(*structDecoder); ok {
+					for k, v := range dec.fieldMap {
+						if _, exists := conflictedMap[k]; exists {
+							// already conflicted key
+							continue
+						}
+						set, exists := fieldMap[k]
+						if !exists {
+							fieldSet := &structFieldSet{
+								dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
+								offset:      uintptr(field.Offset),
+								isTaggedKey: v.isTaggedKey,
+							}
+							fieldMap[k] = fieldSet
+							fieldMap[strings.ToLower(k)] = fieldSet
+							continue
+						}
+						if set.isTaggedKey {
+							if v.isTaggedKey {
+								// conflict tag key
+								delete(fieldMap, k)
+								conflictedMap[k] = struct{}{}
+								conflictedMap[strings.ToLower(k)] = struct{}{}
+							}
+						} else {
+							if v.isTaggedKey {
+								fieldSet := &structFieldSet{
+									dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
+									offset:      uintptr(field.Offset),
+									isTaggedKey: v.isTaggedKey,
+								}
+								fieldMap[k] = fieldSet
+								fieldMap[strings.ToLower(k)] = fieldSet
+							} else {
+								// conflict tag key
+								delete(fieldMap, k)
+								conflictedMap[k] = struct{}{}
+								conflictedMap[strings.ToLower(k)] = struct{}{}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			if tag.isString {
+				dec = newWrappedStringDecoder(dec, structName, field.Name)
+			}
+			fieldSet := &structFieldSet{dec: dec, offset: field.Offset, isTaggedKey: tag.isTaggedKey}
+			if tag.key != "" {
+				fieldMap[tag.key] = fieldSet
+				fieldMap[strings.ToLower(tag.key)] = fieldSet
+			} else {
+				fieldMap[field.Name] = fieldSet
+				fieldMap[strings.ToLower(field.Name)] = fieldSet
+			}
 		}
-		fieldSet := &structFieldSet{dec: dec, offset: field.Offset}
-		fieldMap[field.Name] = fieldSet
-		fieldMap[tag.key] = fieldSet
-		fieldMap[strings.ToLower(tag.key)] = fieldSet
 	}
 	delete(d.structTypeToDecoder, typeptr)
 	return structDec, nil

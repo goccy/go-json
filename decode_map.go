@@ -6,16 +6,20 @@ import (
 
 type mapDecoder struct {
 	mapType      *rtype
+	keyType      *rtype
+	valueType    *rtype
 	keyDecoder   decoder
 	valueDecoder decoder
 	structName   string
 	fieldName    string
 }
 
-func newMapDecoder(mapType *rtype, keyDec decoder, valueDec decoder, structName, fieldName string) *mapDecoder {
+func newMapDecoder(mapType *rtype, keyType *rtype, keyDec decoder, valueType *rtype, valueDec decoder, structName, fieldName string) *mapDecoder {
 	return &mapDecoder{
 		mapType:      mapType,
 		keyDecoder:   keyDec,
+		keyType:      keyType,
+		valueType:    valueType,
 		valueDecoder: valueDec,
 		structName:   structName,
 		fieldName:    fieldName,
@@ -39,16 +43,6 @@ func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64,
 	return d.valueDecoder.decode(buf, cursor, header.ptr)
 }
 
-func (d *mapDecoder) setKeyStream(s *stream, key interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.keyDecoder.decodeStream(s, header.ptr)
-}
-
-func (d *mapDecoder) setValueStream(s *stream, key interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.valueDecoder.decodeStream(s, header.ptr)
-}
-
 func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	switch s.char() {
@@ -70,8 +64,8 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 	for {
 		s.cursor++
-		var key interface{}
-		if err := d.setKeyStream(s, &key); err != nil {
+		k := unsafe_New(d.keyType)
+		if err := d.keyDecoder.decodeStream(s, k); err != nil {
 			return err
 		}
 		s.skipWhiteSpace()
@@ -82,11 +76,11 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			return errExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
-		var value interface{}
-		if err := d.setValueStream(s, &value); err != nil {
+		v := unsafe_New(d.valueType)
+		if err := d.valueDecoder.decodeStream(s, v); err != nil {
 			return err
 		}
-		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
+		mapassign(d.mapType, mapValue, k, v)
 		s.skipWhiteSpace()
 		if s.char() == nul {
 			s.read()

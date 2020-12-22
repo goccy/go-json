@@ -34,6 +34,9 @@ var (
 	interfaceMapType = type2rtype(
 		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
 	)
+	stringType = type2rtype(
+		reflect.TypeOf(""),
+	)
 )
 
 func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
@@ -45,7 +48,9 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			ptr := unsafe.Pointer(&v)
 			if err := newMapDecoder(
 				interfaceMapType,
+				stringType,
 				newStringDecoder(d.structName, d.fieldName),
+				interfaceMapType.Elem(),
 				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
 				d.structName,
 				d.fieldName,
@@ -129,7 +134,9 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		ptr := unsafe.Pointer(&v)
 		dec := newMapDecoder(
 			interfaceMapType,
+			stringType,
 			newStringDecoder(d.structName, d.fieldName),
+			interfaceMapType.Elem(),
 			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
 			d.structName, d.fieldName,
 		)

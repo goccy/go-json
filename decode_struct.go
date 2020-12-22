@@ -6,8 +6,9 @@ import (
 )
 
 type structFieldSet struct {
-	dec    decoder
-	offset uintptr
+	dec         decoder
+	offset      uintptr
+	isTaggedKey bool
 }
 
 type structDecoder struct {

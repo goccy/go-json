@@ -20,6 +20,14 @@ func newPtrDecoder(dec decoder, typ *rtype, structName, fieldName string) *ptrDe
 	}
 }
 
+func (d *ptrDecoder) contentDecoder() decoder {
+	dec, ok := d.dec.(*ptrDecoder)
+	if !ok {
+		return d.dec
+	}
+	return dec.contentDecoder()
+}
+
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) unsafe.Pointer
 

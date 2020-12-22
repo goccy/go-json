@@ -486,10 +486,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
 			p := e.ptrToUnsafePtr(ptr)
-			if p == nil {
-				b = encodeNull(b)
-				b = encodeComma(b)
-			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
+			if p == nil || isPtr && *(*unsafe.Pointer)(p) == nil {
 				b = append(b, '"', '"', ',')
 			} else {
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{

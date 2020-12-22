@@ -33,17 +33,8 @@ $ go test -bench .
 
 **Fastest**
 
-### SmallStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118973-5a8cd600-d4e5-11ea-8a07-775cf3e32a2f.png"></img>
-
-### MediumStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118974-5d87c680-d4e5-11ea-8f4e-dbb01c2dd861.png"></img>
-
-### LargeStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118977-5f518a00-d4e5-11ea-8bfe-1455fc71c963.png"></img>
+<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/102718073-82ac9280-4329-11eb-94f2-c5377a2feeed.png">
+<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/102718071-804a3880-4329-11eb-9e70-5de74e55a553.png">
 
 ## Decode
 

@@ -9,12 +9,14 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
 	w                              io.Writer
+	ctx                            *encodeRuntimeContext
 	buf                            []byte
 	enabledIndent                  bool
 	enabledHTMLEscape              bool
@@ -33,31 +35,32 @@ const (
 	bufSize = 1024
 )
 
-type opcodeMap struct {
-	sync.Map
-}
-
 type opcodeSet struct {
 	codeIndent *opcode
 	code       *opcode
-	ctx        sync.Pool
+	codeLength int
 }
 
-func (m *opcodeMap) get(k uintptr) *opcodeSet {
-	if v, ok := m.Load(k); ok {
-		return v.(*opcodeSet)
+func loadOpcodeMap() map[uintptr]*opcodeSet {
+	p := atomic.LoadPointer(&cachedOpcode)
+	return *(*map[uintptr]*opcodeSet)(unsafe.Pointer(&p))
+}
+
+func storeOpcodeSet(typ uintptr, set *opcodeSet, m map[uintptr]*opcodeSet) {
+	newOpcodeMap := make(map[uintptr]*opcodeSet, len(m)+1)
+	newOpcodeMap[typ] = set
+
+	for k, v := range m {
+		newOpcodeMap[k] = v
 	}
-	return nil
-}
 
-func (m *opcodeMap) set(k uintptr, op *opcodeSet) {
-	m.Store(k, op)
+	atomic.StorePointer(&cachedOpcode, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
 }
 
 var (
 	encPool         sync.Pool
 	codePool        sync.Pool
-	cachedOpcode    opcodeMap
+	cachedOpcode    unsafe.Pointer // map[uintptr]*opcodeSet
 	marshalJSONType reflect.Type
 	marshalTextType reflect.Type
 )
@@ -66,13 +69,16 @@ func init() {
 	encPool = sync.Pool{
 		New: func() interface{} {
 			return &Encoder{
+				ctx: &encodeRuntimeContext{
+					ptrs:     make([]uintptr, 128),
+					keepRefs: make([]unsafe.Pointer, 0, 8),
+				},
 				buf:                            make([]byte, 0, bufSize),
 				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
 				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
 			}
 		},
 	}
-	cachedOpcode = opcodeMap{}
 	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 }
@@ -99,7 +105,8 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 			return err
 		}
 	}
-	if err := e.encode(v); err != nil {
+	var err error
+	if e.buf, err = e.encode(v); err != nil {
 		return err
 	}
 	if e.enabledIndent {
@@ -148,7 +155,8 @@ func (e *Encoder) reset() {
 }
 
 func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
-	if err := e.encode(v); err != nil {
+	var err error
+	if e.buf, err = e.encode(v); err != nil {
 		return nil, err
 	}
 	if e.enabledIndent {
@@ -161,33 +169,33 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 	return copied, nil
 }
 
-func (e *Encoder) encode(v interface{}) error {
+func (e *Encoder) encode(v interface{}) ([]byte, error) {
+	b := e.buf
 	if v == nil {
-		e.encodeNull()
+		b = encodeNull(b)
 		if e.enabledIndent {
-			e.encodeBytes([]byte{',', '\n'})
+			b = encodeIndentComma(b)
 		} else {
-			e.encodeByte(',')
+			b = encodeComma(b)
 		}
-		return nil
+		return b, nil
 	}
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	if codeSet := cachedOpcode.get(typeptr); codeSet != nil {
+	opcodeMap := loadOpcodeMap()
+	if codeSet, exists := opcodeMap[typeptr]; exists {
 		var code *opcode
 		if e.enabledIndent {
 			code = codeSet.codeIndent
 		} else {
 			code = codeSet.code
 		}
-		ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
+		ctx := e.ctx
 		p := uintptr(header.ptr)
-		ctx.init(p)
-		err := e.run(ctx, code)
-		codeSet.ctx.Put(ctx)
-		return err
+		ctx.init(p, codeSet.codeLength)
+		return e.run(ctx, b, code)
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -199,7 +207,7 @@ func (e *Encoder) encode(v interface{}) error {
 		withIndent: true,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	code, err := e.compileHead(&encodeCompileContext{
 		typ:        copiedType,
@@ -207,7 +215,7 @@ func (e *Encoder) encode(v interface{}) error {
 		withIndent: false,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	codeIndent = copyOpcode(codeIndent)
 	code = copyOpcode(code)
@@ -215,19 +223,13 @@ func (e *Encoder) encode(v interface{}) error {
 	codeSet := &opcodeSet{
 		codeIndent: codeIndent,
 		code:       code,
-		ctx: sync.Pool{
-			New: func() interface{} {
-				return &encodeRuntimeContext{
-					ptrs:     make([]uintptr, codeLength),
-					keepRefs: make([]unsafe.Pointer, 8),
-				}
-			},
-		},
+		codeLength: codeLength,
 	}
-	cachedOpcode.set(typeptr, codeSet)
+
+	storeOpcodeSet(typeptr, codeSet, opcodeMap)
 	p := uintptr(header.ptr)
-	ctx := codeSet.ctx.Get().(*encodeRuntimeContext)
-	ctx.init(p)
+	ctx := e.ctx
+	ctx.init(p, codeLength)
 
 	var c *opcode
 	if e.enabledIndent {
@@ -236,55 +238,14 @@ func (e *Encoder) encode(v interface{}) error {
 		c = code
 	}
 
-	if err := e.run(ctx, c); err != nil {
-		codeSet.ctx.Put(ctx)
-		return err
+	b, err = e.run(ctx, b, c)
+	if err != nil {
+		return nil, err
 	}
-	codeSet.ctx.Put(ctx)
-	return nil
+	return b, nil
 }
 
-func (e *Encoder) encodeInt(v int) {
-	e.encodeInt64(int64(v))
-}
-
-func (e *Encoder) encodeInt8(v int8) {
-	e.encodeInt64(int64(v))
-}
-
-func (e *Encoder) encodeInt16(v int16) {
-	e.encodeInt64(int64(v))
-}
-
-func (e *Encoder) encodeInt32(v int32) {
-	e.encodeInt64(int64(v))
-}
-
-func (e *Encoder) encodeInt64(v int64) {
-	e.buf = strconv.AppendInt(e.buf, v, 10)
-}
-
-func (e *Encoder) encodeUint(v uint) {
-	e.encodeUint64(uint64(v))
-}
-
-func (e *Encoder) encodeUint8(v uint8) {
-	e.encodeUint64(uint64(v))
-}
-
-func (e *Encoder) encodeUint16(v uint16) {
-	e.encodeUint64(uint64(v))
-}
-
-func (e *Encoder) encodeUint32(v uint32) {
-	e.encodeUint64(uint64(v))
-}
-
-func (e *Encoder) encodeUint64(v uint64) {
-	e.buf = strconv.AppendUint(e.buf, v, 10)
-}
-
-func (e *Encoder) encodeFloat32(v float32) {
+func encodeFloat32(b []byte, v float32) []byte {
 	f64 := float64(v)
 	abs := math.Abs(f64)
 	fmt := byte('f')
@@ -295,10 +256,10 @@ func (e *Encoder) encodeFloat32(v float32) {
 			fmt = 'e'
 		}
 	}
-	e.buf = strconv.AppendFloat(e.buf, f64, fmt, -1, 32)
+	return strconv.AppendFloat(b, f64, fmt, -1, 32)
 }
 
-func (e *Encoder) encodeFloat64(v float64) {
+func encodeFloat64(b []byte, v float64) []byte {
 	abs := math.Abs(v)
 	fmt := byte('f')
 	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
@@ -307,58 +268,62 @@ func (e *Encoder) encodeFloat64(v float64) {
 			fmt = 'e'
 		}
 	}
-	e.buf = strconv.AppendFloat(e.buf, v, fmt, -1, 64)
+	return strconv.AppendFloat(b, v, fmt, -1, 64)
 }
 
-func (e *Encoder) encodeBool(v bool) {
-	e.buf = strconv.AppendBool(e.buf, v)
-}
-
-func (e *Encoder) encodeBytes(b []byte) {
-	e.buf = append(e.buf, b...)
-}
-
-func (e *Encoder) encodeNull() {
-	e.buf = append(e.buf, 'n', 'u', 'l', 'l')
-}
-
-func (e *Encoder) encodeKey(code *opcode) {
-	if e.enabledHTMLEscape {
-		e.encodeBytes(code.escapedKey)
-	} else {
-		e.encodeBytes(code.key)
+func encodeBool(b []byte, v bool) []byte {
+	if v {
+		return append(b, "true"...)
 	}
+	return append(b, "false"...)
 }
 
-func (e *Encoder) encodeString(s string) {
+func encodeBytes(dst []byte, src []byte) []byte {
+	return append(dst, src...)
+}
+
+func encodeNull(b []byte) []byte {
+	return append(b, "null"...)
+}
+
+func encodeComma(b []byte) []byte {
+	return append(b, ',')
+}
+
+func encodeIndentComma(b []byte) []byte {
+	return append(b, ',', '\n')
+}
+
+func (e *Encoder) encodeKey(b []byte, code *opcode) []byte {
 	if e.enabledHTMLEscape {
-		e.encodeEscapedString(s)
-	} else {
-		e.encodeNoEscapedString(s)
+		return append(b, code.escapedKey...)
 	}
+	return append(b, code.key...)
 }
 
-func (e *Encoder) encodeByteSlice(b []byte) {
-	encodedLen := base64.StdEncoding.EncodedLen(len(b))
-	e.encodeByte('"')
-	pos := len(e.buf)
-	remainLen := cap(e.buf[pos:])
+func (e *Encoder) encodeString(b []byte, s string) []byte {
+	if e.enabledHTMLEscape {
+		return encodeEscapedString(b, s)
+	}
+	return encodeNoEscapedString(b, s)
+}
+
+func encodeByteSlice(b []byte, src []byte) []byte {
+	encodedLen := base64.StdEncoding.EncodedLen(len(src))
+	b = append(b, '"')
+	pos := len(b)
+	remainLen := cap(b[pos:])
 	var buf []byte
 	if remainLen > encodedLen {
-		buf = e.buf[pos : pos+encodedLen]
+		buf = b[pos : pos+encodedLen]
 	} else {
 		buf = make([]byte, encodedLen)
 	}
-	base64.StdEncoding.Encode(buf, b)
-	e.encodeBytes(buf)
-	e.encodeByte('"')
+	base64.StdEncoding.Encode(buf, src)
+	return append(append(b, buf...), '"')
 }
 
-func (e *Encoder) encodeByte(b byte) {
-	e.buf = append(e.buf, b)
-}
-
-func (e *Encoder) encodeIndent(indent int) {
-	e.buf = append(e.buf, e.prefix...)
-	e.buf = append(e.buf, bytes.Repeat(e.indentStr, indent)...)
+func (e *Encoder) encodeIndent(b []byte, indent int) []byte {
+	b = append(b, e.prefix...)
+	return append(b, bytes.Repeat(e.indentStr, indent)...)
 }

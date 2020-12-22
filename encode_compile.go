@@ -1092,7 +1092,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 
 		var buf bytes.Buffer
 		enc := NewEncoder(&buf)
-		enc.encodeEscapedString(tag.key)
+		enc.buf = encodeEscapedString(enc.buf, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(enc.buf))
 		enc.release()
 		fieldCode := &opcode{

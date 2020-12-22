@@ -393,7 +393,7 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	}
 	enc := NewEncoder(dst)
 	enc.SetEscapeHTML(true)
-	enc.encode(v)
+	enc.buf, _ = enc.encode(v)
 	dst.Write(enc.buf[:len(enc.buf)-1]) // remove last ',' character
 }
 

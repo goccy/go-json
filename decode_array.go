@@ -35,8 +35,7 @@ func (d *arrayDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			idx := 0
 			for {
 				s.cursor++
-				addr := uintptr(p) + uintptr(idx)*d.size
-				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(addr)); err != nil {
+				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
@@ -95,8 +94,7 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 			idx := 0
 			for {
 				cursor++
-				addr := uintptr(p) + uintptr(idx)*d.size
-				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(addr))
+				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
 				if err != nil {
 					return 0, err
 				}

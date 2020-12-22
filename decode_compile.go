@@ -236,7 +236,10 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 				isTaggedKey: v.isTaggedKey,
 			}
 			fieldMap[k] = fieldSet
-			fieldMap[strings.ToLower(k)] = fieldSet
+			lower := strings.ToLower(k)
+			if _, exists := fieldMap[lower]; !exists {
+				fieldMap[lower] = fieldSet
+			}
 			continue
 		}
 		if set.isTaggedKey {
@@ -254,7 +257,10 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 					isTaggedKey: v.isTaggedKey,
 				}
 				fieldMap[k] = fieldSet
-				fieldMap[strings.ToLower(k)] = fieldSet
+				lower := strings.ToLower(k)
+				if _, exists := fieldMap[lower]; !exists {
+					fieldMap[lower] = fieldSet
+				}
 			} else {
 				// conflict tag key
 				delete(fieldMap, k)
@@ -313,7 +319,10 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 								isTaggedKey: v.isTaggedKey,
 							}
 							fieldMap[k] = fieldSet
-							fieldMap[strings.ToLower(k)] = fieldSet
+							lower := strings.ToLower(k)
+							if _, exists := fieldMap[lower]; !exists {
+								fieldMap[lower] = fieldSet
+							}
 							continue
 						}
 						if set.isTaggedKey {
@@ -331,7 +340,10 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 									isTaggedKey: v.isTaggedKey,
 								}
 								fieldMap[k] = fieldSet
-								fieldMap[strings.ToLower(k)] = fieldSet
+								lower := strings.ToLower(k)
+								if _, exists := fieldMap[lower]; !exists {
+									fieldMap[lower] = fieldSet
+								}
 							} else {
 								// conflict tag key
 								delete(fieldMap, k)
@@ -349,10 +361,16 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 			fieldSet := &structFieldSet{dec: dec, offset: field.Offset, isTaggedKey: tag.isTaggedKey}
 			if tag.key != "" {
 				fieldMap[tag.key] = fieldSet
-				fieldMap[strings.ToLower(tag.key)] = fieldSet
+				lower := strings.ToLower(tag.key)
+				if _, exists := fieldMap[lower]; !exists {
+					fieldMap[lower] = fieldSet
+				}
 			} else {
 				fieldMap[field.Name] = fieldSet
-				fieldMap[strings.ToLower(field.Name)] = fieldSet
+				lower := strings.ToLower(field.Name)
+				if _, exists := fieldMap[lower]; !exists {
+					fieldMap[lower] = fieldSet
+				}
 			}
 		}
 	}

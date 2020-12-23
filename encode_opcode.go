@@ -14,6 +14,7 @@ type opcode struct {
 	displayIdx   int    // opcode index
 	key          []byte // struct field key
 	escapedKey   []byte // struct field key ( HTML escaped )
+	ptrNum       int    // pointer number: e.g. double pointer is 2.
 	displayKey   string // key text to display
 	isTaggedKey  bool   // whether tagged key
 	anonymousKey bool   // whether anonymous key
@@ -85,6 +86,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		key:          c.key,
 		escapedKey:   c.escapedKey,
 		displayKey:   c.displayKey,
+		ptrNum:       c.ptrNum,
 		isTaggedKey:  c.isTaggedKey,
 		anonymousKey: c.anonymousKey,
 		root:         c.root,

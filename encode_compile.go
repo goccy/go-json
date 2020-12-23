@@ -508,8 +508,84 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) typeToHeaderType(op opType) opType {
-	switch op {
+func (e *Encoder) typeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
+	switch code.op {
+	case opPtr:
+		ptrNum := 1
+		c := code
+		ctx.decIndex()
+		for {
+			if code.next.op == opPtr {
+				ptrNum++
+				code = code.next
+				ctx.decIndex()
+			}
+			break
+		}
+		c.ptrNum = ptrNum
+		if ptrNum > 1 {
+			switch code.next.op {
+			case opInt:
+				return opStructFieldHeadIntNPtr
+			case opInt8:
+				return opStructFieldHeadInt8NPtr
+			case opInt16:
+				return opStructFieldHeadInt16NPtr
+			case opInt32:
+				return opStructFieldHeadInt32NPtr
+			case opInt64:
+				return opStructFieldHeadInt64NPtr
+			case opUint:
+				return opStructFieldHeadUintNPtr
+			case opUint8:
+				return opStructFieldHeadUint8NPtr
+			case opUint16:
+				return opStructFieldHeadUint16NPtr
+			case opUint32:
+				return opStructFieldHeadUint32NPtr
+			case opUint64:
+				return opStructFieldHeadUint64NPtr
+			case opFloat32:
+				return opStructFieldHeadFloat32NPtr
+			case opFloat64:
+				return opStructFieldHeadFloat64NPtr
+			case opString:
+				return opStructFieldHeadStringNPtr
+			case opBool:
+				return opStructFieldHeadBoolNPtr
+			}
+		} else {
+			switch code.next.op {
+			case opInt:
+				return opStructFieldHeadIntPtr
+			case opInt8:
+				return opStructFieldHeadInt8Ptr
+			case opInt16:
+				return opStructFieldHeadInt16Ptr
+			case opInt32:
+				return opStructFieldHeadInt32Ptr
+			case opInt64:
+				return opStructFieldHeadInt64Ptr
+			case opUint:
+				return opStructFieldHeadUintPtr
+			case opUint8:
+				return opStructFieldHeadUint8Ptr
+			case opUint16:
+				return opStructFieldHeadUint16Ptr
+			case opUint32:
+				return opStructFieldHeadUint32Ptr
+			case opUint64:
+				return opStructFieldHeadUint64Ptr
+			case opFloat32:
+				return opStructFieldHeadFloat32Ptr
+			case opFloat64:
+				return opStructFieldHeadFloat64Ptr
+			case opString:
+				return opStructFieldHeadStringPtr
+			case opBool:
+				return opStructFieldHeadBoolPtr
+			}
+		}
 	case opInt:
 		return opStructFieldHeadInt
 	case opIntIndent:
@@ -598,38 +674,83 @@ func (e *Encoder) typeToHeaderType(op opType) opType {
 	return opStructFieldHead
 }
 
-func (e *Encoder) typeToFieldType(code *opcode) opType {
+func (e *Encoder) typeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	switch code.op {
 	case opPtr:
-		switch code.next.op {
-		case opInt:
-			return opStructFieldPtrInt
-		case opInt8:
-			return opStructFieldPtrInt8
-		case opInt16:
-			return opStructFieldPtrInt16
-		case opInt32:
-			return opStructFieldPtrInt32
-		case opInt64:
-			return opStructFieldPtrInt64
-		case opUint:
-			return opStructFieldPtrUint
-		case opUint8:
-			return opStructFieldPtrUint8
-		case opUint16:
-			return opStructFieldPtrUint16
-		case opUint32:
-			return opStructFieldPtrUint32
-		case opUint64:
-			return opStructFieldPtrUint64
-		case opFloat32:
-			return opStructFieldPtrFloat32
-		case opFloat64:
-			return opStructFieldPtrFloat64
-		case opString:
-			return opStructFieldPtrString
-		case opBool:
-			return opStructFieldPtrBool
+		ptrNum := 1
+		ctx.decIndex()
+		c := code
+		for {
+			if code.next.op == opPtr {
+				ptrNum++
+				code = code.next
+				ctx.decIndex()
+			}
+			break
+		}
+		c.ptrNum = ptrNum
+		if ptrNum > 1 {
+			switch code.next.op {
+			case opInt:
+				return opStructFieldIntNPtr
+			case opInt8:
+				return opStructFieldInt8NPtr
+			case opInt16:
+				return opStructFieldInt16NPtr
+			case opInt32:
+				return opStructFieldInt32NPtr
+			case opInt64:
+				return opStructFieldInt64NPtr
+			case opUint:
+				return opStructFieldUintNPtr
+			case opUint8:
+				return opStructFieldUint8NPtr
+			case opUint16:
+				return opStructFieldUint16NPtr
+			case opUint32:
+				return opStructFieldUint32NPtr
+			case opUint64:
+				return opStructFieldUint64NPtr
+			case opFloat32:
+				return opStructFieldFloat32NPtr
+			case opFloat64:
+				return opStructFieldFloat64NPtr
+			case opString:
+				return opStructFieldStringNPtr
+			case opBool:
+				return opStructFieldBoolNPtr
+			}
+		} else {
+			switch code.next.op {
+			case opInt:
+				return opStructFieldIntPtr
+			case opInt8:
+				return opStructFieldInt8Ptr
+			case opInt16:
+				return opStructFieldInt16Ptr
+			case opInt32:
+				return opStructFieldInt32Ptr
+			case opInt64:
+				return opStructFieldInt64Ptr
+			case opUint:
+				return opStructFieldUintPtr
+			case opUint8:
+				return opStructFieldUint8Ptr
+			case opUint16:
+				return opStructFieldUint16Ptr
+			case opUint32:
+				return opStructFieldUint32Ptr
+			case opUint64:
+				return opStructFieldUint64Ptr
+			case opFloat32:
+				return opStructFieldFloat32Ptr
+			case opFloat64:
+				return opStructFieldFloat64Ptr
+			case opString:
+				return opStructFieldStringPtr
+			case opBool:
+				return opStructFieldBoolPtr
+			}
 		}
 	case opInt:
 		return opStructFieldInt
@@ -719,8 +840,8 @@ func (e *Encoder) typeToFieldType(code *opcode) opType {
 	return opStructField
 }
 
-func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent bool) opType {
-	headType := e.typeToHeaderType(op)
+func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag, withIndent bool) opType {
+	headType := e.typeToHeaderType(ctx, code)
 	switch {
 	case tag.isOmitEmpty:
 		headType = headType.headToOmitEmptyHead()
@@ -733,8 +854,8 @@ func (e *Encoder) optimizeStructHeader(op opType, tag *structTag, withIndent boo
 	return headType
 }
 
-func (e *Encoder) optimizeStructField(code *opcode, tag *structTag, withIndent bool) opType {
-	fieldType := e.typeToFieldType(code)
+func (e *Encoder) optimizeStructField(ctx *encodeCompileContext, code *opcode, tag *structTag, withIndent bool) opType {
+	fieldType := e.typeToFieldType(ctx, code)
 	switch {
 	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
@@ -770,8 +891,9 @@ func (e *Encoder) compiledCode(ctx *encodeCompileContext) *opcode {
 
 func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	fieldCode.indent--
-	op := e.optimizeStructHeader(valueCode.op, tag, ctx.withIndent)
+	op := e.optimizeStructHeader(ctx, valueCode, tag, ctx.withIndent)
 	fieldCode.op = op
+	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
 	case opStructFieldHead,
 		opStructFieldHeadSlice,
@@ -807,8 +929,9 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 
 func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	code := (*opcode)(unsafe.Pointer(fieldCode))
-	op := e.optimizeStructField(valueCode, tag, ctx.withIndent)
+	op := e.optimizeStructField(ctx, valueCode, tag, ctx.withIndent)
 	fieldCode.op = op
+	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
 	case opStructField,
 		opStructFieldSlice,

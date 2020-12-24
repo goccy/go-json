@@ -1,20 +1,26 @@
 package json
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type arrayDecoder struct {
 	elemType     *rtype
 	size         uintptr
 	valueDecoder decoder
 	alen         int
+	structName   string
+	fieldName    string
 }
 
-func newArrayDecoder(dec decoder, elemType *rtype, alen int) *arrayDecoder {
+func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldName string) *arrayDecoder {
 	return &arrayDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
 		size:         elemType.Size(),
 		alen:         alen,
+		structName:   structName,
+		fieldName:    fieldName,
 	}
 }
 
@@ -31,8 +37,14 @@ func (d *arrayDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			idx := 0
 			for {
 				s.cursor++
-				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
-					return err
+				if idx < d.alen {
+					if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
+						return err
+					}
+				} else {
+					if err := s.skipValue(); err != nil {
+						return err
+					}
 				}
 				s.skipWhiteSpace()
 				switch s.char() {
@@ -90,11 +102,19 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 			idx := 0
 			for {
 				cursor++
-				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
-				if err != nil {
-					return 0, err
+				if idx < d.alen {
+					c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+				} else {
+					c, err := skipValue(buf, cursor)
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
 				}
-				cursor = c
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':

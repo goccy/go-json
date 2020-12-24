@@ -6,6 +6,12 @@ package json_test
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/http"
+	"net/http/httptest"
 
 	"strings"
 	"testing"
@@ -212,6 +218,7 @@ func TestDecoder(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestDecoderBuffered(t *testing.T) {
 	r := strings.NewReader(`{"Name": "Gopher"} extra `)
@@ -387,6 +394,7 @@ var tokenStreamCases = []tokenStreamCase{
 	}},
 }
 
+/*
 func TestDecodeInStream(t *testing.T) {
 	for ci, tcase := range tokenStreamCases {
 
@@ -421,6 +429,7 @@ func TestDecodeInStream(t *testing.T) {
 		}
 	}
 }
+*/
 
 // Test from golang.org/issue/11893
 func TestHTTPDecoding(t *testing.T) {
@@ -455,4 +464,3 @@ func TestHTTPDecoding(t *testing.T) {
 		t.Errorf("err = %v; want io.EOF", err)
 	}
 }
-*/

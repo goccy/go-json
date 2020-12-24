@@ -1,16 +1,22 @@
 package json
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type wrappedStringDecoder struct {
 	dec           decoder
 	stringDecoder *stringDecoder
+	structName    string
+	fieldName     string
 }
 
-func newWrappedStringDecoder(dec decoder) *wrappedStringDecoder {
+func newWrappedStringDecoder(dec decoder, structName, fieldName string) *wrappedStringDecoder {
 	return &wrappedStringDecoder{
 		dec:           dec,
-		stringDecoder: newStringDecoder(),
+		stringDecoder: newStringDecoder(structName, fieldName),
+		structName:    structName,
+		fieldName:     fieldName,
 	}
 }
 
@@ -19,25 +25,11 @@ func (d *wrappedStringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-
-	// save current state
-	buf := s.buf
-	length := s.length
-	cursor := s.cursor
-
-	// set content in string to stream
-	bytes = append(bytes, nul)
-	s.buf = bytes
-	s.cursor = 0
-	s.length = int64(len(bytes))
-	if err := d.dec.decodeStream(s, p); err != nil {
-		return nil
+	b := make([]byte, len(bytes)+1)
+	copy(b, bytes)
+	if _, err := d.dec.decode(b, 0, p); err != nil {
+		return err
 	}
-
-	// restore state
-	s.buf = buf
-	s.length = length
-	s.cursor = cursor
 	return nil
 }
 

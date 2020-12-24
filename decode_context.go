@@ -25,9 +25,16 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 	braceCount := 0
 	bracketCount := 0
 	buflen := int64(len(buf))
+	start := cursor
 	for {
 		switch buf[cursor] {
-		case '\000':
+		case nul:
+			if start == cursor {
+				return cursor, errUnexpectedEndOfJSON("value of object", cursor)
+			}
+			if braceCount == 0 && bracketCount == 0 {
+				return cursor, nil
+			}
 			return cursor, errUnexpectedEndOfJSON("value of object", cursor)
 		case '{':
 			braceCount++
@@ -40,6 +47,9 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 			}
 		case ']':
 			bracketCount--
+			if braceCount == 0 && bracketCount == -1 {
+				return cursor, nil
+			}
 		case ',':
 			if bracketCount == 0 && braceCount == 0 {
 				return cursor, nil

@@ -948,7 +948,7 @@ var badFloatREs = []*regexp.Regexp{
 }
 
 func TestMarshalFloat(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	nfail := 0
 	test := func(f float64, bits int) {
 		vf := interface{}(f)
@@ -1298,7 +1298,7 @@ func TestNilMarshal(t *testing.T) {
 		{v: struct{ M string }{"gopher"}, want: `{"M":"gopher"}`},
 		{v: struct{ M json.Marshaler }{}, want: `{"M":null}`},
 		{v: struct{ M json.Marshaler }{(*nilJSONMarshaler)(nil)}, want: `{"M":"0zenil0"}`},
-		{v: struct{ M interface{} }{(*nilJSONMarshaler)(nil)}, want: `{"M":"0zenil0"}`}, // doesn't compatible with encoding/json
+		{v: struct{ M interface{} }{(*nilJSONMarshaler)(nil)}, want: `{"M":null}`},
 		{v: struct{ M encoding.TextMarshaler }{}, want: `{"M":null}`},
 		{v: struct{ M encoding.TextMarshaler }{(*nilTextMarshaler)(nil)}, want: `{"M":"0zenil0"}`},
 		{v: struct{ M interface{} }{(*nilTextMarshaler)(nil)}, want: `{"M":null}`},

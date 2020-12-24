@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -373,7 +374,9 @@ func BenchmarkCodeDecoder(b *testing.B) {
 			buf.WriteByte('\n')
 			buf.WriteByte('\n')
 			if err := dec.Decode(&r); err != nil {
-				b.Fatal("Decode:", err)
+				if err != io.EOF {
+					b.Fatal("Decode:", err)
+				}
 			}
 		}
 	})
@@ -390,7 +393,9 @@ func BenchmarkUnicodeDecoder(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := dec.Decode(&out); err != nil {
-			b.Fatal("Decode:", err)
+			if err != io.EOF {
+				b.Fatal("Decode:", err)
+			}
 		}
 		r.Seek(0, 0)
 	}
@@ -414,7 +419,9 @@ func BenchmarkDecoderStream(b *testing.B) {
 		}
 		x = nil
 		if err := dec.Decode(&x); err != nil || x != 1.0 {
-			b.Fatalf("Decode: %v after %d", err, i)
+			if err != io.EOF {
+				b.Fatalf("Decode: %v after %d", err, i)
+			}
 		}
 	}
 }

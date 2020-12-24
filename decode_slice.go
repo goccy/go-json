@@ -10,6 +10,8 @@ type sliceDecoder struct {
 	valueDecoder decoder
 	size         uintptr
 	arrayPool    sync.Pool
+	structName   string
+	fieldName    string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -21,7 +23,7 @@ type sliceHeader struct {
 	cap  int
 }
 
-func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
+func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
@@ -36,6 +38,8 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr) *sliceDecoder {
 				}
 			},
 		},
+		structName: structName,
+		fieldName:  fieldName,
 	}
 }
 
@@ -70,7 +74,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			s.cursor++
 			s.skipWhiteSpace()
 			if s.char() == ']' {
-				**(**sliceHeader)(unsafe.Pointer(&p)) = sliceHeader{
+				*(*sliceHeader)(p) = sliceHeader{
 					data: newArray(d.elemType, 0),
 					len:  0,
 					cap:  0,
@@ -111,7 +115,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 						len:  slice.len,
 						cap:  slice.cap,
 					})
-					**(**sliceHeader)(unsafe.Pointer(&p)) = dst
+					*(*sliceHeader)(p) = dst
 					d.releaseSlice(slice)
 					s.cursor++
 					return nil

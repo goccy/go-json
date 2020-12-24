@@ -1,14 +1,33 @@
 package json
 
 import (
+	"reflect"
+	"unicode"
+	"unicode/utf16"
+	"unicode/utf8"
 	"unsafe"
 )
 
 type stringDecoder struct {
+	structName string
+	fieldName  string
 }
 
-func newStringDecoder() *stringDecoder {
-	return &stringDecoder{}
+func newStringDecoder(structName, fieldName string) *stringDecoder {
+	return &stringDecoder{
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  typeName,
+		Type:   reflect.TypeOf(""),
+		Offset: offset,
+		Struct: d.structName,
+		Field:  d.fieldName,
+	}
 }
 
 func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
@@ -16,7 +35,8 @@ func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	**(**string)(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&bytes))
+	*(*string)(p) = string(bytes)
+	s.reset()
 	return nil
 }
 
@@ -58,11 +78,11 @@ var (
 )
 
 func unicodeToRune(code []byte) rune {
-	sum := 0
+	var r rune
 	for i := 0; i < len(code); i++ {
-		sum += hexToInt[code[i]] << (uint(len(code)-i-1) * 4)
+		r = r*16 + rune(hexToInt[code[i]])
 	}
-	return rune(sum)
+	return r
 }
 
 func decodeEscapeString(s *stream) error {
@@ -91,10 +111,31 @@ RETRY:
 				return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 			}
 		}
-		code := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
-		unicode := []byte(string(code))
-		s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
-		s.cursor--
+		r := unicodeToRune(s.buf[s.cursor+1 : s.cursor+5])
+		if utf16.IsSurrogate(r) {
+			if s.cursor+11 >= s.length || s.buf[s.cursor+5] != '\\' || s.buf[s.cursor+6] != 'u' {
+				r = unicode.ReplacementChar
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+				return nil
+			}
+			r2 := unicodeToRune(s.buf[s.cursor+7 : s.cursor+11])
+			if r := utf16.DecodeRune(r, r2); r != unicode.ReplacementChar {
+				// valid surrogate pair
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+11:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+			} else {
+				unicode := []byte(string(r))
+				s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+				s.cursor = s.cursor - 2 + int64(len(unicode))
+			}
+		} else {
+			unicode := []byte(string(r))
+			s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+5:]...)
+			s.cursor = s.cursor - 2 + int64(len(unicode))
+		}
 		return nil
 	case nul:
 		if !s.read() {
@@ -109,17 +150,30 @@ RETRY:
 	return nil
 }
 
+func appendCoerceInvalidUTF8(b []byte, s []byte) []byte {
+	c := [4]byte{}
+
+	for _, r := range string(s) {
+		b = append(b, c[:utf8.EncodeRune(c[:], r)]...)
+	}
+
+	return b
+}
+
 func stringBytes(s *stream) ([]byte, error) {
 	s.cursor++
 	start := s.cursor
 	for {
 		switch s.char() {
 		case '\\':
-			s.cursor++
+			if err := decodeEscapeString(s); err != nil {
+				return nil, err
+			}
 		case '"':
 			literal := s.buf[start:s.cursor]
+			// TODO: this flow is so slow sequence.
+			// literal = appendCoerceInvalidUTF8(make([]byte, 0, len(literal)), literal)
 			s.cursor++
-			s.reset()
 			return literal, nil
 		case nul:
 			if s.read() {
@@ -161,6 +215,10 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
 			continue
+		case '[':
+			return nil, d.errUnmarshalType("array", s.totalOffset())
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return nil, d.errUnmarshalType("number", s.totalOffset())
 		case '"':
 			return stringBytes(s)
 		case 'n':
@@ -183,6 +241,10 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
 			cursor++
+		case '[':
+			return nil, 0, d.errUnmarshalType("array", cursor)
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return nil, 0, d.errUnmarshalType("number", cursor)
 		case '"':
 			cursor++
 			start := cursor

@@ -9,11 +9,27 @@ import (
 )
 
 type unmarshalTextDecoder struct {
-	typ *rtype
+	typ        *rtype
+	structName string
+	fieldName  string
 }
 
-func newUnmarshalTextDecoder(typ *rtype) *unmarshalTextDecoder {
-	return &unmarshalTextDecoder{typ: typ}
+func newUnmarshalTextDecoder(typ *rtype, structName, fieldName string) *unmarshalTextDecoder {
+	return &unmarshalTextDecoder{
+		typ:        typ,
+		structName: structName,
+		fieldName:  fieldName,
+	}
+}
+
+func (d *unmarshalTextDecoder) annotateError(cursor int64, err error) {
+	switch e := err.(type) {
+	case *UnmarshalTypeError:
+		e.Struct = d.structName
+		e.Field = d.fieldName
+	case *SyntaxError:
+		e.Offset = cursor
+	}
 }
 
 func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
@@ -23,14 +39,34 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	src := s.buf[start:s.cursor]
-	if s, ok := unquoteBytes(src); ok {
-		src = s
+	switch src[0] {
+	case '[':
+		// cannot decode array value by unmarshal text
+		return &UnmarshalTypeError{
+			Value:  "array",
+			Type:   rtype2type(d.typ),
+			Offset: s.totalOffset(),
+		}
+	case '{':
+		// cannot decode object value by unmarshal text
+		return &UnmarshalTypeError{
+			Value:  "object",
+			Type:   rtype2type(d.typ),
+			Offset: s.totalOffset(),
+		}
+	}
+	dst := make([]byte, len(src))
+	copy(dst, src)
+
+	if b, ok := unquoteBytes(dst); ok {
+		dst = b
 	}
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
+		ptr: p,
 	}))
-	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
+	if err := v.(encoding.TextUnmarshaler).UnmarshalText(dst); err != nil {
+		d.annotateError(s.cursor, err)
 		return err
 	}
 	return nil
@@ -52,6 +88,7 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
+		d.annotateError(cursor, err)
 		return 0, err
 	}
 	return end, nil

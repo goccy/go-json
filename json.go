@@ -329,7 +329,7 @@ func (n Number) MarshalJSON() ([]byte, error) {
 func (n *Number) UnmarshalJSON(b []byte) error {
 	s := string(b)
 	if _, err := strconv.ParseFloat(s, 64); err != nil {
-		return err
+		return &SyntaxError{msg: err.Error()}
 	}
 	*n = Number(s)
 	return nil

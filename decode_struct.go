@@ -6,19 +6,24 @@ import (
 )
 
 type structFieldSet struct {
-	dec    decoder
-	offset uintptr
+	dec         decoder
+	offset      uintptr
+	isTaggedKey bool
 }
 
 type structDecoder struct {
 	fieldMap   map[string]*structFieldSet
 	keyDecoder *stringDecoder
+	structName string
+	fieldName  string
 }
 
-func newStructDecoder(fieldMap map[string]*structFieldSet) *structDecoder {
+func newStructDecoder(structName, fieldName string, fieldMap map[string]*structFieldSet) *structDecoder {
 	return &structDecoder{
 		fieldMap:   fieldMap,
-		keyDecoder: newStringDecoder(),
+		keyDecoder: newStringDecoder(structName, fieldName),
+		structName: structName,
+		fieldName:  fieldName,
 	}
 }
 
@@ -31,6 +36,10 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return errNotAtBeginningOfValue(s.totalOffset())
 	}
 	s.cursor++
+	if s.char() == '}' {
+		s.cursor++
+		return nil
+	}
 	for {
 		s.reset()
 		key, err := d.keyDecoder.decodeStreamByte(s)
@@ -46,10 +55,9 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		}
 		s.cursor++
 		if s.char() == nul {
-			s.read()
-		}
-		if s.end() {
-			return errExpected("object value after colon", s.totalOffset())
+			if !s.read() {
+				return errExpected("object value after colon", s.totalOffset())
+			}
 		}
 		k := *(*string)(unsafe.Pointer(&key))
 		field, exists := d.fieldMap[k]

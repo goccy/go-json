@@ -948,7 +948,7 @@ var badFloatREs = []*regexp.Regexp{
 }
 
 func TestMarshalFloat(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	nfail := 0
 	test := func(f float64, bits int) {
 		vf := interface{}(f)

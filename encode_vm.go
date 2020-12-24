@@ -317,10 +317,11 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				}
 			}
 			c, err := e.compileHead(&encodeCompileContext{
-				typ:        header.typ,
-				root:       code.root,
-				withIndent: e.enabledIndent,
-				indent:     code.indent,
+				typ:                      header.typ,
+				root:                     code.root,
+				withIndent:               e.enabledIndent,
+				indent:                   code.indent,
+				structTypeToCompiledCode: map[uintptr]*compiledCode{},
 			})
 			if err != nil {
 				return nil, err
@@ -4157,17 +4158,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = append(b, '{')
 				b = e.encodeKey(b, code)
-				var buf bytes.Buffer
-				enc := NewEncoder(&buf)
 				s := e.ptrToString(ptr + code.offset)
 				if e.enabledHTMLEscape {
-					enc.buf = encodeEscapedString(enc.buf, s)
+					b = e.encodeString(b, string(encodeEscapedString([]byte{}, s)))
 				} else {
-					enc.buf = encodeNoEscapedString(enc.buf, s)
+					b = e.encodeString(b, string(encodeNoEscapedString([]byte{}, s)))
 				}
-				b = e.encodeString(b, string(enc.buf))
 				b = encodeComma(b)
-				enc.release()
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagString:
@@ -4706,15 +4703,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = e.encodeIndent(b, code.indent+1)
 				b = e.encodeKey(b, code)
 				b = append(b, ' ')
-				var buf bytes.Buffer
-				enc := NewEncoder(&buf)
 				s := e.ptrToString(ptr + code.offset)
 				if e.enabledHTMLEscape {
-					enc.buf = encodeEscapedString(enc.buf, s)
+					b = e.encodeString(b, string(encodeEscapedString([]byte{}, s)))
 				} else {
-					enc.buf = encodeNoEscapedString(enc.buf, s)
+					b = e.encodeString(b, string(encodeNoEscapedString([]byte{}, s)))
 				}
-				b = e.encodeString(b, string(enc.buf))
 				b = encodeIndentComma(b)
 				code = code.next
 			}
@@ -5908,10 +5902,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 		case opStructFieldStringTagString:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeKey(b, code)
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.buf = enc.encodeString(enc.buf, e.ptrToString(ptr+code.offset))
-			b = e.encodeString(b, string(enc.buf))
+			s := e.ptrToString(ptr + code.offset)
+			b = e.encodeString(b, string(encodeEscapedString([]byte{}, s)))
 			code = code.next
 		case opStructFieldStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
@@ -6065,12 +6057,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeIndent(b, code.indent)
 			b = e.encodeKey(b, code)
 			b = append(b, ' ')
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.buf = enc.encodeString(enc.buf, e.ptrToString(ptr+code.offset))
-			b = e.encodeString(b, string(enc.buf))
+			s := e.ptrToString(ptr + code.offset)
+			b = e.encodeString(b, string(encodeEscapedString([]byte{}, s)))
 			b = encodeIndentComma(b)
-			enc.release()
 			code = code.next
 		case opStructFieldStringTagBoolIndent:
 			ptr := load(ctxptr, code.headIdx)

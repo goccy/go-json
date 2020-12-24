@@ -31,6 +31,12 @@ func newStream(r io.Reader) *stream {
 }
 
 func (s *stream) buffered() io.Reader {
+	buflen := int64(len(s.buf))
+	for i := s.cursor; i < buflen; i++ {
+		if s.buf[i] == nul {
+			return bytes.NewReader(s.buf[s.cursor:i])
+		}
+	}
 	return bytes.NewReader(s.buf[s.cursor:])
 }
 

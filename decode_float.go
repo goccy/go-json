@@ -120,7 +120,7 @@ func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	str := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		return err
+		return &SyntaxError{msg: err.Error(), Offset: s.totalOffset()}
 	}
 	d.op(p, f64)
 	return nil
@@ -138,7 +138,7 @@ func (d *floatDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 	s := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return 0, err
+		return 0, &SyntaxError{msg: err.Error(), Offset: cursor}
 	}
 	d.op(p, f64)
 	return cursor, nil

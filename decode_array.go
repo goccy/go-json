@@ -1,6 +1,8 @@
 package json
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type arrayDecoder struct {
 	elemType     *rtype
@@ -35,8 +37,14 @@ func (d *arrayDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			idx := 0
 			for {
 				s.cursor++
-				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
-					return err
+				if idx < d.alen {
+					if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
+						return err
+					}
+				} else {
+					if err := s.skipValue(); err != nil {
+						return err
+					}
 				}
 				s.skipWhiteSpace()
 				switch s.char() {

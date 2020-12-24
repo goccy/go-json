@@ -1207,62 +1207,60 @@ var unmarshalTests = []unmarshalTest{
 		ptr: new(MustNotUnmarshalText),
 		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
 	},
-	/*
-			// #22369
-			{
-				in:  `{"PP": {"T": {"Y": "bad-type"}}}`, // 141
-				ptr: new(P),
-				err: &json.UnmarshalTypeError{
-					Value:  "string",
-					Struct: "T",
-					Field:  "PP.T.Y",
-					Type:   reflect.TypeOf(int(0)),
-					Offset: 29,
-				},
-			},
-			{
-				in:  `{"Ts": [{"Y": 1}, {"Y": 2}, {"Y": "bad-type"}]}`, // 142
-				ptr: new(PP),
-				err: &json.UnmarshalTypeError{
-					Value:  "string",
-					Struct: "T",
-					Field:  "Ts.Y",
-					Type:   reflect.TypeOf(int(0)),
-					Offset: 29,
-				},
-			},
-			// #14702
-			{
-				in:  `invalid`, // 143
-				ptr: new(json.Number),
-				err: json.NewSyntaxError(
-					"invalid character 'i' looking for beginning of value",
-					1,
-				),
-			},
-			{
-				in:  `"invalid"`, // 144
-				ptr: new(json.Number),
-				err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
-			},
-			{
-				in:  `{"A":"invalid"}`, // 145
-				ptr: new(struct{ A json.Number }),
-				err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
-			},
-		{
-			in: `{"A":"invalid"}`, // 146
-			ptr: new(struct {
-				A json.Number `json:",string"`
-			}),
-			err: fmt.Errorf("json: invalid use of ,string struct tag, trying to unmarshal %q into json.Number", `invalid`),
+	// #22369
+	{
+		in:  `{"PP": {"T": {"Y": "bad-type"}}}`, // 141
+		ptr: new(P),
+		err: &json.UnmarshalTypeError{
+			Value:  `number "`,
+			Struct: "T",
+			Field:  "Y",
+			Type:   reflect.TypeOf(int(0)),
+			Offset: 29,
 		},
-		{
-			in:  `{"A":"invalid"}`, // 147
-			ptr: new(map[string]json.Number),
-			err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
+	},
+	{
+		in:  `{"Ts": [{"Y": 1}, {"Y": 2}, {"Y": "bad-type"}]}`, // 142
+		ptr: new(PP),
+		err: &json.UnmarshalTypeError{
+			Value:  `number "`,
+			Struct: "T",
+			Field:  "Y",
+			Type:   reflect.TypeOf(int(0)),
+			Offset: 29,
 		},
-	*/
+	},
+	// #14702
+	{
+		in:  `invalid`, // 143
+		ptr: new(json.Number),
+		err: json.NewSyntaxError(
+			`json: invalid character v as null`,
+			1,
+		),
+	},
+	{
+		in:  `"invalid"`, // 144
+		ptr: new(json.Number),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+	},
+	{
+		in:  `{"A":"invalid"}`, // 145
+		ptr: new(struct{ A json.Number }),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+	},
+	{
+		in: `{"A":"invalid"}`, // 146
+		ptr: new(struct {
+			A json.Number `json:",string"`
+		}),
+		err: fmt.Errorf(`json: null unexpected end of JSON input`),
+	},
+	{
+		in:  `{"A":"invalid"}`, // 147
+		ptr: new(map[string]json.Number),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+	},
 	/*
 		// invalid UTF-8 is coerced to valid UTF-8.
 			{

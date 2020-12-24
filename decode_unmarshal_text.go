@@ -39,6 +39,22 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	src := s.buf[start:s.cursor]
+	switch src[0] {
+	case '[':
+		// cannot decode array value by unmarshal text
+		return &UnmarshalTypeError{
+			Value:  "array",
+			Type:   rtype2type(d.typ),
+			Offset: s.totalOffset(),
+		}
+	case '{':
+		// cannot decode object value by unmarshal text
+		return &UnmarshalTypeError{
+			Value:  "object",
+			Type:   rtype2type(d.typ),
+			Offset: s.totalOffset(),
+		}
+	}
 	dst := make([]byte, len(src))
 	copy(dst, src)
 

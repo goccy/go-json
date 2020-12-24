@@ -1128,10 +1128,9 @@ var unmarshalTests = []unmarshalTest{
 	{in: `{"B": "null"}`, ptr: new(B), out: B{false}},                                                                           // 132
 	{in: `{"B": "nul"}`, ptr: new(B), err: errors.New(`json: invalid character as null`)},                                       // 133
 	{in: `{"B": [2, 3]}`, ptr: new(B), err: errors.New(`json: cannot unmarshal array into Go struct field B.B of type string`)}, // 134
-	/*
-			// additional tests for disallowUnknownFields
-			{ // 135
-				in: `{
+	// additional tests for disallowUnknownFields
+	{ // 135
+		in: `{
 						"Level0": 1,
 						"Level1b": 2,
 						"Level1c": 3,
@@ -1153,12 +1152,12 @@ var unmarshalTests = []unmarshalTest{
 						"Q": 18,
 						"extra": true
 					}`,
-				ptr:                   new(Top),
-				err:                   fmt.Errorf("json: unknown field \"extra\""),
-				disallowUnknownFields: true,
-			},
-			{ // 136
-				in: `{
+		ptr:                   new(Top),
+		err:                   fmt.Errorf("json: unknown field \"extra\""),
+		disallowUnknownFields: true,
+	},
+	{ // 136
+		in: `{
 						"Level0": 1,
 						"Level1b": 2,
 						"Level1c": 3,
@@ -1180,34 +1179,35 @@ var unmarshalTests = []unmarshalTest{
 						"Z": 17,
 						"Q": 18
 					}`,
-				ptr:                   new(Top),
-				err:                   fmt.Errorf("json: unknown field \"extra\""),
-				disallowUnknownFields: true,
-			},
-			// issue 26444
-			// UnmarshalTypeError without field & struct values
-			{
-				in:  `{"data":{"test1": "bob", "test2": 123}}`, // 137
-				ptr: new(mapStringToStringData),
-				err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 37, Struct: "mapStringToStringData", Field: "data"},
-			},
-			{
-				in:  `{"data":{"test1": 123, "test2": "bob"}}`, // 138
-				ptr: new(mapStringToStringData),
-				err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 21, Struct: "mapStringToStringData", Field: "data"},
-			},
+		ptr:                   new(Top),
+		err:                   fmt.Errorf("json: unknown field \"extra\""),
+		disallowUnknownFields: true,
+	},
+	// issue 26444
+	// UnmarshalTypeError without field & struct values
+	{
+		in:  `{"data":{"test1": "bob", "test2": 123}}`, // 137
+		ptr: new(mapStringToStringData),
+		err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 37, Struct: "mapStringToStringData", Field: "Data"},
+	},
+	{
+		in:  `{"data":{"test1": 123, "test2": "bob"}}`, // 138
+		ptr: new(mapStringToStringData),
+		err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 21, Struct: "mapStringToStringData", Field: "Data"},
+	},
 
-			// trying to decode JSON arrays or objects via TextUnmarshaler
-			{
-				in:  `[1, 2, 3]`, // 139
-				ptr: new(MustNotUnmarshalText),
-				err: &json.UnmarshalTypeError{Value: "array", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
-			},
-			{
-				in:  `{"foo": "bar"}`, // 140
-				ptr: new(MustNotUnmarshalText),
-				err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
-			},
+	// trying to decode JSON arrays or objects via TextUnmarshaler
+	{
+		in:  `[1, 2, 3]`, // 139
+		ptr: new(MustNotUnmarshalText),
+		err: &json.UnmarshalTypeError{Value: "array", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
+	},
+	{
+		in:  `{"foo": "bar"}`, // 140
+		ptr: new(MustNotUnmarshalText),
+		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
+	},
+	/*
 			// #22369
 			{
 				in:  `{"PP": {"T": {"Y": "bad-type"}}}`, // 141

@@ -21,10 +21,10 @@ jobs:
     - name: Test
       run: go test -v ./ -count=1
 
-    - name: Test with GC
-      run: go test -v ./ -count=1
-      env:
-        GOGC: 1
+   # - name: Test with GC
+   #   run: go test -v ./ -count=1
+   #   env:
+   #     GOGC: 1
 
    # - name: Test with race detector
    #   run: go test -v -race ./ -count=1

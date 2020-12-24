@@ -1005,48 +1005,48 @@ var unmarshalTests = []unmarshalTest{
 		ptr: new(string),
 		out: "hello\ufffd\ufffdworld",
 	},
+	{
+		in:  "\"hello\\ud800\\ud800world\"", // 101
+		ptr: new(string),
+		out: "hello\ufffd\ufffdworld",
+	},
 	/*
-				{
-					in:  "\"hello\\ud800\\ud800world\"", // 101
-					ptr: new(string),
-					out: "hello\ufffd\ufffdworld",
-				},
-				{
-					in:  "\"hello\xed\xa0\x80\xed\xb0\x80world\"", // 102
-					ptr: new(string),
-					out: "hello\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdworld",
-				},
-					// Used to be issue 8305, but time.Time implements encoding.TextUnmarshaler so this works now.
-					{
-						in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 103
-						ptr: new(map[time.Time]string),
-						out: map[time.Time]string{time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC): "hello world"},
-					},
-
-				// issue 8305
-				{
-					in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 104
-					ptr: new(map[Point]string),
-					err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(map[Point]string{}), Offset: 1},
-				},
-				{
-					in:  `{"asdf": "hello world"}`, // 105
-					ptr: new(map[unmarshaler]string),
-					err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(map[unmarshaler]string{}), Offset: 1},
-				},
-
-				// related to issue 13783.
-				// Go 1.7 changed marshaling a slice of typed byte to use the methods on the byte type,
-				// similar to marshaling a slice of typed int.
-				// These tests check that, assuming the byte type also has valid decoding methods,
-				// either the old base64 string encoding or the new per-element encoding can be
-				// successfully unmarshaled. The custom unmarshalers were accessible in earlier
-				// versions of Go, even though the custom marshaler was not.
-				{
-					in:  `"AQID"`, // 106
-					ptr: new([]byteWithMarshalJSON),
-					out: []byteWithMarshalJSON{1, 2, 3},
-				},
+		{
+			in:  "\"hello\xed\xa0\x80\xed\xb0\x80world\"", // 102
+			ptr: new(string),
+			out: "hello\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdworld",
+		},
+	*/
+	// Used to be issue 8305, but time.Time implements encoding.TextUnmarshaler so this works now.
+	{
+		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 103
+		ptr: new(map[time.Time]string),
+		out: map[time.Time]string{time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC): "hello world"},
+	},
+	// issue 8305
+	{
+		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 104
+		ptr: new(map[Point]string),
+		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(Point{}), Offset: 0},
+	},
+	{
+		in:  `{"asdf": "hello world"}`, // 105
+		ptr: new(map[unmarshaler]string),
+		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(unmarshaler{}), Offset: 1},
+	},
+	// related to issue 13783.
+	// Go 1.7 changed marshaling a slice of typed byte to use the methods on the byte type,
+	// similar to marshaling a slice of typed int.
+	// These tests check that, assuming the byte type also has valid decoding methods,
+	// either the old base64 string encoding or the new per-element encoding can be
+	// successfully unmarshaled. The custom unmarshalers were accessible in earlier
+	// versions of Go, even though the custom marshaler was not.
+	{
+		in:  `"AQID"`, // 106
+		ptr: new([]byteWithMarshalJSON),
+		out: []byteWithMarshalJSON{1, 2, 3},
+	},
+	/*
 				{
 					in:     `["Z01","Z02","Z03"]`, // 107
 					ptr:    new([]byteWithMarshalJSON),

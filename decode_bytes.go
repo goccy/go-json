@@ -6,16 +6,37 @@ import (
 )
 
 type bytesDecoder struct {
-	structName string
-	fieldName  string
+	typ          *rtype
+	sliceDecoder decoder
+	structName   string
+	fieldName    string
 }
 
-func newBytesDecoder(structName string, fieldName string) *bytesDecoder {
-	return &bytesDecoder{structName: structName, fieldName: fieldName}
+func byteUnmarshalerSliceDecoder(typ *rtype, structName string, fieldName string) decoder {
+	var unmarshalDecoder decoder
+	switch {
+	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
+		unmarshalDecoder = newUnmarshalJSONDecoder(rtype_ptrTo(typ), structName, fieldName)
+	case rtype_ptrTo(typ).Implements(unmarshalTextType):
+		unmarshalDecoder = newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName)
+	}
+	if unmarshalDecoder == nil {
+		return nil
+	}
+	return newSliceDecoder(unmarshalDecoder, typ, 1, structName, fieldName)
+}
+
+func newBytesDecoder(typ *rtype, structName string, fieldName string) *bytesDecoder {
+	return &bytesDecoder{
+		typ:          typ,
+		sliceDecoder: byteUnmarshalerSliceDecoder(typ, structName, fieldName),
+		structName:   structName,
+		fieldName:    fieldName,
+	}
 }
 
 func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
-	bytes, err := d.decodeStreamBinary(s)
+	bytes, err := d.decodeStreamBinary(s, p)
 	if err != nil {
 		return err
 	}
@@ -34,9 +55,12 @@ func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 }
 
 func (d *bytesDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeBinary(buf, cursor)
+	bytes, c, err := d.decodeBinary(buf, cursor, p)
 	if err != nil {
 		return 0, err
+	}
+	if bytes == nil {
+		return c, nil
 	}
 	cursor = c
 	decodedLen := base64.StdEncoding.DecodedLen(len(bytes))
@@ -69,7 +93,7 @@ ERROR:
 	return nil, errUnexpectedEndOfJSON("[]byte", s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeStreamBinary(s *stream) ([]byte, error) {
+func (d *bytesDecoder) decodeStreamBinary(s *stream, p unsafe.Pointer) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -79,6 +103,17 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream) ([]byte, error) {
 			return binaryBytes(s)
 		case 'n':
 			if err := nullBytes(s); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		case '[':
+			if d.sliceDecoder == nil {
+				return nil, &UnmarshalTypeError{
+					Type:   rtype2type(d.typ),
+					Offset: s.totalOffset(),
+				}
+			}
+			if err := d.sliceDecoder.decodeStream(s, p); err != nil {
 				return nil, err
 			}
 			return nil, nil
@@ -92,7 +127,7 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream) ([]byte, error) {
 	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64) ([]byte, int64, error) {
+func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) ([]byte, int64, error) {
 	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -112,6 +147,18 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64) ([]byte, int64, er
 				cursor++
 			}
 			return nil, 0, errUnexpectedEndOfJSON("[]byte", cursor)
+		case '[':
+			if d.sliceDecoder == nil {
+				return nil, 0, &UnmarshalTypeError{
+					Type:   rtype2type(d.typ),
+					Offset: cursor,
+				}
+			}
+			c, err := d.sliceDecoder.decode(buf, cursor, p)
+			if err != nil {
+				return nil, 0, err
+			}
+			return nil, c, nil
 		case 'n':
 			buflen := int64(len(buf))
 			if cursor+3 >= buflen {

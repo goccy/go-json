@@ -32,7 +32,7 @@ func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, er
 	case reflect.Slice:
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
-			return d.compileBytes(structName, fieldName)
+			return d.compileBytes(elem, structName, fieldName)
 		}
 		return d.compileSlice(typ, structName, fieldName)
 	case reflect.Array:
@@ -72,17 +72,24 @@ func (d *Decoder) compile(typ *rtype, structName, fieldName string) (decoder, er
 	case reflect.Float64:
 		return d.compileFloat64(structName, fieldName)
 	}
-	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
+	return nil, &UnmarshalTypeError{
+		Value:  "object",
+		Type:   rtype2type(typ),
+		Offset: 0,
+	}
 }
 
 func (d *Decoder) compileMapKey(typ *rtype, structName, fieldName string) (decoder, error) {
+	if rtype_ptrTo(typ).Implements(unmarshalTextType) {
+		return newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName), nil
+	}
 	dec, err := d.compile(typ, structName, fieldName)
 	if err != nil {
 		return nil, err
 	}
 	for {
 		switch t := dec.(type) {
-		case *stringDecoder, *interfaceDecoder, *unmarshalJSONDecoder, *unmarshalTextDecoder:
+		case *stringDecoder, *interfaceDecoder:
 			return dec, nil
 		case *boolDecoder, *intDecoder, *uintDecoder, *numberDecoder:
 			return newWrappedStringDecoder(dec, structName, fieldName), nil
@@ -93,7 +100,11 @@ func (d *Decoder) compileMapKey(typ *rtype, structName, fieldName string) (decod
 		}
 	}
 ERROR:
-	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
+	return nil, &UnmarshalTypeError{
+		Value:  "object",
+		Type:   rtype2type(typ),
+		Offset: 0,
+	}
 }
 
 func (d *Decoder) compilePtr(typ *rtype, structName, fieldName string) (decoder, error) {
@@ -184,8 +195,8 @@ func (d *Decoder) compileBool(structName, fieldName string) (decoder, error) {
 	return newBoolDecoder(structName, fieldName), nil
 }
 
-func (d *Decoder) compileBytes(structName, fieldName string) (decoder, error) {
-	return newBytesDecoder(structName, fieldName), nil
+func (d *Decoder) compileBytes(typ *rtype, structName, fieldName string) (decoder, error) {
+	return newBytesDecoder(typ, structName, fieldName), nil
 }
 
 func (d *Decoder) compileSlice(typ *rtype, structName, fieldName string) (decoder, error) {

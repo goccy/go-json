@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"unicode"
 	"unicode/utf16"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -149,6 +150,16 @@ RETRY:
 	return nil
 }
 
+func appendCoerceInvalidUTF8(b []byte, s []byte) []byte {
+	c := [4]byte{}
+
+	for _, r := range string(s) {
+		b = append(b, c[:utf8.EncodeRune(c[:], r)]...)
+	}
+
+	return b
+}
+
 func stringBytes(s *stream) ([]byte, error) {
 	s.cursor++
 	start := s.cursor
@@ -160,6 +171,8 @@ func stringBytes(s *stream) ([]byte, error) {
 			}
 		case '"':
 			literal := s.buf[start:s.cursor]
+			// TODO: this flow is so slow sequence.
+			// literal = appendCoerceInvalidUTF8(make([]byte, 0, len(literal)), literal)
 			s.cursor++
 			return literal, nil
 		case nul:

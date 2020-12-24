@@ -976,61 +976,35 @@ var unmarshalTests = []unmarshalTest{
 		ptr: new(DoublePtr),
 		out: DoublePtr{I: nil, J: nil},
 	},
-
-	// invalid UTF-8 is coerced to valid UTF-8.
-	/*
-		{
-			in:  "\"hello\xffworld\"", // 96
-			ptr: new(string),
-			out: "hello\ufffdworld",
-		},
-		{
-			in:  "\"hello\xc2\xc2world\"", // 97
-			ptr: new(string),
-			out: "hello\ufffd\ufffdworld",
-		},
-		{
-			in:  "\"hello\xc2\xffworld\"", // 98
-			ptr: new(string),
-			out: "hello\ufffd\ufffdworld",
-		},
-	*/
 	{
-		in:  "\"hello\\ud800world\"", // 99
+		in:  "\"hello\\ud800world\"", // 96
 		ptr: new(string),
 		out: "hello\ufffdworld",
 	},
 	{
-		in:  "\"hello\\ud800\\ud800world\"", // 100
+		in:  "\"hello\\ud800\\ud800world\"", // 97
 		ptr: new(string),
 		out: "hello\ufffd\ufffdworld",
 	},
 	{
-		in:  "\"hello\\ud800\\ud800world\"", // 101
+		in:  "\"hello\\ud800\\ud800world\"", // 98
 		ptr: new(string),
 		out: "hello\ufffd\ufffdworld",
 	},
-	/*
-		{
-			in:  "\"hello\xed\xa0\x80\xed\xb0\x80world\"", // 102
-			ptr: new(string),
-			out: "hello\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdworld",
-		},
-	*/
 	// Used to be issue 8305, but time.Time implements encoding.TextUnmarshaler so this works now.
 	{
-		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 103
+		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 99
 		ptr: new(map[time.Time]string),
 		out: map[time.Time]string{time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC): "hello world"},
 	},
 	// issue 8305
 	{
-		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 104
+		in:  `{"2009-11-10T23:00:00Z": "hello world"}`, // 100
 		ptr: new(map[Point]string),
 		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(Point{}), Offset: 0},
 	},
 	{
-		in:  `{"asdf": "hello world"}`, // 105
+		in:  `{"asdf": "hello world"}`, // 101
 		ptr: new(map[unmarshaler]string),
 		err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(unmarshaler{}), Offset: 1},
 	},
@@ -1042,88 +1016,88 @@ var unmarshalTests = []unmarshalTest{
 	// successfully unmarshaled. The custom unmarshalers were accessible in earlier
 	// versions of Go, even though the custom marshaler was not.
 	{
-		in:  `"AQID"`, // 106
+		in:  `"AQID"`, // 102
 		ptr: new([]byteWithMarshalJSON),
 		out: []byteWithMarshalJSON{1, 2, 3},
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 107
+		in:     `["Z01","Z02","Z03"]`, // 103
 		ptr:    new([]byteWithMarshalJSON),
 		out:    []byteWithMarshalJSON{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:  `"AQID"`, // 108
+		in:  `"AQID"`, // 104
 		ptr: new([]byteWithMarshalText),
 		out: []byteWithMarshalText{1, 2, 3},
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 109
+		in:     `["Z01","Z02","Z03"]`, // 105
 		ptr:    new([]byteWithMarshalText),
 		out:    []byteWithMarshalText{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:  `"AQID"`, // 110
+		in:  `"AQID"`, // 106
 		ptr: new([]byteWithPtrMarshalJSON),
 		out: []byteWithPtrMarshalJSON{1, 2, 3},
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 111
+		in:     `["Z01","Z02","Z03"]`, // 107
 		ptr:    new([]byteWithPtrMarshalJSON),
 		out:    []byteWithPtrMarshalJSON{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:  `"AQID"`, // 112
+		in:  `"AQID"`, // 108
 		ptr: new([]byteWithPtrMarshalText),
 		out: []byteWithPtrMarshalText{1, 2, 3},
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 113
+		in:     `["Z01","Z02","Z03"]`, // 109
 		ptr:    new([]byteWithPtrMarshalText),
 		out:    []byteWithPtrMarshalText{1, 2, 3},
 		golden: true,
 	},
 	// ints work with the marshaler but not the base64 []byte case
 	{
-		in:     `["Z01","Z02","Z03"]`, // 114
+		in:     `["Z01","Z02","Z03"]`, // 110
 		ptr:    new([]intWithMarshalJSON),
 		out:    []intWithMarshalJSON{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 115
+		in:     `["Z01","Z02","Z03"]`, // 111
 		ptr:    new([]intWithMarshalText),
 		out:    []intWithMarshalText{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 116
+		in:     `["Z01","Z02","Z03"]`, // 112
 		ptr:    new([]intWithPtrMarshalJSON),
 		out:    []intWithPtrMarshalJSON{1, 2, 3},
 		golden: true,
 	},
 	{
-		in:     `["Z01","Z02","Z03"]`, // 117
+		in:     `["Z01","Z02","Z03"]`, // 113
 		ptr:    new([]intWithPtrMarshalText),
 		out:    []intWithPtrMarshalText{1, 2, 3},
 		golden: true,
 	},
 
-	{in: `0.000001`, ptr: new(float64), out: 0.000001, golden: true},                               // 118
-	{in: `1e-07`, ptr: new(float64), out: 1e-7, golden: true},                                      // 119
-	{in: `100000000000000000000`, ptr: new(float64), out: 100000000000000000000.0, golden: true},   // 120
-	{in: `1e+21`, ptr: new(float64), out: 1e21, golden: true},                                      // 121
-	{in: `-0.000001`, ptr: new(float64), out: -0.000001, golden: true},                             // 122
-	{in: `-1e-07`, ptr: new(float64), out: -1e-7, golden: true},                                    // 123
-	{in: `-100000000000000000000`, ptr: new(float64), out: -100000000000000000000.0, golden: true}, // 124
-	{in: `-1e+21`, ptr: new(float64), out: -1e21, golden: true},                                    // 125
-	{in: `999999999999999900000`, ptr: new(float64), out: 999999999999999900000.0, golden: true},   // 126
-	{in: `9007199254740992`, ptr: new(float64), out: 9007199254740992.0, golden: true},             // 127
-	{in: `9007199254740993`, ptr: new(float64), out: 9007199254740992.0, golden: false},            // 128
+	{in: `0.000001`, ptr: new(float64), out: 0.000001, golden: true},                               // 114
+	{in: `1e-07`, ptr: new(float64), out: 1e-7, golden: true},                                      // 115
+	{in: `100000000000000000000`, ptr: new(float64), out: 100000000000000000000.0, golden: true},   // 116
+	{in: `1e+21`, ptr: new(float64), out: 1e21, golden: true},                                      // 117
+	{in: `-0.000001`, ptr: new(float64), out: -0.000001, golden: true},                             // 118
+	{in: `-1e-07`, ptr: new(float64), out: -1e-7, golden: true},                                    // 119
+	{in: `-100000000000000000000`, ptr: new(float64), out: -100000000000000000000.0, golden: true}, // 120
+	{in: `-1e+21`, ptr: new(float64), out: -1e21, golden: true},                                    // 121
+	{in: `999999999999999900000`, ptr: new(float64), out: 999999999999999900000.0, golden: true},   // 122
+	{in: `9007199254740992`, ptr: new(float64), out: 9007199254740992.0, golden: true},             // 123
+	{in: `9007199254740993`, ptr: new(float64), out: 9007199254740992.0, golden: false},            // 124
 	{
-		in:  `{"V": {"F2": "hello"}}`, // 129
+		in:  `{"V": {"F2": "hello"}}`, // 125
 		ptr: new(VOuter),
 		err: &json.UnmarshalTypeError{
 			Value:  `number "`,
@@ -1134,7 +1108,7 @@ var unmarshalTests = []unmarshalTest{
 		},
 	},
 	{
-		in:  `{"V": {"F4": {}, "F2": "hello"}}`, // 130
+		in:  `{"V": {"F4": {}, "F2": "hello"}}`, // 126
 		ptr: new(VOuter),
 		err: &json.UnmarshalTypeError{
 			Value:  `number "`,
@@ -1144,20 +1118,19 @@ var unmarshalTests = []unmarshalTest{
 			Offset: 30,
 		},
 	},
+	// issue 15146.
+	// invalid inputs in wrongStringTests below.
+	{in: `{"B":"true"}`, ptr: new(B), out: B{true}, golden: true},                                                               // 127
+	{in: `{"B":"false"}`, ptr: new(B), out: B{false}, golden: true},                                                             // 128
+	{in: `{"B": "maybe"}`, ptr: new(B), err: errors.New(`json: bool unexpected end of JSON input`)},                             // 129
+	{in: `{"B": "tru"}`, ptr: new(B), err: errors.New(`json: invalid character as bool(true)`)},                                 // 130
+	{in: `{"B": "False"}`, ptr: new(B), err: errors.New(`json: bool unexpected end of JSON input`)},                             // 131
+	{in: `{"B": "null"}`, ptr: new(B), out: B{false}},                                                                           // 132
+	{in: `{"B": "nul"}`, ptr: new(B), err: errors.New(`json: invalid character as null`)},                                       // 133
+	{in: `{"B": [2, 3]}`, ptr: new(B), err: errors.New(`json: cannot unmarshal array into Go struct field B.B of type string`)}, // 134
 	/*
-			// issue 15146.
-			// invalid inputs in wrongStringTests below.
-			{in: `{"B":"true"}`, ptr: new(B), out: B{true}, golden: true},                                                                                // 131
-			{in: `{"B":"false"}`, ptr: new(B), out: B{false}, golden: true},                                                                              // 132
-			{in: `{"B": "maybe"}`, ptr: new(B), err: errors.New(`json: invalid use of ,string struct tag, trying to unmarshal "maybe" into bool`)},       // 133
-			{in: `{"B": "tru"}`, ptr: new(B), err: errors.New(`json: invalid use of ,string struct tag, trying to unmarshal "tru" into bool`)},           // 134
-			{in: `{"B": "False"}`, ptr: new(B), err: errors.New(`json: invalid use of ,string struct tag, trying to unmarshal "False" into bool`)},       // 135
-			{in: `{"B": "null"}`, ptr: new(B), out: B{false}},                                                                                            // 136
-			{in: `{"B": "nul"}`, ptr: new(B), err: errors.New(`json: invalid use of ,string struct tag, trying to unmarshal "nul" into bool`)},           // 137
-			{in: `{"B": [2, 3]}`, ptr: new(B), err: errors.New(`json: invalid use of ,string struct tag, trying to unmarshal unquoted value into bool`)}, // 138
-
 			// additional tests for disallowUnknownFields
-			{ // 139
+			{ // 135
 				in: `{
 						"Level0": 1,
 						"Level1b": 2,
@@ -1184,7 +1157,7 @@ var unmarshalTests = []unmarshalTest{
 				err:                   fmt.Errorf("json: unknown field \"extra\""),
 				disallowUnknownFields: true,
 			},
-			{ // 140
+			{ // 136
 				in: `{
 						"Level0": 1,
 						"Level1b": 2,
@@ -1214,30 +1187,30 @@ var unmarshalTests = []unmarshalTest{
 			// issue 26444
 			// UnmarshalTypeError without field & struct values
 			{
-				in:  `{"data":{"test1": "bob", "test2": 123}}`, // 141
+				in:  `{"data":{"test1": "bob", "test2": 123}}`, // 137
 				ptr: new(mapStringToStringData),
 				err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 37, Struct: "mapStringToStringData", Field: "data"},
 			},
 			{
-				in:  `{"data":{"test1": 123, "test2": "bob"}}`, // 142
+				in:  `{"data":{"test1": 123, "test2": "bob"}}`, // 138
 				ptr: new(mapStringToStringData),
 				err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 21, Struct: "mapStringToStringData", Field: "data"},
 			},
 
 			// trying to decode JSON arrays or objects via TextUnmarshaler
 			{
-				in:  `[1, 2, 3]`, // 143
+				in:  `[1, 2, 3]`, // 139
 				ptr: new(MustNotUnmarshalText),
 				err: &json.UnmarshalTypeError{Value: "array", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
 			},
 			{
-				in:  `{"foo": "bar"}`, // 144
+				in:  `{"foo": "bar"}`, // 140
 				ptr: new(MustNotUnmarshalText),
 				err: &json.UnmarshalTypeError{Value: "object", Type: reflect.TypeOf(&MustNotUnmarshalText{}), Offset: 1},
 			},
 			// #22369
 			{
-				in:  `{"PP": {"T": {"Y": "bad-type"}}}`, // 145
+				in:  `{"PP": {"T": {"Y": "bad-type"}}}`, // 141
 				ptr: new(P),
 				err: &json.UnmarshalTypeError{
 					Value:  "string",
@@ -1248,7 +1221,7 @@ var unmarshalTests = []unmarshalTest{
 				},
 			},
 			{
-				in:  `{"Ts": [{"Y": 1}, {"Y": 2}, {"Y": "bad-type"}]}`, // 146
+				in:  `{"Ts": [{"Y": 1}, {"Y": 2}, {"Y": "bad-type"}]}`, // 142
 				ptr: new(PP),
 				err: &json.UnmarshalTypeError{
 					Value:  "string",
@@ -1260,7 +1233,7 @@ var unmarshalTests = []unmarshalTest{
 			},
 			// #14702
 			{
-				in:  `invalid`, // 147
+				in:  `invalid`, // 143
 				ptr: new(json.Number),
 				err: json.NewSyntaxError(
 					"invalid character 'i' looking for beginning of value",
@@ -1268,29 +1241,51 @@ var unmarshalTests = []unmarshalTest{
 				),
 			},
 			{
-				in:  `"invalid"`, // 148
+				in:  `"invalid"`, // 144
 				ptr: new(json.Number),
 				err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
 			},
 			{
-				in:  `{"A":"invalid"}`, // 149
+				in:  `{"A":"invalid"}`, // 145
 				ptr: new(struct{ A json.Number }),
 				err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
 			},
 		{
-			in: `{"A":"invalid"}`, // 150
+			in: `{"A":"invalid"}`, // 146
 			ptr: new(struct {
 				A json.Number `json:",string"`
 			}),
 			err: fmt.Errorf("json: invalid use of ,string struct tag, trying to unmarshal %q into json.Number", `invalid`),
 		},
 		{
-			in:  `{"A":"invalid"}`, // 151
+			in:  `{"A":"invalid"}`, // 147
 			ptr: new(map[string]json.Number),
 			err: fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", `"invalid"`),
 		},
 	*/
-
+	/*
+		// invalid UTF-8 is coerced to valid UTF-8.
+			{
+				in:  "\"hello\xffworld\"", // 148
+				ptr: new(string),
+				out: "hello\ufffdworld",
+			},
+			{
+				in:  "\"hello\xc2\xc2world\"", // 149
+				ptr: new(string),
+				out: "hello\ufffd\ufffdworld",
+			},
+			{
+				in:  "\"hello\xc2\xffworld\"", // 150
+				ptr: new(string),
+				out: "hello\ufffd\ufffdworld",
+			},
+			{
+				in:  "\"hello\xed\xa0\x80\xed\xb0\x80world\"", // 151
+				ptr: new(string),
+				out: "hello\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdworld",
+			},
+	*/
 }
 
 type All struct {

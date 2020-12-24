@@ -28,6 +28,8 @@ func (d *intDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
 	return &UnmarshalTypeError{
 		Value:  fmt.Sprintf("number %s", string(buf)),
 		Type:   rtype2type(d.typ),
+		Struct: d.structName,
+		Field:  d.fieldName,
 		Offset: offset,
 	}
 }

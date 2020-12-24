@@ -37,6 +37,7 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 	s.cursor++
 	if s.char() == '}' {
+		s.cursor++
 		return nil
 	}
 	for {

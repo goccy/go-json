@@ -102,11 +102,19 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 			idx := 0
 			for {
 				cursor++
-				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
-				if err != nil {
-					return 0, err
+				if idx < d.alen {
+					c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+				} else {
+					c, err := skipValue(buf, cursor)
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
 				}
-				cursor = c
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':

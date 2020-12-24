@@ -65,10 +65,11 @@ func (d *bytesDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 	cursor = c
 	decodedLen := base64.StdEncoding.DecodedLen(len(bytes))
 	b := make([]byte, decodedLen)
-	if _, err := base64.StdEncoding.Decode(b, bytes); err != nil {
+	n, err := base64.StdEncoding.Decode(b, bytes)
+	if err != nil {
 		return 0, err
 	}
-	*(*[]byte)(p) = b
+	*(*[]byte)(p) = b[:n]
 	return cursor, nil
 }
 

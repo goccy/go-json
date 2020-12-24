@@ -1864,6 +1864,7 @@ func TestUnmarshalMarshal(t *testing.T) {
 		return
 	}
 }
+*/
 
 var numberTests = []struct {
 	in       string
@@ -1916,6 +1917,7 @@ func TestLargeByteSlice(t *testing.T) {
 	}
 }
 
+/*
 type Xint struct {
 	X int
 }

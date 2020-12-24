@@ -5,25 +5,27 @@ import (
 )
 
 type encodeCompileContext struct {
-	typ         *rtype
-	withIndent  bool
-	root        bool
-	opcodeIndex int
-	ptrIndex    int
-	indent      int
+	typ                      *rtype
+	withIndent               bool
+	root                     bool
+	opcodeIndex              int
+	ptrIndex                 int
+	indent                   int
+	structTypeToCompiledCode map[uintptr]*compiledCode
 
 	parent *encodeCompileContext
 }
 
 func (c *encodeCompileContext) context() *encodeCompileContext {
 	return &encodeCompileContext{
-		typ:         c.typ,
-		withIndent:  c.withIndent,
-		root:        c.root,
-		opcodeIndex: c.opcodeIndex,
-		ptrIndex:    c.ptrIndex,
-		indent:      c.indent,
-		parent:      c,
+		typ:                      c.typ,
+		withIndent:               c.withIndent,
+		root:                     c.root,
+		opcodeIndex:              c.opcodeIndex,
+		ptrIndex:                 c.ptrIndex,
+		indent:                   c.indent,
+		structTypeToCompiledCode: c.structTypeToCompiledCode,
+		parent:                   c,
 	}
 }
 

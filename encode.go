@@ -15,16 +15,15 @@ import (
 
 // An Encoder writes JSON values to an output stream.
 type Encoder struct {
-	w                              io.Writer
-	ctx                            *encodeRuntimeContext
-	buf                            []byte
-	enabledIndent                  bool
-	enabledHTMLEscape              bool
-	unorderedMap                   bool
-	prefix                         []byte
-	indentStr                      []byte
-	structTypeToCompiledCode       map[uintptr]*compiledCode
-	structTypeToCompiledIndentCode map[uintptr]*compiledCode
+	w                 io.Writer
+	ctx               *encodeRuntimeContext
+	ptr               unsafe.Pointer
+	buf               []byte
+	enabledIndent     bool
+	enabledHTMLEscape bool
+	unorderedMap      bool
+	prefix            []byte
+	indentStr         []byte
 }
 
 type compiledCode struct {
@@ -73,9 +72,7 @@ func init() {
 					ptrs:     make([]uintptr, 128),
 					keepRefs: make([]unsafe.Pointer, 0, 8),
 				},
-				buf:                            make([]byte, 0, bufSize),
-				structTypeToCompiledCode:       map[uintptr]*compiledCode{},
-				structTypeToCompiledIndentCode: map[uintptr]*compiledCode{},
+				buf: make([]byte, 0, bufSize),
 			}
 		},
 	}
@@ -105,20 +102,20 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 			return err
 		}
 	}
-	var err error
-	if e.buf, err = e.encode(v); err != nil {
+	buf, err := e.encode(v)
+	if err != nil {
 		return err
 	}
 	if e.enabledIndent {
-		e.buf = e.buf[:len(e.buf)-2]
+		buf = buf[:len(buf)-2]
 	} else {
-		e.buf = e.buf[:len(e.buf)-1]
+		buf = buf[:len(buf)-1]
 	}
-	e.buf = append(e.buf, '\n')
-	if _, err := e.w.Write(e.buf); err != nil {
+	buf = append(buf, '\n')
+	if _, err := e.w.Write(buf); err != nil {
 		return err
 	}
-	e.buf = e.buf[:0]
+	e.buf = buf[:0]
 	return nil
 }
 
@@ -148,29 +145,31 @@ func (e *Encoder) release() {
 }
 
 func (e *Encoder) reset() {
-	e.buf = e.buf[:0]
 	e.enabledHTMLEscape = true
 	e.enabledIndent = false
 	e.unorderedMap = false
 }
 
 func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
-	var err error
-	if e.buf, err = e.encode(v); err != nil {
+	buf, err := e.encode(v)
+	if err != nil {
 		return nil, err
 	}
+
+	e.buf = buf
+
 	if e.enabledIndent {
-		copied := make([]byte, len(e.buf)-2)
-		copy(copied, e.buf)
+		copied := make([]byte, len(buf)-2)
+		copy(copied, buf)
 		return copied, nil
 	}
-	copied := make([]byte, len(e.buf)-1)
-	copy(copied, e.buf)
+	copied := make([]byte, len(buf)-1)
+	copy(copied, buf)
 	return copied, nil
 }
 
 func (e *Encoder) encode(v interface{}) ([]byte, error) {
-	b := e.buf
+	b := e.buf[:0]
 	if v == nil {
 		b = encodeNull(b)
 		if e.enabledIndent {
@@ -202,17 +201,19 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 
 	codeIndent, err := e.compileHead(&encodeCompileContext{
-		typ:        copiedType,
-		root:       true,
-		withIndent: true,
+		typ:                      copiedType,
+		root:                     true,
+		withIndent:               true,
+		structTypeToCompiledCode: map[uintptr]*compiledCode{},
 	})
 	if err != nil {
 		return nil, err
 	}
 	code, err := e.compileHead(&encodeCompileContext{
-		typ:        copiedType,
-		root:       true,
-		withIndent: false,
+		typ:                      copiedType,
+		root:                     true,
+		withIndent:               false,
+		structTypeToCompiledCode: map[uintptr]*compiledCode{},
 	})
 	if err != nil {
 		return nil, err

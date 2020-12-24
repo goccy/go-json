@@ -1,7 +1,6 @@
 package json
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -877,14 +876,8 @@ func (e *Encoder) recursiveCode(ctx *encodeCompileContext, jmp *compiledCode) *o
 func (e *Encoder) compiledCode(ctx *encodeCompileContext) *opcode {
 	typ := ctx.typ
 	typeptr := uintptr(unsafe.Pointer(typ))
-	if ctx.withIndent {
-		if compiledCode, exists := e.structTypeToCompiledIndentCode[typeptr]; exists {
-			return e.recursiveCode(ctx, compiledCode)
-		}
-	} else {
-		if compiledCode, exists := e.structTypeToCompiledCode[typeptr]; exists {
-			return e.recursiveCode(ctx, compiledCode)
-		}
+	if compiledCode, exists := ctx.structTypeToCompiledCode[typeptr]; exists {
+		return e.recursiveCode(ctx, compiledCode)
 	}
 	return nil
 }
@@ -1140,11 +1133,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	typ := ctx.typ
 	typeptr := uintptr(unsafe.Pointer(typ))
 	compiled := &compiledCode{}
-	if ctx.withIndent {
-		e.structTypeToCompiledIndentCode[typeptr] = compiled
-	} else {
-		e.structTypeToCompiledCode[typeptr] = compiled
-	}
+	ctx.structTypeToCompiledCode[typeptr] = compiled
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
@@ -1212,12 +1201,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			}
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
-
-		var buf bytes.Buffer
-		enc := NewEncoder(&buf)
-		enc.buf = encodeEscapedString(enc.buf, tag.key)
-		escapedKey := fmt.Sprintf(`%s:`, string(enc.buf))
-		enc.release()
+		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
 		fieldCode := &opcode{
 			typ:          valueCode.typ,
 			displayIdx:   fieldOpcodeIndex,
@@ -1294,11 +1278,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 	ret := (*opcode)(unsafe.Pointer(head))
 	compiled.code = ret
 
-	if ctx.withIndent {
-		delete(e.structTypeToCompiledIndentCode, typeptr)
-	} else {
-		delete(e.structTypeToCompiledCode, typeptr)
-	}
+	delete(ctx.structTypeToCompiledCode, typeptr)
 
 	return ret, nil
 }

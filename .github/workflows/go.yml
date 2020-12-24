@@ -20,6 +20,8 @@ jobs:
 
     - name: Test
       run: go test -v ./ -count=1
+      env:
+        GOGC: off
 
     - name: Test with GC
       run: go test -v ./ -count=1

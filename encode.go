@@ -34,10 +34,19 @@ const (
 	bufSize = 1024
 )
 
+const (
+	opCodeEscapedType = iota
+	opCodeEscapedIndentType
+	opCodeNoEscapeType
+	opCodeNoEscapeIndentType
+)
+
 type opcodeSet struct {
-	codeIndent *opcode
-	code       *opcode
-	codeLength int
+	escapedCode       *opcode
+	escapedCodeIndent *opcode
+	code              *opcode
+	codeIndent        *opcode
+	codeLength        int
 }
 
 func loadOpcodeMap() map[uintptr]*opcodeSet {
@@ -187,9 +196,17 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	if codeSet, exists := opcodeMap[typeptr]; exists {
 		var code *opcode
 		if e.enabledIndent {
-			code = codeSet.codeIndent
+			if e.enabledHTMLEscape {
+				code = codeSet.escapedCodeIndent
+			} else {
+				code = codeSet.codeIndent
+			}
 		} else {
-			code = codeSet.code
+			if e.enabledHTMLEscape {
+				code = codeSet.escapedCode
+			} else {
+				code = codeSet.code
+			}
 		}
 		ctx := e.ctx
 		p := uintptr(header.ptr)
@@ -212,9 +229,11 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	codeIndent := toIndent(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
-		codeIndent: codeIndent,
-		code:       code,
-		codeLength: codeLength,
+		escapedCode:       toEscaped(code),
+		escapedCodeIndent: toEscaped(codeIndent),
+		code:              code,
+		codeIndent:        codeIndent,
+		codeLength:        codeLength,
 	}
 
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
@@ -224,9 +243,17 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 
 	var c *opcode
 	if e.enabledIndent {
-		c = codeIndent
+		if e.enabledHTMLEscape {
+			c = codeSet.escapedCodeIndent
+		} else {
+			c = codeSet.codeIndent
+		}
 	} else {
-		c = code
+		if e.enabledHTMLEscape {
+			c = codeSet.escapedCode
+		} else {
+			c = codeSet.code
+		}
 	}
 
 	b, err = e.run(ctx, b, c)
@@ -283,20 +310,6 @@ func encodeComma(b []byte) []byte {
 
 func encodeIndentComma(b []byte) []byte {
 	return append(b, ',', '\n')
-}
-
-func (e *Encoder) encodeKey(b []byte, code *opcode) []byte {
-	if e.enabledHTMLEscape {
-		return append(b, code.escapedKey...)
-	}
-	return append(b, code.key...)
-}
-
-func (e *Encoder) encodeString(b []byte, s string) []byte {
-	if e.enabledHTMLEscape {
-		return encodeEscapedString(b, s)
-	}
-	return encodeNoEscapedString(b, s)
 }
 
 func encodeByteSlice(b []byte, src []byte) []byte {

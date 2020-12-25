@@ -319,12 +319,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			c, err := e.compileHead(&encodeCompileContext{
 				typ:                      header.typ,
 				root:                     code.root,
-				withIndent:               e.enabledIndent,
 				indent:                   code.indent,
 				structTypeToCompiledCode: map[uintptr]*compiledCode{},
 			})
 			if err != nil {
 				return nil, err
+			}
+			if e.enabledIndent {
+				c = toIndent(c)
 			}
 			beforeLastCode := c.beforeLastCode()
 			lastCode := beforeLastCode.next
@@ -384,10 +386,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			var c *opcode
 			if typ.Kind() == reflect.Map {
 				code, err := e.compileMap(&encodeCompileContext{
-					typ:        typ,
-					root:       code.root,
-					withIndent: e.enabledIndent,
-					indent:     code.indent,
+					typ:                      typ,
+					root:                     code.root,
+					indent:                   code.indent,
+					structTypeToCompiledCode: map[uintptr]*compiledCode{},
 				}, false)
 				if err != nil {
 					return nil, err
@@ -395,17 +397,19 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				c = code
 			} else {
 				code, err := e.compile(&encodeCompileContext{
-					typ:        typ,
-					root:       code.root,
-					withIndent: e.enabledIndent,
-					indent:     code.indent,
+					typ:                      typ,
+					root:                     code.root,
+					indent:                   code.indent,
+					structTypeToCompiledCode: map[uintptr]*compiledCode{},
 				})
 				if err != nil {
 					return nil, err
 				}
 				c = code
 			}
-
+			if e.enabledIndent {
+				c = toIndent(c)
+			}
 			beforeLastCode := c.beforeLastCode()
 			lastCode := beforeLastCode.next
 			lastCode.idx = beforeLastCode.idx + uintptrSize

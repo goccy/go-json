@@ -200,26 +200,16 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 
-	codeIndent, err := e.compileHead(&encodeCompileContext{
-		typ:                      copiedType,
-		root:                     true,
-		withIndent:               true,
-		structTypeToCompiledCode: map[uintptr]*compiledCode{},
-	})
-	if err != nil {
-		return nil, err
-	}
 	code, err := e.compileHead(&encodeCompileContext{
 		typ:                      copiedType,
 		root:                     true,
-		withIndent:               false,
 		structTypeToCompiledCode: map[uintptr]*compiledCode{},
 	})
 	if err != nil {
 		return nil, err
 	}
-	codeIndent = copyOpcode(codeIndent)
 	code = copyOpcode(code)
+	codeIndent := toIndent(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
 		codeIndent: codeIndent,

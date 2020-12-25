@@ -377,16 +377,6 @@ func (e *Encoder) compileSlice(ctx *encodeCompileContext) (*opcode, error) {
 
 	end := newOpCode(ctx, opSliceEnd)
 	ctx.incIndex()
-	if ctx.withIndent {
-		if ctx.root {
-			header.op = opRootSliceHeadIndent
-			elemCode.op = opRootSliceElemIndent
-		} else {
-			header.op = opSliceHeadIndent
-			elemCode.op = opSliceElemIndent
-		}
-		end.op = opSliceEndIndent
-	}
 
 	header.elem = elemCode
 	header.end = end
@@ -420,12 +410,6 @@ func (e *Encoder) compileArray(ctx *encodeCompileContext) (*opcode, error) {
 
 	end := newOpCode(ctx, opArrayEnd)
 	ctx.incIndex()
-
-	if ctx.withIndent {
-		header.op = opArrayHeadIndent
-		elemCode.op = opArrayElemIndent
-		end.op = opArrayEndIndent
-	}
 
 	header.elem = elemCode
 	header.end = end
@@ -486,13 +470,6 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 
 	end := newMapEndCode(ctx, header)
 	ctx.incIndex()
-
-	if ctx.withIndent {
-		header.op = header.op.toIndent()
-		key.op = key.op.toIndent()
-		value.op = value.op.toIndent()
-		end.op = end.op.toIndent()
-	}
 
 	header.next = keyCode
 	keyCode.beforeLastCode().next = (*opcode)(unsafe.Pointer(value))
@@ -587,88 +564,46 @@ func (e *Encoder) typeToHeaderType(ctx *encodeCompileContext, code *opcode) opTy
 		}
 	case opInt:
 		return opStructFieldHeadInt
-	case opIntIndent:
-		return opStructFieldHeadIntIndent
 	case opInt8:
 		return opStructFieldHeadInt8
-	case opInt8Indent:
-		return opStructFieldHeadInt8Indent
 	case opInt16:
 		return opStructFieldHeadInt16
-	case opInt16Indent:
-		return opStructFieldHeadInt16Indent
 	case opInt32:
 		return opStructFieldHeadInt32
-	case opInt32Indent:
-		return opStructFieldHeadInt32Indent
 	case opInt64:
 		return opStructFieldHeadInt64
-	case opInt64Indent:
-		return opStructFieldHeadInt64Indent
 	case opUint:
 		return opStructFieldHeadUint
-	case opUintIndent:
-		return opStructFieldHeadUintIndent
 	case opUint8:
 		return opStructFieldHeadUint8
-	case opUint8Indent:
-		return opStructFieldHeadUint8Indent
 	case opUint16:
 		return opStructFieldHeadUint16
-	case opUint16Indent:
-		return opStructFieldHeadUint16Indent
 	case opUint32:
 		return opStructFieldHeadUint32
-	case opUint32Indent:
-		return opStructFieldHeadUint32Indent
 	case opUint64:
 		return opStructFieldHeadUint64
-	case opUint64Indent:
-		return opStructFieldHeadUint64Indent
 	case opFloat32:
 		return opStructFieldHeadFloat32
-	case opFloat32Indent:
-		return opStructFieldHeadFloat32Indent
 	case opFloat64:
 		return opStructFieldHeadFloat64
-	case opFloat64Indent:
-		return opStructFieldHeadFloat64Indent
 	case opString:
 		return opStructFieldHeadString
-	case opStringIndent:
-		return opStructFieldHeadStringIndent
 	case opBool:
 		return opStructFieldHeadBool
-	case opBoolIndent:
-		return opStructFieldHeadBoolIndent
 	case opMapHead:
 		return opStructFieldHeadMap
 	case opMapHeadLoad:
 		return opStructFieldHeadMapLoad
-	case opMapHeadIndent:
-		return opStructFieldHeadMapIndent
-	case opMapHeadLoadIndent:
-		return opStructFieldHeadMapLoadIndent
 	case opArrayHead:
 		return opStructFieldHeadArray
-	case opArrayHeadIndent:
-		return opStructFieldHeadArrayIndent
 	case opSliceHead:
 		return opStructFieldHeadSlice
-	case opSliceHeadIndent:
-		return opStructFieldHeadSliceIndent
 	case opStructFieldHead:
 		return opStructFieldHeadStruct
-	case opStructFieldHeadIndent:
-		return opStructFieldHeadStructIndent
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
-	case opMarshalJSONIndent:
-		return opStructFieldHeadMarshalJSONIndent
 	case opMarshalText:
 		return opStructFieldHeadMarshalText
-	case opMarshalTextIndent:
-		return opStructFieldHeadMarshalTextIndent
 	}
 	return opStructFieldHead
 }
@@ -753,93 +688,51 @@ func (e *Encoder) typeToFieldType(ctx *encodeCompileContext, code *opcode) opTyp
 		}
 	case opInt:
 		return opStructFieldInt
-	case opIntIndent:
-		return opStructFieldIntIndent
 	case opInt8:
 		return opStructFieldInt8
-	case opInt8Indent:
-		return opStructFieldInt8Indent
 	case opInt16:
 		return opStructFieldInt16
-	case opInt16Indent:
-		return opStructFieldInt16Indent
 	case opInt32:
 		return opStructFieldInt32
-	case opInt32Indent:
-		return opStructFieldInt32Indent
 	case opInt64:
 		return opStructFieldInt64
-	case opInt64Indent:
-		return opStructFieldInt64Indent
 	case opUint:
 		return opStructFieldUint
-	case opUintIndent:
-		return opStructFieldUintIndent
 	case opUint8:
 		return opStructFieldUint8
-	case opUint8Indent:
-		return opStructFieldUint8Indent
 	case opUint16:
 		return opStructFieldUint16
-	case opUint16Indent:
-		return opStructFieldUint16Indent
 	case opUint32:
 		return opStructFieldUint32
-	case opUint32Indent:
-		return opStructFieldUint32Indent
 	case opUint64:
 		return opStructFieldUint64
-	case opUint64Indent:
-		return opStructFieldUint64Indent
 	case opFloat32:
 		return opStructFieldFloat32
-	case opFloat32Indent:
-		return opStructFieldFloat32Indent
 	case opFloat64:
 		return opStructFieldFloat64
-	case opFloat64Indent:
-		return opStructFieldFloat64Indent
 	case opString:
 		return opStructFieldString
-	case opStringIndent:
-		return opStructFieldStringIndent
 	case opBool:
 		return opStructFieldBool
-	case opBoolIndent:
-		return opStructFieldBoolIndent
 	case opMapHead:
 		return opStructFieldMap
 	case opMapHeadLoad:
 		return opStructFieldMapLoad
-	case opMapHeadIndent:
-		return opStructFieldMapIndent
-	case opMapHeadLoadIndent:
-		return opStructFieldMapLoadIndent
 	case opArrayHead:
 		return opStructFieldArray
-	case opArrayHeadIndent:
-		return opStructFieldArrayIndent
 	case opSliceHead:
 		return opStructFieldSlice
-	case opSliceHeadIndent:
-		return opStructFieldSliceIndent
 	case opStructFieldHead:
 		return opStructFieldStruct
-	case opStructFieldHeadIndent:
-		return opStructFieldStructIndent
 	case opMarshalJSON:
 		return opStructFieldMarshalJSON
-	case opMarshalJSONIndent:
-		return opStructFieldMarshalJSONIndent
 	case opMarshalText:
 		return opStructFieldMarshalText
-	case opMarshalTextIndent:
-		return opStructFieldMarshalTextIndent
 	}
 	return opStructField
 }
 
-func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag, withIndent bool) opType {
+func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag) opType {
 	headType := e.typeToHeaderType(ctx, code)
 	switch {
 	case tag.isOmitEmpty:
@@ -847,22 +740,16 @@ func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, 
 	case tag.isString:
 		headType = headType.headToStringTagHead()
 	}
-	if withIndent {
-		return headType.toIndent()
-	}
 	return headType
 }
 
-func (e *Encoder) optimizeStructField(ctx *encodeCompileContext, code *opcode, tag *structTag, withIndent bool) opType {
+func (e *Encoder) optimizeStructField(ctx *encodeCompileContext, code *opcode, tag *structTag) opType {
 	fieldType := e.typeToFieldType(ctx, code)
 	switch {
 	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
 	case tag.isString:
 		fieldType = fieldType.fieldToStringTagField()
-	}
-	if withIndent {
-		return fieldType.toIndent()
 	}
 	return fieldType
 }
@@ -884,7 +771,7 @@ func (e *Encoder) compiledCode(ctx *encodeCompileContext) *opcode {
 
 func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	fieldCode.indent--
-	op := e.optimizeStructHeader(ctx, valueCode, tag, ctx.withIndent)
+	op := e.optimizeStructHeader(ctx, valueCode, tag)
 	fieldCode.op = op
 	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
@@ -900,20 +787,7 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 		opStructFieldHeadOmitEmptyMap,
 		opStructFieldHeadOmitEmptyMapLoad,
 		opStructFieldHeadOmitEmptyStruct,
-		opStructFieldHeadStringTag,
-		opStructFieldHeadIndent,
-		opStructFieldHeadSliceIndent,
-		opStructFieldHeadArrayIndent,
-		opStructFieldHeadMapIndent,
-		opStructFieldHeadMapLoadIndent,
-		opStructFieldHeadStructIndent,
-		opStructFieldHeadOmitEmptyIndent,
-		opStructFieldHeadOmitEmptySliceIndent,
-		opStructFieldHeadOmitEmptyArrayIndent,
-		opStructFieldHeadOmitEmptyMapIndent,
-		opStructFieldHeadOmitEmptyMapLoadIndent,
-		opStructFieldHeadOmitEmptyStructIndent,
-		opStructFieldHeadStringTagIndent:
+		opStructFieldHeadStringTag:
 		return valueCode.beforeLastCode()
 	}
 	ctx.decOpcodeIndex()
@@ -922,7 +796,7 @@ func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, val
 
 func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	code := (*opcode)(unsafe.Pointer(fieldCode))
-	op := e.optimizeStructField(ctx, valueCode, tag, ctx.withIndent)
+	op := e.optimizeStructField(ctx, valueCode, tag)
 	fieldCode.op = op
 	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
@@ -938,20 +812,7 @@ func (e *Encoder) structField(ctx *encodeCompileContext, fieldCode *opcode, valu
 		opStructFieldOmitEmptyMap,
 		opStructFieldOmitEmptyMapLoad,
 		opStructFieldOmitEmptyStruct,
-		opStructFieldStringTag,
-		opStructFieldIndent,
-		opStructFieldSliceIndent,
-		opStructFieldArrayIndent,
-		opStructFieldMapIndent,
-		opStructFieldMapLoadIndent,
-		opStructFieldStructIndent,
-		opStructFieldOmitEmptyIndent,
-		opStructFieldOmitEmptySliceIndent,
-		opStructFieldOmitEmptyArrayIndent,
-		opStructFieldOmitEmptyMapIndent,
-		opStructFieldOmitEmptyMapLoadIndent,
-		opStructFieldOmitEmptyStructIndent,
-		opStructFieldStringTagIndent:
+		opStructFieldStringTag:
 		return valueCode.beforeLastCode()
 	}
 	ctx.decIndex()
@@ -988,10 +849,10 @@ func (e *Encoder) optimizeAnonymousFields(head *opcode) {
 	var prev *opcode
 	removedFields := map[*opcode]struct{}{}
 	for {
-		if code.op == opStructEnd || code.op == opStructEndIndent {
+		if code.op == opStructEnd {
 			break
 		}
-		if code.op == opStructField || code.op == opStructFieldIndent {
+		if code.op == opStructField {
 			codeType := code.next.op.codeType()
 			if codeType == codeStructField {
 				if e.isNotExistsField(code.next) {
@@ -1252,19 +1113,12 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		}
 		structEndCode.prevField = head
 		ctx.incIndex()
-		if ctx.withIndent {
-			head.op = opStructFieldHeadIndent
-		}
 		code = head
 	}
 
 	structEndCode.displayIdx = ctx.opcodeIndex
 	structEndCode.idx = opcodeOffset(ctx.ptrIndex)
 	ctx.incIndex()
-
-	if ctx.withIndent {
-		structEndCode.op = opStructEndIndent
-	}
 
 	if prevField != nil && prevField.nextField == nil {
 		prevField.nextField = structEndCode

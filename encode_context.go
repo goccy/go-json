@@ -6,7 +6,6 @@ import (
 
 type encodeCompileContext struct {
 	typ                      *rtype
-	withIndent               bool
 	root                     bool
 	opcodeIndex              int
 	ptrIndex                 int
@@ -19,7 +18,6 @@ type encodeCompileContext struct {
 func (c *encodeCompileContext) context() *encodeCompileContext {
 	return &encodeCompileContext{
 		typ:                      c.typ,
-		withIndent:               c.withIndent,
 		root:                     c.root,
 		opcodeIndex:              c.opcodeIndex,
 		ptrIndex:                 c.ptrIndex,

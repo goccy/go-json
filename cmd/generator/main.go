@@ -12,36 +12,35 @@ import (
 )
 
 type opType struct {
-	Op       string
-	IndentOp string
-	Code     string
+	Op                    string
+	Code                  string
+	Indent                func() string
+	Escaped               func() string
+	HeadToPtrHead         func() string
+	HeadToNPtrHead        func() string
+	HeadToAnonymousHead   func() string
+	HeadToOmitEmptyHead   func() string
+	HeadToStringTagHead   func() string
+	PtrHeadToHead         func() string
+	FieldToOmitEmptyField func() string
+	FieldToStringTagField func() string
 }
 
-type headType struct {
-	Head                       string
-	PtrHead                    string
-	NPtrHead                   string
-	AnonymousHead              string
-	AnonymousPtrHead           string
-	AnonymousNPtrHead          string
-	OmitEmptyHead              string
-	OmitEmptyPtrHead           string
-	OmitEmptyNPtrHead          string
-	AnonymousOmitEmptyHead     string
-	AnonymousOmitEmptyPtrHead  string
-	AnonymousOmitEmptyNPtrHead string
-	StringTagHead              string
-	StringTagPtrHead           string
-	StringTagNPtrHead          string
-	AnonymousStringTagHead     string
-	AnonymousStringTagPtrHead  string
-	AnonymousStringTagNPtrHead string
-}
-
-type fieldType struct {
-	Field          string
-	OmitEmptyField string
-	StringTagField string
+func createOpType(op, code string) opType {
+	return opType{
+		Op:                    op,
+		Code:                  code,
+		Indent:                func() string { return fmt.Sprintf("%sIndent", op) },
+		Escaped:               func() string { return op },
+		HeadToPtrHead:         func() string { return op },
+		HeadToNPtrHead:        func() string { return op },
+		HeadToAnonymousHead:   func() string { return op },
+		HeadToOmitEmptyHead:   func() string { return op },
+		HeadToStringTagHead:   func() string { return op },
+		PtrHeadToHead:         func() string { return op },
+		FieldToOmitEmptyField: func() string { return op },
+		FieldToStringTagField: func() string { return op },
+	}
 }
 
 func _main() error {
@@ -88,7 +87,17 @@ func (t opType) toIndent() opType {
   switch t {
 {{- range $type := .OpTypes }}
   case op{{ $type.Op }}:
-    return op{{ $type.IndentOp }}
+    return op{{ call $type.Indent }}
+{{- end }}
+  }
+  return t
+}
+
+func (t opType) toEscaped() opType {
+  switch t {
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.Escaped }}
 {{- end }}
   }
   return t
@@ -96,19 +105,9 @@ func (t opType) toIndent() opType {
 
 func (t opType) headToPtrHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.Head }}:
-    return op{{ $type.PtrHead }}
-  case op{{ $type.AnonymousHead }}:
-    return op{{ $type.AnonymousPtrHead }}
-  case op{{ $type.OmitEmptyHead }}:
-    return op{{ $type.OmitEmptyPtrHead }}
-  case op{{ $type.AnonymousOmitEmptyHead }}:
-    return op{{ $type.AnonymousOmitEmptyPtrHead }}
-  case op{{ $type.StringTagHead }}:
-    return op{{ $type.StringTagPtrHead }}
-  case op{{ $type.AnonymousStringTagHead }}:
-    return op{{ $type.AnonymousStringTagPtrHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.HeadToPtrHead }}
 {{- end }}
   }
   return t
@@ -116,19 +115,9 @@ func (t opType) headToPtrHead() opType {
 
 func (t opType) headToNPtrHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.Head }}:
-    return op{{ $type.NPtrHead }}
-  case op{{ $type.AnonymousHead }}:
-    return op{{ $type.AnonymousNPtrHead }}
-  case op{{ $type.OmitEmptyHead }}:
-    return op{{ $type.OmitEmptyNPtrHead }}
-  case op{{ $type.AnonymousOmitEmptyHead }}:
-    return op{{ $type.AnonymousOmitEmptyNPtrHead }}
-  case op{{ $type.StringTagHead }}:
-    return op{{ $type.StringTagNPtrHead }}
-  case op{{ $type.AnonymousStringTagHead }}:
-    return op{{ $type.AnonymousStringTagNPtrHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.HeadToNPtrHead }}
 {{- end }}
   }
   return t
@@ -136,19 +125,9 @@ func (t opType) headToNPtrHead() opType {
 
 func (t opType) headToAnonymousHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.Head }}:
-    return op{{ $type.AnonymousHead }}
-  case op{{ $type.PtrHead }}:
-    return op{{ $type.AnonymousPtrHead }}
-  case op{{ $type.OmitEmptyHead }}:
-    return op{{ $type.AnonymousOmitEmptyHead }}
-  case op{{ $type.OmitEmptyPtrHead }}:
-    return op{{ $type.AnonymousOmitEmptyPtrHead }}
-  case op{{ $type.StringTagHead }}:
-    return op{{ $type.AnonymousStringTagHead }}
-  case op{{ $type.StringTagPtrHead }}:
-    return op{{ $type.AnonymousStringTagPtrHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.HeadToAnonymousHead }}
 {{- end }}
   }
   return t
@@ -156,11 +135,9 @@ func (t opType) headToAnonymousHead() opType {
 
 func (t opType) headToOmitEmptyHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.Head }}:
-    return op{{ $type.OmitEmptyHead }}
-  case op{{ $type.PtrHead }}:
-    return op{{ $type.OmitEmptyPtrHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.HeadToOmitEmptyHead }}
 {{- end }}
   }
   return t
@@ -168,11 +145,9 @@ func (t opType) headToOmitEmptyHead() opType {
 
 func (t opType) headToStringTagHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.Head }}:
-    return op{{ $type.StringTagHead }}
-  case op{{ $type.PtrHead }}:
-    return op{{ $type.StringTagPtrHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.HeadToStringTagHead }}
 {{- end }}
   }
   return t
@@ -180,19 +155,9 @@ func (t opType) headToStringTagHead() opType {
 
 func (t opType) ptrHeadToHead() opType {
   switch t {
-{{- range $type := .HeadTypes }}
-  case op{{ $type.PtrHead }}, op{{ $type.NPtrHead }}:
-    return op{{ $type.Head }}
-  case op{{ $type.AnonymousPtrHead }}, op{{ $type.AnonymousNPtrHead }}:
-    return op{{ $type.AnonymousHead }}
-  case op{{ $type.OmitEmptyPtrHead }}, op{{ $type.OmitEmptyNPtrHead }}:
-    return op{{ $type.OmitEmptyHead }}
-  case op{{ $type.AnonymousOmitEmptyPtrHead }}, op{{ $type.AnonymousOmitEmptyNPtrHead }}:
-    return op{{ $type.AnonymousOmitEmptyHead }}
-  case op{{ $type.StringTagPtrHead }}, op{{ $type.StringTagNPtrHead }}:
-    return op{{ $type.StringTagHead }}
-  case op{{ $type.AnonymousStringTagPtrHead }}, op{{ $type.AnonymousStringTagNPtrHead }}:
-    return op{{ $type.AnonymousStringTagHead }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.PtrHeadToHead }}
 {{- end }}
   }
   return t
@@ -200,9 +165,9 @@ func (t opType) ptrHeadToHead() opType {
 
 func (t opType) fieldToOmitEmptyField() opType {
   switch t {
-{{- range $type := .FieldTypes }}
-  case op{{ $type.Field }}:
-    return op{{ $type.OmitEmptyField }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToOmitEmptyField }}
 {{- end }}
   }
   return t
@@ -210,9 +175,9 @@ func (t opType) fieldToOmitEmptyField() opType {
 
 func (t opType) fieldToStringTagField() opType {
   switch t {
-{{- range $type := .FieldTypes }}
-  case op{{ $type.Field }}:
-    return op{{ $type.StringTagField }}
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToStringTagField }}
 {{- end }}
   }
   return t
@@ -238,210 +203,256 @@ func (t opType) fieldToStringTagField() opType {
 	primitiveTypes := []string{
 		"int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64", "bool", "string", "bytes",
+		"float32", "float64", "bool", "string", "escapedString", "bytes",
 		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
 		"intString", "int8String", "int16String", "int32String", "int64String",
 		"uintString", "uint8String", "uint16String", "uint32String", "uint64String",
 		"intPtr", "int8Ptr", "int16Ptr", "int32Ptr", "int64Ptr",
 		"uintPtr", "uint8Ptr", "uint16Ptr", "uint32Ptr", "uint64Ptr",
-		"float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr",
+		"float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "escapedStringPtr", "bytesPtr",
 		"intNPtr", "int8NPtr", "int16NPtr", "int32NPtr", "int64NPtr",
 		"uintNPtr", "uint8NPtr", "uint16NPtr", "uint32NPtr", "uint64NPtr",
-		"float32NPtr", "float64NPtr", "boolNPtr", "stringNPtr", "bytesNPtr",
+		"float32NPtr", "float64NPtr", "boolNPtr", "stringNPtr", "escapedStringNPtr", "bytesNPtr",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
 		primitiveTypesUpper = append(primitiveTypesUpper, strings.ToUpper(string(typ[0]))+typ[1:])
 	}
 	opTypes := []opType{
-		{"End", "EndIndent", "Op"},
-		{"Interface", "InterfaceIndent", "Op"},
-		{"InterfaceEnd", "InterfaceEndIndent", "Op"},
-		{"Ptr", "PtrIndent", "Op"},
-		{"NPtr", "NPtrIndent", "Op"},
-		{"SliceHead", "SliceHeadIndent", "SliceHead"},
-		{"RootSliceHead", "RootSliceHeadIndent", "SliceHead"},
-		{"SliceElem", "SliceElemIndent", "SliceElem"},
-		{"RootSliceElem", "RootSliceElemIndent", "SliceElem"},
-		{"SliceEnd", "SliceEndIndent", "Op"},
-		{"ArrayHead", "ArrayHeadIndent", "ArrayHead"},
-		{"ArrayElem", "ArrayElemIndent", "ArrayElem"},
-		{"ArrayEnd", "ArrayEndIndent", "Op"},
-		{"MapHead", "MapHeadIndent", "MapHead"},
-		{"MapHeadLoad", "MapHeadLoadIndent", "MapHead"},
-		{"MapKey", "MapKeyIndent", "MapKey"},
-		{"MapValue", "MapValueIndent", "MapValue"},
-		{"MapEnd", "MapEndIndent", "Op"},
-		{"StructFieldHead", "StructFieldHeadIndent", "StructField"},
-		{"StructFieldHeadOmitEmpty", "StructFieldHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldHeadStringTag", "StructFieldHeadStringTagIndent", "StructField"},
-		{"StructFieldAnonymousHead", "StructFieldAnonymousHeadIndent", "StructField"},
-		{"StructFieldAnonymousHeadOmitEmpty", "StructFieldAnonymousHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldPtrAnonymousHeadOmitEmpty", "StructFieldPtrAnonymousHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldNPtrAnonymousHeadOmitEmpty", "StructFieldNPtrAnonymousHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldAnonymousHeadStringTag", "StructFieldAnonymousHeadStringTagIndent", "StructField"},
-		{"StructFieldPtrAnonymousHeadStringTag", "StructFieldPtrAnonymousHeadStringTagIndent", "StructField"},
-		{"StructFieldNPtrAnonymousHeadStringTag", "StructFieldNPtrAnonymousHeadStringTagIndent", "StructField"},
-		{"StructFieldPtrHead", "StructFieldPtrHeadIndent", "StructField"},
-		{"StructFieldPtrHeadOmitEmpty", "StructFieldPtrHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldPtrHeadStringTag", "StructFieldPtrHeadStringTagIndent", "StructField"},
-		{"StructFieldPtrAnonymousHead", "StructFieldPtrAnonymousHeadIndent", "StructField"},
-		{"StructFieldNPtrHead", "StructFieldNPtrHeadIndent", "StructField"},
-		{"StructFieldNPtrHeadOmitEmpty", "StructFieldNPtrHeadOmitEmptyIndent", "StructField"},
-		{"StructFieldNPtrHeadStringTag", "StructFieldNPtrHeadStringTagIndent", "StructField"},
-		{"StructFieldNPtrAnonymousHead", "StructFieldNPtrAnonymousHeadIndent", "StructField"},
-		{"StructField", "StructFieldIndent", "StructField"},
-		{"StructFieldOmitEmpty", "StructFieldOmitEmptyIndent", "StructField"},
-		{"StructFieldStringTag", "StructFieldStringTagIndent", "StructField"},
-		{"StructFieldRecursiveEnd", "StructFieldRecursiveEndIndent", "Op"},
-		{"StructEnd", "StructEndIndent", "StructField"},
-		{"StructAnonymousEnd", "StructAnonymousEndIndent", "StructField"},
+		createOpType("End", "Op"),
+		createOpType("Interface", "Op"),
+		createOpType("InterfaceEnd", "Op"),
+		createOpType("Ptr", "Op"),
+		createOpType("NPtr", "Op"),
+		createOpType("SliceHead", "SliceHead"),
+		createOpType("RootSliceHead", "SliceHead"),
+		createOpType("SliceElem", "SliceElem"),
+		createOpType("RootSliceElem", "SliceElem"),
+		createOpType("SliceEnd", "Op"),
+		createOpType("ArrayHead", "ArrayHead"),
+		createOpType("ArrayElem", "ArrayElem"),
+		createOpType("ArrayEnd", "Op"),
+		createOpType("MapHead", "MapHead"),
+		createOpType("MapHeadLoad", "MapHead"),
+		createOpType("MapKey", "MapKey"),
+		createOpType("MapValue", "MapValue"),
+		createOpType("MapEnd", "Op"),
+		createOpType("StructFieldRecursiveEnd", "Op"),
+		createOpType("StructEnd", "StructField"),
+		createOpType("StructAnonymousEnd", "StructField"),
 	}
 	for _, typ := range primitiveTypesUpper {
-		opTypes = append(opTypes, opType{
-			Op:       typ,
-			IndentOp: fmt.Sprintf("%sIndent", typ),
-			Code:     "Op",
-		})
+		typ := typ
+		optype := createOpType(typ, "Op")
+		switch typ {
+		case "String", "StringPtr", "StringNPtr":
+			optype.Escaped = func() string {
+				return fmt.Sprintf("Escaped%s", typ)
+			}
+		}
+		opTypes = append(opTypes, optype)
 	}
-	for _, prefix := range []string{
-		"StructFieldHead",
-		"StructFieldHeadOmitEmpty",
-		"StructFieldHeadStringTag",
-		"StructFieldAnonymousHead",
-		"StructFieldAnonymousHeadOmitEmpty",
-		"StructFieldAnonymousHeadStringTag",
-		"StructFieldPtrHead",
-		"StructFieldPtrHeadOmitEmpty",
-		"StructFieldPtrHeadStringTag",
-		"StructFieldPtrAnonymousHead",
-		"StructFieldPtrAnonymousHeadOmitEmpty",
-		"StructFieldPtrAnonymousHeadStringTag",
-		"StructFieldNPtrHead",
-		"StructFieldNPtrHeadOmitEmpty",
-		"StructFieldNPtrHeadStringTag",
-		"StructFieldNPtrAnonymousHead",
-		"StructFieldNPtrAnonymousHeadOmitEmpty",
-		"StructFieldNPtrAnonymousHeadStringTag",
-		"StructField",
-		//"StructFieldPtr",
-		//"StructFieldNPtr",
-		"StructFieldOmitEmpty",
-		"StructFieldStringTag",
-	} {
-		for _, typ := range primitiveTypesUpper {
-			opTypes = append(opTypes, opType{
-				Op:       fmt.Sprintf("%s%s", prefix, typ),
-				IndentOp: fmt.Sprintf("%s%sIndent", prefix, typ),
-				Code:     "StructField",
-			})
+	for _, escapedOrNot := range []string{"", "Escaped"} {
+		for _, ptrOrNot := range []string{"", "Ptr", "NPtr"} {
+			for _, headType := range []string{"", "Anonymous"} {
+				for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+					for _, typ := range append(primitiveTypesUpper, "") {
+						escapedOrNot := escapedOrNot
+						ptrOrNot := ptrOrNot
+						headType := headType
+						opt := opt
+						typ := typ
+
+						op := fmt.Sprintf(
+							"Struct%sField%s%sHead%s%s",
+							escapedOrNot,
+							ptrOrNot,
+							headType,
+							opt,
+							typ,
+						)
+						opTypes = append(opTypes, opType{
+							Op:     op,
+							Code:   "StructField",
+							Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+							Escaped: func() string {
+								switch typ {
+								case "String", "StringPtr", "StringNPtr":
+									return fmt.Sprintf(
+										"StructEscapedField%s%sHead%sEscaped%s",
+										ptrOrNot,
+										headType,
+										opt,
+										typ,
+									)
+								}
+								return fmt.Sprintf(
+									"StructEscapedField%s%sHead%s%s",
+									ptrOrNot,
+									headType,
+									opt,
+									typ,
+								)
+							},
+							HeadToPtrHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sFieldPtr%sHead%s%s",
+									escapedOrNot,
+									headType,
+									opt,
+									typ,
+								)
+							},
+							HeadToNPtrHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sFieldNPtr%sHead%s%s",
+									escapedOrNot,
+									headType,
+									opt,
+									typ,
+								)
+							},
+							HeadToAnonymousHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sField%sAnonymousHead%s%s",
+									escapedOrNot,
+									ptrOrNot,
+									opt,
+									typ,
+								)
+							},
+							HeadToOmitEmptyHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sField%s%sHeadOmitEmpty%s",
+									escapedOrNot,
+									ptrOrNot,
+									headType,
+									typ,
+								)
+							},
+							HeadToStringTagHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sField%s%sHeadStringTag%s",
+									escapedOrNot,
+									ptrOrNot,
+									headType,
+									typ,
+								)
+							},
+							PtrHeadToHead: func() string {
+								return fmt.Sprintf(
+									"Struct%sField%sHead%s%s",
+									escapedOrNot,
+									headType,
+									opt,
+									typ,
+								)
+							},
+							FieldToOmitEmptyField: func() string { return op },
+							FieldToStringTagField: func() string { return op },
+						})
+					}
+				}
+			}
 		}
 	}
+	for _, escapedOrNot := range []string{"", "Escaped"} {
+		for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+			for _, typ := range append(primitiveTypesUpper, "") {
+				escapedOrNot := escapedOrNot
+				opt := opt
+				typ := typ
+
+				op := fmt.Sprintf(
+					"Struct%sField%s%s",
+					escapedOrNot,
+					opt,
+					typ,
+				)
+				opTypes = append(opTypes, opType{
+					Op:     op,
+					Code:   "StructField",
+					Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+					Escaped: func() string {
+						switch typ {
+						case "String", "StringPtr", "StringNPtr":
+							return fmt.Sprintf(
+								"StructEscapedField%sEscaped%s",
+								opt,
+								typ,
+							)
+						}
+						return fmt.Sprintf(
+							"StructEscapedField%s%s",
+							opt,
+							typ,
+						)
+					},
+					HeadToPtrHead:       func() string { return op },
+					HeadToNPtrHead:      func() string { return op },
+					HeadToAnonymousHead: func() string { return op },
+					HeadToOmitEmptyHead: func() string { return op },
+					HeadToStringTagHead: func() string { return op },
+					PtrHeadToHead:       func() string { return op },
+					FieldToOmitEmptyField: func() string {
+						return fmt.Sprintf(
+							"Struct%sFieldOmitEmpty%s",
+							escapedOrNot,
+							typ,
+						)
+					},
+					FieldToStringTagField: func() string {
+						return fmt.Sprintf(
+							"Struct%sFieldStringTag%s",
+							escapedOrNot,
+							typ,
+						)
+					},
+				})
+			}
+		}
+	}
+	indentOpTypes := []opType{}
 	for _, typ := range opTypes {
-		opTypes = append(opTypes, opType{
-			Op:       typ.IndentOp,
-			IndentOp: typ.IndentOp,
-			Code:     typ.Code,
+		typ := typ
+		indentOpTypes = append(indentOpTypes, opType{
+			Op:      fmt.Sprintf("%sIndent", typ.Op),
+			Code:    typ.Code,
+			Indent:  func() string { return fmt.Sprintf("%sIndent", typ.Op) },
+			Escaped: func() string { return fmt.Sprintf("%sIndent", typ.Escaped()) },
+			HeadToPtrHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.HeadToPtrHead())
+			},
+			HeadToNPtrHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.HeadToNPtrHead())
+			},
+			HeadToAnonymousHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.HeadToAnonymousHead())
+			},
+			HeadToOmitEmptyHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.HeadToOmitEmptyHead())
+			},
+			HeadToStringTagHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.HeadToStringTagHead())
+			},
+			PtrHeadToHead: func() string {
+				return fmt.Sprintf("%sIndent", typ.PtrHeadToHead())
+			},
+			FieldToOmitEmptyField: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToOmitEmptyField())
+			},
+			FieldToStringTagField: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToStringTagField())
+			},
 		})
 	}
-	base := headType{
-		Head:                       "StructFieldHead",
-		PtrHead:                    "StructFieldPtrHead",
-		NPtrHead:                   "StructFieldNPtrHead",
-		AnonymousHead:              "StructFieldAnonymousHead",
-		AnonymousPtrHead:           "StructFieldPtrAnonymousHead",
-		AnonymousNPtrHead:          "StructFieldNPtrAnonymousHead",
-		OmitEmptyHead:              "StructFieldHeadOmitEmpty",
-		OmitEmptyPtrHead:           "StructFieldPtrHeadOmitEmpty",
-		OmitEmptyNPtrHead:          "StructFieldNPtrHeadOmitEmpty",
-		StringTagHead:              "StructFieldHeadStringTag",
-		StringTagPtrHead:           "StructFieldPtrHeadStringTag",
-		StringTagNPtrHead:          "StructFieldNPtrHeadStringTag",
-		AnonymousOmitEmptyHead:     "StructFieldAnonymousHeadOmitEmpty",
-		AnonymousOmitEmptyPtrHead:  "StructFieldPtrAnonymousHeadOmitEmpty",
-		AnonymousOmitEmptyNPtrHead: "StructFieldNPtrAnonymousHeadOmitEmpty",
-		AnonymousStringTagHead:     "StructFieldAnonymousHeadStringTag",
-		AnonymousStringTagPtrHead:  "StructFieldPtrAnonymousHeadStringTag",
-		AnonymousStringTagNPtrHead: "StructFieldNPtrAnonymousHeadStringTag",
-	}
-	headTypes := []headType{base}
-	for _, prim := range primitiveTypesUpper {
-		headTypes = append(headTypes, headType{
-			Head:                       fmt.Sprintf("%s%s", base.Head, prim),
-			PtrHead:                    fmt.Sprintf("%s%s", base.PtrHead, prim),
-			NPtrHead:                   fmt.Sprintf("%s%s", base.NPtrHead, prim),
-			AnonymousHead:              fmt.Sprintf("%s%s", base.AnonymousHead, prim),
-			AnonymousPtrHead:           fmt.Sprintf("%s%s", base.AnonymousPtrHead, prim),
-			AnonymousNPtrHead:          fmt.Sprintf("%s%s", base.AnonymousNPtrHead, prim),
-			OmitEmptyHead:              fmt.Sprintf("%s%s", base.OmitEmptyHead, prim),
-			OmitEmptyPtrHead:           fmt.Sprintf("%s%s", base.OmitEmptyPtrHead, prim),
-			OmitEmptyNPtrHead:          fmt.Sprintf("%s%s", base.OmitEmptyNPtrHead, prim),
-			AnonymousOmitEmptyHead:     fmt.Sprintf("%s%s", base.AnonymousOmitEmptyHead, prim),
-			AnonymousOmitEmptyPtrHead:  fmt.Sprintf("%s%s", base.AnonymousOmitEmptyPtrHead, prim),
-			AnonymousOmitEmptyNPtrHead: fmt.Sprintf("%s%s", base.AnonymousOmitEmptyNPtrHead, prim),
-			StringTagHead:              fmt.Sprintf("%s%s", base.StringTagHead, prim),
-			StringTagPtrHead:           fmt.Sprintf("%s%s", base.StringTagPtrHead, prim),
-			StringTagNPtrHead:          fmt.Sprintf("%s%s", base.StringTagNPtrHead, prim),
-			AnonymousStringTagHead:     fmt.Sprintf("%s%s", base.AnonymousStringTagHead, prim),
-			AnonymousStringTagPtrHead:  fmt.Sprintf("%s%s", base.AnonymousStringTagPtrHead, prim),
-			AnonymousStringTagNPtrHead: fmt.Sprintf("%s%s", base.AnonymousStringTagNPtrHead, prim),
-		})
-	}
-	for _, typ := range headTypes {
-		headTypes = append(headTypes, headType{
-			Head:                       fmt.Sprintf("%sIndent", typ.Head),
-			PtrHead:                    fmt.Sprintf("%sIndent", typ.PtrHead),
-			NPtrHead:                   fmt.Sprintf("%sIndent", typ.NPtrHead),
-			AnonymousHead:              fmt.Sprintf("%sIndent", typ.AnonymousHead),
-			AnonymousPtrHead:           fmt.Sprintf("%sIndent", typ.AnonymousPtrHead),
-			AnonymousNPtrHead:          fmt.Sprintf("%sIndent", typ.AnonymousNPtrHead),
-			OmitEmptyHead:              fmt.Sprintf("%sIndent", typ.OmitEmptyHead),
-			OmitEmptyPtrHead:           fmt.Sprintf("%sIndent", typ.OmitEmptyPtrHead),
-			OmitEmptyNPtrHead:          fmt.Sprintf("%sIndent", typ.OmitEmptyNPtrHead),
-			AnonymousOmitEmptyHead:     fmt.Sprintf("%sIndent", typ.AnonymousOmitEmptyHead),
-			AnonymousOmitEmptyPtrHead:  fmt.Sprintf("%sIndent", typ.AnonymousOmitEmptyPtrHead),
-			AnonymousOmitEmptyNPtrHead: fmt.Sprintf("%sIndent", typ.AnonymousOmitEmptyNPtrHead),
-			StringTagHead:              fmt.Sprintf("%sIndent", typ.StringTagHead),
-			StringTagPtrHead:           fmt.Sprintf("%sIndent", typ.StringTagPtrHead),
-			StringTagNPtrHead:          fmt.Sprintf("%sIndent", typ.StringTagNPtrHead),
-			AnonymousStringTagHead:     fmt.Sprintf("%sIndent", typ.AnonymousStringTagHead),
-			AnonymousStringTagPtrHead:  fmt.Sprintf("%sIndent", typ.AnonymousStringTagPtrHead),
-			AnonymousStringTagNPtrHead: fmt.Sprintf("%sIndent", typ.AnonymousStringTagNPtrHead),
-		})
-	}
-
-	baseField := fieldType{
-		Field:          "StructField",
-		OmitEmptyField: "StructFieldOmitEmpty",
-		StringTagField: "StructFieldStringTag",
-	}
-	fieldTypes := []fieldType{baseField}
-	for _, prim := range primitiveTypesUpper {
-		fieldTypes = append(fieldTypes, fieldType{
-			Field:          fmt.Sprintf("%s%s", baseField.Field, prim),
-			OmitEmptyField: fmt.Sprintf("%s%s", baseField.OmitEmptyField, prim),
-			StringTagField: fmt.Sprintf("%s%s", baseField.StringTagField, prim),
-		})
-	}
-	for _, typ := range fieldTypes {
-		fieldTypes = append(fieldTypes, fieldType{
-			Field:          fmt.Sprintf("%sIndent", typ.Field),
-			OmitEmptyField: fmt.Sprintf("%sIndent", typ.OmitEmptyField),
-			StringTagField: fmt.Sprintf("%sIndent", typ.StringTagField),
-		})
-	}
-
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
-		CodeTypes  []string
-		OpTypes    []opType
-		HeadTypes  []headType
-		FieldTypes []fieldType
+		CodeTypes []string
+		OpTypes   []opType
 	}{
-		CodeTypes:  codeTypes,
-		OpTypes:    opTypes,
-		HeadTypes:  headTypes,
-		FieldTypes: fieldTypes,
+		CodeTypes: codeTypes,
+		OpTypes:   append(opTypes, indentOpTypes...),
 	}); err != nil {
 		return err
 	}

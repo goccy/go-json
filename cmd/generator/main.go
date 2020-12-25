@@ -15,6 +15,7 @@ type opType struct {
 	Op                    string
 	Code                  string
 	Indent                func() string
+	Escaped               func() string
 	HeadToPtrHead         func() string
 	HeadToNPtrHead        func() string
 	HeadToAnonymousHead   func() string
@@ -30,6 +31,7 @@ func createOpType(op, code string) opType {
 		Op:                    op,
 		Code:                  code,
 		Indent:                func() string { return fmt.Sprintf("%sIndent", op) },
+		Escaped:               func() string { return op },
 		HeadToPtrHead:         func() string { return op },
 		HeadToNPtrHead:        func() string { return op },
 		HeadToAnonymousHead:   func() string { return op },
@@ -86,6 +88,16 @@ func (t opType) toIndent() opType {
 {{- range $type := .OpTypes }}
   case op{{ $type.Op }}:
     return op{{ call $type.Indent }}
+{{- end }}
+  }
+  return t
+}
+
+func (t opType) toEscaped() opType {
+  switch t {
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.Escaped }}
 {{- end }}
   }
   return t
@@ -231,7 +243,14 @@ func (t opType) fieldToStringTagField() opType {
 	}
 	for _, typ := range primitiveTypesUpper {
 		typ := typ
-		opTypes = append(opTypes, createOpType(typ, "Op"))
+		optype := createOpType(typ, "Op")
+		switch typ {
+		case "String", "StringPtr", "StringNPtr":
+			optype.Escaped = func() string {
+				return fmt.Sprintf("Escaped%s", typ)
+			}
+		}
+		opTypes = append(opTypes, optype)
 	}
 	for _, escapedOrNot := range []string{"", "Escaped"} {
 		for _, ptrOrNot := range []string{"", "Ptr", "NPtr"} {
@@ -256,6 +275,25 @@ func (t opType) fieldToStringTagField() opType {
 							Op:     op,
 							Code:   "StructField",
 							Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+							Escaped: func() string {
+								switch typ {
+								case "String", "StringPtr", "StringNPtr":
+									return fmt.Sprintf(
+										"StructEscapedField%s%sHead%sEscaped%s",
+										ptrOrNot,
+										headType,
+										opt,
+										typ,
+									)
+								}
+								return fmt.Sprintf(
+									"StructEscapedField%s%sHead%s%s",
+									ptrOrNot,
+									headType,
+									opt,
+									typ,
+								)
+							},
 							HeadToPtrHead: func() string {
 								return fmt.Sprintf(
 									"Struct%sFieldPtr%sHead%s%s",
@@ -332,9 +370,24 @@ func (t opType) fieldToStringTagField() opType {
 					typ,
 				)
 				opTypes = append(opTypes, opType{
-					Op:                  op,
-					Code:                "StructField",
-					Indent:              func() string { return fmt.Sprintf("%sIndent", op) },
+					Op:     op,
+					Code:   "StructField",
+					Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+					Escaped: func() string {
+						switch typ {
+						case "String", "StringPtr", "StringNPtr":
+							return fmt.Sprintf(
+								"StructEscapedField%sEscaped%s",
+								opt,
+								typ,
+							)
+						}
+						return fmt.Sprintf(
+							"StructEscapedField%s%s",
+							opt,
+							typ,
+						)
+					},
 					HeadToPtrHead:       func() string { return op },
 					HeadToNPtrHead:      func() string { return op },
 					HeadToAnonymousHead: func() string { return op },
@@ -363,9 +416,10 @@ func (t opType) fieldToStringTagField() opType {
 	for _, typ := range opTypes {
 		typ := typ
 		indentOpTypes = append(indentOpTypes, opType{
-			Op:     fmt.Sprintf("%sIndent", typ.Op),
-			Code:   typ.Code,
-			Indent: func() string { return fmt.Sprintf("%sIndent", typ.Op) },
+			Op:      fmt.Sprintf("%sIndent", typ.Op),
+			Code:    typ.Code,
+			Indent:  func() string { return fmt.Sprintf("%sIndent", typ.Op) },
+			Escaped: func() string { return fmt.Sprintf("%sIndent", typ.Escaped()) },
 			HeadToPtrHead: func() string {
 				return fmt.Sprintf("%sIndent", typ.HeadToPtrHead())
 			},

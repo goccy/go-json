@@ -114,9 +114,6 @@ func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	if !validEndNumberChar[s.char()] {
-		return errUnexpectedEndOfJSON("float", s.totalOffset())
-	}
 	str := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(str, 64)
 	if err != nil {

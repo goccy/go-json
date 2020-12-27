@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 
 	"strings"
 	"testing"
@@ -186,7 +187,6 @@ func nlines(s string, n int) string {
 	return s
 }
 
-/*
 func TestDecoder(t *testing.T) {
 	for i := 0; i <= len(streamTest); i++ {
 		// Use stream without newlines as input,
@@ -218,7 +218,6 @@ func TestDecoder(t *testing.T) {
 		}
 	}
 }
-*/
 
 func TestDecoderBuffered(t *testing.T) {
 	r := strings.NewReader(`{"Name": "Gopher"} extra `)

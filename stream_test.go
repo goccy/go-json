@@ -324,57 +324,59 @@ type decodeThis struct {
 
 var tokenStreamCases = []tokenStreamCase{
 	// streaming token cases
-	{json: `10`, expTokens: []interface{}{float64(10)}},
-	{json: ` [10] `, expTokens: []interface{}{
-		json.Delim('['), float64(10), json.Delim(']')}},
-	{json: ` [false,10,"b"] `, expTokens: []interface{}{
-		json.Delim('['), false, float64(10), "b", json.Delim(']')}},
-	{json: `{ "a": 1 }`, expTokens: []interface{}{
-		json.Delim('{'), "a", float64(1), json.Delim('}')}},
-	{json: `{"a": 1, "b":"3"}`, expTokens: []interface{}{
-		json.Delim('{'), "a", float64(1), "b", "3", json.Delim('}')}},
-	{json: ` [{"a": 1},{"a": 2}] `, expTokens: []interface{}{
-		json.Delim('['),
-		json.Delim('{'), "a", float64(1), json.Delim('}'),
-		json.Delim('{'), "a", float64(2), json.Delim('}'),
-		json.Delim(']')}},
-	{json: `{"obj": {"a": 1}}`, expTokens: []interface{}{
-		json.Delim('{'), "obj", json.Delim('{'), "a", float64(1), json.Delim('}'),
-		json.Delim('}')}},
-	{json: `{"obj": [{"a": 1}]}`, expTokens: []interface{}{
-		json.Delim('{'), "obj", json.Delim('['),
-		json.Delim('{'), "a", float64(1), json.Delim('}'),
-		json.Delim(']'), json.Delim('}')}},
+	/*
+		{json: `10`, expTokens: []interface{}{float64(10)}},
+		{json: ` [10] `, expTokens: []interface{}{
+			json.Delim('['), float64(10), json.Delim(']')}},
+		{json: ` [false,10,"b"] `, expTokens: []interface{}{
+			json.Delim('['), false, float64(10), "b", json.Delim(']')}},
+		{json: `{ "a": 1 }`, expTokens: []interface{}{
+			json.Delim('{'), "a", float64(1), json.Delim('}')}},
+		{json: `{"a": 1, "b":"3"}`, expTokens: []interface{}{
+			json.Delim('{'), "a", float64(1), "b", "3", json.Delim('}')}},
+		{json: ` [{"a": 1},{"a": 2}] `, expTokens: []interface{}{
+			json.Delim('['),
+			json.Delim('{'), "a", float64(1), json.Delim('}'),
+			json.Delim('{'), "a", float64(2), json.Delim('}'),
+			json.Delim(']')}},
+		{json: `{"obj": {"a": 1}}`, expTokens: []interface{}{
+			json.Delim('{'), "obj", json.Delim('{'), "a", float64(1), json.Delim('}'),
+			json.Delim('}')}},
+		{json: `{"obj": [{"a": 1}]}`, expTokens: []interface{}{
+			json.Delim('{'), "obj", json.Delim('['),
+			json.Delim('{'), "a", float64(1), json.Delim('}'),
+			json.Delim(']'), json.Delim('}')}},
 
-	// streaming tokens with intermittent Decode()
-	{json: `{ "a": 1 }`, expTokens: []interface{}{
-		json.Delim('{'), "a",
-		decodeThis{float64(1)},
-		json.Delim('}')}},
-	{json: ` [ { "a" : 1 } ] `, expTokens: []interface{}{
-		json.Delim('['),
-		decodeThis{map[string]interface{}{"a": float64(1)}},
-		json.Delim(']')}},
-	{json: ` [{"a": 1},{"a": 2}] `, expTokens: []interface{}{
-		json.Delim('['),
-		decodeThis{map[string]interface{}{"a": float64(1)}},
-		decodeThis{map[string]interface{}{"a": float64(2)}},
-		json.Delim(']')}},
-	{json: `{ "obj" : [ { "a" : 1 } ] }`, expTokens: []interface{}{
-		json.Delim('{'), "obj", json.Delim('['),
-		decodeThis{map[string]interface{}{"a": float64(1)}},
-		json.Delim(']'), json.Delim('}')}},
+		// streaming tokens with intermittent Decode()
+		{json: `{ "a": 1 }`, expTokens: []interface{}{
+			json.Delim('{'), "a",
+			decodeThis{float64(1)},
+			json.Delim('}')}},
+		{json: ` [ { "a" : 1 } ] `, expTokens: []interface{}{
+			json.Delim('['),
+			decodeThis{map[string]interface{}{"a": float64(1)}},
+			json.Delim(']')}},
+		{json: ` [{"a": 1},{"a": 2}] `, expTokens: []interface{}{
+			json.Delim('['),
+			decodeThis{map[string]interface{}{"a": float64(1)}},
+			decodeThis{map[string]interface{}{"a": float64(2)}},
+			json.Delim(']')}},
+		{json: `{ "obj" : [ { "a" : 1 } ] }`, expTokens: []interface{}{
+			json.Delim('{'), "obj", json.Delim('['),
+			decodeThis{map[string]interface{}{"a": float64(1)}},
+			json.Delim(']'), json.Delim('}')}},
 
-	{json: `{"obj": {"a": 1}}`, expTokens: []interface{}{
-		json.Delim('{'), "obj",
-		decodeThis{map[string]interface{}{"a": float64(1)}},
-		json.Delim('}')}},
-	{json: `{"obj": [{"a": 1}]}`, expTokens: []interface{}{
-		json.Delim('{'), "obj",
-		decodeThis{[]interface{}{
-			map[string]interface{}{"a": float64(1)},
-		}},
-		json.Delim('}')}},
+		{json: `{"obj": {"a": 1}}`, expTokens: []interface{}{
+			json.Delim('{'), "obj",
+			decodeThis{map[string]interface{}{"a": float64(1)}},
+			json.Delim('}')}},
+		{json: `{"obj": [{"a": 1}]}`, expTokens: []interface{}{
+			json.Delim('{'), "obj",
+			decodeThis{[]interface{}{
+				map[string]interface{}{"a": float64(1)},
+			}},
+			json.Delim('}')}},
+	*/
 	{json: ` [{"a": 1} {"a": 2}] `, expTokens: []interface{}{
 		json.Delim('['),
 		decodeThis{map[string]interface{}{"a": float64(1)}},
@@ -393,7 +395,6 @@ var tokenStreamCases = []tokenStreamCase{
 	}},
 }
 
-/*
 func TestDecodeInStream(t *testing.T) {
 	for ci, tcase := range tokenStreamCases {
 
@@ -428,7 +429,6 @@ func TestDecodeInStream(t *testing.T) {
 		}
 	}
 }
-*/
 
 // Test from golang.org/issue/11893
 func TestHTTPDecoding(t *testing.T) {

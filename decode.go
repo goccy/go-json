@@ -117,8 +117,58 @@ func (d *Decoder) decodeForUnmarshalNoEscape(src []byte, v interface{}) error {
 	return d.decode(src, header)
 }
 
+func (d *Decoder) prepareForDecodeArray() error {
+	for {
+		switch s.char() {
+		case ' ', '\t', '\r', '\n':
+			s.cursor++
+			continue
+		case ',', ':':
+			return errExpected("value in array element", s.totalOffset())
+		case nul:
+			if s.read() {
+				continue
+			}
+			return io.EOF
+		}
+		break
+	}
+	s.context = streamContextTypeArrayDelim
+	return nil
+}
+
+func (d *Decoder) prepareForDecodeArrayDelim() error {
+	for {
+		switch s.char() {
+		case ' ', '\t', '\r', '\n':
+			s.cursor++
+			continue
+		case ',':
+			s.cursor++
+			return nil
+		case ']':
+			s.cursor++
+			s.context = streamContextTypeValue
+			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			return io.EOF
+		}
+		break
+	}
+	return nil
+}
+
 func (d *Decoder) prepareForDecode() error {
 	s := d.s
+	switch s.context {
+	case streamContextTypeArray:
+		return d.prepareForDecodeArray()
+	case streamContextTypeArrayDelim:
+		return d.prepareForDecodeArrayDelim()
+	}
 	for {
 		switch s.char() {
 		case ' ', '\t', '\r', '\n':
@@ -202,8 +252,16 @@ func (d *Decoder) Token() (Token, error) {
 		switch c {
 		case ' ', '\n', '\r', '\t':
 			s.cursor++
-		case '{', '[', ']', '}':
+		case ']', '}':
 			s.cursor++
+			d.s.context = streamContextTypeValue
+			return Delim(c), nil
+		case '{':
+			s.cursor++
+			d.s.context = streamContextTypeObject
+			return Delim(c), nil
+		case '[':
+			d.s.context = streamContextTypeArray
 			return Delim(c), nil
 		case ',', ':':
 			s.cursor++

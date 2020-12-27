@@ -20,7 +20,17 @@ type stream struct {
 	allRead               bool
 	useNumber             bool
 	disallowUnknownFields bool
+	context               streamContextType
 }
+
+const (
+	streamContextTypeValue streamContextType = iota
+	streamContextTypeArray
+	streamContextTypeArrayDelim /* expect ',' or ']' */
+	streamContextTypeObject
+	streamContextTypeObjectColon /* expect ':' */
+	streamContextTypeObjectDelim /* expect ',' or '}' */
+)
 
 func newStream(r io.Reader) *stream {
 	return &stream{

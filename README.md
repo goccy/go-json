@@ -68,27 +68,6 @@ $ go test -bench .
 
 <img src="https://user-images.githubusercontent.com/209884/89118920-c28eec80-d4e4-11ea-91cc-424cfe726539.png"></img>
 
-# Status
-
-## Type
-
-Currently supported all types
-
-## API
-
-Implements All APIs
-
-### Error
-
-- [ ] `InvalidUTF8Error`
-- [x] `InvalidUnmarshalError`
-- [x] `MarshalerError`
-- [x] `SyntaxError`
-- [ ] `UnmarshalFieldError`
-- [ ] `UnmarshalTypeError`
-- [x] `UnsupportedTypeError`
-- [x] `UnsupportedValueError`
-
 # License
 
 MIT

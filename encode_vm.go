@@ -53,6 +53,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 	var seenPtr map[uintptr]struct{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+
 	for {
 		switch code.op {
 		default:
@@ -11924,7 +11925,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndIntIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -11932,7 +11933,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndInt8Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11940,7 +11941,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndInt8Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11948,7 +11949,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndInt16Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11956,7 +11957,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndInt16Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11964,7 +11965,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndInt32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11972,7 +11973,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndInt32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11980,7 +11981,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndInt64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11988,7 +11989,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndInt64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -11996,7 +11997,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUintIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12004,7 +12005,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndUintIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12012,7 +12013,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUint8Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12020,7 +12021,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndUint8Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12028,7 +12029,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUint16Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12036,7 +12037,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndUint16Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12044,7 +12045,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUint32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12052,7 +12053,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndUint32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12060,7 +12061,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUint64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12068,7 +12069,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndUint64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12076,7 +12077,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndFloat32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12084,7 +12085,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndFloat32Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12092,7 +12093,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndFloat64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12104,7 +12105,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, errUnsupportedFloat(v)
 			}
 			b = encodeFloat64(b, v)
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndFloat64Indent:
 			b = e.encodeIndent(b, code.indent)
@@ -12116,7 +12117,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, errUnsupportedFloat(v)
 			}
 			b = encodeFloat64(b, v)
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12124,7 +12125,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndEscapedStringIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12132,7 +12133,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeEscapedString(b, e.ptrToString(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndBoolIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12140,7 +12141,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndBoolIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12148,7 +12149,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndBytesIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12156,7 +12157,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndBytesIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12164,7 +12165,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndMarshalJSONIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12182,7 +12183,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, err
 			}
 			b = append(b, buf.Bytes()...)
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndMarshalJSONIndent:
 			b = e.encodeIndent(b, code.indent)
@@ -12200,7 +12201,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, err
 			}
 			b = append(b, buf.Bytes()...)
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyInt:
 			ptr := load(ctxptr, code.headIdx)
@@ -12551,7 +12552,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyIntIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12562,7 +12563,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12573,7 +12574,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12584,7 +12585,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12595,7 +12596,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12606,7 +12607,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12617,7 +12618,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12628,7 +12629,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12639,7 +12640,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12650,7 +12651,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendInt(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyUintIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12661,7 +12662,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyUintIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12672,7 +12673,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12683,7 +12684,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12694,7 +12695,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12705,7 +12706,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12716,7 +12717,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12727,7 +12728,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12738,7 +12739,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12749,7 +12750,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12760,7 +12761,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = appendUint(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12771,7 +12772,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeFloat32(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12782,7 +12783,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeFloat32(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyFloat64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12796,7 +12797,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeFloat64(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyFloat64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12810,7 +12811,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeFloat64(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyStringIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12821,7 +12822,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeNoEscapedString(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyEscapedStringIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12832,7 +12833,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeEscapedString(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12843,7 +12844,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeBool(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12854,7 +12855,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeBool(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndOmitEmptyBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12865,7 +12866,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndOmitEmptyBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -12876,7 +12877,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
@@ -13185,7 +13186,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagIntIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13194,7 +13195,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13203,7 +13204,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13212,7 +13213,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13221,7 +13222,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagInt16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13230,7 +13231,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13239,7 +13240,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagInt32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13248,7 +13249,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13257,7 +13258,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagInt64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13266,7 +13267,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagUintIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13275,7 +13276,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagUintIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13284,7 +13285,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13293,7 +13294,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagUint8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13302,7 +13303,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13311,7 +13312,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagUint16Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13320,7 +13321,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13329,7 +13330,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagUint32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13338,7 +13339,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13347,7 +13348,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagUint64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13356,7 +13357,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13365,7 +13366,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagFloat32Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13374,7 +13375,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagFloat64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13387,7 +13388,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeFloat64(b, v)
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagFloat64Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13400,7 +13401,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeFloat64(b, v)
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagStringIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13409,7 +13410,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			s := e.ptrToString(ptr + code.offset)
 			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagEscapedStringIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13418,7 +13419,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ')
 			s := e.ptrToString(ptr + code.offset)
 			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, s)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13427,7 +13428,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagBoolIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13436,7 +13437,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, ' ', '"')
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13444,7 +13445,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagBytesIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13452,7 +13453,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagMarshalJSONIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13470,7 +13471,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, err
 			}
 			b = encodeEscapedString(b, buf.String())
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagMarshalJSONIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13488,7 +13489,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, err
 			}
 			b = encodeEscapedString(b, buf.String())
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagMarshalTextIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13502,7 +13503,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, errMarshaler(code, err)
 			}
 			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEscapedEndStringTagMarshalTextIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -13516,7 +13517,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				return nil, errMarshaler(code, err)
 			}
 			b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
-			b = e.appendStructEndIndent(b, code.indent)
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opEnd:
 			goto END

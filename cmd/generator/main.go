@@ -435,7 +435,7 @@ func (t opType) fieldToStringTagField() opType {
 					PtrHeadToHead:       func() string { return op },
 					FieldToEnd: func() string {
 						switch typ {
-						case "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+						case "", "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
 							return op
 						}
 						return fmt.Sprintf(

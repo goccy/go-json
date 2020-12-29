@@ -22,6 +22,9 @@ type opType struct {
 	HeadToOmitEmptyHead   func() string
 	HeadToStringTagHead   func() string
 	PtrHeadToHead         func() string
+	FieldToEnd            func() string
+	FieldToOmitEmptyEnd   func() string
+	FieldToStringTagEnd   func() string
 	FieldToOmitEmptyField func() string
 	FieldToStringTagField func() string
 }
@@ -38,6 +41,9 @@ func createOpType(op, code string) opType {
 		HeadToOmitEmptyHead:   func() string { return op },
 		HeadToStringTagHead:   func() string { return op },
 		PtrHeadToHead:         func() string { return op },
+		FieldToEnd:            func() string { return op },
+		FieldToOmitEmptyEnd:   func() string { return op },
+		FieldToStringTagEnd:   func() string { return op },
 		FieldToOmitEmptyField: func() string { return op },
 		FieldToStringTagField: func() string { return op },
 	}
@@ -163,6 +169,36 @@ func (t opType) ptrHeadToHead() opType {
   return t
 }
 
+func (t opType) fieldToEnd() opType {
+  switch t {
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToEnd }}
+{{- end }}
+  }
+  return t
+}
+
+func (t opType) fieldToOmitEmptyEnd() opType {
+  switch t {
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToOmitEmptyEnd }}
+{{- end }}
+  }
+  return t
+}
+
+func (t opType) fieldToStringTagEnd() opType {
+  switch t {
+{{- range $type := .OpTypes }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToStringTagEnd }}
+{{- end }}
+  }
+  return t
+}
+
 func (t opType) fieldToOmitEmptyField() opType {
   switch t {
 {{- range $type := .OpTypes }}
@@ -199,6 +235,7 @@ func (t opType) fieldToStringTagField() opType {
 		"MapEnd",
 		"StructFieldRecursive",
 		"StructField",
+		"StructEnd",
 	}
 	primitiveTypes := []string{
 		"int", "int8", "int16", "int32", "int64",
@@ -238,7 +275,7 @@ func (t opType) fieldToStringTagField() opType {
 		createOpType("MapValue", "MapValue"),
 		createOpType("MapEnd", "Op"),
 		createOpType("StructFieldRecursiveEnd", "Op"),
-		createOpType("StructAnonymousEnd", "StructField"),
+		createOpType("StructAnonymousEnd", "StructEnd"),
 	}
 	for _, typ := range primitiveTypesUpper {
 		typ := typ
@@ -347,6 +384,9 @@ func (t opType) fieldToStringTagField() opType {
 									typ,
 								)
 							},
+							FieldToEnd:            func() string { return op },
+							FieldToOmitEmptyEnd:   func() string { return op },
+							FieldToStringTagEnd:   func() string { return op },
 							FieldToOmitEmptyField: func() string { return op },
 							FieldToStringTagField: func() string { return op },
 						})
@@ -393,6 +433,40 @@ func (t opType) fieldToStringTagField() opType {
 					HeadToOmitEmptyHead: func() string { return op },
 					HeadToStringTagHead: func() string { return op },
 					PtrHeadToHead:       func() string { return op },
+					FieldToEnd: func() string {
+						switch typ {
+						case "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+							return op
+						}
+						return fmt.Sprintf(
+							"Struct%sEnd%s%s",
+							escapedOrNot,
+							opt,
+							typ,
+						)
+					},
+					FieldToOmitEmptyEnd: func() string {
+						switch typ {
+						case "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+							return op
+						}
+						return fmt.Sprintf(
+							"Struct%sEndOmitEmpty%s",
+							escapedOrNot,
+							typ,
+						)
+					},
+					FieldToStringTagEnd: func() string {
+						switch typ {
+						case "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+							return op
+						}
+						return fmt.Sprintf(
+							"Struct%sEndStringTag%s",
+							escapedOrNot,
+							typ,
+						)
+					},
 					FieldToOmitEmptyField: func() string {
 						return fmt.Sprintf(
 							"Struct%sFieldOmitEmpty%s",
@@ -426,7 +500,7 @@ func (t opType) fieldToStringTagField() opType {
 				)
 				opTypes = append(opTypes, opType{
 					Op:     op,
-					Code:   "StructField",
+					Code:   "StructEnd",
 					Indent: func() string { return fmt.Sprintf("%sIndent", op) },
 					Escaped: func() string {
 						switch typ {
@@ -443,26 +517,17 @@ func (t opType) fieldToStringTagField() opType {
 							typ,
 						)
 					},
-					HeadToPtrHead:       func() string { return op },
-					HeadToNPtrHead:      func() string { return op },
-					HeadToAnonymousHead: func() string { return op },
-					HeadToOmitEmptyHead: func() string { return op },
-					HeadToStringTagHead: func() string { return op },
-					PtrHeadToHead:       func() string { return op },
-					FieldToOmitEmptyField: func() string {
-						return fmt.Sprintf(
-							"Struct%sEndOmitEmpty%s",
-							escapedOrNot,
-							typ,
-						)
-					},
-					FieldToStringTagField: func() string {
-						return fmt.Sprintf(
-							"Struct%sEndStringTag%s",
-							escapedOrNot,
-							typ,
-						)
-					},
+					HeadToPtrHead:         func() string { return op },
+					HeadToNPtrHead:        func() string { return op },
+					HeadToAnonymousHead:   func() string { return op },
+					HeadToOmitEmptyHead:   func() string { return op },
+					HeadToStringTagHead:   func() string { return op },
+					PtrHeadToHead:         func() string { return op },
+					FieldToEnd:            func() string { return op },
+					FieldToOmitEmptyEnd:   func() string { return op },
+					FieldToStringTagEnd:   func() string { return op },
+					FieldToOmitEmptyField: func() string { return op },
+					FieldToStringTagField: func() string { return op },
 				})
 			}
 		}
@@ -498,6 +563,15 @@ func (t opType) fieldToStringTagField() opType {
 			},
 			FieldToStringTagField: func() string {
 				return fmt.Sprintf("%sIndent", typ.FieldToStringTagField())
+			},
+			FieldToEnd: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToEnd())
+			},
+			FieldToOmitEmptyEnd: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToOmitEmptyEnd())
+			},
+			FieldToStringTagEnd: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToStringTagEnd())
 			},
 		})
 	}

@@ -324,6 +324,9 @@ func (c *opcode) dump() string {
 		case codeStructField:
 			codes = append(codes, c.dumpField(code))
 			code = code.next
+		case codeStructEnd:
+			codes = append(codes, c.dumpField(code))
+			code = code.next
 		default:
 			codes = append(codes, fmt.Sprintf(
 				"[%d]%s%s ([idx:%d])",

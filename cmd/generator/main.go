@@ -27,6 +27,46 @@ type opType struct {
 	FieldToStringTagField func() string
 }
 
+func (t opType) IsEscaped() bool {
+	return t.Op != t.Escaped()
+}
+
+func (t opType) IsHeadToPtrHead() bool {
+	return t.Op != t.HeadToPtrHead()
+}
+
+func (t opType) IsHeadToNPtrHead() bool {
+	return t.Op != t.HeadToNPtrHead()
+}
+
+func (t opType) IsHeadToAnonymousHead() bool {
+	return t.Op != t.HeadToAnonymousHead()
+}
+
+func (t opType) IsHeadToOmitEmptyHead() bool {
+	return t.Op != t.HeadToOmitEmptyHead()
+}
+
+func (t opType) IsHeadToStringTagHead() bool {
+	return t.Op != t.HeadToStringTagHead()
+}
+
+func (t opType) IsPtrHeadToHead() bool {
+	return t.Op != t.PtrHeadToHead()
+}
+
+func (t opType) IsFieldToEnd() bool {
+	return t.Op != t.FieldToEnd()
+}
+
+func (t opType) IsFieldToOmitEmptyField() bool {
+	return t.Op != t.FieldToOmitEmptyField()
+}
+
+func (t opType) IsFieldToStringTagField() bool {
+	return t.Op != t.FieldToStringTagField()
+}
+
 func createOpType(op, code string) opType {
 	return opType{
 		Op:                    op,
@@ -98,8 +138,10 @@ func (t opType) toIndent() opType {
 func (t opType) toEscaped() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsEscaped }}
   case op{{ $type.Op }}:
     return op{{ call $type.Escaped }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -108,8 +150,10 @@ func (t opType) toEscaped() opType {
 func (t opType) headToPtrHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsHeadToPtrHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToPtrHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -118,8 +162,10 @@ func (t opType) headToPtrHead() opType {
 func (t opType) headToNPtrHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsHeadToNPtrHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToNPtrHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -128,8 +174,10 @@ func (t opType) headToNPtrHead() opType {
 func (t opType) headToAnonymousHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsHeadToAnonymousHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToAnonymousHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -138,8 +186,10 @@ func (t opType) headToAnonymousHead() opType {
 func (t opType) headToOmitEmptyHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsHeadToOmitEmptyHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToOmitEmptyHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -148,8 +198,10 @@ func (t opType) headToOmitEmptyHead() opType {
 func (t opType) headToStringTagHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsHeadToStringTagHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToStringTagHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -158,8 +210,10 @@ func (t opType) headToStringTagHead() opType {
 func (t opType) ptrHeadToHead() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsPtrHeadToHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.PtrHeadToHead }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -168,8 +222,10 @@ func (t opType) ptrHeadToHead() opType {
 func (t opType) fieldToEnd() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsFieldToEnd }}
   case op{{ $type.Op }}:
     return op{{ call $type.FieldToEnd }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -178,8 +234,10 @@ func (t opType) fieldToEnd() opType {
 func (t opType) fieldToOmitEmptyField() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsFieldToOmitEmptyField }}
   case op{{ $type.Op }}:
     return op{{ call $type.FieldToOmitEmptyField }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -188,8 +246,10 @@ func (t opType) fieldToOmitEmptyField() opType {
 func (t opType) fieldToStringTagField() opType {
   switch t {
 {{- range $type := .OpTypes }}
+{{- if $type.IsFieldToStringTagField }}
   case op{{ $type.Op }}:
     return op{{ call $type.FieldToStringTagField }}
+{{- end }}
 {{- end }}
   }
   return t

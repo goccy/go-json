@@ -238,7 +238,6 @@ func (t opType) fieldToStringTagField() opType {
 		createOpType("MapValue", "MapValue"),
 		createOpType("MapEnd", "Op"),
 		createOpType("StructFieldRecursiveEnd", "Op"),
-		createOpType("StructEnd", "StructField"),
 		createOpType("StructAnonymousEnd", "StructField"),
 	}
 	for _, typ := range primitiveTypesUpper {
@@ -404,6 +403,62 @@ func (t opType) fieldToStringTagField() opType {
 					FieldToStringTagField: func() string {
 						return fmt.Sprintf(
 							"Struct%sFieldStringTag%s",
+							escapedOrNot,
+							typ,
+						)
+					},
+				})
+			}
+		}
+	}
+	for _, escapedOrNot := range []string{"", "Escaped"} {
+		for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+			for _, typ := range append(primitiveTypesUpper, "") {
+				escapedOrNot := escapedOrNot
+				opt := opt
+				typ := typ
+
+				op := fmt.Sprintf(
+					"Struct%sEnd%s%s",
+					escapedOrNot,
+					opt,
+					typ,
+				)
+				opTypes = append(opTypes, opType{
+					Op:     op,
+					Code:   "StructField",
+					Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+					Escaped: func() string {
+						switch typ {
+						case "String", "StringPtr", "StringNPtr":
+							return fmt.Sprintf(
+								"StructEscapedEnd%sEscaped%s",
+								opt,
+								typ,
+							)
+						}
+						return fmt.Sprintf(
+							"StructEscapedEnd%s%s",
+							opt,
+							typ,
+						)
+					},
+					HeadToPtrHead:       func() string { return op },
+					HeadToNPtrHead:      func() string { return op },
+					HeadToAnonymousHead: func() string { return op },
+					HeadToOmitEmptyHead: func() string { return op },
+					HeadToStringTagHead: func() string { return op },
+					PtrHeadToHead:       func() string { return op },
+					FieldToOmitEmptyField: func() string {
+						return fmt.Sprintf(
+							"Struct%sEndOmitEmpty%s",
+							escapedOrNot,
+							typ,
+						)
+					},
+					FieldToStringTagField: func() string {
+						return fmt.Sprintf(
+							"Struct%sEndStringTag%s",
 							escapedOrNot,
 							typ,
 						)

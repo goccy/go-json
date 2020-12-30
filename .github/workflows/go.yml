@@ -19,7 +19,11 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Test
-      run: go test -v ./ -count=1
+      run: go test -v -coverprofile=coverage.out ./ -count=1
+
+    - name: Report coverage
+      run: |
+        bash <(curl -s https://codecov.io/bash)
 
    # - name: Test with GC
    #   run: go test -v ./ -count=1

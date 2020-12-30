@@ -106,8 +106,12 @@ const (
 )
 
 func (t opType) String() string {
+  if int(t) >= {{ .OpLen }} {
+    return t.toNotIndent().String() + "Indent"
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
   case op{{ $type.Op }}:
     return "{{ $type.Op }}"
 {{- end }}
@@ -116,8 +120,12 @@ func (t opType) String() string {
 }
 
 func (t opType) codeType() codeType {
+  if int(t) >= {{ .OpLen }} {
+    return t.toNotIndent().codeType()
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
   case op{{ $type.Op }}:
     return code{{ $type.Code }}
 {{- end }}
@@ -125,19 +133,27 @@ func (t opType) codeType() codeType {
   return codeOp
 }
 
-func (t opType) toIndent() opType {
-  switch t {
-{{- range $type := .OpTypes }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.Indent }}
-{{- end }}
+func (t opType) toNotIndent() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t) - {{ .OpLen }})
   }
   return t
 }
 
+func (t opType) toIndent() opType {
+  if int(t) >= {{ .OpLen }} {
+    return t
+  }
+  return opType(int(t) + {{ .OpLen }})
+}
+
 func (t opType) toEscaped() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().toEscaped()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
 {{- if $type.IsEscaped }}
   case op{{ $type.Op }}:
     return op{{ call $type.Escaped }}
@@ -581,11 +597,17 @@ func (t opType) fieldToStringTagField() opType {
 	}
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
-		CodeTypes []string
-		OpTypes   []opType
+		CodeTypes        []string
+		OpTypes          []opType
+		OpNotIndentTypes []opType
+		OpLen            int
+		OpIndentLen      int
 	}{
-		CodeTypes: codeTypes,
-		OpTypes:   append(opTypes, indentOpTypes...),
+		CodeTypes:        codeTypes,
+		OpTypes:          append(opTypes, indentOpTypes...),
+		OpNotIndentTypes: opTypes,
+		OpLen:            len(opTypes),
+		OpIndentLen:      len(indentOpTypes),
 	}); err != nil {
 		return err
 	}

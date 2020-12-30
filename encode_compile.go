@@ -3,6 +3,7 @@ package json
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -27,13 +28,64 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 	if typ.Kind() == reflect.Map {
 		return e.compileMap(ctx.withType(typ), isPtr)
 	} else if typ.Kind() == reflect.Struct {
-		return e.compileStruct(ctx.withType(typ), isPtr)
+		code, err := e.compileStruct(ctx.withType(typ), isPtr)
+		if err != nil {
+			return nil, err
+		}
+		e.optimizeStructEnd(code)
+		return code, nil
 	} else if isPtr && typ.Implements(marshalTextType) {
 		typ = orgType
 	} else if isPtr && typ.Implements(marshalJSONType) {
 		typ = orgType
 	}
-	return e.compile(ctx.withType(typ))
+	code, err := e.compile(ctx.withType(typ))
+	if err != nil {
+		return nil, err
+	}
+	e.optimizeStructEnd(code)
+	return code, nil
+}
+
+func (e *Encoder) optimizeStructEnd(c *opcode) {
+	for code := c; code.op != opEnd; {
+		if code.op == opStructFieldRecursive {
+			// ignore if exists recursive operation
+			return
+		}
+		switch code.op.codeType() {
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
+		default:
+			code = code.next
+		}
+	}
+
+	for code := c; code.op != opEnd; {
+		switch code.op.codeType() {
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
+		case codeStructEnd:
+			switch code.op {
+			case opStructEnd:
+				prev := code.prevField
+				if strings.Contains(prev.op.String(), "Head") {
+					// not exists field
+					code = code.next
+					break
+				}
+				if prev.op != prev.op.fieldToEnd() {
+					prev.op = prev.op.fieldToEnd()
+					prev.next = code.next
+				}
+				code = code.next
+			default:
+				code = code.next
+			}
+		default:
+			code = code.next
+		}
+	}
 }
 
 func (e *Encoder) implementsMarshaler(typ *rtype) bool {

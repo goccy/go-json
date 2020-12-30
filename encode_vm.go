@@ -53,6 +53,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 	var seenPtr map[uintptr]struct{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+
 	for {
 		switch code.op {
 		default:
@@ -10847,12 +10848,14 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, code.key...)
 			s := e.ptrToString(ptr + code.offset)
 			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
+			b = encodeComma(b)
 			code = code.next
 		case opStructEscapedFieldStringTagEscapedString:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			s := e.ptrToString(ptr + code.offset)
 			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, s)))
+			b = encodeComma(b)
 			code = code.next
 		case opStructFieldStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
@@ -10962,8 +10965,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, code.key...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = encodeIndentComma(b)
 			b = append(b, '"')
+			b = encodeIndentComma(b)
 			code = code.next
 		case opStructEscapedFieldStringTagIntIndent:
 			ptr := load(ctxptr, code.headIdx)
@@ -10971,8 +10974,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = encodeIndentComma(b)
 			b = append(b, '"')
+			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringTagInt8Indent:
 			ptr := load(ctxptr, code.headIdx)
@@ -11296,7 +11299,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructEnd:
+		case opStructEnd, opStructEscapedEnd:
 			last := len(b) - 1
 			if b[last] == ',' {
 				b[last] = '}'
@@ -11305,9 +11308,9 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			}
 			b = encodeComma(b)
 			code = code.next
-		case opStructAnonymousEnd:
+		case opStructAnonymousEnd, opStructAnonymousEndIndent:
 			code = code.next
-		case opStructEndIndent:
+		case opStructEndIndent, opStructEscapedEndIndent:
 			last := len(b) - 1
 			if b[last] == '\n' {
 				// to remove ',' and '\n' characters
@@ -11317,6 +11320,2204 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, '}')
 			b = encodeIndentComma(b)
+			code = code.next
+		case opStructEndIntPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndIntPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndIntNPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			for i := 0; i < code.ptrNum-1; i++ {
+				if p == 0 {
+					break
+				}
+				p = e.ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndIntNPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			for i := 0; i < code.ptrNum-1; i++ {
+				if p == 0 {
+					break
+				}
+				p = e.ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt8Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt8(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt8Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt8(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt16Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt16(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt16Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt16(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt32Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt32(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt32Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, int64(e.ptrToInt32(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt64Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, e.ptrToInt64(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt64Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, e.ptrToInt64(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUintPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUintPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint8Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint8(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint8Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint8(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint16Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint16(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint16Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint16(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint32Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint32(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint32Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, uint64(e.ptrToUint32(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint64Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, e.ptrToUint64(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint64Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, e.ptrToUint64(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndFloat32Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeFloat32(b, e.ptrToFloat32(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndFloat32Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeFloat32(b, e.ptrToFloat32(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndFloat64Ptr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+				b = appendStructEnd(b)
+				code = code.next
+				break
+			}
+			v := e.ptrToFloat64(p)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndFloat64Ptr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+				b = appendStructEnd(b)
+				code = code.next
+				break
+			}
+			v := e.ptrToFloat64(p)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeNoEscapedString(b, e.ptrToString(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndEscapedStringPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, e.ptrToString(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndString:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndEscapedString:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = encodeEscapedString(b, e.ptrToString(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndBoolPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeBool(b, e.ptrToBool(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndBoolPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeBool(b, e.ptrToBool(p))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndBytes:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndBytes:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, buf.Bytes()...)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, buf.Bytes()...)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndIntIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndIntIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndInt8Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndInt8Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndInt16Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndInt16Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndInt32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndInt32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndInt64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndInt64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndUintIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndUintIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndUint8Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndUint8Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndUint16Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndUint16Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndUint32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndUint32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndUint64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndUint64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndFloat32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndFloat32Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndFloat64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndFloat64Indent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encodeFloat64(b, v)
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndEscapedStringIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeEscapedString(b, e.ptrToString(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndBoolIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndBoolIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndBytesIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndBytesIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndMarshalJSONIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, buf.Bytes()...)
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndMarshalJSONIndent:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, buf.Bytes()...)
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyInt8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt8(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt8(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyInt16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyInt32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyInt64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendInt(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyUint:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendUint(b, uint64(v))
+				b = appendStructEnd(b)
+			}
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyUint8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyUint16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyUint32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendUint(b, uint64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyUint64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendUint(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = appendUint(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = encodeFloat32(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.escapedKey...)
+				b = encodeFloat32(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = append(b, code.key...)
+				b = encodeFloat64(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = append(b, code.escapedKey...)
+				b = encodeFloat64(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyString:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = append(b, code.key...)
+				b = encodeNoEscapedString(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyEscapedString:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = append(b, code.escapedKey...)
+				b = encodeEscapedString(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyBool:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = append(b, code.key...)
+				b = encodeBool(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyBool:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = append(b, code.escapedKey...)
+				b = encodeBool(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = append(b, code.key...)
+				b = encodeByteSlice(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = append(b, code.escapedKey...)
+				b = encodeByteSlice(b, v)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			if v != nil {
+				bb, err := v.(Marshaler).MarshalJSON()
+				if err != nil {
+					return nil, errMarshaler(code, err)
+				}
+				var buf bytes.Buffer
+				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+					return nil, err
+				}
+				b = append(b, code.key...)
+				b = append(b, buf.Bytes()...)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			if v != nil {
+				bb, err := v.(Marshaler).MarshalJSON()
+				if err != nil {
+					return nil, errMarshaler(code, err)
+				}
+				var buf bytes.Buffer
+				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+					return nil, err
+				}
+				b = append(b, code.escapedKey...)
+				b = append(b, buf.Bytes()...)
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			if v != nil {
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return nil, errMarshaler(code, err)
+				}
+				b = append(b, code.key...)
+				b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndOmitEmptyMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			if v != nil {
+				bytes, err := v.(encoding.TextMarshaler).MarshalText()
+				if err != nil {
+					return nil, errMarshaler(code, err)
+				}
+				b = append(b, code.escapedKey...)
+				b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyIntIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyIntIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyInt64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUintIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUintIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyUint64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendUint(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyFloat32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat32(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyFloat32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeFloat32(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyFloat64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat64(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyFloat64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeFloat64(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyStringIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeNoEscapedString(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyEscapedStringIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeEscapedString(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyBoolIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeBool(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyBoolIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeBool(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyBytesIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeByteSlice(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndOmitEmptyBytesIndent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeByteSlice(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagInt8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagInt8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint64(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = appendUint(b, uint64(e.ptrToUint64(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagString:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagEscapedString:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, s)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			b = append(b, code.key...)
+			b = encodeByteSlice(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			b = append(b, code.escapedKey...)
+			b = encodeByteSlice(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, code.key...)
+			b = encodeNoEscapedString(b, buf.String())
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagMarshalJSON:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = append(b, code.escapedKey...)
+			b = encodeEscapedString(b, buf.String())
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = append(b, code.key...)
+			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEscapedEndStringTagMarshalText:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = append(b, code.escapedKey...)
+			b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagIntIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagIntIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagInt8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagInt16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagInt32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagInt64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUintIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagUintIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagUint8Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagUint16Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagUint32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagUint64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagFloat32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagFloat32Indent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagFloat64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagFloat64Indent:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagStringIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagEscapedStringIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, s)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagBoolIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagBoolIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagBytesIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagBytesIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagMarshalJSONIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = encodeEscapedString(b, buf.String())
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagMarshalJSONIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			var buf bytes.Buffer
+			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				return nil, err
+			}
+			b = encodeEscapedString(b, buf.String())
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagMarshalTextIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEscapedEndStringTagMarshalTextIndent:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := ptr + code.offset
+			v := e.ptrToInterface(code, p)
+			bytes, err := v.(encoding.TextMarshaler).MarshalText()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opEnd:
 			goto END

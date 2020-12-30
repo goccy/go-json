@@ -312,6 +312,17 @@ func encodeIndentComma(b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
+func appendStructEnd(b []byte) []byte {
+	return append(b, '}', ',')
+}
+
+func (e *Encoder) appendStructEndIndent(b []byte, indent int) []byte {
+	b = append(b, '\n')
+	b = append(b, e.prefix...)
+	b = append(b, bytes.Repeat(e.indentStr, indent)...)
+	return append(b, '}', ',', '\n')
+}
+
 func encodeByteSlice(b []byte, src []byte) []byte {
 	encodedLen := base64.StdEncoding.EncodedLen(len(src))
 	b = append(b, '"')

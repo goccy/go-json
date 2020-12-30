@@ -22,8 +22,49 @@ type opType struct {
 	HeadToOmitEmptyHead   func() string
 	HeadToStringTagHead   func() string
 	PtrHeadToHead         func() string
+	FieldToEnd            func() string
 	FieldToOmitEmptyField func() string
 	FieldToStringTagField func() string
+}
+
+func (t opType) IsEscaped() bool {
+	return t.Op != t.Escaped()
+}
+
+func (t opType) IsHeadToPtrHead() bool {
+	return t.Op != t.HeadToPtrHead()
+}
+
+func (t opType) IsHeadToNPtrHead() bool {
+	return t.Op != t.HeadToNPtrHead()
+}
+
+func (t opType) IsHeadToAnonymousHead() bool {
+	return t.Op != t.HeadToAnonymousHead()
+}
+
+func (t opType) IsHeadToOmitEmptyHead() bool {
+	return t.Op != t.HeadToOmitEmptyHead()
+}
+
+func (t opType) IsHeadToStringTagHead() bool {
+	return t.Op != t.HeadToStringTagHead()
+}
+
+func (t opType) IsPtrHeadToHead() bool {
+	return t.Op != t.PtrHeadToHead()
+}
+
+func (t opType) IsFieldToEnd() bool {
+	return t.Op != t.FieldToEnd()
+}
+
+func (t opType) IsFieldToOmitEmptyField() bool {
+	return t.Op != t.FieldToOmitEmptyField()
+}
+
+func (t opType) IsFieldToStringTagField() bool {
+	return t.Op != t.FieldToStringTagField()
 }
 
 func createOpType(op, code string) opType {
@@ -38,6 +79,7 @@ func createOpType(op, code string) opType {
 		HeadToOmitEmptyHead:   func() string { return op },
 		HeadToStringTagHead:   func() string { return op },
 		PtrHeadToHead:         func() string { return op },
+		FieldToEnd:            func() string { return op },
 		FieldToOmitEmptyField: func() string { return op },
 		FieldToStringTagField: func() string { return op },
 	}
@@ -64,8 +106,12 @@ const (
 )
 
 func (t opType) String() string {
+  if int(t) >= {{ .OpLen }} {
+    return t.toNotIndent().String() + "Indent"
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
   case op{{ $type.Op }}:
     return "{{ $type.Op }}"
 {{- end }}
@@ -74,8 +120,12 @@ func (t opType) String() string {
 }
 
 func (t opType) codeType() codeType {
+  if int(t) >= {{ .OpLen }} {
+    return t.toNotIndent().codeType()
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
   case op{{ $type.Op }}:
     return code{{ $type.Code }}
 {{- end }}
@@ -83,101 +133,175 @@ func (t opType) codeType() codeType {
   return codeOp
 }
 
-func (t opType) toIndent() opType {
-  switch t {
-{{- range $type := .OpTypes }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.Indent }}
-{{- end }}
+func (t opType) toNotIndent() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t) - {{ .OpLen }})
   }
   return t
 }
 
+func (t opType) toIndent() opType {
+  if int(t) >= {{ .OpLen }} {
+    return t
+  }
+  return opType(int(t) + {{ .OpLen }})
+}
+
 func (t opType) toEscaped() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().toEscaped()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsEscaped }}
   case op{{ $type.Op }}:
     return op{{ call $type.Escaped }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) headToPtrHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().headToPtrHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsHeadToPtrHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToPtrHead }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) headToNPtrHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().headToNPtrHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsHeadToNPtrHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToNPtrHead }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) headToAnonymousHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().headToAnonymousHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsHeadToAnonymousHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToAnonymousHead }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) headToOmitEmptyHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().headToOmitEmptyHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsHeadToOmitEmptyHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToOmitEmptyHead }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) headToStringTagHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().headToStringTagHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsHeadToStringTagHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.HeadToStringTagHead }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) ptrHeadToHead() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().ptrHeadToHead()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsPtrHeadToHead }}
   case op{{ $type.Op }}:
     return op{{ call $type.PtrHeadToHead }}
+{{- end }}
+{{- end }}
+  }
+  return t
+}
+
+func (t opType) fieldToEnd() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().fieldToEnd()) + {{ .OpLen }})
+  }
+
+  switch t {
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsFieldToEnd }}
+  case op{{ $type.Op }}:
+    return op{{ call $type.FieldToEnd }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) fieldToOmitEmptyField() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().fieldToOmitEmptyField()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsFieldToOmitEmptyField }}
   case op{{ $type.Op }}:
     return op{{ call $type.FieldToOmitEmptyField }}
+{{- end }}
 {{- end }}
   }
   return t
 }
 
 func (t opType) fieldToStringTagField() opType {
+  if int(t) >= {{ .OpLen }} {
+    return opType(int(t.toNotIndent().fieldToStringTagField()) + {{ .OpLen }})
+  }
+
   switch t {
-{{- range $type := .OpTypes }}
+{{- range $type := .OpNotIndentTypes }}
+{{- if $type.IsFieldToStringTagField }}
   case op{{ $type.Op }}:
     return op{{ call $type.FieldToStringTagField }}
+{{- end }}
 {{- end }}
   }
   return t
@@ -199,6 +323,7 @@ func (t opType) fieldToStringTagField() opType {
 		"MapEnd",
 		"StructFieldRecursive",
 		"StructField",
+		"StructEnd",
 	}
 	primitiveTypes := []string{
 		"int", "int8", "int16", "int32", "int64",
@@ -238,8 +363,7 @@ func (t opType) fieldToStringTagField() opType {
 		createOpType("MapValue", "MapValue"),
 		createOpType("MapEnd", "Op"),
 		createOpType("StructFieldRecursiveEnd", "Op"),
-		createOpType("StructEnd", "StructField"),
-		createOpType("StructAnonymousEnd", "StructField"),
+		createOpType("StructAnonymousEnd", "StructEnd"),
 	}
 	for _, typ := range primitiveTypesUpper {
 		typ := typ
@@ -348,6 +472,7 @@ func (t opType) fieldToStringTagField() opType {
 									typ,
 								)
 							},
+							FieldToEnd:            func() string { return op },
 							FieldToOmitEmptyField: func() string { return op },
 							FieldToStringTagField: func() string { return op },
 						})
@@ -394,6 +519,18 @@ func (t opType) fieldToStringTagField() opType {
 					HeadToOmitEmptyHead: func() string { return op },
 					HeadToStringTagHead: func() string { return op },
 					PtrHeadToHead:       func() string { return op },
+					FieldToEnd: func() string {
+						switch typ {
+						case "", "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+							return op
+						}
+						return fmt.Sprintf(
+							"Struct%sEnd%s%s",
+							escapedOrNot,
+							opt,
+							typ,
+						)
+					},
 					FieldToOmitEmptyField: func() string {
 						return fmt.Sprintf(
 							"Struct%sFieldOmitEmpty%s",
@@ -408,6 +545,51 @@ func (t opType) fieldToStringTagField() opType {
 							typ,
 						)
 					},
+				})
+			}
+		}
+	}
+	for _, escapedOrNot := range []string{"", "Escaped"} {
+		for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+			for _, typ := range append(primitiveTypesUpper, "") {
+				escapedOrNot := escapedOrNot
+				opt := opt
+				typ := typ
+
+				op := fmt.Sprintf(
+					"Struct%sEnd%s%s",
+					escapedOrNot,
+					opt,
+					typ,
+				)
+				opTypes = append(opTypes, opType{
+					Op:     op,
+					Code:   "StructEnd",
+					Indent: func() string { return fmt.Sprintf("%sIndent", op) },
+					Escaped: func() string {
+						switch typ {
+						case "String", "StringPtr", "StringNPtr":
+							return fmt.Sprintf(
+								"StructEscapedEnd%sEscaped%s",
+								opt,
+								typ,
+							)
+						}
+						return fmt.Sprintf(
+							"StructEscapedEnd%s%s",
+							opt,
+							typ,
+						)
+					},
+					HeadToPtrHead:         func() string { return op },
+					HeadToNPtrHead:        func() string { return op },
+					HeadToAnonymousHead:   func() string { return op },
+					HeadToOmitEmptyHead:   func() string { return op },
+					HeadToStringTagHead:   func() string { return op },
+					PtrHeadToHead:         func() string { return op },
+					FieldToEnd:            func() string { return op },
+					FieldToOmitEmptyField: func() string { return op },
+					FieldToStringTagField: func() string { return op },
 				})
 			}
 		}
@@ -444,15 +626,24 @@ func (t opType) fieldToStringTagField() opType {
 			FieldToStringTagField: func() string {
 				return fmt.Sprintf("%sIndent", typ.FieldToStringTagField())
 			},
+			FieldToEnd: func() string {
+				return fmt.Sprintf("%sIndent", typ.FieldToEnd())
+			},
 		})
 	}
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
-		CodeTypes []string
-		OpTypes   []opType
+		CodeTypes        []string
+		OpTypes          []opType
+		OpNotIndentTypes []opType
+		OpLen            int
+		OpIndentLen      int
 	}{
-		CodeTypes: codeTypes,
-		OpTypes:   append(opTypes, indentOpTypes...),
+		CodeTypes:        codeTypes,
+		OpTypes:          append(opTypes, indentOpTypes...),
+		OpNotIndentTypes: opTypes,
+		OpLen:            len(opTypes),
+		OpIndentLen:      len(indentOpTypes),
 	}); err != nil {
 		return err
 	}

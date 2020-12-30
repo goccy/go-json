@@ -9,24 +9,20 @@ jobs:
         go-version: [ "1.13", "1.14", "1.15" ]
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Set up Go ${{ matrix.go-version }}
+    - name: setup Go ${{ matrix.go-version }}
       uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}
-
-    - name: Check out code into the Go module directory
+    - name: checkout
       uses: actions/checkout@v2
-
-    - name: Test
+    - name: simple test
       run: go test -v ./ -count=1
-
-   # - name: Test with GC
-   #   run: go test -v ./ -count=1
-   #   env:
-   #     GOGC: 1
-
-   # - name: Test with race detector
-   #   run: go test -v -race ./ -count=1
+    - name: test with GC pressure
+      run: go test -v ./ -count=1
+      env:
+        GOGC: 1
+    - name: test with race detector
+      run: go test -v -race ./ -count=1
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

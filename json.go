@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"strconv"
+	"unsafe"
 )
 
 // Marshaler is the interface implemented by types that
@@ -157,6 +158,20 @@ func Marshal(v interface{}) ([]byte, error) {
 	return MarshalWithOption(v)
 }
 
+// MarshalNoEscape
+func MarshalNoEscape(v interface{}) ([]byte, error) {
+	var b *bytes.Buffer
+	enc := NewEncoder(b)
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	bytes, err := enc.encodeForMarshal(header, v == nil)
+	if err != nil {
+		enc.release()
+		return nil, err
+	}
+	enc.release()
+	return bytes, nil
+}
+
 // MarshalWithOption returns the JSON encoding of v with EncodeOption.
 func MarshalWithOption(v interface{}, opts ...EncodeOption) ([]byte, error) {
 	var b *bytes.Buffer
@@ -166,7 +181,9 @@ func MarshalWithOption(v interface{}, opts ...EncodeOption) ([]byte, error) {
 			return nil, err
 		}
 	}
-	bytes, err := enc.encodeForMarshal(v)
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	enc.ptr = header.ptr
+	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
 		enc.release()
 		return nil, err
@@ -192,7 +209,9 @@ func MarshalIndentWithOption(v interface{}, prefix, indent string, opts ...Encod
 		}
 	}
 	enc.SetIndent(prefix, indent)
-	bytes, err := enc.encodeForMarshal(v)
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	enc.ptr = header.ptr
+	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
 		enc.release()
 		return nil, err
@@ -393,7 +412,9 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	}
 	enc := NewEncoder(dst)
 	enc.SetEscapeHTML(true)
-	enc.buf, _ = enc.encode(v)
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	enc.ptr = header.ptr
+	enc.buf, _ = enc.encode(header, v == nil)
 	dst.Write(enc.buf[:len(enc.buf)-1]) // remove last ',' character
 }
 

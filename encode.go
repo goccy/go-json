@@ -111,7 +111,8 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 			return err
 		}
 	}
-	buf, err := e.encode(v)
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	buf, err := e.encode(header, v == nil)
 	if err != nil {
 		return err
 	}
@@ -159,8 +160,8 @@ func (e *Encoder) reset() {
 	e.unorderedMap = false
 }
 
-func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
-	buf, err := e.encode(v)
+func (e *Encoder) encodeForMarshal(header *interfaceHeader, isNil bool) ([]byte, error) {
+	buf, err := e.encode(header, isNil)
 	if err != nil {
 		return nil, err
 	}
@@ -177,9 +178,9 @@ func (e *Encoder) encodeForMarshal(v interface{}) ([]byte, error) {
 	return copied, nil
 }
 
-func (e *Encoder) encode(v interface{}) ([]byte, error) {
+func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	b := e.buf[:0]
-	if v == nil {
+	if isNil {
 		b = encodeNull(b)
 		if e.enabledIndent {
 			b = encodeIndentComma(b)
@@ -188,7 +189,6 @@ func (e *Encoder) encode(v interface{}) ([]byte, error) {
 		}
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))

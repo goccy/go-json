@@ -56,6 +56,15 @@ func Benchmark_Encode_SmallStruct_GoJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_SmallStruct_GoJsonNoEscape(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(NewSmallPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_SmallStructCached_EncodingJson(b *testing.B) {
 	cached := NewSmallPayload()
 	b.ReportAllocs()
@@ -107,6 +116,16 @@ func Benchmark_Encode_SmallStructCached_GoJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_SmallStructCached_GoJsonNoEscape(b *testing.B) {
+	cached := NewSmallPayload()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(cached); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_MediumStruct_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -148,6 +167,15 @@ func Benchmark_Encode_MediumStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(NewMediumPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MediumStruct_GoJsonNoEscape(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(NewMediumPayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -204,6 +232,16 @@ func Benchmark_Encode_MediumStructCached_GoJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_MediumStructCached_GoJsonNoEscape(b *testing.B) {
+	cached := NewMediumPayload()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(cached); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_LargeStruct_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -245,6 +283,15 @@ func Benchmark_Encode_LargeStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(NewLargePayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStruct_GoJsonNoEscape(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(NewLargePayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -296,6 +343,16 @@ func Benchmark_Encode_LargeStructCached_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(cached); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStructCached_GoJsonNoEscape(b *testing.B) {
+	cached := NewLargePayload()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalNoEscape(cached); err != nil {
 			b.Fatal(err)
 		}
 	}

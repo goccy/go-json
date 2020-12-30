@@ -2,6 +2,7 @@
 
 ![Go](https://github.com/goccy/go-json/workflows/Go/badge.svg)
 [![GoDoc](https://godoc.org/github.com/goccy/go-json?status.svg)](https://pkg.go.dev/github.com/goccy/go-json?tab=doc)
+[![codecov](https://codecov.io/gh/goccy/go-json/branch/master/graph/badge.svg)](https://codecov.io/gh/goccy/go-json)
 
 Fast JSON encoder/decoder compatible with encoding/json for Go
 

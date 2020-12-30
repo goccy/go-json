@@ -163,7 +163,7 @@ func MarshalNoEscape(v interface{}) ([]byte, error) {
 	var b *bytes.Buffer
 	enc := NewEncoder(b)
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	bytes, err := enc.encodeForMarshal(header)
+	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
 		enc.release()
 		return nil, err
@@ -183,7 +183,7 @@ func MarshalWithOption(v interface{}, opts ...EncodeOption) ([]byte, error) {
 	}
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	enc.ptr = header.ptr
-	bytes, err := enc.encodeForMarshal(header)
+	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
 		enc.release()
 		return nil, err
@@ -211,7 +211,7 @@ func MarshalIndentWithOption(v interface{}, prefix, indent string, opts ...Encod
 	enc.SetIndent(prefix, indent)
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	enc.ptr = header.ptr
-	bytes, err := enc.encodeForMarshal(header)
+	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
 		enc.release()
 		return nil, err
@@ -414,7 +414,7 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	enc.SetEscapeHTML(true)
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	enc.ptr = header.ptr
-	enc.buf, _ = enc.encode(header)
+	enc.buf, _ = enc.encode(header, v == nil)
 	dst.Write(enc.buf[:len(enc.buf)-1]) // remove last ',' character
 }
 

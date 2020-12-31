@@ -1102,7 +1102,8 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 		}
-		if fieldNum == 1 && valueCode.op == opPtr {
+
+		if fieldNum == 1 && valueCode.op == opPtr && !isPtr {
 			// if field number is one and primitive pointer type,
 			// it should encode as **not** pointer .
 			switch valueCode.next.op {

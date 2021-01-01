@@ -14,6 +14,27 @@ func int8ptr(v int8) *int8 {
 	return &v
 }
 
+func headIntPtrNilNotRoot() interface{} {
+	v := struct {
+		A struct {
+			A *int `json:"a"`
+		}
+	}{}
+	return v
+}
+
+func ptrHeadIntNotRoot() interface{} {
+	v := struct {
+		A *struct {
+			A int `json:"a"`
+		}
+	}{A: new(struct {
+		A int `json:"a"`
+	})}
+	v.A.A = 1
+	return v
+}
+
 func TestCoverage(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -21,44 +42,78 @@ func TestCoverage(t *testing.T) {
 		data     interface{}
 	}{
 		{
-			name:     "IntHead",
+			name:     "HeadIntZero",
+			expected: `{"a":0}`,
+			data: struct {
+				A int `json:"a"`
+			}{},
+		},
+		{
+			name:     "HeadInt",
 			expected: `{"a":1}`,
 			data: struct {
 				A int `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "IntPtrHead",
+			name:     "HeadIntPtr",
 			expected: `{"a":1}`,
 			data: struct {
 				A *int `json:"a"`
 			}{A: intptr(1)},
 		},
-		/*
-			{
-				name:     "IntPtrNilHead",
-				expected: `{"a":null}`,
-				data: struct {
-					A *int `json:"a"`
-				}{A: nil},
-			},
-		*/
 		{
-			name:     "PtrIntHead",
+			name:     "HeadIntPtrNil",
+			expected: `{"a":null}`,
+			data: struct {
+				A *int `json:"a"`
+			}{A: nil},
+		},
+		{
+			name:     "PtrHeadIntZero",
+			expected: `{"a":0}`,
+			data: &struct {
+				A int `json:"a"`
+			}{},
+		},
+		{
+			name:     "PtrHeadInt",
 			expected: `{"a":1}`,
 			data: &struct {
 				A int `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "PtrIntPtrHead",
+			name:     "PtrHeadIntPtr",
 			expected: `{"a":1}`,
 			data: &struct {
 				A *int `json:"a"`
 			}{A: intptr(1)},
 		},
 		{
-			name:     "IntField",
+			name:     "PtrHeadIntPtrNil",
+			expected: `{"a":null}`,
+			data: &struct {
+				A *int `json:"a"`
+			}{A: nil},
+		},
+		{
+			name:     "PtrHeadIntNil",
+			expected: `null`,
+			data: (*struct {
+				A *int `json:"a"`
+			})(nil),
+		},
+		{
+			name:     "HeadIntZeroMultiFields",
+			expected: `{"a":0,"b":0}`,
+			data: struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{},
+		},
+		{
+			name:     "HeadIntMultiFields",
 			expected: `{"a":1,"b":2}`,
 			data: struct {
 				A int `json:"a"`
@@ -66,13 +121,232 @@ func TestCoverage(t *testing.T) {
 			}{A: 1, B: 2},
 		},
 		{
-			name:     "IntPtrField",
+			name:     "HeadIntPtrMultiFields",
 			expected: `{"a":1,"b":2}`,
 			data: struct {
 				A *int `json:"a"`
 				B *int `json:"b"`
 			}{A: intptr(1), B: intptr(2)},
 		},
+		{
+			name:     "HeadIntPtrNilMultiFieldsd",
+			expected: `{"a":null,"b":null}`,
+			data: struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name:     "PtrHeadIntZeroMultiFields",
+			expected: `{"a":0,"b":0}`,
+			data: &struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{},
+		},
+		{
+			name:     "PtrHeadIntMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: &struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{A: 1, B: 2},
+		},
+		{
+			name:     "PtrHeadIntPtrMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: &struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: intptr(1), B: intptr(2)},
+		},
+		{
+			name:     "PtrHeadIntPtrNilMultiFields",
+			expected: `{"a":null,"b":null}`,
+			data: &struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name:     "PtrHeadIntNilMultiFields",
+			expected: `null`,
+			data: (*struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			})(nil),
+		},
+
+		{
+			name:     "HeadIntZeroNotRoot",
+			expected: `{"A":{"a":0}}`,
+			data: struct {
+				A struct {
+					A int `json:"a"`
+				}
+			}{},
+		},
+		{
+			name:     "HeadIntNotRoot",
+			expected: `{"A":{"a":1}}`,
+			data: struct {
+				A struct {
+					A int `json:"a"`
+				}
+			}{A: struct {
+				A int `json:"a"`
+			}{A: 1}},
+		},
+		{
+			name:     "HeadIntPtrNotRoot",
+			expected: `{"A":{"a":1}}`,
+			data: struct {
+				A struct {
+					A *int `json:"a"`
+				}
+			}{A: struct {
+				A *int `json:"a"`
+			}{intptr(1)}},
+		},
+		/*
+				{
+					name:     "HeadIntPtrNilNotRoot",
+					expected: `{"A":{"a":null}}`,
+					data: struct {
+						A struct {
+							A *int `json:"a"`
+						}
+					}{},
+				},
+			{
+				name:     "PtrHeadIntZeroNotRoot",
+				expected: `{"A":{"a":0}}`,
+				data: struct {
+					A *struct {
+						A int `json:"a"`
+					}
+				}{A: new(struct {
+					A int `json:"a"`
+				})},
+			},
+			{
+				name:     "PtrHeadIntNotRoot",
+				expected: `{"A":{"a":1}}`,
+				data: struct {
+					A *struct {
+						A int `json:"a"`
+					}
+				}{A: &(struct {
+					A int `json:"a"`
+				}{A: 1})},
+			},
+			{
+				name:     "PtrHeadIntPtrNotRoot",
+				expected: `{"A":{"a":1}}`,
+				data: struct {
+					A *struct {
+						A *int `json:"a"`
+					}
+				}{A: &(struct {
+					A *int `json:"a"`
+				}{A: intptr(1)})},
+			},
+			{
+				name:     "PtrHeadIntPtrNilNotRoot",
+				expected: `{"A":{"a":null}}`,
+				data: struct {
+					A *struct {
+						A *int `json:"a"`
+					}
+				}{A: &(struct {
+					A *int `json:"a"`
+				}{A: nil})},
+			},
+		*/
+		/*
+			{
+				name:     "PtrHeadIntNilNotRoot",
+				expected: `{"A":null}`,
+				data: struct {
+					A *struct {
+						A *int `json:"a"`
+					}
+				}{A: nil},
+			},
+		*/
+		{
+			name:     "HeadIntZeroMultiFields",
+			expected: `{"a":0,"b":0}`,
+			data: struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{},
+		},
+		{
+			name:     "HeadIntMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{A: 1, B: 2},
+		},
+		{
+			name:     "HeadIntPtrMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: intptr(1), B: intptr(2)},
+		},
+		{
+			name:     "HeadIntPtrNilMultiFieldsd",
+			expected: `{"a":null,"b":null}`,
+			data: struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name:     "PtrHeadIntZeroMultiFields",
+			expected: `{"a":0,"b":0}`,
+			data: &struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{},
+		},
+		{
+			name:     "PtrHeadIntMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: &struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{A: 1, B: 2},
+		},
+		{
+			name:     "PtrHeadIntPtrMultiFields",
+			expected: `{"a":1,"b":2}`,
+			data: &struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: intptr(1), B: intptr(2)},
+		},
+		{
+			name:     "PtrHeadIntPtrNilMultiFields",
+			expected: `{"a":null,"b":null}`,
+			data: &struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name:     "PtrHeadIntNilMultiFields",
+			expected: `null`,
+			data: (*struct {
+				A *int `json:"a"`
+				B *int `json:"b"`
+			})(nil),
+		},
+
 		{
 			name:     "Int8Head",
 			expected: `{"a":1}`,
@@ -133,10 +407,10 @@ func TestCoverage(t *testing.T) {
 			enc := NewEncoder(&buf)
 			enc.SetEscapeHTML(htmlEscape)
 			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				t.Errorf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
 			}
 			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+				t.Errorf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
 			}
 		}
 	}

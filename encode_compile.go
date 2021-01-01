@@ -536,126 +536,251 @@ func (e *Encoder) compileMap(ctx *encodeCompileContext, withLoad bool) (*opcode,
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func (e *Encoder) typeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
-	switch code.op {
-	case opPtr:
-		ptrNum := 1
-		c := code
-		ctx.decIndex()
-		for {
-			if code.next.op == opPtr {
-				ptrNum++
-				code = code.next
-				ctx.decIndex()
+func (e *Encoder) typeToHeaderType(ctx *encodeCompileContext, code *opcode, isOnlyPtrField bool) opType {
+	if isOnlyPtrField {
+		// 1. pointer struct + primitive type field
+		// 2. struct + primitive pointer type field
+		switch code.op {
+		case opPtr:
+			ptrNum := 1
+			c := code
+			ctx.decIndex()
+			for {
+				if code.next.op == opPtr {
+					ptrNum++
+					code = code.next
+					ctx.decIndex()
+				}
+				break
 			}
-			break
+			c.ptrNum = ptrNum
+			if ptrNum > 1 {
+				switch code.next.op {
+				case opInt:
+					return opStructFieldHeadIntNPtrOnly
+				case opInt8:
+					return opStructFieldHeadInt8NPtrOnly
+				case opInt16:
+					return opStructFieldHeadInt16NPtrOnly
+				case opInt32:
+					return opStructFieldHeadInt32NPtrOnly
+				case opInt64:
+					return opStructFieldHeadInt64NPtrOnly
+				case opUint:
+					return opStructFieldHeadUintNPtrOnly
+				case opUint8:
+					return opStructFieldHeadUint8NPtrOnly
+				case opUint16:
+					return opStructFieldHeadUint16NPtrOnly
+				case opUint32:
+					return opStructFieldHeadUint32NPtrOnly
+				case opUint64:
+					return opStructFieldHeadUint64NPtrOnly
+				case opFloat32:
+					return opStructFieldHeadFloat32NPtrOnly
+				case opFloat64:
+					return opStructFieldHeadFloat64NPtrOnly
+				case opString:
+					return opStructFieldHeadStringNPtrOnly
+				case opBool:
+					return opStructFieldHeadBoolNPtrOnly
+				}
+			} else {
+				switch code.next.op {
+				case opInt:
+					return opStructFieldHeadIntPtrOnly
+				case opInt8:
+					return opStructFieldHeadInt8PtrOnly
+				case opInt16:
+					return opStructFieldHeadInt16PtrOnly
+				case opInt32:
+					return opStructFieldHeadInt32PtrOnly
+				case opInt64:
+					return opStructFieldHeadInt64PtrOnly
+				case opUint:
+					return opStructFieldHeadUintPtrOnly
+				case opUint8:
+					return opStructFieldHeadUint8PtrOnly
+				case opUint16:
+					return opStructFieldHeadUint16PtrOnly
+				case opUint32:
+					return opStructFieldHeadUint32PtrOnly
+				case opUint64:
+					return opStructFieldHeadUint64PtrOnly
+				case opFloat32:
+					return opStructFieldHeadFloat32PtrOnly
+				case opFloat64:
+					return opStructFieldHeadFloat64PtrOnly
+				case opString:
+					return opStructFieldHeadStringPtrOnly
+				case opBool:
+					return opStructFieldHeadBoolPtrOnly
+				}
+			}
+		case opInt:
+			return opStructFieldHeadIntOnly
+		case opInt8:
+			return opStructFieldHeadInt8Only
+		case opInt16:
+			return opStructFieldHeadInt16Only
+		case opInt32:
+			return opStructFieldHeadInt32Only
+		case opInt64:
+			return opStructFieldHeadInt64Only
+		case opUint:
+			return opStructFieldHeadUintOnly
+		case opUint8:
+			return opStructFieldHeadUint8Only
+		case opUint16:
+			return opStructFieldHeadUint16Only
+		case opUint32:
+			return opStructFieldHeadUint32Only
+		case opUint64:
+			return opStructFieldHeadUint64Only
+		case opFloat32:
+			return opStructFieldHeadFloat32Only
+		case opFloat64:
+			return opStructFieldHeadFloat64Only
+		case opString:
+			return opStructFieldHeadStringOnly
+		case opBool:
+			return opStructFieldHeadBoolOnly
+		case opMapHead:
+			return opStructFieldHeadMap
+		case opMapHeadLoad:
+			return opStructFieldHeadMapLoad
+		case opArrayHead:
+			return opStructFieldHeadArray
+		case opSliceHead:
+			return opStructFieldHeadSlice
+		case opStructFieldHead:
+			return opStructFieldHeadStruct
+		case opMarshalJSON:
+			return opStructFieldHeadMarshalJSON
+		case opMarshalText:
+			return opStructFieldHeadMarshalText
 		}
-		c.ptrNum = ptrNum
-		if ptrNum > 1 {
-			switch code.next.op {
-			case opInt:
-				return opStructFieldHeadIntNPtr
-			case opInt8:
-				return opStructFieldHeadInt8NPtr
-			case opInt16:
-				return opStructFieldHeadInt16NPtr
-			case opInt32:
-				return opStructFieldHeadInt32NPtr
-			case opInt64:
-				return opStructFieldHeadInt64NPtr
-			case opUint:
-				return opStructFieldHeadUintNPtr
-			case opUint8:
-				return opStructFieldHeadUint8NPtr
-			case opUint16:
-				return opStructFieldHeadUint16NPtr
-			case opUint32:
-				return opStructFieldHeadUint32NPtr
-			case opUint64:
-				return opStructFieldHeadUint64NPtr
-			case opFloat32:
-				return opStructFieldHeadFloat32NPtr
-			case opFloat64:
-				return opStructFieldHeadFloat64NPtr
-			case opString:
-				return opStructFieldHeadStringNPtr
-			case opBool:
-				return opStructFieldHeadBoolNPtr
+	} else {
+		switch code.op {
+		case opPtr:
+			ptrNum := 1
+			c := code
+			ctx.decIndex()
+			for {
+				if code.next.op == opPtr {
+					ptrNum++
+					code = code.next
+					ctx.decIndex()
+				}
+				break
 			}
-		} else {
-			switch code.next.op {
-			case opInt:
-				return opStructFieldHeadIntPtr
-			case opInt8:
-				return opStructFieldHeadInt8Ptr
-			case opInt16:
-				return opStructFieldHeadInt16Ptr
-			case opInt32:
-				return opStructFieldHeadInt32Ptr
-			case opInt64:
-				return opStructFieldHeadInt64Ptr
-			case opUint:
-				return opStructFieldHeadUintPtr
-			case opUint8:
-				return opStructFieldHeadUint8Ptr
-			case opUint16:
-				return opStructFieldHeadUint16Ptr
-			case opUint32:
-				return opStructFieldHeadUint32Ptr
-			case opUint64:
-				return opStructFieldHeadUint64Ptr
-			case opFloat32:
-				return opStructFieldHeadFloat32Ptr
-			case opFloat64:
-				return opStructFieldHeadFloat64Ptr
-			case opString:
-				return opStructFieldHeadStringPtr
-			case opBool:
-				return opStructFieldHeadBoolPtr
+			c.ptrNum = ptrNum
+			if ptrNum > 1 {
+				switch code.next.op {
+				case opInt:
+					return opStructFieldHeadIntNPtr
+				case opInt8:
+					return opStructFieldHeadInt8NPtr
+				case opInt16:
+					return opStructFieldHeadInt16NPtr
+				case opInt32:
+					return opStructFieldHeadInt32NPtr
+				case opInt64:
+					return opStructFieldHeadInt64NPtr
+				case opUint:
+					return opStructFieldHeadUintNPtr
+				case opUint8:
+					return opStructFieldHeadUint8NPtr
+				case opUint16:
+					return opStructFieldHeadUint16NPtr
+				case opUint32:
+					return opStructFieldHeadUint32NPtr
+				case opUint64:
+					return opStructFieldHeadUint64NPtr
+				case opFloat32:
+					return opStructFieldHeadFloat32NPtr
+				case opFloat64:
+					return opStructFieldHeadFloat64NPtr
+				case opString:
+					return opStructFieldHeadStringNPtr
+				case opBool:
+					return opStructFieldHeadBoolNPtr
+				}
+			} else {
+				switch code.next.op {
+				case opInt:
+					return opStructFieldHeadIntPtr
+				case opInt8:
+					return opStructFieldHeadInt8Ptr
+				case opInt16:
+					return opStructFieldHeadInt16Ptr
+				case opInt32:
+					return opStructFieldHeadInt32Ptr
+				case opInt64:
+					return opStructFieldHeadInt64Ptr
+				case opUint:
+					return opStructFieldHeadUintPtr
+				case opUint8:
+					return opStructFieldHeadUint8Ptr
+				case opUint16:
+					return opStructFieldHeadUint16Ptr
+				case opUint32:
+					return opStructFieldHeadUint32Ptr
+				case opUint64:
+					return opStructFieldHeadUint64Ptr
+				case opFloat32:
+					return opStructFieldHeadFloat32Ptr
+				case opFloat64:
+					return opStructFieldHeadFloat64Ptr
+				case opString:
+					return opStructFieldHeadStringPtr
+				case opBool:
+					return opStructFieldHeadBoolPtr
+				}
 			}
+		case opInt:
+			return opStructFieldHeadInt
+		case opInt8:
+			return opStructFieldHeadInt8
+		case opInt16:
+			return opStructFieldHeadInt16
+		case opInt32:
+			return opStructFieldHeadInt32
+		case opInt64:
+			return opStructFieldHeadInt64
+		case opUint:
+			return opStructFieldHeadUint
+		case opUint8:
+			return opStructFieldHeadUint8
+		case opUint16:
+			return opStructFieldHeadUint16
+		case opUint32:
+			return opStructFieldHeadUint32
+		case opUint64:
+			return opStructFieldHeadUint64
+		case opFloat32:
+			return opStructFieldHeadFloat32
+		case opFloat64:
+			return opStructFieldHeadFloat64
+		case opString:
+			return opStructFieldHeadString
+		case opBool:
+			return opStructFieldHeadBool
+		case opMapHead:
+			return opStructFieldHeadMap
+		case opMapHeadLoad:
+			return opStructFieldHeadMapLoad
+		case opArrayHead:
+			return opStructFieldHeadArray
+		case opSliceHead:
+			return opStructFieldHeadSlice
+		case opStructFieldHead:
+			return opStructFieldHeadStruct
+		case opMarshalJSON:
+			return opStructFieldHeadMarshalJSON
+		case opMarshalText:
+			return opStructFieldHeadMarshalText
 		}
-	case opInt:
-		return opStructFieldHeadInt
-	case opInt8:
-		return opStructFieldHeadInt8
-	case opInt16:
-		return opStructFieldHeadInt16
-	case opInt32:
-		return opStructFieldHeadInt32
-	case opInt64:
-		return opStructFieldHeadInt64
-	case opUint:
-		return opStructFieldHeadUint
-	case opUint8:
-		return opStructFieldHeadUint8
-	case opUint16:
-		return opStructFieldHeadUint16
-	case opUint32:
-		return opStructFieldHeadUint32
-	case opUint64:
-		return opStructFieldHeadUint64
-	case opFloat32:
-		return opStructFieldHeadFloat32
-	case opFloat64:
-		return opStructFieldHeadFloat64
-	case opString:
-		return opStructFieldHeadString
-	case opBool:
-		return opStructFieldHeadBool
-	case opMapHead:
-		return opStructFieldHeadMap
-	case opMapHeadLoad:
-		return opStructFieldHeadMapLoad
-	case opArrayHead:
-		return opStructFieldHeadArray
-	case opSliceHead:
-		return opStructFieldHeadSlice
-	case opStructFieldHead:
-		return opStructFieldHeadStruct
-	case opMarshalJSON:
-		return opStructFieldHeadMarshalJSON
-	case opMarshalText:
-		return opStructFieldHeadMarshalText
 	}
 	return opStructFieldHead
 }
@@ -784,8 +909,8 @@ func (e *Encoder) typeToFieldType(ctx *encodeCompileContext, code *opcode) opTyp
 	return opStructField
 }
 
-func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag) opType {
-	headType := e.typeToHeaderType(ctx, code)
+func (e *Encoder) optimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag, isOnlyPtrField bool) opType {
+	headType := e.typeToHeaderType(ctx, code, isOnlyPtrField)
 	switch {
 	case tag.isOmitEmpty:
 		headType = headType.headToOmitEmptyHead()
@@ -821,9 +946,9 @@ func (e *Encoder) compiledCode(ctx *encodeCompileContext) *opcode {
 	return nil
 }
 
-func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
+func (e *Encoder) structHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag, isOnlyPtrField bool) *opcode {
 	fieldCode.indent--
-	op := e.optimizeStructHeader(ctx, valueCode, tag)
+	op := e.optimizeStructHeader(ctx, valueCode, tag, isOnlyPtrField)
 	fieldCode.op = op
 	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
@@ -1103,17 +1228,10 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			}
 		}
 
-		if fieldNum == 1 && valueCode.op == opPtr && !isPtr {
-			// if field number is one and primitive pointer type,
-			// it should encode as **not** pointer .
-			switch valueCode.next.op {
-			case opInt, opInt8, opInt16, opInt32, opInt64,
-				opUint, opUint8, opUint16, opUint32, opUint64,
-				opFloat32, opFloat64, opBool, opString, opBytes:
-				valueCode = valueCode.next
-				ctx.decOpcodeIndex()
-			}
-		}
+		// if field number is one and primitive pointer type,
+		// it should encode as special opcode.
+		isOnlyPtrField := fieldNum == 1 && (valueCode.op == opPtr && !isPtr || valueCode.op != opPtr && isPtr)
+
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
 		fieldCode := &opcode{
@@ -1131,7 +1249,7 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 		}
 		if fieldIdx == 0 {
 			fieldCode.headIdx = fieldCode.idx
-			code = e.structHeader(ctx, fieldCode, valueCode, tag)
+			code = e.structHeader(ctx, fieldCode, valueCode, tag, isOnlyPtrField)
 			head = fieldCode
 			prevField = fieldCode
 		} else {

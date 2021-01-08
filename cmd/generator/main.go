@@ -486,6 +486,13 @@ func (t opType) fieldToStringTagField() opType {
 								)
 							},
 							HeadToOnlyHead: func() string {
+								switch typ {
+								case "", "Array", "Map", "MapLoad", "Slice",
+									"Struct", "Recursive", "MarshalJSON", "MarshalText",
+									"IntString", "Int8String", "Int16String", "Int32String", "Int64String",
+									"UintString", "Uint8String", "Uint16String", "Uint32String", "Uint64String":
+									return op
+								}
 								return fmt.Sprintf(
 									"Struct%sField%s%sHead%sOnly",
 									escapedOrNot,

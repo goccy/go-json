@@ -62237,42 +62237,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringOnly
 	case opStructFieldHeadBytes:
 		return opStructFieldHeadBytesOnly
-	case opStructFieldHeadArray:
-		return opStructFieldHeadArrayOnly
-	case opStructFieldHeadMap:
-		return opStructFieldHeadMapOnly
-	case opStructFieldHeadMapLoad:
-		return opStructFieldHeadMapLoadOnly
-	case opStructFieldHeadSlice:
-		return opStructFieldHeadSliceOnly
-	case opStructFieldHeadStruct:
-		return opStructFieldHeadStructOnly
-	case opStructFieldHeadMarshalJSON:
-		return opStructFieldHeadMarshalJSONOnly
-	case opStructFieldHeadMarshalText:
-		return opStructFieldHeadMarshalTextOnly
-	case opStructFieldHeadRecursive:
-		return opStructFieldHeadRecursiveOnly
-	case opStructFieldHeadIntString:
-		return opStructFieldHeadIntStringOnly
-	case opStructFieldHeadInt8String:
-		return opStructFieldHeadInt8StringOnly
-	case opStructFieldHeadInt16String:
-		return opStructFieldHeadInt16StringOnly
-	case opStructFieldHeadInt32String:
-		return opStructFieldHeadInt32StringOnly
-	case opStructFieldHeadInt64String:
-		return opStructFieldHeadInt64StringOnly
-	case opStructFieldHeadUintString:
-		return opStructFieldHeadUintStringOnly
-	case opStructFieldHeadUint8String:
-		return opStructFieldHeadUint8StringOnly
-	case opStructFieldHeadUint16String:
-		return opStructFieldHeadUint16StringOnly
-	case opStructFieldHeadUint32String:
-		return opStructFieldHeadUint32StringOnly
-	case opStructFieldHeadUint64String:
-		return opStructFieldHeadUint64StringOnly
 	case opStructFieldHeadIntPtr:
 		return opStructFieldHeadIntPtrOnly
 	case opStructFieldHeadInt8Ptr:
@@ -62337,8 +62301,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringNPtrOnly
 	case opStructFieldHeadBytesNPtr:
 		return opStructFieldHeadBytesNPtrOnly
-	case opStructFieldHead:
-		return opStructFieldHeadOnly
 	case opStructFieldHeadOmitEmptyInt:
 		return opStructFieldHeadIntOnly
 	case opStructFieldHeadOmitEmptyInt8:
@@ -62371,42 +62333,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringOnly
 	case opStructFieldHeadOmitEmptyBytes:
 		return opStructFieldHeadBytesOnly
-	case opStructFieldHeadOmitEmptyArray:
-		return opStructFieldHeadArrayOnly
-	case opStructFieldHeadOmitEmptyMap:
-		return opStructFieldHeadMapOnly
-	case opStructFieldHeadOmitEmptyMapLoad:
-		return opStructFieldHeadMapLoadOnly
-	case opStructFieldHeadOmitEmptySlice:
-		return opStructFieldHeadSliceOnly
-	case opStructFieldHeadOmitEmptyStruct:
-		return opStructFieldHeadStructOnly
-	case opStructFieldHeadOmitEmptyMarshalJSON:
-		return opStructFieldHeadMarshalJSONOnly
-	case opStructFieldHeadOmitEmptyMarshalText:
-		return opStructFieldHeadMarshalTextOnly
-	case opStructFieldHeadOmitEmptyRecursive:
-		return opStructFieldHeadRecursiveOnly
-	case opStructFieldHeadOmitEmptyIntString:
-		return opStructFieldHeadIntStringOnly
-	case opStructFieldHeadOmitEmptyInt8String:
-		return opStructFieldHeadInt8StringOnly
-	case opStructFieldHeadOmitEmptyInt16String:
-		return opStructFieldHeadInt16StringOnly
-	case opStructFieldHeadOmitEmptyInt32String:
-		return opStructFieldHeadInt32StringOnly
-	case opStructFieldHeadOmitEmptyInt64String:
-		return opStructFieldHeadInt64StringOnly
-	case opStructFieldHeadOmitEmptyUintString:
-		return opStructFieldHeadUintStringOnly
-	case opStructFieldHeadOmitEmptyUint8String:
-		return opStructFieldHeadUint8StringOnly
-	case opStructFieldHeadOmitEmptyUint16String:
-		return opStructFieldHeadUint16StringOnly
-	case opStructFieldHeadOmitEmptyUint32String:
-		return opStructFieldHeadUint32StringOnly
-	case opStructFieldHeadOmitEmptyUint64String:
-		return opStructFieldHeadUint64StringOnly
 	case opStructFieldHeadOmitEmptyIntPtr:
 		return opStructFieldHeadIntPtrOnly
 	case opStructFieldHeadOmitEmptyInt8Ptr:
@@ -62471,8 +62397,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringNPtrOnly
 	case opStructFieldHeadOmitEmptyBytesNPtr:
 		return opStructFieldHeadBytesNPtrOnly
-	case opStructFieldHeadOmitEmpty:
-		return opStructFieldHeadOnly
 	case opStructFieldHeadStringTagInt:
 		return opStructFieldHeadIntOnly
 	case opStructFieldHeadStringTagInt8:
@@ -62505,42 +62429,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringOnly
 	case opStructFieldHeadStringTagBytes:
 		return opStructFieldHeadBytesOnly
-	case opStructFieldHeadStringTagArray:
-		return opStructFieldHeadArrayOnly
-	case opStructFieldHeadStringTagMap:
-		return opStructFieldHeadMapOnly
-	case opStructFieldHeadStringTagMapLoad:
-		return opStructFieldHeadMapLoadOnly
-	case opStructFieldHeadStringTagSlice:
-		return opStructFieldHeadSliceOnly
-	case opStructFieldHeadStringTagStruct:
-		return opStructFieldHeadStructOnly
-	case opStructFieldHeadStringTagMarshalJSON:
-		return opStructFieldHeadMarshalJSONOnly
-	case opStructFieldHeadStringTagMarshalText:
-		return opStructFieldHeadMarshalTextOnly
-	case opStructFieldHeadStringTagRecursive:
-		return opStructFieldHeadRecursiveOnly
-	case opStructFieldHeadStringTagIntString:
-		return opStructFieldHeadIntStringOnly
-	case opStructFieldHeadStringTagInt8String:
-		return opStructFieldHeadInt8StringOnly
-	case opStructFieldHeadStringTagInt16String:
-		return opStructFieldHeadInt16StringOnly
-	case opStructFieldHeadStringTagInt32String:
-		return opStructFieldHeadInt32StringOnly
-	case opStructFieldHeadStringTagInt64String:
-		return opStructFieldHeadInt64StringOnly
-	case opStructFieldHeadStringTagUintString:
-		return opStructFieldHeadUintStringOnly
-	case opStructFieldHeadStringTagUint8String:
-		return opStructFieldHeadUint8StringOnly
-	case opStructFieldHeadStringTagUint16String:
-		return opStructFieldHeadUint16StringOnly
-	case opStructFieldHeadStringTagUint32String:
-		return opStructFieldHeadUint32StringOnly
-	case opStructFieldHeadStringTagUint64String:
-		return opStructFieldHeadUint64StringOnly
 	case opStructFieldHeadStringTagIntPtr:
 		return opStructFieldHeadIntPtrOnly
 	case opStructFieldHeadStringTagInt8Ptr:
@@ -62605,8 +62493,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldHeadEscapedStringNPtrOnly
 	case opStructFieldHeadStringTagBytesNPtr:
 		return opStructFieldHeadBytesNPtrOnly
-	case opStructFieldHeadStringTag:
-		return opStructFieldHeadOnly
 	case opStructFieldAnonymousHeadInt:
 		return opStructFieldAnonymousHeadIntOnly
 	case opStructFieldAnonymousHeadInt8:
@@ -62639,42 +62525,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringOnly
 	case opStructFieldAnonymousHeadBytes:
 		return opStructFieldAnonymousHeadBytesOnly
-	case opStructFieldAnonymousHeadArray:
-		return opStructFieldAnonymousHeadArrayOnly
-	case opStructFieldAnonymousHeadMap:
-		return opStructFieldAnonymousHeadMapOnly
-	case opStructFieldAnonymousHeadMapLoad:
-		return opStructFieldAnonymousHeadMapLoadOnly
-	case opStructFieldAnonymousHeadSlice:
-		return opStructFieldAnonymousHeadSliceOnly
-	case opStructFieldAnonymousHeadStruct:
-		return opStructFieldAnonymousHeadStructOnly
-	case opStructFieldAnonymousHeadMarshalJSON:
-		return opStructFieldAnonymousHeadMarshalJSONOnly
-	case opStructFieldAnonymousHeadMarshalText:
-		return opStructFieldAnonymousHeadMarshalTextOnly
-	case opStructFieldAnonymousHeadRecursive:
-		return opStructFieldAnonymousHeadRecursiveOnly
-	case opStructFieldAnonymousHeadIntString:
-		return opStructFieldAnonymousHeadIntStringOnly
-	case opStructFieldAnonymousHeadInt8String:
-		return opStructFieldAnonymousHeadInt8StringOnly
-	case opStructFieldAnonymousHeadInt16String:
-		return opStructFieldAnonymousHeadInt16StringOnly
-	case opStructFieldAnonymousHeadInt32String:
-		return opStructFieldAnonymousHeadInt32StringOnly
-	case opStructFieldAnonymousHeadInt64String:
-		return opStructFieldAnonymousHeadInt64StringOnly
-	case opStructFieldAnonymousHeadUintString:
-		return opStructFieldAnonymousHeadUintStringOnly
-	case opStructFieldAnonymousHeadUint8String:
-		return opStructFieldAnonymousHeadUint8StringOnly
-	case opStructFieldAnonymousHeadUint16String:
-		return opStructFieldAnonymousHeadUint16StringOnly
-	case opStructFieldAnonymousHeadUint32String:
-		return opStructFieldAnonymousHeadUint32StringOnly
-	case opStructFieldAnonymousHeadUint64String:
-		return opStructFieldAnonymousHeadUint64StringOnly
 	case opStructFieldAnonymousHeadIntPtr:
 		return opStructFieldAnonymousHeadIntPtrOnly
 	case opStructFieldAnonymousHeadInt8Ptr:
@@ -62739,8 +62589,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldAnonymousHeadBytesNPtr:
 		return opStructFieldAnonymousHeadBytesNPtrOnly
-	case opStructFieldAnonymousHead:
-		return opStructFieldAnonymousHeadOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt:
 		return opStructFieldAnonymousHeadIntOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt8:
@@ -62773,42 +62621,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringOnly
 	case opStructFieldAnonymousHeadOmitEmptyBytes:
 		return opStructFieldAnonymousHeadBytesOnly
-	case opStructFieldAnonymousHeadOmitEmptyArray:
-		return opStructFieldAnonymousHeadArrayOnly
-	case opStructFieldAnonymousHeadOmitEmptyMap:
-		return opStructFieldAnonymousHeadMapOnly
-	case opStructFieldAnonymousHeadOmitEmptyMapLoad:
-		return opStructFieldAnonymousHeadMapLoadOnly
-	case opStructFieldAnonymousHeadOmitEmptySlice:
-		return opStructFieldAnonymousHeadSliceOnly
-	case opStructFieldAnonymousHeadOmitEmptyStruct:
-		return opStructFieldAnonymousHeadStructOnly
-	case opStructFieldAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructFieldAnonymousHeadMarshalJSONOnly
-	case opStructFieldAnonymousHeadOmitEmptyMarshalText:
-		return opStructFieldAnonymousHeadMarshalTextOnly
-	case opStructFieldAnonymousHeadOmitEmptyRecursive:
-		return opStructFieldAnonymousHeadRecursiveOnly
-	case opStructFieldAnonymousHeadOmitEmptyIntString:
-		return opStructFieldAnonymousHeadIntStringOnly
-	case opStructFieldAnonymousHeadOmitEmptyInt8String:
-		return opStructFieldAnonymousHeadInt8StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyInt16String:
-		return opStructFieldAnonymousHeadInt16StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyInt32String:
-		return opStructFieldAnonymousHeadInt32StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyInt64String:
-		return opStructFieldAnonymousHeadInt64StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyUintString:
-		return opStructFieldAnonymousHeadUintStringOnly
-	case opStructFieldAnonymousHeadOmitEmptyUint8String:
-		return opStructFieldAnonymousHeadUint8StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyUint16String:
-		return opStructFieldAnonymousHeadUint16StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyUint32String:
-		return opStructFieldAnonymousHeadUint32StringOnly
-	case opStructFieldAnonymousHeadOmitEmptyUint64String:
-		return opStructFieldAnonymousHeadUint64StringOnly
 	case opStructFieldAnonymousHeadOmitEmptyIntPtr:
 		return opStructFieldAnonymousHeadIntPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt8Ptr:
@@ -62873,8 +62685,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructFieldAnonymousHeadBytesNPtrOnly
-	case opStructFieldAnonymousHeadOmitEmpty:
-		return opStructFieldAnonymousHeadOnly
 	case opStructFieldAnonymousHeadStringTagInt:
 		return opStructFieldAnonymousHeadIntOnly
 	case opStructFieldAnonymousHeadStringTagInt8:
@@ -62907,42 +62717,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringOnly
 	case opStructFieldAnonymousHeadStringTagBytes:
 		return opStructFieldAnonymousHeadBytesOnly
-	case opStructFieldAnonymousHeadStringTagArray:
-		return opStructFieldAnonymousHeadArrayOnly
-	case opStructFieldAnonymousHeadStringTagMap:
-		return opStructFieldAnonymousHeadMapOnly
-	case opStructFieldAnonymousHeadStringTagMapLoad:
-		return opStructFieldAnonymousHeadMapLoadOnly
-	case opStructFieldAnonymousHeadStringTagSlice:
-		return opStructFieldAnonymousHeadSliceOnly
-	case opStructFieldAnonymousHeadStringTagStruct:
-		return opStructFieldAnonymousHeadStructOnly
-	case opStructFieldAnonymousHeadStringTagMarshalJSON:
-		return opStructFieldAnonymousHeadMarshalJSONOnly
-	case opStructFieldAnonymousHeadStringTagMarshalText:
-		return opStructFieldAnonymousHeadMarshalTextOnly
-	case opStructFieldAnonymousHeadStringTagRecursive:
-		return opStructFieldAnonymousHeadRecursiveOnly
-	case opStructFieldAnonymousHeadStringTagIntString:
-		return opStructFieldAnonymousHeadIntStringOnly
-	case opStructFieldAnonymousHeadStringTagInt8String:
-		return opStructFieldAnonymousHeadInt8StringOnly
-	case opStructFieldAnonymousHeadStringTagInt16String:
-		return opStructFieldAnonymousHeadInt16StringOnly
-	case opStructFieldAnonymousHeadStringTagInt32String:
-		return opStructFieldAnonymousHeadInt32StringOnly
-	case opStructFieldAnonymousHeadStringTagInt64String:
-		return opStructFieldAnonymousHeadInt64StringOnly
-	case opStructFieldAnonymousHeadStringTagUintString:
-		return opStructFieldAnonymousHeadUintStringOnly
-	case opStructFieldAnonymousHeadStringTagUint8String:
-		return opStructFieldAnonymousHeadUint8StringOnly
-	case opStructFieldAnonymousHeadStringTagUint16String:
-		return opStructFieldAnonymousHeadUint16StringOnly
-	case opStructFieldAnonymousHeadStringTagUint32String:
-		return opStructFieldAnonymousHeadUint32StringOnly
-	case opStructFieldAnonymousHeadStringTagUint64String:
-		return opStructFieldAnonymousHeadUint64StringOnly
 	case opStructFieldAnonymousHeadStringTagIntPtr:
 		return opStructFieldAnonymousHeadIntPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt8Ptr:
@@ -63007,8 +62781,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldAnonymousHeadStringTagBytesNPtr:
 		return opStructFieldAnonymousHeadBytesNPtrOnly
-	case opStructFieldAnonymousHeadStringTag:
-		return opStructFieldAnonymousHeadOnly
 	case opStructFieldPtrHeadInt:
 		return opStructFieldPtrHeadIntOnly
 	case opStructFieldPtrHeadInt8:
@@ -63041,42 +62813,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringOnly
 	case opStructFieldPtrHeadBytes:
 		return opStructFieldPtrHeadBytesOnly
-	case opStructFieldPtrHeadArray:
-		return opStructFieldPtrHeadArrayOnly
-	case opStructFieldPtrHeadMap:
-		return opStructFieldPtrHeadMapOnly
-	case opStructFieldPtrHeadMapLoad:
-		return opStructFieldPtrHeadMapLoadOnly
-	case opStructFieldPtrHeadSlice:
-		return opStructFieldPtrHeadSliceOnly
-	case opStructFieldPtrHeadStruct:
-		return opStructFieldPtrHeadStructOnly
-	case opStructFieldPtrHeadMarshalJSON:
-		return opStructFieldPtrHeadMarshalJSONOnly
-	case opStructFieldPtrHeadMarshalText:
-		return opStructFieldPtrHeadMarshalTextOnly
-	case opStructFieldPtrHeadRecursive:
-		return opStructFieldPtrHeadRecursiveOnly
-	case opStructFieldPtrHeadIntString:
-		return opStructFieldPtrHeadIntStringOnly
-	case opStructFieldPtrHeadInt8String:
-		return opStructFieldPtrHeadInt8StringOnly
-	case opStructFieldPtrHeadInt16String:
-		return opStructFieldPtrHeadInt16StringOnly
-	case opStructFieldPtrHeadInt32String:
-		return opStructFieldPtrHeadInt32StringOnly
-	case opStructFieldPtrHeadInt64String:
-		return opStructFieldPtrHeadInt64StringOnly
-	case opStructFieldPtrHeadUintString:
-		return opStructFieldPtrHeadUintStringOnly
-	case opStructFieldPtrHeadUint8String:
-		return opStructFieldPtrHeadUint8StringOnly
-	case opStructFieldPtrHeadUint16String:
-		return opStructFieldPtrHeadUint16StringOnly
-	case opStructFieldPtrHeadUint32String:
-		return opStructFieldPtrHeadUint32StringOnly
-	case opStructFieldPtrHeadUint64String:
-		return opStructFieldPtrHeadUint64StringOnly
 	case opStructFieldPtrHeadIntPtr:
 		return opStructFieldPtrHeadIntPtrOnly
 	case opStructFieldPtrHeadInt8Ptr:
@@ -63141,8 +62877,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringNPtrOnly
 	case opStructFieldPtrHeadBytesNPtr:
 		return opStructFieldPtrHeadBytesNPtrOnly
-	case opStructFieldPtrHead:
-		return opStructFieldPtrHeadOnly
 	case opStructFieldPtrHeadOmitEmptyInt:
 		return opStructFieldPtrHeadIntOnly
 	case opStructFieldPtrHeadOmitEmptyInt8:
@@ -63175,42 +62909,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringOnly
 	case opStructFieldPtrHeadOmitEmptyBytes:
 		return opStructFieldPtrHeadBytesOnly
-	case opStructFieldPtrHeadOmitEmptyArray:
-		return opStructFieldPtrHeadArrayOnly
-	case opStructFieldPtrHeadOmitEmptyMap:
-		return opStructFieldPtrHeadMapOnly
-	case opStructFieldPtrHeadOmitEmptyMapLoad:
-		return opStructFieldPtrHeadMapLoadOnly
-	case opStructFieldPtrHeadOmitEmptySlice:
-		return opStructFieldPtrHeadSliceOnly
-	case opStructFieldPtrHeadOmitEmptyStruct:
-		return opStructFieldPtrHeadStructOnly
-	case opStructFieldPtrHeadOmitEmptyMarshalJSON:
-		return opStructFieldPtrHeadMarshalJSONOnly
-	case opStructFieldPtrHeadOmitEmptyMarshalText:
-		return opStructFieldPtrHeadMarshalTextOnly
-	case opStructFieldPtrHeadOmitEmptyRecursive:
-		return opStructFieldPtrHeadRecursiveOnly
-	case opStructFieldPtrHeadOmitEmptyIntString:
-		return opStructFieldPtrHeadIntStringOnly
-	case opStructFieldPtrHeadOmitEmptyInt8String:
-		return opStructFieldPtrHeadInt8StringOnly
-	case opStructFieldPtrHeadOmitEmptyInt16String:
-		return opStructFieldPtrHeadInt16StringOnly
-	case opStructFieldPtrHeadOmitEmptyInt32String:
-		return opStructFieldPtrHeadInt32StringOnly
-	case opStructFieldPtrHeadOmitEmptyInt64String:
-		return opStructFieldPtrHeadInt64StringOnly
-	case opStructFieldPtrHeadOmitEmptyUintString:
-		return opStructFieldPtrHeadUintStringOnly
-	case opStructFieldPtrHeadOmitEmptyUint8String:
-		return opStructFieldPtrHeadUint8StringOnly
-	case opStructFieldPtrHeadOmitEmptyUint16String:
-		return opStructFieldPtrHeadUint16StringOnly
-	case opStructFieldPtrHeadOmitEmptyUint32String:
-		return opStructFieldPtrHeadUint32StringOnly
-	case opStructFieldPtrHeadOmitEmptyUint64String:
-		return opStructFieldPtrHeadUint64StringOnly
 	case opStructFieldPtrHeadOmitEmptyIntPtr:
 		return opStructFieldPtrHeadIntPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt8Ptr:
@@ -63275,8 +62973,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyBytesNPtr:
 		return opStructFieldPtrHeadBytesNPtrOnly
-	case opStructFieldPtrHeadOmitEmpty:
-		return opStructFieldPtrHeadOnly
 	case opStructFieldPtrHeadStringTagInt:
 		return opStructFieldPtrHeadIntOnly
 	case opStructFieldPtrHeadStringTagInt8:
@@ -63309,42 +63005,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringOnly
 	case opStructFieldPtrHeadStringTagBytes:
 		return opStructFieldPtrHeadBytesOnly
-	case opStructFieldPtrHeadStringTagArray:
-		return opStructFieldPtrHeadArrayOnly
-	case opStructFieldPtrHeadStringTagMap:
-		return opStructFieldPtrHeadMapOnly
-	case opStructFieldPtrHeadStringTagMapLoad:
-		return opStructFieldPtrHeadMapLoadOnly
-	case opStructFieldPtrHeadStringTagSlice:
-		return opStructFieldPtrHeadSliceOnly
-	case opStructFieldPtrHeadStringTagStruct:
-		return opStructFieldPtrHeadStructOnly
-	case opStructFieldPtrHeadStringTagMarshalJSON:
-		return opStructFieldPtrHeadMarshalJSONOnly
-	case opStructFieldPtrHeadStringTagMarshalText:
-		return opStructFieldPtrHeadMarshalTextOnly
-	case opStructFieldPtrHeadStringTagRecursive:
-		return opStructFieldPtrHeadRecursiveOnly
-	case opStructFieldPtrHeadStringTagIntString:
-		return opStructFieldPtrHeadIntStringOnly
-	case opStructFieldPtrHeadStringTagInt8String:
-		return opStructFieldPtrHeadInt8StringOnly
-	case opStructFieldPtrHeadStringTagInt16String:
-		return opStructFieldPtrHeadInt16StringOnly
-	case opStructFieldPtrHeadStringTagInt32String:
-		return opStructFieldPtrHeadInt32StringOnly
-	case opStructFieldPtrHeadStringTagInt64String:
-		return opStructFieldPtrHeadInt64StringOnly
-	case opStructFieldPtrHeadStringTagUintString:
-		return opStructFieldPtrHeadUintStringOnly
-	case opStructFieldPtrHeadStringTagUint8String:
-		return opStructFieldPtrHeadUint8StringOnly
-	case opStructFieldPtrHeadStringTagUint16String:
-		return opStructFieldPtrHeadUint16StringOnly
-	case opStructFieldPtrHeadStringTagUint32String:
-		return opStructFieldPtrHeadUint32StringOnly
-	case opStructFieldPtrHeadStringTagUint64String:
-		return opStructFieldPtrHeadUint64StringOnly
 	case opStructFieldPtrHeadStringTagIntPtr:
 		return opStructFieldPtrHeadIntPtrOnly
 	case opStructFieldPtrHeadStringTagInt8Ptr:
@@ -63409,8 +63069,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrHeadEscapedStringNPtrOnly
 	case opStructFieldPtrHeadStringTagBytesNPtr:
 		return opStructFieldPtrHeadBytesNPtrOnly
-	case opStructFieldPtrHeadStringTag:
-		return opStructFieldPtrHeadOnly
 	case opStructFieldPtrAnonymousHeadInt:
 		return opStructFieldPtrAnonymousHeadIntOnly
 	case opStructFieldPtrAnonymousHeadInt8:
@@ -63443,42 +63101,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldPtrAnonymousHeadBytes:
 		return opStructFieldPtrAnonymousHeadBytesOnly
-	case opStructFieldPtrAnonymousHeadArray:
-		return opStructFieldPtrAnonymousHeadArrayOnly
-	case opStructFieldPtrAnonymousHeadMap:
-		return opStructFieldPtrAnonymousHeadMapOnly
-	case opStructFieldPtrAnonymousHeadMapLoad:
-		return opStructFieldPtrAnonymousHeadMapLoadOnly
-	case opStructFieldPtrAnonymousHeadSlice:
-		return opStructFieldPtrAnonymousHeadSliceOnly
-	case opStructFieldPtrAnonymousHeadStruct:
-		return opStructFieldPtrAnonymousHeadStructOnly
-	case opStructFieldPtrAnonymousHeadMarshalJSON:
-		return opStructFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldPtrAnonymousHeadMarshalText:
-		return opStructFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldPtrAnonymousHeadRecursive:
-		return opStructFieldPtrAnonymousHeadRecursiveOnly
-	case opStructFieldPtrAnonymousHeadIntString:
-		return opStructFieldPtrAnonymousHeadIntStringOnly
-	case opStructFieldPtrAnonymousHeadInt8String:
-		return opStructFieldPtrAnonymousHeadInt8StringOnly
-	case opStructFieldPtrAnonymousHeadInt16String:
-		return opStructFieldPtrAnonymousHeadInt16StringOnly
-	case opStructFieldPtrAnonymousHeadInt32String:
-		return opStructFieldPtrAnonymousHeadInt32StringOnly
-	case opStructFieldPtrAnonymousHeadInt64String:
-		return opStructFieldPtrAnonymousHeadInt64StringOnly
-	case opStructFieldPtrAnonymousHeadUintString:
-		return opStructFieldPtrAnonymousHeadUintStringOnly
-	case opStructFieldPtrAnonymousHeadUint8String:
-		return opStructFieldPtrAnonymousHeadUint8StringOnly
-	case opStructFieldPtrAnonymousHeadUint16String:
-		return opStructFieldPtrAnonymousHeadUint16StringOnly
-	case opStructFieldPtrAnonymousHeadUint32String:
-		return opStructFieldPtrAnonymousHeadUint32StringOnly
-	case opStructFieldPtrAnonymousHeadUint64String:
-		return opStructFieldPtrAnonymousHeadUint64StringOnly
 	case opStructFieldPtrAnonymousHeadIntPtr:
 		return opStructFieldPtrAnonymousHeadIntPtrOnly
 	case opStructFieldPtrAnonymousHeadInt8Ptr:
@@ -63543,8 +63165,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadBytesNPtr:
 		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldPtrAnonymousHead:
-		return opStructFieldPtrAnonymousHeadOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt:
 		return opStructFieldPtrAnonymousHeadIntOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
@@ -63577,42 +63197,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBytes:
 		return opStructFieldPtrAnonymousHeadBytesOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyArray:
-		return opStructFieldPtrAnonymousHeadArrayOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyMap:
-		return opStructFieldPtrAnonymousHeadMapOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyMapLoad:
-		return opStructFieldPtrAnonymousHeadMapLoadOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptySlice:
-		return opStructFieldPtrAnonymousHeadSliceOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyStruct:
-		return opStructFieldPtrAnonymousHeadStructOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyMarshalText:
-		return opStructFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyRecursive:
-		return opStructFieldPtrAnonymousHeadRecursiveOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyIntString:
-		return opStructFieldPtrAnonymousHeadIntStringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyInt8String:
-		return opStructFieldPtrAnonymousHeadInt8StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyInt16String:
-		return opStructFieldPtrAnonymousHeadInt16StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyInt32String:
-		return opStructFieldPtrAnonymousHeadInt32StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyInt64String:
-		return opStructFieldPtrAnonymousHeadInt64StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyUintString:
-		return opStructFieldPtrAnonymousHeadUintStringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyUint8String:
-		return opStructFieldPtrAnonymousHeadUint8StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyUint16String:
-		return opStructFieldPtrAnonymousHeadUint16StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyUint32String:
-		return opStructFieldPtrAnonymousHeadUint32StringOnly
-	case opStructFieldPtrAnonymousHeadOmitEmptyUint64String:
-		return opStructFieldPtrAnonymousHeadUint64StringOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntPtr:
 		return opStructFieldPtrAnonymousHeadIntPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8Ptr:
@@ -63677,8 +63261,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldPtrAnonymousHeadOmitEmpty:
-		return opStructFieldPtrAnonymousHeadOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt:
 		return opStructFieldPtrAnonymousHeadIntOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt8:
@@ -63711,42 +63293,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldPtrAnonymousHeadStringTagBytes:
 		return opStructFieldPtrAnonymousHeadBytesOnly
-	case opStructFieldPtrAnonymousHeadStringTagArray:
-		return opStructFieldPtrAnonymousHeadArrayOnly
-	case opStructFieldPtrAnonymousHeadStringTagMap:
-		return opStructFieldPtrAnonymousHeadMapOnly
-	case opStructFieldPtrAnonymousHeadStringTagMapLoad:
-		return opStructFieldPtrAnonymousHeadMapLoadOnly
-	case opStructFieldPtrAnonymousHeadStringTagSlice:
-		return opStructFieldPtrAnonymousHeadSliceOnly
-	case opStructFieldPtrAnonymousHeadStringTagStruct:
-		return opStructFieldPtrAnonymousHeadStructOnly
-	case opStructFieldPtrAnonymousHeadStringTagMarshalJSON:
-		return opStructFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldPtrAnonymousHeadStringTagMarshalText:
-		return opStructFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldPtrAnonymousHeadStringTagRecursive:
-		return opStructFieldPtrAnonymousHeadRecursiveOnly
-	case opStructFieldPtrAnonymousHeadStringTagIntString:
-		return opStructFieldPtrAnonymousHeadIntStringOnly
-	case opStructFieldPtrAnonymousHeadStringTagInt8String:
-		return opStructFieldPtrAnonymousHeadInt8StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagInt16String:
-		return opStructFieldPtrAnonymousHeadInt16StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagInt32String:
-		return opStructFieldPtrAnonymousHeadInt32StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagInt64String:
-		return opStructFieldPtrAnonymousHeadInt64StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagUintString:
-		return opStructFieldPtrAnonymousHeadUintStringOnly
-	case opStructFieldPtrAnonymousHeadStringTagUint8String:
-		return opStructFieldPtrAnonymousHeadUint8StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagUint16String:
-		return opStructFieldPtrAnonymousHeadUint16StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagUint32String:
-		return opStructFieldPtrAnonymousHeadUint32StringOnly
-	case opStructFieldPtrAnonymousHeadStringTagUint64String:
-		return opStructFieldPtrAnonymousHeadUint64StringOnly
 	case opStructFieldPtrAnonymousHeadStringTagIntPtr:
 		return opStructFieldPtrAnonymousHeadIntPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt8Ptr:
@@ -63811,8 +63357,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagBytesNPtr:
 		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldPtrAnonymousHeadStringTag:
-		return opStructFieldPtrAnonymousHeadOnly
 	case opStructFieldNPtrHeadInt:
 		return opStructFieldNPtrHeadIntOnly
 	case opStructFieldNPtrHeadInt8:
@@ -63845,42 +63389,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringOnly
 	case opStructFieldNPtrHeadBytes:
 		return opStructFieldNPtrHeadBytesOnly
-	case opStructFieldNPtrHeadArray:
-		return opStructFieldNPtrHeadArrayOnly
-	case opStructFieldNPtrHeadMap:
-		return opStructFieldNPtrHeadMapOnly
-	case opStructFieldNPtrHeadMapLoad:
-		return opStructFieldNPtrHeadMapLoadOnly
-	case opStructFieldNPtrHeadSlice:
-		return opStructFieldNPtrHeadSliceOnly
-	case opStructFieldNPtrHeadStruct:
-		return opStructFieldNPtrHeadStructOnly
-	case opStructFieldNPtrHeadMarshalJSON:
-		return opStructFieldNPtrHeadMarshalJSONOnly
-	case opStructFieldNPtrHeadMarshalText:
-		return opStructFieldNPtrHeadMarshalTextOnly
-	case opStructFieldNPtrHeadRecursive:
-		return opStructFieldNPtrHeadRecursiveOnly
-	case opStructFieldNPtrHeadIntString:
-		return opStructFieldNPtrHeadIntStringOnly
-	case opStructFieldNPtrHeadInt8String:
-		return opStructFieldNPtrHeadInt8StringOnly
-	case opStructFieldNPtrHeadInt16String:
-		return opStructFieldNPtrHeadInt16StringOnly
-	case opStructFieldNPtrHeadInt32String:
-		return opStructFieldNPtrHeadInt32StringOnly
-	case opStructFieldNPtrHeadInt64String:
-		return opStructFieldNPtrHeadInt64StringOnly
-	case opStructFieldNPtrHeadUintString:
-		return opStructFieldNPtrHeadUintStringOnly
-	case opStructFieldNPtrHeadUint8String:
-		return opStructFieldNPtrHeadUint8StringOnly
-	case opStructFieldNPtrHeadUint16String:
-		return opStructFieldNPtrHeadUint16StringOnly
-	case opStructFieldNPtrHeadUint32String:
-		return opStructFieldNPtrHeadUint32StringOnly
-	case opStructFieldNPtrHeadUint64String:
-		return opStructFieldNPtrHeadUint64StringOnly
 	case opStructFieldNPtrHeadIntPtr:
 		return opStructFieldNPtrHeadIntPtrOnly
 	case opStructFieldNPtrHeadInt8Ptr:
@@ -63945,8 +63453,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrHeadBytesNPtr:
 		return opStructFieldNPtrHeadBytesNPtrOnly
-	case opStructFieldNPtrHead:
-		return opStructFieldNPtrHeadOnly
 	case opStructFieldNPtrHeadOmitEmptyInt:
 		return opStructFieldNPtrHeadIntOnly
 	case opStructFieldNPtrHeadOmitEmptyInt8:
@@ -63979,42 +63485,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringOnly
 	case opStructFieldNPtrHeadOmitEmptyBytes:
 		return opStructFieldNPtrHeadBytesOnly
-	case opStructFieldNPtrHeadOmitEmptyArray:
-		return opStructFieldNPtrHeadArrayOnly
-	case opStructFieldNPtrHeadOmitEmptyMap:
-		return opStructFieldNPtrHeadMapOnly
-	case opStructFieldNPtrHeadOmitEmptyMapLoad:
-		return opStructFieldNPtrHeadMapLoadOnly
-	case opStructFieldNPtrHeadOmitEmptySlice:
-		return opStructFieldNPtrHeadSliceOnly
-	case opStructFieldNPtrHeadOmitEmptyStruct:
-		return opStructFieldNPtrHeadStructOnly
-	case opStructFieldNPtrHeadOmitEmptyMarshalJSON:
-		return opStructFieldNPtrHeadMarshalJSONOnly
-	case opStructFieldNPtrHeadOmitEmptyMarshalText:
-		return opStructFieldNPtrHeadMarshalTextOnly
-	case opStructFieldNPtrHeadOmitEmptyRecursive:
-		return opStructFieldNPtrHeadRecursiveOnly
-	case opStructFieldNPtrHeadOmitEmptyIntString:
-		return opStructFieldNPtrHeadIntStringOnly
-	case opStructFieldNPtrHeadOmitEmptyInt8String:
-		return opStructFieldNPtrHeadInt8StringOnly
-	case opStructFieldNPtrHeadOmitEmptyInt16String:
-		return opStructFieldNPtrHeadInt16StringOnly
-	case opStructFieldNPtrHeadOmitEmptyInt32String:
-		return opStructFieldNPtrHeadInt32StringOnly
-	case opStructFieldNPtrHeadOmitEmptyInt64String:
-		return opStructFieldNPtrHeadInt64StringOnly
-	case opStructFieldNPtrHeadOmitEmptyUintString:
-		return opStructFieldNPtrHeadUintStringOnly
-	case opStructFieldNPtrHeadOmitEmptyUint8String:
-		return opStructFieldNPtrHeadUint8StringOnly
-	case opStructFieldNPtrHeadOmitEmptyUint16String:
-		return opStructFieldNPtrHeadUint16StringOnly
-	case opStructFieldNPtrHeadOmitEmptyUint32String:
-		return opStructFieldNPtrHeadUint32StringOnly
-	case opStructFieldNPtrHeadOmitEmptyUint64String:
-		return opStructFieldNPtrHeadUint64StringOnly
 	case opStructFieldNPtrHeadOmitEmptyIntPtr:
 		return opStructFieldNPtrHeadIntPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt8Ptr:
@@ -64079,8 +63549,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyBytesNPtr:
 		return opStructFieldNPtrHeadBytesNPtrOnly
-	case opStructFieldNPtrHeadOmitEmpty:
-		return opStructFieldNPtrHeadOnly
 	case opStructFieldNPtrHeadStringTagInt:
 		return opStructFieldNPtrHeadIntOnly
 	case opStructFieldNPtrHeadStringTagInt8:
@@ -64113,42 +63581,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringOnly
 	case opStructFieldNPtrHeadStringTagBytes:
 		return opStructFieldNPtrHeadBytesOnly
-	case opStructFieldNPtrHeadStringTagArray:
-		return opStructFieldNPtrHeadArrayOnly
-	case opStructFieldNPtrHeadStringTagMap:
-		return opStructFieldNPtrHeadMapOnly
-	case opStructFieldNPtrHeadStringTagMapLoad:
-		return opStructFieldNPtrHeadMapLoadOnly
-	case opStructFieldNPtrHeadStringTagSlice:
-		return opStructFieldNPtrHeadSliceOnly
-	case opStructFieldNPtrHeadStringTagStruct:
-		return opStructFieldNPtrHeadStructOnly
-	case opStructFieldNPtrHeadStringTagMarshalJSON:
-		return opStructFieldNPtrHeadMarshalJSONOnly
-	case opStructFieldNPtrHeadStringTagMarshalText:
-		return opStructFieldNPtrHeadMarshalTextOnly
-	case opStructFieldNPtrHeadStringTagRecursive:
-		return opStructFieldNPtrHeadRecursiveOnly
-	case opStructFieldNPtrHeadStringTagIntString:
-		return opStructFieldNPtrHeadIntStringOnly
-	case opStructFieldNPtrHeadStringTagInt8String:
-		return opStructFieldNPtrHeadInt8StringOnly
-	case opStructFieldNPtrHeadStringTagInt16String:
-		return opStructFieldNPtrHeadInt16StringOnly
-	case opStructFieldNPtrHeadStringTagInt32String:
-		return opStructFieldNPtrHeadInt32StringOnly
-	case opStructFieldNPtrHeadStringTagInt64String:
-		return opStructFieldNPtrHeadInt64StringOnly
-	case opStructFieldNPtrHeadStringTagUintString:
-		return opStructFieldNPtrHeadUintStringOnly
-	case opStructFieldNPtrHeadStringTagUint8String:
-		return opStructFieldNPtrHeadUint8StringOnly
-	case opStructFieldNPtrHeadStringTagUint16String:
-		return opStructFieldNPtrHeadUint16StringOnly
-	case opStructFieldNPtrHeadStringTagUint32String:
-		return opStructFieldNPtrHeadUint32StringOnly
-	case opStructFieldNPtrHeadStringTagUint64String:
-		return opStructFieldNPtrHeadUint64StringOnly
 	case opStructFieldNPtrHeadStringTagIntPtr:
 		return opStructFieldNPtrHeadIntPtrOnly
 	case opStructFieldNPtrHeadStringTagInt8Ptr:
@@ -64213,8 +63645,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrHeadStringTagBytesNPtr:
 		return opStructFieldNPtrHeadBytesNPtrOnly
-	case opStructFieldNPtrHeadStringTag:
-		return opStructFieldNPtrHeadOnly
 	case opStructFieldNPtrAnonymousHeadInt:
 		return opStructFieldNPtrAnonymousHeadIntOnly
 	case opStructFieldNPtrAnonymousHeadInt8:
@@ -64247,42 +63677,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldNPtrAnonymousHeadBytes:
 		return opStructFieldNPtrAnonymousHeadBytesOnly
-	case opStructFieldNPtrAnonymousHeadArray:
-		return opStructFieldNPtrAnonymousHeadArrayOnly
-	case opStructFieldNPtrAnonymousHeadMap:
-		return opStructFieldNPtrAnonymousHeadMapOnly
-	case opStructFieldNPtrAnonymousHeadMapLoad:
-		return opStructFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructFieldNPtrAnonymousHeadSlice:
-		return opStructFieldNPtrAnonymousHeadSliceOnly
-	case opStructFieldNPtrAnonymousHeadStruct:
-		return opStructFieldNPtrAnonymousHeadStructOnly
-	case opStructFieldNPtrAnonymousHeadMarshalJSON:
-		return opStructFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldNPtrAnonymousHeadMarshalText:
-		return opStructFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldNPtrAnonymousHeadRecursive:
-		return opStructFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructFieldNPtrAnonymousHeadIntString:
-		return opStructFieldNPtrAnonymousHeadIntStringOnly
-	case opStructFieldNPtrAnonymousHeadInt8String:
-		return opStructFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructFieldNPtrAnonymousHeadInt16String:
-		return opStructFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructFieldNPtrAnonymousHeadInt32String:
-		return opStructFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructFieldNPtrAnonymousHeadInt64String:
-		return opStructFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructFieldNPtrAnonymousHeadUintString:
-		return opStructFieldNPtrAnonymousHeadUintStringOnly
-	case opStructFieldNPtrAnonymousHeadUint8String:
-		return opStructFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructFieldNPtrAnonymousHeadUint16String:
-		return opStructFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructFieldNPtrAnonymousHeadUint32String:
-		return opStructFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructFieldNPtrAnonymousHeadUint64String:
-		return opStructFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructFieldNPtrAnonymousHeadIntPtr:
 		return opStructFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructFieldNPtrAnonymousHeadInt8Ptr:
@@ -64347,8 +63741,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadBytesNPtr:
 		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldNPtrAnonymousHead:
-		return opStructFieldNPtrAnonymousHeadOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt:
 		return opStructFieldNPtrAnonymousHeadIntOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8:
@@ -64381,42 +63773,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBytes:
 		return opStructFieldNPtrAnonymousHeadBytesOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyArray:
-		return opStructFieldNPtrAnonymousHeadArrayOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyMap:
-		return opStructFieldNPtrAnonymousHeadMapOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyMapLoad:
-		return opStructFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptySlice:
-		return opStructFieldNPtrAnonymousHeadSliceOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyStruct:
-		return opStructFieldNPtrAnonymousHeadStructOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyMarshalText:
-		return opStructFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyRecursive:
-		return opStructFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyIntString:
-		return opStructFieldNPtrAnonymousHeadIntStringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8String:
-		return opStructFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyInt16String:
-		return opStructFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyInt32String:
-		return opStructFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyInt64String:
-		return opStructFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyUintString:
-		return opStructFieldNPtrAnonymousHeadUintStringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyUint8String:
-		return opStructFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyUint16String:
-		return opStructFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyUint32String:
-		return opStructFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmptyUint64String:
-		return opStructFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyIntPtr:
 		return opStructFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8Ptr:
@@ -64481,8 +63837,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldNPtrAnonymousHeadOmitEmpty:
-		return opStructFieldNPtrAnonymousHeadOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt:
 		return opStructFieldNPtrAnonymousHeadIntOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt8:
@@ -64515,42 +63869,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBytes:
 		return opStructFieldNPtrAnonymousHeadBytesOnly
-	case opStructFieldNPtrAnonymousHeadStringTagArray:
-		return opStructFieldNPtrAnonymousHeadArrayOnly
-	case opStructFieldNPtrAnonymousHeadStringTagMap:
-		return opStructFieldNPtrAnonymousHeadMapOnly
-	case opStructFieldNPtrAnonymousHeadStringTagMapLoad:
-		return opStructFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructFieldNPtrAnonymousHeadStringTagSlice:
-		return opStructFieldNPtrAnonymousHeadSliceOnly
-	case opStructFieldNPtrAnonymousHeadStringTagStruct:
-		return opStructFieldNPtrAnonymousHeadStructOnly
-	case opStructFieldNPtrAnonymousHeadStringTagMarshalJSON:
-		return opStructFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructFieldNPtrAnonymousHeadStringTagMarshalText:
-		return opStructFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructFieldNPtrAnonymousHeadStringTagRecursive:
-		return opStructFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructFieldNPtrAnonymousHeadStringTagIntString:
-		return opStructFieldNPtrAnonymousHeadIntStringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagInt8String:
-		return opStructFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagInt16String:
-		return opStructFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagInt32String:
-		return opStructFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagInt64String:
-		return opStructFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagUintString:
-		return opStructFieldNPtrAnonymousHeadUintStringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagUint8String:
-		return opStructFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagUint16String:
-		return opStructFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagUint32String:
-		return opStructFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructFieldNPtrAnonymousHeadStringTagUint64String:
-		return opStructFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructFieldNPtrAnonymousHeadStringTagIntPtr:
 		return opStructFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt8Ptr:
@@ -64615,8 +63933,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBytesNPtr:
 		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructFieldNPtrAnonymousHeadStringTag:
-		return opStructFieldNPtrAnonymousHeadOnly
 	case opStructEscapedFieldHeadInt:
 		return opStructEscapedFieldHeadIntOnly
 	case opStructEscapedFieldHeadInt8:
@@ -64649,42 +63965,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringOnly
 	case opStructEscapedFieldHeadBytes:
 		return opStructEscapedFieldHeadBytesOnly
-	case opStructEscapedFieldHeadArray:
-		return opStructEscapedFieldHeadArrayOnly
-	case opStructEscapedFieldHeadMap:
-		return opStructEscapedFieldHeadMapOnly
-	case opStructEscapedFieldHeadMapLoad:
-		return opStructEscapedFieldHeadMapLoadOnly
-	case opStructEscapedFieldHeadSlice:
-		return opStructEscapedFieldHeadSliceOnly
-	case opStructEscapedFieldHeadStruct:
-		return opStructEscapedFieldHeadStructOnly
-	case opStructEscapedFieldHeadMarshalJSON:
-		return opStructEscapedFieldHeadMarshalJSONOnly
-	case opStructEscapedFieldHeadMarshalText:
-		return opStructEscapedFieldHeadMarshalTextOnly
-	case opStructEscapedFieldHeadRecursive:
-		return opStructEscapedFieldHeadRecursiveOnly
-	case opStructEscapedFieldHeadIntString:
-		return opStructEscapedFieldHeadIntStringOnly
-	case opStructEscapedFieldHeadInt8String:
-		return opStructEscapedFieldHeadInt8StringOnly
-	case opStructEscapedFieldHeadInt16String:
-		return opStructEscapedFieldHeadInt16StringOnly
-	case opStructEscapedFieldHeadInt32String:
-		return opStructEscapedFieldHeadInt32StringOnly
-	case opStructEscapedFieldHeadInt64String:
-		return opStructEscapedFieldHeadInt64StringOnly
-	case opStructEscapedFieldHeadUintString:
-		return opStructEscapedFieldHeadUintStringOnly
-	case opStructEscapedFieldHeadUint8String:
-		return opStructEscapedFieldHeadUint8StringOnly
-	case opStructEscapedFieldHeadUint16String:
-		return opStructEscapedFieldHeadUint16StringOnly
-	case opStructEscapedFieldHeadUint32String:
-		return opStructEscapedFieldHeadUint32StringOnly
-	case opStructEscapedFieldHeadUint64String:
-		return opStructEscapedFieldHeadUint64StringOnly
 	case opStructEscapedFieldHeadIntPtr:
 		return opStructEscapedFieldHeadIntPtrOnly
 	case opStructEscapedFieldHeadInt8Ptr:
@@ -64749,8 +64029,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldHeadBytesNPtr:
 		return opStructEscapedFieldHeadBytesNPtrOnly
-	case opStructEscapedFieldHead:
-		return opStructEscapedFieldHeadOnly
 	case opStructEscapedFieldHeadOmitEmptyInt:
 		return opStructEscapedFieldHeadIntOnly
 	case opStructEscapedFieldHeadOmitEmptyInt8:
@@ -64783,42 +64061,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringOnly
 	case opStructEscapedFieldHeadOmitEmptyBytes:
 		return opStructEscapedFieldHeadBytesOnly
-	case opStructEscapedFieldHeadOmitEmptyArray:
-		return opStructEscapedFieldHeadArrayOnly
-	case opStructEscapedFieldHeadOmitEmptyMap:
-		return opStructEscapedFieldHeadMapOnly
-	case opStructEscapedFieldHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldHeadMapLoadOnly
-	case opStructEscapedFieldHeadOmitEmptySlice:
-		return opStructEscapedFieldHeadSliceOnly
-	case opStructEscapedFieldHeadOmitEmptyStruct:
-		return opStructEscapedFieldHeadStructOnly
-	case opStructEscapedFieldHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldHeadMarshalJSONOnly
-	case opStructEscapedFieldHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldHeadMarshalTextOnly
-	case opStructEscapedFieldHeadOmitEmptyRecursive:
-		return opStructEscapedFieldHeadRecursiveOnly
-	case opStructEscapedFieldHeadOmitEmptyIntString:
-		return opStructEscapedFieldHeadIntStringOnly
-	case opStructEscapedFieldHeadOmitEmptyInt8String:
-		return opStructEscapedFieldHeadInt8StringOnly
-	case opStructEscapedFieldHeadOmitEmptyInt16String:
-		return opStructEscapedFieldHeadInt16StringOnly
-	case opStructEscapedFieldHeadOmitEmptyInt32String:
-		return opStructEscapedFieldHeadInt32StringOnly
-	case opStructEscapedFieldHeadOmitEmptyInt64String:
-		return opStructEscapedFieldHeadInt64StringOnly
-	case opStructEscapedFieldHeadOmitEmptyUintString:
-		return opStructEscapedFieldHeadUintStringOnly
-	case opStructEscapedFieldHeadOmitEmptyUint8String:
-		return opStructEscapedFieldHeadUint8StringOnly
-	case opStructEscapedFieldHeadOmitEmptyUint16String:
-		return opStructEscapedFieldHeadUint16StringOnly
-	case opStructEscapedFieldHeadOmitEmptyUint32String:
-		return opStructEscapedFieldHeadUint32StringOnly
-	case opStructEscapedFieldHeadOmitEmptyUint64String:
-		return opStructEscapedFieldHeadUint64StringOnly
 	case opStructEscapedFieldHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldHeadIntPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt8Ptr:
@@ -64883,8 +64125,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldHeadBytesNPtrOnly
-	case opStructEscapedFieldHeadOmitEmpty:
-		return opStructEscapedFieldHeadOnly
 	case opStructEscapedFieldHeadStringTagInt:
 		return opStructEscapedFieldHeadIntOnly
 	case opStructEscapedFieldHeadStringTagInt8:
@@ -64917,42 +64157,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringOnly
 	case opStructEscapedFieldHeadStringTagBytes:
 		return opStructEscapedFieldHeadBytesOnly
-	case opStructEscapedFieldHeadStringTagArray:
-		return opStructEscapedFieldHeadArrayOnly
-	case opStructEscapedFieldHeadStringTagMap:
-		return opStructEscapedFieldHeadMapOnly
-	case opStructEscapedFieldHeadStringTagMapLoad:
-		return opStructEscapedFieldHeadMapLoadOnly
-	case opStructEscapedFieldHeadStringTagSlice:
-		return opStructEscapedFieldHeadSliceOnly
-	case opStructEscapedFieldHeadStringTagStruct:
-		return opStructEscapedFieldHeadStructOnly
-	case opStructEscapedFieldHeadStringTagMarshalJSON:
-		return opStructEscapedFieldHeadMarshalJSONOnly
-	case opStructEscapedFieldHeadStringTagMarshalText:
-		return opStructEscapedFieldHeadMarshalTextOnly
-	case opStructEscapedFieldHeadStringTagRecursive:
-		return opStructEscapedFieldHeadRecursiveOnly
-	case opStructEscapedFieldHeadStringTagIntString:
-		return opStructEscapedFieldHeadIntStringOnly
-	case opStructEscapedFieldHeadStringTagInt8String:
-		return opStructEscapedFieldHeadInt8StringOnly
-	case opStructEscapedFieldHeadStringTagInt16String:
-		return opStructEscapedFieldHeadInt16StringOnly
-	case opStructEscapedFieldHeadStringTagInt32String:
-		return opStructEscapedFieldHeadInt32StringOnly
-	case opStructEscapedFieldHeadStringTagInt64String:
-		return opStructEscapedFieldHeadInt64StringOnly
-	case opStructEscapedFieldHeadStringTagUintString:
-		return opStructEscapedFieldHeadUintStringOnly
-	case opStructEscapedFieldHeadStringTagUint8String:
-		return opStructEscapedFieldHeadUint8StringOnly
-	case opStructEscapedFieldHeadStringTagUint16String:
-		return opStructEscapedFieldHeadUint16StringOnly
-	case opStructEscapedFieldHeadStringTagUint32String:
-		return opStructEscapedFieldHeadUint32StringOnly
-	case opStructEscapedFieldHeadStringTagUint64String:
-		return opStructEscapedFieldHeadUint64StringOnly
 	case opStructEscapedFieldHeadStringTagIntPtr:
 		return opStructEscapedFieldHeadIntPtrOnly
 	case opStructEscapedFieldHeadStringTagInt8Ptr:
@@ -65017,8 +64221,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldHeadStringTagBytesNPtr:
 		return opStructEscapedFieldHeadBytesNPtrOnly
-	case opStructEscapedFieldHeadStringTag:
-		return opStructEscapedFieldHeadOnly
 	case opStructEscapedFieldAnonymousHeadInt:
 		return opStructEscapedFieldAnonymousHeadIntOnly
 	case opStructEscapedFieldAnonymousHeadInt8:
@@ -65051,42 +64253,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldAnonymousHeadBytes:
 		return opStructEscapedFieldAnonymousHeadBytesOnly
-	case opStructEscapedFieldAnonymousHeadArray:
-		return opStructEscapedFieldAnonymousHeadArrayOnly
-	case opStructEscapedFieldAnonymousHeadMap:
-		return opStructEscapedFieldAnonymousHeadMapOnly
-	case opStructEscapedFieldAnonymousHeadMapLoad:
-		return opStructEscapedFieldAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldAnonymousHeadSlice:
-		return opStructEscapedFieldAnonymousHeadSliceOnly
-	case opStructEscapedFieldAnonymousHeadStruct:
-		return opStructEscapedFieldAnonymousHeadStructOnly
-	case opStructEscapedFieldAnonymousHeadMarshalJSON:
-		return opStructEscapedFieldAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldAnonymousHeadMarshalText:
-		return opStructEscapedFieldAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldAnonymousHeadRecursive:
-		return opStructEscapedFieldAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldAnonymousHeadIntString:
-		return opStructEscapedFieldAnonymousHeadIntStringOnly
-	case opStructEscapedFieldAnonymousHeadInt8String:
-		return opStructEscapedFieldAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldAnonymousHeadInt16String:
-		return opStructEscapedFieldAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldAnonymousHeadInt32String:
-		return opStructEscapedFieldAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldAnonymousHeadInt64String:
-		return opStructEscapedFieldAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldAnonymousHeadUintString:
-		return opStructEscapedFieldAnonymousHeadUintStringOnly
-	case opStructEscapedFieldAnonymousHeadUint8String:
-		return opStructEscapedFieldAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldAnonymousHeadUint16String:
-		return opStructEscapedFieldAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldAnonymousHeadUint32String:
-		return opStructEscapedFieldAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldAnonymousHeadUint64String:
-		return opStructEscapedFieldAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldAnonymousHeadIntPtr:
 		return opStructEscapedFieldAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldAnonymousHeadInt8Ptr:
@@ -65151,8 +64317,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldAnonymousHead:
-		return opStructEscapedFieldAnonymousHeadOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt:
 		return opStructEscapedFieldAnonymousHeadIntOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8:
@@ -65185,42 +64349,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBytes:
 		return opStructEscapedFieldAnonymousHeadBytesOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyArray:
-		return opStructEscapedFieldAnonymousHeadArrayOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyMap:
-		return opStructEscapedFieldAnonymousHeadMapOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptySlice:
-		return opStructEscapedFieldAnonymousHeadSliceOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyStruct:
-		return opStructEscapedFieldAnonymousHeadStructOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyRecursive:
-		return opStructEscapedFieldAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyIntString:
-		return opStructEscapedFieldAnonymousHeadIntStringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8String:
-		return opStructEscapedFieldAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyInt16String:
-		return opStructEscapedFieldAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyInt32String:
-		return opStructEscapedFieldAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyInt64String:
-		return opStructEscapedFieldAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyUintString:
-		return opStructEscapedFieldAnonymousHeadUintStringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyUint8String:
-		return opStructEscapedFieldAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyUint16String:
-		return opStructEscapedFieldAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyUint32String:
-		return opStructEscapedFieldAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmptyUint64String:
-		return opStructEscapedFieldAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8Ptr:
@@ -65285,8 +64413,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldAnonymousHeadOmitEmpty:
-		return opStructEscapedFieldAnonymousHeadOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt:
 		return opStructEscapedFieldAnonymousHeadIntOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt8:
@@ -65319,42 +64445,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBytes:
 		return opStructEscapedFieldAnonymousHeadBytesOnly
-	case opStructEscapedFieldAnonymousHeadStringTagArray:
-		return opStructEscapedFieldAnonymousHeadArrayOnly
-	case opStructEscapedFieldAnonymousHeadStringTagMap:
-		return opStructEscapedFieldAnonymousHeadMapOnly
-	case opStructEscapedFieldAnonymousHeadStringTagMapLoad:
-		return opStructEscapedFieldAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldAnonymousHeadStringTagSlice:
-		return opStructEscapedFieldAnonymousHeadSliceOnly
-	case opStructEscapedFieldAnonymousHeadStringTagStruct:
-		return opStructEscapedFieldAnonymousHeadStructOnly
-	case opStructEscapedFieldAnonymousHeadStringTagMarshalJSON:
-		return opStructEscapedFieldAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldAnonymousHeadStringTagMarshalText:
-		return opStructEscapedFieldAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldAnonymousHeadStringTagRecursive:
-		return opStructEscapedFieldAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldAnonymousHeadStringTagIntString:
-		return opStructEscapedFieldAnonymousHeadIntStringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagInt8String:
-		return opStructEscapedFieldAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagInt16String:
-		return opStructEscapedFieldAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagInt32String:
-		return opStructEscapedFieldAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagInt64String:
-		return opStructEscapedFieldAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagUintString:
-		return opStructEscapedFieldAnonymousHeadUintStringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagUint8String:
-		return opStructEscapedFieldAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagUint16String:
-		return opStructEscapedFieldAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagUint32String:
-		return opStructEscapedFieldAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldAnonymousHeadStringTagUint64String:
-		return opStructEscapedFieldAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldAnonymousHeadStringTagIntPtr:
 		return opStructEscapedFieldAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt8Ptr:
@@ -65419,8 +64509,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBytesNPtr:
 		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldAnonymousHeadStringTag:
-		return opStructEscapedFieldAnonymousHeadOnly
 	case opStructEscapedFieldPtrHeadInt:
 		return opStructEscapedFieldPtrHeadIntOnly
 	case opStructEscapedFieldPtrHeadInt8:
@@ -65453,42 +64541,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringOnly
 	case opStructEscapedFieldPtrHeadBytes:
 		return opStructEscapedFieldPtrHeadBytesOnly
-	case opStructEscapedFieldPtrHeadArray:
-		return opStructEscapedFieldPtrHeadArrayOnly
-	case opStructEscapedFieldPtrHeadMap:
-		return opStructEscapedFieldPtrHeadMapOnly
-	case opStructEscapedFieldPtrHeadMapLoad:
-		return opStructEscapedFieldPtrHeadMapLoadOnly
-	case opStructEscapedFieldPtrHeadSlice:
-		return opStructEscapedFieldPtrHeadSliceOnly
-	case opStructEscapedFieldPtrHeadStruct:
-		return opStructEscapedFieldPtrHeadStructOnly
-	case opStructEscapedFieldPtrHeadMarshalJSON:
-		return opStructEscapedFieldPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrHeadMarshalText:
-		return opStructEscapedFieldPtrHeadMarshalTextOnly
-	case opStructEscapedFieldPtrHeadRecursive:
-		return opStructEscapedFieldPtrHeadRecursiveOnly
-	case opStructEscapedFieldPtrHeadIntString:
-		return opStructEscapedFieldPtrHeadIntStringOnly
-	case opStructEscapedFieldPtrHeadInt8String:
-		return opStructEscapedFieldPtrHeadInt8StringOnly
-	case opStructEscapedFieldPtrHeadInt16String:
-		return opStructEscapedFieldPtrHeadInt16StringOnly
-	case opStructEscapedFieldPtrHeadInt32String:
-		return opStructEscapedFieldPtrHeadInt32StringOnly
-	case opStructEscapedFieldPtrHeadInt64String:
-		return opStructEscapedFieldPtrHeadInt64StringOnly
-	case opStructEscapedFieldPtrHeadUintString:
-		return opStructEscapedFieldPtrHeadUintStringOnly
-	case opStructEscapedFieldPtrHeadUint8String:
-		return opStructEscapedFieldPtrHeadUint8StringOnly
-	case opStructEscapedFieldPtrHeadUint16String:
-		return opStructEscapedFieldPtrHeadUint16StringOnly
-	case opStructEscapedFieldPtrHeadUint32String:
-		return opStructEscapedFieldPtrHeadUint32StringOnly
-	case opStructEscapedFieldPtrHeadUint64String:
-		return opStructEscapedFieldPtrHeadUint64StringOnly
 	case opStructEscapedFieldPtrHeadIntPtr:
 		return opStructEscapedFieldPtrHeadIntPtrOnly
 	case opStructEscapedFieldPtrHeadInt8Ptr:
@@ -65553,8 +64605,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrHeadBytesNPtr:
 		return opStructEscapedFieldPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrHead:
-		return opStructEscapedFieldPtrHeadOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt:
 		return opStructEscapedFieldPtrHeadIntOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt8:
@@ -65587,42 +64637,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBytes:
 		return opStructEscapedFieldPtrHeadBytesOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyArray:
-		return opStructEscapedFieldPtrHeadArrayOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyMap:
-		return opStructEscapedFieldPtrHeadMapOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldPtrHeadMapLoadOnly
-	case opStructEscapedFieldPtrHeadOmitEmptySlice:
-		return opStructEscapedFieldPtrHeadSliceOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyStruct:
-		return opStructEscapedFieldPtrHeadStructOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldPtrHeadMarshalTextOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyRecursive:
-		return opStructEscapedFieldPtrHeadRecursiveOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyIntString:
-		return opStructEscapedFieldPtrHeadIntStringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyInt8String:
-		return opStructEscapedFieldPtrHeadInt8StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyInt16String:
-		return opStructEscapedFieldPtrHeadInt16StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyInt32String:
-		return opStructEscapedFieldPtrHeadInt32StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyInt64String:
-		return opStructEscapedFieldPtrHeadInt64StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyUintString:
-		return opStructEscapedFieldPtrHeadUintStringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyUint8String:
-		return opStructEscapedFieldPtrHeadUint8StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyUint16String:
-		return opStructEscapedFieldPtrHeadUint16StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyUint32String:
-		return opStructEscapedFieldPtrHeadUint32StringOnly
-	case opStructEscapedFieldPtrHeadOmitEmptyUint64String:
-		return opStructEscapedFieldPtrHeadUint64StringOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldPtrHeadIntPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt8Ptr:
@@ -65687,8 +64701,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrHeadOmitEmpty:
-		return opStructEscapedFieldPtrHeadOnly
 	case opStructEscapedFieldPtrHeadStringTagInt:
 		return opStructEscapedFieldPtrHeadIntOnly
 	case opStructEscapedFieldPtrHeadStringTagInt8:
@@ -65721,42 +64733,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringOnly
 	case opStructEscapedFieldPtrHeadStringTagBytes:
 		return opStructEscapedFieldPtrHeadBytesOnly
-	case opStructEscapedFieldPtrHeadStringTagArray:
-		return opStructEscapedFieldPtrHeadArrayOnly
-	case opStructEscapedFieldPtrHeadStringTagMap:
-		return opStructEscapedFieldPtrHeadMapOnly
-	case opStructEscapedFieldPtrHeadStringTagMapLoad:
-		return opStructEscapedFieldPtrHeadMapLoadOnly
-	case opStructEscapedFieldPtrHeadStringTagSlice:
-		return opStructEscapedFieldPtrHeadSliceOnly
-	case opStructEscapedFieldPtrHeadStringTagStruct:
-		return opStructEscapedFieldPtrHeadStructOnly
-	case opStructEscapedFieldPtrHeadStringTagMarshalJSON:
-		return opStructEscapedFieldPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrHeadStringTagMarshalText:
-		return opStructEscapedFieldPtrHeadMarshalTextOnly
-	case opStructEscapedFieldPtrHeadStringTagRecursive:
-		return opStructEscapedFieldPtrHeadRecursiveOnly
-	case opStructEscapedFieldPtrHeadStringTagIntString:
-		return opStructEscapedFieldPtrHeadIntStringOnly
-	case opStructEscapedFieldPtrHeadStringTagInt8String:
-		return opStructEscapedFieldPtrHeadInt8StringOnly
-	case opStructEscapedFieldPtrHeadStringTagInt16String:
-		return opStructEscapedFieldPtrHeadInt16StringOnly
-	case opStructEscapedFieldPtrHeadStringTagInt32String:
-		return opStructEscapedFieldPtrHeadInt32StringOnly
-	case opStructEscapedFieldPtrHeadStringTagInt64String:
-		return opStructEscapedFieldPtrHeadInt64StringOnly
-	case opStructEscapedFieldPtrHeadStringTagUintString:
-		return opStructEscapedFieldPtrHeadUintStringOnly
-	case opStructEscapedFieldPtrHeadStringTagUint8String:
-		return opStructEscapedFieldPtrHeadUint8StringOnly
-	case opStructEscapedFieldPtrHeadStringTagUint16String:
-		return opStructEscapedFieldPtrHeadUint16StringOnly
-	case opStructEscapedFieldPtrHeadStringTagUint32String:
-		return opStructEscapedFieldPtrHeadUint32StringOnly
-	case opStructEscapedFieldPtrHeadStringTagUint64String:
-		return opStructEscapedFieldPtrHeadUint64StringOnly
 	case opStructEscapedFieldPtrHeadStringTagIntPtr:
 		return opStructEscapedFieldPtrHeadIntPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt8Ptr:
@@ -65821,8 +64797,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagBytesNPtr:
 		return opStructEscapedFieldPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrHeadStringTag:
-		return opStructEscapedFieldPtrHeadOnly
 	case opStructEscapedFieldPtrAnonymousHeadInt:
 		return opStructEscapedFieldPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadInt8:
@@ -65855,42 +64829,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadBytes:
 		return opStructEscapedFieldPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldPtrAnonymousHeadArray:
-		return opStructEscapedFieldPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldPtrAnonymousHeadMap:
-		return opStructEscapedFieldPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldPtrAnonymousHeadMapLoad:
-		return opStructEscapedFieldPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldPtrAnonymousHeadSlice:
-		return opStructEscapedFieldPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldPtrAnonymousHeadStruct:
-		return opStructEscapedFieldPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldPtrAnonymousHeadMarshalJSON:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrAnonymousHeadMarshalText:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldPtrAnonymousHeadRecursive:
-		return opStructEscapedFieldPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldPtrAnonymousHeadIntString:
-		return opStructEscapedFieldPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadInt8String:
-		return opStructEscapedFieldPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadInt16String:
-		return opStructEscapedFieldPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadInt32String:
-		return opStructEscapedFieldPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadInt64String:
-		return opStructEscapedFieldPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadUintString:
-		return opStructEscapedFieldPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadUint8String:
-		return opStructEscapedFieldPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadUint16String:
-		return opStructEscapedFieldPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadUint32String:
-		return opStructEscapedFieldPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadUint64String:
-		return opStructEscapedFieldPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldPtrAnonymousHeadIntPtr:
 		return opStructEscapedFieldPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadInt8Ptr:
@@ -65955,8 +64893,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrAnonymousHead:
-		return opStructEscapedFieldPtrAnonymousHeadOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt:
 		return opStructEscapedFieldPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8:
@@ -65989,42 +64925,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytes:
 		return opStructEscapedFieldPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyArray:
-		return opStructEscapedFieldPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyMap:
-		return opStructEscapedFieldPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptySlice:
-		return opStructEscapedFieldPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyStruct:
-		return opStructEscapedFieldPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyRecursive:
-		return opStructEscapedFieldPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntString:
-		return opStructEscapedFieldPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8String:
-		return opStructEscapedFieldPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16String:
-		return opStructEscapedFieldPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32String:
-		return opStructEscapedFieldPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64String:
-		return opStructEscapedFieldPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintString:
-		return opStructEscapedFieldPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8String:
-		return opStructEscapedFieldPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16String:
-		return opStructEscapedFieldPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32String:
-		return opStructEscapedFieldPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64String:
-		return opStructEscapedFieldPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8Ptr:
@@ -66089,8 +64989,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrAnonymousHeadOmitEmpty:
-		return opStructEscapedFieldPtrAnonymousHeadOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt:
 		return opStructEscapedFieldPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8:
@@ -66123,42 +65021,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBytes:
 		return opStructEscapedFieldPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagArray:
-		return opStructEscapedFieldPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagMap:
-		return opStructEscapedFieldPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagMapLoad:
-		return opStructEscapedFieldPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagSlice:
-		return opStructEscapedFieldPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagStruct:
-		return opStructEscapedFieldPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagMarshalJSON:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagMarshalText:
-		return opStructEscapedFieldPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagRecursive:
-		return opStructEscapedFieldPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagIntString:
-		return opStructEscapedFieldPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8String:
-		return opStructEscapedFieldPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagInt16String:
-		return opStructEscapedFieldPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagInt32String:
-		return opStructEscapedFieldPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagInt64String:
-		return opStructEscapedFieldPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagUintString:
-		return opStructEscapedFieldPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagUint8String:
-		return opStructEscapedFieldPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagUint16String:
-		return opStructEscapedFieldPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagUint32String:
-		return opStructEscapedFieldPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTagUint64String:
-		return opStructEscapedFieldPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagIntPtr:
 		return opStructEscapedFieldPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8Ptr:
@@ -66223,8 +65085,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBytesNPtr:
 		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldPtrAnonymousHeadStringTag:
-		return opStructEscapedFieldPtrAnonymousHeadOnly
 	case opStructEscapedFieldNPtrHeadInt:
 		return opStructEscapedFieldNPtrHeadIntOnly
 	case opStructEscapedFieldNPtrHeadInt8:
@@ -66257,42 +65117,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrHeadBytes:
 		return opStructEscapedFieldNPtrHeadBytesOnly
-	case opStructEscapedFieldNPtrHeadArray:
-		return opStructEscapedFieldNPtrHeadArrayOnly
-	case opStructEscapedFieldNPtrHeadMap:
-		return opStructEscapedFieldNPtrHeadMapOnly
-	case opStructEscapedFieldNPtrHeadMapLoad:
-		return opStructEscapedFieldNPtrHeadMapLoadOnly
-	case opStructEscapedFieldNPtrHeadSlice:
-		return opStructEscapedFieldNPtrHeadSliceOnly
-	case opStructEscapedFieldNPtrHeadStruct:
-		return opStructEscapedFieldNPtrHeadStructOnly
-	case opStructEscapedFieldNPtrHeadMarshalJSON:
-		return opStructEscapedFieldNPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrHeadMarshalText:
-		return opStructEscapedFieldNPtrHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrHeadRecursive:
-		return opStructEscapedFieldNPtrHeadRecursiveOnly
-	case opStructEscapedFieldNPtrHeadIntString:
-		return opStructEscapedFieldNPtrHeadIntStringOnly
-	case opStructEscapedFieldNPtrHeadInt8String:
-		return opStructEscapedFieldNPtrHeadInt8StringOnly
-	case opStructEscapedFieldNPtrHeadInt16String:
-		return opStructEscapedFieldNPtrHeadInt16StringOnly
-	case opStructEscapedFieldNPtrHeadInt32String:
-		return opStructEscapedFieldNPtrHeadInt32StringOnly
-	case opStructEscapedFieldNPtrHeadInt64String:
-		return opStructEscapedFieldNPtrHeadInt64StringOnly
-	case opStructEscapedFieldNPtrHeadUintString:
-		return opStructEscapedFieldNPtrHeadUintStringOnly
-	case opStructEscapedFieldNPtrHeadUint8String:
-		return opStructEscapedFieldNPtrHeadUint8StringOnly
-	case opStructEscapedFieldNPtrHeadUint16String:
-		return opStructEscapedFieldNPtrHeadUint16StringOnly
-	case opStructEscapedFieldNPtrHeadUint32String:
-		return opStructEscapedFieldNPtrHeadUint32StringOnly
-	case opStructEscapedFieldNPtrHeadUint64String:
-		return opStructEscapedFieldNPtrHeadUint64StringOnly
 	case opStructEscapedFieldNPtrHeadIntPtr:
 		return opStructEscapedFieldNPtrHeadIntPtrOnly
 	case opStructEscapedFieldNPtrHeadInt8Ptr:
@@ -66357,8 +65181,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadBytesNPtr:
 		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrHead:
-		return opStructEscapedFieldNPtrHeadOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt:
 		return opStructEscapedFieldNPtrHeadIntOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt8:
@@ -66391,42 +65213,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBytes:
 		return opStructEscapedFieldNPtrHeadBytesOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyArray:
-		return opStructEscapedFieldNPtrHeadArrayOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyMap:
-		return opStructEscapedFieldNPtrHeadMapOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldNPtrHeadMapLoadOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptySlice:
-		return opStructEscapedFieldNPtrHeadSliceOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyStruct:
-		return opStructEscapedFieldNPtrHeadStructOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldNPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldNPtrHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyRecursive:
-		return opStructEscapedFieldNPtrHeadRecursiveOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyIntString:
-		return opStructEscapedFieldNPtrHeadIntStringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyInt8String:
-		return opStructEscapedFieldNPtrHeadInt8StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyInt16String:
-		return opStructEscapedFieldNPtrHeadInt16StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyInt32String:
-		return opStructEscapedFieldNPtrHeadInt32StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyInt64String:
-		return opStructEscapedFieldNPtrHeadInt64StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyUintString:
-		return opStructEscapedFieldNPtrHeadUintStringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyUint8String:
-		return opStructEscapedFieldNPtrHeadUint8StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyUint16String:
-		return opStructEscapedFieldNPtrHeadUint16StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyUint32String:
-		return opStructEscapedFieldNPtrHeadUint32StringOnly
-	case opStructEscapedFieldNPtrHeadOmitEmptyUint64String:
-		return opStructEscapedFieldNPtrHeadUint64StringOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldNPtrHeadIntPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt8Ptr:
@@ -66491,8 +65277,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrHeadOmitEmpty:
-		return opStructEscapedFieldNPtrHeadOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt:
 		return opStructEscapedFieldNPtrHeadIntOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt8:
@@ -66525,42 +65309,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrHeadStringTagBytes:
 		return opStructEscapedFieldNPtrHeadBytesOnly
-	case opStructEscapedFieldNPtrHeadStringTagArray:
-		return opStructEscapedFieldNPtrHeadArrayOnly
-	case opStructEscapedFieldNPtrHeadStringTagMap:
-		return opStructEscapedFieldNPtrHeadMapOnly
-	case opStructEscapedFieldNPtrHeadStringTagMapLoad:
-		return opStructEscapedFieldNPtrHeadMapLoadOnly
-	case opStructEscapedFieldNPtrHeadStringTagSlice:
-		return opStructEscapedFieldNPtrHeadSliceOnly
-	case opStructEscapedFieldNPtrHeadStringTagStruct:
-		return opStructEscapedFieldNPtrHeadStructOnly
-	case opStructEscapedFieldNPtrHeadStringTagMarshalJSON:
-		return opStructEscapedFieldNPtrHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrHeadStringTagMarshalText:
-		return opStructEscapedFieldNPtrHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrHeadStringTagRecursive:
-		return opStructEscapedFieldNPtrHeadRecursiveOnly
-	case opStructEscapedFieldNPtrHeadStringTagIntString:
-		return opStructEscapedFieldNPtrHeadIntStringOnly
-	case opStructEscapedFieldNPtrHeadStringTagInt8String:
-		return opStructEscapedFieldNPtrHeadInt8StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagInt16String:
-		return opStructEscapedFieldNPtrHeadInt16StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagInt32String:
-		return opStructEscapedFieldNPtrHeadInt32StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagInt64String:
-		return opStructEscapedFieldNPtrHeadInt64StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagUintString:
-		return opStructEscapedFieldNPtrHeadUintStringOnly
-	case opStructEscapedFieldNPtrHeadStringTagUint8String:
-		return opStructEscapedFieldNPtrHeadUint8StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagUint16String:
-		return opStructEscapedFieldNPtrHeadUint16StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagUint32String:
-		return opStructEscapedFieldNPtrHeadUint32StringOnly
-	case opStructEscapedFieldNPtrHeadStringTagUint64String:
-		return opStructEscapedFieldNPtrHeadUint64StringOnly
 	case opStructEscapedFieldNPtrHeadStringTagIntPtr:
 		return opStructEscapedFieldNPtrHeadIntPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt8Ptr:
@@ -66625,8 +65373,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagBytesNPtr:
 		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrHeadStringTag:
-		return opStructEscapedFieldNPtrHeadOnly
 	case opStructEscapedFieldNPtrAnonymousHeadInt:
 		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadInt8:
@@ -66659,42 +65405,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadBytes:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldNPtrAnonymousHeadArray:
-		return opStructEscapedFieldNPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldNPtrAnonymousHeadMap:
-		return opStructEscapedFieldNPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldNPtrAnonymousHeadMapLoad:
-		return opStructEscapedFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldNPtrAnonymousHeadSlice:
-		return opStructEscapedFieldNPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStruct:
-		return opStructEscapedFieldNPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldNPtrAnonymousHeadMarshalJSON:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrAnonymousHeadMarshalText:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrAnonymousHeadRecursive:
-		return opStructEscapedFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldNPtrAnonymousHeadIntString:
-		return opStructEscapedFieldNPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadInt8String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadInt16String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadInt32String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadInt64String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadUintString:
-		return opStructEscapedFieldNPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadUint8String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadUint16String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadUint32String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadUint64String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadIntPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadInt8Ptr:
@@ -66759,8 +65469,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrAnonymousHead:
-		return opStructEscapedFieldNPtrAnonymousHeadOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt:
 		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8:
@@ -66793,42 +65501,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytes:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyArray:
-		return opStructEscapedFieldNPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyMap:
-		return opStructEscapedFieldNPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyMapLoad:
-		return opStructEscapedFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptySlice:
-		return opStructEscapedFieldNPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStruct:
-		return opStructEscapedFieldNPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyMarshalJSON:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyMarshalText:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyRecursive:
-		return opStructEscapedFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntString:
-		return opStructEscapedFieldNPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintString:
-		return opStructEscapedFieldNPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8Ptr:
@@ -66893,8 +65565,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesNPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrAnonymousHeadOmitEmpty:
-		return opStructEscapedFieldNPtrAnonymousHeadOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt:
 		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8:
@@ -66927,42 +65597,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBytes:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagArray:
-		return opStructEscapedFieldNPtrAnonymousHeadArrayOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagMap:
-		return opStructEscapedFieldNPtrAnonymousHeadMapOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagMapLoad:
-		return opStructEscapedFieldNPtrAnonymousHeadMapLoadOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagSlice:
-		return opStructEscapedFieldNPtrAnonymousHeadSliceOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagStruct:
-		return opStructEscapedFieldNPtrAnonymousHeadStructOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagMarshalJSON:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalJSONOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagMarshalText:
-		return opStructEscapedFieldNPtrAnonymousHeadMarshalTextOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagRecursive:
-		return opStructEscapedFieldNPtrAnonymousHeadRecursiveOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagIntString:
-		return opStructEscapedFieldNPtrAnonymousHeadIntStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt16String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt32String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt64String:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagUintString:
-		return opStructEscapedFieldNPtrAnonymousHeadUintStringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint8String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint16String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint32String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32StringOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint64String:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64StringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagIntPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadIntPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8Ptr:
@@ -67027,8 +65661,6 @@ func (t opType) headToOnlyHead() opType {
 		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBytesNPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
-	case opStructEscapedFieldNPtrAnonymousHeadStringTag:
-		return opStructEscapedFieldNPtrAnonymousHeadOnly
 	}
 	return t
 }

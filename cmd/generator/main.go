@@ -494,10 +494,11 @@ func (t opType) fieldToStringTagField() opType {
 									return op
 								}
 								return fmt.Sprintf(
-									"Struct%sField%s%sHead%sOnly",
+									"Struct%sField%s%sHead%s%sOnly",
 									escapedOrNot,
 									ptrOrNot,
 									headType,
+									opt,
 									typ,
 								)
 							},

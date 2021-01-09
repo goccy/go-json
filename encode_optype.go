@@ -62302,197 +62302,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldHeadBytesNPtr:
 		return opStructFieldHeadBytesNPtrOnly
 	case opStructFieldHeadOmitEmptyInt:
-		return opStructFieldHeadIntOnly
+		return opStructFieldHeadOmitEmptyIntOnly
 	case opStructFieldHeadOmitEmptyInt8:
-		return opStructFieldHeadInt8Only
+		return opStructFieldHeadOmitEmptyInt8Only
 	case opStructFieldHeadOmitEmptyInt16:
-		return opStructFieldHeadInt16Only
+		return opStructFieldHeadOmitEmptyInt16Only
 	case opStructFieldHeadOmitEmptyInt32:
-		return opStructFieldHeadInt32Only
+		return opStructFieldHeadOmitEmptyInt32Only
 	case opStructFieldHeadOmitEmptyInt64:
-		return opStructFieldHeadInt64Only
+		return opStructFieldHeadOmitEmptyInt64Only
 	case opStructFieldHeadOmitEmptyUint:
-		return opStructFieldHeadUintOnly
+		return opStructFieldHeadOmitEmptyUintOnly
 	case opStructFieldHeadOmitEmptyUint8:
-		return opStructFieldHeadUint8Only
+		return opStructFieldHeadOmitEmptyUint8Only
 	case opStructFieldHeadOmitEmptyUint16:
-		return opStructFieldHeadUint16Only
+		return opStructFieldHeadOmitEmptyUint16Only
 	case opStructFieldHeadOmitEmptyUint32:
-		return opStructFieldHeadUint32Only
+		return opStructFieldHeadOmitEmptyUint32Only
 	case opStructFieldHeadOmitEmptyUint64:
-		return opStructFieldHeadUint64Only
+		return opStructFieldHeadOmitEmptyUint64Only
 	case opStructFieldHeadOmitEmptyFloat32:
-		return opStructFieldHeadFloat32Only
+		return opStructFieldHeadOmitEmptyFloat32Only
 	case opStructFieldHeadOmitEmptyFloat64:
-		return opStructFieldHeadFloat64Only
+		return opStructFieldHeadOmitEmptyFloat64Only
 	case opStructFieldHeadOmitEmptyBool:
-		return opStructFieldHeadBoolOnly
+		return opStructFieldHeadOmitEmptyBoolOnly
 	case opStructFieldHeadOmitEmptyString:
-		return opStructFieldHeadStringOnly
+		return opStructFieldHeadOmitEmptyStringOnly
 	case opStructFieldHeadOmitEmptyEscapedString:
-		return opStructFieldHeadEscapedStringOnly
+		return opStructFieldHeadOmitEmptyEscapedStringOnly
 	case opStructFieldHeadOmitEmptyBytes:
-		return opStructFieldHeadBytesOnly
+		return opStructFieldHeadOmitEmptyBytesOnly
 	case opStructFieldHeadOmitEmptyIntPtr:
-		return opStructFieldHeadIntPtrOnly
+		return opStructFieldHeadOmitEmptyIntPtrOnly
 	case opStructFieldHeadOmitEmptyInt8Ptr:
-		return opStructFieldHeadInt8PtrOnly
+		return opStructFieldHeadOmitEmptyInt8PtrOnly
 	case opStructFieldHeadOmitEmptyInt16Ptr:
-		return opStructFieldHeadInt16PtrOnly
+		return opStructFieldHeadOmitEmptyInt16PtrOnly
 	case opStructFieldHeadOmitEmptyInt32Ptr:
-		return opStructFieldHeadInt32PtrOnly
+		return opStructFieldHeadOmitEmptyInt32PtrOnly
 	case opStructFieldHeadOmitEmptyInt64Ptr:
-		return opStructFieldHeadInt64PtrOnly
+		return opStructFieldHeadOmitEmptyInt64PtrOnly
 	case opStructFieldHeadOmitEmptyUintPtr:
-		return opStructFieldHeadUintPtrOnly
+		return opStructFieldHeadOmitEmptyUintPtrOnly
 	case opStructFieldHeadOmitEmptyUint8Ptr:
-		return opStructFieldHeadUint8PtrOnly
+		return opStructFieldHeadOmitEmptyUint8PtrOnly
 	case opStructFieldHeadOmitEmptyUint16Ptr:
-		return opStructFieldHeadUint16PtrOnly
+		return opStructFieldHeadOmitEmptyUint16PtrOnly
 	case opStructFieldHeadOmitEmptyUint32Ptr:
-		return opStructFieldHeadUint32PtrOnly
+		return opStructFieldHeadOmitEmptyUint32PtrOnly
 	case opStructFieldHeadOmitEmptyUint64Ptr:
-		return opStructFieldHeadUint64PtrOnly
+		return opStructFieldHeadOmitEmptyUint64PtrOnly
 	case opStructFieldHeadOmitEmptyFloat32Ptr:
-		return opStructFieldHeadFloat32PtrOnly
+		return opStructFieldHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldHeadOmitEmptyFloat64Ptr:
-		return opStructFieldHeadFloat64PtrOnly
+		return opStructFieldHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldHeadOmitEmptyBoolPtr:
-		return opStructFieldHeadBoolPtrOnly
+		return opStructFieldHeadOmitEmptyBoolPtrOnly
 	case opStructFieldHeadOmitEmptyStringPtr:
-		return opStructFieldHeadStringPtrOnly
+		return opStructFieldHeadOmitEmptyStringPtrOnly
 	case opStructFieldHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldHeadEscapedStringPtrOnly
+		return opStructFieldHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldHeadOmitEmptyBytesPtr:
-		return opStructFieldHeadBytesPtrOnly
+		return opStructFieldHeadOmitEmptyBytesPtrOnly
 	case opStructFieldHeadOmitEmptyIntNPtr:
-		return opStructFieldHeadIntNPtrOnly
+		return opStructFieldHeadOmitEmptyIntNPtrOnly
 	case opStructFieldHeadOmitEmptyInt8NPtr:
-		return opStructFieldHeadInt8NPtrOnly
+		return opStructFieldHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldHeadOmitEmptyInt16NPtr:
-		return opStructFieldHeadInt16NPtrOnly
+		return opStructFieldHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldHeadOmitEmptyInt32NPtr:
-		return opStructFieldHeadInt32NPtrOnly
+		return opStructFieldHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldHeadOmitEmptyInt64NPtr:
-		return opStructFieldHeadInt64NPtrOnly
+		return opStructFieldHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldHeadOmitEmptyUintNPtr:
-		return opStructFieldHeadUintNPtrOnly
+		return opStructFieldHeadOmitEmptyUintNPtrOnly
 	case opStructFieldHeadOmitEmptyUint8NPtr:
-		return opStructFieldHeadUint8NPtrOnly
+		return opStructFieldHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldHeadOmitEmptyUint16NPtr:
-		return opStructFieldHeadUint16NPtrOnly
+		return opStructFieldHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldHeadOmitEmptyUint32NPtr:
-		return opStructFieldHeadUint32NPtrOnly
+		return opStructFieldHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldHeadOmitEmptyUint64NPtr:
-		return opStructFieldHeadUint64NPtrOnly
+		return opStructFieldHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldHeadOmitEmptyFloat32NPtr:
-		return opStructFieldHeadFloat32NPtrOnly
+		return opStructFieldHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldHeadOmitEmptyFloat64NPtr:
-		return opStructFieldHeadFloat64NPtrOnly
+		return opStructFieldHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldHeadOmitEmptyBoolNPtr:
-		return opStructFieldHeadBoolNPtrOnly
+		return opStructFieldHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldHeadOmitEmptyStringNPtr:
-		return opStructFieldHeadStringNPtrOnly
+		return opStructFieldHeadOmitEmptyStringNPtrOnly
 	case opStructFieldHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldHeadEscapedStringNPtrOnly
+		return opStructFieldHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldHeadOmitEmptyBytesNPtr:
-		return opStructFieldHeadBytesNPtrOnly
+		return opStructFieldHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldHeadStringTagInt:
-		return opStructFieldHeadIntOnly
+		return opStructFieldHeadStringTagIntOnly
 	case opStructFieldHeadStringTagInt8:
-		return opStructFieldHeadInt8Only
+		return opStructFieldHeadStringTagInt8Only
 	case opStructFieldHeadStringTagInt16:
-		return opStructFieldHeadInt16Only
+		return opStructFieldHeadStringTagInt16Only
 	case opStructFieldHeadStringTagInt32:
-		return opStructFieldHeadInt32Only
+		return opStructFieldHeadStringTagInt32Only
 	case opStructFieldHeadStringTagInt64:
-		return opStructFieldHeadInt64Only
+		return opStructFieldHeadStringTagInt64Only
 	case opStructFieldHeadStringTagUint:
-		return opStructFieldHeadUintOnly
+		return opStructFieldHeadStringTagUintOnly
 	case opStructFieldHeadStringTagUint8:
-		return opStructFieldHeadUint8Only
+		return opStructFieldHeadStringTagUint8Only
 	case opStructFieldHeadStringTagUint16:
-		return opStructFieldHeadUint16Only
+		return opStructFieldHeadStringTagUint16Only
 	case opStructFieldHeadStringTagUint32:
-		return opStructFieldHeadUint32Only
+		return opStructFieldHeadStringTagUint32Only
 	case opStructFieldHeadStringTagUint64:
-		return opStructFieldHeadUint64Only
+		return opStructFieldHeadStringTagUint64Only
 	case opStructFieldHeadStringTagFloat32:
-		return opStructFieldHeadFloat32Only
+		return opStructFieldHeadStringTagFloat32Only
 	case opStructFieldHeadStringTagFloat64:
-		return opStructFieldHeadFloat64Only
+		return opStructFieldHeadStringTagFloat64Only
 	case opStructFieldHeadStringTagBool:
-		return opStructFieldHeadBoolOnly
+		return opStructFieldHeadStringTagBoolOnly
 	case opStructFieldHeadStringTagString:
-		return opStructFieldHeadStringOnly
+		return opStructFieldHeadStringTagStringOnly
 	case opStructFieldHeadStringTagEscapedString:
-		return opStructFieldHeadEscapedStringOnly
+		return opStructFieldHeadStringTagEscapedStringOnly
 	case opStructFieldHeadStringTagBytes:
-		return opStructFieldHeadBytesOnly
+		return opStructFieldHeadStringTagBytesOnly
 	case opStructFieldHeadStringTagIntPtr:
-		return opStructFieldHeadIntPtrOnly
+		return opStructFieldHeadStringTagIntPtrOnly
 	case opStructFieldHeadStringTagInt8Ptr:
-		return opStructFieldHeadInt8PtrOnly
+		return opStructFieldHeadStringTagInt8PtrOnly
 	case opStructFieldHeadStringTagInt16Ptr:
-		return opStructFieldHeadInt16PtrOnly
+		return opStructFieldHeadStringTagInt16PtrOnly
 	case opStructFieldHeadStringTagInt32Ptr:
-		return opStructFieldHeadInt32PtrOnly
+		return opStructFieldHeadStringTagInt32PtrOnly
 	case opStructFieldHeadStringTagInt64Ptr:
-		return opStructFieldHeadInt64PtrOnly
+		return opStructFieldHeadStringTagInt64PtrOnly
 	case opStructFieldHeadStringTagUintPtr:
-		return opStructFieldHeadUintPtrOnly
+		return opStructFieldHeadStringTagUintPtrOnly
 	case opStructFieldHeadStringTagUint8Ptr:
-		return opStructFieldHeadUint8PtrOnly
+		return opStructFieldHeadStringTagUint8PtrOnly
 	case opStructFieldHeadStringTagUint16Ptr:
-		return opStructFieldHeadUint16PtrOnly
+		return opStructFieldHeadStringTagUint16PtrOnly
 	case opStructFieldHeadStringTagUint32Ptr:
-		return opStructFieldHeadUint32PtrOnly
+		return opStructFieldHeadStringTagUint32PtrOnly
 	case opStructFieldHeadStringTagUint64Ptr:
-		return opStructFieldHeadUint64PtrOnly
+		return opStructFieldHeadStringTagUint64PtrOnly
 	case opStructFieldHeadStringTagFloat32Ptr:
-		return opStructFieldHeadFloat32PtrOnly
+		return opStructFieldHeadStringTagFloat32PtrOnly
 	case opStructFieldHeadStringTagFloat64Ptr:
-		return opStructFieldHeadFloat64PtrOnly
+		return opStructFieldHeadStringTagFloat64PtrOnly
 	case opStructFieldHeadStringTagBoolPtr:
-		return opStructFieldHeadBoolPtrOnly
+		return opStructFieldHeadStringTagBoolPtrOnly
 	case opStructFieldHeadStringTagStringPtr:
-		return opStructFieldHeadStringPtrOnly
+		return opStructFieldHeadStringTagStringPtrOnly
 	case opStructFieldHeadStringTagEscapedStringPtr:
-		return opStructFieldHeadEscapedStringPtrOnly
+		return opStructFieldHeadStringTagEscapedStringPtrOnly
 	case opStructFieldHeadStringTagBytesPtr:
-		return opStructFieldHeadBytesPtrOnly
+		return opStructFieldHeadStringTagBytesPtrOnly
 	case opStructFieldHeadStringTagIntNPtr:
-		return opStructFieldHeadIntNPtrOnly
+		return opStructFieldHeadStringTagIntNPtrOnly
 	case opStructFieldHeadStringTagInt8NPtr:
-		return opStructFieldHeadInt8NPtrOnly
+		return opStructFieldHeadStringTagInt8NPtrOnly
 	case opStructFieldHeadStringTagInt16NPtr:
-		return opStructFieldHeadInt16NPtrOnly
+		return opStructFieldHeadStringTagInt16NPtrOnly
 	case opStructFieldHeadStringTagInt32NPtr:
-		return opStructFieldHeadInt32NPtrOnly
+		return opStructFieldHeadStringTagInt32NPtrOnly
 	case opStructFieldHeadStringTagInt64NPtr:
-		return opStructFieldHeadInt64NPtrOnly
+		return opStructFieldHeadStringTagInt64NPtrOnly
 	case opStructFieldHeadStringTagUintNPtr:
-		return opStructFieldHeadUintNPtrOnly
+		return opStructFieldHeadStringTagUintNPtrOnly
 	case opStructFieldHeadStringTagUint8NPtr:
-		return opStructFieldHeadUint8NPtrOnly
+		return opStructFieldHeadStringTagUint8NPtrOnly
 	case opStructFieldHeadStringTagUint16NPtr:
-		return opStructFieldHeadUint16NPtrOnly
+		return opStructFieldHeadStringTagUint16NPtrOnly
 	case opStructFieldHeadStringTagUint32NPtr:
-		return opStructFieldHeadUint32NPtrOnly
+		return opStructFieldHeadStringTagUint32NPtrOnly
 	case opStructFieldHeadStringTagUint64NPtr:
-		return opStructFieldHeadUint64NPtrOnly
+		return opStructFieldHeadStringTagUint64NPtrOnly
 	case opStructFieldHeadStringTagFloat32NPtr:
-		return opStructFieldHeadFloat32NPtrOnly
+		return opStructFieldHeadStringTagFloat32NPtrOnly
 	case opStructFieldHeadStringTagFloat64NPtr:
-		return opStructFieldHeadFloat64NPtrOnly
+		return opStructFieldHeadStringTagFloat64NPtrOnly
 	case opStructFieldHeadStringTagBoolNPtr:
-		return opStructFieldHeadBoolNPtrOnly
+		return opStructFieldHeadStringTagBoolNPtrOnly
 	case opStructFieldHeadStringTagStringNPtr:
-		return opStructFieldHeadStringNPtrOnly
+		return opStructFieldHeadStringTagStringNPtrOnly
 	case opStructFieldHeadStringTagEscapedStringNPtr:
-		return opStructFieldHeadEscapedStringNPtrOnly
+		return opStructFieldHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldHeadStringTagBytesNPtr:
-		return opStructFieldHeadBytesNPtrOnly
+		return opStructFieldHeadStringTagBytesNPtrOnly
 	case opStructFieldAnonymousHeadInt:
 		return opStructFieldAnonymousHeadIntOnly
 	case opStructFieldAnonymousHeadInt8:
@@ -62590,197 +62590,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldAnonymousHeadBytesNPtr:
 		return opStructFieldAnonymousHeadBytesNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt:
-		return opStructFieldAnonymousHeadIntOnly
+		return opStructFieldAnonymousHeadOmitEmptyIntOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt8:
-		return opStructFieldAnonymousHeadInt8Only
+		return opStructFieldAnonymousHeadOmitEmptyInt8Only
 	case opStructFieldAnonymousHeadOmitEmptyInt16:
-		return opStructFieldAnonymousHeadInt16Only
+		return opStructFieldAnonymousHeadOmitEmptyInt16Only
 	case opStructFieldAnonymousHeadOmitEmptyInt32:
-		return opStructFieldAnonymousHeadInt32Only
+		return opStructFieldAnonymousHeadOmitEmptyInt32Only
 	case opStructFieldAnonymousHeadOmitEmptyInt64:
-		return opStructFieldAnonymousHeadInt64Only
+		return opStructFieldAnonymousHeadOmitEmptyInt64Only
 	case opStructFieldAnonymousHeadOmitEmptyUint:
-		return opStructFieldAnonymousHeadUintOnly
+		return opStructFieldAnonymousHeadOmitEmptyUintOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint8:
-		return opStructFieldAnonymousHeadUint8Only
+		return opStructFieldAnonymousHeadOmitEmptyUint8Only
 	case opStructFieldAnonymousHeadOmitEmptyUint16:
-		return opStructFieldAnonymousHeadUint16Only
+		return opStructFieldAnonymousHeadOmitEmptyUint16Only
 	case opStructFieldAnonymousHeadOmitEmptyUint32:
-		return opStructFieldAnonymousHeadUint32Only
+		return opStructFieldAnonymousHeadOmitEmptyUint32Only
 	case opStructFieldAnonymousHeadOmitEmptyUint64:
-		return opStructFieldAnonymousHeadUint64Only
+		return opStructFieldAnonymousHeadOmitEmptyUint64Only
 	case opStructFieldAnonymousHeadOmitEmptyFloat32:
-		return opStructFieldAnonymousHeadFloat32Only
+		return opStructFieldAnonymousHeadOmitEmptyFloat32Only
 	case opStructFieldAnonymousHeadOmitEmptyFloat64:
-		return opStructFieldAnonymousHeadFloat64Only
+		return opStructFieldAnonymousHeadOmitEmptyFloat64Only
 	case opStructFieldAnonymousHeadOmitEmptyBool:
-		return opStructFieldAnonymousHeadBoolOnly
+		return opStructFieldAnonymousHeadOmitEmptyBoolOnly
 	case opStructFieldAnonymousHeadOmitEmptyString:
-		return opStructFieldAnonymousHeadStringOnly
+		return opStructFieldAnonymousHeadOmitEmptyStringOnly
 	case opStructFieldAnonymousHeadOmitEmptyEscapedString:
-		return opStructFieldAnonymousHeadEscapedStringOnly
+		return opStructFieldAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructFieldAnonymousHeadOmitEmptyBytes:
-		return opStructFieldAnonymousHeadBytesOnly
+		return opStructFieldAnonymousHeadOmitEmptyBytesOnly
 	case opStructFieldAnonymousHeadOmitEmptyIntPtr:
-		return opStructFieldAnonymousHeadIntPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructFieldAnonymousHeadInt8PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructFieldAnonymousHeadInt16PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructFieldAnonymousHeadInt32PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructFieldAnonymousHeadInt64PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUintPtr:
-		return opStructFieldAnonymousHeadUintPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructFieldAnonymousHeadUint8PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructFieldAnonymousHeadUint16PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructFieldAnonymousHeadUint32PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructFieldAnonymousHeadUint64PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructFieldAnonymousHeadFloat32PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructFieldAnonymousHeadFloat64PtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyBoolPtr:
-		return opStructFieldAnonymousHeadBoolPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyStringPtr:
-		return opStructFieldAnonymousHeadStringPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyBytesPtr:
-		return opStructFieldAnonymousHeadBytesPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyIntNPtr:
-		return opStructFieldAnonymousHeadIntNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructFieldAnonymousHeadInt8NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructFieldAnonymousHeadInt16NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructFieldAnonymousHeadInt32NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructFieldAnonymousHeadInt64NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUintNPtr:
-		return opStructFieldAnonymousHeadUintNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructFieldAnonymousHeadUint8NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructFieldAnonymousHeadUint16NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructFieldAnonymousHeadUint32NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructFieldAnonymousHeadUint64NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructFieldAnonymousHeadFloat32NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructFieldAnonymousHeadFloat64NPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructFieldAnonymousHeadBoolNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyStringNPtr:
-		return opStructFieldAnonymousHeadStringNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructFieldAnonymousHeadBytesNPtrOnly
+		return opStructFieldAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt:
-		return opStructFieldAnonymousHeadIntOnly
+		return opStructFieldAnonymousHeadStringTagIntOnly
 	case opStructFieldAnonymousHeadStringTagInt8:
-		return opStructFieldAnonymousHeadInt8Only
+		return opStructFieldAnonymousHeadStringTagInt8Only
 	case opStructFieldAnonymousHeadStringTagInt16:
-		return opStructFieldAnonymousHeadInt16Only
+		return opStructFieldAnonymousHeadStringTagInt16Only
 	case opStructFieldAnonymousHeadStringTagInt32:
-		return opStructFieldAnonymousHeadInt32Only
+		return opStructFieldAnonymousHeadStringTagInt32Only
 	case opStructFieldAnonymousHeadStringTagInt64:
-		return opStructFieldAnonymousHeadInt64Only
+		return opStructFieldAnonymousHeadStringTagInt64Only
 	case opStructFieldAnonymousHeadStringTagUint:
-		return opStructFieldAnonymousHeadUintOnly
+		return opStructFieldAnonymousHeadStringTagUintOnly
 	case opStructFieldAnonymousHeadStringTagUint8:
-		return opStructFieldAnonymousHeadUint8Only
+		return opStructFieldAnonymousHeadStringTagUint8Only
 	case opStructFieldAnonymousHeadStringTagUint16:
-		return opStructFieldAnonymousHeadUint16Only
+		return opStructFieldAnonymousHeadStringTagUint16Only
 	case opStructFieldAnonymousHeadStringTagUint32:
-		return opStructFieldAnonymousHeadUint32Only
+		return opStructFieldAnonymousHeadStringTagUint32Only
 	case opStructFieldAnonymousHeadStringTagUint64:
-		return opStructFieldAnonymousHeadUint64Only
+		return opStructFieldAnonymousHeadStringTagUint64Only
 	case opStructFieldAnonymousHeadStringTagFloat32:
-		return opStructFieldAnonymousHeadFloat32Only
+		return opStructFieldAnonymousHeadStringTagFloat32Only
 	case opStructFieldAnonymousHeadStringTagFloat64:
-		return opStructFieldAnonymousHeadFloat64Only
+		return opStructFieldAnonymousHeadStringTagFloat64Only
 	case opStructFieldAnonymousHeadStringTagBool:
-		return opStructFieldAnonymousHeadBoolOnly
+		return opStructFieldAnonymousHeadStringTagBoolOnly
 	case opStructFieldAnonymousHeadStringTagString:
-		return opStructFieldAnonymousHeadStringOnly
+		return opStructFieldAnonymousHeadStringTagStringOnly
 	case opStructFieldAnonymousHeadStringTagEscapedString:
-		return opStructFieldAnonymousHeadEscapedStringOnly
+		return opStructFieldAnonymousHeadStringTagEscapedStringOnly
 	case opStructFieldAnonymousHeadStringTagBytes:
-		return opStructFieldAnonymousHeadBytesOnly
+		return opStructFieldAnonymousHeadStringTagBytesOnly
 	case opStructFieldAnonymousHeadStringTagIntPtr:
-		return opStructFieldAnonymousHeadIntPtrOnly
+		return opStructFieldAnonymousHeadStringTagIntPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt8Ptr:
-		return opStructFieldAnonymousHeadInt8PtrOnly
+		return opStructFieldAnonymousHeadStringTagInt8PtrOnly
 	case opStructFieldAnonymousHeadStringTagInt16Ptr:
-		return opStructFieldAnonymousHeadInt16PtrOnly
+		return opStructFieldAnonymousHeadStringTagInt16PtrOnly
 	case opStructFieldAnonymousHeadStringTagInt32Ptr:
-		return opStructFieldAnonymousHeadInt32PtrOnly
+		return opStructFieldAnonymousHeadStringTagInt32PtrOnly
 	case opStructFieldAnonymousHeadStringTagInt64Ptr:
-		return opStructFieldAnonymousHeadInt64PtrOnly
+		return opStructFieldAnonymousHeadStringTagInt64PtrOnly
 	case opStructFieldAnonymousHeadStringTagUintPtr:
-		return opStructFieldAnonymousHeadUintPtrOnly
+		return opStructFieldAnonymousHeadStringTagUintPtrOnly
 	case opStructFieldAnonymousHeadStringTagUint8Ptr:
-		return opStructFieldAnonymousHeadUint8PtrOnly
+		return opStructFieldAnonymousHeadStringTagUint8PtrOnly
 	case opStructFieldAnonymousHeadStringTagUint16Ptr:
-		return opStructFieldAnonymousHeadUint16PtrOnly
+		return opStructFieldAnonymousHeadStringTagUint16PtrOnly
 	case opStructFieldAnonymousHeadStringTagUint32Ptr:
-		return opStructFieldAnonymousHeadUint32PtrOnly
+		return opStructFieldAnonymousHeadStringTagUint32PtrOnly
 	case opStructFieldAnonymousHeadStringTagUint64Ptr:
-		return opStructFieldAnonymousHeadUint64PtrOnly
+		return opStructFieldAnonymousHeadStringTagUint64PtrOnly
 	case opStructFieldAnonymousHeadStringTagFloat32Ptr:
-		return opStructFieldAnonymousHeadFloat32PtrOnly
+		return opStructFieldAnonymousHeadStringTagFloat32PtrOnly
 	case opStructFieldAnonymousHeadStringTagFloat64Ptr:
-		return opStructFieldAnonymousHeadFloat64PtrOnly
+		return opStructFieldAnonymousHeadStringTagFloat64PtrOnly
 	case opStructFieldAnonymousHeadStringTagBoolPtr:
-		return opStructFieldAnonymousHeadBoolPtrOnly
+		return opStructFieldAnonymousHeadStringTagBoolPtrOnly
 	case opStructFieldAnonymousHeadStringTagStringPtr:
-		return opStructFieldAnonymousHeadStringPtrOnly
+		return opStructFieldAnonymousHeadStringTagStringPtrOnly
 	case opStructFieldAnonymousHeadStringTagEscapedStringPtr:
-		return opStructFieldAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructFieldAnonymousHeadStringTagBytesPtr:
-		return opStructFieldAnonymousHeadBytesPtrOnly
+		return opStructFieldAnonymousHeadStringTagBytesPtrOnly
 	case opStructFieldAnonymousHeadStringTagIntNPtr:
-		return opStructFieldAnonymousHeadIntNPtrOnly
+		return opStructFieldAnonymousHeadStringTagIntNPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt8NPtr:
-		return opStructFieldAnonymousHeadInt8NPtrOnly
+		return opStructFieldAnonymousHeadStringTagInt8NPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt16NPtr:
-		return opStructFieldAnonymousHeadInt16NPtrOnly
+		return opStructFieldAnonymousHeadStringTagInt16NPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt32NPtr:
-		return opStructFieldAnonymousHeadInt32NPtrOnly
+		return opStructFieldAnonymousHeadStringTagInt32NPtrOnly
 	case opStructFieldAnonymousHeadStringTagInt64NPtr:
-		return opStructFieldAnonymousHeadInt64NPtrOnly
+		return opStructFieldAnonymousHeadStringTagInt64NPtrOnly
 	case opStructFieldAnonymousHeadStringTagUintNPtr:
-		return opStructFieldAnonymousHeadUintNPtrOnly
+		return opStructFieldAnonymousHeadStringTagUintNPtrOnly
 	case opStructFieldAnonymousHeadStringTagUint8NPtr:
-		return opStructFieldAnonymousHeadUint8NPtrOnly
+		return opStructFieldAnonymousHeadStringTagUint8NPtrOnly
 	case opStructFieldAnonymousHeadStringTagUint16NPtr:
-		return opStructFieldAnonymousHeadUint16NPtrOnly
+		return opStructFieldAnonymousHeadStringTagUint16NPtrOnly
 	case opStructFieldAnonymousHeadStringTagUint32NPtr:
-		return opStructFieldAnonymousHeadUint32NPtrOnly
+		return opStructFieldAnonymousHeadStringTagUint32NPtrOnly
 	case opStructFieldAnonymousHeadStringTagUint64NPtr:
-		return opStructFieldAnonymousHeadUint64NPtrOnly
+		return opStructFieldAnonymousHeadStringTagUint64NPtrOnly
 	case opStructFieldAnonymousHeadStringTagFloat32NPtr:
-		return opStructFieldAnonymousHeadFloat32NPtrOnly
+		return opStructFieldAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructFieldAnonymousHeadStringTagFloat64NPtr:
-		return opStructFieldAnonymousHeadFloat64NPtrOnly
+		return opStructFieldAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructFieldAnonymousHeadStringTagBoolNPtr:
-		return opStructFieldAnonymousHeadBoolNPtrOnly
+		return opStructFieldAnonymousHeadStringTagBoolNPtrOnly
 	case opStructFieldAnonymousHeadStringTagStringNPtr:
-		return opStructFieldAnonymousHeadStringNPtrOnly
+		return opStructFieldAnonymousHeadStringTagStringNPtrOnly
 	case opStructFieldAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructFieldAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldAnonymousHeadStringTagBytesNPtr:
-		return opStructFieldAnonymousHeadBytesNPtrOnly
+		return opStructFieldAnonymousHeadStringTagBytesNPtrOnly
 	case opStructFieldPtrHeadInt:
 		return opStructFieldPtrHeadIntOnly
 	case opStructFieldPtrHeadInt8:
@@ -62878,197 +62878,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldPtrHeadBytesNPtr:
 		return opStructFieldPtrHeadBytesNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt:
-		return opStructFieldPtrHeadIntOnly
+		return opStructFieldPtrHeadOmitEmptyIntOnly
 	case opStructFieldPtrHeadOmitEmptyInt8:
-		return opStructFieldPtrHeadInt8Only
+		return opStructFieldPtrHeadOmitEmptyInt8Only
 	case opStructFieldPtrHeadOmitEmptyInt16:
-		return opStructFieldPtrHeadInt16Only
+		return opStructFieldPtrHeadOmitEmptyInt16Only
 	case opStructFieldPtrHeadOmitEmptyInt32:
-		return opStructFieldPtrHeadInt32Only
+		return opStructFieldPtrHeadOmitEmptyInt32Only
 	case opStructFieldPtrHeadOmitEmptyInt64:
-		return opStructFieldPtrHeadInt64Only
+		return opStructFieldPtrHeadOmitEmptyInt64Only
 	case opStructFieldPtrHeadOmitEmptyUint:
-		return opStructFieldPtrHeadUintOnly
+		return opStructFieldPtrHeadOmitEmptyUintOnly
 	case opStructFieldPtrHeadOmitEmptyUint8:
-		return opStructFieldPtrHeadUint8Only
+		return opStructFieldPtrHeadOmitEmptyUint8Only
 	case opStructFieldPtrHeadOmitEmptyUint16:
-		return opStructFieldPtrHeadUint16Only
+		return opStructFieldPtrHeadOmitEmptyUint16Only
 	case opStructFieldPtrHeadOmitEmptyUint32:
-		return opStructFieldPtrHeadUint32Only
+		return opStructFieldPtrHeadOmitEmptyUint32Only
 	case opStructFieldPtrHeadOmitEmptyUint64:
-		return opStructFieldPtrHeadUint64Only
+		return opStructFieldPtrHeadOmitEmptyUint64Only
 	case opStructFieldPtrHeadOmitEmptyFloat32:
-		return opStructFieldPtrHeadFloat32Only
+		return opStructFieldPtrHeadOmitEmptyFloat32Only
 	case opStructFieldPtrHeadOmitEmptyFloat64:
-		return opStructFieldPtrHeadFloat64Only
+		return opStructFieldPtrHeadOmitEmptyFloat64Only
 	case opStructFieldPtrHeadOmitEmptyBool:
-		return opStructFieldPtrHeadBoolOnly
+		return opStructFieldPtrHeadOmitEmptyBoolOnly
 	case opStructFieldPtrHeadOmitEmptyString:
-		return opStructFieldPtrHeadStringOnly
+		return opStructFieldPtrHeadOmitEmptyStringOnly
 	case opStructFieldPtrHeadOmitEmptyEscapedString:
-		return opStructFieldPtrHeadEscapedStringOnly
+		return opStructFieldPtrHeadOmitEmptyEscapedStringOnly
 	case opStructFieldPtrHeadOmitEmptyBytes:
-		return opStructFieldPtrHeadBytesOnly
+		return opStructFieldPtrHeadOmitEmptyBytesOnly
 	case opStructFieldPtrHeadOmitEmptyIntPtr:
-		return opStructFieldPtrHeadIntPtrOnly
+		return opStructFieldPtrHeadOmitEmptyIntPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt8Ptr:
-		return opStructFieldPtrHeadInt8PtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt8PtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt16Ptr:
-		return opStructFieldPtrHeadInt16PtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt16PtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt32Ptr:
-		return opStructFieldPtrHeadInt32PtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt32PtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt64Ptr:
-		return opStructFieldPtrHeadInt64PtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt64PtrOnly
 	case opStructFieldPtrHeadOmitEmptyUintPtr:
-		return opStructFieldPtrHeadUintPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUintPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint8Ptr:
-		return opStructFieldPtrHeadUint8PtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint8PtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint16Ptr:
-		return opStructFieldPtrHeadUint16PtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint16PtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint32Ptr:
-		return opStructFieldPtrHeadUint32PtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint32PtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint64Ptr:
-		return opStructFieldPtrHeadUint64PtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint64PtrOnly
 	case opStructFieldPtrHeadOmitEmptyFloat32Ptr:
-		return opStructFieldPtrHeadFloat32PtrOnly
+		return opStructFieldPtrHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldPtrHeadOmitEmptyFloat64Ptr:
-		return opStructFieldPtrHeadFloat64PtrOnly
+		return opStructFieldPtrHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldPtrHeadOmitEmptyBoolPtr:
-		return opStructFieldPtrHeadBoolPtrOnly
+		return opStructFieldPtrHeadOmitEmptyBoolPtrOnly
 	case opStructFieldPtrHeadOmitEmptyStringPtr:
-		return opStructFieldPtrHeadStringPtrOnly
+		return opStructFieldPtrHeadOmitEmptyStringPtrOnly
 	case opStructFieldPtrHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldPtrHeadEscapedStringPtrOnly
+		return opStructFieldPtrHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldPtrHeadOmitEmptyBytesPtr:
-		return opStructFieldPtrHeadBytesPtrOnly
+		return opStructFieldPtrHeadOmitEmptyBytesPtrOnly
 	case opStructFieldPtrHeadOmitEmptyIntNPtr:
-		return opStructFieldPtrHeadIntNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyIntNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt8NPtr:
-		return opStructFieldPtrHeadInt8NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt16NPtr:
-		return opStructFieldPtrHeadInt16NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt32NPtr:
-		return opStructFieldPtrHeadInt32NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyInt64NPtr:
-		return opStructFieldPtrHeadInt64NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUintNPtr:
-		return opStructFieldPtrHeadUintNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUintNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint8NPtr:
-		return opStructFieldPtrHeadUint8NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint16NPtr:
-		return opStructFieldPtrHeadUint16NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint32NPtr:
-		return opStructFieldPtrHeadUint32NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyUint64NPtr:
-		return opStructFieldPtrHeadUint64NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyFloat32NPtr:
-		return opStructFieldPtrHeadFloat32NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyFloat64NPtr:
-		return opStructFieldPtrHeadFloat64NPtrOnly
+		return opStructFieldPtrHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldPtrHeadOmitEmptyBoolNPtr:
-		return opStructFieldPtrHeadBoolNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyStringNPtr:
-		return opStructFieldPtrHeadStringNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyStringNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldPtrHeadEscapedStringNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldPtrHeadOmitEmptyBytesNPtr:
-		return opStructFieldPtrHeadBytesNPtrOnly
+		return opStructFieldPtrHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldPtrHeadStringTagInt:
-		return opStructFieldPtrHeadIntOnly
+		return opStructFieldPtrHeadStringTagIntOnly
 	case opStructFieldPtrHeadStringTagInt8:
-		return opStructFieldPtrHeadInt8Only
+		return opStructFieldPtrHeadStringTagInt8Only
 	case opStructFieldPtrHeadStringTagInt16:
-		return opStructFieldPtrHeadInt16Only
+		return opStructFieldPtrHeadStringTagInt16Only
 	case opStructFieldPtrHeadStringTagInt32:
-		return opStructFieldPtrHeadInt32Only
+		return opStructFieldPtrHeadStringTagInt32Only
 	case opStructFieldPtrHeadStringTagInt64:
-		return opStructFieldPtrHeadInt64Only
+		return opStructFieldPtrHeadStringTagInt64Only
 	case opStructFieldPtrHeadStringTagUint:
-		return opStructFieldPtrHeadUintOnly
+		return opStructFieldPtrHeadStringTagUintOnly
 	case opStructFieldPtrHeadStringTagUint8:
-		return opStructFieldPtrHeadUint8Only
+		return opStructFieldPtrHeadStringTagUint8Only
 	case opStructFieldPtrHeadStringTagUint16:
-		return opStructFieldPtrHeadUint16Only
+		return opStructFieldPtrHeadStringTagUint16Only
 	case opStructFieldPtrHeadStringTagUint32:
-		return opStructFieldPtrHeadUint32Only
+		return opStructFieldPtrHeadStringTagUint32Only
 	case opStructFieldPtrHeadStringTagUint64:
-		return opStructFieldPtrHeadUint64Only
+		return opStructFieldPtrHeadStringTagUint64Only
 	case opStructFieldPtrHeadStringTagFloat32:
-		return opStructFieldPtrHeadFloat32Only
+		return opStructFieldPtrHeadStringTagFloat32Only
 	case opStructFieldPtrHeadStringTagFloat64:
-		return opStructFieldPtrHeadFloat64Only
+		return opStructFieldPtrHeadStringTagFloat64Only
 	case opStructFieldPtrHeadStringTagBool:
-		return opStructFieldPtrHeadBoolOnly
+		return opStructFieldPtrHeadStringTagBoolOnly
 	case opStructFieldPtrHeadStringTagString:
-		return opStructFieldPtrHeadStringOnly
+		return opStructFieldPtrHeadStringTagStringOnly
 	case opStructFieldPtrHeadStringTagEscapedString:
-		return opStructFieldPtrHeadEscapedStringOnly
+		return opStructFieldPtrHeadStringTagEscapedStringOnly
 	case opStructFieldPtrHeadStringTagBytes:
-		return opStructFieldPtrHeadBytesOnly
+		return opStructFieldPtrHeadStringTagBytesOnly
 	case opStructFieldPtrHeadStringTagIntPtr:
-		return opStructFieldPtrHeadIntPtrOnly
+		return opStructFieldPtrHeadStringTagIntPtrOnly
 	case opStructFieldPtrHeadStringTagInt8Ptr:
-		return opStructFieldPtrHeadInt8PtrOnly
+		return opStructFieldPtrHeadStringTagInt8PtrOnly
 	case opStructFieldPtrHeadStringTagInt16Ptr:
-		return opStructFieldPtrHeadInt16PtrOnly
+		return opStructFieldPtrHeadStringTagInt16PtrOnly
 	case opStructFieldPtrHeadStringTagInt32Ptr:
-		return opStructFieldPtrHeadInt32PtrOnly
+		return opStructFieldPtrHeadStringTagInt32PtrOnly
 	case opStructFieldPtrHeadStringTagInt64Ptr:
-		return opStructFieldPtrHeadInt64PtrOnly
+		return opStructFieldPtrHeadStringTagInt64PtrOnly
 	case opStructFieldPtrHeadStringTagUintPtr:
-		return opStructFieldPtrHeadUintPtrOnly
+		return opStructFieldPtrHeadStringTagUintPtrOnly
 	case opStructFieldPtrHeadStringTagUint8Ptr:
-		return opStructFieldPtrHeadUint8PtrOnly
+		return opStructFieldPtrHeadStringTagUint8PtrOnly
 	case opStructFieldPtrHeadStringTagUint16Ptr:
-		return opStructFieldPtrHeadUint16PtrOnly
+		return opStructFieldPtrHeadStringTagUint16PtrOnly
 	case opStructFieldPtrHeadStringTagUint32Ptr:
-		return opStructFieldPtrHeadUint32PtrOnly
+		return opStructFieldPtrHeadStringTagUint32PtrOnly
 	case opStructFieldPtrHeadStringTagUint64Ptr:
-		return opStructFieldPtrHeadUint64PtrOnly
+		return opStructFieldPtrHeadStringTagUint64PtrOnly
 	case opStructFieldPtrHeadStringTagFloat32Ptr:
-		return opStructFieldPtrHeadFloat32PtrOnly
+		return opStructFieldPtrHeadStringTagFloat32PtrOnly
 	case opStructFieldPtrHeadStringTagFloat64Ptr:
-		return opStructFieldPtrHeadFloat64PtrOnly
+		return opStructFieldPtrHeadStringTagFloat64PtrOnly
 	case opStructFieldPtrHeadStringTagBoolPtr:
-		return opStructFieldPtrHeadBoolPtrOnly
+		return opStructFieldPtrHeadStringTagBoolPtrOnly
 	case opStructFieldPtrHeadStringTagStringPtr:
-		return opStructFieldPtrHeadStringPtrOnly
+		return opStructFieldPtrHeadStringTagStringPtrOnly
 	case opStructFieldPtrHeadStringTagEscapedStringPtr:
-		return opStructFieldPtrHeadEscapedStringPtrOnly
+		return opStructFieldPtrHeadStringTagEscapedStringPtrOnly
 	case opStructFieldPtrHeadStringTagBytesPtr:
-		return opStructFieldPtrHeadBytesPtrOnly
+		return opStructFieldPtrHeadStringTagBytesPtrOnly
 	case opStructFieldPtrHeadStringTagIntNPtr:
-		return opStructFieldPtrHeadIntNPtrOnly
+		return opStructFieldPtrHeadStringTagIntNPtrOnly
 	case opStructFieldPtrHeadStringTagInt8NPtr:
-		return opStructFieldPtrHeadInt8NPtrOnly
+		return opStructFieldPtrHeadStringTagInt8NPtrOnly
 	case opStructFieldPtrHeadStringTagInt16NPtr:
-		return opStructFieldPtrHeadInt16NPtrOnly
+		return opStructFieldPtrHeadStringTagInt16NPtrOnly
 	case opStructFieldPtrHeadStringTagInt32NPtr:
-		return opStructFieldPtrHeadInt32NPtrOnly
+		return opStructFieldPtrHeadStringTagInt32NPtrOnly
 	case opStructFieldPtrHeadStringTagInt64NPtr:
-		return opStructFieldPtrHeadInt64NPtrOnly
+		return opStructFieldPtrHeadStringTagInt64NPtrOnly
 	case opStructFieldPtrHeadStringTagUintNPtr:
-		return opStructFieldPtrHeadUintNPtrOnly
+		return opStructFieldPtrHeadStringTagUintNPtrOnly
 	case opStructFieldPtrHeadStringTagUint8NPtr:
-		return opStructFieldPtrHeadUint8NPtrOnly
+		return opStructFieldPtrHeadStringTagUint8NPtrOnly
 	case opStructFieldPtrHeadStringTagUint16NPtr:
-		return opStructFieldPtrHeadUint16NPtrOnly
+		return opStructFieldPtrHeadStringTagUint16NPtrOnly
 	case opStructFieldPtrHeadStringTagUint32NPtr:
-		return opStructFieldPtrHeadUint32NPtrOnly
+		return opStructFieldPtrHeadStringTagUint32NPtrOnly
 	case opStructFieldPtrHeadStringTagUint64NPtr:
-		return opStructFieldPtrHeadUint64NPtrOnly
+		return opStructFieldPtrHeadStringTagUint64NPtrOnly
 	case opStructFieldPtrHeadStringTagFloat32NPtr:
-		return opStructFieldPtrHeadFloat32NPtrOnly
+		return opStructFieldPtrHeadStringTagFloat32NPtrOnly
 	case opStructFieldPtrHeadStringTagFloat64NPtr:
-		return opStructFieldPtrHeadFloat64NPtrOnly
+		return opStructFieldPtrHeadStringTagFloat64NPtrOnly
 	case opStructFieldPtrHeadStringTagBoolNPtr:
-		return opStructFieldPtrHeadBoolNPtrOnly
+		return opStructFieldPtrHeadStringTagBoolNPtrOnly
 	case opStructFieldPtrHeadStringTagStringNPtr:
-		return opStructFieldPtrHeadStringNPtrOnly
+		return opStructFieldPtrHeadStringTagStringNPtrOnly
 	case opStructFieldPtrHeadStringTagEscapedStringNPtr:
-		return opStructFieldPtrHeadEscapedStringNPtrOnly
+		return opStructFieldPtrHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldPtrHeadStringTagBytesNPtr:
-		return opStructFieldPtrHeadBytesNPtrOnly
+		return opStructFieldPtrHeadStringTagBytesNPtrOnly
 	case opStructFieldPtrAnonymousHeadInt:
 		return opStructFieldPtrAnonymousHeadIntOnly
 	case opStructFieldPtrAnonymousHeadInt8:
@@ -63166,197 +63166,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldPtrAnonymousHeadBytesNPtr:
 		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt:
-		return opStructFieldPtrAnonymousHeadIntOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyIntOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
-		return opStructFieldPtrAnonymousHeadInt8Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt8Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
-		return opStructFieldPtrAnonymousHeadInt16Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt16Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
-		return opStructFieldPtrAnonymousHeadInt32Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt32Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
-		return opStructFieldPtrAnonymousHeadInt64Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt64Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint:
-		return opStructFieldPtrAnonymousHeadUintOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUintOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
-		return opStructFieldPtrAnonymousHeadUint8Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint8Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
-		return opStructFieldPtrAnonymousHeadUint16Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint16Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
-		return opStructFieldPtrAnonymousHeadUint32Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint32Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
-		return opStructFieldPtrAnonymousHeadUint64Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint64Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat32:
-		return opStructFieldPtrAnonymousHeadFloat32Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat32Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat64:
-		return opStructFieldPtrAnonymousHeadFloat64Only
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat64Only
 	case opStructFieldPtrAnonymousHeadOmitEmptyBool:
-		return opStructFieldPtrAnonymousHeadBoolOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBoolOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyString:
-		return opStructFieldPtrAnonymousHeadStringOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyStringOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyEscapedString:
-		return opStructFieldPtrAnonymousHeadEscapedStringOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBytes:
-		return opStructFieldPtrAnonymousHeadBytesOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBytesOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntPtr:
-		return opStructFieldPtrAnonymousHeadIntPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructFieldPtrAnonymousHeadInt8PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructFieldPtrAnonymousHeadInt16PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructFieldPtrAnonymousHeadInt32PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructFieldPtrAnonymousHeadInt64PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUintPtr:
-		return opStructFieldPtrAnonymousHeadUintPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructFieldPtrAnonymousHeadUint8PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructFieldPtrAnonymousHeadUint16PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructFieldPtrAnonymousHeadUint32PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructFieldPtrAnonymousHeadUint64PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructFieldPtrAnonymousHeadFloat32PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructFieldPtrAnonymousHeadFloat64PtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBoolPtr:
-		return opStructFieldPtrAnonymousHeadBoolPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyStringPtr:
-		return opStructFieldPtrAnonymousHeadStringPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBytesPtr:
-		return opStructFieldPtrAnonymousHeadBytesPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyIntNPtr:
-		return opStructFieldPtrAnonymousHeadIntNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructFieldPtrAnonymousHeadInt8NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructFieldPtrAnonymousHeadInt16NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructFieldPtrAnonymousHeadInt32NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructFieldPtrAnonymousHeadInt64NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUintNPtr:
-		return opStructFieldPtrAnonymousHeadUintNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructFieldPtrAnonymousHeadUint8NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructFieldPtrAnonymousHeadUint16NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructFieldPtrAnonymousHeadUint32NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructFieldPtrAnonymousHeadUint64NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructFieldPtrAnonymousHeadFloat32NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructFieldPtrAnonymousHeadFloat64NPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructFieldPtrAnonymousHeadBoolNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyStringNPtr:
-		return opStructFieldPtrAnonymousHeadStringNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
+		return opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt:
-		return opStructFieldPtrAnonymousHeadIntOnly
+		return opStructFieldPtrAnonymousHeadStringTagIntOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt8:
-		return opStructFieldPtrAnonymousHeadInt8Only
+		return opStructFieldPtrAnonymousHeadStringTagInt8Only
 	case opStructFieldPtrAnonymousHeadStringTagInt16:
-		return opStructFieldPtrAnonymousHeadInt16Only
+		return opStructFieldPtrAnonymousHeadStringTagInt16Only
 	case opStructFieldPtrAnonymousHeadStringTagInt32:
-		return opStructFieldPtrAnonymousHeadInt32Only
+		return opStructFieldPtrAnonymousHeadStringTagInt32Only
 	case opStructFieldPtrAnonymousHeadStringTagInt64:
-		return opStructFieldPtrAnonymousHeadInt64Only
+		return opStructFieldPtrAnonymousHeadStringTagInt64Only
 	case opStructFieldPtrAnonymousHeadStringTagUint:
-		return opStructFieldPtrAnonymousHeadUintOnly
+		return opStructFieldPtrAnonymousHeadStringTagUintOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint8:
-		return opStructFieldPtrAnonymousHeadUint8Only
+		return opStructFieldPtrAnonymousHeadStringTagUint8Only
 	case opStructFieldPtrAnonymousHeadStringTagUint16:
-		return opStructFieldPtrAnonymousHeadUint16Only
+		return opStructFieldPtrAnonymousHeadStringTagUint16Only
 	case opStructFieldPtrAnonymousHeadStringTagUint32:
-		return opStructFieldPtrAnonymousHeadUint32Only
+		return opStructFieldPtrAnonymousHeadStringTagUint32Only
 	case opStructFieldPtrAnonymousHeadStringTagUint64:
-		return opStructFieldPtrAnonymousHeadUint64Only
+		return opStructFieldPtrAnonymousHeadStringTagUint64Only
 	case opStructFieldPtrAnonymousHeadStringTagFloat32:
-		return opStructFieldPtrAnonymousHeadFloat32Only
+		return opStructFieldPtrAnonymousHeadStringTagFloat32Only
 	case opStructFieldPtrAnonymousHeadStringTagFloat64:
-		return opStructFieldPtrAnonymousHeadFloat64Only
+		return opStructFieldPtrAnonymousHeadStringTagFloat64Only
 	case opStructFieldPtrAnonymousHeadStringTagBool:
-		return opStructFieldPtrAnonymousHeadBoolOnly
+		return opStructFieldPtrAnonymousHeadStringTagBoolOnly
 	case opStructFieldPtrAnonymousHeadStringTagString:
-		return opStructFieldPtrAnonymousHeadStringOnly
+		return opStructFieldPtrAnonymousHeadStringTagStringOnly
 	case opStructFieldPtrAnonymousHeadStringTagEscapedString:
-		return opStructFieldPtrAnonymousHeadEscapedStringOnly
+		return opStructFieldPtrAnonymousHeadStringTagEscapedStringOnly
 	case opStructFieldPtrAnonymousHeadStringTagBytes:
-		return opStructFieldPtrAnonymousHeadBytesOnly
+		return opStructFieldPtrAnonymousHeadStringTagBytesOnly
 	case opStructFieldPtrAnonymousHeadStringTagIntPtr:
-		return opStructFieldPtrAnonymousHeadIntPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagIntPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt8Ptr:
-		return opStructFieldPtrAnonymousHeadInt8PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt8PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt16Ptr:
-		return opStructFieldPtrAnonymousHeadInt16PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt16PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt32Ptr:
-		return opStructFieldPtrAnonymousHeadInt32PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt32PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt64Ptr:
-		return opStructFieldPtrAnonymousHeadInt64PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt64PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUintPtr:
-		return opStructFieldPtrAnonymousHeadUintPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUintPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint8Ptr:
-		return opStructFieldPtrAnonymousHeadUint8PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint8PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint16Ptr:
-		return opStructFieldPtrAnonymousHeadUint16PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint16PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint32Ptr:
-		return opStructFieldPtrAnonymousHeadUint32PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint32PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint64Ptr:
-		return opStructFieldPtrAnonymousHeadUint64PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint64PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagFloat32Ptr:
-		return opStructFieldPtrAnonymousHeadFloat32PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagFloat32PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagFloat64Ptr:
-		return opStructFieldPtrAnonymousHeadFloat64PtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagFloat64PtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagBoolPtr:
-		return opStructFieldPtrAnonymousHeadBoolPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagBoolPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagStringPtr:
-		return opStructFieldPtrAnonymousHeadStringPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagStringPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagEscapedStringPtr:
-		return opStructFieldPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagBytesPtr:
-		return opStructFieldPtrAnonymousHeadBytesPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagBytesPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagIntNPtr:
-		return opStructFieldPtrAnonymousHeadIntNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagIntNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt8NPtr:
-		return opStructFieldPtrAnonymousHeadInt8NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt8NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt16NPtr:
-		return opStructFieldPtrAnonymousHeadInt16NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt16NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt32NPtr:
-		return opStructFieldPtrAnonymousHeadInt32NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt32NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagInt64NPtr:
-		return opStructFieldPtrAnonymousHeadInt64NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagInt64NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUintNPtr:
-		return opStructFieldPtrAnonymousHeadUintNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUintNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint8NPtr:
-		return opStructFieldPtrAnonymousHeadUint8NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint8NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint16NPtr:
-		return opStructFieldPtrAnonymousHeadUint16NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint16NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint32NPtr:
-		return opStructFieldPtrAnonymousHeadUint32NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint32NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagUint64NPtr:
-		return opStructFieldPtrAnonymousHeadUint64NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagUint64NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagFloat32NPtr:
-		return opStructFieldPtrAnonymousHeadFloat32NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagFloat64NPtr:
-		return opStructFieldPtrAnonymousHeadFloat64NPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagBoolNPtr:
-		return opStructFieldPtrAnonymousHeadBoolNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagBoolNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagStringNPtr:
-		return opStructFieldPtrAnonymousHeadStringNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructFieldPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldPtrAnonymousHeadStringTagBytesNPtr:
-		return opStructFieldPtrAnonymousHeadBytesNPtrOnly
+		return opStructFieldPtrAnonymousHeadStringTagBytesNPtrOnly
 	case opStructFieldNPtrHeadInt:
 		return opStructFieldNPtrHeadIntOnly
 	case opStructFieldNPtrHeadInt8:
@@ -63454,197 +63454,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldNPtrHeadBytesNPtr:
 		return opStructFieldNPtrHeadBytesNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt:
-		return opStructFieldNPtrHeadIntOnly
+		return opStructFieldNPtrHeadOmitEmptyIntOnly
 	case opStructFieldNPtrHeadOmitEmptyInt8:
-		return opStructFieldNPtrHeadInt8Only
+		return opStructFieldNPtrHeadOmitEmptyInt8Only
 	case opStructFieldNPtrHeadOmitEmptyInt16:
-		return opStructFieldNPtrHeadInt16Only
+		return opStructFieldNPtrHeadOmitEmptyInt16Only
 	case opStructFieldNPtrHeadOmitEmptyInt32:
-		return opStructFieldNPtrHeadInt32Only
+		return opStructFieldNPtrHeadOmitEmptyInt32Only
 	case opStructFieldNPtrHeadOmitEmptyInt64:
-		return opStructFieldNPtrHeadInt64Only
+		return opStructFieldNPtrHeadOmitEmptyInt64Only
 	case opStructFieldNPtrHeadOmitEmptyUint:
-		return opStructFieldNPtrHeadUintOnly
+		return opStructFieldNPtrHeadOmitEmptyUintOnly
 	case opStructFieldNPtrHeadOmitEmptyUint8:
-		return opStructFieldNPtrHeadUint8Only
+		return opStructFieldNPtrHeadOmitEmptyUint8Only
 	case opStructFieldNPtrHeadOmitEmptyUint16:
-		return opStructFieldNPtrHeadUint16Only
+		return opStructFieldNPtrHeadOmitEmptyUint16Only
 	case opStructFieldNPtrHeadOmitEmptyUint32:
-		return opStructFieldNPtrHeadUint32Only
+		return opStructFieldNPtrHeadOmitEmptyUint32Only
 	case opStructFieldNPtrHeadOmitEmptyUint64:
-		return opStructFieldNPtrHeadUint64Only
+		return opStructFieldNPtrHeadOmitEmptyUint64Only
 	case opStructFieldNPtrHeadOmitEmptyFloat32:
-		return opStructFieldNPtrHeadFloat32Only
+		return opStructFieldNPtrHeadOmitEmptyFloat32Only
 	case opStructFieldNPtrHeadOmitEmptyFloat64:
-		return opStructFieldNPtrHeadFloat64Only
+		return opStructFieldNPtrHeadOmitEmptyFloat64Only
 	case opStructFieldNPtrHeadOmitEmptyBool:
-		return opStructFieldNPtrHeadBoolOnly
+		return opStructFieldNPtrHeadOmitEmptyBoolOnly
 	case opStructFieldNPtrHeadOmitEmptyString:
-		return opStructFieldNPtrHeadStringOnly
+		return opStructFieldNPtrHeadOmitEmptyStringOnly
 	case opStructFieldNPtrHeadOmitEmptyEscapedString:
-		return opStructFieldNPtrHeadEscapedStringOnly
+		return opStructFieldNPtrHeadOmitEmptyEscapedStringOnly
 	case opStructFieldNPtrHeadOmitEmptyBytes:
-		return opStructFieldNPtrHeadBytesOnly
+		return opStructFieldNPtrHeadOmitEmptyBytesOnly
 	case opStructFieldNPtrHeadOmitEmptyIntPtr:
-		return opStructFieldNPtrHeadIntPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyIntPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt8Ptr:
-		return opStructFieldNPtrHeadInt8PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt8PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt16Ptr:
-		return opStructFieldNPtrHeadInt16PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt16PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt32Ptr:
-		return opStructFieldNPtrHeadInt32PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt32PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt64Ptr:
-		return opStructFieldNPtrHeadInt64PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt64PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUintPtr:
-		return opStructFieldNPtrHeadUintPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUintPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint8Ptr:
-		return opStructFieldNPtrHeadUint8PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint8PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint16Ptr:
-		return opStructFieldNPtrHeadUint16PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint16PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint32Ptr:
-		return opStructFieldNPtrHeadUint32PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint32PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint64Ptr:
-		return opStructFieldNPtrHeadUint64PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint64PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyFloat32Ptr:
-		return opStructFieldNPtrHeadFloat32PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyFloat64Ptr:
-		return opStructFieldNPtrHeadFloat64PtrOnly
+		return opStructFieldNPtrHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldNPtrHeadOmitEmptyBoolPtr:
-		return opStructFieldNPtrHeadBoolPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyBoolPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyStringPtr:
-		return opStructFieldNPtrHeadStringPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyStringPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldNPtrHeadEscapedStringPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyBytesPtr:
-		return opStructFieldNPtrHeadBytesPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyBytesPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyIntNPtr:
-		return opStructFieldNPtrHeadIntNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyIntNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt8NPtr:
-		return opStructFieldNPtrHeadInt8NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt16NPtr:
-		return opStructFieldNPtrHeadInt16NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt32NPtr:
-		return opStructFieldNPtrHeadInt32NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyInt64NPtr:
-		return opStructFieldNPtrHeadInt64NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUintNPtr:
-		return opStructFieldNPtrHeadUintNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUintNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint8NPtr:
-		return opStructFieldNPtrHeadUint8NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint16NPtr:
-		return opStructFieldNPtrHeadUint16NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint32NPtr:
-		return opStructFieldNPtrHeadUint32NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyUint64NPtr:
-		return opStructFieldNPtrHeadUint64NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyFloat32NPtr:
-		return opStructFieldNPtrHeadFloat32NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyFloat64NPtr:
-		return opStructFieldNPtrHeadFloat64NPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyBoolNPtr:
-		return opStructFieldNPtrHeadBoolNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyStringNPtr:
-		return opStructFieldNPtrHeadStringNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyStringNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldNPtrHeadEscapedStringNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldNPtrHeadOmitEmptyBytesNPtr:
-		return opStructFieldNPtrHeadBytesNPtrOnly
+		return opStructFieldNPtrHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldNPtrHeadStringTagInt:
-		return opStructFieldNPtrHeadIntOnly
+		return opStructFieldNPtrHeadStringTagIntOnly
 	case opStructFieldNPtrHeadStringTagInt8:
-		return opStructFieldNPtrHeadInt8Only
+		return opStructFieldNPtrHeadStringTagInt8Only
 	case opStructFieldNPtrHeadStringTagInt16:
-		return opStructFieldNPtrHeadInt16Only
+		return opStructFieldNPtrHeadStringTagInt16Only
 	case opStructFieldNPtrHeadStringTagInt32:
-		return opStructFieldNPtrHeadInt32Only
+		return opStructFieldNPtrHeadStringTagInt32Only
 	case opStructFieldNPtrHeadStringTagInt64:
-		return opStructFieldNPtrHeadInt64Only
+		return opStructFieldNPtrHeadStringTagInt64Only
 	case opStructFieldNPtrHeadStringTagUint:
-		return opStructFieldNPtrHeadUintOnly
+		return opStructFieldNPtrHeadStringTagUintOnly
 	case opStructFieldNPtrHeadStringTagUint8:
-		return opStructFieldNPtrHeadUint8Only
+		return opStructFieldNPtrHeadStringTagUint8Only
 	case opStructFieldNPtrHeadStringTagUint16:
-		return opStructFieldNPtrHeadUint16Only
+		return opStructFieldNPtrHeadStringTagUint16Only
 	case opStructFieldNPtrHeadStringTagUint32:
-		return opStructFieldNPtrHeadUint32Only
+		return opStructFieldNPtrHeadStringTagUint32Only
 	case opStructFieldNPtrHeadStringTagUint64:
-		return opStructFieldNPtrHeadUint64Only
+		return opStructFieldNPtrHeadStringTagUint64Only
 	case opStructFieldNPtrHeadStringTagFloat32:
-		return opStructFieldNPtrHeadFloat32Only
+		return opStructFieldNPtrHeadStringTagFloat32Only
 	case opStructFieldNPtrHeadStringTagFloat64:
-		return opStructFieldNPtrHeadFloat64Only
+		return opStructFieldNPtrHeadStringTagFloat64Only
 	case opStructFieldNPtrHeadStringTagBool:
-		return opStructFieldNPtrHeadBoolOnly
+		return opStructFieldNPtrHeadStringTagBoolOnly
 	case opStructFieldNPtrHeadStringTagString:
-		return opStructFieldNPtrHeadStringOnly
+		return opStructFieldNPtrHeadStringTagStringOnly
 	case opStructFieldNPtrHeadStringTagEscapedString:
-		return opStructFieldNPtrHeadEscapedStringOnly
+		return opStructFieldNPtrHeadStringTagEscapedStringOnly
 	case opStructFieldNPtrHeadStringTagBytes:
-		return opStructFieldNPtrHeadBytesOnly
+		return opStructFieldNPtrHeadStringTagBytesOnly
 	case opStructFieldNPtrHeadStringTagIntPtr:
-		return opStructFieldNPtrHeadIntPtrOnly
+		return opStructFieldNPtrHeadStringTagIntPtrOnly
 	case opStructFieldNPtrHeadStringTagInt8Ptr:
-		return opStructFieldNPtrHeadInt8PtrOnly
+		return opStructFieldNPtrHeadStringTagInt8PtrOnly
 	case opStructFieldNPtrHeadStringTagInt16Ptr:
-		return opStructFieldNPtrHeadInt16PtrOnly
+		return opStructFieldNPtrHeadStringTagInt16PtrOnly
 	case opStructFieldNPtrHeadStringTagInt32Ptr:
-		return opStructFieldNPtrHeadInt32PtrOnly
+		return opStructFieldNPtrHeadStringTagInt32PtrOnly
 	case opStructFieldNPtrHeadStringTagInt64Ptr:
-		return opStructFieldNPtrHeadInt64PtrOnly
+		return opStructFieldNPtrHeadStringTagInt64PtrOnly
 	case opStructFieldNPtrHeadStringTagUintPtr:
-		return opStructFieldNPtrHeadUintPtrOnly
+		return opStructFieldNPtrHeadStringTagUintPtrOnly
 	case opStructFieldNPtrHeadStringTagUint8Ptr:
-		return opStructFieldNPtrHeadUint8PtrOnly
+		return opStructFieldNPtrHeadStringTagUint8PtrOnly
 	case opStructFieldNPtrHeadStringTagUint16Ptr:
-		return opStructFieldNPtrHeadUint16PtrOnly
+		return opStructFieldNPtrHeadStringTagUint16PtrOnly
 	case opStructFieldNPtrHeadStringTagUint32Ptr:
-		return opStructFieldNPtrHeadUint32PtrOnly
+		return opStructFieldNPtrHeadStringTagUint32PtrOnly
 	case opStructFieldNPtrHeadStringTagUint64Ptr:
-		return opStructFieldNPtrHeadUint64PtrOnly
+		return opStructFieldNPtrHeadStringTagUint64PtrOnly
 	case opStructFieldNPtrHeadStringTagFloat32Ptr:
-		return opStructFieldNPtrHeadFloat32PtrOnly
+		return opStructFieldNPtrHeadStringTagFloat32PtrOnly
 	case opStructFieldNPtrHeadStringTagFloat64Ptr:
-		return opStructFieldNPtrHeadFloat64PtrOnly
+		return opStructFieldNPtrHeadStringTagFloat64PtrOnly
 	case opStructFieldNPtrHeadStringTagBoolPtr:
-		return opStructFieldNPtrHeadBoolPtrOnly
+		return opStructFieldNPtrHeadStringTagBoolPtrOnly
 	case opStructFieldNPtrHeadStringTagStringPtr:
-		return opStructFieldNPtrHeadStringPtrOnly
+		return opStructFieldNPtrHeadStringTagStringPtrOnly
 	case opStructFieldNPtrHeadStringTagEscapedStringPtr:
-		return opStructFieldNPtrHeadEscapedStringPtrOnly
+		return opStructFieldNPtrHeadStringTagEscapedStringPtrOnly
 	case opStructFieldNPtrHeadStringTagBytesPtr:
-		return opStructFieldNPtrHeadBytesPtrOnly
+		return opStructFieldNPtrHeadStringTagBytesPtrOnly
 	case opStructFieldNPtrHeadStringTagIntNPtr:
-		return opStructFieldNPtrHeadIntNPtrOnly
+		return opStructFieldNPtrHeadStringTagIntNPtrOnly
 	case opStructFieldNPtrHeadStringTagInt8NPtr:
-		return opStructFieldNPtrHeadInt8NPtrOnly
+		return opStructFieldNPtrHeadStringTagInt8NPtrOnly
 	case opStructFieldNPtrHeadStringTagInt16NPtr:
-		return opStructFieldNPtrHeadInt16NPtrOnly
+		return opStructFieldNPtrHeadStringTagInt16NPtrOnly
 	case opStructFieldNPtrHeadStringTagInt32NPtr:
-		return opStructFieldNPtrHeadInt32NPtrOnly
+		return opStructFieldNPtrHeadStringTagInt32NPtrOnly
 	case opStructFieldNPtrHeadStringTagInt64NPtr:
-		return opStructFieldNPtrHeadInt64NPtrOnly
+		return opStructFieldNPtrHeadStringTagInt64NPtrOnly
 	case opStructFieldNPtrHeadStringTagUintNPtr:
-		return opStructFieldNPtrHeadUintNPtrOnly
+		return opStructFieldNPtrHeadStringTagUintNPtrOnly
 	case opStructFieldNPtrHeadStringTagUint8NPtr:
-		return opStructFieldNPtrHeadUint8NPtrOnly
+		return opStructFieldNPtrHeadStringTagUint8NPtrOnly
 	case opStructFieldNPtrHeadStringTagUint16NPtr:
-		return opStructFieldNPtrHeadUint16NPtrOnly
+		return opStructFieldNPtrHeadStringTagUint16NPtrOnly
 	case opStructFieldNPtrHeadStringTagUint32NPtr:
-		return opStructFieldNPtrHeadUint32NPtrOnly
+		return opStructFieldNPtrHeadStringTagUint32NPtrOnly
 	case opStructFieldNPtrHeadStringTagUint64NPtr:
-		return opStructFieldNPtrHeadUint64NPtrOnly
+		return opStructFieldNPtrHeadStringTagUint64NPtrOnly
 	case opStructFieldNPtrHeadStringTagFloat32NPtr:
-		return opStructFieldNPtrHeadFloat32NPtrOnly
+		return opStructFieldNPtrHeadStringTagFloat32NPtrOnly
 	case opStructFieldNPtrHeadStringTagFloat64NPtr:
-		return opStructFieldNPtrHeadFloat64NPtrOnly
+		return opStructFieldNPtrHeadStringTagFloat64NPtrOnly
 	case opStructFieldNPtrHeadStringTagBoolNPtr:
-		return opStructFieldNPtrHeadBoolNPtrOnly
+		return opStructFieldNPtrHeadStringTagBoolNPtrOnly
 	case opStructFieldNPtrHeadStringTagStringNPtr:
-		return opStructFieldNPtrHeadStringNPtrOnly
+		return opStructFieldNPtrHeadStringTagStringNPtrOnly
 	case opStructFieldNPtrHeadStringTagEscapedStringNPtr:
-		return opStructFieldNPtrHeadEscapedStringNPtrOnly
+		return opStructFieldNPtrHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldNPtrHeadStringTagBytesNPtr:
-		return opStructFieldNPtrHeadBytesNPtrOnly
+		return opStructFieldNPtrHeadStringTagBytesNPtrOnly
 	case opStructFieldNPtrAnonymousHeadInt:
 		return opStructFieldNPtrAnonymousHeadIntOnly
 	case opStructFieldNPtrAnonymousHeadInt8:
@@ -63742,197 +63742,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructFieldNPtrAnonymousHeadBytesNPtr:
 		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt:
-		return opStructFieldNPtrAnonymousHeadIntOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyIntOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8:
-		return opStructFieldNPtrAnonymousHeadInt8Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt8Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt16:
-		return opStructFieldNPtrAnonymousHeadInt16Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt16Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt32:
-		return opStructFieldNPtrAnonymousHeadInt32Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt32Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt64:
-		return opStructFieldNPtrAnonymousHeadInt64Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt64Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint:
-		return opStructFieldNPtrAnonymousHeadUintOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUintOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint8:
-		return opStructFieldNPtrAnonymousHeadUint8Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint8Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint16:
-		return opStructFieldNPtrAnonymousHeadUint16Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint16Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint32:
-		return opStructFieldNPtrAnonymousHeadUint32Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint32Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint64:
-		return opStructFieldNPtrAnonymousHeadUint64Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint64Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat32:
-		return opStructFieldNPtrAnonymousHeadFloat32Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat64:
-		return opStructFieldNPtrAnonymousHeadFloat64Only
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Only
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBool:
-		return opStructFieldNPtrAnonymousHeadBoolOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBoolOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyString:
-		return opStructFieldNPtrAnonymousHeadStringOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyStringOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyEscapedString:
-		return opStructFieldNPtrAnonymousHeadEscapedStringOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBytes:
-		return opStructFieldNPtrAnonymousHeadBytesOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBytesOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyIntPtr:
-		return opStructFieldNPtrAnonymousHeadIntPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructFieldNPtrAnonymousHeadInt8PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructFieldNPtrAnonymousHeadInt16PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructFieldNPtrAnonymousHeadInt32PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructFieldNPtrAnonymousHeadInt64PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUintPtr:
-		return opStructFieldNPtrAnonymousHeadUintPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructFieldNPtrAnonymousHeadUint8PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructFieldNPtrAnonymousHeadUint16PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructFieldNPtrAnonymousHeadUint32PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructFieldNPtrAnonymousHeadUint64PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructFieldNPtrAnonymousHeadFloat32PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructFieldNPtrAnonymousHeadFloat64PtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtr:
-		return opStructFieldNPtrAnonymousHeadBoolPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyStringPtr:
-		return opStructFieldNPtrAnonymousHeadStringPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructFieldNPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtr:
-		return opStructFieldNPtrAnonymousHeadBytesPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtr:
-		return opStructFieldNPtrAnonymousHeadIntNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructFieldNPtrAnonymousHeadInt8NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructFieldNPtrAnonymousHeadInt16NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructFieldNPtrAnonymousHeadInt32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructFieldNPtrAnonymousHeadInt64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtr:
-		return opStructFieldNPtrAnonymousHeadUintNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructFieldNPtrAnonymousHeadUint8NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructFieldNPtrAnonymousHeadUint16NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructFieldNPtrAnonymousHeadUint32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructFieldNPtrAnonymousHeadUint64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructFieldNPtrAnonymousHeadFloat32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructFieldNPtrAnonymousHeadFloat64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructFieldNPtrAnonymousHeadBoolNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtr:
-		return opStructFieldNPtrAnonymousHeadStringNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructFieldNPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
+		return opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt:
-		return opStructFieldNPtrAnonymousHeadIntOnly
+		return opStructFieldNPtrAnonymousHeadStringTagIntOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt8:
-		return opStructFieldNPtrAnonymousHeadInt8Only
+		return opStructFieldNPtrAnonymousHeadStringTagInt8Only
 	case opStructFieldNPtrAnonymousHeadStringTagInt16:
-		return opStructFieldNPtrAnonymousHeadInt16Only
+		return opStructFieldNPtrAnonymousHeadStringTagInt16Only
 	case opStructFieldNPtrAnonymousHeadStringTagInt32:
-		return opStructFieldNPtrAnonymousHeadInt32Only
+		return opStructFieldNPtrAnonymousHeadStringTagInt32Only
 	case opStructFieldNPtrAnonymousHeadStringTagInt64:
-		return opStructFieldNPtrAnonymousHeadInt64Only
+		return opStructFieldNPtrAnonymousHeadStringTagInt64Only
 	case opStructFieldNPtrAnonymousHeadStringTagUint:
-		return opStructFieldNPtrAnonymousHeadUintOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUintOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint8:
-		return opStructFieldNPtrAnonymousHeadUint8Only
+		return opStructFieldNPtrAnonymousHeadStringTagUint8Only
 	case opStructFieldNPtrAnonymousHeadStringTagUint16:
-		return opStructFieldNPtrAnonymousHeadUint16Only
+		return opStructFieldNPtrAnonymousHeadStringTagUint16Only
 	case opStructFieldNPtrAnonymousHeadStringTagUint32:
-		return opStructFieldNPtrAnonymousHeadUint32Only
+		return opStructFieldNPtrAnonymousHeadStringTagUint32Only
 	case opStructFieldNPtrAnonymousHeadStringTagUint64:
-		return opStructFieldNPtrAnonymousHeadUint64Only
+		return opStructFieldNPtrAnonymousHeadStringTagUint64Only
 	case opStructFieldNPtrAnonymousHeadStringTagFloat32:
-		return opStructFieldNPtrAnonymousHeadFloat32Only
+		return opStructFieldNPtrAnonymousHeadStringTagFloat32Only
 	case opStructFieldNPtrAnonymousHeadStringTagFloat64:
-		return opStructFieldNPtrAnonymousHeadFloat64Only
+		return opStructFieldNPtrAnonymousHeadStringTagFloat64Only
 	case opStructFieldNPtrAnonymousHeadStringTagBool:
-		return opStructFieldNPtrAnonymousHeadBoolOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBoolOnly
 	case opStructFieldNPtrAnonymousHeadStringTagString:
-		return opStructFieldNPtrAnonymousHeadStringOnly
+		return opStructFieldNPtrAnonymousHeadStringTagStringOnly
 	case opStructFieldNPtrAnonymousHeadStringTagEscapedString:
-		return opStructFieldNPtrAnonymousHeadEscapedStringOnly
+		return opStructFieldNPtrAnonymousHeadStringTagEscapedStringOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBytes:
-		return opStructFieldNPtrAnonymousHeadBytesOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBytesOnly
 	case opStructFieldNPtrAnonymousHeadStringTagIntPtr:
-		return opStructFieldNPtrAnonymousHeadIntPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagIntPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt8Ptr:
-		return opStructFieldNPtrAnonymousHeadInt8PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt8PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt16Ptr:
-		return opStructFieldNPtrAnonymousHeadInt16PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt16PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt32Ptr:
-		return opStructFieldNPtrAnonymousHeadInt32PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt32PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt64Ptr:
-		return opStructFieldNPtrAnonymousHeadInt64PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt64PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUintPtr:
-		return opStructFieldNPtrAnonymousHeadUintPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUintPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint8Ptr:
-		return opStructFieldNPtrAnonymousHeadUint8PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint8PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint16Ptr:
-		return opStructFieldNPtrAnonymousHeadUint16PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint16PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint32Ptr:
-		return opStructFieldNPtrAnonymousHeadUint32PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint32PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint64Ptr:
-		return opStructFieldNPtrAnonymousHeadUint64PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint64PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagFloat32Ptr:
-		return opStructFieldNPtrAnonymousHeadFloat32PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagFloat32PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagFloat64Ptr:
-		return opStructFieldNPtrAnonymousHeadFloat64PtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagFloat64PtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBoolPtr:
-		return opStructFieldNPtrAnonymousHeadBoolPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBoolPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagStringPtr:
-		return opStructFieldNPtrAnonymousHeadStringPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagStringPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagEscapedStringPtr:
-		return opStructFieldNPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBytesPtr:
-		return opStructFieldNPtrAnonymousHeadBytesPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBytesPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagIntNPtr:
-		return opStructFieldNPtrAnonymousHeadIntNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagIntNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt8NPtr:
-		return opStructFieldNPtrAnonymousHeadInt8NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt8NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt16NPtr:
-		return opStructFieldNPtrAnonymousHeadInt16NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt16NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt32NPtr:
-		return opStructFieldNPtrAnonymousHeadInt32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagInt64NPtr:
-		return opStructFieldNPtrAnonymousHeadInt64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagInt64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUintNPtr:
-		return opStructFieldNPtrAnonymousHeadUintNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUintNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint8NPtr:
-		return opStructFieldNPtrAnonymousHeadUint8NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint8NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint16NPtr:
-		return opStructFieldNPtrAnonymousHeadUint16NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint16NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint32NPtr:
-		return opStructFieldNPtrAnonymousHeadUint32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagUint64NPtr:
-		return opStructFieldNPtrAnonymousHeadUint64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagUint64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagFloat32NPtr:
-		return opStructFieldNPtrAnonymousHeadFloat32NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagFloat64NPtr:
-		return opStructFieldNPtrAnonymousHeadFloat64NPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBoolNPtr:
-		return opStructFieldNPtrAnonymousHeadBoolNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBoolNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagStringNPtr:
-		return opStructFieldNPtrAnonymousHeadStringNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructFieldNPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructFieldNPtrAnonymousHeadStringTagBytesNPtr:
-		return opStructFieldNPtrAnonymousHeadBytesNPtrOnly
+		return opStructFieldNPtrAnonymousHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldHeadInt:
 		return opStructEscapedFieldHeadIntOnly
 	case opStructEscapedFieldHeadInt8:
@@ -64030,197 +64030,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldHeadBytesNPtr:
 		return opStructEscapedFieldHeadBytesNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt:
-		return opStructEscapedFieldHeadIntOnly
+		return opStructEscapedFieldHeadOmitEmptyIntOnly
 	case opStructEscapedFieldHeadOmitEmptyInt8:
-		return opStructEscapedFieldHeadInt8Only
+		return opStructEscapedFieldHeadOmitEmptyInt8Only
 	case opStructEscapedFieldHeadOmitEmptyInt16:
-		return opStructEscapedFieldHeadInt16Only
+		return opStructEscapedFieldHeadOmitEmptyInt16Only
 	case opStructEscapedFieldHeadOmitEmptyInt32:
-		return opStructEscapedFieldHeadInt32Only
+		return opStructEscapedFieldHeadOmitEmptyInt32Only
 	case opStructEscapedFieldHeadOmitEmptyInt64:
-		return opStructEscapedFieldHeadInt64Only
+		return opStructEscapedFieldHeadOmitEmptyInt64Only
 	case opStructEscapedFieldHeadOmitEmptyUint:
-		return opStructEscapedFieldHeadUintOnly
+		return opStructEscapedFieldHeadOmitEmptyUintOnly
 	case opStructEscapedFieldHeadOmitEmptyUint8:
-		return opStructEscapedFieldHeadUint8Only
+		return opStructEscapedFieldHeadOmitEmptyUint8Only
 	case opStructEscapedFieldHeadOmitEmptyUint16:
-		return opStructEscapedFieldHeadUint16Only
+		return opStructEscapedFieldHeadOmitEmptyUint16Only
 	case opStructEscapedFieldHeadOmitEmptyUint32:
-		return opStructEscapedFieldHeadUint32Only
+		return opStructEscapedFieldHeadOmitEmptyUint32Only
 	case opStructEscapedFieldHeadOmitEmptyUint64:
-		return opStructEscapedFieldHeadUint64Only
+		return opStructEscapedFieldHeadOmitEmptyUint64Only
 	case opStructEscapedFieldHeadOmitEmptyFloat32:
-		return opStructEscapedFieldHeadFloat32Only
+		return opStructEscapedFieldHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldHeadOmitEmptyFloat64:
-		return opStructEscapedFieldHeadFloat64Only
+		return opStructEscapedFieldHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldHeadOmitEmptyBool:
-		return opStructEscapedFieldHeadBoolOnly
+		return opStructEscapedFieldHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldHeadOmitEmptyString:
-		return opStructEscapedFieldHeadStringOnly
+		return opStructEscapedFieldHeadOmitEmptyStringOnly
 	case opStructEscapedFieldHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldHeadEscapedStringOnly
+		return opStructEscapedFieldHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldHeadOmitEmptyBytes:
-		return opStructEscapedFieldHeadBytesOnly
+		return opStructEscapedFieldHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldHeadIntPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldHeadInt8PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldHeadInt16PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldHeadInt32PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldHeadInt64PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldHeadUintPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldHeadUint8PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldHeadUint16PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldHeadUint32PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldHeadUint64PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldHeadFloat32PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldHeadFloat64PtrOnly
+		return opStructEscapedFieldHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldHeadBoolPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldHeadStringPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldHeadEscapedStringPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldHeadBytesPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldHeadIntNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldHeadInt8NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldHeadInt16NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldHeadInt32NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldHeadInt64NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldHeadUintNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldHeadUint8NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldHeadUint16NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldHeadUint32NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldHeadUint64NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldHeadFloat32NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldHeadFloat64NPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldHeadBoolNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldHeadStringNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldHeadBytesNPtrOnly
+		return opStructEscapedFieldHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldHeadStringTagInt:
-		return opStructEscapedFieldHeadIntOnly
+		return opStructEscapedFieldHeadStringTagIntOnly
 	case opStructEscapedFieldHeadStringTagInt8:
-		return opStructEscapedFieldHeadInt8Only
+		return opStructEscapedFieldHeadStringTagInt8Only
 	case opStructEscapedFieldHeadStringTagInt16:
-		return opStructEscapedFieldHeadInt16Only
+		return opStructEscapedFieldHeadStringTagInt16Only
 	case opStructEscapedFieldHeadStringTagInt32:
-		return opStructEscapedFieldHeadInt32Only
+		return opStructEscapedFieldHeadStringTagInt32Only
 	case opStructEscapedFieldHeadStringTagInt64:
-		return opStructEscapedFieldHeadInt64Only
+		return opStructEscapedFieldHeadStringTagInt64Only
 	case opStructEscapedFieldHeadStringTagUint:
-		return opStructEscapedFieldHeadUintOnly
+		return opStructEscapedFieldHeadStringTagUintOnly
 	case opStructEscapedFieldHeadStringTagUint8:
-		return opStructEscapedFieldHeadUint8Only
+		return opStructEscapedFieldHeadStringTagUint8Only
 	case opStructEscapedFieldHeadStringTagUint16:
-		return opStructEscapedFieldHeadUint16Only
+		return opStructEscapedFieldHeadStringTagUint16Only
 	case opStructEscapedFieldHeadStringTagUint32:
-		return opStructEscapedFieldHeadUint32Only
+		return opStructEscapedFieldHeadStringTagUint32Only
 	case opStructEscapedFieldHeadStringTagUint64:
-		return opStructEscapedFieldHeadUint64Only
+		return opStructEscapedFieldHeadStringTagUint64Only
 	case opStructEscapedFieldHeadStringTagFloat32:
-		return opStructEscapedFieldHeadFloat32Only
+		return opStructEscapedFieldHeadStringTagFloat32Only
 	case opStructEscapedFieldHeadStringTagFloat64:
-		return opStructEscapedFieldHeadFloat64Only
+		return opStructEscapedFieldHeadStringTagFloat64Only
 	case opStructEscapedFieldHeadStringTagBool:
-		return opStructEscapedFieldHeadBoolOnly
+		return opStructEscapedFieldHeadStringTagBoolOnly
 	case opStructEscapedFieldHeadStringTagString:
-		return opStructEscapedFieldHeadStringOnly
+		return opStructEscapedFieldHeadStringTagStringOnly
 	case opStructEscapedFieldHeadStringTagEscapedString:
-		return opStructEscapedFieldHeadEscapedStringOnly
+		return opStructEscapedFieldHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldHeadStringTagBytes:
-		return opStructEscapedFieldHeadBytesOnly
+		return opStructEscapedFieldHeadStringTagBytesOnly
 	case opStructEscapedFieldHeadStringTagIntPtr:
-		return opStructEscapedFieldHeadIntPtrOnly
+		return opStructEscapedFieldHeadStringTagIntPtrOnly
 	case opStructEscapedFieldHeadStringTagInt8Ptr:
-		return opStructEscapedFieldHeadInt8PtrOnly
+		return opStructEscapedFieldHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldHeadStringTagInt16Ptr:
-		return opStructEscapedFieldHeadInt16PtrOnly
+		return opStructEscapedFieldHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldHeadStringTagInt32Ptr:
-		return opStructEscapedFieldHeadInt32PtrOnly
+		return opStructEscapedFieldHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldHeadStringTagInt64Ptr:
-		return opStructEscapedFieldHeadInt64PtrOnly
+		return opStructEscapedFieldHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldHeadStringTagUintPtr:
-		return opStructEscapedFieldHeadUintPtrOnly
+		return opStructEscapedFieldHeadStringTagUintPtrOnly
 	case opStructEscapedFieldHeadStringTagUint8Ptr:
-		return opStructEscapedFieldHeadUint8PtrOnly
+		return opStructEscapedFieldHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldHeadStringTagUint16Ptr:
-		return opStructEscapedFieldHeadUint16PtrOnly
+		return opStructEscapedFieldHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldHeadStringTagUint32Ptr:
-		return opStructEscapedFieldHeadUint32PtrOnly
+		return opStructEscapedFieldHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldHeadStringTagUint64Ptr:
-		return opStructEscapedFieldHeadUint64PtrOnly
+		return opStructEscapedFieldHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldHeadFloat32PtrOnly
+		return opStructEscapedFieldHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldHeadFloat64PtrOnly
+		return opStructEscapedFieldHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldHeadStringTagBoolPtr:
-		return opStructEscapedFieldHeadBoolPtrOnly
+		return opStructEscapedFieldHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldHeadStringTagStringPtr:
-		return opStructEscapedFieldHeadStringPtrOnly
+		return opStructEscapedFieldHeadStringTagStringPtrOnly
 	case opStructEscapedFieldHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldHeadEscapedStringPtrOnly
+		return opStructEscapedFieldHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldHeadStringTagBytesPtr:
-		return opStructEscapedFieldHeadBytesPtrOnly
+		return opStructEscapedFieldHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldHeadStringTagIntNPtr:
-		return opStructEscapedFieldHeadIntNPtrOnly
+		return opStructEscapedFieldHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldHeadStringTagInt8NPtr:
-		return opStructEscapedFieldHeadInt8NPtrOnly
+		return opStructEscapedFieldHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldHeadStringTagInt16NPtr:
-		return opStructEscapedFieldHeadInt16NPtrOnly
+		return opStructEscapedFieldHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldHeadStringTagInt32NPtr:
-		return opStructEscapedFieldHeadInt32NPtrOnly
+		return opStructEscapedFieldHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldHeadStringTagInt64NPtr:
-		return opStructEscapedFieldHeadInt64NPtrOnly
+		return opStructEscapedFieldHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldHeadStringTagUintNPtr:
-		return opStructEscapedFieldHeadUintNPtrOnly
+		return opStructEscapedFieldHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldHeadStringTagUint8NPtr:
-		return opStructEscapedFieldHeadUint8NPtrOnly
+		return opStructEscapedFieldHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldHeadStringTagUint16NPtr:
-		return opStructEscapedFieldHeadUint16NPtrOnly
+		return opStructEscapedFieldHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldHeadStringTagUint32NPtr:
-		return opStructEscapedFieldHeadUint32NPtrOnly
+		return opStructEscapedFieldHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldHeadStringTagUint64NPtr:
-		return opStructEscapedFieldHeadUint64NPtrOnly
+		return opStructEscapedFieldHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldHeadFloat32NPtrOnly
+		return opStructEscapedFieldHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldHeadFloat64NPtrOnly
+		return opStructEscapedFieldHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldHeadStringTagBoolNPtr:
-		return opStructEscapedFieldHeadBoolNPtrOnly
+		return opStructEscapedFieldHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldHeadStringTagStringNPtr:
-		return opStructEscapedFieldHeadStringNPtrOnly
+		return opStructEscapedFieldHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldHeadStringTagBytesNPtr:
-		return opStructEscapedFieldHeadBytesNPtrOnly
+		return opStructEscapedFieldHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldAnonymousHeadInt:
 		return opStructEscapedFieldAnonymousHeadIntOnly
 	case opStructEscapedFieldAnonymousHeadInt8:
@@ -64318,197 +64318,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt:
-		return opStructEscapedFieldAnonymousHeadIntOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyIntOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8:
-		return opStructEscapedFieldAnonymousHeadInt8Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt8Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt16:
-		return opStructEscapedFieldAnonymousHeadInt16Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt16Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt32:
-		return opStructEscapedFieldAnonymousHeadInt32Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt32Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt64:
-		return opStructEscapedFieldAnonymousHeadInt64Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt64Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint:
-		return opStructEscapedFieldAnonymousHeadUintOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUintOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint8:
-		return opStructEscapedFieldAnonymousHeadUint8Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint8Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint16:
-		return opStructEscapedFieldAnonymousHeadUint16Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint16Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint32:
-		return opStructEscapedFieldAnonymousHeadUint32Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint32Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint64:
-		return opStructEscapedFieldAnonymousHeadUint64Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint64Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat32:
-		return opStructEscapedFieldAnonymousHeadFloat32Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat64:
-		return opStructEscapedFieldAnonymousHeadFloat64Only
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBool:
-		return opStructEscapedFieldAnonymousHeadBoolOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyString:
-		return opStructEscapedFieldAnonymousHeadStringOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyStringOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBytes:
-		return opStructEscapedFieldAnonymousHeadBytesOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt:
-		return opStructEscapedFieldAnonymousHeadIntOnly
+		return opStructEscapedFieldAnonymousHeadStringTagIntOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt8:
-		return opStructEscapedFieldAnonymousHeadInt8Only
+		return opStructEscapedFieldAnonymousHeadStringTagInt8Only
 	case opStructEscapedFieldAnonymousHeadStringTagInt16:
-		return opStructEscapedFieldAnonymousHeadInt16Only
+		return opStructEscapedFieldAnonymousHeadStringTagInt16Only
 	case opStructEscapedFieldAnonymousHeadStringTagInt32:
-		return opStructEscapedFieldAnonymousHeadInt32Only
+		return opStructEscapedFieldAnonymousHeadStringTagInt32Only
 	case opStructEscapedFieldAnonymousHeadStringTagInt64:
-		return opStructEscapedFieldAnonymousHeadInt64Only
+		return opStructEscapedFieldAnonymousHeadStringTagInt64Only
 	case opStructEscapedFieldAnonymousHeadStringTagUint:
-		return opStructEscapedFieldAnonymousHeadUintOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUintOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint8:
-		return opStructEscapedFieldAnonymousHeadUint8Only
+		return opStructEscapedFieldAnonymousHeadStringTagUint8Only
 	case opStructEscapedFieldAnonymousHeadStringTagUint16:
-		return opStructEscapedFieldAnonymousHeadUint16Only
+		return opStructEscapedFieldAnonymousHeadStringTagUint16Only
 	case opStructEscapedFieldAnonymousHeadStringTagUint32:
-		return opStructEscapedFieldAnonymousHeadUint32Only
+		return opStructEscapedFieldAnonymousHeadStringTagUint32Only
 	case opStructEscapedFieldAnonymousHeadStringTagUint64:
-		return opStructEscapedFieldAnonymousHeadUint64Only
+		return opStructEscapedFieldAnonymousHeadStringTagUint64Only
 	case opStructEscapedFieldAnonymousHeadStringTagFloat32:
-		return opStructEscapedFieldAnonymousHeadFloat32Only
+		return opStructEscapedFieldAnonymousHeadStringTagFloat32Only
 	case opStructEscapedFieldAnonymousHeadStringTagFloat64:
-		return opStructEscapedFieldAnonymousHeadFloat64Only
+		return opStructEscapedFieldAnonymousHeadStringTagFloat64Only
 	case opStructEscapedFieldAnonymousHeadStringTagBool:
-		return opStructEscapedFieldAnonymousHeadBoolOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBoolOnly
 	case opStructEscapedFieldAnonymousHeadStringTagString:
-		return opStructEscapedFieldAnonymousHeadStringOnly
+		return opStructEscapedFieldAnonymousHeadStringTagStringOnly
 	case opStructEscapedFieldAnonymousHeadStringTagEscapedString:
-		return opStructEscapedFieldAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldAnonymousHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBytes:
-		return opStructEscapedFieldAnonymousHeadBytesOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBytesOnly
 	case opStructEscapedFieldAnonymousHeadStringTagIntPtr:
-		return opStructEscapedFieldAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagIntPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt8Ptr:
-		return opStructEscapedFieldAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt16Ptr:
-		return opStructEscapedFieldAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt32Ptr:
-		return opStructEscapedFieldAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt64Ptr:
-		return opStructEscapedFieldAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUintPtr:
-		return opStructEscapedFieldAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUintPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint8Ptr:
-		return opStructEscapedFieldAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint16Ptr:
-		return opStructEscapedFieldAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint32Ptr:
-		return opStructEscapedFieldAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint64Ptr:
-		return opStructEscapedFieldAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBoolPtr:
-		return opStructEscapedFieldAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagStringPtr:
-		return opStructEscapedFieldAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagStringPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBytesPtr:
-		return opStructEscapedFieldAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagIntNPtr:
-		return opStructEscapedFieldAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt8NPtr:
-		return opStructEscapedFieldAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt16NPtr:
-		return opStructEscapedFieldAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt32NPtr:
-		return opStructEscapedFieldAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagInt64NPtr:
-		return opStructEscapedFieldAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUintNPtr:
-		return opStructEscapedFieldAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint8NPtr:
-		return opStructEscapedFieldAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint16NPtr:
-		return opStructEscapedFieldAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint32NPtr:
-		return opStructEscapedFieldAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagUint64NPtr:
-		return opStructEscapedFieldAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBoolNPtr:
-		return opStructEscapedFieldAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagStringNPtr:
-		return opStructEscapedFieldAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldAnonymousHeadStringTagBytesNPtr:
-		return opStructEscapedFieldAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldAnonymousHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldPtrHeadInt:
 		return opStructEscapedFieldPtrHeadIntOnly
 	case opStructEscapedFieldPtrHeadInt8:
@@ -64606,197 +64606,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldPtrHeadBytesNPtr:
 		return opStructEscapedFieldPtrHeadBytesNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt:
-		return opStructEscapedFieldPtrHeadIntOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyIntOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt8:
-		return opStructEscapedFieldPtrHeadInt8Only
+		return opStructEscapedFieldPtrHeadOmitEmptyInt8Only
 	case opStructEscapedFieldPtrHeadOmitEmptyInt16:
-		return opStructEscapedFieldPtrHeadInt16Only
+		return opStructEscapedFieldPtrHeadOmitEmptyInt16Only
 	case opStructEscapedFieldPtrHeadOmitEmptyInt32:
-		return opStructEscapedFieldPtrHeadInt32Only
+		return opStructEscapedFieldPtrHeadOmitEmptyInt32Only
 	case opStructEscapedFieldPtrHeadOmitEmptyInt64:
-		return opStructEscapedFieldPtrHeadInt64Only
+		return opStructEscapedFieldPtrHeadOmitEmptyInt64Only
 	case opStructEscapedFieldPtrHeadOmitEmptyUint:
-		return opStructEscapedFieldPtrHeadUintOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUintOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint8:
-		return opStructEscapedFieldPtrHeadUint8Only
+		return opStructEscapedFieldPtrHeadOmitEmptyUint8Only
 	case opStructEscapedFieldPtrHeadOmitEmptyUint16:
-		return opStructEscapedFieldPtrHeadUint16Only
+		return opStructEscapedFieldPtrHeadOmitEmptyUint16Only
 	case opStructEscapedFieldPtrHeadOmitEmptyUint32:
-		return opStructEscapedFieldPtrHeadUint32Only
+		return opStructEscapedFieldPtrHeadOmitEmptyUint32Only
 	case opStructEscapedFieldPtrHeadOmitEmptyUint64:
-		return opStructEscapedFieldPtrHeadUint64Only
+		return opStructEscapedFieldPtrHeadOmitEmptyUint64Only
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat32:
-		return opStructEscapedFieldPtrHeadFloat32Only
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat64:
-		return opStructEscapedFieldPtrHeadFloat64Only
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldPtrHeadOmitEmptyBool:
-		return opStructEscapedFieldPtrHeadBoolOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyString:
-		return opStructEscapedFieldPtrHeadStringOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyStringOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldPtrHeadEscapedStringOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBytes:
-		return opStructEscapedFieldPtrHeadBytesOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldPtrHeadIntPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldPtrHeadInt8PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldPtrHeadInt16PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldPtrHeadInt32PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldPtrHeadInt64PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldPtrHeadUintPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldPtrHeadUint8PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldPtrHeadUint16PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldPtrHeadUint32PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldPtrHeadUint64PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldPtrHeadFloat32PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldPtrHeadFloat64PtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldPtrHeadBoolPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldPtrHeadStringPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldPtrHeadEscapedStringPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldPtrHeadBytesPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldPtrHeadIntNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldPtrHeadInt8NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldPtrHeadInt16NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldPtrHeadInt32NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldPtrHeadInt64NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldPtrHeadUintNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldPtrHeadUint8NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldPtrHeadUint16NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldPtrHeadUint32NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldPtrHeadUint64NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldPtrHeadFloat32NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldPtrHeadFloat64NPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldPtrHeadBoolNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldPtrHeadStringNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldPtrHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldPtrHeadBytesNPtrOnly
+		return opStructEscapedFieldPtrHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt:
-		return opStructEscapedFieldPtrHeadIntOnly
+		return opStructEscapedFieldPtrHeadStringTagIntOnly
 	case opStructEscapedFieldPtrHeadStringTagInt8:
-		return opStructEscapedFieldPtrHeadInt8Only
+		return opStructEscapedFieldPtrHeadStringTagInt8Only
 	case opStructEscapedFieldPtrHeadStringTagInt16:
-		return opStructEscapedFieldPtrHeadInt16Only
+		return opStructEscapedFieldPtrHeadStringTagInt16Only
 	case opStructEscapedFieldPtrHeadStringTagInt32:
-		return opStructEscapedFieldPtrHeadInt32Only
+		return opStructEscapedFieldPtrHeadStringTagInt32Only
 	case opStructEscapedFieldPtrHeadStringTagInt64:
-		return opStructEscapedFieldPtrHeadInt64Only
+		return opStructEscapedFieldPtrHeadStringTagInt64Only
 	case opStructEscapedFieldPtrHeadStringTagUint:
-		return opStructEscapedFieldPtrHeadUintOnly
+		return opStructEscapedFieldPtrHeadStringTagUintOnly
 	case opStructEscapedFieldPtrHeadStringTagUint8:
-		return opStructEscapedFieldPtrHeadUint8Only
+		return opStructEscapedFieldPtrHeadStringTagUint8Only
 	case opStructEscapedFieldPtrHeadStringTagUint16:
-		return opStructEscapedFieldPtrHeadUint16Only
+		return opStructEscapedFieldPtrHeadStringTagUint16Only
 	case opStructEscapedFieldPtrHeadStringTagUint32:
-		return opStructEscapedFieldPtrHeadUint32Only
+		return opStructEscapedFieldPtrHeadStringTagUint32Only
 	case opStructEscapedFieldPtrHeadStringTagUint64:
-		return opStructEscapedFieldPtrHeadUint64Only
+		return opStructEscapedFieldPtrHeadStringTagUint64Only
 	case opStructEscapedFieldPtrHeadStringTagFloat32:
-		return opStructEscapedFieldPtrHeadFloat32Only
+		return opStructEscapedFieldPtrHeadStringTagFloat32Only
 	case opStructEscapedFieldPtrHeadStringTagFloat64:
-		return opStructEscapedFieldPtrHeadFloat64Only
+		return opStructEscapedFieldPtrHeadStringTagFloat64Only
 	case opStructEscapedFieldPtrHeadStringTagBool:
-		return opStructEscapedFieldPtrHeadBoolOnly
+		return opStructEscapedFieldPtrHeadStringTagBoolOnly
 	case opStructEscapedFieldPtrHeadStringTagString:
-		return opStructEscapedFieldPtrHeadStringOnly
+		return opStructEscapedFieldPtrHeadStringTagStringOnly
 	case opStructEscapedFieldPtrHeadStringTagEscapedString:
-		return opStructEscapedFieldPtrHeadEscapedStringOnly
+		return opStructEscapedFieldPtrHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldPtrHeadStringTagBytes:
-		return opStructEscapedFieldPtrHeadBytesOnly
+		return opStructEscapedFieldPtrHeadStringTagBytesOnly
 	case opStructEscapedFieldPtrHeadStringTagIntPtr:
-		return opStructEscapedFieldPtrHeadIntPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagIntPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt8Ptr:
-		return opStructEscapedFieldPtrHeadInt8PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt16Ptr:
-		return opStructEscapedFieldPtrHeadInt16PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt32Ptr:
-		return opStructEscapedFieldPtrHeadInt32PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt64Ptr:
-		return opStructEscapedFieldPtrHeadInt64PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUintPtr:
-		return opStructEscapedFieldPtrHeadUintPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUintPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint8Ptr:
-		return opStructEscapedFieldPtrHeadUint8PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint16Ptr:
-		return opStructEscapedFieldPtrHeadUint16PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint32Ptr:
-		return opStructEscapedFieldPtrHeadUint32PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint64Ptr:
-		return opStructEscapedFieldPtrHeadUint64PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldPtrHeadFloat32PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldPtrHeadFloat64PtrOnly
+		return opStructEscapedFieldPtrHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldPtrHeadStringTagBoolPtr:
-		return opStructEscapedFieldPtrHeadBoolPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagStringPtr:
-		return opStructEscapedFieldPtrHeadStringPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagStringPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldPtrHeadEscapedStringPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagBytesPtr:
-		return opStructEscapedFieldPtrHeadBytesPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagIntNPtr:
-		return opStructEscapedFieldPtrHeadIntNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt8NPtr:
-		return opStructEscapedFieldPtrHeadInt8NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt16NPtr:
-		return opStructEscapedFieldPtrHeadInt16NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt32NPtr:
-		return opStructEscapedFieldPtrHeadInt32NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagInt64NPtr:
-		return opStructEscapedFieldPtrHeadInt64NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUintNPtr:
-		return opStructEscapedFieldPtrHeadUintNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint8NPtr:
-		return opStructEscapedFieldPtrHeadUint8NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint16NPtr:
-		return opStructEscapedFieldPtrHeadUint16NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint32NPtr:
-		return opStructEscapedFieldPtrHeadUint32NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagUint64NPtr:
-		return opStructEscapedFieldPtrHeadUint64NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldPtrHeadFloat32NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldPtrHeadFloat64NPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagBoolNPtr:
-		return opStructEscapedFieldPtrHeadBoolNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagStringNPtr:
-		return opStructEscapedFieldPtrHeadStringNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldPtrHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrHeadStringTagBytesNPtr:
-		return opStructEscapedFieldPtrHeadBytesNPtrOnly
+		return opStructEscapedFieldPtrHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadInt:
 		return opStructEscapedFieldPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadInt8:
@@ -64894,197 +64894,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldPtrAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt:
-		return opStructEscapedFieldPtrAnonymousHeadIntOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8:
-		return opStructEscapedFieldPtrAnonymousHeadInt8Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16:
-		return opStructEscapedFieldPtrAnonymousHeadInt16Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32:
-		return opStructEscapedFieldPtrAnonymousHeadInt32Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64:
-		return opStructEscapedFieldPtrAnonymousHeadInt64Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint:
-		return opStructEscapedFieldPtrAnonymousHeadUintOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8:
-		return opStructEscapedFieldPtrAnonymousHeadUint8Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16:
-		return opStructEscapedFieldPtrAnonymousHeadUint16Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32:
-		return opStructEscapedFieldPtrAnonymousHeadUint32Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64:
-		return opStructEscapedFieldPtrAnonymousHeadUint64Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64Only
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBool:
-		return opStructEscapedFieldPtrAnonymousHeadBoolOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyString:
-		return opStructEscapedFieldPtrAnonymousHeadStringOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytes:
-		return opStructEscapedFieldPtrAnonymousHeadBytesOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldPtrAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldPtrAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt:
-		return opStructEscapedFieldPtrAnonymousHeadIntOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagIntOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8:
-		return opStructEscapedFieldPtrAnonymousHeadInt8Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt8Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt16:
-		return opStructEscapedFieldPtrAnonymousHeadInt16Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt16Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt32:
-		return opStructEscapedFieldPtrAnonymousHeadInt32Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt32Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt64:
-		return opStructEscapedFieldPtrAnonymousHeadInt64Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt64Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint:
-		return opStructEscapedFieldPtrAnonymousHeadUintOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUintOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint8:
-		return opStructEscapedFieldPtrAnonymousHeadUint8Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint8Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint16:
-		return opStructEscapedFieldPtrAnonymousHeadUint16Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint16Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint32:
-		return opStructEscapedFieldPtrAnonymousHeadUint32Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint32Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint64:
-		return opStructEscapedFieldPtrAnonymousHeadUint64Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint64Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat32:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat32Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat64:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64Only
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat64Only
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBool:
-		return opStructEscapedFieldPtrAnonymousHeadBoolOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBoolOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagString:
-		return opStructEscapedFieldPtrAnonymousHeadStringOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagEscapedString:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBytes:
-		return opStructEscapedFieldPtrAnonymousHeadBytesOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBytesOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagIntPtr:
-		return opStructEscapedFieldPtrAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagIntPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt16Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUintPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUintPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint8Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint16Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBoolPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagStringPtr:
-		return opStructEscapedFieldPtrAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagStringPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBytesPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagIntNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt8NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt16NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagInt64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUintNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint8NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint16NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagUint64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldPtrAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBoolNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagStringNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldPtrAnonymousHeadStringTagBytesNPtr:
-		return opStructEscapedFieldPtrAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldPtrAnonymousHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldNPtrHeadInt:
 		return opStructEscapedFieldNPtrHeadIntOnly
 	case opStructEscapedFieldNPtrHeadInt8:
@@ -65182,197 +65182,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldNPtrHeadBytesNPtr:
 		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt:
-		return opStructEscapedFieldNPtrHeadIntOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyIntOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt8:
-		return opStructEscapedFieldNPtrHeadInt8Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt8Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt16:
-		return opStructEscapedFieldNPtrHeadInt16Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt16Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt32:
-		return opStructEscapedFieldNPtrHeadInt32Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt32Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt64:
-		return opStructEscapedFieldNPtrHeadInt64Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt64Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint:
-		return opStructEscapedFieldNPtrHeadUintOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUintOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint8:
-		return opStructEscapedFieldNPtrHeadUint8Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint8Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint16:
-		return opStructEscapedFieldNPtrHeadUint16Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint16Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint32:
-		return opStructEscapedFieldNPtrHeadUint32Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint32Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint64:
-		return opStructEscapedFieldNPtrHeadUint64Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint64Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat32:
-		return opStructEscapedFieldNPtrHeadFloat32Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat64:
-		return opStructEscapedFieldNPtrHeadFloat64Only
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldNPtrHeadOmitEmptyBool:
-		return opStructEscapedFieldNPtrHeadBoolOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyString:
-		return opStructEscapedFieldNPtrHeadStringOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyStringOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldNPtrHeadEscapedStringOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBytes:
-		return opStructEscapedFieldNPtrHeadBytesOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldNPtrHeadIntPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldNPtrHeadInt8PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldNPtrHeadInt16PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldNPtrHeadInt32PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldNPtrHeadInt64PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldNPtrHeadUintPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldNPtrHeadUint8PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldNPtrHeadUint16PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldNPtrHeadUint32PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldNPtrHeadUint64PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldNPtrHeadFloat32PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldNPtrHeadFloat64PtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldNPtrHeadBoolPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldNPtrHeadStringPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldNPtrHeadEscapedStringPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldNPtrHeadBytesPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldNPtrHeadIntNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldNPtrHeadInt8NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldNPtrHeadInt16NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldNPtrHeadInt32NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldNPtrHeadInt64NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldNPtrHeadUintNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldNPtrHeadUint8NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldNPtrHeadUint16NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldNPtrHeadUint32NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldNPtrHeadUint64NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldNPtrHeadFloat32NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldNPtrHeadFloat64NPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldNPtrHeadBoolNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldNPtrHeadStringNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldNPtrHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
+		return opStructEscapedFieldNPtrHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt:
-		return opStructEscapedFieldNPtrHeadIntOnly
+		return opStructEscapedFieldNPtrHeadStringTagIntOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt8:
-		return opStructEscapedFieldNPtrHeadInt8Only
+		return opStructEscapedFieldNPtrHeadStringTagInt8Only
 	case opStructEscapedFieldNPtrHeadStringTagInt16:
-		return opStructEscapedFieldNPtrHeadInt16Only
+		return opStructEscapedFieldNPtrHeadStringTagInt16Only
 	case opStructEscapedFieldNPtrHeadStringTagInt32:
-		return opStructEscapedFieldNPtrHeadInt32Only
+		return opStructEscapedFieldNPtrHeadStringTagInt32Only
 	case opStructEscapedFieldNPtrHeadStringTagInt64:
-		return opStructEscapedFieldNPtrHeadInt64Only
+		return opStructEscapedFieldNPtrHeadStringTagInt64Only
 	case opStructEscapedFieldNPtrHeadStringTagUint:
-		return opStructEscapedFieldNPtrHeadUintOnly
+		return opStructEscapedFieldNPtrHeadStringTagUintOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint8:
-		return opStructEscapedFieldNPtrHeadUint8Only
+		return opStructEscapedFieldNPtrHeadStringTagUint8Only
 	case opStructEscapedFieldNPtrHeadStringTagUint16:
-		return opStructEscapedFieldNPtrHeadUint16Only
+		return opStructEscapedFieldNPtrHeadStringTagUint16Only
 	case opStructEscapedFieldNPtrHeadStringTagUint32:
-		return opStructEscapedFieldNPtrHeadUint32Only
+		return opStructEscapedFieldNPtrHeadStringTagUint32Only
 	case opStructEscapedFieldNPtrHeadStringTagUint64:
-		return opStructEscapedFieldNPtrHeadUint64Only
+		return opStructEscapedFieldNPtrHeadStringTagUint64Only
 	case opStructEscapedFieldNPtrHeadStringTagFloat32:
-		return opStructEscapedFieldNPtrHeadFloat32Only
+		return opStructEscapedFieldNPtrHeadStringTagFloat32Only
 	case opStructEscapedFieldNPtrHeadStringTagFloat64:
-		return opStructEscapedFieldNPtrHeadFloat64Only
+		return opStructEscapedFieldNPtrHeadStringTagFloat64Only
 	case opStructEscapedFieldNPtrHeadStringTagBool:
-		return opStructEscapedFieldNPtrHeadBoolOnly
+		return opStructEscapedFieldNPtrHeadStringTagBoolOnly
 	case opStructEscapedFieldNPtrHeadStringTagString:
-		return opStructEscapedFieldNPtrHeadStringOnly
+		return opStructEscapedFieldNPtrHeadStringTagStringOnly
 	case opStructEscapedFieldNPtrHeadStringTagEscapedString:
-		return opStructEscapedFieldNPtrHeadEscapedStringOnly
+		return opStructEscapedFieldNPtrHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldNPtrHeadStringTagBytes:
-		return opStructEscapedFieldNPtrHeadBytesOnly
+		return opStructEscapedFieldNPtrHeadStringTagBytesOnly
 	case opStructEscapedFieldNPtrHeadStringTagIntPtr:
-		return opStructEscapedFieldNPtrHeadIntPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagIntPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt8Ptr:
-		return opStructEscapedFieldNPtrHeadInt8PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt16Ptr:
-		return opStructEscapedFieldNPtrHeadInt16PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt32Ptr:
-		return opStructEscapedFieldNPtrHeadInt32PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt64Ptr:
-		return opStructEscapedFieldNPtrHeadInt64PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUintPtr:
-		return opStructEscapedFieldNPtrHeadUintPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUintPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint8Ptr:
-		return opStructEscapedFieldNPtrHeadUint8PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint16Ptr:
-		return opStructEscapedFieldNPtrHeadUint16PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint32Ptr:
-		return opStructEscapedFieldNPtrHeadUint32PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint64Ptr:
-		return opStructEscapedFieldNPtrHeadUint64PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldNPtrHeadFloat32PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldNPtrHeadFloat64PtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagBoolPtr:
-		return opStructEscapedFieldNPtrHeadBoolPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagStringPtr:
-		return opStructEscapedFieldNPtrHeadStringPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagStringPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldNPtrHeadEscapedStringPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagBytesPtr:
-		return opStructEscapedFieldNPtrHeadBytesPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagIntNPtr:
-		return opStructEscapedFieldNPtrHeadIntNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt8NPtr:
-		return opStructEscapedFieldNPtrHeadInt8NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt16NPtr:
-		return opStructEscapedFieldNPtrHeadInt16NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt32NPtr:
-		return opStructEscapedFieldNPtrHeadInt32NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagInt64NPtr:
-		return opStructEscapedFieldNPtrHeadInt64NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUintNPtr:
-		return opStructEscapedFieldNPtrHeadUintNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint8NPtr:
-		return opStructEscapedFieldNPtrHeadUint8NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint16NPtr:
-		return opStructEscapedFieldNPtrHeadUint16NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint32NPtr:
-		return opStructEscapedFieldNPtrHeadUint32NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagUint64NPtr:
-		return opStructEscapedFieldNPtrHeadUint64NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldNPtrHeadFloat32NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldNPtrHeadFloat64NPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagBoolNPtr:
-		return opStructEscapedFieldNPtrHeadBoolNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagStringNPtr:
-		return opStructEscapedFieldNPtrHeadStringNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldNPtrHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrHeadStringTagBytesNPtr:
-		return opStructEscapedFieldNPtrHeadBytesNPtrOnly
+		return opStructEscapedFieldNPtrHeadStringTagBytesNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadInt:
 		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadInt8:
@@ -65470,197 +65470,197 @@ func (t opType) headToOnlyHead() opType {
 	case opStructEscapedFieldNPtrAnonymousHeadBytesNPtr:
 		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt:
-		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint:
-		return opStructEscapedFieldNPtrAnonymousHeadUintOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64Only
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64Only
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBool:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBoolOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyString:
-		return opStructEscapedFieldNPtrAnonymousHeadStringOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedString:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytes:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBoolPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBoolPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStringPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStringPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedStringPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedStringPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyIntNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt8NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt16NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyInt64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUintNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint8NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint16NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyUint64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyFloat64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBoolNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBoolNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStringNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedStringNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadOmitEmptyBytesNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt:
-		return opStructEscapedFieldNPtrAnonymousHeadIntOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagIntOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt8Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt16:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt16Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt32:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt32Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt64:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt64Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint:
-		return opStructEscapedFieldNPtrAnonymousHeadUintOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUintOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint8:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint8Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint16:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint16Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint32:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint32Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint64:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint64Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64Only
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64Only
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBool:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBoolOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagString:
-		return opStructEscapedFieldNPtrAnonymousHeadStringOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedString:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedStringOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBytes:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBytesOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagIntPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadIntPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagIntPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt8PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt16Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt16PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUintPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUintPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUintPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint8Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint8PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint16Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint16PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64Ptr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64PtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64PtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBoolPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBoolPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagStringPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadStringPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagStringPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedStringPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedStringPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBytesPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBytesPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagIntNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadIntNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagIntNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt8NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt8NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt8NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt16NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt16NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt16NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagInt64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadInt64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagInt64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUintNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUintNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUintNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint8NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint8NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint8NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint16NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint16NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint16NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagUint64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadUint64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagUint64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat32NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat32NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64NPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadFloat64NPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagFloat64NPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBoolNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBoolNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBoolNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagStringNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadStringNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedStringNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadEscapedStringNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagEscapedStringNPtrOnly
 	case opStructEscapedFieldNPtrAnonymousHeadStringTagBytesNPtr:
-		return opStructEscapedFieldNPtrAnonymousHeadBytesNPtrOnly
+		return opStructEscapedFieldNPtrAnonymousHeadStringTagBytesNPtrOnly
 	}
 	return t
 }

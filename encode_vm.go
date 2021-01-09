@@ -1184,12 +1184,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				//if code.op == opStructFieldPtrHead {
 				b = encodeNull(b)
 				b = encodeComma(b)
-				//} else {
-				//	b = append(b, '{', '}', ',')
-				//}
 				code = code.end.next
 			} else {
 				b = append(b, '{')
@@ -1221,12 +1217,8 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 		case opStructEscapedFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				//if code.op == opStructEscapedFieldPtrHead {
 				b = encodeNull(b)
 				b = encodeComma(b)
-				//} else {
-				//	b = append(b, '{', '}', ',')
-				//}
 				code = code.end.next
 			} else {
 				b = append(b, '{')

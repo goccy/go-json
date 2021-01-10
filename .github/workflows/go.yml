@@ -22,7 +22,6 @@ jobs:
       env:
         GOGC: 1
     - name: test with race detector
-      if: ${{ matrix.os != 'windows-latest' }}
       run: go test -v -race ./ -count=1
   coverage:
     name: Coverage

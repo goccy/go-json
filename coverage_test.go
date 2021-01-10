@@ -4934,13 +4934,19 @@ func TestCoverStructHeadUint(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expected string
-		data     interface{}
+		name           string
+		expected       string
+		indentExpected string
+		data           interface{}
 	}{
 		{
 			name:     "HeadUintZero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: struct {
 				A uint `json:"a"`
 			}{},
@@ -4948,6 +4954,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUint",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A uint `json:"a"`
 			}{A: 1},
@@ -4955,6 +4966,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A *uint `json:"a"`
 			}{A: uptr(1)},
@@ -4962,6 +4978,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				A *uint `json:"a"`
 			}{A: nil},
@@ -4969,6 +4990,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintZero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: &struct {
 				A uint `json:"a"`
 			}{},
@@ -4976,6 +5002,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUint",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A uint `json:"a"`
 			}{A: 1},
@@ -4983,6 +5014,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A *uint `json:"a"`
 			}{A: uptr(1)},
@@ -4990,6 +5026,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: &struct {
 				A *uint `json:"a"`
 			}{A: nil},
@@ -4997,6 +5038,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNil",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint `json:"a"`
 			})(nil),
@@ -5004,6 +5048,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: struct {
 				A uint `json:"a"`
 				B uint `json:"b"`
@@ -5012,6 +5062,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A uint `json:"a"`
 				B uint `json:"b"`
@@ -5020,6 +5076,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A *uint `json:"a"`
 				B *uint `json:"b"`
@@ -5028,6 +5090,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: struct {
 				A *uint `json:"a"`
 				B *uint `json:"b"`
@@ -5036,6 +5104,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: &struct {
 				A uint `json:"a"`
 				B uint `json:"b"`
@@ -5044,6 +5118,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A uint `json:"a"`
 				B uint `json:"b"`
@@ -5052,6 +5132,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A *uint `json:"a"`
 				B *uint `json:"b"`
@@ -5060,6 +5146,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: &struct {
 				A *uint `json:"a"`
 				B *uint `json:"b"`
@@ -5068,15 +5160,24 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNilMultiFields",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint `json:"a"`
 				B *uint `json:"b"`
 			})(nil),
 		},
-
 		{
 			name:     "HeadUintZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint `json:"a"`
@@ -5086,6 +5187,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint `json:"a"`
@@ -5097,6 +5205,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint `json:"a"`
@@ -5108,6 +5223,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint `json:"a"`
@@ -5117,6 +5239,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint `json:"a"`
@@ -5128,6 +5257,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint `json:"a"`
@@ -5139,6 +5275,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5150,6 +5293,13 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5161,6 +5311,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNilNotRoot",
 			expected: `{"A":null}`,
+			indentExpected: `
+{
+  "A": null
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5170,6 +5325,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint `json:"a"`
@@ -5182,6 +5347,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint `json:"a"`
@@ -5198,6 +5373,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint `json:"a"`
@@ -5214,6 +5399,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "HeadUintPtrNilMultiFieldsNotRoot",
 			expected: `{"A":{"a":null},"B":{"b":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  },
+  "B": {
+    "b": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint `json:"a"`
@@ -5230,6 +5425,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint `json:"a"`
@@ -5242,6 +5447,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint `json:"a"`
@@ -5258,6 +5473,16 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5274,6 +5499,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNilMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5286,6 +5517,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNilMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5298,6 +5532,18 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint `json:"a"`
@@ -5318,6 +5564,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint `json:"a"`
@@ -5332,6 +5584,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A uint `json:"a"`
@@ -5346,6 +5601,18 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5366,6 +5633,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5380,6 +5653,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrHeadUintPtrNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint `json:"a"`
@@ -5394,6 +5670,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint
 				B uint `json:"b"`
@@ -5405,6 +5687,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint
 				B uint `json:"b"`
@@ -5416,6 +5704,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint
 				B uint `json:"b"`
@@ -5427,6 +5720,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUintPtr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUintPtr
 				B *uint `json:"b"`
@@ -5438,6 +5737,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUintPtrNil",
 			expected: `{"a":null,"b":2}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": 2
+}
+`,
 			data: struct {
 				structUintPtr
 				B *uint `json:"b"`
@@ -5449,6 +5754,12 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUintPtr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUintPtr
 				B *uint `json:"b"`
@@ -5460,6 +5771,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUintPtr",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUintPtr
 				B *uint `json:"b"`
@@ -5471,6 +5787,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUintOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint
 			}{
@@ -5480,6 +5801,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUintOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint
 			}{
@@ -5489,6 +5815,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUintOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint
 			}{
@@ -5498,6 +5827,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUintPtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUintPtr
 			}{
@@ -5507,6 +5841,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "AnonymousHeadUintPtrNilOnly",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				structUintPtr
 			}{
@@ -5516,6 +5855,11 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUintPtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUintPtr
 			}{
@@ -5525,6 +5869,9 @@ func TestCoverStructHeadUint(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUintPtrOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUintPtr
 			}{
@@ -5533,15 +5880,27 @@ func TestCoverStructHeadUint(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, htmlEscape := range []bool{true, false} {
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.SetEscapeHTML(htmlEscape)
-			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
-			}
-			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				enc.SetEscapeHTML(htmlEscape)
+				if indent {
+					enc.SetIndent("", "  ")
+				}
+				if err := enc.Encode(test.data); err != nil {
+					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				}
+				if indent {
+					got := "\n" + buf.String()
+					if got != test.indentExpected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
+					}
+				} else {
+					if strings.TrimRight(buf.String(), "\n") != test.expected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+					}
+				}
 			}
 		}
 	}
@@ -5556,13 +5915,19 @@ func TestCoverStructHeadUint8(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expected string
-		data     interface{}
+		name           string
+		expected       string
+		indentExpected string
+		data           interface{}
 	}{
 		{
 			name:     "HeadUint8Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: struct {
 				A uint8 `json:"a"`
 			}{},
@@ -5570,6 +5935,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A uint8 `json:"a"`
 			}{A: 1},
@@ -5577,6 +5947,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A *uint8 `json:"a"`
 			}{A: uint8ptr(1)},
@@ -5584,6 +5959,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				A *uint8 `json:"a"`
 			}{A: nil},
@@ -5591,6 +5971,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: &struct {
 				A uint8 `json:"a"`
 			}{},
@@ -5598,6 +5983,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A uint8 `json:"a"`
 			}{A: 1},
@@ -5605,6 +5995,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A *uint8 `json:"a"`
 			}{A: uint8ptr(1)},
@@ -5612,6 +6007,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: &struct {
 				A *uint8 `json:"a"`
 			}{A: nil},
@@ -5619,6 +6019,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8Nil",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint8 `json:"a"`
 			})(nil),
@@ -5626,6 +6029,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: struct {
 				A uint8 `json:"a"`
 				B uint8 `json:"b"`
@@ -5634,6 +6043,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A uint8 `json:"a"`
 				B uint8 `json:"b"`
@@ -5642,6 +6057,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A *uint8 `json:"a"`
 				B *uint8 `json:"b"`
@@ -5650,6 +6071,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: struct {
 				A *uint8 `json:"a"`
 				B *uint8 `json:"b"`
@@ -5658,6 +6085,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: &struct {
 				A uint8 `json:"a"`
 				B uint8 `json:"b"`
@@ -5666,6 +6099,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A uint8 `json:"a"`
 				B uint8 `json:"b"`
@@ -5674,6 +6113,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A *uint8 `json:"a"`
 				B *uint8 `json:"b"`
@@ -5682,6 +6127,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: &struct {
 				A *uint8 `json:"a"`
 				B *uint8 `json:"b"`
@@ -5690,6 +6141,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NilMultiFields",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint8 `json:"a"`
 				B *uint8 `json:"b"`
@@ -5698,6 +6152,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5707,6 +6168,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5718,6 +6186,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint8 `json:"a"`
@@ -5729,6 +6204,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint8 `json:"a"`
@@ -5738,6 +6220,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint8 `json:"a"`
@@ -5749,6 +6238,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint8 `json:"a"`
@@ -5760,6 +6256,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5771,6 +6274,13 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5782,6 +6292,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NilNotRoot",
 			expected: `{"A":null}`,
+			indentExpected: `
+{
+  "A": null
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5791,6 +6306,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5803,6 +6328,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5819,6 +6354,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint8 `json:"a"`
@@ -5835,6 +6380,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "HeadUint8PtrNilMultiFieldsNotRoot",
 			expected: `{"A":{"a":null},"B":{"b":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  },
+  "B": {
+    "b": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint8 `json:"a"`
@@ -5851,6 +6406,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5863,6 +6428,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint8 `json:"a"`
@@ -5879,6 +6454,16 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5895,6 +6480,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNilMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5907,6 +6498,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NilMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5919,6 +6513,18 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8DoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint8 `json:"a"`
@@ -5939,6 +6545,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint8 `json:"a"`
@@ -5953,6 +6565,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8NilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A uint8 `json:"a"`
@@ -5967,6 +6582,18 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -5987,6 +6614,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -6001,6 +6634,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrHeadUint8PtrNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint8 `json:"a"`
@@ -6015,6 +6651,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint8
 				B uint8 `json:"b"`
@@ -6026,6 +6668,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint8",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint8
 				B uint8 `json:"b"`
@@ -6037,6 +6685,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint8",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint8
 				B uint8 `json:"b"`
@@ -6048,6 +6701,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint8Ptr
 				B *uint8 `json:"b"`
@@ -6059,6 +6718,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8PtrNil",
 			expected: `{"a":null,"b":2}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint8Ptr
 				B *uint8 `json:"b"`
@@ -6070,6 +6735,12 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint8Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint8Ptr
 				B *uint8 `json:"b"`
@@ -6081,6 +6752,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint8Ptr",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint8Ptr
 				B *uint8 `json:"b"`
@@ -6092,6 +6768,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint8
 			}{
@@ -6101,6 +6782,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint8Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint8
 			}{
@@ -6110,6 +6796,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint8Only",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint8
 			}{
@@ -6119,6 +6808,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint8Ptr
 			}{
@@ -6128,6 +6822,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint8PtrNilOnly",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				structUint8Ptr
 			}{
@@ -6137,6 +6836,11 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint8PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint8Ptr
 			}{
@@ -6146,6 +6850,9 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint8PtrOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint8Ptr
 			}{
@@ -6154,15 +6861,27 @@ func TestCoverStructHeadUint8(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, htmlEscape := range []bool{true, false} {
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.SetEscapeHTML(htmlEscape)
-			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
-			}
-			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				enc.SetEscapeHTML(htmlEscape)
+				if indent {
+					enc.SetIndent("", "  ")
+				}
+				if err := enc.Encode(test.data); err != nil {
+					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				}
+				if indent {
+					got := "\n" + buf.String()
+					if got != test.indentExpected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
+					}
+				} else {
+					if strings.TrimRight(buf.String(), "\n") != test.expected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+					}
+				}
 			}
 		}
 	}
@@ -6177,13 +6896,19 @@ func TestCoverStructHeadUint16(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expected string
-		data     interface{}
+		name           string
+		expected       string
+		indentExpected string
+		data           interface{}
 	}{
 		{
 			name:     "HeadUint16Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: struct {
 				A uint16 `json:"a"`
 			}{},
@@ -6191,6 +6916,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A uint16 `json:"a"`
 			}{A: 1},
@@ -6198,6 +6928,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A *uint16 `json:"a"`
 			}{A: uint16ptr(1)},
@@ -6205,6 +6940,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				A *uint16 `json:"a"`
 			}{A: nil},
@@ -6212,6 +6952,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: &struct {
 				A uint16 `json:"a"`
 			}{},
@@ -6219,6 +6964,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A uint16 `json:"a"`
 			}{A: 1},
@@ -6226,6 +6976,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A *uint16 `json:"a"`
 			}{A: uint16ptr(1)},
@@ -6233,6 +6988,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: &struct {
 				A *uint16 `json:"a"`
 			}{A: nil},
@@ -6240,6 +7000,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16Nil",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint16 `json:"a"`
 			})(nil),
@@ -6247,6 +7010,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: struct {
 				A uint16 `json:"a"`
 				B uint16 `json:"b"`
@@ -6255,6 +7024,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A uint16 `json:"a"`
 				B uint16 `json:"b"`
@@ -6263,6 +7038,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A *uint16 `json:"a"`
 				B *uint16 `json:"b"`
@@ -6271,6 +7052,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: struct {
 				A *uint16 `json:"a"`
 				B *uint16 `json:"b"`
@@ -6279,6 +7066,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: &struct {
 				A uint16 `json:"a"`
 				B uint16 `json:"b"`
@@ -6287,6 +7080,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A uint16 `json:"a"`
 				B uint16 `json:"b"`
@@ -6295,6 +7094,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A *uint16 `json:"a"`
 				B *uint16 `json:"b"`
@@ -6303,6 +7108,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: &struct {
 				A *uint16 `json:"a"`
 				B *uint16 `json:"b"`
@@ -6311,6 +7122,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NilMultiFields",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint16 `json:"a"`
 				B *uint16 `json:"b"`
@@ -6319,6 +7133,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6328,6 +7149,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6339,6 +7167,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint16 `json:"a"`
@@ -6350,6 +7185,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint16 `json:"a"`
@@ -6359,6 +7201,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint16 `json:"a"`
@@ -6370,6 +7219,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint16 `json:"a"`
@@ -6381,6 +7237,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6392,6 +7255,13 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6403,6 +7273,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NilNotRoot",
 			expected: `{"A":null}`,
+			indentExpected: `
+{
+  "A": null
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6412,6 +7287,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6424,6 +7309,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6440,6 +7335,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint16 `json:"a"`
@@ -6456,6 +7361,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "HeadUint16PtrNilMultiFieldsNotRoot",
 			expected: `{"A":{"a":null},"B":{"b":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  },
+  "B": {
+    "b": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint16 `json:"a"`
@@ -6472,6 +7387,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6484,6 +7409,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint16 `json:"a"`
@@ -6500,6 +7435,16 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6516,6 +7461,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNilMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6528,6 +7479,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NilMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6540,6 +7494,18 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16DoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint16 `json:"a"`
@@ -6560,6 +7526,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint16 `json:"a"`
@@ -6574,6 +7546,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16NilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A uint16 `json:"a"`
@@ -6588,6 +7563,18 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6608,6 +7595,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6622,6 +7615,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrHeadUint16PtrNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint16 `json:"a"`
@@ -6636,6 +7632,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint16
 				B uint16 `json:"b"`
@@ -6647,6 +7649,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint16",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint16
 				B uint16 `json:"b"`
@@ -6658,6 +7666,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint16",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint16
 				B uint16 `json:"b"`
@@ -6669,6 +7682,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint16Ptr
 				B *uint16 `json:"b"`
@@ -6680,6 +7699,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16PtrNil",
 			expected: `{"a":null,"b":2}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint16Ptr
 				B *uint16 `json:"b"`
@@ -6691,6 +7716,12 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint16Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint16Ptr
 				B *uint16 `json:"b"`
@@ -6702,6 +7733,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint16Ptr",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint16Ptr
 				B *uint16 `json:"b"`
@@ -6713,6 +7749,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint16
 			}{
@@ -6722,6 +7763,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint16Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint16
 			}{
@@ -6731,6 +7777,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint16Only",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint16
 			}{
@@ -6740,6 +7789,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint16Ptr
 			}{
@@ -6749,6 +7803,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint16PtrNilOnly",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				structUint16Ptr
 			}{
@@ -6758,6 +7817,11 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint16PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint16Ptr
 			}{
@@ -6767,6 +7831,9 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint16PtrOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint16Ptr
 			}{
@@ -6775,15 +7842,27 @@ func TestCoverStructHeadUint16(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, htmlEscape := range []bool{true, false} {
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.SetEscapeHTML(htmlEscape)
-			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
-			}
-			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				enc.SetEscapeHTML(htmlEscape)
+				if indent {
+					enc.SetIndent("", "  ")
+				}
+				if err := enc.Encode(test.data); err != nil {
+					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				}
+				if indent {
+					got := "\n" + buf.String()
+					if got != test.indentExpected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
+					}
+				} else {
+					if strings.TrimRight(buf.String(), "\n") != test.expected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+					}
+				}
 			}
 		}
 	}
@@ -6798,13 +7877,19 @@ func TestCoverStructHeadUint32(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expected string
-		data     interface{}
+		name           string
+		expected       string
+		indentExpected string
+		data           interface{}
 	}{
 		{
 			name:     "HeadUint32Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: struct {
 				A uint32 `json:"a"`
 			}{},
@@ -6812,6 +7897,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A uint32 `json:"a"`
 			}{A: 1},
@@ -6819,6 +7909,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A *uint32 `json:"a"`
 			}{A: uint32ptr(1)},
@@ -6826,6 +7921,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				A *uint32 `json:"a"`
 			}{A: nil},
@@ -6833,6 +7933,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: &struct {
 				A uint32 `json:"a"`
 			}{},
@@ -6840,6 +7945,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A uint32 `json:"a"`
 			}{A: 1},
@@ -6847,6 +7957,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A *uint32 `json:"a"`
 			}{A: uint32ptr(1)},
@@ -6854,6 +7969,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: &struct {
 				A *uint32 `json:"a"`
 			}{A: nil},
@@ -6861,6 +7981,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32Nil",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint32 `json:"a"`
 			})(nil),
@@ -6868,6 +7991,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: struct {
 				A uint32 `json:"a"`
 				B uint32 `json:"b"`
@@ -6876,6 +8005,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A uint32 `json:"a"`
 				B uint32 `json:"b"`
@@ -6884,6 +8019,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A *uint32 `json:"a"`
 				B *uint32 `json:"b"`
@@ -6892,6 +8033,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: struct {
 				A *uint32 `json:"a"`
 				B *uint32 `json:"b"`
@@ -6900,6 +8047,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: &struct {
 				A uint32 `json:"a"`
 				B uint32 `json:"b"`
@@ -6908,6 +8061,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A uint32 `json:"a"`
 				B uint32 `json:"b"`
@@ -6916,6 +8075,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A *uint32 `json:"a"`
 				B *uint32 `json:"b"`
@@ -6924,6 +8089,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: &struct {
 				A *uint32 `json:"a"`
 				B *uint32 `json:"b"`
@@ -6932,6 +8103,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NilMultiFields",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint32 `json:"a"`
 				B *uint32 `json:"b"`
@@ -6940,6 +8114,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -6949,6 +8130,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -6960,6 +8148,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint32 `json:"a"`
@@ -6971,6 +8166,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint32 `json:"a"`
@@ -6980,6 +8182,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint32 `json:"a"`
@@ -6991,6 +8200,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint32 `json:"a"`
@@ -7002,6 +8218,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7013,6 +8236,13 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7024,6 +8254,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NilNotRoot",
 			expected: `{"A":null}`,
+			indentExpected: `
+{
+  "A": null
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7033,6 +8268,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -7045,6 +8290,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -7061,6 +8316,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint32 `json:"a"`
@@ -7077,6 +8342,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "HeadUint32PtrNilMultiFieldsNotRoot",
 			expected: `{"A":{"a":null},"B":{"b":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  },
+  "B": {
+    "b": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint32 `json:"a"`
@@ -7093,6 +8368,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -7105,6 +8390,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint32 `json:"a"`
@@ -7121,6 +8416,16 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7137,6 +8442,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNilMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7149,6 +8460,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NilMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7161,6 +8475,18 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32DoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint32 `json:"a"`
@@ -7181,6 +8507,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint32 `json:"a"`
@@ -7195,6 +8527,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32NilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A uint32 `json:"a"`
@@ -7209,6 +8544,18 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7229,6 +8576,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7243,6 +8596,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrHeadUint32PtrNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint32 `json:"a"`
@@ -7257,6 +8613,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint32
 				B uint32 `json:"b"`
@@ -7268,6 +8630,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint32",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint32
 				B uint32 `json:"b"`
@@ -7279,6 +8647,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint32",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint32
 				B uint32 `json:"b"`
@@ -7290,6 +8663,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint32Ptr
 				B *uint32 `json:"b"`
@@ -7301,6 +8680,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32PtrNil",
 			expected: `{"a":null,"b":2}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint32Ptr
 				B *uint32 `json:"b"`
@@ -7312,6 +8697,12 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint32Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint32Ptr
 				B *uint32 `json:"b"`
@@ -7323,6 +8714,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint32Ptr",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint32Ptr
 				B *uint32 `json:"b"`
@@ -7334,6 +8730,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint32
 			}{
@@ -7343,6 +8744,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint32Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint32
 			}{
@@ -7352,6 +8758,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint32Only",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint32
 			}{
@@ -7361,6 +8770,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint32Ptr
 			}{
@@ -7370,6 +8784,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint32PtrNilOnly",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				structUint32Ptr
 			}{
@@ -7379,6 +8798,11 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint32PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint32Ptr
 			}{
@@ -7388,6 +8812,9 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint32PtrOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint32Ptr
 			}{
@@ -7396,15 +8823,27 @@ func TestCoverStructHeadUint32(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, htmlEscape := range []bool{true, false} {
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.SetEscapeHTML(htmlEscape)
-			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
-			}
-			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				enc.SetEscapeHTML(htmlEscape)
+				if indent {
+					enc.SetIndent("", "  ")
+				}
+				if err := enc.Encode(test.data); err != nil {
+					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				}
+				if indent {
+					got := "\n" + buf.String()
+					if got != test.indentExpected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
+					}
+				} else {
+					if strings.TrimRight(buf.String(), "\n") != test.expected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+					}
+				}
 			}
 		}
 	}
@@ -7419,13 +8858,19 @@ func TestCoverStructHeadUint64(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		expected string
-		data     interface{}
+		name           string
+		expected       string
+		indentExpected string
+		data           interface{}
 	}{
 		{
 			name:     "HeadUint64Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: struct {
 				A uint64 `json:"a"`
 			}{},
@@ -7433,6 +8878,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A uint64 `json:"a"`
 			}{A: 1},
@@ -7440,6 +8890,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				A *uint64 `json:"a"`
 			}{A: uint64ptr(1)},
@@ -7447,6 +8902,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				A *uint64 `json:"a"`
 			}{A: nil},
@@ -7454,6 +8914,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64Zero",
 			expected: `{"a":0}`,
+			indentExpected: `
+{
+  "a": 0
+}
+`,
 			data: &struct {
 				A uint64 `json:"a"`
 			}{},
@@ -7461,6 +8926,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A uint64 `json:"a"`
 			}{A: 1},
@@ -7468,6 +8938,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64Ptr",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: &struct {
 				A *uint64 `json:"a"`
 			}{A: uint64ptr(1)},
@@ -7475,6 +8950,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNil",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: &struct {
 				A *uint64 `json:"a"`
 			}{A: nil},
@@ -7482,6 +8962,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64Nil",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint64 `json:"a"`
 			})(nil),
@@ -7489,6 +8972,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: struct {
 				A uint64 `json:"a"`
 				B uint64 `json:"b"`
@@ -7497,6 +8986,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A uint64 `json:"a"`
 				B uint64 `json:"b"`
@@ -7505,6 +9000,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				A *uint64 `json:"a"`
 				B *uint64 `json:"b"`
@@ -7513,6 +9014,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: struct {
 				A *uint64 `json:"a"`
 				B *uint64 `json:"b"`
@@ -7521,6 +9028,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64ZeroMultiFields",
 			expected: `{"a":0,"b":0}`,
+			indentExpected: `
+{
+  "a": 0,
+  "b": 0
+}
+`,
 			data: &struct {
 				A uint64 `json:"a"`
 				B uint64 `json:"b"`
@@ -7529,6 +9042,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64MultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A uint64 `json:"a"`
 				B uint64 `json:"b"`
@@ -7537,6 +9056,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrMultiFields",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: &struct {
 				A *uint64 `json:"a"`
 				B *uint64 `json:"b"`
@@ -7545,6 +9070,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNilMultiFields",
 			expected: `{"a":null,"b":null}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": null
+}
+`,
 			data: &struct {
 				A *uint64 `json:"a"`
 				B *uint64 `json:"b"`
@@ -7553,6 +9084,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NilMultiFields",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *uint64 `json:"a"`
 				B *uint64 `json:"b"`
@@ -7561,6 +9095,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7570,6 +9111,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7581,6 +9129,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint64 `json:"a"`
@@ -7592,6 +9147,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint64 `json:"a"`
@@ -7601,6 +9163,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64ZeroNotRoot",
 			expected: `{"A":{"a":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint64 `json:"a"`
@@ -7612,6 +9181,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A uint64 `json:"a"`
@@ -7623,6 +9199,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNotRoot",
 			expected: `{"A":{"a":1}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7634,6 +9217,13 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNilNotRoot",
 			expected: `{"A":{"a":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  }
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7645,6 +9235,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NilNotRoot",
 			expected: `{"A":null}`,
+			indentExpected: `
+{
+  "A": null
+}
+`,
 			data: struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7654,6 +9249,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7666,6 +9271,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7682,6 +9297,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint64 `json:"a"`
@@ -7698,6 +9323,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "HeadUint64PtrNilMultiFieldsNotRoot",
 			expected: `{"A":{"a":null},"B":{"b":null}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": null
+  },
+  "B": {
+    "b": null
+  }
+}
+`,
 			data: struct {
 				A struct {
 					A *uint64 `json:"a"`
@@ -7714,6 +9349,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64ZeroMultiFieldsNotRoot",
 			expected: `{"A":{"a":0},"B":{"b":0}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 0
+  },
+  "B": {
+    "b": 0
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7726,6 +9371,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64MultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A struct {
 					A uint64 `json:"a"`
@@ -7742,6 +9397,16 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrMultiFieldsNotRoot",
 			expected: `{"A":{"a":1},"B":{"b":2}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1
+  },
+  "B": {
+    "b": 2
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7758,6 +9423,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNilMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7770,6 +9441,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NilMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7782,6 +9456,18 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64DoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint64 `json:"a"`
@@ -7802,6 +9488,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A uint64 `json:"a"`
@@ -7816,6 +9508,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64NilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A uint64 `json:"a"`
@@ -7830,6 +9525,18 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrDoubleMultiFieldsNotRoot",
 			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
+			indentExpected: `
+{
+  "A": {
+    "a": 1,
+    "b": 2
+  },
+  "B": {
+    "a": 3,
+    "b": 4
+  }
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7850,6 +9557,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNilDoubleMultiFieldsNotRoot",
 			expected: `{"A":null,"B":null}`,
+			indentExpected: `
+{
+  "A": null,
+  "B": null
+}
+`,
 			data: &struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7864,6 +9577,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrHeadUint64PtrNilDoubleMultiFieldsNotRoot",
 			expected: `null`,
+			indentExpected: `
+null
+`,
 			data: (*struct {
 				A *struct {
 					A *uint64 `json:"a"`
@@ -7878,6 +9594,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint64
 				B uint64 `json:"b"`
@@ -7889,6 +9611,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint64",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint64
 				B uint64 `json:"b"`
@@ -7900,6 +9628,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint64",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint64
 				B uint64 `json:"b"`
@@ -7911,6 +9644,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint64Ptr
 				B *uint64 `json:"b"`
@@ -7922,6 +9661,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64PtrNil",
 			expected: `{"a":null,"b":2}`,
+			indentExpected: `
+{
+  "a": null,
+  "b": 2
+}
+`,
 			data: struct {
 				structUint64Ptr
 				B *uint64 `json:"b"`
@@ -7933,6 +9678,12 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint64Ptr",
 			expected: `{"a":1,"b":2}`,
+			indentExpected: `
+{
+  "a": 1,
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint64Ptr
 				B *uint64 `json:"b"`
@@ -7944,6 +9695,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint64Ptr",
 			expected: `{"b":2}`,
+			indentExpected: `
+{
+  "b": 2
+}
+`,
 			data: struct {
 				*structUint64Ptr
 				B *uint64 `json:"b"`
@@ -7955,6 +9711,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint64
 			}{
@@ -7964,6 +9725,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint64Only",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint64
 			}{
@@ -7973,6 +9739,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint64Only",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint64
 			}{
@@ -7982,6 +9751,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				structUint64Ptr
 			}{
@@ -7991,6 +9765,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "AnonymousHeadUint64PtrNilOnly",
 			expected: `{"a":null}`,
+			indentExpected: `
+{
+  "a": null
+}
+`,
 			data: struct {
 				structUint64Ptr
 			}{
@@ -8000,6 +9779,11 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "PtrAnonymousHeadUint64PtrOnly",
 			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
 			data: struct {
 				*structUint64Ptr
 			}{
@@ -8009,6 +9793,9 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		{
 			name:     "NilPtrAnonymousHeadUint64PtrOnly",
 			expected: `{}`,
+			indentExpected: `
+{}
+`,
 			data: struct {
 				*structUint64Ptr
 			}{
@@ -8017,15 +9804,27 @@ func TestCoverStructHeadUint64(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, htmlEscape := range []bool{true, false} {
-			var buf bytes.Buffer
-			enc := NewEncoder(&buf)
-			enc.SetEscapeHTML(htmlEscape)
-			if err := enc.Encode(test.data); err != nil {
-				t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
-			}
-			if strings.TrimRight(buf.String(), "\n") != test.expected {
-				t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				var buf bytes.Buffer
+				enc := NewEncoder(&buf)
+				enc.SetEscapeHTML(htmlEscape)
+				if indent {
+					enc.SetIndent("", "  ")
+				}
+				if err := enc.Encode(test.data); err != nil {
+					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+				}
+				if indent {
+					got := "\n" + buf.String()
+					if got != test.indentExpected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
+					}
+				} else {
+					if strings.TrimRight(buf.String(), "\n") != test.expected {
+						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
+					}
+				}
 			}
 		}
 	}

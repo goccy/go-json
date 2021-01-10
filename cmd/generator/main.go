@@ -134,12 +134,37 @@ func (t opType) codeType() codeType {
     return t.toNotIndent().codeType()
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-  case op{{ $type.Op }}:
-    return code{{ $type.Code }}
-{{- end }}
+  if strings.Contains(t.String(), "Struct") {
+    if strings.Contains(t.String(), "End") {
+      return codeStructEnd
+    }
+    return codeStructField
   }
+  if strings.Contains(t.String(), "ArrayHead") {
+    return codeArrayHead
+  }
+  if strings.Contains(t.String(), "ArrayElem") {
+    return codeArrayElem
+  }
+  if strings.Contains(t.String(), "SliceHead") {
+    return codeSliceHead
+  }
+  if strings.Contains(t.String(), "SliceElem") {
+    return codeSliceElem
+  }
+  if strings.Contains(t.String(), "MapHead") {
+    return codeMapHead
+  }
+  if strings.Contains(t.String(), "MapKey") {
+    return codeMapKey
+  }
+  if strings.Contains(t.String(), "MapValue") {
+    return codeMapValue
+  }
+  if strings.Contains(t.String(), "MapEnd") {
+    return codeMapEnd
+  }
+
   return codeOp
 }
 
@@ -161,14 +186,26 @@ func (t opType) toEscaped() opType {
   if int(t) >= {{ .OpLen }} {
     return opType(int(t.toNotIndent().toEscaped()) + {{ .OpLen }})
   }
+  if strings.Index(t.String(), "Escaped") > 0 {
+    return t
+  }
+  if t.String() == "String" {
+    return opType(int(t) + 1)
+  }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsEscaped }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.Escaped }}
-{{- end }}
-{{- end }}
+  fieldHeadIdx := strings.Index(t.String(), "Head")
+  if fieldHeadIdx > 0 && strings.Contains(t.String(), "Struct") {
+    const toEscapedHeadOffset = 36
+    return opType(int(t) + toEscapedHeadOffset)
+  }
+  fieldIdx := strings.Index(t.String(), "Field")
+  if fieldIdx > 0 && strings.Contains(t.String(), "Struct") {
+    const toEscapedFieldOffset = 3
+    return opType(int(t) + toEscapedFieldOffset)
+  }
+  if strings.Contains(t.String(), "StructEnd") {
+    const toEscapedEndOffset = 3
+    return opType(int(t) + toEscapedEndOffset)
   }
   return t
 }
@@ -177,14 +214,22 @@ func (t opType) headToPtrHead() opType {
   if int(t) >= {{ .OpLen }} {
     return opType(int(t.toNotIndent().headToPtrHead()) + {{ .OpLen }})
   }
+  if strings.Index(t.String(), "PtrHead") > 0 {
+    return t
+  }
+  if strings.Index(t.String(), "PtrAnonymousHead") > 0 {
+    return t
+  }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsHeadToPtrHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.HeadToPtrHead }}
-{{- end }}
-{{- end }}
+  idx := strings.Index(t.String(), "Field")
+  if idx == -1 {
+    return t
+  }
+  suffix := "Ptr"+t.String()[idx+len("Field"):]
+
+  const toPtrOffset = 12
+  if strings.Contains(opType(int(t) + toPtrOffset).String(), suffix) {
+    return opType(int(t) + toPtrOffset)
   }
   return t
 }
@@ -193,14 +238,22 @@ func (t opType) headToNPtrHead() opType {
   if int(t) >= {{ .OpLen }} {
     return opType(int(t.toNotIndent().headToNPtrHead()) + {{ .OpLen }})
   }
+  if strings.Index(t.String(), "PtrHead") > 0 {
+    return t
+  }
+  if strings.Index(t.String(), "PtrAnonymousHead") > 0 {
+    return t
+  }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsHeadToNPtrHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.HeadToNPtrHead }}
-{{- end }}
-{{- end }}
+  idx := strings.Index(t.String(), "Field")
+  if idx == -1 {
+    return t
+  }
+  suffix := "NPtr"+t.String()[idx+len("Field"):]
+
+  const toPtrOffset = 24
+  if strings.Contains(opType(int(t) + toPtrOffset).String(), suffix) {
+    return opType(int(t) + toPtrOffset)
   }
   return t
 }
@@ -210,13 +263,9 @@ func (t opType) headToAnonymousHead() opType {
     return opType(int(t.toNotIndent().headToAnonymousHead()) + {{ .OpLen }})
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsHeadToAnonymousHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.HeadToAnonymousHead }}
-{{- end }}
-{{- end }}
+  const toAnonymousOffset = 6
+  if strings.Contains(opType(int(t) + toAnonymousOffset).String(), "Anonymous") {
+    return opType(int(t) + toAnonymousOffset)
   }
   return t
 }
@@ -226,14 +275,11 @@ func (t opType) headToOmitEmptyHead() opType {
     return opType(int(t.toNotIndent().headToOmitEmptyHead()) + {{ .OpLen }})
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsHeadToOmitEmptyHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.HeadToOmitEmptyHead }}
-{{- end }}
-{{- end }}
+  const toOmitEmptyOffset = 2
+  if strings.Contains(opType(int(t) + toOmitEmptyOffset).String(), "OmitEmpty") {
+    return opType(int(t) + toOmitEmptyOffset)
   }
+
   return t
 }
 
@@ -242,13 +288,9 @@ func (t opType) headToStringTagHead() opType {
     return opType(int(t.toNotIndent().headToStringTagHead()) + {{ .OpLen }})
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsHeadToStringTagHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.HeadToStringTagHead }}
-{{- end }}
-{{- end }}
+  const toStringTagOffset = 4
+  if strings.Contains(opType(int(t) + toStringTagOffset).String(), "StringTag") {
+    return opType(int(t) + toStringTagOffset)
   }
   return t
 }
@@ -273,14 +315,15 @@ func (t opType) ptrHeadToHead() opType {
   if int(t) >= {{ .OpLen }} {
     return opType(int(t.toNotIndent().ptrHeadToHead()) + {{ .OpLen }})
   }
+  idx := strings.Index(t.String(), "Ptr")
+  if idx == -1 {
+    return t
+  }
+  suffix := t.String()[idx+len("Ptr"):]
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsPtrHeadToHead }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.PtrHeadToHead }}
-{{- end }}
-{{- end }}
+  const toPtrOffset = 12
+  if strings.Contains(opType(int(t) - toPtrOffset).String(), suffix) {
+    return opType(int(t) - toPtrOffset)
   }
   return t
 }
@@ -306,13 +349,9 @@ func (t opType) fieldToOmitEmptyField() opType {
     return opType(int(t.toNotIndent().fieldToOmitEmptyField()) + {{ .OpLen }})
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsFieldToOmitEmptyField }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.FieldToOmitEmptyField }}
-{{- end }}
-{{- end }}
+  const toOmitEmptyOffset = 1
+  if strings.Contains(opType(int(t) + toOmitEmptyOffset).String(), "OmitEmpty") {
+    return opType(int(t) + toOmitEmptyOffset)
   }
   return t
 }
@@ -322,13 +361,9 @@ func (t opType) fieldToStringTagField() opType {
     return opType(int(t.toNotIndent().fieldToStringTagField()) + {{ .OpLen }})
   }
 
-  switch t {
-{{- range $type := .OpNotIndentTypes }}
-{{- if $type.IsFieldToStringTagField }}
-  case op{{ $type.Op }}:
-    return op{{ call $type.FieldToStringTagField }}
-{{- end }}
-{{- end }}
+  const toStringTagOffset = 2
+  if strings.Contains(opType(int(t) + toStringTagOffset).String(), "StringTag") {
+    return opType(int(t) + toStringTagOffset)
   }
   return t
 }
@@ -403,6 +438,9 @@ func (t opType) fieldToStringTagField() opType {
 		opTypes = append(opTypes, optype)
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
+		if typ == "EscapedString" || typ == "EscapedStringPtr" || typ == "EscapedStringNPtr" {
+			continue
+		}
 		for _, escapedOrNot := range []string{"", "Escaped"} {
 			for _, ptrOrNot := range []string{"", "Ptr", "NPtr"} {
 				for _, headType := range []string{"", "Anonymous"} {
@@ -415,19 +453,11 @@ func (t opType) fieldToStringTagField() opType {
 							typ := typ
 							onlyOrNot := onlyOrNot
 
-							if onlyOrNot == "Only" {
-								/*
-									if typ == "" && ptrOrNot == "Ptr" {
-										continue
-									}
-									switch typ {
-									case "Array", "Map", "MapLoad", "Slice",
-										"Struct", "Recursive", "MarshalJSON", "MarshalText",
-										"IntString", "Int8String", "Int16String", "Int32String", "Int64String",
-										"UintString", "Uint8String", "Uint16String", "Uint32String", "Uint64String":
-										continue
-									}
-								*/
+							isEscaped := escapedOrNot != ""
+							isString := typ == "String" || typ == "StringPtr" || typ == "StringNPtr"
+
+							if isEscaped && isString {
+								typ = "Escaped" + typ
 							}
 
 							op := fmt.Sprintf(
@@ -552,11 +582,21 @@ func (t opType) fieldToStringTagField() opType {
 		}
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
+		if typ == "EscapedString" || typ == "EscapedStringPtr" || typ == "EscapedStringNPtr" {
+			continue
+		}
 		for _, escapedOrNot := range []string{"", "Escaped"} {
 			for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
 				escapedOrNot := escapedOrNot
 				opt := opt
 				typ := typ
+
+				isEscaped := escapedOrNot != ""
+				isString := typ == "String" || typ == "StringPtr" || typ == "StringNPtr"
+
+				if isEscaped && isString {
+					typ = "Escaped" + typ
+				}
 
 				op := fmt.Sprintf(
 					"Struct%sField%s%s",
@@ -621,11 +661,21 @@ func (t opType) fieldToStringTagField() opType {
 		}
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
+		if typ == "EscapedString" || typ == "EscapedStringPtr" || typ == "EscapedStringNPtr" {
+			continue
+		}
 		for _, escapedOrNot := range []string{"", "Escaped"} {
 			for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
 				escapedOrNot := escapedOrNot
 				opt := opt
 				typ := typ
+
+				isEscaped := escapedOrNot != ""
+				isString := typ == "String" || typ == "StringPtr" || typ == "StringNPtr"
+
+				if isEscaped && isString {
+					typ = "Escaped" + typ
+				}
 
 				op := fmt.Sprintf(
 					"Struct%sEnd%s%s",

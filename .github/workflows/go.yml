@@ -5,7 +5,7 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ "ubuntu-latest", "macos-latest" ]
+        os: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
         go-version: [ "1.13", "1.14", "1.15" ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -22,7 +22,6 @@ jobs:
       env:
         GOGC: 1
     - name: test with race detector
-      if: ${{ matrix.os == 'macos-latest' }}
       run: go test -v -race ./ -count=1
   coverage:
     name: Coverage

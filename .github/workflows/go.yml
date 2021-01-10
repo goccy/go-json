@@ -22,9 +22,9 @@ jobs:
           ~/.cache/go-build
           ~/Library/Caches/go-build
           '%LocalAppData%\go-build'
-      key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      key: ${{ matrix.os }}-go-${{ hashFiles('**/go.sum') }}
       restore-keys: |
-        ${{ runner.os }}-go-
+        ${{ matrix.os }}-go-
     - name: simple test
       run: go test -v ./ -count=1
     - name: test with GC pressure

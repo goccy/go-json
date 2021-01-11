@@ -42,9 +42,8 @@ const (
 )
 
 type opcodeSet struct {
-	escapedCode *opcode
-	code        *opcode
-	codeLength  int
+	code       *opcode
+	codeLength int
 }
 
 func loadOpcodeMap() map[uintptr]*opcodeSet {
@@ -198,13 +197,13 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 
 		if e.enabledIndent {
 			if e.enabledHTMLEscape {
-				return e.runEscapedIndent(ctx, b, codeSet.escapedCode)
+				return e.runEscapedIndent(ctx, b, codeSet.code)
 			} else {
 				return e.runIndent(ctx, b, codeSet.code)
 			}
 		}
 		if e.enabledHTMLEscape {
-			return e.runEscaped(ctx, b, codeSet.escapedCode)
+			return e.runEscaped(ctx, b, codeSet.code)
 		}
 		return e.run(ctx, b, codeSet.code)
 	}
@@ -223,9 +222,8 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	code = copyOpcode(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
-		escapedCode: toEscaped(code),
-		code:        code,
-		codeLength:  codeLength,
+		code:       code,
+		codeLength: codeLength,
 	}
 
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
@@ -235,13 +233,13 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 
 	if e.enabledIndent {
 		if e.enabledHTMLEscape {
-			return e.runEscapedIndent(ctx, b, codeSet.escapedCode)
+			return e.runEscapedIndent(ctx, b, codeSet.code)
 		} else {
 			return e.runIndent(ctx, b, codeSet.code)
 		}
 	}
 	if e.enabledHTMLEscape {
-		return e.runEscaped(ctx, b, codeSet.escapedCode)
+		return e.runEscaped(ctx, b, codeSet.code)
 	}
 	return e.run(ctx, b, codeSet.code)
 }

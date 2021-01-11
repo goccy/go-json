@@ -4165,7 +4165,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
 				return nil, err
 			}
-			b = encodeEscapedString(b, buf.String())
+			b = encodeNoEscapedString(b, buf.String())
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalText:

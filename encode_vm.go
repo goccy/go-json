@@ -301,11 +301,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				if err != nil {
 					return nil, errMarshaler(code, err)
 				}
-				if e.enabledHTMLEscape {
-					b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
-				} else {
-					b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
-				}
+				b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -3501,7 +3497,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 						}
 					}
 					b = append(b, code.key...)
-					b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+					b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -3532,7 +3528,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 						}
 					}
 					b = append(b, code.key...)
-					b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+					b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 					b = encodeComma(b)
 					code = code.next
 				}

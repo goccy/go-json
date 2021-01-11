@@ -42,11 +42,8 @@ const (
 )
 
 type opcodeSet struct {
-	escapedCode       *opcode
-	escapedCodeIndent *opcode
-	code              *opcode
-	codeIndent        *opcode
-	codeLength        int
+	code       *opcode
+	codeLength int
 }
 
 func loadOpcodeMap() map[uintptr]*opcodeSet {
@@ -194,24 +191,21 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	opcodeMap := loadOpcodeMap()
 	if codeSet, exists := opcodeMap[typeptr]; exists {
-		var code *opcode
-		if e.enabledIndent {
-			if e.enabledHTMLEscape {
-				code = codeSet.escapedCodeIndent
-			} else {
-				code = codeSet.codeIndent
-			}
-		} else {
-			if e.enabledHTMLEscape {
-				code = codeSet.escapedCode
-			} else {
-				code = codeSet.code
-			}
-		}
 		ctx := e.ctx
 		p := uintptr(header.ptr)
 		ctx.init(p, codeSet.codeLength)
-		return e.run(ctx, b, code)
+
+		if e.enabledIndent {
+			if e.enabledHTMLEscape {
+				return e.runEscapedIndent(ctx, b, codeSet.code)
+			} else {
+				return e.runIndent(ctx, b, codeSet.code)
+			}
+		}
+		if e.enabledHTMLEscape {
+			return e.runEscaped(ctx, b, codeSet.code)
+		}
+		return e.run(ctx, b, codeSet.code)
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -226,14 +220,10 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 		return nil, err
 	}
 	code = copyOpcode(code)
-	codeIndent := toIndent(code)
 	codeLength := code.totalLength()
 	codeSet := &opcodeSet{
-		escapedCode:       toEscaped(code),
-		escapedCodeIndent: toEscaped(codeIndent),
-		code:              code,
-		codeIndent:        codeIndent,
-		codeLength:        codeLength,
+		code:       code,
+		codeLength: codeLength,
 	}
 
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
@@ -241,26 +231,17 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	ctx := e.ctx
 	ctx.init(p, codeLength)
 
-	var c *opcode
 	if e.enabledIndent {
 		if e.enabledHTMLEscape {
-			c = codeSet.escapedCodeIndent
+			return e.runEscapedIndent(ctx, b, codeSet.code)
 		} else {
-			c = codeSet.codeIndent
-		}
-	} else {
-		if e.enabledHTMLEscape {
-			c = codeSet.escapedCode
-		} else {
-			c = codeSet.code
+			return e.runIndent(ctx, b, codeSet.code)
 		}
 	}
-
-	b, err = e.run(ctx, b, c)
-	if err != nil {
-		return nil, err
+	if e.enabledHTMLEscape {
+		return e.runEscaped(ctx, b, codeSet.code)
 	}
-	return b, nil
+	return e.run(ctx, b, codeSet.code)
 }
 
 func encodeFloat32(b []byte, v float32) []byte {

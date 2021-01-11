@@ -32,6 +32,7 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 		if err != nil {
 			return nil, err
 		}
+		e.convertHeadOnlyCode(code, isPtr)
 		e.optimizeStructEnd(code)
 		return code, nil
 	} else if isPtr && typ.Implements(marshalTextType) {
@@ -43,6 +44,7 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.convertHeadOnlyCode(code, isPtr)
 	e.optimizeStructEnd(code)
 	return code, nil
 }
@@ -85,6 +87,45 @@ func (e *Encoder) optimizeStructEnd(c *opcode) {
 		default:
 			code = code.next
 		}
+	}
+}
+
+func (e *Encoder) convertHeadOnlyCode(c *opcode, isPtrHead bool) {
+	if c.nextField == nil {
+		return
+	}
+	if c.nextField.op.codeType() != codeStructEnd {
+		return
+	}
+	switch c.op {
+	case opStructFieldHead:
+		e.convertHeadOnlyCode(c.next, false)
+		if !strings.Contains(c.next.op.String(), "Only") {
+			return
+		}
+		c.op = opStructFieldHeadOnly
+	case opStructFieldHeadOmitEmpty:
+		return
+	case opStructFieldPtrHead:
+	}
+
+	if strings.Contains(c.op.String(), "Marshal") {
+		return
+	}
+	if strings.Contains(c.op.String(), "Slice") {
+		return
+	}
+	if strings.Contains(c.op.String(), "Map") {
+		return
+	}
+
+	isPtrOp := strings.Contains(c.op.String(), "Ptr")
+	if isPtrOp && !isPtrHead {
+		c.op = c.op.headToOnlyHead()
+	} else if !isPtrOp && isPtrHead {
+		c.op = c.op.headToPtrHead().headToOnlyHead()
+	} else if isPtrOp && isPtrHead {
+		c.op = c.op.headToPtrHead().headToOnlyHead()
 	}
 }
 
@@ -1100,17 +1141,6 @@ func (e *Encoder) compileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode,
 			}
 			for k, v := range e.anonymousStructFieldPairMap(typ, tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
-			}
-		}
-		if fieldNum == 1 && valueCode.op == opPtr {
-			// if field number is one and primitive pointer type,
-			// it should encode as **not** pointer .
-			switch valueCode.next.op {
-			case opInt, opInt8, opInt16, opInt32, opInt64,
-				opUint, opUint8, opUint16, opUint32, opUint64,
-				opFloat32, opFloat64, opBool, opString, opBytes:
-				valueCode = valueCode.next
-				ctx.decOpcodeIndex()
 			}
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)

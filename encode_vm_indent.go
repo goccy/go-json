@@ -20,115 +20,115 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 		switch code.op {
 		default:
 			return nil, fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
-		case opPtrIndent:
+		case opPtr:
 			ptr := load(ctxptr, code.idx)
 			code = code.next
 			store(ctxptr, code.idx, e.ptrToPtr(ptr))
-		case opIntIndent:
+		case opInt:
 			b = appendInt(b, int64(e.ptrToInt(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt8Indent:
+		case opInt8:
 			b = appendInt(b, int64(e.ptrToInt8(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt16Indent:
+		case opInt16:
 			b = appendInt(b, int64(e.ptrToInt16(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt32Indent:
+		case opInt32:
 			b = appendInt(b, int64(e.ptrToInt32(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt64Indent:
+		case opInt64:
 			b = appendInt(b, e.ptrToInt64(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUintIndent:
+		case opUint:
 			b = appendUint(b, uint64(e.ptrToUint(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint8Indent:
+		case opUint8:
 			b = appendUint(b, uint64(e.ptrToUint8(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint16Indent:
+		case opUint16:
 			b = appendUint(b, uint64(e.ptrToUint16(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint32Indent:
+		case opUint32:
 			b = appendUint(b, uint64(e.ptrToUint32(load(ctxptr, code.idx))))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint64Indent:
+		case opUint64:
 			b = appendUint(b, e.ptrToUint64(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opIntStringIndent:
+		case opIntString:
 			b = append(b, '"')
 			b = appendInt(b, int64(e.ptrToInt(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt8StringIndent:
+		case opInt8String:
 			b = append(b, '"')
 			b = appendInt(b, int64(e.ptrToInt8(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt16StringIndent:
+		case opInt16String:
 			b = append(b, '"')
 			b = appendInt(b, int64(e.ptrToInt16(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt32StringIndent:
+		case opInt32String:
 			b = append(b, '"')
 			b = appendInt(b, int64(e.ptrToInt32(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInt64StringIndent:
+		case opInt64String:
 			b = append(b, '"')
 			b = appendInt(b, e.ptrToInt64(load(ctxptr, code.idx)))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUintStringIndent:
+		case opUintString:
 			b = append(b, '"')
 			b = appendUint(b, uint64(e.ptrToUint(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint8StringIndent:
+		case opUint8String:
 			b = append(b, '"')
 			b = appendUint(b, uint64(e.ptrToUint8(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint16StringIndent:
+		case opUint16String:
 			b = append(b, '"')
 			b = appendUint(b, uint64(e.ptrToUint16(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint32StringIndent:
+		case opUint32String:
 			b = append(b, '"')
 			b = appendUint(b, uint64(e.ptrToUint32(load(ctxptr, code.idx))))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opUint64StringIndent:
+		case opUint64String:
 			b = append(b, '"')
 			b = appendUint(b, e.ptrToUint64(load(ctxptr, code.idx)))
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opFloat32Indent:
+		case opFloat32:
 			b = encodeFloat32(b, e.ptrToFloat32(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opFloat64Indent:
+		case opFloat64:
 			v := e.ptrToFloat64(load(ctxptr, code.idx))
 			if math.IsInf(v, 0) || math.IsNaN(v) {
 				return nil, errUnsupportedFloat(v)
@@ -136,15 +136,15 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStringIndent:
+		case opString:
 			b = encodeNoEscapedString(b, e.ptrToString(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opBoolIndent:
+		case opBool:
 			b = encodeBool(b, e.ptrToBool(load(ctxptr, code.idx)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opBytesIndent:
+		case opBytes:
 			ptr := load(ctxptr, code.idx)
 			slice := e.ptrToSlice(ptr)
 			if ptr == 0 || uintptr(slice.data) == 0 {
@@ -154,7 +154,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opInterfaceIndent:
+		case opInterface:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -208,7 +208,6 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				}
 				c = code
 			}
-			c = toIndent(c)
 			beforeLastCode := c.beforeLastCode()
 			lastCode := beforeLastCode.next
 			lastCode.idx = beforeLastCode.idx + uintptrSize
@@ -229,19 +228,19 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			store(ctxptr, lastCode.idx, oldOffset)
 
 			// link lastCode ( opInterfaceEnd ) => code.next
-			lastCode.op = opInterfaceEndIndent
+			lastCode.op = opInterfaceEnd
 			lastCode.next = code.next
 
 			code = c
 			recursiveLevel++
-		case opInterfaceEndIndent:
+		case opInterfaceEnd:
 			recursiveLevel--
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
 			ctxptr = ctx.ptr() + offset
 			ptrOffset = offset
 			code = code.next
-		case opMarshalJSONIndent:
+		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)
 			v := e.ptrToInterface(code, ptr)
 			bb, err := v.(Marshaler).MarshalJSON()
@@ -266,7 +265,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, buf.Bytes()...)
 			b = encodeIndentComma(b)
 			code = code.next
-		case opMarshalTextIndent:
+		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
 			p := e.ptrToUnsafePtr(ptr)
@@ -291,7 +290,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opSliceHeadIndent:
+		case opSliceHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -314,7 +313,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end.next
 				}
 			}
-		case opRootSliceHeadIndent:
+		case opRootSliceHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -337,7 +336,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end.next
 				}
 			}
-		case opSliceElemIndent:
+		case opSliceElem:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
 			idx++
@@ -355,7 +354,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
-		case opRootSliceElemIndent:
+		case opRootSliceElem:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
 			idx++
@@ -371,7 +370,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ']')
 				code = code.end.next
 			}
-		case opArrayHeadIndent:
+		case opArrayHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -391,7 +390,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end.next
 				}
 			}
-		case opArrayElemIndent:
+		case opArrayElem:
 			idx := load(ctxptr, code.elemIdx)
 			idx++
 			if idx < code.length {
@@ -408,7 +407,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
-		case opMapHeadIndent:
+		case opMapHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -445,7 +444,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end.next
 				}
 			}
-		case opMapHeadLoadIndent:
+		case opMapHeadLoad:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -490,7 +489,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end.next
 				}
 			}
-		case opMapKeyIndent:
+		case opMapKey:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
 			idx++
@@ -525,7 +524,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.end
 				}
 			}
-		case opMapValueIndent:
+		case opMapValue:
 			if e.unorderedMap {
 				b = append(b, ':', ' ')
 			} else {
@@ -539,7 +538,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			store(ctxptr, code.next.idx, uintptr(value))
 			mapiternext(iter)
 			code = code.next
-		case opMapEndIndent:
+		case opMapEnd:
 			// this operation only used by sorted map
 			length := int(load(ctxptr, code.length))
 			type mapKV struct {
@@ -585,7 +584,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = b[:pos[0]]
 			b = append(b, buf...)
 			code = code.next
-		case opStructFieldPtrHeadIndent:
+		case opStructFieldPtrHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -594,7 +593,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadIndent:
+		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -618,7 +617,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldHeadOnlyIndent:
+		case opStructFieldHeadOnly:
 			ptr := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if !code.anonymousKey {
@@ -629,10 +628,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
-		case opStructFieldPtrHeadIntIndent:
+		case opStructFieldPtrHeadInt:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadIntIndent:
+		case opStructFieldHeadInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -647,7 +646,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadIntOnlyIndent, opStructFieldHeadIntOnlyIndent:
+		case opStructFieldPtrHeadIntOnly, opStructFieldHeadIntOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -656,10 +655,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadIntPtrIndent:
+		case opStructFieldPtrHeadIntPtr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadIntPtrIndent:
+		case opStructFieldHeadIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -680,7 +679,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadIntPtrOnlyIndent:
+		case opStructFieldPtrHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -690,7 +689,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadIntPtrOnlyIndent:
+		case opStructFieldHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -703,7 +702,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadIntNPtrIndent:
+		case opStructFieldHeadIntNPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -726,10 +725,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadIntIndent:
+		case opStructFieldPtrAnonymousHeadInt:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadIntIndent:
+		case opStructFieldAnonymousHeadInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -741,7 +740,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadIntOnlyIndent, opStructFieldAnonymousHeadIntOnlyIndent:
+		case opStructFieldPtrAnonymousHeadIntOnly, opStructFieldAnonymousHeadIntOnly:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -753,10 +752,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadIntPtrIndent:
+		case opStructFieldPtrAnonymousHeadIntPtr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadIntPtrIndent:
+		case opStructFieldAnonymousHeadIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -773,7 +772,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadIntPtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -781,7 +780,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadIntPtrOnlyIndent:
+		case opStructFieldAnonymousHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -793,10 +792,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt8Indent:
+		case opStructFieldPtrHeadInt8:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt8Indent:
+		case opStructFieldHeadInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -811,7 +810,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadInt8OnlyIndent, opStructFieldHeadInt8OnlyIndent:
+		case opStructFieldPtrHeadInt8Only, opStructFieldHeadInt8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -820,10 +819,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt8(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt8PtrIndent:
+		case opStructFieldPtrHeadInt8Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt8PtrIndent:
+		case opStructFieldHeadInt8Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -844,7 +843,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt8PtrOnlyIndent:
+		case opStructFieldPtrHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -854,7 +853,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadInt8PtrOnlyIndent:
+		case opStructFieldHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -867,7 +866,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadInt8NPtrIndent:
+		case opStructFieldHeadInt8NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -890,10 +889,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt8Indent:
+		case opStructFieldPtrAnonymousHeadInt8:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt8Indent:
+		case opStructFieldAnonymousHeadInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -905,7 +904,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt8OnlyIndent, opStructFieldAnonymousHeadInt8OnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt8Only, opStructFieldAnonymousHeadInt8Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -917,10 +916,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt8PtrIndent:
+		case opStructFieldPtrAnonymousHeadInt8Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt8PtrIndent:
+		case opStructFieldAnonymousHeadInt8Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -937,7 +936,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt8PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -945,7 +944,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadInt8PtrOnlyIndent:
+		case opStructFieldAnonymousHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -957,10 +956,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt16Indent:
+		case opStructFieldPtrHeadInt16:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt16Indent:
+		case opStructFieldHeadInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -975,7 +974,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadInt16OnlyIndent, opStructFieldHeadInt16OnlyIndent:
+		case opStructFieldPtrHeadInt16Only, opStructFieldHeadInt16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -984,10 +983,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt16(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt16PtrIndent:
+		case opStructFieldPtrHeadInt16Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt16PtrIndent:
+		case opStructFieldHeadInt16Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1008,7 +1007,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt16PtrOnlyIndent:
+		case opStructFieldPtrHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1018,7 +1017,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadInt16PtrOnlyIndent:
+		case opStructFieldHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1031,7 +1030,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadInt16NPtrIndent:
+		case opStructFieldHeadInt16NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1054,10 +1053,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt16Indent:
+		case opStructFieldPtrAnonymousHeadInt16:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt16Indent:
+		case opStructFieldAnonymousHeadInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1069,7 +1068,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt16OnlyIndent, opStructFieldAnonymousHeadInt16OnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt16Only, opStructFieldAnonymousHeadInt16Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1081,10 +1080,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt16PtrIndent:
+		case opStructFieldPtrAnonymousHeadInt16Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt16PtrIndent:
+		case opStructFieldAnonymousHeadInt16Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1101,7 +1100,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt16PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1109,7 +1108,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadInt16PtrOnlyIndent:
+		case opStructFieldAnonymousHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1121,10 +1120,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt32Indent:
+		case opStructFieldPtrHeadInt32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt32Indent:
+		case opStructFieldHeadInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1139,7 +1138,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadInt32OnlyIndent, opStructFieldHeadInt32OnlyIndent:
+		case opStructFieldPtrHeadInt32Only, opStructFieldHeadInt32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1148,10 +1147,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt32(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt32PtrIndent:
+		case opStructFieldPtrHeadInt32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt32PtrIndent:
+		case opStructFieldHeadInt32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1172,7 +1171,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt32PtrOnlyIndent:
+		case opStructFieldPtrHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1182,7 +1181,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadInt32PtrOnlyIndent:
+		case opStructFieldHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1195,7 +1194,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadInt32NPtrIndent:
+		case opStructFieldHeadInt32NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1218,10 +1217,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt32Indent:
+		case opStructFieldPtrAnonymousHeadInt32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt32Indent:
+		case opStructFieldAnonymousHeadInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1233,7 +1232,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt32OnlyIndent, opStructFieldAnonymousHeadInt32OnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt32Only, opStructFieldAnonymousHeadInt32Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1245,10 +1244,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt32PtrIndent:
+		case opStructFieldPtrAnonymousHeadInt32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt32PtrIndent:
+		case opStructFieldAnonymousHeadInt32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1265,7 +1264,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt32PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1273,7 +1272,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadInt32PtrOnlyIndent:
+		case opStructFieldAnonymousHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1285,10 +1284,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt64Indent:
+		case opStructFieldPtrHeadInt64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt64Indent:
+		case opStructFieldHeadInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1303,7 +1302,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadInt64OnlyIndent, opStructFieldHeadInt64OnlyIndent:
+		case opStructFieldPtrHeadInt64Only, opStructFieldHeadInt64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1312,10 +1311,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, e.ptrToInt64(p))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt64PtrIndent:
+		case opStructFieldPtrHeadInt64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadInt64PtrIndent:
+		case opStructFieldHeadInt64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1336,7 +1335,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadInt64PtrOnlyIndent:
+		case opStructFieldPtrHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1346,7 +1345,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadInt64PtrOnlyIndent:
+		case opStructFieldHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1359,7 +1358,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadInt64NPtrIndent:
+		case opStructFieldHeadInt64NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1382,10 +1381,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt64Indent:
+		case opStructFieldPtrAnonymousHeadInt64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt64Indent:
+		case opStructFieldAnonymousHeadInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1397,7 +1396,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt64OnlyIndent, opStructFieldAnonymousHeadInt64OnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt64Only, opStructFieldAnonymousHeadInt64Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1409,10 +1408,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadInt64PtrIndent:
+		case opStructFieldPtrAnonymousHeadInt64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadInt64PtrIndent:
+		case opStructFieldAnonymousHeadInt64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1429,7 +1428,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadInt64PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1437,7 +1436,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadInt64PtrOnlyIndent:
+		case opStructFieldAnonymousHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1449,10 +1448,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUintIndent:
+		case opStructFieldPtrHeadUint:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUintIndent:
+		case opStructFieldHeadUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1467,7 +1466,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUintOnlyIndent, opStructFieldHeadUintOnlyIndent:
+		case opStructFieldPtrHeadUintOnly, opStructFieldHeadUintOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1476,10 +1475,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUintPtrIndent:
+		case opStructFieldPtrHeadUintPtr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUintPtrIndent:
+		case opStructFieldHeadUintPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1500,7 +1499,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUintPtrOnlyIndent:
+		case opStructFieldPtrHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1510,7 +1509,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadUintPtrOnlyIndent:
+		case opStructFieldHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1523,7 +1522,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUintNPtrIndent:
+		case opStructFieldHeadUintNPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1546,10 +1545,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUintIndent:
+		case opStructFieldPtrAnonymousHeadUint:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUintIndent:
+		case opStructFieldAnonymousHeadUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1561,7 +1560,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUintOnlyIndent, opStructFieldAnonymousHeadUintOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUintOnly, opStructFieldAnonymousHeadUintOnly:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1573,10 +1572,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUintPtrIndent:
+		case opStructFieldPtrAnonymousHeadUintPtr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUintPtrIndent:
+		case opStructFieldAnonymousHeadUintPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1593,7 +1592,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUintPtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1601,7 +1600,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadUintPtrOnlyIndent:
+		case opStructFieldAnonymousHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1613,10 +1612,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint8Indent:
+		case opStructFieldPtrHeadUint8:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint8Indent:
+		case opStructFieldHeadUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1631,7 +1630,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUint8OnlyIndent, opStructFieldHeadUint8OnlyIndent:
+		case opStructFieldPtrHeadUint8Only, opStructFieldHeadUint8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1640,10 +1639,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint8(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint8PtrIndent:
+		case opStructFieldPtrHeadUint8Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint8PtrIndent:
+		case opStructFieldHeadUint8Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1664,7 +1663,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint8PtrOnlyIndent:
+		case opStructFieldPtrHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1674,7 +1673,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadUint8PtrOnlyIndent:
+		case opStructFieldHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1687,7 +1686,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUint8NPtrIndent:
+		case opStructFieldHeadUint8NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1710,10 +1709,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint8Indent:
+		case opStructFieldPtrAnonymousHeadUint8:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint8Indent:
+		case opStructFieldAnonymousHeadUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1725,7 +1724,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint8OnlyIndent, opStructFieldAnonymousHeadUint8OnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint8Only, opStructFieldAnonymousHeadUint8Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1737,10 +1736,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint8PtrIndent:
+		case opStructFieldPtrAnonymousHeadUint8Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint8PtrIndent:
+		case opStructFieldAnonymousHeadUint8Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1757,7 +1756,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint8PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1765,7 +1764,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadUint8PtrOnlyIndent:
+		case opStructFieldAnonymousHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1777,10 +1776,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint16Indent:
+		case opStructFieldPtrHeadUint16:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint16Indent:
+		case opStructFieldHeadUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1795,7 +1794,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUint16OnlyIndent, opStructFieldHeadUint16OnlyIndent:
+		case opStructFieldPtrHeadUint16Only, opStructFieldHeadUint16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1804,10 +1803,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint16(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint16PtrIndent:
+		case opStructFieldPtrHeadUint16Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint16PtrIndent:
+		case opStructFieldHeadUint16Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1828,7 +1827,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint16PtrOnlyIndent:
+		case opStructFieldPtrHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1838,7 +1837,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadUint16PtrOnlyIndent:
+		case opStructFieldHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1851,7 +1850,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUint16NPtrIndent:
+		case opStructFieldHeadUint16NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1874,10 +1873,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint16Indent:
+		case opStructFieldPtrAnonymousHeadUint16:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint16Indent:
+		case opStructFieldAnonymousHeadUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1889,7 +1888,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint16OnlyIndent, opStructFieldAnonymousHeadUint16OnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint16Only, opStructFieldAnonymousHeadUint16Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -1901,10 +1900,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint16PtrIndent:
+		case opStructFieldPtrAnonymousHeadUint16Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint16PtrIndent:
+		case opStructFieldAnonymousHeadUint16Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1921,7 +1920,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint16PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -1929,7 +1928,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadUint16PtrOnlyIndent:
+		case opStructFieldAnonymousHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -1941,10 +1940,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint32Indent:
+		case opStructFieldPtrHeadUint32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint32Indent:
+		case opStructFieldHeadUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -1959,7 +1958,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUint32OnlyIndent, opStructFieldHeadUint32OnlyIndent:
+		case opStructFieldPtrHeadUint32Only, opStructFieldHeadUint32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -1968,10 +1967,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint32(p)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint32PtrIndent:
+		case opStructFieldPtrHeadUint32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint32PtrIndent:
+		case opStructFieldHeadUint32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -1992,7 +1991,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint32PtrOnlyIndent:
+		case opStructFieldPtrHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2002,7 +2001,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadUint32PtrOnlyIndent:
+		case opStructFieldHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2015,7 +2014,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUint32NPtrIndent:
+		case opStructFieldHeadUint32NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2038,10 +2037,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint32Indent:
+		case opStructFieldPtrAnonymousHeadUint32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint32Indent:
+		case opStructFieldAnonymousHeadUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2053,7 +2052,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint32OnlyIndent, opStructFieldAnonymousHeadUint32OnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint32Only, opStructFieldAnonymousHeadUint32Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2065,10 +2064,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint32PtrIndent:
+		case opStructFieldPtrAnonymousHeadUint32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint32PtrIndent:
+		case opStructFieldAnonymousHeadUint32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2085,7 +2084,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint32PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2093,7 +2092,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadUint32PtrOnlyIndent:
+		case opStructFieldAnonymousHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -2105,10 +2104,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint64Indent:
+		case opStructFieldPtrHeadUint64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint64Indent:
+		case opStructFieldHeadUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -2123,7 +2122,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUint64OnlyIndent, opStructFieldHeadUint64OnlyIndent:
+		case opStructFieldPtrHeadUint64Only, opStructFieldHeadUint64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2132,10 +2131,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, e.ptrToUint64(p))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint64PtrIndent:
+		case opStructFieldPtrHeadUint64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadUint64PtrIndent:
+		case opStructFieldHeadUint64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2156,7 +2155,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadUint64PtrOnlyIndent:
+		case opStructFieldPtrHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2166,7 +2165,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadUint64PtrOnlyIndent:
+		case opStructFieldHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2179,7 +2178,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUint64NPtrIndent:
+		case opStructFieldHeadUint64NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2202,10 +2201,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint64Indent:
+		case opStructFieldPtrAnonymousHeadUint64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint64Indent:
+		case opStructFieldAnonymousHeadUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2217,7 +2216,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint64OnlyIndent, opStructFieldAnonymousHeadUint64OnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint64Only, opStructFieldAnonymousHeadUint64Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2229,10 +2228,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUint64PtrIndent:
+		case opStructFieldPtrAnonymousHeadUint64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadUint64PtrIndent:
+		case opStructFieldAnonymousHeadUint64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2249,7 +2248,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadUint64PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2257,7 +2256,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadUint64PtrOnlyIndent:
+		case opStructFieldAnonymousHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -2269,10 +2268,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat32Indent:
+		case opStructFieldPtrHeadFloat32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadFloat32Indent:
+		case opStructFieldHeadFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -2287,7 +2286,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadFloat32OnlyIndent, opStructFieldHeadFloat32OnlyIndent:
+		case opStructFieldPtrHeadFloat32Only, opStructFieldHeadFloat32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2296,10 +2295,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat32(b, e.ptrToFloat32(p))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat32PtrIndent:
+		case opStructFieldPtrHeadFloat32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadFloat32PtrIndent:
+		case opStructFieldHeadFloat32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2320,7 +2319,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat32PtrOnlyIndent:
+		case opStructFieldPtrHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2330,7 +2329,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadFloat32PtrOnlyIndent:
+		case opStructFieldHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2343,7 +2342,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadFloat32NPtrIndent:
+		case opStructFieldHeadFloat32NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2366,10 +2365,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat32Indent:
+		case opStructFieldPtrAnonymousHeadFloat32:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat32Indent:
+		case opStructFieldAnonymousHeadFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2381,7 +2380,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat32OnlyIndent, opStructFieldAnonymousHeadFloat32OnlyIndent:
+		case opStructFieldPtrAnonymousHeadFloat32Only, opStructFieldAnonymousHeadFloat32Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2393,10 +2392,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat32PtrIndent:
+		case opStructFieldPtrAnonymousHeadFloat32Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat32PtrIndent:
+		case opStructFieldAnonymousHeadFloat32Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2413,7 +2412,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat32PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2421,7 +2420,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat32PtrOnlyIndent:
+		case opStructFieldAnonymousHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -2433,10 +2432,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat64Indent:
+		case opStructFieldPtrHeadFloat64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadFloat64Indent:
+		case opStructFieldHeadFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -2455,7 +2454,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadFloat64OnlyIndent, opStructFieldHeadFloat64OnlyIndent:
+		case opStructFieldPtrHeadFloat64Only, opStructFieldHeadFloat64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2468,10 +2467,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat64PtrIndent:
+		case opStructFieldPtrHeadFloat64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadFloat64PtrIndent:
+		case opStructFieldHeadFloat64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2496,7 +2495,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadFloat64PtrOnlyIndent:
+		case opStructFieldPtrHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2506,7 +2505,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldHeadFloat64PtrOnlyIndent:
+		case opStructFieldHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			b = e.encodeIndent(b, code.indent+1)
@@ -2523,7 +2522,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadFloat64NPtrIndent:
+		case opStructFieldHeadFloat64NPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2550,10 +2549,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat64Indent:
+		case opStructFieldPtrAnonymousHeadFloat64:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat64Indent:
+		case opStructFieldAnonymousHeadFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2569,7 +2568,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat64OnlyIndent, opStructFieldAnonymousHeadFloat64OnlyIndent:
+		case opStructFieldPtrAnonymousHeadFloat64Only, opStructFieldAnonymousHeadFloat64Only:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				code = code.end.next
@@ -2585,10 +2584,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat64PtrIndent:
+		case opStructFieldPtrAnonymousHeadFloat64Ptr:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat64PtrIndent:
+		case opStructFieldAnonymousHeadFloat64Ptr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2609,7 +2608,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat64PtrOnlyIndent:
+		case opStructFieldPtrAnonymousHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2617,7 +2616,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			store(ctxptr, code.idx, e.ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadFloat64PtrOnlyIndent:
+		case opStructFieldAnonymousHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -2633,10 +2632,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldPtrHeadStringIndent:
+		case opStructFieldPtrHeadString:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadStringIndent:
+		case opStructFieldHeadString:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2653,10 +2652,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadBoolIndent:
+		case opStructFieldPtrHeadBool:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadBoolIndent:
+		case opStructFieldHeadBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2673,10 +2672,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadBytesIndent:
+		case opStructFieldPtrHeadBytes:
 			store(ctxptr, code.idx, e.ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
-		case opStructFieldHeadBytesIndent:
+		case opStructFieldHeadBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2693,13 +2692,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadOmitEmptyIndent:
+		case opStructFieldPtrHeadOmitEmpty:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyIndent:
+		case opStructFieldHeadOmitEmpty:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2720,13 +2719,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					store(ctxptr, code.idx, p)
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyIntIndent:
+		case opStructFieldPtrHeadOmitEmptyInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyIntIndent:
+		case opStructFieldHeadOmitEmptyInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2748,13 +2747,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyInt8Indent:
+		case opStructFieldPtrHeadOmitEmptyInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyInt8Indent:
+		case opStructFieldHeadOmitEmptyInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2776,13 +2775,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyInt16Indent:
+		case opStructFieldPtrHeadOmitEmptyInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyInt16Indent:
+		case opStructFieldHeadOmitEmptyInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2804,13 +2803,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyInt32Indent:
+		case opStructFieldPtrHeadOmitEmptyInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyInt32Indent:
+		case opStructFieldHeadOmitEmptyInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2832,13 +2831,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyInt64Indent:
+		case opStructFieldPtrHeadOmitEmptyInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyInt64Indent:
+		case opStructFieldHeadOmitEmptyInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2860,13 +2859,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyUintIndent:
+		case opStructFieldPtrHeadOmitEmptyUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyUintIndent:
+		case opStructFieldHeadOmitEmptyUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2888,13 +2887,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyUint8Indent:
+		case opStructFieldPtrHeadOmitEmptyUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyUint8Indent:
+		case opStructFieldHeadOmitEmptyUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2916,13 +2915,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyUint16Indent:
+		case opStructFieldPtrHeadOmitEmptyUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyUint16Indent:
+		case opStructFieldHeadOmitEmptyUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2944,13 +2943,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyUint32Indent:
+		case opStructFieldPtrHeadOmitEmptyUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyUint32Indent:
+		case opStructFieldHeadOmitEmptyUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -2972,13 +2971,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyUint64Indent:
+		case opStructFieldPtrHeadOmitEmptyUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyUint64Indent:
+		case opStructFieldHeadOmitEmptyUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3000,13 +2999,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyFloat32Indent:
+		case opStructFieldPtrHeadOmitEmptyFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyFloat32Indent:
+		case opStructFieldHeadOmitEmptyFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3028,13 +3027,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyFloat64Indent:
+		case opStructFieldPtrHeadOmitEmptyFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyFloat64Indent:
+		case opStructFieldHeadOmitEmptyFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3059,13 +3058,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyStringIndent:
+		case opStructFieldPtrHeadOmitEmptyString:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyStringIndent:
+		case opStructFieldHeadOmitEmptyString:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3087,13 +3086,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyBoolIndent:
+		case opStructFieldPtrHeadOmitEmptyBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyBoolIndent:
+		case opStructFieldHeadOmitEmptyBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3115,13 +3114,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadOmitEmptyBytesIndent:
+		case opStructFieldPtrHeadOmitEmptyBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyBytesIndent:
+		case opStructFieldHeadOmitEmptyBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3143,13 +3142,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldPtrHeadStringTagIndent:
+		case opStructFieldPtrHeadStringTag:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagIndent:
+		case opStructFieldHeadStringTag:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3165,13 +3164,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldPtrHeadStringTagIntIndent:
+		case opStructFieldPtrHeadStringTagInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagIntIndent:
+		case opStructFieldHeadStringTagInt:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3188,13 +3187,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagInt8Indent:
+		case opStructFieldPtrHeadStringTagInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagInt8Indent:
+		case opStructFieldHeadStringTagInt8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3211,13 +3210,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagInt16Indent:
+		case opStructFieldPtrHeadStringTagInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagInt16Indent:
+		case opStructFieldHeadStringTagInt16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3234,13 +3233,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagInt32Indent:
+		case opStructFieldPtrHeadStringTagInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagInt32Indent:
+		case opStructFieldHeadStringTagInt32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3257,13 +3256,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagInt64Indent:
+		case opStructFieldPtrHeadStringTagInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagInt64Indent:
+		case opStructFieldHeadStringTagInt64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3280,13 +3279,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagUintIndent:
+		case opStructFieldPtrHeadStringTagUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagUintIndent:
+		case opStructFieldHeadStringTagUint:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3303,13 +3302,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagUint8Indent:
+		case opStructFieldPtrHeadStringTagUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagUint8Indent:
+		case opStructFieldHeadStringTagUint8:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3326,13 +3325,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagUint16Indent:
+		case opStructFieldPtrHeadStringTagUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagUint16Indent:
+		case opStructFieldHeadStringTagUint16:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3349,13 +3348,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagUint32Indent:
+		case opStructFieldPtrHeadStringTagUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagUint32Indent:
+		case opStructFieldHeadStringTagUint32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3372,13 +3371,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagUint64Indent:
+		case opStructFieldPtrHeadStringTagUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagUint64Indent:
+		case opStructFieldHeadStringTagUint64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3395,13 +3394,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagFloat32Indent:
+		case opStructFieldPtrHeadStringTagFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagFloat32Indent:
+		case opStructFieldHeadStringTagFloat32:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3418,13 +3417,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagFloat64Indent:
+		case opStructFieldPtrHeadStringTagFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagFloat64Indent:
+		case opStructFieldHeadStringTagFloat64:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3445,13 +3444,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagStringIndent:
+		case opStructFieldPtrHeadStringTagString:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagStringIndent:
+		case opStructFieldHeadStringTagString:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3468,13 +3467,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagBoolIndent:
+		case opStructFieldPtrHeadStringTagBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagBoolIndent:
+		case opStructFieldHeadStringTagBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3491,13 +3490,13 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagBytesIndent:
+		case opStructFieldPtrHeadStringTagBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				store(ctxptr, code.idx, e.ptrToPtr(ptr))
 			}
 			fallthrough
-		case opStructFieldHeadStringTagBytesIndent:
+		case opStructFieldHeadStringTagBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = e.encodeIndent(b, code.indent)
@@ -3513,7 +3512,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 				code = code.next
 			}
-		case opStructFieldIndent:
+		case opStructField:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3521,7 +3520,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
-		case opStructFieldIntIndent:
+		case opStructFieldInt:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3529,7 +3528,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldInt8Indent:
+		case opStructFieldInt8:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3537,7 +3536,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldInt16Indent:
+		case opStructFieldInt16:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3545,7 +3544,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldInt32Indent:
+		case opStructFieldInt32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3553,7 +3552,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldInt64Indent:
+		case opStructFieldInt64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3561,7 +3560,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldUintIndent:
+		case opStructFieldUint:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3569,7 +3568,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldUint8Indent:
+		case opStructFieldUint8:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3577,7 +3576,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldUint16Indent:
+		case opStructFieldUint16:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3585,7 +3584,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldUint32Indent:
+		case opStructFieldUint32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3593,7 +3592,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldUint64Indent:
+		case opStructFieldUint64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3601,7 +3600,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldFloat32Indent:
+		case opStructFieldFloat32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3609,7 +3608,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldFloat64Indent:
+		case opStructFieldFloat64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3621,7 +3620,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringIndent:
+		case opStructFieldString:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3629,7 +3628,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldBoolIndent:
+		case opStructFieldBool:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3637,7 +3636,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldBytesIndent:
+		case opStructFieldBytes:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3645,7 +3644,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldMarshalJSONIndent:
+		case opStructFieldMarshalJSON:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3663,7 +3662,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, buf.Bytes()...)
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldArrayIndent:
+		case opStructFieldArray:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3677,7 +3676,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				code = code.next
 			}
-		case opStructFieldSliceIndent:
+		case opStructFieldSlice:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3691,7 +3690,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				code = code.next
 			}
-		case opStructFieldMapIndent:
+		case opStructFieldMap:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3711,7 +3710,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldMapLoadIndent:
+		case opStructFieldMapLoad:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -3730,7 +3729,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldStructIndent:
+		case opStructFieldStruct:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			b = e.encodeIndent(b, code.indent)
@@ -3750,7 +3749,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					store(ctxptr, code.idx, p)
 				}
 			}
-		case opStructFieldOmitEmptyIndent:
+		case opStructFieldOmitEmpty:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
@@ -3762,7 +3761,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldOmitEmptyIntIndent:
+		case opStructFieldOmitEmptyInt:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt(ptr + code.offset)
 			if v != 0 {
@@ -3773,7 +3772,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyInt8Indent:
+		case opStructFieldOmitEmptyInt8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
 			if v != 0 {
@@ -3784,7 +3783,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyInt16Indent:
+		case opStructFieldOmitEmptyInt16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt16(ptr + code.offset)
 			if v != 0 {
@@ -3795,7 +3794,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyInt32Indent:
+		case opStructFieldOmitEmptyInt32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt32(ptr + code.offset)
 			if v != 0 {
@@ -3806,7 +3805,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyInt64Indent:
+		case opStructFieldOmitEmptyInt64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt64(ptr + code.offset)
 			if v != 0 {
@@ -3817,7 +3816,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyUintIndent:
+		case opStructFieldOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint(ptr + code.offset)
 			if v != 0 {
@@ -3828,7 +3827,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyUint8Indent:
+		case opStructFieldOmitEmptyUint8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint8(ptr + code.offset)
 			if v != 0 {
@@ -3839,7 +3838,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyUint16Indent:
+		case opStructFieldOmitEmptyUint16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint16(ptr + code.offset)
 			if v != 0 {
@@ -3850,7 +3849,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyUint32Indent:
+		case opStructFieldOmitEmptyUint32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint32(ptr + code.offset)
 			if v != 0 {
@@ -3861,7 +3860,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyUint64Indent:
+		case opStructFieldOmitEmptyUint64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint64(ptr + code.offset)
 			if v != 0 {
@@ -3872,7 +3871,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyFloat32Indent:
+		case opStructFieldOmitEmptyFloat32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat32(ptr + code.offset)
 			if v != 0 {
@@ -3883,7 +3882,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyFloat64Indent:
+		case opStructFieldOmitEmptyFloat64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if v != 0 {
@@ -3897,7 +3896,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyStringIndent:
+		case opStructFieldOmitEmptyString:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToString(ptr + code.offset)
 			if v != "" {
@@ -3908,7 +3907,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyBoolIndent:
+		case opStructFieldOmitEmptyBool:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBool(ptr + code.offset)
 			if v {
@@ -3919,7 +3918,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyBytesIndent:
+		case opStructFieldOmitEmptyBytes:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
@@ -3930,7 +3929,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opStructFieldOmitEmptyArrayIndent:
+		case opStructFieldOmitEmptyArray:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			array := e.ptrToSlice(p)
@@ -3942,7 +3941,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ' ')
 				code = code.next
 			}
-		case opStructFieldOmitEmptySliceIndent:
+		case opStructFieldOmitEmptySlice:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			slice := e.ptrToSlice(p)
@@ -3954,7 +3953,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ' ')
 				code = code.next
 			}
-		case opStructFieldOmitEmptyMapIndent:
+		case opStructFieldOmitEmptyMap:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			if p == 0 {
@@ -3970,7 +3969,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldOmitEmptyMapLoadIndent:
+		case opStructFieldOmitEmptyMapLoad:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			if p == 0 {
@@ -3986,7 +3985,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					code = code.next
 				}
 			}
-		case opStructFieldOmitEmptyStructIndent:
+		case opStructFieldOmitEmptyStruct:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			if p == 0 {
@@ -4005,7 +4004,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					store(ctxptr, code.idx, p)
 				}
 			}
-		case opStructFieldStringTagIndent:
+		case opStructFieldStringTag:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			b = e.encodeIndent(b, code.indent)
@@ -4013,7 +4012,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, ' ')
 			code = code.next
 			store(ctxptr, code.idx, p)
-		case opStructFieldStringTagIntIndent:
+		case opStructFieldStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4022,7 +4021,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagInt8Indent:
+		case opStructFieldStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4031,7 +4030,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagInt16Indent:
+		case opStructFieldStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4040,7 +4039,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagInt32Indent:
+		case opStructFieldStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4049,7 +4048,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagInt64Indent:
+		case opStructFieldStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4058,7 +4057,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagUintIndent:
+		case opStructFieldStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4067,7 +4066,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagUint8Indent:
+		case opStructFieldStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4076,7 +4075,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagUint16Indent:
+		case opStructFieldStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4085,7 +4084,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagUint32Indent:
+		case opStructFieldStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4094,7 +4093,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagUint64Indent:
+		case opStructFieldStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4103,7 +4102,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagFloat32Indent:
+		case opStructFieldStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4112,7 +4111,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagFloat64Indent:
+		case opStructFieldStringTagFloat64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
@@ -4125,7 +4124,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagStringIndent:
+		case opStructFieldStringTagString:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4134,7 +4133,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagBoolIndent:
+		case opStructFieldStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4143,7 +4142,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagBytesIndent:
+		case opStructFieldStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4151,7 +4150,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagMarshalJSONIndent:
+		case opStructFieldStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4169,7 +4168,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeEscapedString(b, buf.String())
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldStringTagMarshalTextIndent:
+		case opStructFieldStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4183,9 +4182,9 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructAnonymousEndIndent:
+		case opStructAnonymousEnd:
 			code = code.next
-		case opStructEndIndent:
+		case opStructEnd:
 			last := len(b) - 1
 			if b[last-1] == '{' {
 				b[last] = '}'
@@ -4202,7 +4201,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '}')
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructEndIntIndent:
+		case opStructEndInt:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4210,7 +4209,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndIntPtrIndent:
+		case opStructEndIntPtr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4223,7 +4222,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt8Indent:
+		case opStructEndInt8:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4231,7 +4230,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt8(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt8PtrIndent:
+		case opStructEndInt8Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4244,7 +4243,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt16Indent:
+		case opStructEndInt16:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4252,7 +4251,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt16PtrIndent:
+		case opStructEndInt16Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4265,7 +4264,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt32Indent:
+		case opStructEndInt32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4273,7 +4272,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt32PtrIndent:
+		case opStructEndInt32Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4286,7 +4285,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt64Indent:
+		case opStructEndInt64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4294,7 +4293,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndInt64PtrIndent:
+		case opStructEndInt64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4307,7 +4306,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUintIndent:
+		case opStructEndUint:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4315,7 +4314,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUintPtrIndent:
+		case opStructEndUintPtr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4328,7 +4327,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint8Indent:
+		case opStructEndUint8:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4336,7 +4335,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint8PtrIndent:
+		case opStructEndUint8Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4349,7 +4348,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint16Indent:
+		case opStructEndUint16:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4357,7 +4356,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint16PtrIndent:
+		case opStructEndUint16Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4370,7 +4369,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint32Indent:
+		case opStructEndUint32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4378,7 +4377,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint32PtrIndent:
+		case opStructEndUint32Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4391,7 +4390,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint64Indent:
+		case opStructEndUint64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4399,7 +4398,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndUint64PtrIndent:
+		case opStructEndUint64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4412,7 +4411,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndFloat32Indent:
+		case opStructEndFloat32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4420,7 +4419,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndFloat32PtrIndent:
+		case opStructEndFloat32Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4433,7 +4432,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndFloat64Indent:
+		case opStructEndFloat64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4445,7 +4444,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndFloat64PtrIndent:
+		case opStructEndFloat64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4462,7 +4461,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringIndent:
+		case opStructEndString:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4470,7 +4469,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndBoolIndent:
+		case opStructEndBool:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4478,7 +4477,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndBytesIndent:
+		case opStructEndBytes:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4486,7 +4485,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndMarshalJSONIndent:
+		case opStructEndMarshalJSON:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
@@ -4504,7 +4503,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, buf.Bytes()...)
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyIntIndent:
+		case opStructEndOmitEmptyInt:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt(ptr + code.offset)
 			if v != 0 {
@@ -4515,7 +4514,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyInt8Indent:
+		case opStructEndOmitEmptyInt8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
 			if v != 0 {
@@ -4526,7 +4525,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyInt16Indent:
+		case opStructEndOmitEmptyInt16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt16(ptr + code.offset)
 			if v != 0 {
@@ -4537,7 +4536,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyInt32Indent:
+		case opStructEndOmitEmptyInt32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt32(ptr + code.offset)
 			if v != 0 {
@@ -4548,7 +4547,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyInt64Indent:
+		case opStructEndOmitEmptyInt64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt64(ptr + code.offset)
 			if v != 0 {
@@ -4559,7 +4558,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyUintIndent:
+		case opStructEndOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint(ptr + code.offset)
 			if v != 0 {
@@ -4570,7 +4569,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyUint8Indent:
+		case opStructEndOmitEmptyUint8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint8(ptr + code.offset)
 			if v != 0 {
@@ -4581,7 +4580,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyUint16Indent:
+		case opStructEndOmitEmptyUint16:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint16(ptr + code.offset)
 			if v != 0 {
@@ -4592,7 +4591,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyUint32Indent:
+		case opStructEndOmitEmptyUint32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint32(ptr + code.offset)
 			if v != 0 {
@@ -4603,7 +4602,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyUint64Indent:
+		case opStructEndOmitEmptyUint64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToUint64(ptr + code.offset)
 			if v != 0 {
@@ -4614,7 +4613,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyFloat32Indent:
+		case opStructEndOmitEmptyFloat32:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat32(ptr + code.offset)
 			if v != 0 {
@@ -4625,7 +4624,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyFloat64Indent:
+		case opStructEndOmitEmptyFloat64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if v != 0 {
@@ -4639,7 +4638,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyStringIndent:
+		case opStructEndOmitEmptyString:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToString(ptr + code.offset)
 			if v != "" {
@@ -4650,7 +4649,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyBoolIndent:
+		case opStructEndOmitEmptyBool:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBool(ptr + code.offset)
 			if v {
@@ -4661,7 +4660,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyBytesIndent:
+		case opStructEndOmitEmptyBytes:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
@@ -4672,7 +4671,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagIntIndent:
+		case opStructEndStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4681,7 +4680,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagInt8Indent:
+		case opStructEndStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4690,7 +4689,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagInt16Indent:
+		case opStructEndStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4699,7 +4698,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagInt32Indent:
+		case opStructEndStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4708,7 +4707,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagInt64Indent:
+		case opStructEndStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4717,7 +4716,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagUintIndent:
+		case opStructEndStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4726,7 +4725,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagUint8Indent:
+		case opStructEndStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4735,7 +4734,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagUint16Indent:
+		case opStructEndStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4744,7 +4743,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagUint32Indent:
+		case opStructEndStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4753,7 +4752,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagUint64Indent:
+		case opStructEndStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4762,7 +4761,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagFloat32Indent:
+		case opStructEndStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4771,7 +4770,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagFloat64Indent:
+		case opStructEndStringTagFloat64:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToFloat64(ptr + code.offset)
 			if math.IsInf(v, 0) || math.IsNaN(v) {
@@ -4784,7 +4783,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagStringIndent:
+		case opStructEndStringTagString:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4793,7 +4792,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagBoolIndent:
+		case opStructEndStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4802,7 +4801,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagBytesIndent:
+		case opStructEndStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4810,7 +4809,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagMarshalJSONIndent:
+		case opStructEndStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4828,7 +4827,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, buf.String())
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndStringTagMarshalTextIndent:
+		case opStructEndStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)

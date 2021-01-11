@@ -53,20 +53,6 @@ func copyOpcode(code *opcode) *opcode {
 	return code.copy(codeMap)
 }
 
-func toIndent(c *opcode) *opcode {
-	c = copyOpcode(c)
-	for code := c; code.op != opEnd; {
-		code.op = code.op.toIndent()
-		switch code.op.codeType() {
-		case codeArrayElem, codeSliceElem, codeMapKey:
-			code = code.end
-		default:
-			code = code.next
-		}
-	}
-	return c
-}
-
 func toEscaped(c *opcode) *opcode {
 	c = copyOpcode(c)
 	for code := c; code.op != opEnd; {

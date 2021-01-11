@@ -34,6 +34,7 @@ func TestCoverStructHeadInt(t *testing.T) {
 		indentExpected string
 		data           interface{}
 	}{
+		// HeadIntZero
 		{
 			name:     "HeadIntZero",
 			expected: `{"a":0}`,
@@ -47,6 +48,30 @@ func TestCoverStructHeadInt(t *testing.T) {
 			}{},
 		},
 		{
+			name:     "HeadIntZeroOmitEmpty",
+			expected: `{}`,
+			indentExpected: `
+{}
+`,
+			data: struct {
+				A int `json:"a,omitempty"`
+			}{},
+		},
+		{
+			name:     "HeadIntZeroString",
+			expected: `{"a":"0"}`,
+			indentExpected: `
+{
+  "a": "0"
+}
+`,
+			data: struct {
+				A int `json:"a,string"`
+			}{},
+		},
+
+		// HeadInt
+		{
 			name:     "HeadInt",
 			expected: `{"a":1}`,
 			indentExpected: `
@@ -58,6 +83,32 @@ func TestCoverStructHeadInt(t *testing.T) {
 				A int `json:"a"`
 			}{A: 1},
 		},
+		{
+			name:     "HeadIntOmitEmpty",
+			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
+			data: struct {
+				A int `json:"a,omitempty"`
+			}{A: 1},
+		},
+		{
+			name:     "HeadIntString",
+			expected: `{"a":"1"}`,
+			indentExpected: `
+{
+  "a": "1"
+}
+`,
+			data: struct {
+				A int `json:"a,string"`
+			}{A: 1},
+		},
+
+		// HeadIntPtr
 		{
 			name:     "HeadIntPtr",
 			expected: `{"a":1}`,
@@ -71,6 +122,32 @@ func TestCoverStructHeadInt(t *testing.T) {
 			}{A: intptr(1)},
 		},
 		{
+			name:     "HeadIntPtrOmitEmpty",
+			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
+			data: struct {
+				A *int `json:"a,omitempty"`
+			}{A: intptr(1)},
+		},
+		{
+			name:     "HeadIntPtrString",
+			expected: `{"a":"1"}`,
+			indentExpected: `
+{
+  "a": "1"
+}
+`,
+			data: struct {
+				A *int `json:"a,string"`
+			}{A: intptr(1)},
+		},
+
+		// HeadIntPtrNil
+		{
 			name:     "HeadIntPtrNil",
 			expected: `{"a":null}`,
 			indentExpected: `
@@ -82,6 +159,30 @@ func TestCoverStructHeadInt(t *testing.T) {
 				A *int `json:"a"`
 			}{A: nil},
 		},
+		{
+			name:     "HeadIntPtrNilOmitEmpty",
+			expected: `{}`,
+			indentExpected: `
+{}
+`,
+			data: struct {
+				A *int `json:"a,omitempty"`
+			}{A: nil},
+		},
+		{
+			name:     "HeadIntPtrNilString",
+			expected: `{"a":""}`,
+			indentExpected: `
+{
+  "a": ""
+}
+`,
+			data: struct {
+				A *int `json:"a,string"`
+			}{A: nil},
+		},
+
+		// PtrHeadIntZero
 		{
 			name:     "PtrHeadIntZero",
 			expected: `{"a":0}`,
@@ -95,6 +196,30 @@ func TestCoverStructHeadInt(t *testing.T) {
 			}{},
 		},
 		{
+			name:     "PtrHeadIntZeroOmitEmpty",
+			expected: `{}`,
+			indentExpected: `
+{}
+`,
+			data: &struct {
+				A int `json:"a,omitempty"`
+			}{},
+		},
+		{
+			name:     "PtrHeadIntZeroString",
+			expected: `{"a":"0"}`,
+			indentExpected: `
+{
+  "a": "0"
+}
+`,
+			data: &struct {
+				A int `json:"a,string"`
+			}{},
+		},
+
+		// PtrHeadInt
+		{
 			name:     "PtrHeadInt",
 			expected: `{"a":1}`,
 			indentExpected: `
@@ -106,6 +231,32 @@ func TestCoverStructHeadInt(t *testing.T) {
 				A int `json:"a"`
 			}{A: 1},
 		},
+		{
+			name:     "PtrHeadIntOmitEmpty",
+			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
+			data: &struct {
+				A int `json:"a,omitempty"`
+			}{A: 1},
+		},
+		{
+			name:     "PtrHeadIntString",
+			expected: `{"a":"1"}`,
+			indentExpected: `
+{
+  "a": "1"
+}
+`,
+			data: &struct {
+				A int `json:"a,string"`
+			}{A: 1},
+		},
+
+		// PtrHeadIntPtr
 		{
 			name:     "PtrHeadIntPtr",
 			expected: `{"a":1}`,
@@ -119,6 +270,32 @@ func TestCoverStructHeadInt(t *testing.T) {
 			}{A: intptr(1)},
 		},
 		{
+			name:     "PtrHeadIntPtrOmitEmpty",
+			expected: `{"a":1}`,
+			indentExpected: `
+{
+  "a": 1
+}
+`,
+			data: &struct {
+				A *int `json:"a,omitempty"`
+			}{A: intptr(1)},
+		},
+		{
+			name:     "PtrHeadIntPtrString",
+			expected: `{"a":"1"}`,
+			indentExpected: `
+{
+  "a": "1"
+}
+`,
+			data: &struct {
+				A *int `json:"a,string"`
+			}{A: intptr(1)},
+		},
+
+		// PtrHeadIntPtrNil
+		{
 			name:     "PtrHeadIntPtrNil",
 			expected: `{"a":null}`,
 			indentExpected: `
@@ -131,6 +308,30 @@ func TestCoverStructHeadInt(t *testing.T) {
 			}{A: nil},
 		},
 		{
+			name:     "PtrHeadIntPtrNilOmitEmpty",
+			expected: `{}`,
+			indentExpected: `
+{}
+`,
+			data: &struct {
+				A *int `json:"a,omitempty"`
+			}{A: nil},
+		},
+		{
+			name:     "PtrHeadIntPtrNilString",
+			expected: `{"a":""}`,
+			indentExpected: `
+{
+  "a": ""
+}
+`,
+			data: &struct {
+				A *int `json:"a,string"`
+			}{A: nil},
+		},
+
+		// PtrHeadIntNil
+		{
 			name:     "PtrHeadIntNil",
 			expected: `null`,
 			indentExpected: `
@@ -140,6 +341,28 @@ null
 				A *int `json:"a"`
 			})(nil),
 		},
+		{
+			name:     "PtrHeadIntNilOmitEmpty",
+			expected: `null`,
+			indentExpected: `
+null
+`,
+			data: (*struct {
+				A *int `json:"a,omitempty"`
+			})(nil),
+		},
+		{
+			name:     "PtrHeadIntNilString",
+			expected: `null`,
+			indentExpected: `
+null
+`,
+			data: (*struct {
+				A *int `json:"a,string"`
+			})(nil),
+		},
+
+		// HeadIntZeroMultiFields
 		{
 			name:     "HeadIntZeroMultiFields",
 			expected: `{"a":0,"b":0}`,

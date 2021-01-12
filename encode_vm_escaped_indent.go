@@ -4321,6 +4321,35 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyInt:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+				b = e.appendStructEndIndent(b, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					// doesn't exist any fields
+					b[last] = '}'
+				} else {
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructEndStringTagInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndIntPtr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.escapedKey...)
@@ -4331,6 +4360,41 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 				b = encodeNull(b)
 			} else {
 				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyIntPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(e.ptrToInt(p)))
+				b = e.appendStructEndIndent(b, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					// doesn't exist any fields
+					b[last] = '}'
+				} else {
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructEndStringTagIntPtr:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = append(b, `""`...)
+			} else {
+				b = append(b, '"')
+				b = appendInt(b, int64(e.ptrToInt(p)))
+				b = append(b, '"')
 			}
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
@@ -4615,17 +4679,6 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 			b = append(b, buf.Bytes()...)
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
-		case opStructEndOmitEmptyInt:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.escapedKey...)
-				b = append(b, ' ')
-				b = appendInt(b, int64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
 		case opStructEndOmitEmptyInt8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
@@ -4781,15 +4834,6 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
 			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagInt:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.escapedKey...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagInt8:

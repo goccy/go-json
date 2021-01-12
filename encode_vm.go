@@ -5127,6 +5127,29 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			code = code.next
 		case opStructAnonymousEnd:
 			code = code.next
+		case opStructEndInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyInt:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt(ptr + code.offset)
+			if v != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(v))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagInt:
+			ptr := load(ctxptr, code.headIdx)
+			b = append(b, code.key...)
+			b = append(b, '"')
+			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
+			b = append(b, '"')
+			b = appendStructEnd(b)
+			code = code.next
 		case opStructEndIntPtr:
 			b = append(b, code.key...)
 			ptr := load(ctxptr, code.headIdx)
@@ -5135,6 +5158,28 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = encodeNull(b)
 			} else {
 				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyIntPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = append(b, code.key...)
+				b = appendInt(b, int64(e.ptrToInt(p)))
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagIntPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = append(b, `""`...)
+			} else {
+				b = append(b, '"')
+				b = appendInt(b, int64(e.ptrToInt(p)))
+				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
 			code = code.next
@@ -5153,12 +5198,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			} else {
 				b = appendInt(b, int64(e.ptrToInt(p)))
 			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.key...)
-			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndInt8Ptr:
@@ -5426,15 +5465,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 			b = appendStructEnd(b)
 			code = code.next
-		case opStructEndOmitEmptyInt:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.key...)
-				b = appendInt(b, int64(v))
-			}
-			b = appendStructEnd(b)
-			code = code.next
 		case opStructEndOmitEmptyInt8:
 			ptr := load(ctxptr, code.headIdx)
 			v := e.ptrToInt8(ptr + code.offset)
@@ -5594,14 +5624,6 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte
 				b = append(b, code.key...)
 				b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndStringTagInt:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = appendInt(b, int64(e.ptrToInt(ptr+code.offset)))
-			b = append(b, '"')
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt8:

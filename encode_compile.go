@@ -105,7 +105,17 @@ func (e *Encoder) convertHeadOnlyCode(c *opcode, isPtrHead bool) {
 		}
 		c.op = opStructFieldHeadOnly
 	case opStructFieldHeadOmitEmpty:
-		return
+		e.convertHeadOnlyCode(c.next, false)
+		if !strings.Contains(c.next.op.String(), "Only") {
+			return
+		}
+		c.op = opStructFieldHeadOmitEmptyOnly
+	case opStructFieldHeadStringTag:
+		e.convertHeadOnlyCode(c.next, false)
+		if !strings.Contains(c.next.op.String(), "Only") {
+			return
+		}
+		c.op = opStructFieldHeadStringTagOnly
 	case opStructFieldPtrHead:
 	}
 

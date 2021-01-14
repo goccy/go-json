@@ -243,8 +243,13 @@ func (m *CBPerson) IsNil() bool {
 	return m == nil
 }
 
-//easyjson:json
 type MediumPayload struct {
+	Person  *CBPerson `json:"person"`
+	Company string    `json:"company"`
+}
+
+//easyjson:json
+type MediumPayloadEasyJson struct {
 	Person  *CBPerson `json:"person"`
 	Company string    `json:"company"`
 }
@@ -275,6 +280,48 @@ func (m *MediumPayload) IsNil() bool {
 
 func NewMediumPayload() *MediumPayload {
 	return &MediumPayload{
+		Company: "test",
+		Person: &CBPerson{
+			Name: &CBName{
+				FullName: "test",
+			},
+			Github: &CBGithub{
+				Followers: 100,
+			},
+			Gravatar: &CBGravatar{
+				Avatars: Avatars{
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+					&CBAvatar{
+						Url: "http://test.com",
+					},
+				},
+			},
+		},
+	}
+}
+
+func NewMediumPayloadEasyJson() *MediumPayloadEasyJson {
+	return &MediumPayloadEasyJson{
 		Company: "test",
 		Person: &CBPerson{
 			Name: &CBName{

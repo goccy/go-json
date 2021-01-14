@@ -119,6 +119,12 @@ type LargePayload struct {
 	Topics *DSTopicsList
 }
 
+//easyjson:json
+type LargePayloadEasyJson struct {
+	Users  DSUsers
+	Topics *DSTopicsList
+}
+
 func (m *LargePayload) UnmarshalJSONObject(dec *gojay.Decoder, key string) error {
 	switch key {
 	case "users":
@@ -134,7 +140,6 @@ func (m *LargePayload) NKeys() int {
 	return 2
 }
 
-//easyjson:json
 func (m *LargePayload) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.AddArrayKey("users", &m.Users)
 	enc.AddObjectKey("topics", m.Topics)
@@ -168,6 +173,34 @@ func NewLargePayload() *LargePayload {
 		)
 	}
 	return &LargePayload{
+		Users: dsUsers,
+		Topics: &DSTopicsList{
+			Topics:        dsTopics,
+			MoreTopicsUrl: "http://test.com",
+		},
+	}
+}
+
+func NewLargePayloadEasyJson() *LargePayloadEasyJson {
+	dsUsers := DSUsers{}
+	dsTopics := DSTopics{}
+	for i := 0; i < 100; i++ {
+		str := "test" + strconv.Itoa(i)
+		dsUsers = append(
+			dsUsers,
+			&DSUser{
+				Username: str,
+			},
+		)
+		dsTopics = append(
+			dsTopics,
+			&DSTopic{
+				Id:   i,
+				Slug: str,
+			},
+		)
+	}
+	return &LargePayloadEasyJson{
 		Users: dsUsers,
 		Topics: &DSTopicsList{
 			Topics:        dsTopics,

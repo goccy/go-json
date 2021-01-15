@@ -24,6 +24,8 @@ import (
 
 	"github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
+	segmentiojson "github.com/segmentio/encoding/json"
+	"github.com/wI2L/jettison"
 )
 
 type codeResponse struct {
@@ -94,6 +96,24 @@ func codeInit() {
 	}
 }
 
+func Benchmark_EncodeBigData_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	b.RunParallel(func(pb *testing.PB) {
+		enc := json.NewEncoder(ioutil.Discard)
+		for pb.Next() {
+			if err := enc.Encode(&codeStruct); err != nil {
+				b.Fatal("Encode:", err)
+			}
+		}
+	})
+	b.SetBytes(int64(len(codeJSON)))
+}
+
 func Benchmark_EncodeBigData_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	if codeJSON == nil {
@@ -131,7 +151,7 @@ func Benchmark_EncodeBigData_JsonIter(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
-func Benchmark_EncodeBigData_GoJson(b *testing.B) {
+func Benchmark_EncodeBigData_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -139,10 +159,28 @@ func Benchmark_EncodeBigData_GoJson(b *testing.B) {
 		b.StartTimer()
 	}
 	b.RunParallel(func(pb *testing.PB) {
-		enc := json.NewEncoder(ioutil.Discard)
+		enc := segmentiojson.NewEncoder(ioutil.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&codeStruct); err != nil {
 				b.Fatal("Encode:", err)
+			}
+		}
+	})
+	b.SetBytes(int64(len(codeJSON)))
+}
+
+func Benchmark_MarshalBigData_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			if _, err := json.Marshal(&codeStruct); err != nil {
+				b.Fatal("Marshal:", err)
 			}
 		}
 	})
@@ -184,7 +222,7 @@ func Benchmark_MarshalBigData_JsonIter(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
-func Benchmark_MarshalBigData_GoJson(b *testing.B) {
+func Benchmark_MarshalBigData_Jettison(b *testing.B) {
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -193,7 +231,24 @@ func Benchmark_MarshalBigData_GoJson(b *testing.B) {
 	}
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			if _, err := json.Marshal(&codeStruct); err != nil {
+			if _, err := jettison.Marshal(&codeStruct); err != nil {
+				b.Fatal("Marshal:", err)
+			}
+		}
+	})
+	b.SetBytes(int64(len(codeJSON)))
+}
+
+func Benchmark_MarshalBigData_SegmentioJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			if _, err := segmentiojson.Marshal(&codeStruct); err != nil {
 				b.Fatal("Marshal:", err)
 			}
 		}

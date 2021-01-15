@@ -27,7 +27,10 @@ type Encoder struct {
 }
 
 type compiledCode struct {
-	code *opcode
+	code    *opcode
+	linked  bool // whether recursive code already have linked
+	curLen  uintptr
+	nextLen uintptr
 }
 
 const (

@@ -34,6 +34,7 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 		}
 		e.convertHeadOnlyCode(code, isPtr)
 		e.optimizeStructEnd(code)
+		e.linkRecursiveCode(code)
 		return code, nil
 	} else if isPtr && typ.Implements(marshalTextType) {
 		typ = orgType
@@ -46,7 +47,52 @@ func (e *Encoder) compileHead(ctx *encodeCompileContext) (*opcode, error) {
 	}
 	e.convertHeadOnlyCode(code, isPtr)
 	e.optimizeStructEnd(code)
+	e.linkRecursiveCode(code)
 	return code, nil
+}
+
+func (e *Encoder) linkRecursiveCode(c *opcode) {
+	for code := c; code.op != opEnd && code.op != opStructFieldRecursiveEnd; {
+		switch code.op {
+		case opStructFieldRecursive,
+			opStructFieldPtrAnonymousHeadRecursive,
+			opStructFieldAnonymousHeadRecursive:
+			if code.jmp.linked {
+				code = code.next
+				continue
+			}
+			code.jmp.code = copyOpcode(code.jmp.code)
+			c := code.jmp.code
+			c.end.next = newEndOp(&encodeCompileContext{})
+			c.op = c.op.ptrHeadToHead()
+
+			beforeLastCode := c.end
+			lastCode := beforeLastCode.next
+
+			lastCode.idx = beforeLastCode.idx + uintptrSize
+			lastCode.elemIdx = lastCode.idx + uintptrSize
+
+			// extend length to alloc slot for elemIdx
+			totalLength := uintptr(code.totalLength() + 1)
+			nextTotalLength := uintptr(c.totalLength() + 1)
+
+			c.end.next.op = opStructFieldRecursiveEnd
+
+			code.jmp.curLen = totalLength
+			code.jmp.nextLen = nextTotalLength
+			code.jmp.linked = true
+
+			e.linkRecursiveCode(code.jmp.code)
+			code = code.next
+			continue
+		}
+		switch code.op.codeType() {
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
+		default:
+			code = code.next
+		}
+	}
 }
 
 func (e *Encoder) optimizeStructEnd(c *opcode) {

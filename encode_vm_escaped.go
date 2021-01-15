@@ -12,7 +12,6 @@ import (
 
 func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte, error) {
 	recursiveLevel := 0
-	var seenPtr map[uintptr]struct{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 
@@ -162,13 +161,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				code = code.next
 				break
 			}
-			if seenPtr == nil {
-				seenPtr = map[uintptr]struct{}{}
+			for _, seen := range ctx.seenPtr {
+				if ptr == seen {
+					return nil, errUnsupportedValue(code, ptr)
+				}
 			}
-			if _, exists := seenPtr[ptr]; exists {
-				return nil, errUnsupportedValue(code, ptr)
-			}
-			seenPtr[ptr] = struct{}{}
+			ctx.seenPtr = append(ctx.seenPtr, ptr)
 			v := e.ptrToInterface(code, ptr)
 			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
 			rv := reflect.ValueOf(v)
@@ -502,46 +500,29 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
 				if recursiveLevel > startDetectingCyclesAfter {
-					if _, exists := seenPtr[ptr]; exists {
-						return nil, errUnsupportedValue(code, ptr)
+					for _, seen := range ctx.seenPtr {
+						if ptr == seen {
+							return nil, errUnsupportedValue(code, ptr)
+						}
 					}
 				}
 			}
-			if seenPtr == nil {
-				seenPtr = map[uintptr]struct{}{}
-			}
-			seenPtr[ptr] = struct{}{}
+			ctx.seenPtr = append(ctx.seenPtr, ptr)
 			c := code.jmp.code
-			c.end.next = newEndOp(&encodeCompileContext{})
-			c.op = c.op.ptrHeadToHead()
-
-			beforeLastCode := c.end
-			lastCode := beforeLastCode.next
-
-			lastCode.idx = beforeLastCode.idx + uintptrSize
-			lastCode.elemIdx = lastCode.idx + uintptrSize
-
-			// extend length to alloc slot for elemIdx
-			totalLength := uintptr(code.totalLength() + 1)
-			nextTotalLength := uintptr(c.totalLength() + 1)
-
 			curlen := uintptr(len(ctx.ptrs))
 			offsetNum := ptrOffset / uintptrSize
 			oldOffset := ptrOffset
-			ptrOffset += totalLength * uintptrSize
+			ptrOffset += code.jmp.curLen * uintptrSize
 
-			newLen := offsetNum + totalLength + nextTotalLength
+			newLen := offsetNum + code.jmp.curLen + code.jmp.nextLen
 			if curlen < newLen {
 				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
 			}
 			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
 
 			store(ctxptr, c.idx, ptr)
-			store(ctxptr, lastCode.idx, oldOffset)
-			store(ctxptr, lastCode.elemIdx, uintptr(unsafe.Pointer(code.next)))
-
-			// link lastCode ( opStructFieldRecursiveEnd ) => code.next
-			lastCode.op = opStructFieldRecursiveEnd
+			store(ctxptr, c.end.next.idx, oldOffset)
+			store(ctxptr, c.end.next.elemIdx, uintptr(unsafe.Pointer(code.next)))
 			code = c
 			recursiveLevel++
 		case opStructFieldRecursiveEnd:
@@ -549,8 +530,10 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 
 			// restore ctxptr
 			offset := load(ctxptr, code.idx)
-			ptr := load(ctxptr, code.elemIdx)
-			code = (*opcode)(e.ptrToUnsafePtr(ptr))
+			ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
+
+			codePtr := load(ctxptr, code.elemIdx)
+			code = (*opcode)(e.ptrToUnsafePtr(codePtr))
 			ctxptr = ctx.ptr() + offset
 			ptrOffset = offset
 		case opStructFieldPtrHead:

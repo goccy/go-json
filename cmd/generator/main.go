@@ -99,6 +99,12 @@ const (
 {{- end }}
 )
 
+var opTypeStrings = [{{ .OpLen }}]string{
+{{- range $type := .OpTypes }}
+    "{{ $type.Op }}",
+{{- end }}
+}
+
 type opType int
 
 const (
@@ -108,13 +114,10 @@ const (
 )
 
 func (t opType) String() string {
-  switch t {
-{{- range $type := .OpTypes }}
-  case op{{ $type.Op }}:
-    return "{{ $type.Op }}"
-{{- end }}
+  if int(t) >= {{ .OpLen }} {
+    return ""
   }
-  return ""
+  return opTypeStrings[int(t)]
 }
 
 func (t opType) codeType() codeType {

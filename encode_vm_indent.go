@@ -4060,6 +4060,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
+		case opStructFieldOmitEmpty:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
+				code = code.nextField
+			} else {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldStringTag:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			code = code.next
+			store(ctxptr, code.idx, p)
 		case opStructFieldInt:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4116,13 +4136,32 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
-
 		case opStructFieldInt16:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyInt16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt32:
@@ -4133,12 +4172,52 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyInt32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldInt64:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyInt64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint:
@@ -4149,12 +4228,52 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyUint:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldUint8:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyUint8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint16:
@@ -4165,12 +4284,52 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyUint16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldUint32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyUint32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint64:
@@ -4181,12 +4340,52 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyUint64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldFloat32:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat32(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldFloat64:
@@ -4201,12 +4400,59 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat64(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldString:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyString:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeNoEscapedString(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagString:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldBool:
@@ -4217,11 +4463,50 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyBool:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeBool(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldBytes:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeByteSlice(b, v)
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagBytes:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
@@ -4241,454 +4526,6 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				return nil, err
 			}
 			b = append(b, buf.Bytes()...)
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldArray:
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			array := e.ptrToSlice(p)
-			if p == 0 || uintptr(array.data) == 0 {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.nextField
-			} else {
-				code = code.next
-			}
-		case opStructFieldSlice:
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			slice := e.ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.nextField
-			} else {
-				code = code.next
-			}
-		case opStructFieldMap:
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				b = encodeNull(b)
-				code = code.nextField
-			} else {
-				p = e.ptrToPtr(p)
-				mlen := maplen(e.ptrToUnsafePtr(p))
-				if mlen == 0 {
-					b = append(b, '{', '}', ',', '\n')
-					mapCode := code.next
-					code = mapCode.end.next
-				} else {
-					code = code.next
-				}
-			}
-		case opStructFieldMapLoad:
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				b = encodeNull(b)
-				code = code.nextField
-			} else {
-				p = e.ptrToPtr(p)
-				mlen := maplen(e.ptrToUnsafePtr(p))
-				if mlen == 0 {
-					b = append(b, '{', '}', ',', '\n')
-					code = code.nextField
-				} else {
-					code = code.next
-				}
-			}
-		case opStructFieldStruct:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			if p == 0 {
-				b = append(b, '{', '}', ',', '\n')
-				code = code.nextField
-			} else {
-				headCode := code.next
-				if headCode.next == headCode.end {
-					// not exists fields
-					b = append(b, '{', '}', ',', '\n')
-					code = code.nextField
-				} else {
-					code = code.next
-					store(ctxptr, code.idx, p)
-				}
-			}
-		case opStructFieldOmitEmpty:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
-				code = code.nextField
-			} else {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				code = code.next
-				store(ctxptr, code.idx, p)
-			}
-		case opStructFieldOmitEmptyInt16:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt16(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, int64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyInt32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, int64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyInt64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt64(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyUint:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyUint8:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint8(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyUint16:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint16(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyUint32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyUint64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint64(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyFloat32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeFloat32(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyFloat64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeFloat64(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyString:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToString(ptr + code.offset)
-			if v != "" {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeNoEscapedString(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyBool:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToBool(ptr + code.offset)
-			if v {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeBool(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyBytes:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToBytes(ptr + code.offset)
-			if len(v) > 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeByteSlice(b, v)
-				b = encodeIndentComma(b)
-			}
-			code = code.next
-		case opStructFieldOmitEmptyArray:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			array := e.ptrToSlice(p)
-			if p == 0 || uintptr(array.data) == 0 {
-				code = code.nextField
-			} else {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				code = code.next
-			}
-		case opStructFieldOmitEmptySlice:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			slice := e.ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
-				code = code.nextField
-			} else {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				code = code.next
-			}
-		case opStructFieldOmitEmptyMap:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = e.encodeIndent(b, code.indent)
-					b = append(b, code.key...)
-					b = append(b, ' ')
-					code = code.next
-				}
-			}
-		case opStructFieldOmitEmptyMapLoad:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = e.encodeIndent(b, code.indent)
-					b = append(b, code.key...)
-					b = append(b, ' ')
-					code = code.next
-				}
-			}
-		case opStructFieldOmitEmptyStruct:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				headCode := code.next
-				if headCode.next == headCode.end {
-					// not exists fields
-					b = append(b, '{', '}', ',', '\n')
-					code = code.nextField
-				} else {
-					code = code.next
-					store(ctxptr, code.idx, p)
-				}
-			}
-		case opStructFieldStringTag:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldStringTagInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagUint:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagFloat32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagFloat64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeFloat64(b, v)
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagString:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			s := e.ptrToString(ptr + code.offset)
-			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagBool:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldStringTagBytes:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
@@ -4723,6 +4560,168 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldArray:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			array := e.ptrToSlice(p)
+			if p == 0 || uintptr(array.data) == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.nextField
+			} else {
+				code = code.next
+			}
+		case opStructFieldOmitEmptyArray:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			array := e.ptrToSlice(p)
+			if p == 0 || uintptr(array.data) == 0 {
+				code = code.nextField
+			} else {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				code = code.next
+			}
+		case opStructFieldSlice:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			slice := e.ptrToSlice(p)
+			if p == 0 || uintptr(slice.data) == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.nextField
+			} else {
+				code = code.next
+			}
+		case opStructFieldOmitEmptySlice:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			slice := e.ptrToSlice(p)
+			if p == 0 || uintptr(slice.data) == 0 {
+				code = code.nextField
+			} else {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				code = code.next
+			}
+		case opStructFieldMap:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 {
+				b = encodeNull(b)
+				code = code.nextField
+			} else {
+				p = e.ptrToPtr(p)
+				mlen := maplen(e.ptrToUnsafePtr(p))
+				if mlen == 0 {
+					b = append(b, '{', '}', ',', '\n')
+					mapCode := code.next
+					code = mapCode.end.next
+				} else {
+					code = code.next
+				}
+			}
+		case opStructFieldOmitEmptyMap:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 {
+				code = code.nextField
+			} else {
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
+				if mlen == 0 {
+					code = code.nextField
+				} else {
+					b = e.encodeIndent(b, code.indent)
+					b = append(b, code.key...)
+					b = append(b, ' ')
+					code = code.next
+				}
+			}
+		case opStructFieldMapLoad:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 {
+				b = encodeNull(b)
+				code = code.nextField
+			} else {
+				p = e.ptrToPtr(p)
+				mlen := maplen(e.ptrToUnsafePtr(p))
+				if mlen == 0 {
+					b = append(b, '{', '}', ',', '\n')
+					code = code.nextField
+				} else {
+					code = code.next
+				}
+			}
+		case opStructFieldOmitEmptyMapLoad:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 {
+				code = code.nextField
+			} else {
+				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
+				if mlen == 0 {
+					code = code.nextField
+				} else {
+					b = e.encodeIndent(b, code.indent)
+					b = append(b, code.key...)
+					b = append(b, ' ')
+					code = code.next
+				}
+			}
+		case opStructFieldStruct:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			if p == 0 {
+				b = append(b, '{', '}', ',', '\n')
+				code = code.nextField
+			} else {
+				headCode := code.next
+				if headCode.next == headCode.end {
+					// not exists fields
+					b = append(b, '{', '}', ',', '\n')
+					code = code.nextField
+				} else {
+					code = code.next
+					store(ctxptr, code.idx, p)
+				}
+			}
+		case opStructFieldOmitEmptyStruct:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptr + code.offset
+			if p == 0 {
+				code = code.nextField
+			} else {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				headCode := code.next
+				if headCode.next == headCode.end {
+					// not exists fields
+					b = append(b, '{', '}', ',', '\n')
+					code = code.nextField
+				} else {
+					code = code.next
+					store(ctxptr, code.idx, p)
+				}
+			}
 		case opStructAnonymousEnd:
 			code = code.next
 		case opStructEnd:
@@ -4920,6 +4919,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyInt16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt16:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndInt16Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4939,6 +4958,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, int64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagInt32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
+			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndInt32Ptr:
@@ -4962,6 +5001,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndStringTagInt64:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyInt64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToInt64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendInt(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndInt64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -4981,6 +5040,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
+			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUintPtr:
@@ -5004,6 +5083,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyUint8:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint8(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint8:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndUint8Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -5023,6 +5122,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint16:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint16(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint16:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
+			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndUint16Ptr:
@@ -5046,6 +5165,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyUint32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, uint64(v))
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagUint32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndUint32Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -5067,6 +5206,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndStringTagUint64:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyUint64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToUint64(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = appendUint(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndUint64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -5086,6 +5245,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
 			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat32(ptr + code.offset)
+			if v != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat32(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagFloat32:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
+			b = append(b, '"')
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndFloat32Ptr:
@@ -5113,6 +5292,33 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeFloat64(b, v)
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if v != 0 {
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeFloat64(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagFloat64:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToFloat64(ptr + code.offset)
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeFloat64(b, v)
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndFloat64Ptr:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -5138,6 +5344,26 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeNoEscapedString(b, e.ptrToString(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyString:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToString(ptr + code.offset)
+			if v != "" {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeNoEscapedString(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagString:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
+			s := e.ptrToString(ptr + code.offset)
+			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndBool:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
@@ -5146,11 +5372,50 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
+		case opStructEndOmitEmptyBool:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBool(ptr + code.offset)
+			if v {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeBool(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagBool:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ', '"')
+			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
+			b = append(b, '"')
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
 		case opStructEndBytes:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.key...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
+			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyBytes:
+			ptr := load(ctxptr, code.headIdx)
+			v := e.ptrToBytes(ptr + code.offset)
+			if len(v) > 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.key...)
+				b = append(b, ' ')
+				b = encodeByteSlice(b, v)
+			}
+			b = e.appendStructEndIndent(b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagBytes:
+			ptr := load(ctxptr, code.headIdx)
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.key...)
+			b = append(b, ' ')
 			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
@@ -5170,272 +5435,6 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				return nil, err
 			}
 			b = append(b, buf.Bytes()...)
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyInt16:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt16(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, int64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyInt32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, int64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyInt64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToInt64(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendInt(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyUint:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyUint8:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint8(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyUint16:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint16(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyUint32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, uint64(v))
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyUint64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToUint64(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = appendUint(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyFloat32:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat32(ptr + code.offset)
-			if v != 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeFloat32(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyFloat64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeFloat64(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyString:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToString(ptr + code.offset)
-			if v != "" {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeNoEscapedString(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyBool:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToBool(ptr + code.offset)
-			if v {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeBool(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndOmitEmptyBytes:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToBytes(ptr + code.offset)
-			if len(v) > 0 {
-				b = e.encodeIndent(b, code.indent)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				b = encodeByteSlice(b, v)
-			}
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, int64(e.ptrToInt16(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, int64(e.ptrToInt32(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendInt(b, e.ptrToInt64(ptr+code.offset))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagUint:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint8(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint16(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, uint64(e.ptrToUint32(ptr+code.offset)))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = appendUint(b, e.ptrToUint64(ptr+code.offset))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagFloat32:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeFloat32(b, e.ptrToFloat32(ptr+code.offset))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagFloat64:
-			ptr := load(ctxptr, code.headIdx)
-			v := e.ptrToFloat64(ptr + code.offset)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeFloat64(b, v)
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagString:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			s := e.ptrToString(ptr + code.offset)
-			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, s)))
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagBool:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ', '"')
-			b = encodeBool(b, e.ptrToBool(ptr+code.offset))
-			b = append(b, '"')
-			b = e.appendStructEndIndent(b, code.indent-1)
-			code = code.next
-		case opStructEndStringTagBytes:
-			ptr := load(ctxptr, code.headIdx)
-			b = e.encodeIndent(b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			b = encodeByteSlice(b, e.ptrToBytes(ptr+code.offset))
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagMarshalJSON:

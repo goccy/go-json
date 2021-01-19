@@ -1,5 +1,10 @@
 package json_test
 
+import (
+	"bytes"
+	stdjson "encoding/json"
+)
+
 func intptr(v int) *int             { return &v }
 func int8ptr(v int8) *int8          { return &v }
 func int16ptr(v int16) *int16       { return &v }
@@ -13,3 +18,14 @@ func uint64ptr(v uint64) *uint64    { return &v }
 func float32ptr(v float32) *float32 { return &v }
 func float64ptr(v float64) *float64 { return &v }
 func stringptr(v string) *string    { return &v }
+
+func encodeByEncodingJSON(data interface{}, indent, escape bool) string {
+	var buf bytes.Buffer
+	enc := stdjson.NewEncoder(&buf)
+	enc.SetEscapeHTML(escape)
+	if indent {
+		enc.SetIndent("", "  ")
+	}
+	enc.Encode(data)
+	return buf.String()
+}

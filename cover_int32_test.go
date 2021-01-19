@@ -2922,6 +2922,10 @@ null
 				if err := enc.Encode(test.data); err != nil {
 					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
 				}
+				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
+				if buf.String() != stdresult {
+					t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
+				}
 				if indent {
 					got := "\n" + buf.String()
 					if got != test.indentExpected {

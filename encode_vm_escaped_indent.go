@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"sort"
 	"unsafe"
 )
@@ -253,6 +254,7 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
+			runtime.KeepAlive(v)
 			if len(bb) == 0 {
 				return nil, errUnexpectedEndOfJSON(
 					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),

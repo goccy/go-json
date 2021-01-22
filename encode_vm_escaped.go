@@ -7922,7 +7922,9 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p == 0 || uintptr(array.data) == 0 {
 				code = code.nextField
 			} else {
+				b = append(b, code.escapedKey...)
 				code = code.next
+				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldSlice:
 			b = append(b, code.escapedKey...)
@@ -7937,7 +7939,9 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p == 0 || uintptr(slice.data) == 0 {
 				code = code.nextField
 			} else {
+				b = append(b, code.escapedKey...)
 				code = code.next
+				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldMap:
 			b = append(b, code.escapedKey...)
@@ -7955,7 +7959,9 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				if mlen == 0 {
 					code = code.nextField
 				} else {
+					b = append(b, code.escapedKey...)
 					code = code.next
+					store(ctxptr, code.idx, p)
 				}
 			}
 		case opStructFieldMapLoad:
@@ -7974,7 +7980,9 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				if mlen == 0 {
 					code = code.nextField
 				} else {
+					b = append(b, code.escapedKey...)
 					code = code.next
+					store(ctxptr, code.idx, p)
 				}
 			}
 		case opStructFieldStruct:

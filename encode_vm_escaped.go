@@ -7840,8 +7840,11 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 		case opStructFieldOmitEmptyMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
+			if code.typ.Kind() == reflect.Ptr && code.typ.Elem().Implements(marshalJSONType) {
+				p = e.ptrToPtr(p)
+			}
 			v := e.ptrToInterface(code, p)
-			if v != nil && (code.typ.Kind() != reflect.Ptr || e.ptrToPtr(p) != 0) {
+			if v != nil && p != 0 {
 				bb, err := v.(Marshaler).MarshalJSON()
 				if err != nil {
 					return nil, errMarshaler(code, err)

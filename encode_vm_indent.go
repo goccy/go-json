@@ -242,6 +242,12 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			code = code.next
 		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.next
+				break
+			}
 			v := e.ptrToInterface(code, ptr)
 			bb, err := v.(Marshaler).MarshalJSON()
 			if err != nil {

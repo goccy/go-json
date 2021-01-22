@@ -29,11 +29,18 @@ func newStructDecoder(structName, fieldName string, fieldMap map[string]*structF
 
 func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
-	if s.char() == nul {
+	switch s.char() {
+	case 'n':
+		if err := nullBytes(s); err != nil {
+			return err
+		}
+		return nil
+	case nul:
 		s.read()
-	}
-	if s.char() != '{' {
-		return errNotAtBeginningOfValue(s.totalOffset())
+	default:
+		if s.char() != '{' {
+			return errNotAtBeginningOfValue(s.totalOffset())
+		}
 	}
 	s.cursor++
 	if s.char() == '}' {
@@ -92,7 +99,25 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
-	if buf[cursor] != '{' {
+	switch buf[cursor] {
+	case 'n':
+		buflen := int64(len(buf))
+		if cursor+3 >= buflen {
+			return 0, errUnexpectedEndOfJSON("null", cursor)
+		}
+		if buf[cursor+1] != 'u' {
+			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+		}
+		if buf[cursor+2] != 'l' {
+			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+		}
+		if buf[cursor+3] != 'l' {
+			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		}
+		cursor += 4
+		return cursor, nil
+	case '{':
+	default:
 		return 0, errNotAtBeginningOfValue(cursor)
 	}
 	if buflen < 2 {

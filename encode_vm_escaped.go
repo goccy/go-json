@@ -7745,6 +7745,26 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldOmitEmptyStringPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = append(b, code.escapedKey...)
+				b = encodeNoEscapedString(b, e.ptrToString(p))
+				b = encodeComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagStringPtr:
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, e.ptrToString(p))))
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opStructFieldBool:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)

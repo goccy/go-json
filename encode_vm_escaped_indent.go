@@ -7552,6 +7552,43 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *op
 			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, s)))
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldStringPtr:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, e.ptrToString(p))
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyStringPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = e.encodeIndent(b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				b = encodeNoEscapedString(b, e.ptrToString(p))
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagStringPtr:
+			b = e.encodeIndent(b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			ptr := load(ctxptr, code.headIdx)
+			p := e.ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, e.ptrToString(p))))
+			}
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldBool:
 			b = e.encodeIndent(b, code.indent)
 			b = append(b, code.escapedKey...)

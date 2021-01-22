@@ -7841,7 +7841,7 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			v := e.ptrToInterface(code, p)
-			if v != nil {
+			if v != nil && (code.typ.Kind() != reflect.Ptr || e.ptrToPtr(p) != 0) {
 				bb, err := v.(Marshaler).MarshalJSON()
 				if err != nil {
 					return nil, errMarshaler(code, err)
@@ -9046,7 +9046,7 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			v := e.ptrToInterface(code, p)
-			if v != nil {
+			if v != nil && (code.typ.Kind() != reflect.Ptr || e.ptrToPtr(p) != 0) {
 				bb, err := v.(Marshaler).MarshalJSON()
 				if err != nil {
 					return nil, errMarshaler(code, err)

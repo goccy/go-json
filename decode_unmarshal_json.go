@@ -57,11 +57,14 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		return 0, err
 	}
 	src := buf[start:end]
+	dst := make([]byte, len(src))
+	copy(dst, src)
+
 	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
 		ptr: p,
 	}))
-	if err := v.(Unmarshaler).UnmarshalJSON(src); err != nil {
+	if err := v.(Unmarshaler).UnmarshalJSON(dst); err != nil {
 		d.annotateError(cursor, err)
 		return 0, err
 	}

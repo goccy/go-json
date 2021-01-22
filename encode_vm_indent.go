@@ -7895,9 +7895,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -7937,9 +7942,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -7980,9 +7990,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8022,9 +8037,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8065,9 +8085,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8107,9 +8132,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8150,9 +8180,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8192,9 +8227,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8235,9 +8275,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8277,9 +8322,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8320,9 +8370,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8362,9 +8417,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8405,9 +8465,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8447,9 +8512,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8490,9 +8560,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8532,9 +8607,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8575,9 +8655,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8617,9 +8702,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8660,9 +8750,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8702,9 +8797,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8745,9 +8845,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8787,9 +8892,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8837,9 +8947,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8891,9 +9006,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8938,9 +9058,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8980,9 +9105,14 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			} else {
 				last := len(b) - 1
 				if b[last-1] == '{' {
-					// doesn't exist any fields
 					b[last] = '}'
 				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -9017,8 +9147,22 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, code.key...)
 				b = append(b, ' ')
 				b = encodeBool(b, v)
+				b = e.appendStructEndIndent(b, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					b[last] = '}'
+				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
 			}
-			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
@@ -9045,8 +9189,22 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, code.key...)
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
+				b = e.appendStructEndIndent(b, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					b[last] = '}'
+				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = e.encodeIndent(b, code.indent)
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
 			}
-			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)

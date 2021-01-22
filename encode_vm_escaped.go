@@ -8014,8 +8014,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
@@ -8042,8 +8050,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(e.ptrToInt(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagIntPtr:
 			b = append(b, code.escapedKey...)
@@ -8087,8 +8103,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
@@ -8115,8 +8139,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(e.ptrToInt8(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt8Ptr:
 			b = append(b, code.escapedKey...)
@@ -8160,8 +8192,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
@@ -8188,8 +8228,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(e.ptrToInt16(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt16Ptr:
 			b = append(b, code.escapedKey...)
@@ -8233,8 +8281,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
@@ -8261,8 +8317,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, int64(e.ptrToInt32(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt32Ptr:
 			b = append(b, code.escapedKey...)
@@ -8306,8 +8370,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
@@ -8334,8 +8406,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendInt(b, e.ptrToInt64(p))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagInt64Ptr:
 			b = append(b, code.escapedKey...)
@@ -8379,8 +8459,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
@@ -8407,8 +8495,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(e.ptrToUint(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUintPtr:
 			b = append(b, code.escapedKey...)
@@ -8452,8 +8548,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
@@ -8480,8 +8584,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(e.ptrToUint8(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint8Ptr:
 			b = append(b, code.escapedKey...)
@@ -8525,8 +8637,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
@@ -8553,8 +8673,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(e.ptrToUint16(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint16Ptr:
 			b = append(b, code.escapedKey...)
@@ -8598,8 +8726,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(v))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
@@ -8626,8 +8762,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, uint64(e.ptrToUint32(p)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint32Ptr:
 			b = append(b, code.escapedKey...)
@@ -8671,8 +8815,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
@@ -8699,8 +8851,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = appendUint(b, e.ptrToUint64(p))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagUint64Ptr:
 			b = append(b, code.escapedKey...)
@@ -8744,8 +8904,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != 0 {
 				b = append(b, code.escapedKey...)
 				b = encodeFloat32(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
@@ -8772,8 +8940,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = encodeFloat32(b, e.ptrToFloat32(p))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagFloat32Ptr:
 			b = append(b, code.escapedKey...)
@@ -8824,8 +9000,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				}
 				b = append(b, code.escapedKey...)
 				b = encodeFloat64(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagFloat64:
 			ptr := load(ctxptr, code.headIdx)
@@ -8866,8 +9050,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 					return nil, errUnsupportedFloat(v)
 				}
 				b = encodeFloat64(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagFloat64Ptr:
 			b = append(b, code.escapedKey...)
@@ -8919,8 +9111,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v != "" {
 				b = append(b, code.escapedKey...)
 				b = encodeEscapedString(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagString:
 			ptr := load(ctxptr, code.headIdx)
@@ -8946,8 +9146,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if p != 0 {
 				b = append(b, code.escapedKey...)
 				b = encodeEscapedString(b, e.ptrToString(p))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagStringPtr:
 			b = append(b, code.escapedKey...)
@@ -8990,8 +9198,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if v {
 				b = append(b, code.escapedKey...)
 				b = encodeBool(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
@@ -9024,8 +9240,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 			if len(v) > 0 {
 				b = append(b, code.escapedKey...)
 				b = encodeByteSlice(b, v)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
@@ -9065,8 +9289,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				}
 				b = append(b, code.escapedKey...)
 				b = append(b, buf.Bytes()...)
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
@@ -9107,8 +9339,16 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) 
 				}
 				b = append(b, code.escapedKey...)
 				b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+				b = appendStructEnd(b)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
 			}
-			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)

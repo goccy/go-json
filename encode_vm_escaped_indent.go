@@ -11,11 +11,12 @@ import (
 	"unsafe"
 )
 
-func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte, error) {
+func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) ([]byte, error) {
 	recursiveLevel := 0
 	var seenPtr map[uintptr]struct{}
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+	code := codeSet.code
 
 	for {
 		switch code.op {

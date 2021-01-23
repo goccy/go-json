@@ -112,6 +112,7 @@ func (e *Encoder) EncodeWithOption(v interface{}, opts ...EncodeOption) error {
 		}
 	}
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	e.ptr = header.ptr
 	buf, err := e.encode(header, v == nil)
 	if err != nil {
 		return err
@@ -192,23 +193,31 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
+	codeSet, err := e.compileToGetCodeSet(typeptr)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := e.ctx
+	p := uintptr(header.ptr)
+	ctx.init(p, codeSet.codeLength)
+	if e.enabledIndent {
+		if e.enabledHTMLEscape {
+			return e.runEscapedIndent(ctx, b, codeSet)
+		} else {
+			return e.runIndent(ctx, b, codeSet)
+		}
+	}
+	if e.enabledHTMLEscape {
+		return e.runEscaped(ctx, b, codeSet)
+	}
+	return e.run(ctx, b, codeSet)
+}
+
+func (e *Encoder) compileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
 	opcodeMap := loadOpcodeMap()
 	if codeSet, exists := opcodeMap[typeptr]; exists {
-		ctx := e.ctx
-		p := uintptr(header.ptr)
-		ctx.init(p, codeSet.codeLength)
-
-		if e.enabledIndent {
-			if e.enabledHTMLEscape {
-				return e.runEscapedIndent(ctx, b, codeSet.code)
-			} else {
-				return e.runIndent(ctx, b, codeSet.code)
-			}
-		}
-		if e.enabledHTMLEscape {
-			return e.runEscaped(ctx, b, codeSet.code)
-		}
-		return e.run(ctx, b, codeSet.code)
+		return codeSet, nil
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -230,21 +239,7 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 	}
 
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
-	p := uintptr(header.ptr)
-	ctx := e.ctx
-	ctx.init(p, codeLength)
-
-	if e.enabledIndent {
-		if e.enabledHTMLEscape {
-			return e.runEscapedIndent(ctx, b, codeSet.code)
-		} else {
-			return e.runIndent(ctx, b, codeSet.code)
-		}
-	}
-	if e.enabledHTMLEscape {
-		return e.runEscaped(ctx, b, codeSet.code)
-	}
-	return e.run(ctx, b, codeSet.code)
+	return codeSet, nil
 }
 
 func encodeFloat32(b []byte, v float32) []byte {

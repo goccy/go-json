@@ -189,40 +189,46 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 					break
 				}
 			}
-			c, err := e.compileHead(&encodeCompileContext{
-				typ:                      header.typ,
-				root:                     code.root,
-				indent:                   code.indent,
-				structTypeToCompiledCode: map[uintptr]*compiledCode{},
-			})
+			ifaceCodeSet, err := e.compileToGetCodeSet(uintptr(unsafe.Pointer(header.typ)))
 			if err != nil {
 				return nil, err
 			}
-			beforeLastCode := c.beforeLastCode()
-			lastCode := beforeLastCode.next
-			lastCode.idx = beforeLastCode.idx + uintptrSize
-			totalLength := uintptr(code.totalLength())
-			nextTotalLength := uintptr(c.totalLength())
-			curlen := uintptr(len(ctx.ptrs))
-			offsetNum := ptrOffset / uintptrSize
-			oldOffset := ptrOffset
-			ptrOffset += totalLength * uintptrSize
+			/*
+				totalLength := uintptr(codeSet.codeLength)
+				nextTotalLength := uintptr(ifaceCodeSet.codeLength)
 
-			newLen := offsetNum + totalLength + nextTotalLength
-			if curlen < newLen {
-				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
+				curlen := uintptr(len(ctx.ptrs))
+				offsetNum := ptrOffset / uintptrSize
+				ptrOffset += totalLength * uintptrSize
+
+				newLen := offsetNum + totalLength + nextTotalLength
+				if curlen < newLen {
+					ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
+				}
+			*/
+
+			newCtx := &encodeRuntimeContext{
+				ptrs:     make([]uintptr, ifaceCodeSet.codeLength),
+				keepRefs: ctx.keepRefs,
+				seenPtr:  ctx.seenPtr,
 			}
-			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+			newCtx.ptrs[0] = uintptr(header.ptr)
+			//newPtrs := ctx.ptrs[ptrOffset/uintptrSize:]
+			//newPtrs[0] = uintptr(header.ptr)
 
-			store(ctxptr, 0, uintptr(header.ptr))
-			store(ctxptr, lastCode.idx, oldOffset)
+			//oldPtrs := ctx.ptrs
+			//ctx.ptrs = newPtrs
+			bb, err := e.runEscaped(newCtx, b, ifaceCodeSet)
+			if err != nil {
+				return nil, err
+			}
+			ctx.keepRefs = newCtx.keepRefs
+			ctx.seenPtr = newCtx.seenPtr
+			//ctx.ptrs = oldPtrs
+			//ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
 
-			// link lastCode ( opInterfaceEnd ) => code.next
-			lastCode.op = opInterfaceEnd
-			lastCode.next = code.next
-
-			code = c
-			recursiveLevel++
+			b = bb
+			code = code.next
 		case opInterfaceEnd:
 			recursiveLevel--
 			// restore ctxptr

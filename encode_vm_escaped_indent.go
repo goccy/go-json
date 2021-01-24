@@ -198,10 +198,13 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet 
 
 			ctx.ptrs = newPtrs
 
-			bb, err := e.runEscaped(ctx, b, ifaceCodeSet)
+			oldBaseIndent := e.baseIndent
+			e.baseIndent = code.indent
+			bb, err := e.runEscapedIndent(ctx, b, ifaceCodeSet)
 			if err != nil {
 				return nil, err
 			}
+			e.baseIndent = oldBaseIndent
 
 			ctx.ptrs = oldPtrs
 			ctxptr = ctx.ptr()
@@ -233,7 +236,7 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet 
 			if err := encodeWithIndent(
 				&buf,
 				bb,
-				string(e.prefix)+string(bytes.Repeat(e.indentStr, code.indent)),
+				string(e.prefix)+string(bytes.Repeat(e.indentStr, e.baseIndent+code.indent)),
 				string(e.indentStr),
 			); err != nil {
 				return nil, err
@@ -543,9 +546,10 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet 
 			})
 			buf := b[pos[0]:]
 			buf = buf[:0]
+
 			for _, kv := range kvs {
 				buf = append(buf, e.prefix...)
-				buf = append(buf, bytes.Repeat(e.indentStr, code.indent+1)...)
+				buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent+1)...)
 
 				buf = append(buf, []byte(kv.key)...)
 				buf[len(buf)-2] = ':'
@@ -555,7 +559,7 @@ func (e *Encoder) runEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet 
 			buf = buf[:len(buf)-2]
 			buf = append(buf, '\n')
 			buf = append(buf, e.prefix...)
-			buf = append(buf, bytes.Repeat(e.indentStr, code.indent)...)
+			buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent)...)
 			buf = append(buf, '}', ',', '\n')
 			b = b[:pos[0]]
 			b = append(b, buf...)

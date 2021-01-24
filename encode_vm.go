@@ -237,7 +237,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 
 			ctx.ptrs = newPtrs
 
-			bb, err := e.runEscaped(ctx, b, ifaceCodeSet)
+			bb, err := e.run(ctx, b, ifaceCodeSet)
 			if err != nil {
 				return nil, err
 			}

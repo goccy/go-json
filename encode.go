@@ -22,6 +22,7 @@ type Encoder struct {
 	enabledIndent     bool
 	enabledHTMLEscape bool
 	unorderedMap      bool
+	baseIndent        int
 	prefix            []byte
 	indentStr         []byte
 }
@@ -156,6 +157,7 @@ func (e *Encoder) release() {
 }
 
 func (e *Encoder) reset() {
+	e.baseIndent = 0
 	e.enabledHTMLEscape = true
 	e.enabledIndent = false
 	e.unorderedMap = false
@@ -298,7 +300,7 @@ func appendStructEnd(b []byte) []byte {
 func (e *Encoder) appendStructEndIndent(b []byte, indent int) []byte {
 	b = append(b, '\n')
 	b = append(b, e.prefix...)
-	b = append(b, bytes.Repeat(e.indentStr, indent)...)
+	b = append(b, bytes.Repeat(e.indentStr, e.baseIndent+indent)...)
 	return append(b, '}', ',', '\n')
 }
 
@@ -319,5 +321,5 @@ func encodeByteSlice(b []byte, src []byte) []byte {
 
 func (e *Encoder) encodeIndent(b []byte, indent int) []byte {
 	b = append(b, e.prefix...)
-	return append(b, bytes.Repeat(e.indentStr, indent)...)
+	return append(b, bytes.Repeat(e.indentStr, e.baseIndent+indent)...)
 }

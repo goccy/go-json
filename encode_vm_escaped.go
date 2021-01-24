@@ -170,26 +170,15 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 				}
 			}
 			ctx.seenPtr = append(ctx.seenPtr, ptr)
-			v := e.ptrToInterface(code, ptr)
-			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
-			rv := reflect.ValueOf(v)
-			if rv.IsNil() {
+			iface := (*interfaceHeader)(e.ptrToUnsafePtr(ptr))
+			if iface == nil || iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.next
 				break
 			}
-			vv := rv.Interface()
-			header := (*interfaceHeader)(unsafe.Pointer(&vv))
-			if header.typ.Kind() == reflect.Ptr {
-				if rv.Elem().IsNil() {
-					b = encodeNull(b)
-					b = encodeComma(b)
-					code = code.next
-					break
-				}
-			}
-			ifaceCodeSet, err := e.compileToGetCodeSet(uintptr(unsafe.Pointer(header.typ)))
+			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(iface))
+			ifaceCodeSet, err := e.compileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +196,7 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 			oldPtrs := ctx.ptrs
 
 			newPtrs := ctx.ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
-			newPtrs[0] = uintptr(header.ptr)
+			newPtrs[0] = uintptr(iface.ptr)
 
 			ctx.ptrs = newPtrs
 

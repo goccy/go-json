@@ -131,7 +131,7 @@ func (c *opcode) totalLength() int {
 	var idx int
 	for code := c; code.op != opEnd; {
 		idx = int(code.idx / uintptrSize)
-		if code.op == opInterfaceEnd || code.op == opStructFieldRecursiveEnd {
+		if code.op == opStructFieldRecursiveEnd {
 			break
 		}
 		switch code.op.codeType() {

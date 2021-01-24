@@ -207,65 +207,46 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 				}
 			}
 			ctx.seenPtr = append(ctx.seenPtr, ptr)
-			v := e.ptrToInterface(code, ptr)
-			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
-			rv := reflect.ValueOf(v)
-			if rv.IsNil() {
+			iface := (*interfaceHeader)(e.ptrToUnsafePtr(ptr))
+			if iface == nil || iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.next
 				break
 			}
-			vv := rv.Interface()
-			header := (*interfaceHeader)(unsafe.Pointer(&vv))
-			if header.typ.Kind() == reflect.Ptr {
-				if rv.Elem().IsNil() {
-					b = encodeNull(b)
-					b = encodeComma(b)
-					code = code.next
-					break
-				}
-			}
-			c, err := e.compileHead(&encodeCompileContext{
-				typ:                      header.typ,
-				root:                     code.root,
-				indent:                   code.indent,
-				structTypeToCompiledCode: map[uintptr]*compiledCode{},
-			})
+			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(iface))
+			ifaceCodeSet, err := e.compileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 			if err != nil {
 				return nil, err
 			}
-			beforeLastCode := c.beforeLastCode()
-			lastCode := beforeLastCode.next
-			lastCode.idx = beforeLastCode.idx + uintptrSize
-			totalLength := uintptr(code.totalLength())
-			nextTotalLength := uintptr(c.totalLength())
+
+			totalLength := uintptr(codeSet.codeLength)
+			nextTotalLength := uintptr(ifaceCodeSet.codeLength)
+
 			curlen := uintptr(len(ctx.ptrs))
 			offsetNum := ptrOffset / uintptrSize
-			oldOffset := ptrOffset
-			ptrOffset += totalLength * uintptrSize
 
 			newLen := offsetNum + totalLength + nextTotalLength
 			if curlen < newLen {
 				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+			oldPtrs := ctx.ptrs
 
-			store(ctxptr, 0, uintptr(header.ptr))
-			store(ctxptr, lastCode.idx, oldOffset)
+			newPtrs := ctx.ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
+			newPtrs[0] = uintptr(iface.ptr)
 
-			// link lastCode ( opInterfaceEnd ) => code.next
-			lastCode.op = opInterfaceEnd
-			lastCode.next = code.next
+			ctx.ptrs = newPtrs
 
-			code = c
-			recursiveLevel++
-		case opInterfaceEnd:
-			recursiveLevel--
-			// restore ctxptr
-			offset := load(ctxptr, code.idx)
-			ctxptr = ctx.ptr() + offset
-			ptrOffset = offset
+			bb, err := e.runEscaped(ctx, b, ifaceCodeSet)
+			if err != nil {
+				return nil, err
+			}
+
+			ctx.ptrs = oldPtrs
+			ctxptr = ctx.ptr()
+			ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
+
+			b = bb
 			code = code.next
 		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)

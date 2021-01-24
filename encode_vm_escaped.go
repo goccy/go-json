@@ -171,7 +171,6 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 			}
 			iface := (*interfaceHeader)(e.ptrToUnsafePtr(ptr))
 			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(iface))
-			ctx.keepRefs = append(ctx.keepRefs, iface.ptr)
 			if iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)

@@ -1,8 +1,66 @@
 package json
 
 import (
+	"bytes"
+	"sync"
 	"unsafe"
 )
+
+type mapItem struct {
+	key   []byte
+	value []byte
+}
+
+type mapslice struct {
+	items []mapItem
+}
+
+func (m *mapslice) Len() int {
+	return len(m.items)
+}
+
+func (m *mapslice) Less(i, j int) bool {
+	return bytes.Compare(m.items[i].key, m.items[j].key) < 0
+}
+
+func (m *mapslice) Swap(i, j int) {
+	m.items[i], m.items[j] = m.items[j], m.items[i]
+}
+
+type encodeMapContext struct {
+	iter  unsafe.Pointer
+	pos   []int
+	slice *mapslice
+	buf   []byte
+}
+
+var mapContextPool = sync.Pool{
+	New: func() interface{} {
+		return &encodeMapContext{}
+	},
+}
+
+func newMapContext(mapLen int) *encodeMapContext {
+	ctx := mapContextPool.Get().(*encodeMapContext)
+	if ctx.slice == nil {
+		ctx.slice = &mapslice{
+			items: make([]mapItem, 0, mapLen),
+		}
+	}
+	if cap(ctx.pos) < (mapLen*2 + 1) {
+		ctx.pos = make([]int, 0, mapLen*2+1)
+		ctx.slice.items = make([]mapItem, 0, mapLen)
+	} else {
+		ctx.pos = ctx.pos[:0]
+		ctx.slice.items = ctx.slice.items[:0]
+	}
+	ctx.buf = ctx.buf[:0]
+	return ctx
+}
+
+func releaseMapContext(c *encodeMapContext) {
+	mapContextPool.Put(c)
+}
 
 type encodeCompileContext struct {
 	typ                      *rtype

@@ -11,10 +11,12 @@ import (
 	"unsafe"
 )
 
-func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte, error) {
+func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) ([]byte, error) {
 	recursiveLevel := 0
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+
+	code := codeSet.code
 
 	for {
 		switch code.op {

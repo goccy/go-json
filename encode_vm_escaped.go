@@ -193,48 +193,34 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 			if err != nil {
 				return nil, err
 			}
-			/*
-				totalLength := uintptr(codeSet.codeLength)
-				nextTotalLength := uintptr(ifaceCodeSet.codeLength)
 
-				curlen := uintptr(len(ctx.ptrs))
-				offsetNum := ptrOffset / uintptrSize
-				ptrOffset += totalLength * uintptrSize
+			totalLength := uintptr(codeSet.codeLength)
+			nextTotalLength := uintptr(ifaceCodeSet.codeLength)
 
-				newLen := offsetNum + totalLength + nextTotalLength
-				if curlen < newLen {
-					ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
-				}
-			*/
+			curlen := uintptr(len(ctx.ptrs))
+			offsetNum := ptrOffset / uintptrSize
 
-			newCtx := &encodeRuntimeContext{
-				ptrs:     make([]uintptr, ifaceCodeSet.codeLength),
-				keepRefs: ctx.keepRefs,
-				seenPtr:  ctx.seenPtr,
+			newLen := offsetNum + totalLength + nextTotalLength
+			if curlen < newLen {
+				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			newCtx.ptrs[0] = uintptr(header.ptr)
-			//newPtrs := ctx.ptrs[ptrOffset/uintptrSize:]
-			//newPtrs[0] = uintptr(header.ptr)
+			oldPtrs := ctx.ptrs
 
-			//oldPtrs := ctx.ptrs
-			//ctx.ptrs = newPtrs
-			bb, err := e.runEscaped(newCtx, b, ifaceCodeSet)
+			newPtrs := ctx.ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
+			newPtrs[0] = uintptr(header.ptr)
+
+			ctx.ptrs = newPtrs
+
+			bb, err := e.runEscaped(ctx, b, ifaceCodeSet)
 			if err != nil {
 				return nil, err
 			}
-			ctx.keepRefs = newCtx.keepRefs
-			ctx.seenPtr = newCtx.seenPtr
-			//ctx.ptrs = oldPtrs
-			//ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
+
+			ctx.ptrs = oldPtrs
+			ctxptr = ctx.ptr()
+			ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
 
 			b = bb
-			code = code.next
-		case opInterfaceEnd:
-			recursiveLevel--
-			// restore ctxptr
-			offset := load(ctxptr, code.idx)
-			ctxptr = ctx.ptr() + offset
-			ptrOffset = offset
 			code = code.next
 		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)

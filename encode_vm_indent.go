@@ -405,11 +405,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					store(ctxptr, code.mapIter, uintptr(iter))
 
 					if !e.unorderedMap {
-						pos := make([]int, 0, mlen)
-						pos = append(pos, len(b))
-						posPtr := unsafe.Pointer(&pos)
-						ctx.keepRefs = append(ctx.keepRefs, posPtr)
-						store(ctxptr, code.end.mapPos, uintptr(posPtr))
+						mapCtx := newMapContext(mlen)
+						mapCtx.pos = append(mapCtx.pos, len(b))
+						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
 						b = e.encodeIndent(b, code.next.indent)
 					}
@@ -452,11 +451,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					store(ctxptr, code.next.idx, uintptr(key))
 
 					if !e.unorderedMap {
-						pos := make([]int, 0, mlen)
-						pos = append(pos, len(b))
-						posPtr := unsafe.Pointer(&pos)
-						ctx.keepRefs = append(ctx.keepRefs, posPtr)
-						store(ctxptr, code.end.mapPos, uintptr(posPtr))
+						mapCtx := newMapContext(mlen)
+						mapCtx.pos = append(mapCtx.pos, len(b))
+						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
 						b = e.encodeIndent(b, code.next.indent)
 					}
@@ -490,8 +488,8 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				}
 			} else {
 				ptr := load(ctxptr, code.end.mapPos)
-				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
-				*posPtr = append(*posPtr, len(b))
+				mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+				mapCtx.pos = append(mapCtx.pos, len(b))
 				if idx < length {
 					ptr := load(ctxptr, code.mapIter)
 					iter := e.ptrToUnsafePtr(ptr)
@@ -508,8 +506,8 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, ':', ' ')
 			} else {
 				ptr := load(ctxptr, code.end.mapPos)
-				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
-				*posPtr = append(*posPtr, len(b))
+				mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+				mapCtx.pos = append(mapCtx.pos, len(b))
 			}
 			ptr := load(ctxptr, code.mapIter)
 			iter := e.ptrToUnsafePtr(ptr)
@@ -520,13 +518,9 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opMapEnd:
 			// this operation only used by sorted map
 			length := int(load(ctxptr, code.length))
-			type mapKV struct {
-				key   string
-				value string
-			}
-			kvs := make([]mapKV, 0, length)
 			ptr := load(ctxptr, code.mapPos)
-			pos := *(*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
+			mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+			pos := mapCtx.pos
 			for i := 0; i < length; i++ {
 				startKey := pos[i*2]
 				startValue := pos[i*2+1]
@@ -536,32 +530,31 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				} else {
 					endValue = len(b)
 				}
-				kvs = append(kvs, mapKV{
-					key:   string(b[startKey:startValue]),
-					value: string(b[startValue:endValue]),
+				mapCtx.slice.items = append(mapCtx.slice.items, mapItem{
+					key:   b[startKey:startValue],
+					value: b[startValue:endValue],
 				})
 			}
-			sort.Slice(kvs, func(i, j int) bool {
-				return kvs[i].key < kvs[j].key
-			})
-			buf := b[pos[0]:]
-			buf = buf[:0]
-			for _, kv := range kvs {
+			sort.Sort(mapCtx.slice)
+			buf := mapCtx.buf
+			for _, item := range mapCtx.slice.items {
 				buf = append(buf, e.prefix...)
 				buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent+1)...)
-
-				buf = append(buf, []byte(kv.key)...)
+				buf = append(buf, item.key...)
 				buf[len(buf)-2] = ':'
 				buf[len(buf)-1] = ' '
-				buf = append(buf, []byte(kv.value)...)
+				buf = append(buf, item.value...)
 			}
 			buf = buf[:len(buf)-2]
 			buf = append(buf, '\n')
 			buf = append(buf, e.prefix...)
 			buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent)...)
 			buf = append(buf, '}', ',', '\n')
+
 			b = b[:pos[0]]
 			b = append(b, buf...)
+			mapCtx.buf = buf
+			releaseMapContext(mapCtx)
 			code = code.next
 		case opStructFieldPtrHead:
 			p := load(ctxptr, code.idx)

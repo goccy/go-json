@@ -460,15 +460,17 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 				})
 			}
 			sort.Sort(mapCtx.slice)
+			buf := mapCtx.buf
 			for _, item := range mapCtx.slice.items {
-				mapCtx.buf = append(mapCtx.buf, item.key...)
-				mapCtx.buf[len(mapCtx.buf)-1] = ':'
-				mapCtx.buf = append(mapCtx.buf, item.value...)
+				buf = append(buf, item.key...)
+				buf[len(buf)-1] = ':'
+				buf = append(buf, item.value...)
 			}
-			mapCtx.buf[len(mapCtx.buf)-1] = '}'
-			mapCtx.buf = append(mapCtx.buf, ',')
+			buf[len(buf)-1] = '}'
+			buf = append(buf, ',')
 			b = b[:pos[0]]
-			b = append(b, mapCtx.buf...)
+			b = append(b, buf...)
+			mapCtx.buf = buf
 			releaseMapContext(mapCtx)
 			code = code.next
 		case opStructFieldPtrAnonymousHeadRecursive:

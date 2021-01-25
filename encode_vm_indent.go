@@ -11,11 +11,10 @@ import (
 	"unsafe"
 )
 
-func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) ([]byte, error) {
-	recursiveLevel := 0
-	var seenPtr map[uintptr]struct{}
+func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) ([]byte, error) {
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
+	code := codeSet.code
 
 	for {
 		switch code.op {
@@ -163,83 +162,55 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				code = code.next
 				break
 			}
-			if seenPtr == nil {
-				seenPtr = map[uintptr]struct{}{}
+			for _, seen := range ctx.seenPtr {
+				if ptr == seen {
+					return nil, errUnsupportedValue(code, ptr)
+				}
 			}
-			if _, exists := seenPtr[ptr]; exists {
-				return nil, errUnsupportedValue(code, ptr)
-			}
-			seenPtr[ptr] = struct{}{}
-			v := e.ptrToInterface(code, ptr)
-			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(&v))
-			rv := reflect.ValueOf(v)
-			if rv.IsNil() {
+			ctx.seenPtr = append(ctx.seenPtr, ptr)
+			iface := (*interfaceHeader)(e.ptrToUnsafePtr(ptr))
+			if iface == nil || iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.next
 				break
 			}
-			vv := rv.Interface()
-			header := (*interfaceHeader)(unsafe.Pointer(&vv))
-			typ := header.typ
-			if typ.Kind() == reflect.Ptr {
-				typ = typ.Elem()
+			ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(iface))
+			ifaceCodeSet, err := e.compileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
+			if err != nil {
+				return nil, err
 			}
-			var c *opcode
-			if typ.Kind() == reflect.Map {
-				code, err := e.compileMap(&encodeCompileContext{
-					typ:                      typ,
-					root:                     code.root,
-					indent:                   code.indent,
-					structTypeToCompiledCode: map[uintptr]*compiledCode{},
-				}, false)
-				if err != nil {
-					return nil, err
-				}
-				c = code
-			} else {
-				code, err := e.compile(&encodeCompileContext{
-					typ:                      typ,
-					root:                     code.root,
-					indent:                   code.indent,
-					structTypeToCompiledCode: map[uintptr]*compiledCode{},
-				})
-				if err != nil {
-					return nil, err
-				}
-				c = code
-			}
-			beforeLastCode := c.beforeLastCode()
-			lastCode := beforeLastCode.next
-			lastCode.idx = beforeLastCode.idx + uintptrSize
-			totalLength := uintptr(code.totalLength())
-			nextTotalLength := uintptr(c.totalLength())
+
+			totalLength := uintptr(codeSet.codeLength)
+			nextTotalLength := uintptr(ifaceCodeSet.codeLength)
+
 			curlen := uintptr(len(ctx.ptrs))
 			offsetNum := ptrOffset / uintptrSize
-			oldOffset := ptrOffset
-			ptrOffset += totalLength * uintptrSize
 
 			newLen := offsetNum + totalLength + nextTotalLength
 			if curlen < newLen {
 				ctx.ptrs = append(ctx.ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			ctxptr = ctx.ptr() + ptrOffset // assign new ctxptr
+			oldPtrs := ctx.ptrs
 
-			store(ctxptr, 0, uintptr(header.ptr))
-			store(ctxptr, lastCode.idx, oldOffset)
+			newPtrs := ctx.ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
+			newPtrs[0] = uintptr(iface.ptr)
 
-			// link lastCode ( opInterfaceEnd ) => code.next
-			lastCode.op = opInterfaceEnd
-			lastCode.next = code.next
+			ctx.ptrs = newPtrs
 
-			code = c
-			recursiveLevel++
-		case opInterfaceEnd:
-			recursiveLevel--
-			// restore ctxptr
-			offset := load(ctxptr, code.idx)
-			ctxptr = ctx.ptr() + offset
-			ptrOffset = offset
+			oldBaseIndent := e.baseIndent
+			e.baseIndent = code.indent
+			bb, err := e.runIndent(ctx, b, ifaceCodeSet)
+			if err != nil {
+				return nil, err
+			}
+			e.baseIndent = oldBaseIndent
+
+			ctx.ptrs = oldPtrs
+			ctxptr = ctx.ptr()
+			ctx.seenPtr = ctx.seenPtr[:len(ctx.seenPtr)-1]
+
+			b = bb
 			code = code.next
 		case opMarshalJSON:
 			ptr := load(ctxptr, code.idx)
@@ -265,7 +236,7 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 			if err := encodeWithIndent(
 				&buf,
 				bb,
-				string(e.prefix)+string(bytes.Repeat(e.indentStr, code.indent)),
+				string(e.prefix)+string(bytes.Repeat(e.indentStr, e.baseIndent+code.indent)),
 				string(e.indentStr),
 			); err != nil {
 				return nil, err
@@ -434,11 +405,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					store(ctxptr, code.mapIter, uintptr(iter))
 
 					if !e.unorderedMap {
-						pos := make([]int, 0, mlen)
-						pos = append(pos, len(b))
-						posPtr := unsafe.Pointer(&pos)
-						ctx.keepRefs = append(ctx.keepRefs, posPtr)
-						store(ctxptr, code.end.mapPos, uintptr(posPtr))
+						mapCtx := newMapContext(mlen)
+						mapCtx.pos = append(mapCtx.pos, len(b))
+						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
 						b = e.encodeIndent(b, code.next.indent)
 					}
@@ -481,11 +451,10 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 					store(ctxptr, code.next.idx, uintptr(key))
 
 					if !e.unorderedMap {
-						pos := make([]int, 0, mlen)
-						pos = append(pos, len(b))
-						posPtr := unsafe.Pointer(&pos)
-						ctx.keepRefs = append(ctx.keepRefs, posPtr)
-						store(ctxptr, code.end.mapPos, uintptr(posPtr))
+						mapCtx := newMapContext(mlen)
+						mapCtx.pos = append(mapCtx.pos, len(b))
+						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
 						b = e.encodeIndent(b, code.next.indent)
 					}
@@ -519,8 +488,8 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				}
 			} else {
 				ptr := load(ctxptr, code.end.mapPos)
-				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
-				*posPtr = append(*posPtr, len(b))
+				mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+				mapCtx.pos = append(mapCtx.pos, len(b))
 				if idx < length {
 					ptr := load(ctxptr, code.mapIter)
 					iter := e.ptrToUnsafePtr(ptr)
@@ -537,8 +506,8 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				b = append(b, ':', ' ')
 			} else {
 				ptr := load(ctxptr, code.end.mapPos)
-				posPtr := (*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
-				*posPtr = append(*posPtr, len(b))
+				mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+				mapCtx.pos = append(mapCtx.pos, len(b))
 			}
 			ptr := load(ctxptr, code.mapIter)
 			iter := e.ptrToUnsafePtr(ptr)
@@ -549,13 +518,9 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 		case opMapEnd:
 			// this operation only used by sorted map
 			length := int(load(ctxptr, code.length))
-			type mapKV struct {
-				key   string
-				value string
-			}
-			kvs := make([]mapKV, 0, length)
 			ptr := load(ctxptr, code.mapPos)
-			pos := *(*[]int)(*(*unsafe.Pointer)(unsafe.Pointer(&ptr)))
+			mapCtx := (*encodeMapContext)(e.ptrToUnsafePtr(ptr))
+			pos := mapCtx.pos
 			for i := 0; i < length; i++ {
 				startKey := pos[i*2]
 				startValue := pos[i*2+1]
@@ -565,32 +530,31 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, code *opcode) (
 				} else {
 					endValue = len(b)
 				}
-				kvs = append(kvs, mapKV{
-					key:   string(b[startKey:startValue]),
-					value: string(b[startValue:endValue]),
+				mapCtx.slice.items = append(mapCtx.slice.items, mapItem{
+					key:   b[startKey:startValue],
+					value: b[startValue:endValue],
 				})
 			}
-			sort.Slice(kvs, func(i, j int) bool {
-				return kvs[i].key < kvs[j].key
-			})
-			buf := b[pos[0]:]
-			buf = buf[:0]
-			for _, kv := range kvs {
+			sort.Sort(mapCtx.slice)
+			buf := mapCtx.buf
+			for _, item := range mapCtx.slice.items {
 				buf = append(buf, e.prefix...)
-				buf = append(buf, bytes.Repeat(e.indentStr, code.indent+1)...)
-
-				buf = append(buf, []byte(kv.key)...)
+				buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent+1)...)
+				buf = append(buf, item.key...)
 				buf[len(buf)-2] = ':'
 				buf[len(buf)-1] = ' '
-				buf = append(buf, []byte(kv.value)...)
+				buf = append(buf, item.value...)
 			}
 			buf = buf[:len(buf)-2]
 			buf = append(buf, '\n')
 			buf = append(buf, e.prefix...)
-			buf = append(buf, bytes.Repeat(e.indentStr, code.indent)...)
+			buf = append(buf, bytes.Repeat(e.indentStr, e.baseIndent+code.indent)...)
 			buf = append(buf, '}', ',', '\n')
+
 			b = b[:pos[0]]
 			b = append(b, buf...)
+			mapCtx.buf = buf
+			releaseMapContext(mapCtx)
 			code = code.next
 		case opStructFieldPtrHead:
 			p := load(ctxptr, code.idx)

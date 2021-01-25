@@ -315,7 +315,6 @@ func (t opType) fieldToStringTagField() opType {
 	opTypes := []opType{
 		createOpType("End", "Op"),
 		createOpType("Interface", "Op"),
-		createOpType("InterfaceEnd", "Op"),
 		createOpType("Ptr", "Op"),
 		createOpType("NPtr", "Op"),
 		createOpType("SliceHead", "SliceHead"),

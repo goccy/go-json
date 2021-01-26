@@ -160,8 +160,7 @@ func Marshal(v interface{}) ([]byte, error) {
 
 // MarshalNoEscape
 func MarshalNoEscape(v interface{}) ([]byte, error) {
-	var b *bytes.Buffer
-	enc := NewEncoder(b)
+	enc := newEncoder()
 	header := (*interfaceHeader)(unsafe.Pointer(&v))
 	bytes, err := enc.encodeForMarshal(header, v == nil)
 	if err != nil {
@@ -174,8 +173,7 @@ func MarshalNoEscape(v interface{}) ([]byte, error) {
 
 // MarshalWithOption returns the JSON encoding of v with EncodeOption.
 func MarshalWithOption(v interface{}, opts ...EncodeOption) ([]byte, error) {
-	var b *bytes.Buffer
-	enc := NewEncoder(b)
+	enc := newEncoder()
 	for _, opt := range opts {
 		if err := opt(enc); err != nil {
 			return nil, err

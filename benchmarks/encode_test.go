@@ -537,3 +537,69 @@ func Benchmark_Encode_MapInterface_GoJson(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Encode_Interface_SegmentioJson(b *testing.B) {
+	v := []interface{}{1}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := segmentiojson.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Interface_GoJson(b *testing.B) {
+	v := []interface{}{1}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Int_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Int_JsonIter(b *testing.B) {
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Int_Jettison(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := jettison.Marshal(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Int_SegmentioJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := segmentiojson.Marshal(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Int_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(1); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

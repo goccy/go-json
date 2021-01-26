@@ -98,6 +98,12 @@ func NewEncoder(w io.Writer) *Encoder {
 	return enc
 }
 
+func newEncoder() *Encoder {
+	enc := encPool.Get().(*Encoder)
+	enc.reset()
+	return enc
+}
+
 // Encode writes the JSON encoding of v to the stream, followed by a newline character.
 //
 // See the documentation for Marshal for details about the conversion of Go values to JSON.
@@ -172,11 +178,21 @@ func (e *Encoder) encodeForMarshal(header *interfaceHeader, isNil bool) ([]byte,
 	e.buf = buf
 
 	if e.enabledIndent {
-		copied := make([]byte, len(buf)-2)
+		// this line's description is the below.
+		buf = buf[:len(buf)-2]
+
+		copied := make([]byte, len(buf))
 		copy(copied, buf)
 		return copied, nil
 	}
-	copied := make([]byte, len(buf)-1)
+
+	// this line exists to escape call of `runtime.makeslicecopy` .
+	// if use `make([]byte, len(buf)-1)` and `copy(copied, buf)`,
+	// dst buffer size and src buffer size are differrent.
+	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
+	buf = buf[:len(buf)-1]
+
+	copied := make([]byte, len(buf))
 	copy(copied, buf)
 	return copied, nil
 }

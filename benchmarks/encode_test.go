@@ -603,3 +603,60 @@ func Benchmark_Encode_Int_GoJson(b *testing.B) {
 		}
 	}
 }
+
+type marshaler struct{}
+
+func (*marshaler) MarshalJSON() ([]byte, error) {
+	return []byte(`"hello"`), nil
+}
+
+func Benchmark_Encode_MarshalJSON_EncodingJson(b *testing.B) {
+	v := &marshaler{}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MarshalJSON_JsonIter(b *testing.B) {
+	v := &marshaler{}
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MarshalJSON_Jettison(b *testing.B) {
+	v := &marshaler{}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := jettison.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MarshalJSON_SegmentioJson(b *testing.B) {
+	v := &marshaler{}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := segmentiojson.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MarshalJSON_GoJson(b *testing.B) {
+	v := &marshaler{}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

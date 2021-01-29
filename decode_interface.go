@@ -218,6 +218,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 			switch buf[cursor] {
 			case '\\':
 				cursor++
+				continue
 			case '"':
 				literal := buf[start:cursor]
 				cursor++

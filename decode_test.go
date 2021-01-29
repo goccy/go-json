@@ -226,6 +226,14 @@ func Test_Decoder(t *testing.T) {
 	})
 }
 
+func TestIssue98(t *testing.T) {
+	data := "[\"\\"
+	var v interface{}
+	if err := json.Unmarshal([]byte(data), &v); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func Test_Decoder_UseNumber(t *testing.T) {
 	dec := json.NewDecoder(strings.NewReader(`{"a": 3.14}`))
 	dec.UseNumber()

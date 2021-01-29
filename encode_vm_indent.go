@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
+	"strings"
 	"unsafe"
 )
 
@@ -232,16 +233,20 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					0,
 				)
 			}
-			var buf bytes.Buffer
+			var compactBuf bytes.Buffer
+			if err := compact(&compactBuf, bb, false); err != nil {
+				return nil, err
+			}
+			var indentBuf bytes.Buffer
 			if err := encodeWithIndent(
-				&buf,
-				bb,
-				string(e.prefix)+string(bytes.Repeat(e.indentStr, e.baseIndent+code.indent)),
+				&indentBuf,
+				compactBuf.Bytes(),
+				string(e.prefix)+strings.Repeat(string(e.indentStr), e.baseIndent+code.indent),
 				string(e.indentStr),
 			); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			b = append(b, indentBuf.Bytes()...)
 			b = encodeIndentComma(b)
 			code = code.next
 		case opMarshalText:
@@ -7619,11 +7624,20 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			var compactBuf bytes.Buffer
+			if err := compact(&compactBuf, bb, false); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			var indentBuf bytes.Buffer
+			if err := encodeWithIndent(
+				&indentBuf,
+				compactBuf.Bytes(),
+				string(e.prefix)+strings.Repeat(string(e.indentStr), e.baseIndent+code.indent),
+				string(e.indentStr),
+			); err != nil {
+				return nil, err
+			}
+			b = append(b, indentBuf.Bytes()...)
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
@@ -7637,11 +7651,20 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			var compactBuf bytes.Buffer
+			if err := compact(&compactBuf, bb, false); err != nil {
 				return nil, err
 			}
-			b = encodeNoEscapedString(b, buf.String())
+			var indentBuf bytes.Buffer
+			if err := encodeWithIndent(
+				&indentBuf,
+				compactBuf.Bytes(),
+				string(e.prefix)+strings.Repeat(string(e.indentStr), e.baseIndent+code.indent),
+				string(e.indentStr),
+			); err != nil {
+				return nil, err
+			}
+			b = encodeNoEscapedString(b, indentBuf.String())
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalText:
@@ -9189,11 +9212,20 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			var compactBuf bytes.Buffer
+			if err := compact(&compactBuf, bb, false); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			var indentBuf bytes.Buffer
+			if err := encodeWithIndent(
+				&indentBuf,
+				compactBuf.Bytes(),
+				string(e.prefix)+strings.Repeat(string(e.indentStr), e.baseIndent+code.indent),
+				string(e.indentStr),
+			); err != nil {
+				return nil, err
+			}
+			b = append(b, indentBuf.Bytes()...)
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagMarshalJSON:
@@ -9207,11 +9239,20 @@ func (e *Encoder) runIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			var compactBuf bytes.Buffer
+			if err := compact(&compactBuf, bb, false); err != nil {
 				return nil, err
 			}
-			b = encodeNoEscapedString(b, buf.String())
+			var indentBuf bytes.Buffer
+			if err := encodeWithIndent(
+				&indentBuf,
+				compactBuf.Bytes(),
+				string(e.prefix)+strings.Repeat(string(e.indentStr), e.baseIndent+code.indent),
+				string(e.indentStr),
+			); err != nil {
+				return nil, err
+			}
+			b = encodeNoEscapedString(b, indentBuf.String())
 			b = e.appendStructEndIndent(b, code.indent-1)
 			code = code.next
 		case opStructEndStringTagMarshalText:

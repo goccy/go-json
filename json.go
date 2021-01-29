@@ -370,7 +370,7 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 	if m == nil {
 		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
 	}
-	*m = append((*m)[0:0], data...)
+	*m = data
 	return nil
 }
 

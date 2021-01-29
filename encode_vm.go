@@ -268,11 +268,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 					0,
 				)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			//TODO: we should validate buffer with `compact`
+			if err := compact(buf, bb, false); err != nil {
 				return nil, err
 			}
-			b = append(append(b, buf.Bytes()...), ',')
+			b = buf.Bytes()
+			b = encodeComma(b)
 			code = code.next
 		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
@@ -6632,11 +6634,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 						0,
 					)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				buf := bytes.NewBuffer(b)
+				//TODO: we should validate buffer with `compact`
+				if err := compact(buf, bb, false); err != nil {
 					return nil, err
 				}
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -6667,11 +6670,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 						0,
 					)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				buf := bytes.NewBuffer(b)
+				//TODO: we should validate buffer with `compact`
+				if err := compact(buf, bb, false); err != nil {
 					return nil, err
 				}
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -6864,12 +6868,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 						}
 						code = code.nextField
 					} else {
-						var buf bytes.Buffer
-						if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+						b = append(b, code.key...)
+						buf := bytes.NewBuffer(b)
+						//TODO: we should validate buffer with `compact`
+						if err := compact(buf, bb, false); err != nil {
 							return nil, err
 						}
-						b = append(b, code.key...)
-						b = append(b, buf.Bytes()...)
+						b = buf.Bytes()
 						b = encodeComma(b)
 						code = code.next
 					}
@@ -6909,12 +6914,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 						}
 						code = code.nextField
 					} else {
-						var buf bytes.Buffer
-						if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+						b = append(b, code.key...)
+						buf := bytes.NewBuffer(b)
+						//TODO: we should validate buffer with `compact`
+						if err := compact(buf, bb, false); err != nil {
 							return nil, err
 						}
-						b = append(b, code.key...)
-						b = append(b, buf.Bytes()...)
+						b = buf.Bytes()
 						b = encodeComma(b)
 						code = code.next
 					}
@@ -7131,9 +7137,10 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 					code = code.nextField
 				} else {
 					var buf bytes.Buffer
-					if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+					if err := compact(&buf, bb, false); err != nil {
 						return nil, err
 					}
+					b = append(b, code.key...)
 					b = encodeNoEscapedString(b, buf.String())
 					b = encodeComma(b)
 					code = code.next
@@ -7174,7 +7181,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 					code = code.nextField
 				} else {
 					var buf bytes.Buffer
-					if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+					if err := compact(&buf, bb, false); err != nil {
 						return nil, err
 					}
 					b = append(b, code.key...)
@@ -7818,11 +7825,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			//TODO: we should validate buffer with `compact`
+			if err := compact(buf, bb, false); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			b = buf.Bytes()
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
@@ -7834,7 +7842,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 				return nil, errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			if err := compact(&buf, bb, false); err != nil {
 				return nil, err
 			}
 			b = append(b, code.key...)
@@ -7853,12 +7861,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 				if err != nil {
 					return nil, errMarshaler(code, err)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				b = append(b, code.key...)
+				buf := bytes.NewBuffer(b)
+				//TODO: we should validate buffer with `compact`
+				if err := compact(buf, bb, false); err != nil {
 					return nil, err
 				}
-				b = append(b, code.key...)
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -9258,11 +9267,12 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			//TODO: we should validate buffer with `compact`
+			if err := compact(buf, bb, false); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			b = buf.Bytes()
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyMarshalJSON:
@@ -9274,12 +9284,13 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 				if err != nil {
 					return nil, errMarshaler(code, err)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				b = append(b, code.key...)
+				buf := bytes.NewBuffer(b)
+				//TODO: we should validate buffer with `compact`
+				if err := compact(buf, bb, false); err != nil {
 					return nil, err
 				}
-				b = append(b, code.key...)
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -9300,7 +9311,7 @@ func (e *Encoder) run(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet) (
 				return nil, errMarshaler(code, err)
 			}
 			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			if err := compact(&buf, bb, false); err != nil {
 				return nil, err
 			}
 			b = append(b, code.key...)

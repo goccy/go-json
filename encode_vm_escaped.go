@@ -231,11 +231,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 					0,
 				)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			if err := compact(buf, bb, true); err != nil {
 				return nil, err
 			}
-			b = append(append(b, buf.Bytes()...), ',')
+			b = buf.Bytes()
+			b = encodeComma(b)
 			code = code.next
 		case opMarshalText:
 			ptr := load(ctxptr, code.idx)
@@ -6599,11 +6600,11 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 						0,
 					)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				buf := bytes.NewBuffer(b)
+				if err := compact(buf, bb, true); err != nil {
 					return nil, err
 				}
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -6634,11 +6635,11 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 						0,
 					)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				buf := bytes.NewBuffer(b)
+				if err := compact(buf, bb, true); err != nil {
 					return nil, err
 				}
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -6831,12 +6832,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 						}
 						code = code.nextField
 					} else {
-						var buf bytes.Buffer
-						if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+						b = append(b, code.escapedKey...)
+						buf := bytes.NewBuffer(b)
+						if err := compact(buf, bb, true); err != nil {
 							return nil, err
 						}
-						b = append(b, code.escapedKey...)
-						b = append(b, buf.Bytes()...)
+						b = buf.Bytes()
 						b = encodeComma(b)
 						code = code.next
 					}
@@ -6876,12 +6877,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 						}
 						code = code.nextField
 					} else {
-						var buf bytes.Buffer
-						if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+						b = append(b, code.escapedKey...)
+						buf := bytes.NewBuffer(b)
+						if err := compact(buf, bb, true); err != nil {
 							return nil, err
 						}
-						b = append(b, code.escapedKey...)
-						b = append(b, buf.Bytes()...)
+						b = buf.Bytes()
 						b = encodeComma(b)
 						code = code.next
 					}
@@ -7804,11 +7805,11 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			if err := compact(buf, bb, true); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			b = buf.Bytes()
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyMarshalJSON:
@@ -7823,12 +7824,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 				if err != nil {
 					return nil, errMarshaler(code, err)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				b = append(b, code.escapedKey...)
+				buf := bytes.NewBuffer(b)
+				if err := compact(buf, bb, true); err != nil {
 					return nil, err
 				}
-				b = append(b, code.escapedKey...)
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -9244,11 +9245,11 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 			if err != nil {
 				return nil, errMarshaler(code, err)
 			}
-			var buf bytes.Buffer
-			if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+			buf := bytes.NewBuffer(b)
+			if err := compact(buf, bb, true); err != nil {
 				return nil, err
 			}
-			b = append(b, buf.Bytes()...)
+			b = buf.Bytes()
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyMarshalJSON:
@@ -9260,12 +9261,12 @@ func (e *Encoder) runEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcod
 				if err != nil {
 					return nil, errMarshaler(code, err)
 				}
-				var buf bytes.Buffer
-				if err := compact(&buf, bb, e.enabledHTMLEscape); err != nil {
+				b = append(b, code.escapedKey...)
+				buf := bytes.NewBuffer(b)
+				if err := compact(buf, bb, true); err != nil {
 					return nil, err
 				}
-				b = append(b, code.escapedKey...)
-				b = append(b, buf.Bytes()...)
+				b = buf.Bytes()
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1

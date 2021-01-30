@@ -36,8 +36,8 @@ type compiledCode struct {
 }
 
 const (
-	bufSize          = 1024
-	maxTypeAddrRange = 1024 * 1024 * 16 // 16 Mib
+	bufSize                    = 1024
+	maxAcceptableTypeAddrRange = 1024 * 1024 * 2 // 2 Mib
 )
 
 const (
@@ -111,7 +111,7 @@ func setupOpcodeSets() error {
 	if addrRange == 0 {
 		return fmt.Errorf("failed to get address range of types")
 	}
-	if addrRange > maxTypeAddrRange {
+	if addrRange > maxAcceptableTypeAddrRange {
 		return fmt.Errorf("too big address range %d", addrRange)
 	}
 	cachedOpcodeSets = make([]*opcodeSet, addrRange)

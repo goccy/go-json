@@ -133,6 +133,23 @@ func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 	return copied, nil
 }
 
+func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
+	buf, err := encodeNoEscapeWithOpt(v, EncodeOptionHTMLEscape)
+	if err != nil {
+		return nil, err
+	}
+
+	// this line exists to escape call of `runtime.makeslicecopy` .
+	// if use `make([]byte, len(buf)-1)` and `copy(copied, buf)`,
+	// dst buffer size and src buffer size are differrent.
+	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
+	buf = buf[:len(buf)-1]
+
+	copied := make([]byte, len(buf))
+	copy(copied, buf)
+	return copied, nil
+}
+
 func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
 	buf, err := encodeIndentWithOpt(v, prefix, indent, EncodeOptionHTMLEscape)
 	if err != nil {
@@ -168,6 +185,36 @@ func encodeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
 
 	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
 
+	if err != nil {
+		releaseEncodeRuntimeContext(ctx)
+		return nil, err
+	}
+
+	ctx.buf = buf
+	releaseEncodeRuntimeContext(ctx)
+	return buf, nil
+}
+
+func encodeNoEscapeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
+	ctx := takeEncodeRuntimeContext()
+	b := ctx.buf[:0]
+	if v == nil {
+		b = encodeNull(b)
+		b = encodeComma(b)
+		return b, nil
+	}
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	typ := header.typ
+
+	typeptr := uintptr(unsafe.Pointer(typ))
+	codeSet, err := encodeCompileToGetCodeSet(typeptr)
+	if err != nil {
+		return nil, err
+	}
+
+	p := uintptr(header.ptr)
+	ctx.init(p, codeSet.codeLength)
+	buf, err := encodeRunCode(ctx, b, codeSet, opt)
 	if err != nil {
 		releaseEncodeRuntimeContext(ctx)
 		return nil, err

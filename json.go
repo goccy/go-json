@@ -159,7 +159,7 @@ func Marshal(v interface{}) ([]byte, error) {
 
 // MarshalNoEscape
 func MarshalNoEscape(v interface{}) ([]byte, error) {
-	return marshal(v, EncodeOptionHTMLEscape)
+	return marshalNoEscape(v, EncodeOptionHTMLEscape)
 }
 
 // MarshalWithOption returns the JSON encoding of v with EncodeOption.

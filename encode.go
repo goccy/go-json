@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -35,7 +36,8 @@ type compiledCode struct {
 }
 
 const (
-	bufSize = 1024
+	bufSize                    = 1024
+	maxAcceptableTypeAddrRange = 1024 * 1024 * 2 // 2 Mib
 )
 
 const (
@@ -67,12 +69,55 @@ func storeOpcodeSet(typ uintptr, set *opcodeSet, m map[uintptr]*opcodeSet) {
 }
 
 var (
-	encPool         sync.Pool
-	codePool        sync.Pool
-	cachedOpcode    unsafe.Pointer // map[uintptr]*opcodeSet
-	marshalJSONType reflect.Type
-	marshalTextType reflect.Type
+	encPool          sync.Pool
+	codePool         sync.Pool
+	cachedOpcode     unsafe.Pointer // map[uintptr]*opcodeSet
+	marshalJSONType  reflect.Type
+	marshalTextType  reflect.Type
+	baseTypeAddr     uintptr
+	cachedOpcodeSets []*opcodeSet
 )
+
+//go:linkname typelinks reflect.typelinks
+func typelinks() ([]unsafe.Pointer, [][]int32)
+
+//go:linkname rtypeOff reflect.rtypeOff
+func rtypeOff(unsafe.Pointer, int32) unsafe.Pointer
+
+func setupOpcodeSets() error {
+	sections, offsets := typelinks()
+	if len(sections) != 1 {
+		return fmt.Errorf("failed to get sections")
+	}
+	if len(offsets) != 1 {
+		return fmt.Errorf("failed to get offsets")
+	}
+	section := sections[0]
+	offset := offsets[0]
+	var (
+		min uintptr = uintptr(^uint(0))
+		max uintptr = 0
+	)
+	for i := 0; i < len(offset); i++ {
+		addr := uintptr(rtypeOff(section, offset[i]))
+		if min > addr {
+			min = addr
+		}
+		if max < addr {
+			max = addr
+		}
+	}
+	addrRange := uintptr(max) - uintptr(min)
+	if addrRange == 0 {
+		return fmt.Errorf("failed to get address range of types")
+	}
+	if addrRange > maxAcceptableTypeAddrRange {
+		return fmt.Errorf("too big address range %d", addrRange)
+	}
+	cachedOpcodeSets = make([]*opcodeSet, addrRange)
+	baseTypeAddr = min
+	return nil
+}
 
 func init() {
 	encPool = sync.Pool{
@@ -88,6 +133,9 @@ func init() {
 	}
 	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	if err := setupOpcodeSets(); err != nil {
+		// fallback to slow path
+	}
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -233,6 +281,35 @@ func (e *Encoder) encode(header *interfaceHeader, isNil bool) ([]byte, error) {
 }
 
 func (e *Encoder) compileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
+	if cachedOpcodeSets == nil {
+		return e.compileToGetCodeSetSlowPath(typeptr)
+	}
+	if codeSet := cachedOpcodeSets[typeptr-baseTypeAddr]; codeSet != nil {
+		return codeSet, nil
+	}
+
+	// noescape trick for header.typ ( reflect.*rtype )
+	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
+
+	code, err := e.compileHead(&encodeCompileContext{
+		typ:                      copiedType,
+		root:                     true,
+		structTypeToCompiledCode: map[uintptr]*compiledCode{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	code = copyOpcode(code)
+	codeLength := code.totalLength()
+	codeSet := &opcodeSet{
+		code:       code,
+		codeLength: codeLength,
+	}
+	cachedOpcodeSets[int(typeptr-baseTypeAddr)] = codeSet
+	return codeSet, nil
+}
+
+func (e *Encoder) compileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {
 	opcodeMap := loadOpcodeMap()
 	if codeSet, exists := opcodeMap[typeptr]; exists {
 		return codeSet, nil
@@ -255,7 +332,6 @@ func (e *Encoder) compileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
 		code:       code,
 		codeLength: codeLength,
 	}
-
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
 	return codeSet, nil
 }

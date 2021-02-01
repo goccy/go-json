@@ -149,7 +149,6 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
 		}
 	}
-	return nil, 0, errUnexpectedEndOfJSON("number(integer)", cursor)
 }
 
 func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {

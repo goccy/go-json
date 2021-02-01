@@ -29,7 +29,7 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 				case '"':
 					goto LOOP_END
 				case nul:
-					return errUnexpectedEndOfJSON("string", int64(length))
+					return errUnexpectedEndOfJSON("string", length)
 				}
 			}
 		case '{':

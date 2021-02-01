@@ -16,7 +16,6 @@ type stream struct {
 	r                     io.Reader
 	offset                int64
 	cursor                int64
-	readPos               int64
 	allRead               bool
 	useNumber             bool
 	disallowUnknownFields bool
@@ -200,5 +199,4 @@ func (s *stream) skipValue() error {
 		}
 		s.cursor++
 	}
-	return errUnexpectedEndOfJSON("value of object", s.offset)
 }

@@ -37,7 +37,6 @@ func ptrToUint64(p uintptr) uint64      { return **(**uint64)(unsafe.Pointer(&p)
 func ptrToFloat32(p uintptr) float32    { return **(**float32)(unsafe.Pointer(&p)) }
 func ptrToFloat64(p uintptr) float64    { return **(**float64)(unsafe.Pointer(&p)) }
 func ptrToBool(p uintptr) bool          { return **(**bool)(unsafe.Pointer(&p)) }
-func ptrToByte(p uintptr) byte          { return **(**byte)(unsafe.Pointer(&p)) }
 func ptrToBytes(p uintptr) []byte       { return **(**[]byte)(unsafe.Pointer(&p)) }
 func ptrToString(p uintptr) string      { return **(**string)(unsafe.Pointer(&p)) }
 func ptrToSlice(p uintptr) *sliceHeader { return *(**sliceHeader)(unsafe.Pointer(&p)) }
@@ -7637,7 +7636,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.key...)
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint64(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset))
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next

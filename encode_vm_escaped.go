@@ -7801,6 +7801,15 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			p := ptr + code.offset
+			if code.typ.Kind() == reflect.Ptr {
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.next
+				break
+			}
 			v := ptrToInterface(code, p)
 			bb, err := v.(Marshaler).MarshalJSON()
 			if err != nil {
@@ -7816,23 +7825,25 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructFieldOmitEmptyMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			if code.typ.Kind() == reflect.Ptr && code.typ.Elem().Implements(marshalJSONType) {
+			if code.typ.Kind() == reflect.Ptr {
 				p = ptrToPtr(p)
 			}
-			v := ptrToInterface(code, p)
-			if v != nil && p != 0 {
-				bb, err := v.(Marshaler).MarshalJSON()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
-				b = append(b, code.escapedKey...)
-				buf := bytes.NewBuffer(b)
-				if err := compact(buf, bb, true); err != nil {
-					return nil, err
-				}
-				b = buf.Bytes()
-				b = encodeComma(b)
+			if p == 0 {
+				code = code.next
+				break
 			}
+			v := ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = append(b, code.escapedKey...)
+			buf := bytes.NewBuffer(b)
+			if err := compact(buf, bb, true); err != nil {
+				return nil, err
+			}
+			b = buf.Bytes()
+			b = encodeComma(b)
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
@@ -9256,20 +9267,10 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructEndOmitEmptyMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			v := ptrToInterface(code, p)
-			if v != nil && (code.typ.Kind() != reflect.Ptr || ptrToPtr(p) != 0) {
-				bb, err := v.(Marshaler).MarshalJSON()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
-				b = append(b, code.escapedKey...)
-				buf := bytes.NewBuffer(b)
-				if err := compact(buf, bb, true); err != nil {
-					return nil, err
-				}
-				b = buf.Bytes()
-				b = appendStructEnd(b)
-			} else {
+			if code.typ.Kind() == reflect.Ptr {
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
 				last := len(b) - 1
 				if b[last] == ',' {
 					b[last] = '}'
@@ -9277,7 +9278,21 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				} else {
 					b = appendStructEnd(b)
 				}
+				code = code.next
+				break
 			}
+			v := ptrToInterface(code, p)
+			bb, err := v.(Marshaler).MarshalJSON()
+			if err != nil {
+				return nil, errMarshaler(code, err)
+			}
+			b = append(b, code.escapedKey...)
+			buf := bytes.NewBuffer(b)
+			if err := compact(buf, bb, true); err != nil {
+				return nil, err
+			}
+			b = buf.Bytes()
+			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)

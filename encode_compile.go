@@ -22,11 +22,12 @@ type opcodeSet struct {
 }
 
 var (
-	marshalJSONType  = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	marshalTextType  = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
-	cachedOpcode     unsafe.Pointer // map[uintptr]*opcodeSet
-	baseTypeAddr     uintptr
-	cachedOpcodeSets []*opcodeSet
+	marshalJSONType        = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	cachedOpcode           unsafe.Pointer // map[uintptr]*opcodeSet
+	baseTypeAddr           uintptr
+	cachedOpcodeSets       []*opcodeSet
+	existsCachedOpcodeSets bool
 )
 
 const (
@@ -80,6 +81,7 @@ func setupOpcodeSets() error {
 		return fmt.Errorf("too big address range %d", addrRange)
 	}
 	cachedOpcodeSets = make([]*opcodeSet, addrRange)
+	existsCachedOpcodeSets = true
 	baseTypeAddr = min
 	return nil
 }
@@ -88,35 +90,6 @@ func init() {
 	if err := setupOpcodeSets(); err != nil {
 		// fallback to slow path
 	}
-}
-
-func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
-	if cachedOpcodeSets == nil {
-		return encodeCompileToGetCodeSetSlowPath(typeptr)
-	}
-	if codeSet := cachedOpcodeSets[typeptr-baseTypeAddr]; codeSet != nil {
-		return codeSet, nil
-	}
-
-	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
-
-	code, err := encodeCompileHead(&encodeCompileContext{
-		typ:                      copiedType,
-		root:                     true,
-		structTypeToCompiledCode: map[uintptr]*compiledCode{},
-	})
-	if err != nil {
-		return nil, err
-	}
-	code = copyOpcode(code)
-	codeLength := code.totalLength()
-	codeSet := &opcodeSet{
-		code:       code,
-		codeLength: codeLength,
-	}
-	cachedOpcodeSets[int(typeptr-baseTypeAddr)] = codeSet
-	return codeSet, nil
 }
 
 func encodeCompileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {

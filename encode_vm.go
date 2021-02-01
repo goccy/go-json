@@ -88,7 +88,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 	for {
 		switch code.op {
 		default:
-			return nil, fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
+			return nil, fmt.Errorf("encoder: opcode %s has not been implemented", code.op)
 		case opPtr:
 			ptr := load(ctxptr, code.idx)
 			code = code.next

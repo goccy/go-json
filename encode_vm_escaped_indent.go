@@ -20,7 +20,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 	for {
 		switch code.op {
 		default:
-			return nil, fmt.Errorf("failed to handle opcode. doesn't implement %s", code.op)
+			return nil, fmt.Errorf("encoder (escaped+indent): opcode %s has not been implemented", code.op)
 		case opPtr:
 			ptr := load(ctxptr, code.idx)
 			code = code.next

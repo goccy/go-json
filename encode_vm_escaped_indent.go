@@ -277,7 +277,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
@@ -288,11 +288,11 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				store(ctxptr, code.idx, uintptr(slice.data))
 				if slice.len > 0 {
 					b = append(b, '[', '\n')
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					code = code.next
 					store(ctxptr, code.idx, uintptr(slice.data))
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '[', ']', '\n')
 					code = code.end.next
 				}
@@ -300,7 +300,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opRootSliceHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
@@ -311,11 +311,11 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				store(ctxptr, code.idx, uintptr(slice.data))
 				if slice.len > 0 {
 					b = append(b, '[', '\n')
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					code = code.next
 					store(ctxptr, code.idx, uintptr(slice.data))
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '[', ']', ',', '\n')
 					code = code.end.next
 				}
@@ -325,7 +325,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			length := load(ctxptr, code.length)
 			idx++
 			if idx < length {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				store(ctxptr, code.elemIdx, idx)
 				data := load(ctxptr, code.headIdx)
 				size := code.size
@@ -334,7 +334,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			} else {
 				b = b[:len(b)-2]
 				b = append(b, '\n')
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
@@ -343,33 +343,33 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			length := load(ctxptr, code.length)
 			idx++
 			if idx < length {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				store(ctxptr, code.elemIdx, idx)
 				code = code.next
 				data := load(ctxptr, code.headIdx)
 				store(ctxptr, code.idx, data+idx*code.size)
 			} else {
 				b = append(b, '\n')
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, ']')
 				code = code.end.next
 			}
 		case opArrayHead:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
 				if code.length > 0 {
 					b = append(b, '[', '\n')
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					store(ctxptr, code.elemIdx, 0)
 					code = code.next
 					store(ctxptr, code.idx, p)
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '[', ']', ',', '\n')
 					code = code.end.next
 				}
@@ -378,7 +378,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			idx := load(ctxptr, code.elemIdx)
 			idx++
 			if idx < code.length {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				store(ctxptr, code.elemIdx, idx)
 				p := load(ctxptr, code.headIdx)
 				size := code.size
@@ -387,14 +387,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			} else {
 				b = b[:len(b)-2]
 				b = append(b, '\n')
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
 		case opMapHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
@@ -415,14 +415,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
 						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
-						b = encodeIndent(ctx, b, code.next.indent)
+						b = appendIndent(ctx, b, code.next.indent)
 					}
 
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '{', '}', ',', '\n')
 					code = code.end.next
 				}
@@ -430,7 +430,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opMapHeadLoad:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				code = code.end.next
 			} else {
@@ -438,7 +438,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				ptr = ptrToPtr(ptr)
 				uptr := ptrToUnsafePtr(ptr)
 				if uintptr(uptr) == 0 {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = encodeNull(b)
 					b = encodeIndentComma(b)
 					code = code.end.next
@@ -461,12 +461,12 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
 						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 					} else {
-						b = encodeIndent(ctx, b, code.next.indent)
+						b = appendIndent(ctx, b, code.next.indent)
 					}
 
 					code = code.next
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '{', '}', ',', '\n')
 					code = code.end.next
 				}
@@ -477,7 +477,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			idx++
 			if (opt & EncodeOptionUnorderedMap) != 0 {
 				if idx < length {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					store(ctxptr, code.elemIdx, idx)
 					ptr := load(ctxptr, code.mapIter)
 					iter := ptrToUnsafePtr(ptr)
@@ -487,7 +487,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				} else {
 					last := len(b) - 1
 					b[last] = '\n'
-					b = encodeIndent(ctx, b, code.indent-1)
+					b = appendIndent(ctx, b, code.indent-1)
 					b = append(b, '}', ',', '\n')
 					code = code.end.next
 				}
@@ -573,20 +573,20 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else if code.next == code.end {
 				// not exists fields
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '}', ',', '\n')
 				code = code.end.next
 				store(ctxptr, code.idx, ptr)
 			} else {
 				b = append(b, '{', '\n')
 				if !code.anonymousKey {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 				}
@@ -603,18 +603,18 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadOmitEmpty:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
 				p := ptr + code.offset
 				if p == 0 || *(*uintptr)(*(*unsafe.Pointer)(unsafe.Pointer(&p))) == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					code = code.next
@@ -625,7 +625,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if !code.anonymousKey {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 			}
@@ -636,7 +636,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if !code.anonymousKey && ptr != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p := ptr + code.offset
@@ -656,7 +656,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -681,7 +681,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -703,7 +703,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -714,7 +714,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadIntOnly, opStructFieldHeadIntOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendInt(b, int64(ptrToInt(p)))
@@ -725,7 +725,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := int64(ptrToInt(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -735,7 +735,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagIntOnly, opStructFieldHeadStringTagIntOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt(p)))
@@ -754,7 +754,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -779,7 +779,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(ptrToInt(p)))
@@ -799,7 +799,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -826,7 +826,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -850,7 +850,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(p+code.offset)))
@@ -870,7 +870,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagIntPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -888,7 +888,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -913,7 +913,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -932,7 +932,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -948,7 +948,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -962,7 +962,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -978,7 +978,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -991,7 +991,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -1009,7 +1009,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -1033,7 +1033,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(p)))
@@ -1049,7 +1049,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -1072,7 +1072,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadIntPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1095,7 +1095,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(p+code.offset)))
@@ -1112,7 +1112,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagIntPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1135,7 +1135,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(ptr)))
@@ -1160,7 +1160,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1182,7 +1182,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
@@ -1193,7 +1193,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadInt8Only, opStructFieldHeadInt8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendInt(b, int64(ptrToInt8(p)))
@@ -1204,7 +1204,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := int64(ptrToInt8(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -1214,7 +1214,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagInt8Only, opStructFieldHeadStringTagInt8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt8(p)))
@@ -1233,7 +1233,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -1258,7 +1258,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(ptrToInt8(p)))
@@ -1278,7 +1278,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -1305,7 +1305,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1329,7 +1329,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
@@ -1349,7 +1349,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagInt8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1367,7 +1367,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -1392,7 +1392,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
@@ -1411,7 +1411,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1427,7 +1427,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -1441,7 +1441,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
@@ -1457,7 +1457,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1470,7 +1470,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -1488,7 +1488,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -1512,7 +1512,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(p)))
@@ -1528,7 +1528,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -1551,7 +1551,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadInt8PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1574,7 +1574,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
@@ -1591,7 +1591,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagInt8PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1614,7 +1614,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(ptr)))
@@ -1639,7 +1639,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1661,7 +1661,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
@@ -1672,7 +1672,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadInt16Only, opStructFieldHeadInt16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendInt(b, int64(ptrToInt16(p)))
@@ -1683,7 +1683,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := int64(ptrToInt16(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -1693,7 +1693,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagInt16Only, opStructFieldHeadStringTagInt16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt16(p)))
@@ -1712,7 +1712,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -1737,7 +1737,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(ptrToInt16(p)))
@@ -1757,7 +1757,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -1784,7 +1784,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1808,7 +1808,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
@@ -1828,7 +1828,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagInt16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -1846,7 +1846,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -1871,7 +1871,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
@@ -1890,7 +1890,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1906,7 +1906,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -1920,7 +1920,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
@@ -1936,7 +1936,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -1949,7 +1949,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -1967,7 +1967,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -1991,7 +1991,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(p)))
@@ -2007,7 +2007,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -2030,7 +2030,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadInt16PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2053,7 +2053,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
@@ -2070,7 +2070,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagInt16PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2093,7 +2093,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(ptr)))
@@ -2118,7 +2118,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -2140,7 +2140,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
@@ -2151,7 +2151,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadInt32Only, opStructFieldHeadInt32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendInt(b, int64(ptrToInt32(p)))
@@ -2162,7 +2162,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := int64(ptrToInt32(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -2172,7 +2172,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagInt32Only, opStructFieldHeadStringTagInt32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt32(p)))
@@ -2191,7 +2191,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -2216,7 +2216,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(ptrToInt32(p)))
@@ -2236,7 +2236,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -2263,7 +2263,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2287,7 +2287,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
@@ -2307,7 +2307,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagInt32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2325,7 +2325,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -2350,7 +2350,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
@@ -2369,7 +2369,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -2385,7 +2385,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -2399,7 +2399,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
@@ -2415,7 +2415,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, int64(v))
@@ -2428,7 +2428,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -2446,7 +2446,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -2470,7 +2470,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(p)))
@@ -2486,7 +2486,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -2509,7 +2509,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadInt32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2532,7 +2532,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
@@ -2549,7 +2549,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagInt32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2572,7 +2572,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(ptr))
@@ -2597,7 +2597,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, v)
@@ -2619,7 +2619,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendInt(b, ptrToInt64(ptr+code.offset))
@@ -2630,7 +2630,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadInt64Only, opStructFieldHeadInt64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendInt(b, ptrToInt64(p))
@@ -2641,7 +2641,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := ptrToInt64(p)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -2651,7 +2651,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagInt64Only, opStructFieldHeadStringTagInt64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, ptrToInt64(p))
@@ -2670,7 +2670,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -2695,7 +2695,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, ptrToInt64(p))
@@ -2715,7 +2715,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -2742,7 +2742,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2766,7 +2766,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(p+code.offset))
@@ -2786,7 +2786,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagInt64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -2804,7 +2804,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -2829,7 +2829,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(ptr+code.offset))
@@ -2848,7 +2848,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, v)
@@ -2864,7 +2864,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -2878,7 +2878,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(ptr+code.offset))
@@ -2894,7 +2894,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendInt(b, v)
@@ -2907,7 +2907,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -2925,7 +2925,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -2949,7 +2949,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(p))
@@ -2965,7 +2965,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -2988,7 +2988,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadInt64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3011,7 +3011,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(p+code.offset))
@@ -3028,7 +3028,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagInt64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3051,7 +3051,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -3076,7 +3076,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3098,7 +3098,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -3109,7 +3109,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadUintOnly, opStructFieldHeadUintOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendUint(b, uint64(ptrToUint(p)))
@@ -3120,7 +3120,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := uint64(ptrToUint(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -3130,7 +3130,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagUintOnly, opStructFieldHeadStringTagUintOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint(p)))
@@ -3149,7 +3149,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -3174,7 +3174,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(ptrToUint(p)))
@@ -3194,7 +3194,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -3221,7 +3221,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3245,7 +3245,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
@@ -3265,7 +3265,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagUintPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3283,7 +3283,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -3308,7 +3308,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -3327,7 +3327,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3343,7 +3343,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -3357,7 +3357,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -3373,7 +3373,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3386,7 +3386,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -3404,7 +3404,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -3428,7 +3428,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(p)))
@@ -3444,7 +3444,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -3467,7 +3467,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadUintPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3490,7 +3490,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
@@ -3507,7 +3507,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagUintPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3530,7 +3530,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(ptr)))
@@ -3555,7 +3555,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3577,7 +3577,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
@@ -3588,7 +3588,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadUint8Only, opStructFieldHeadUint8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendUint(b, uint64(ptrToUint8(p)))
@@ -3599,7 +3599,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := uint64(ptrToUint8(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -3609,7 +3609,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagUint8Only, opStructFieldHeadStringTagUint8Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint8(p)))
@@ -3628,7 +3628,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -3653,7 +3653,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(ptrToUint8(p)))
@@ -3673,7 +3673,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -3700,7 +3700,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3724,7 +3724,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
@@ -3744,7 +3744,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagUint8PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3762,7 +3762,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -3787,7 +3787,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
@@ -3806,7 +3806,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3822,7 +3822,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -3836,7 +3836,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
@@ -3852,7 +3852,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -3865,7 +3865,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -3883,7 +3883,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -3907,7 +3907,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(p)))
@@ -3923,7 +3923,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -3946,7 +3946,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadUint8PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -3969,7 +3969,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
@@ -3986,7 +3986,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagUint8PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4009,7 +4009,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(ptr)))
@@ -4034,7 +4034,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4056,7 +4056,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
@@ -4067,7 +4067,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadUint16Only, opStructFieldHeadUint16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendUint(b, uint64(ptrToUint16(p)))
@@ -4078,7 +4078,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := uint64(ptrToUint16(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -4088,7 +4088,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagUint16Only, opStructFieldHeadStringTagUint16Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint16(p)))
@@ -4107,7 +4107,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -4132,7 +4132,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(ptrToUint16(p)))
@@ -4152,7 +4152,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -4179,7 +4179,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4203,7 +4203,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
@@ -4223,7 +4223,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagUint16PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4241,7 +4241,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -4266,7 +4266,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
@@ -4285,7 +4285,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4301,7 +4301,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -4315,7 +4315,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
@@ -4331,7 +4331,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4344,7 +4344,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -4362,7 +4362,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -4386,7 +4386,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(p)))
@@ -4402,7 +4402,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -4425,7 +4425,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadUint16PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4448,7 +4448,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
@@ -4465,7 +4465,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagUint16PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4488,7 +4488,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(ptr)))
@@ -4513,7 +4513,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4535,7 +4535,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
@@ -4546,7 +4546,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadUint32Only, opStructFieldHeadUint32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendUint(b, uint64(ptrToUint32(p)))
@@ -4557,7 +4557,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := uint64(ptrToUint32(p))
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -4567,7 +4567,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagUint32Only, opStructFieldHeadStringTagUint32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint32(p)))
@@ -4586,7 +4586,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -4611,7 +4611,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(ptrToUint32(p)))
@@ -4631,7 +4631,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -4658,7 +4658,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4682,7 +4682,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
@@ -4702,7 +4702,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagUint32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4720,7 +4720,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -4745,7 +4745,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
@@ -4764,7 +4764,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4780,7 +4780,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -4794,7 +4794,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
@@ -4810,7 +4810,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, uint64(v))
@@ -4823,7 +4823,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -4841,7 +4841,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -4865,7 +4865,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(p)))
@@ -4881,7 +4881,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -4904,7 +4904,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadUint32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4927,7 +4927,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
@@ -4944,7 +4944,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagUint32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -4967,7 +4967,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(ptr))
@@ -4992,7 +4992,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, v)
@@ -5014,7 +5014,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = appendUint(b, ptrToUint64(ptr+code.offset))
@@ -5025,7 +5025,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadUint64Only, opStructFieldHeadUint64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = appendUint(b, ptrToUint64(p))
@@ -5036,7 +5036,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := ptrToUint64(p)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -5046,7 +5046,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagUint64Only, opStructFieldHeadStringTagUint64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, ptrToUint64(p))
@@ -5065,7 +5065,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -5090,7 +5090,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, ptrToUint64(p))
@@ -5110,7 +5110,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -5137,7 +5137,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5161,7 +5161,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(p+code.offset))
@@ -5181,7 +5181,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagUint64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5199,7 +5199,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -5224,7 +5224,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(ptr+code.offset))
@@ -5243,7 +5243,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, v)
@@ -5259,7 +5259,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -5273,7 +5273,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(ptr+code.offset))
@@ -5289,7 +5289,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = appendUint(b, v)
@@ -5302,7 +5302,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -5320,7 +5320,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -5344,7 +5344,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(p))
@@ -5360,7 +5360,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -5383,7 +5383,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadUint64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5406,7 +5406,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(p+code.offset))
@@ -5423,7 +5423,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagUint64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5446,7 +5446,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(ptr))
@@ -5471,7 +5471,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat32(b, v)
@@ -5493,7 +5493,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = encodeFloat32(b, ptrToFloat32(ptr+code.offset))
@@ -5504,7 +5504,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadFloat32Only, opStructFieldHeadFloat32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeFloat32(b, ptrToFloat32(p))
@@ -5515,7 +5515,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := ptrToFloat32(p)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, v)
@@ -5525,7 +5525,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagFloat32Only, opStructFieldHeadStringTagFloat32Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeFloat32(b, ptrToFloat32(p))
@@ -5544,7 +5544,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -5569,7 +5569,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat32(b, ptrToFloat32(p))
@@ -5589,7 +5589,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -5616,7 +5616,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5640,7 +5640,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
@@ -5660,7 +5660,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5678,7 +5678,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -5703,7 +5703,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(ptr))
@@ -5722,7 +5722,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat32(b, v)
@@ -5738,7 +5738,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -5752,7 +5752,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(ptr))
@@ -5768,7 +5768,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat32(b, v)
@@ -5781,7 +5781,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -5799,7 +5799,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -5823,7 +5823,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(p))
@@ -5839,7 +5839,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -5862,7 +5862,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5885,7 +5885,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
@@ -5902,7 +5902,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagFloat32PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -5929,7 +5929,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					return nil, errUnsupportedFloat(v)
 				}
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat64(b, v)
@@ -5957,7 +5957,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat64(b, v)
@@ -5979,7 +5979,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				v := ptrToFloat64(ptr + code.offset)
@@ -5994,7 +5994,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadFloat64Only, opStructFieldHeadFloat64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			v := ptrToFloat64(p)
@@ -6012,7 +6012,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				return nil, errUnsupportedFloat(v)
 			}
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat64(b, v)
@@ -6022,7 +6022,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagFloat64Only, opStructFieldHeadStringTagFloat64Only:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			v := ptrToFloat64(p)
@@ -6045,7 +6045,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -6074,7 +6074,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					v := ptrToFloat64(p)
@@ -6098,7 +6098,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -6129,7 +6129,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6157,7 +6157,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(p)
@@ -6181,7 +6181,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6203,7 +6203,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -6232,7 +6232,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(ptr)
@@ -6258,7 +6258,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeFloat64(b, v)
@@ -6274,7 +6274,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -6292,7 +6292,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(ptr)
@@ -6312,7 +6312,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					v := ptrToFloat64(ptr)
@@ -6329,7 +6329,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = append(b, '"')
@@ -6351,7 +6351,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -6379,7 +6379,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(p)
@@ -6399,7 +6399,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -6426,7 +6426,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6453,7 +6453,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(p)
@@ -6474,7 +6474,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagFloat64PtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6501,7 +6501,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(ptr))
@@ -6526,7 +6526,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == "" {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeEscapedString(b, v)
@@ -6548,7 +6548,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToString(ptr + code.offset)
@@ -6559,7 +6559,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringOnly, opStructFieldHeadStringOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeEscapedString(b, ptrToString(p))
@@ -6570,7 +6570,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, '{', '\n')
 			v := ptrToString(p)
 			if v != "" {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, v)
@@ -6580,7 +6580,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldPtrHeadStringTagStringOnly, opStructFieldHeadStringTagStringOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, ptrToString(p))))
@@ -6598,7 +6598,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -6623,7 +6623,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '{', '\n')
 				p = ptrToPtr(p)
 				if p != 0 {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeEscapedString(b, ptrToString(p))
@@ -6643,7 +6643,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				break
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				p = ptrToPtr(p)
@@ -6668,7 +6668,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6692,7 +6692,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(p+code.offset))
@@ -6712,7 +6712,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagStringPtrOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{', '\n')
-			b = encodeIndent(ctx, b, code.indent+1)
+			b = appendIndent(ctx, b, code.indent+1)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6728,7 +6728,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				for i := 0; i < code.ptrNum; i++ {
@@ -6753,7 +6753,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(ptr+code.offset))
@@ -6772,7 +6772,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == "" {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeEscapedString(b, v)
@@ -6788,7 +6788,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, ptrToString(ptr+code.offset))))
@@ -6800,7 +6800,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(ptr+code.offset))
@@ -6816,7 +6816,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if v == "" {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeEscapedString(b, v)
@@ -6829,7 +6829,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, string(encodeEscapedString([]byte{}, ptrToString(ptr+code.offset))))
@@ -6845,7 +6845,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -6869,7 +6869,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(p))
@@ -6885,7 +6885,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.end.next
 				break
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p = ptrToPtr(p)
@@ -6906,7 +6906,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6929,7 +6929,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(p+code.offset))
@@ -6946,7 +6946,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagStringPtrOnly:
 			p := load(ctxptr, code.idx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -6962,14 +6962,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeBool(b, ptrToBool(ptr))
@@ -6982,14 +6982,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeByteSlice(b, ptrToBytes(ptr))
@@ -7005,18 +7005,18 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadOmitEmptyBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
 				v := ptrToBool(ptr + code.offset)
 				if !v {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeBool(b, v)
@@ -7033,18 +7033,18 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadOmitEmptyBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
 				v := ptrToBytes(ptr + code.offset)
 				if len(v) == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent+1)
+					b = appendIndent(ctx, b, code.indent+1)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					b = encodeByteSlice(b, v)
@@ -7067,7 +7067,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			} else {
 				b = append(b, '{', '\n')
 				p := ptr + code.offset
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				code = code.next
@@ -7082,13 +7082,13 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagBool:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ', '"')
 				b = encodeBool(b, ptrToBool(ptr+code.offset))
@@ -7105,13 +7105,13 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadStringTagBytes:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
 				b = append(b, '{', '\n')
-				b = encodeIndent(ctx, b, code.indent+1)
+				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeByteSlice(b, ptrToBytes(ptr+code.offset))
@@ -7119,7 +7119,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				code = code.next
 			}
 		case opStructField:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7132,7 +7132,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 || **(**uintptr)(unsafe.Pointer(&p)) == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				code = code.next
@@ -7141,13 +7141,13 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldStringTag:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldInt:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7158,7 +7158,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7167,7 +7167,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -7175,7 +7175,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt8:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7186,7 +7186,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt8(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7195,7 +7195,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
@@ -7203,7 +7203,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt16:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7214,7 +7214,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt16(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7223,7 +7223,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
@@ -7231,7 +7231,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7242,7 +7242,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7251,7 +7251,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
@@ -7259,7 +7259,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldInt64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7270,7 +7270,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt64(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -7279,7 +7279,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, ptrToInt64(ptr+code.offset))
@@ -7287,7 +7287,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7298,7 +7298,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -7307,7 +7307,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -7315,7 +7315,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint8:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7326,7 +7326,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint8(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -7335,7 +7335,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
@@ -7343,7 +7343,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint16:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7354,7 +7354,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint16(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -7363,7 +7363,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
@@ -7371,7 +7371,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7382,7 +7382,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -7391,7 +7391,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
@@ -7399,7 +7399,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldUint64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7410,7 +7410,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint64(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -7419,7 +7419,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, ptrToUint64(ptr+code.offset))
@@ -7427,7 +7427,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldFloat32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7438,7 +7438,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToFloat32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, v)
@@ -7447,7 +7447,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeFloat32(b, ptrToFloat32(ptr+code.offset))
@@ -7455,7 +7455,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldFloat64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7473,7 +7473,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if math.IsInf(v, 0) || math.IsNaN(v) {
 					return nil, errUnsupportedFloat(v)
 				}
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat64(b, v)
@@ -7486,7 +7486,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if math.IsInf(v, 0) || math.IsNaN(v) {
 				return nil, errUnsupportedFloat(v)
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeFloat64(b, v)
@@ -7494,7 +7494,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldString:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7505,7 +7505,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToString(ptr + code.offset)
 			if v != "" {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, v)
@@ -7514,7 +7514,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagString:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			s := ptrToString(ptr + code.offset)
@@ -7522,7 +7522,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldStringPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7538,7 +7538,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeNoEscapedString(b, ptrToString(p))
@@ -7546,7 +7546,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			}
 			code = code.next
 		case opStructFieldStringTagStringPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7559,7 +7559,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldBool:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7570,7 +7570,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToBool(ptr + code.offset)
 			if v {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeBool(b, v)
@@ -7579,7 +7579,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeBool(b, ptrToBool(ptr+code.offset))
@@ -7587,7 +7587,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldBytes:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7598,7 +7598,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
@@ -7607,14 +7607,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeByteSlice(b, ptrToBytes(ptr+code.offset))
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldMarshalJSON:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7642,7 +7642,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p := ptr + code.offset
@@ -7670,7 +7670,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructFieldStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p := ptr + code.offset
@@ -7683,7 +7683,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructFieldArray:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7703,13 +7703,13 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 || uintptr(array.data) == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				code = code.next
 			}
 		case opStructFieldSlice:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7729,13 +7729,13 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 || uintptr(slice.data) == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				code = code.next
 			}
 		case opStructFieldMap:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7764,14 +7764,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					code = code.next
 				}
 			}
 		case opStructFieldMapLoad:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7799,7 +7799,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				if mlen == 0 {
 					code = code.nextField
 				} else {
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, code.escapedKey...)
 					b = append(b, ' ')
 					code = code.next
@@ -7808,7 +7808,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldStruct:
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			if p == 0 {
@@ -7831,7 +7831,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				code = code.nextField
 			} else {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				headCode := code.next
@@ -7859,12 +7859,12 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = b[:len(b)-2]
 			}
 			b = append(b, '\n')
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, '}')
 			b = encodeIndentComma(b)
 			code = code.next
 		case opStructEndInt:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7875,7 +7875,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7890,7 +7890,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -7898,7 +7898,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagInt:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
@@ -7906,7 +7906,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndIntPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7922,7 +7922,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt(p)))
@@ -7937,14 +7937,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagIntPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7959,7 +7959,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt8:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -7970,7 +7970,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt8(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -7985,7 +7985,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -7993,7 +7993,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagInt8:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
@@ -8001,7 +8001,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt8Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8017,7 +8017,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt8(p)))
@@ -8032,14 +8032,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagInt8Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8054,7 +8054,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt16:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8065,7 +8065,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt16(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -8080,7 +8080,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8088,7 +8088,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagInt16:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
@@ -8096,7 +8096,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt16Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8112,7 +8112,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt16(p)))
@@ -8127,14 +8127,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagInt16Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8149,7 +8149,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8160,7 +8160,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(v))
@@ -8175,7 +8175,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8183,7 +8183,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagInt32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
@@ -8191,7 +8191,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8207,7 +8207,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, int64(ptrToInt32(p)))
@@ -8222,14 +8222,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagInt32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8244,7 +8244,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8255,7 +8255,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToInt64(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, v)
@@ -8270,7 +8270,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8278,7 +8278,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagInt64:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendInt(b, ptrToInt64(ptr+code.offset))
@@ -8286,7 +8286,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndInt64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8302,7 +8302,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendInt(b, ptrToInt64(p))
@@ -8317,14 +8317,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagInt64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8339,7 +8339,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8350,7 +8350,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -8365,7 +8365,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8373,7 +8373,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagUint:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
@@ -8381,7 +8381,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUintPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8397,7 +8397,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint(p)))
@@ -8412,14 +8412,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagUintPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8434,7 +8434,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint8:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8445,7 +8445,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint8(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -8460,7 +8460,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8468,7 +8468,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagUint8:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
@@ -8476,7 +8476,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint8Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8492,7 +8492,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint8(p)))
@@ -8507,14 +8507,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagUint8Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8529,7 +8529,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint16:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8540,7 +8540,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint16(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -8555,7 +8555,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8563,7 +8563,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagUint16:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
@@ -8571,7 +8571,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint16Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8587,7 +8587,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint16(p)))
@@ -8602,14 +8602,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagUint16Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8624,7 +8624,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8635,7 +8635,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(v))
@@ -8650,7 +8650,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8658,7 +8658,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagUint32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
@@ -8666,7 +8666,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8682,7 +8682,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, uint64(ptrToUint32(p)))
@@ -8697,14 +8697,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagUint32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8719,7 +8719,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8730,7 +8730,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToUint64(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, v)
@@ -8745,7 +8745,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8753,7 +8753,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagUint64:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = appendUint(b, ptrToUint64(ptr+code.offset))
@@ -8761,7 +8761,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndUint64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8777,7 +8777,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = appendUint(b, ptrToUint64(p))
@@ -8792,14 +8792,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagUint64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8814,7 +8814,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndFloat32:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8825,7 +8825,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToFloat32(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, v)
@@ -8840,7 +8840,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8848,7 +8848,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagFloat32:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeFloat32(b, ptrToFloat32(ptr+code.offset))
@@ -8856,7 +8856,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndFloat32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8872,7 +8872,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeFloat32(b, ptrToFloat32(p))
@@ -8887,14 +8887,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagFloat32Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8909,7 +8909,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndFloat64:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8924,7 +8924,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToFloat64(ptr + code.offset)
 			if v != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				if math.IsInf(v, 0) || math.IsNaN(v) {
@@ -8942,7 +8942,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -8954,7 +8954,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if math.IsInf(v, 0) || math.IsNaN(v) {
 				return nil, errUnsupportedFloat(v)
 			}
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeFloat64(b, v)
@@ -8962,7 +8962,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndFloat64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -8982,7 +8982,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				v := ptrToFloat64(p)
@@ -9001,14 +9001,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagFloat64Ptr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9027,7 +9027,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndString:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9038,7 +9038,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToString(ptr + code.offset)
 			if v != "" {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, v)
@@ -9053,7 +9053,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -9061,7 +9061,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagString:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			s := ptrToString(ptr + code.offset)
@@ -9069,7 +9069,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndStringPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9085,7 +9085,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeEscapedString(b, ptrToString(p))
@@ -9100,14 +9100,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
 			}
 			code = code.next
 		case opStructEndStringTagStringPtr:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9120,7 +9120,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndBool:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9131,7 +9131,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToBool(ptr + code.offset)
 			if v {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeBool(b, v)
@@ -9146,7 +9146,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -9154,7 +9154,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagBool:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ', '"')
 			b = encodeBool(b, ptrToBool(ptr+code.offset))
@@ -9162,7 +9162,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndBytes:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9173,7 +9173,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			ptr := load(ctxptr, code.headIdx)
 			v := ptrToBytes(ptr + code.offset)
 			if len(v) > 0 {
-				b = encodeIndent(ctx, b, code.indent)
+				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
 				b = encodeByteSlice(b, v)
@@ -9188,7 +9188,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 						b = b[:len(b)-2]
 					}
 					b = append(b, '\n')
-					b = encodeIndent(ctx, b, code.indent)
+					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '}')
 				}
 				b = encodeIndentComma(b)
@@ -9196,14 +9196,14 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagBytes:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeByteSlice(b, ptrToBytes(ptr+code.offset))
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndMarshalJSON:
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			ptr := load(ctxptr, code.headIdx)
@@ -9231,7 +9231,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p := ptr + code.offset
@@ -9258,7 +9258,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			code = code.next
 		case opStructEndStringTagMarshalText:
 			ptr := load(ctxptr, code.headIdx)
-			b = encodeIndent(ctx, b, code.indent)
+			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			p := ptr + code.offset

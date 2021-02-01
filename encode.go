@@ -65,6 +65,15 @@ func (e *Encoder) Encode(v interface{}) error {
 
 // EncodeWithOption call Encode with EncodeOption.
 func (e *Encoder) EncodeWithOption(v interface{}, optFuncs ...EncodeOptionFunc) error {
+	ctx := takeEncodeRuntimeContext()
+
+	err := e.encodeWithOption(ctx, v, optFuncs...)
+
+	releaseEncodeRuntimeContext(ctx)
+	return err
+}
+
+func (e *Encoder) encodeWithOption(ctx *encodeRuntimeContext, v interface{}, optFuncs ...EncodeOptionFunc) error {
 	var opt EncodeOption
 	if e.enabledHTMLEscape {
 		opt |= EncodeOptionHTMLEscape
@@ -77,9 +86,9 @@ func (e *Encoder) EncodeWithOption(v interface{}, optFuncs ...EncodeOptionFunc) 
 		err error
 	)
 	if e.enabledIndent {
-		buf, err = encodeIndentWithOpt(v, e.prefix, e.indentStr, opt)
+		buf, err = encodeIndent(ctx, v, e.prefix, e.indentStr, opt)
 	} else {
-		buf, err = encodeWithOpt(v, opt)
+		buf, err = encode(ctx, v, opt)
 	}
 	if err != nil {
 		return err
@@ -117,8 +126,11 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 }
 
 func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
-	buf, err := encodeWithOpt(v, EncodeOptionHTMLEscape)
+	ctx := takeEncodeRuntimeContext()
+
+	buf, err := encode(ctx, v, EncodeOptionHTMLEscape)
 	if err != nil {
+		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
 
@@ -127,15 +139,19 @@ func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 	// dst buffer size and src buffer size are differrent.
 	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
 	buf = buf[:len(buf)-1]
-
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
+
+	releaseEncodeRuntimeContext(ctx)
 	return copied, nil
 }
 
 func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
-	buf, err := encodeNoEscapeWithOpt(v, EncodeOptionHTMLEscape)
+	ctx := takeEncodeRuntimeContext()
+
+	buf, err := encodeNoEscape(ctx, v, EncodeOptionHTMLEscape)
 	if err != nil {
+		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
 
@@ -144,26 +160,31 @@ func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
 	// dst buffer size and src buffer size are differrent.
 	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
 	buf = buf[:len(buf)-1]
-
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
+
+	releaseEncodeRuntimeContext(ctx)
 	return copied, nil
 }
 
 func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
-	buf, err := encodeIndentWithOpt(v, prefix, indent, EncodeOptionHTMLEscape)
+	ctx := takeEncodeRuntimeContext()
+
+	buf, err := encodeIndent(ctx, v, prefix, indent, EncodeOptionHTMLEscape)
 	if err != nil {
+		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
-	buf = buf[:len(buf)-2]
 
+	buf = buf[:len(buf)-2]
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
+
+	releaseEncodeRuntimeContext(ctx)
 	return copied, nil
 }
 
-func encodeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+func encode(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
 	b := ctx.buf[:0]
 	if v == nil {
 		b = encodeNull(b)
@@ -186,17 +207,14 @@ func encodeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
 	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
 
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
 
 	ctx.buf = buf
-	releaseEncodeRuntimeContext(ctx)
 	return buf, nil
 }
 
-func encodeNoEscapeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+func encodeNoEscape(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
 	b := ctx.buf[:0]
 	if v == nil {
 		b = encodeNull(b)
@@ -216,17 +234,14 @@ func encodeNoEscapeWithOpt(v interface{}, opt EncodeOption) ([]byte, error) {
 	ctx.init(p, codeSet.codeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet, opt)
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
 
 	ctx.buf = buf
-	releaseEncodeRuntimeContext(ctx)
 	return buf, nil
 }
 
-func encodeIndentWithOpt(v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+func encodeIndent(ctx *encodeRuntimeContext, v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
 	b := ctx.buf[:0]
 	if v == nil {
 		b = encodeNull(b)
@@ -249,12 +264,10 @@ func encodeIndentWithOpt(v interface{}, prefix, indent string, opt EncodeOption)
 	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
 
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
 		return nil, err
 	}
 
 	ctx.buf = buf
-	releaseEncodeRuntimeContext(ctx)
 	return buf, nil
 }
 
@@ -349,7 +362,7 @@ func encodeByteSlice(b []byte, src []byte) []byte {
 	return append(append(b, buf...), '"')
 }
 
-func encodeIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
+func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 	b = append(b, ctx.prefix...)
 	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
 }

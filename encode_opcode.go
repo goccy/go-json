@@ -327,7 +327,7 @@ func nextField(code *opcode, removedFields map[*opcode]struct{}) *opcode {
 	return code
 }
 
-func linkPrevToNextField(cur *opcode, removedFields map[*opcode]struct{}) {
+func encodeLinkPrevToNextField(cur *opcode, removedFields map[*opcode]struct{}) {
 	prev := prevField(cur.prevField, removedFields)
 	prev.nextField = nextField(cur.nextField, removedFields)
 	code := prev

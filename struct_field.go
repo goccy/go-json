@@ -22,10 +22,7 @@ func isIgnoredStructField(field reflect.StructField) bool {
 		}
 	}
 	tag := getTag(field)
-	if tag == "-" {
-		return true
-	}
-	return false
+	return tag == "-"
 }
 
 type structTag struct {

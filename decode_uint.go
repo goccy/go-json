@@ -70,12 +70,12 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			}
 			num := s.buf[start:s.cursor]
 			return num, nil
-		default:
-			return nil, d.typeError([]byte{s.char()}, s.totalOffset())
 		case nul:
 			if s.read() {
 				continue
 			}
+		default:
+			return nil, d.typeError([]byte{s.char()}, s.totalOffset())
 		}
 		break
 	}

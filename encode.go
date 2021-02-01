@@ -128,7 +128,7 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 	ctx := takeEncodeRuntimeContext()
 
-	buf, err := encode(ctx, v, EncodeOptionHTMLEscape)
+	buf, err := encode(ctx, v, opt|EncodeOptionHTMLEscape)
 	if err != nil {
 		releaseEncodeRuntimeContext(ctx)
 		return nil, err
@@ -149,7 +149,7 @@ func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
 	ctx := takeEncodeRuntimeContext()
 
-	buf, err := encodeNoEscape(ctx, v, EncodeOptionHTMLEscape)
+	buf, err := encodeNoEscape(ctx, v, opt|EncodeOptionHTMLEscape)
 	if err != nil {
 		releaseEncodeRuntimeContext(ctx)
 		return nil, err
@@ -170,7 +170,7 @@ func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
 func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
 	ctx := takeEncodeRuntimeContext()
 
-	buf, err := encodeIndent(ctx, v, prefix, indent, EncodeOptionHTMLEscape)
+	buf, err := encodeIndent(ctx, v, prefix, indent, opt|EncodeOptionHTMLEscape)
 	if err != nil {
 		releaseEncodeRuntimeContext(ctx)
 		return nil, err
@@ -318,10 +318,6 @@ func encodeBool(b []byte, v bool) []byte {
 		return append(b, "true"...)
 	}
 	return append(b, "false"...)
-}
-
-func encodeBytes(dst []byte, src []byte) []byte {
-	return append(dst, src...)
 }
 
 func encodeNull(b []byte) []byte {

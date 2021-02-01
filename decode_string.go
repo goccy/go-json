@@ -150,6 +150,7 @@ RETRY:
 	return nil
 }
 
+//nolint:deadcode,unused
 func appendCoerceInvalidUTF8(b []byte, s []byte) []byte {
 	c := [4]byte{}
 
@@ -298,7 +299,6 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				}
 				cursor++
 			}
-			return nil, 0, errUnexpectedEndOfJSON("string", cursor)
 		case 'n':
 			buflen := int64(len(buf))
 			if cursor+3 >= buflen {

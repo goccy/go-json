@@ -1,4 +1,7 @@
 run:
+  skip-files:
+    - encode_optype.go
+    - ".*_test\\.go$"
 
 linters-settings:
   govet:
@@ -9,6 +12,7 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - dogsled
     - dupl
     - exhaustive
     - exhaustivestruct
@@ -35,6 +39,12 @@ linters:
     - testpackage
     - thelper
     - wrapcheck
+    - interfacer
+    - lll
+    - nakedret
+    - nestif
+    - nlreturn
+    - testpackage
     - wsl
 
 issues:
@@ -48,10 +58,12 @@ issues:
       text: "don't use an underscore in package name"
       linters:
         - golint
+    - path: rtype.go
+      linters:
+        - golint
 
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
 
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
-

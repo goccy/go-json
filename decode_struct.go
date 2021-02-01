@@ -93,7 +93,6 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		}
 		s.cursor++
 	}
-	return nil
 }
 
 func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {

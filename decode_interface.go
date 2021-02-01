@@ -143,7 +143,6 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 				}
 				s.cursor++
 			}
-			return errUnexpectedEndOfJSON("string", s.totalOffset())
 		case 't':
 			if err := trueBytes(s); err != nil {
 				return err
@@ -229,7 +228,6 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 			}
 			cursor++
 		}
-		return 0, errUnexpectedEndOfJSON("string", cursor)
 	case 't':
 		if cursor+3 >= int64(len(buf)) {
 			return 0, errUnexpectedEndOfJSON("bool(true)", cursor)

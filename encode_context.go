@@ -28,7 +28,6 @@ func (m *mapslice) Swap(i, j int) {
 }
 
 type encodeMapContext struct {
-	iter  unsafe.Pointer
 	pos   []int
 	slice *mapslice
 	buf   []byte

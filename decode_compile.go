@@ -309,7 +309,7 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 					// recursive definition
 					continue
 				}
-				d.removeConflictFields(fieldMap, conflictedMap, stDec, uintptr(field.Offset))
+				d.removeConflictFields(fieldMap, conflictedMap, stDec, field.Offset)
 			} else if pdec, ok := dec.(*ptrDecoder); ok {
 				contentDec := pdec.contentDecoder()
 				if pdec.typ == typ {
@@ -326,7 +326,7 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 						if !exists {
 							fieldSet := &structFieldSet{
 								dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
-								offset:      uintptr(field.Offset),
+								offset:      field.Offset,
 								isTaggedKey: v.isTaggedKey,
 							}
 							fieldMap[k] = fieldSet
@@ -347,7 +347,7 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 							if v.isTaggedKey {
 								fieldSet := &structFieldSet{
 									dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
-									offset:      uintptr(field.Offset),
+									offset:      field.Offset,
 									isTaggedKey: v.isTaggedKey,
 								}
 								fieldMap[k] = fieldSet

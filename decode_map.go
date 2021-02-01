@@ -94,7 +94,6 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			return errExpected("comma after object value", s.totalOffset())
 		}
 	}
-	return nil
 }
 
 func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
@@ -151,7 +150,6 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		if err != nil {
 			return 0, err
 		}
-		cursor = valueCursor
 		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {

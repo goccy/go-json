@@ -1,10 +1,9 @@
 package json
 
-type EncodeOption func(*Encoder) error
+type EncodeOptionFunc func(EncodeOption) EncodeOption
 
-func UnorderedMap() EncodeOption {
-	return func(e *Encoder) error {
-		e.unorderedMap = true
-		return nil
+func UnorderedMap() func(EncodeOption) EncodeOption {
+	return func(opt EncodeOption) EncodeOption {
+		return opt | EncodeOptionUnorderedMap
 	}
 }

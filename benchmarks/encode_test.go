@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -560,6 +561,51 @@ func Benchmark_Encode_Interface_GoJson(b *testing.B) {
 
 func Benchmark_Encode_Bool_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	for i := 0; i < b.N; i++ {
+		if err := enc.Encode(true); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Bool_JsonIter(b *testing.B) {
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
+	b.ReportAllocs()
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	for i := 0; i < b.N; i++ {
+		if err := enc.Encode(true); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Bool_SegmentioJson(b *testing.B) {
+	b.ReportAllocs()
+	var buf bytes.Buffer
+	enc := segmentiojson.NewEncoder(&buf)
+	for i := 0; i < b.N; i++ {
+		if err := enc.Encode(true); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_Bool_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	var buf bytes.Buffer
+	enc := gojson.NewEncoder(&buf)
+	for i := 0; i < b.N; i++ {
+		if err := enc.Encode(true); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Marshal_Bool_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(true); err != nil {
 			b.Fatal(err)
@@ -567,7 +613,7 @@ func Benchmark_Encode_Bool_EncodingJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_Bool_JsonIter(b *testing.B) {
+func Benchmark_Marshal_Bool_JsonIter(b *testing.B) {
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -577,7 +623,7 @@ func Benchmark_Encode_Bool_JsonIter(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_Bool_Jettison(b *testing.B) {
+func Benchmark_Marshal_Bool_Jettison(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := jettison.Marshal(true); err != nil {
@@ -586,7 +632,7 @@ func Benchmark_Encode_Bool_Jettison(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_Bool_SegmentioJson(b *testing.B) {
+func Benchmark_Marshal_Bool_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(true); err != nil {
@@ -595,7 +641,7 @@ func Benchmark_Encode_Bool_SegmentioJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_Bool_GoJson(b *testing.B) {
+func Benchmark_Marshal_Bool_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(true); err != nil {

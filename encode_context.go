@@ -142,9 +142,13 @@ func (c *encodeCompileContext) decPtrIndex() {
 }
 
 type encodeRuntimeContext struct {
-	ptrs     []uintptr
-	keepRefs []unsafe.Pointer
-	seenPtr  []uintptr
+	buf        []byte
+	ptrs       []uintptr
+	keepRefs   []unsafe.Pointer
+	seenPtr    []uintptr
+	baseIndent int
+	prefix     []byte
+	indentStr  []byte
 }
 
 func (c *encodeRuntimeContext) init(p uintptr, codelen int) {
@@ -154,6 +158,7 @@ func (c *encodeRuntimeContext) init(p uintptr, codelen int) {
 	c.ptrs[0] = p
 	c.keepRefs = c.keepRefs[:0]
 	c.seenPtr = c.seenPtr[:0]
+	c.baseIndent = 0
 }
 
 func (c *encodeRuntimeContext) ptr() uintptr {

@@ -142,5 +142,4 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 		}
 		cursor++
 	}
-	return cursor, errUnexpectedEndOfJSON("value of object", cursor)
 }

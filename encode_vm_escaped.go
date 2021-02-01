@@ -7588,7 +7588,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint64(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset))
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next

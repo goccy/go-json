@@ -21,9 +21,8 @@ type decoder interface {
 }
 
 type Decoder struct {
-	s                     *stream
-	disallowUnknownFields bool
-	structTypeToDecoder   map[uintptr]decoder
+	s                   *stream
+	structTypeToDecoder map[uintptr]decoder
 }
 
 type decoderMap struct {
@@ -240,11 +239,12 @@ func (d *Decoder) Token() (Token, error) {
 			if s.read() {
 				continue
 			}
-			return nil, io.EOF
+			goto END
 		default:
 			return nil, errInvalidCharacter(s.char(), "token", s.totalOffset())
 		}
 	}
+END:
 	return nil, io.EOF
 }
 

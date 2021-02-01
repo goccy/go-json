@@ -73,7 +73,7 @@ func setupOpcodeSets() error {
 			}
 		}
 	}
-	addrRange := uintptr(max) - uintptr(min)
+	addrRange := max - min
 	if addrRange == 0 {
 		return fmt.Errorf("failed to get address range of types")
 	}
@@ -87,9 +87,7 @@ func setupOpcodeSets() error {
 }
 
 func init() {
-	if err := setupOpcodeSets(); err != nil {
-		// fallback to slow path
-	}
+	_ = setupOpcodeSets()
 }
 
 func encodeCompileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {
@@ -772,6 +770,7 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 				ptrNum++
 				code = code.next
 				ctx.decIndex()
+				continue
 			}
 			break
 		}
@@ -896,6 +895,7 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 				ptrNum++
 				code = code.next
 				ctx.decIndex()
+				continue
 			}
 			break
 		}
@@ -1155,7 +1155,7 @@ type structFieldPair struct {
 	linked      bool
 }
 
-func encodeAnonymousStructFieldPairMap(typ *rtype, tags structTags, named string, valueCode *opcode) map[string][]structFieldPair {
+func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode *opcode) map[string][]structFieldPair {
 	anonymousFields := map[string][]structFieldPair{}
 	f := valueCode
 	var prevAnonymousField *opcode
@@ -1197,7 +1197,7 @@ func encodeAnonymousStructFieldPairMap(typ *rtype, tags structTags, named string
 			isTaggedKey: f.isTaggedKey,
 		})
 		if f.next != nil && f.nextField != f.next && f.next.op.codeType() == codeStructField {
-			for k, v := range encodeAnonymousStructFieldPairMap(typ, tags, named, f.next) {
+			for k, v := range encodeAnonymousStructFieldPairMap(tags, named, f.next) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 		}
@@ -1323,7 +1323,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			if tag.isTaggedKey {
 				tagKey = tag.key
 			}
-			for k, v := range encodeAnonymousStructFieldPairMap(typ, tags, tagKey, valueCode) {
+			for k, v := range encodeAnonymousStructFieldPairMap(tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 		}

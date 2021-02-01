@@ -28,6 +28,7 @@ func (d *ptrDecoder) contentDecoder() decoder {
 	return dec.contentDecoder()
 }
 
+//nolint:golint
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) unsafe.Pointer
 

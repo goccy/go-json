@@ -147,7 +147,6 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) 
 				}
 				cursor++
 			}
-			return nil, 0, errUnexpectedEndOfJSON("[]byte", cursor)
 		case '[':
 			if d.sliceDecoder == nil {
 				return nil, 0, &UnmarshalTypeError{

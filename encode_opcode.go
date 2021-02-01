@@ -124,7 +124,6 @@ func (c *opcode) beforeLastCode() *opcode {
 		}
 		code = nextCode
 	}
-	return nil
 }
 
 func (c *opcode) totalLength() int {

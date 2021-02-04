@@ -401,5 +401,6 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 		}
 	}
 	delete(d.structTypeToDecoder, typeptr)
+	structDec.tryOptimize()
 	return structDec, nil
 }

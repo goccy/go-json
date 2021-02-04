@@ -6,6 +6,21 @@ import (
 	"unsafe"
 )
 
+func (d *Decoder) compileToGetDecoderSlowPath(typeptr uintptr, typ *rtype) (decoder, error) {
+	decoderMap := loadDecoderMap()
+	if dec, exists := decoderMap[typeptr]; exists {
+		return dec, nil
+	}
+
+	d.structTypeToDecoder = map[uintptr]decoder{}
+	dec, err := d.compileHead(typ)
+	if err != nil {
+		return nil, err
+	}
+	storeDecoder(typeptr, dec, decoderMap)
+	return dec, nil
+}
+
 func (d *Decoder) compileHead(typ *rtype) (decoder, error) {
 	switch {
 	case rtype_ptrTo(typ).Implements(unmarshalJSONType):

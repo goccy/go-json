@@ -360,9 +360,9 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
-	switch buf[cursor] {
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	switch char(b, cursor) {
 	case 'n':
-		buflen := int64(len(buf))
 		if cursor+3 >= buflen {
 			return 0, errUnexpectedEndOfJSON("null", cursor)
 		}
@@ -385,18 +385,17 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 		return 0, errUnexpectedEndOfJSON("object", cursor)
 	}
 	cursor++
-	for ; cursor < buflen; cursor++ {
+	for {
 		c, field, err := d.keyDecoder(d, buf, cursor)
 		if err != nil {
 			return 0, err
 		}
-		cursor = c
-		cursor = skipWhiteSpace(buf, cursor)
-		if buf[cursor] != ':' {
+		cursor = skipWhiteSpace(buf, c)
+		if char(b, cursor) != ':' {
 			return 0, errExpected("colon after object key", cursor)
 		}
 		cursor++
-		if cursor >= int64(len(buf)) {
+		if cursor >= buflen {
 			return 0, errExpected("object value after colon", cursor)
 		}
 		if field != nil {
@@ -413,13 +412,14 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 			cursor = c
 		}
 		cursor = skipWhiteSpace(buf, cursor)
-		if buf[cursor] == '}' {
+		if char(b, cursor) == '}' {
 			cursor++
 			return cursor, nil
 		}
-		if buf[cursor] != ',' {
+		if char(b, cursor) != ',' {
 			return 0, errExpected("comma after object element", cursor)
 		}
+		cursor++
 	}
 	return cursor, nil
 }

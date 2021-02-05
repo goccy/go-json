@@ -120,13 +120,14 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 		field  *structFieldSet
 		curBit int8 = math.MaxInt8
 	)
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	for {
-		switch buf[cursor] {
+		switch char(b, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '"':
 			cursor++
-			c := buf[cursor]
+			c := char(b, cursor)
 			switch c {
 			case '"':
 				cursor++
@@ -138,7 +139,7 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 			bitmap := d.keyBitmapInt8
 			keyBitmapLen := len(bitmap)
 			for {
-				c := buf[cursor]
+				c := char(b, cursor)
 				switch c {
 				case '"':
 					x := uint64(curBit & -curBit)
@@ -152,13 +153,13 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 					if keyIdx >= keyBitmapLen {
 						for {
 							cursor++
-							switch buf[cursor] {
+							switch char(b, cursor) {
 							case '"':
 								cursor++
 								return cursor, field, nil
 							case '\\':
 								cursor++
-								if buf[cursor] == nul {
+								if char(b, cursor) == nul {
 									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 								}
 							case nul:
@@ -170,13 +171,13 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 					if curBit == 0 {
 						for {
 							cursor++
-							switch buf[cursor] {
+							switch char(b, cursor) {
 							case '"':
 								cursor++
 								return cursor, field, nil
 							case '\\':
 								cursor++
-								if buf[cursor] == nul {
+								if char(b, cursor) == nul {
 									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 								}
 							case nul:
@@ -199,13 +200,14 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 		field  *structFieldSet
 		curBit int16 = math.MaxInt16
 	)
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	for {
-		switch buf[cursor] {
+		switch char(b, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '"':
 			cursor++
-			c := buf[cursor]
+			c := char(b, cursor)
 			switch c {
 			case '"':
 				cursor++
@@ -217,7 +219,7 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 			bitmap := d.keyBitmapInt16
 			keyBitmapLen := len(bitmap)
 			for {
-				c := buf[cursor]
+				c := char(b, cursor)
 				switch c {
 				case '"':
 					x := uint64(curBit & -curBit)
@@ -231,13 +233,13 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 					if keyIdx >= keyBitmapLen {
 						for {
 							cursor++
-							switch buf[cursor] {
+							switch char(b, cursor) {
 							case '"':
 								cursor++
 								return cursor, field, nil
 							case '\\':
 								cursor++
-								if buf[cursor] == nul {
+								if char(b, cursor) == nul {
 									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 								}
 							case nul:
@@ -249,13 +251,13 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 					if curBit == 0 {
 						for {
 							cursor++
-							switch buf[cursor] {
+							switch char(b, cursor) {
 							case '"':
 								cursor++
 								return cursor, field, nil
 							case '\\':
 								cursor++
-								if buf[cursor] == nul {
+								if char(b, cursor) == nul {
 									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 								}
 							case nul:

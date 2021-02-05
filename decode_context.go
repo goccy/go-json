@@ -1,5 +1,7 @@
 package json
 
+import "unsafe"
+
 var (
 	isWhiteSpace = [256]bool{}
 )
@@ -9,6 +11,10 @@ func init() {
 	isWhiteSpace['\n'] = true
 	isWhiteSpace['\t'] = true
 	isWhiteSpace['\r'] = true
+}
+
+func char(ptr unsafe.Pointer, offset int64) byte {
+	return *(*byte)(unsafe.Pointer(uintptr(ptr) + uintptr(offset)))
 }
 
 func skipWhiteSpace(buf []byte, cursor int64) int64 {

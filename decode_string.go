@@ -249,11 +249,12 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 		case '"':
 			cursor++
 			start := cursor
+			b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 			for {
-				switch buf[cursor] {
+				switch char(b, cursor) {
 				case '\\':
 					cursor++
-					switch buf[cursor] {
+					switch char(b, cursor) {
 					case '"':
 						buf[cursor] = '"'
 						buf = append(buf[:cursor-1], buf[cursor:]...)

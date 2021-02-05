@@ -130,8 +130,9 @@ ERROR:
 }
 
 func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	for {
-		switch buf[cursor] {
+		switch char(b, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 			continue
@@ -139,14 +140,14 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			start := cursor
 			cursor++
 		LOOP:
-			if numTable[buf[cursor]] {
+			if numTable[char(b, cursor)] {
 				cursor++
 				goto LOOP
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
 		default:
-			return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
+			return nil, 0, d.typeError([]byte{char(b, cursor)}, cursor)
 		}
 	}
 }

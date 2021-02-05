@@ -27,19 +27,19 @@ func (d *wrappedStringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 	b := make([]byte, len(bytes)+1)
 	copy(b, bytes)
-	if _, err := d.dec.decode(b, 0, p); err != nil {
+	if _, err := d.dec.decode((*sliceHeader)(unsafe.Pointer(&b)), 0, p); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *wrappedStringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *wrappedStringDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.stringDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
 	}
 	bytes = append(bytes, nul)
-	if _, err := d.dec.decode(bytes, 0, p); err != nil {
+	if _, err := d.dec.decode((*sliceHeader)(unsafe.Pointer(&bytes)), 0, p); err != nil {
 		return 0, err
 	}
 	return c, nil

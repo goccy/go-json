@@ -11,23 +11,23 @@ func init() {
 	isWhiteSpace['\r'] = true
 }
 
-func skipWhiteSpace(buf []byte, cursor int64) int64 {
+func skipWhiteSpace(buf *sliceHeader, cursor int64) int64 {
 LOOP:
-	if isWhiteSpace[buf[cursor]] {
+	if isWhiteSpace[char(buf.data, cursor)] {
 		cursor++
 		goto LOOP
 	}
 	return cursor
 }
 
-func skipValue(buf []byte, cursor int64) (int64, error) {
+func skipValue(buf *sliceHeader, cursor int64) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	braceCount := 0
 	bracketCount := 0
-	buflen := int64(len(buf))
+	buflen := int64(buf.len)
 	start := cursor
 	for {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case nul:
 			if start == cursor {
 				return cursor, errUnexpectedEndOfJSON("value of object", cursor)
@@ -58,10 +58,10 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 			cursor++
 
 			for ; cursor < buflen; cursor++ {
-				if buf[cursor] != '"' {
+				if char(buf.data, cursor) != '"' {
 					continue
 				}
-				if buf[cursor-1] == '\\' {
+				if char(buf.data, cursor-1) == '\\' {
 					continue
 				}
 				if bracketCount == 0 && braceCount == 0 {
@@ -72,7 +72,7 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			cursor++
 			for ; cursor < buflen; cursor++ {
-				tk := int(buf[cursor])
+				tk := int(char(buf.data, cursor))
 				if (int('0') <= tk && tk <= int('9')) || tk == '.' || tk == 'e' || tk == 'E' {
 					continue
 				}
@@ -86,13 +86,13 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 			if cursor+3 >= buflen {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+1] != 'r' {
+			if char(buf.data, cursor+1) != 'r' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+2] != 'u' {
+			if char(buf.data, cursor+2) != 'u' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+3] != 'e' {
+			if char(buf.data, cursor+3) != 'e' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
 			cursor += 4
@@ -104,16 +104,16 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 			if cursor+4 >= buflen {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+1] != 'a' {
+			if char(buf.data, cursor+1) != 'a' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+2] != 'l' {
+			if char(buf.data, cursor+2) != 'l' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+3] != 's' {
+			if char(buf.data, cursor+3) != 's' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
-			if buf[cursor+4] != 'e' {
+			if char(buf.data, cursor+4) != 'e' {
 				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
 			}
 			cursor += 5
@@ -125,13 +125,13 @@ func skipValue(buf []byte, cursor int64) (int64, error) {
 			if cursor+3 >= buflen {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+1] != 'u' {
+			if char(buf.data, cursor+1) != 'u' {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+2] != 'l' {
+			if char(buf.data, cursor+2) != 'l' {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+3] != 'l' {
+			if char(buf.data, cursor+3) != 'l' {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
 			cursor += 4

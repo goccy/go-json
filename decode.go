@@ -15,7 +15,7 @@ func (d Delim) String() string {
 }
 
 type decoder interface {
-	decode([]byte, int64, unsafe.Pointer) (int64, error)
+	decode(*sliceHeader, int64, unsafe.Pointer) (int64, error)
 	decodeStream(*stream, unsafe.Pointer) error
 }
 
@@ -72,7 +72,8 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	if err != nil {
 		return err
 	}
-	if _, err := dec.decode(src, 0, header.ptr); err != nil {
+	b := (*sliceHeader)(unsafe.Pointer(&src))
+	if _, err := dec.decode(b, 0, header.ptr); err != nil {
 		return err
 	}
 	return nil

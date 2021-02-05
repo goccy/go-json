@@ -148,32 +148,32 @@ ERROR:
 	return errUnexpectedEndOfJSON("slice", s.totalOffset())
 }
 
-func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
-	buflen := int64(len(buf))
+func (d *sliceDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
+	buflen := int64(buf.len)
 	for ; cursor < buflen; cursor++ {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			continue
 		case 'n':
-			buflen := int64(len(buf))
+			buflen := int64(buf.len)
 			if cursor+3 >= buflen {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+1] != 'u' {
-				return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			if char(buf.data, cursor+1) != 'u' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 			}
-			if buf[cursor+2] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			if char(buf.data, cursor+2) != 'l' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 			}
-			if buf[cursor+3] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if char(buf.data, cursor+3) != 'l' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 			}
 			cursor += 4
 			return cursor, nil
 		case '[':
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
-			if buf[cursor] == ']' {
+			if char(buf.data, cursor) == ']' {
 				**(**sliceHeader)(unsafe.Pointer(&p)) = sliceHeader{
 					data: newArray(d.elemType, 0),
 					len:  0,
@@ -200,7 +200,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				}
 				cursor = c
 				cursor = skipWhiteSpace(buf, cursor)
-				switch buf[cursor] {
+				switch char(buf.data, cursor) {
 				case ']':
 					slice.cap = cap
 					slice.len = idx + 1
@@ -226,7 +226,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					slice.cap = cap
 					slice.data = data
 					d.releaseSlice(slice)
-					return 0, errInvalidCharacter(buf[cursor], "slice", cursor)
+					return 0, errInvalidCharacter(char(buf.data, cursor), "slice", cursor)
 				}
 				cursor++
 			}

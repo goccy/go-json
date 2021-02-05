@@ -54,7 +54,7 @@ func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *bytesDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *bytesDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeBinary(buf, cursor, p)
 	if err != nil {
 		return 0, err
@@ -128,18 +128,18 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream, p unsafe.Pointer) ([]byte, 
 	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) ([]byte, int64, error) {
+func (d *bytesDecoder) decodeBinary(buf *sliceHeader, cursor int64, p unsafe.Pointer) ([]byte, int64, error) {
 	for {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '"':
 			cursor++
 			start := cursor
 			for {
-				switch buf[cursor] {
+				switch char(buf.data, cursor) {
 				case '"':
-					literal := buf[start:cursor]
+					literal := (*(*[]byte)(unsafe.Pointer(buf)))[start:cursor]
 					cursor++
 					return literal, cursor, nil
 				case nul:
@@ -160,18 +160,18 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) 
 			}
 			return nil, c, nil
 		case 'n':
-			buflen := int64(len(buf))
+			buflen := int64(buf.len)
 			if cursor+3 >= buflen {
 				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			if char(buf.data, cursor+1) != 'u' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			if char(buf.data, cursor+2) != 'l' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if char(buf.data, cursor+3) != 'l' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 			}
 			cursor += 4
 			return []byte{}, cursor, nil

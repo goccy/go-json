@@ -171,9 +171,9 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *interfaceDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
-	switch buf[cursor] {
+	switch char(buf.data, cursor) {
 	case '{':
 		var v map[string]interface{}
 		ptr := unsafe.Pointer(&v)
@@ -214,12 +214,12 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		cursor++
 		start := cursor
 		for {
-			switch buf[cursor] {
+			switch char(buf.data, cursor) {
 			case '\\':
 				cursor++
 				continue
 			case '"':
-				literal := buf[start:cursor]
+				literal := (*(*[]byte)(unsafe.Pointer(buf)))[start:cursor]
 				cursor++
 				**(**interface{})(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&literal))
 				return cursor, nil
@@ -229,52 +229,52 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 			cursor++
 		}
 	case 't':
-		if cursor+3 >= int64(len(buf)) {
+		if cursor+3 >= int64(buf.len) {
 			return 0, errUnexpectedEndOfJSON("bool(true)", cursor)
 		}
-		if buf[cursor+1] != 'r' {
-			return 0, errInvalidCharacter(buf[cursor+1], "bool(true)", cursor)
+		if char(buf.data, cursor+1) != 'r' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+1), "bool(true)", cursor)
 		}
-		if buf[cursor+2] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+2], "bool(true)", cursor)
+		if char(buf.data, cursor+2) != 'u' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+2), "bool(true)", cursor)
 		}
-		if buf[cursor+3] != 'e' {
-			return 0, errInvalidCharacter(buf[cursor+3], "bool(true)", cursor)
+		if char(buf.data, cursor+3) != 'e' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+3), "bool(true)", cursor)
 		}
 		cursor += 4
 		**(**interface{})(unsafe.Pointer(&p)) = true
 		return cursor, nil
 	case 'f':
-		if cursor+4 >= int64(len(buf)) {
+		if cursor+4 >= int64(buf.len) {
 			return 0, errUnexpectedEndOfJSON("bool(false)", cursor)
 		}
-		if buf[cursor+1] != 'a' {
-			return 0, errInvalidCharacter(buf[cursor+1], "bool(false)", cursor)
+		if char(buf.data, cursor+1) != 'a' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+1), "bool(false)", cursor)
 		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "bool(false)", cursor)
+		if char(buf.data, cursor+2) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+2), "bool(false)", cursor)
 		}
-		if buf[cursor+3] != 's' {
-			return 0, errInvalidCharacter(buf[cursor+3], "bool(false)", cursor)
+		if char(buf.data, cursor+3) != 's' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+3), "bool(false)", cursor)
 		}
-		if buf[cursor+4] != 'e' {
-			return 0, errInvalidCharacter(buf[cursor+4], "bool(false)", cursor)
+		if char(buf.data, cursor+4) != 'e' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+4), "bool(false)", cursor)
 		}
 		cursor += 5
 		**(**interface{})(unsafe.Pointer(&p)) = false
 		return cursor, nil
 	case 'n':
-		if cursor+3 >= int64(len(buf)) {
+		if cursor+3 >= int64(buf.len) {
 			return 0, errUnexpectedEndOfJSON("null", cursor)
 		}
-		if buf[cursor+1] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+		if char(buf.data, cursor+1) != 'u' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+		if char(buf.data, cursor+2) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 		}
-		if buf[cursor+3] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		if char(buf.data, cursor+3) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 		}
 		cursor += 4
 		**(**interface{})(unsafe.Pointer(&p)) = nil

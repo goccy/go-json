@@ -30,7 +30,7 @@ func (d *numberDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *numberDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *numberDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.floatDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

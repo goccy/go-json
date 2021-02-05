@@ -129,9 +129,9 @@ ERROR:
 	return nil, errUnexpectedEndOfJSON("number(integer)", s.totalOffset())
 }
 
-func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+func (d *intDecoder) decodeByte(buf *sliceHeader, cursor int64) ([]byte, int64, error) {
 	for {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 			continue
@@ -139,14 +139,14 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			start := cursor
 			cursor++
 		LOOP:
-			if numTable[buf[cursor]] {
+			if numTable[char(buf.data, cursor)] {
 				cursor++
 				goto LOOP
 			}
-			num := buf[start:cursor]
+			num := (*(*[]byte)(unsafe.Pointer(buf)))[start:cursor]
 			return num, cursor, nil
 		default:
-			return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
+			return nil, 0, d.typeError([]byte{char(buf.data, cursor)}, cursor)
 		}
 	}
 }
@@ -176,7 +176,7 @@ func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *intDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *intDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

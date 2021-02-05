@@ -85,22 +85,22 @@ ERROR:
 	return nil, errUnexpectedEndOfJSON("float", s.totalOffset())
 }
 
-func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
-	buflen := int64(len(buf))
+func (d *floatDecoder) decodeByte(buf *sliceHeader, cursor int64) ([]byte, int64, error) {
+	buflen := int64(buf.len)
 	for ; cursor < buflen; cursor++ {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			continue
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
 			for ; cursor < buflen; cursor++ {
-				if floatTable[buf[cursor]] {
+				if floatTable[char(buf.data, cursor)] {
 					continue
 				}
 				break
 			}
-			num := buf[start:cursor]
+			num := (*(*[]byte)(unsafe.Pointer(buf)))[start:cursor]
 			return num, cursor, nil
 		default:
 			return nil, 0, errUnexpectedEndOfJSON("float", cursor)
@@ -123,13 +123,13 @@ func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *floatDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *floatDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
 	}
 	cursor = c
-	if !validEndNumberChar[buf[cursor]] {
+	if !validEndNumberChar[char(buf.data, cursor)] {
 		return 0, errUnexpectedEndOfJSON("float", cursor)
 	}
 	s := *(*string)(unsafe.Pointer(&bytes))

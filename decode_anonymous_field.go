@@ -26,7 +26,7 @@ func (d *anonymousFieldDecoder) decodeStream(s *stream, p unsafe.Pointer) error 
 	return d.dec.decodeStream(s, unsafe.Pointer(uintptr(p)+d.offset))
 }
 
-func (d *anonymousFieldDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *anonymousFieldDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	if *(*unsafe.Pointer)(p) == nil {
 		*(*unsafe.Pointer)(p) = unsafe_New(d.structType)
 	}

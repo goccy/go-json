@@ -33,12 +33,12 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
+func (d *mapDecoder) setKey(buf *sliceHeader, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
 	return d.keyDecoder.decode(buf, cursor, header.ptr)
 }
 
-func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
+func (d *mapDecoder) setValue(buf *sliceHeader, cursor int64, key interface{}) (int64, error) {
 	header := (*interfaceHeader)(unsafe.Pointer(&key))
 	return d.valueDecoder.decode(buf, cursor, header.ptr)
 }
@@ -96,25 +96,25 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 }
 
-func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *mapDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
-	buflen := int64(len(buf))
+	buflen := int64(buf.len)
 	if buflen < 2 {
 		return 0, errExpected("{} for map", cursor)
 	}
-	switch buf[cursor] {
+	switch char(buf.data, cursor) {
 	case 'n':
 		if cursor+3 >= buflen {
 			return 0, errUnexpectedEndOfJSON("null", cursor)
 		}
-		if buf[cursor+1] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+		if char(buf.data, cursor+1) != 'u' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+		if char(buf.data, cursor+2) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 		}
-		if buf[cursor+3] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		if char(buf.data, cursor+3) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 		}
 		cursor += 4
 		return cursor, nil
@@ -125,7 +125,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := makemap(d.mapType, 0)
-	if buf[cursor] == '}' {
+	if char(buf.data, cursor) == '}' {
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 		cursor++
 		return cursor, nil
@@ -138,7 +138,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		}
 		cursor = keyCursor
 		cursor = skipWhiteSpace(buf, cursor)
-		if buf[cursor] != ':' {
+		if char(buf.data, cursor) != ':' {
 			return 0, errExpected("colon after object key", cursor)
 		}
 		cursor++
@@ -152,12 +152,12 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		}
 		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
 		cursor = skipWhiteSpace(buf, valueCursor)
-		if buf[cursor] == '}' {
+		if char(buf.data, cursor) == '}' {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 			cursor++
 			return cursor, nil
 		}
-		if buf[cursor] != ',' {
+		if char(buf.data, cursor) != ',' {
 			return 0, errExpected("comma after object value", cursor)
 		}
 	}

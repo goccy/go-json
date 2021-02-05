@@ -72,14 +72,14 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *unmarshalTextDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor)
 	if err != nil {
 		return 0, err
 	}
-	src := buf[start:end]
+	src := (*(*[]byte)(unsafe.Pointer(buf)))[start:end]
 	if s, ok := unquoteBytes(src); ok {
 		src = s
 	}

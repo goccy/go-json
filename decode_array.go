@@ -76,25 +76,24 @@ ERROR:
 	return errUnexpectedEndOfJSON("array", s.totalOffset())
 }
 
-func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
-	buflen := int64(len(buf))
+func (d *arrayDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
+	buflen := int64(buf.len)
 	for ; cursor < buflen; cursor++ {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			continue
 		case 'n':
-			buflen := int64(len(buf))
 			if cursor+3 >= buflen {
 				return 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+1] != 'u' {
-				return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			if char(buf.data, cursor+1) != 'u' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 			}
-			if buf[cursor+2] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			if char(buf.data, cursor+2) != 'l' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 			}
-			if buf[cursor+3] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if char(buf.data, cursor+3) != 'l' {
+				return 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 			}
 			cursor += 4
 			return cursor, nil
@@ -116,7 +115,7 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					cursor = c
 				}
 				cursor = skipWhiteSpace(buf, cursor)
-				switch buf[cursor] {
+				switch char(buf.data, cursor) {
 				case ']':
 					cursor++
 					return cursor, nil
@@ -124,7 +123,7 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					idx++
 					continue
 				default:
-					return 0, errInvalidCharacter(buf[cursor], "array", cursor)
+					return 0, errInvalidCharacter(char(buf.data, cursor), "array", cursor)
 				}
 			}
 		}

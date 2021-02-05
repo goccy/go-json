@@ -40,7 +40,7 @@ func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *stringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *stringDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -237,9 +237,9 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+func (d *stringDecoder) decodeByte(buf *sliceHeader, cursor int64) ([]byte, int64, error) {
 	for {
-		switch buf[cursor] {
+		switch char(buf.data, cursor) {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '[':
@@ -250,48 +250,50 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor++
 			start := cursor
 			for {
-				switch buf[cursor] {
+				switch char(buf.data, cursor) {
 				case '\\':
 					cursor++
-					switch buf[cursor] {
+					b := (*(*[]byte)(unsafe.Pointer(buf)))
+					switch char(buf.data, cursor) {
 					case '"':
-						buf[cursor] = '"'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '"'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case '\\':
-						buf[cursor] = '\\'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\\'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case '/':
-						buf[cursor] = '/'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '/'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 'b':
-						buf[cursor] = '\b'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\b'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 'f':
-						buf[cursor] = '\f'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\f'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 'n':
-						buf[cursor] = '\n'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\n'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 'r':
-						buf[cursor] = '\r'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\r'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 't':
-						buf[cursor] = '\t'
-						buf = append(buf[:cursor-1], buf[cursor:]...)
+						b[cursor] = '\t'
+						b = append(b[:cursor-1], b[cursor:]...)
 					case 'u':
-						buflen := int64(len(buf))
+						buflen := int64(buf.len)
 						if cursor+5 >= buflen {
 							return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
 						}
-						code := unicodeToRune(buf[cursor+1 : cursor+5])
+						code := unicodeToRune(b[cursor+1 : cursor+5])
 						unicode := []byte(string(code))
-						buf = append(append(buf[:cursor-1], unicode...), buf[cursor+5:]...)
+						b = append(append(b[:cursor-1], unicode...), b[cursor+5:]...)
 					default:
 						return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
 					}
+					buf = (*sliceHeader)(unsafe.Pointer(&b))
 					continue
 				case '"':
-					literal := buf[start:cursor]
+					literal := (*(*[]byte)(unsafe.Pointer(buf)))[start:cursor]
 					cursor++
 					return literal, cursor, nil
 				case nul:
@@ -300,18 +302,18 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				cursor++
 			}
 		case 'n':
-			buflen := int64(len(buf))
+			buflen := int64(buf.len)
 			if cursor+3 >= buflen {
 				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
 			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			if char(buf.data, cursor+1) != 'u' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			if char(buf.data, cursor+2) != 'l' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if char(buf.data, cursor+3) != 'l' {
+				return nil, 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 			}
 			cursor += 4
 			return []byte{}, cursor, nil

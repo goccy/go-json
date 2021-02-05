@@ -52,21 +52,21 @@ func (d *ptrDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *ptrDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *ptrDecoder) decode(buf *sliceHeader, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
-	if buf[cursor] == 'n' {
-		buflen := int64(len(buf))
+	if char(buf.data, cursor) == 'n' {
+		buflen := int64(buf.len)
 		if cursor+3 >= buflen {
 			return 0, errUnexpectedEndOfJSON("null", cursor)
 		}
-		if buf[cursor+1] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+		if char(buf.data, cursor+1) != 'u' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+1), "null", cursor)
 		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+		if char(buf.data, cursor+2) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+2), "null", cursor)
 		}
-		if buf[cursor+3] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		if char(buf.data, cursor+3) != 'l' {
+			return 0, errInvalidCharacter(char(buf.data, cursor+3), "null", cursor)
 		}
 		*(*unsafe.Pointer)(p) = nil
 		cursor += 4

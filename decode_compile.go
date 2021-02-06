@@ -260,6 +260,8 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 				dec:         v.dec,
 				offset:      baseOffset + v.offset,
 				isTaggedKey: v.isTaggedKey,
+				key:         k,
+				keyLen:      int64(len(k)),
 			}
 			fieldMap[k] = fieldSet
 			lower := strings.ToLower(k)
@@ -282,6 +284,8 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 					dec:         v.dec,
 					offset:      baseOffset + v.offset,
 					isTaggedKey: v.isTaggedKey,
+					key:         k,
+					keyLen:      int64(len(k)),
 				}
 				fieldMap[k] = fieldSet
 				lower := strings.ToLower(k)
@@ -345,6 +349,8 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 								dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
 								offset:      field.Offset,
 								isTaggedKey: v.isTaggedKey,
+								key:         k,
+								keyLen:      int64(len(k)),
 							}
 							fieldMap[k] = fieldSet
 							lower := strings.ToLower(k)
@@ -367,6 +373,8 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 									dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
 									offset:      field.Offset,
 									isTaggedKey: v.isTaggedKey,
+									key:         k,
+									keyLen:      int64(len(k)),
 								}
 								fieldMap[k] = fieldSet
 								lower := strings.ToLower(k)
@@ -388,19 +396,23 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 			if tag.isString {
 				dec = newWrappedStringDecoder(dec, structName, field.Name)
 			}
-			fieldSet := &structFieldSet{dec: dec, offset: field.Offset, isTaggedKey: tag.isTaggedKey}
+			var key string
 			if tag.key != "" {
-				fieldMap[tag.key] = fieldSet
-				lower := strings.ToLower(tag.key)
-				if _, exists := fieldMap[lower]; !exists {
-					fieldMap[lower] = fieldSet
-				}
+				key = tag.key
 			} else {
-				fieldMap[field.Name] = fieldSet
-				lower := strings.ToLower(field.Name)
-				if _, exists := fieldMap[lower]; !exists {
-					fieldMap[lower] = fieldSet
-				}
+				key = field.Name
+			}
+			fieldSet := &structFieldSet{
+				dec:         dec,
+				offset:      field.Offset,
+				isTaggedKey: tag.isTaggedKey,
+				key:         key,
+				keyLen:      int64(len(key)),
+			}
+			fieldMap[key] = fieldSet
+			lower := strings.ToLower(key)
+			if _, exists := fieldMap[lower]; !exists {
+				fieldMap[lower] = fieldSet
 			}
 		}
 	}

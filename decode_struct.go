@@ -12,6 +12,8 @@ type structFieldSet struct {
 	dec         decoder
 	offset      uintptr
 	isTaggedKey bool
+	key         string
+	keyLen      int64
 }
 
 type structDecoder struct {
@@ -157,6 +159,7 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 			keyIdx := 0
 			bitmap := d.keyBitmapInt8
 			keyBitmapLen := len(bitmap)
+			start := cursor
 			for {
 				c := char(b, cursor)
 				switch c {
@@ -164,7 +167,12 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 					x := uint64(curBit & -curBit)
 					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
 					field = d.sortedFieldSets[fieldSetIndex]
+					keyLen := cursor - start
 					cursor++
+					if keyLen < field.keyLen {
+						// early match
+						return cursor, nil, nil
+					}
 					return cursor, field, nil
 				case nul:
 					return 0, nil, errUnexpectedEndOfJSON("string", cursor)
@@ -237,6 +245,7 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 			keyIdx := 0
 			bitmap := d.keyBitmapInt16
 			keyBitmapLen := len(bitmap)
+			start := cursor
 			for {
 				c := char(b, cursor)
 				switch c {
@@ -244,7 +253,12 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 					x := uint64(curBit & -curBit)
 					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
 					field = d.sortedFieldSets[fieldSetIndex]
+					keyLen := cursor - start
 					cursor++
+					if keyLen < field.keyLen {
+						// early match
+						return cursor, nil, nil
+					}
 					return cursor, field, nil
 				case nul:
 					return 0, nil, errUnexpectedEndOfJSON("string", cursor)
@@ -341,10 +355,13 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 					x := uint64(curBit & -curBit)
 					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
 					field = d.sortedFieldSets[fieldSetIndex]
-					b := s.buf[start:s.cursor]
-					key := *(*string)(unsafe.Pointer(&b))
+					keyLen := s.cursor - start
 					s.cursor++
-					return field, key, nil
+					if keyLen < field.keyLen {
+						// early match
+						return nil, field.key, nil
+					}
+					return field, field.key, nil
 				case nul:
 					if s.read() {
 						continue
@@ -441,10 +458,13 @@ func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet,
 					x := uint64(curBit & -curBit)
 					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
 					field = d.sortedFieldSets[fieldSetIndex]
-					b := s.buf[start:s.cursor]
-					key := *(*string)(unsafe.Pointer(&b))
+					keyLen := s.cursor - start
 					s.cursor++
-					return field, key, nil
+					if keyLen < field.keyLen {
+						// early match
+						return nil, field.key, nil
+					}
+					return field, field.key, nil
 				case nul:
 					if s.read() {
 						continue

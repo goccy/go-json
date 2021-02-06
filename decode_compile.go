@@ -272,6 +272,7 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 			if v.isTaggedKey {
 				// conflict tag key
 				delete(fieldMap, k)
+				delete(fieldMap, strings.ToLower(k))
 				conflictedMap[k] = struct{}{}
 				conflictedMap[strings.ToLower(k)] = struct{}{}
 			}
@@ -290,6 +291,7 @@ func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conf
 			} else {
 				// conflict tag key
 				delete(fieldMap, k)
+				delete(fieldMap, strings.ToLower(k))
 				conflictedMap[k] = struct{}{}
 				conflictedMap[strings.ToLower(k)] = struct{}{}
 			}
@@ -355,6 +357,7 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 							if v.isTaggedKey {
 								// conflict tag key
 								delete(fieldMap, k)
+								delete(fieldMap, strings.ToLower(k))
 								conflictedMap[k] = struct{}{}
 								conflictedMap[strings.ToLower(k)] = struct{}{}
 							}
@@ -373,6 +376,7 @@ func (d *Decoder) compileStruct(typ *rtype, structName, fieldName string) (decod
 							} else {
 								// conflict tag key
 								delete(fieldMap, k)
+								delete(fieldMap, strings.ToLower(k))
 								conflictedMap[k] = struct{}{}
 								conflictedMap[strings.ToLower(k)] = struct{}{}
 							}

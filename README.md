@@ -32,42 +32,14 @@ $ go test -bench .
 
 ## Encode
 
-**Fastest**
-
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/102718073-82ac9280-4329-11eb-94f2-c5377a2feeed.png">
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/102718071-804a3880-4329-11eb-9e70-5de74e55a553.png">
+<img width="755" alt="" src="https://user-images.githubusercontent.com/209884/107126463-76898e00-68f3-11eb-9a2b-685c022b07d3.png">
+<img width="753" alt="" src="https://user-images.githubusercontent.com/209884/107126462-75f0f780-68f3-11eb-93ab-c3e9406c1fae.png">
 
 ## Decode
 
-**So faster than json-iterator/go**
-
-## json.Unmarshal
-
-### SmallStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118870-5b713800-d4e4-11ea-9c80-47008d998e70.png"></img>
-
-### MediumStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118884-86f42280-d4e4-11ea-965c-b72764870ed0.png"></img>
-
-### LargeStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118902-9c694c80-d4e4-11ea-94e6-8c888cdb6361.png"></img>
-
-## Stream Decode
-
-### SmallStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118906-b0ad4980-d4e4-11ea-80fb-2a6e9e7a066e.png"></img>
-
-### MediumStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118917-c02c9280-d4e4-11ea-8ba8-776cdbf970df.png"></img>
-
-### LargeStruct
-
-<img src="https://user-images.githubusercontent.com/209884/89118920-c28eec80-d4e4-11ea-91cc-424cfe726539.png"></img>
+<img width="753" alt="" src="https://user-images.githubusercontent.com/209884/107126461-75f0f780-68f3-11eb-8ffa-9d2d4eb61fa3.png">
+<img width="755" alt="" src="https://user-images.githubusercontent.com/209884/107126460-74bfca80-68f3-11eb-80e0-d7a6cbe5a5b0.png">
+<img width="754" alt="" src="https://user-images.githubusercontent.com/209884/107126459-725d7080-68f3-11eb-9216-e810dd6f81b9.png">
 
 # License
 

@@ -331,6 +331,11 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
+		case nul:
+			if s.read() {
+				continue
+			}
+			return nil, "", errNotAtBeginningOfValue(s.totalOffset())
 		case '"':
 			s.cursor++
 		FIRST_CHAR:
@@ -434,6 +439,11 @@ func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet,
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
+		case nul:
+			if s.read() {
+				continue
+			}
+			return nil, "", errNotAtBeginningOfValue(s.totalOffset())
 		case '"':
 			s.cursor++
 		FIRST_CHAR:
@@ -585,9 +595,6 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			}
 		}
 		s.skipWhiteSpace()
-		if s.char() == nul {
-			s.read()
-		}
 		c := s.char()
 		if c == '}' {
 			s.cursor++

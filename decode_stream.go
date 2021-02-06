@@ -85,11 +85,11 @@ func (s *stream) read() bool {
 
 func (s *stream) skipWhiteSpace() {
 LOOP:
-	c := s.char()
-	if isWhiteSpace[c] {
+	switch s.char() {
+	case ' ', '\n', '\t', '\r':
 		s.cursor++
 		goto LOOP
-	} else if c == nul {
+	case nul:
 		if s.read() {
 			goto LOOP
 		}

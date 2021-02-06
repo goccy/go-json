@@ -5,7 +5,6 @@ import (
 	"io"
 	"reflect"
 	"strconv"
-	"sync"
 	"unsafe"
 )
 
@@ -25,30 +24,10 @@ type Decoder struct {
 	structTypeToDecoder map[uintptr]decoder
 }
 
-type decoderMap struct {
-	sync.Map
-}
-
-func (m *decoderMap) get(k uintptr) decoder {
-	if v, ok := m.Load(k); ok {
-		return v.(decoder)
-	}
-	return nil
-}
-
-func (m *decoderMap) set(k uintptr, dec decoder) {
-	m.Store(k, dec)
-}
-
 var (
-	cachedDecoder     decoderMap
 	unmarshalJSONType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 )
-
-func init() {
-	cachedDecoder = decoderMap{}
-}
 
 const (
 	nul = '\000'
@@ -89,15 +68,9 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	if err := d.validateType(copiedType, ptr); err != nil {
 		return err
 	}
-	dec := cachedDecoder.get(typeptr)
-	if dec == nil {
-		d.structTypeToDecoder = map[uintptr]decoder{}
-		compiledDec, err := d.compileHead(copiedType)
-		if err != nil {
-			return err
-		}
-		cachedDecoder.set(typeptr, compiledDec)
-		dec = compiledDec
+	dec, err := d.compileToGetDecoder(typeptr, typ)
+	if err != nil {
+		return err
 	}
 	if _, err := dec.decode(src, 0, header.ptr); err != nil {
 		return err
@@ -154,15 +127,9 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 
-	dec := cachedDecoder.get(typeptr)
-	if dec == nil {
-		d.structTypeToDecoder = map[uintptr]decoder{}
-		compiledDec, err := d.compileHead(typ)
-		if err != nil {
-			return err
-		}
-		cachedDecoder.set(typeptr, compiledDec)
-		dec = compiledDec
+	dec, err := d.compileToGetDecoder(typeptr, typ)
+	if err != nil {
+		return err
 	}
 	if err := d.prepareForDecode(); err != nil {
 		return err

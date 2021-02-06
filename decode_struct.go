@@ -671,5 +671,4 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 		}
 		cursor++
 	}
-	return cursor, nil
 }

@@ -35,7 +35,7 @@ func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if err != nil {
 		return err
 	}
-	*(*string)(p) = string(bytes)
+	*(*string)(p) = *(*string)(unsafe.Pointer(&bytes))
 	s.reset()
 	return nil
 }

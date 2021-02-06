@@ -564,9 +564,6 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			return err
 		}
 		s.skipWhiteSpace()
-		if s.char() == nul {
-			s.read()
-		}
 		if s.char() != ':' {
 			return errExpected("colon after object key", s.totalOffset())
 		}

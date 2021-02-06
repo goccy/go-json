@@ -23,6 +23,10 @@ type sliceHeader struct {
 	cap  int
 }
 
+const (
+	defaultSliceCapacity = 2
+)
+
 func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder: dec,
@@ -30,11 +34,10 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fie
 		size:         size,
 		arrayPool: sync.Pool{
 			New: func() interface{} {
-				cap := 2
 				return &sliceHeader{
-					data: newArray(elemType, cap),
+					data: newArray(elemType, defaultSliceCapacity),
 					len:  0,
-					cap:  cap,
+					cap:  defaultSliceCapacity,
 				}
 			},
 		},
@@ -84,14 +87,14 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			}
 			idx := 0
 			slice := d.newSlice()
-			cap := slice.cap
+			capacity := slice.cap
 			data := slice.data
 			for {
-				if cap <= idx {
-					src := sliceHeader{data: data, len: idx, cap: cap}
-					cap *= 2
-					data = newArray(d.elemType, cap)
-					dst := sliceHeader{data: data, len: idx, cap: cap}
+				if capacity <= idx {
+					src := sliceHeader{data: data, len: idx, cap: capacity}
+					capacity *= 2
+					data = newArray(d.elemType, capacity)
+					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
 				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size)); err != nil {
@@ -101,7 +104,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			RETRY:
 				switch s.char() {
 				case ']':
-					slice.cap = cap
+					slice.cap = capacity
 					slice.len = idx + 1
 					slice.data = data
 					dstCap := idx + 1
@@ -125,12 +128,12 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 					if s.read() {
 						goto RETRY
 					}
-					slice.cap = cap
+					slice.cap = capacity
 					slice.data = data
 					d.releaseSlice(slice)
 					goto ERROR
 				default:
-					slice.cap = cap
+					slice.cap = capacity
 					slice.data = data
 					d.releaseSlice(slice)
 					goto ERROR
@@ -184,14 +187,14 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 			}
 			idx := 0
 			slice := d.newSlice()
-			cap := slice.cap
+			capacity := slice.cap
 			data := slice.data
 			for {
-				if cap <= idx {
-					src := sliceHeader{data: data, len: idx, cap: cap}
-					cap *= 2
-					data = newArray(d.elemType, cap)
-					dst := sliceHeader{data: data, len: idx, cap: cap}
+				if capacity <= idx {
+					src := sliceHeader{data: data, len: idx, cap: capacity}
+					capacity *= 2
+					data = newArray(d.elemType, capacity)
+					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size))
@@ -202,7 +205,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
-					slice.cap = cap
+					slice.cap = capacity
 					slice.len = idx + 1
 					slice.data = data
 					dstCap := idx + 1
@@ -223,7 +226,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				case ',':
 					idx++
 				default:
-					slice.cap = cap
+					slice.cap = capacity
 					slice.data = data
 					d.releaseSlice(slice)
 					return 0, errInvalidCharacter(buf[cursor], "slice", cursor)

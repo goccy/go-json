@@ -396,6 +396,7 @@ func expand(b byte) uint64 {
 	return lsb * uint64(b)
 }
 
+//nolint:govet
 func stringToUint64Slice(s string) []uint64 {
 	return *(*[]uint64)(unsafe.Pointer(&reflect.SliceHeader{
 		Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,

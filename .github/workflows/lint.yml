@@ -1,0 +1,12 @@
+name: lint
+on: [pull_request, push]
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.36.0
+          args: --timeout=5m

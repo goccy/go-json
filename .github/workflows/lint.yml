@@ -10,6 +10,3 @@ jobs:
         with:
           version: v1.36.0
           args: --timeout=5m
-      - name: Run go vet
-        run: |
-          go vet ./...

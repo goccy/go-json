@@ -23,6 +23,22 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 +import "github.com/goccy/go-json"
 ```
 
+# JSON library comparison
+
+|  name  |  encoder | decoder | compatible with `encoding/json` |
+| :----: | :------: | :-----: | :-----------------------------: |
+| encoding/json |  ○ | ○ | N/A |
+| [json-iterator/go](https://github.com/json-iterator/go) | ○ | ○ | △ |
+| [easyjson](https://github.com/mailru/easyjson) | ○ | ○ |  ✗ |
+| [gojay](https://github.com/francoispqt/gojay) | ○ | ○ |  ✗ |
+| [segmentio/encoding/json](github.com/segmentio/encoding/json) | ○ | ○ | ○ |
+| [jettison](github.com/wI2L/jettison) | ○ | ✗ | ✗ |
+| [simdjson-go](https://github.com/minio/simdjson-go) | ✗ | ○ | ✗ |
+| go-json | ○ | ○ | ○ |
+
+- `json-iterator/go` isn't compatible with `encoding/json` in many ways, but it hasn't been supported for a long time.
+
+
 # Benchmarks
 
 ```

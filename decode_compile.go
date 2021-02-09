@@ -245,7 +245,7 @@ func (d *Decoder) compileMap(typ *rtype, structName, fieldName string) (decoder,
 }
 
 func (d *Decoder) compileInterface(typ *rtype, structName, fieldName string) (decoder, error) {
-	return newInterfaceDecoder(typ, structName, fieldName), nil
+	return newInterfaceDecoder(d, typ, structName, fieldName), nil
 }
 
 func (d *Decoder) removeConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, baseOffset uintptr) {

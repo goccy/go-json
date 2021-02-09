@@ -12,13 +12,12 @@ const (
 )
 
 var (
-	cachedOpcodeSets       []*opcodeSet
-	cachedOpcodeMap        unsafe.Pointer // map[uintptr]*opcodeSet
-	existsCachedOpcodeSets bool
-	cachedDecoder          []decoder
-	cachedDecoderMap       unsafe.Pointer // map[uintptr]decoder
-	existsCachedDecoder    bool
-	baseTypeAddr           uintptr
+	cachedOpcodeSets []*opcodeSet
+	cachedOpcodeMap  unsafe.Pointer // map[uintptr]*opcodeSet
+	cachedDecoder    []decoder
+	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
+	baseTypeAddr     uintptr
+	maxTypeAddr      uintptr
 )
 
 //go:linkname typelinks reflect.typelinks
@@ -68,10 +67,9 @@ func setupCodec() error {
 		return fmt.Errorf("too big address range %d", addrRange)
 	}
 	cachedOpcodeSets = make([]*opcodeSet, addrRange)
-	existsCachedOpcodeSets = true
 	cachedDecoder = make([]decoder, addrRange)
-	existsCachedDecoder = true
 	baseTypeAddr = min
+	maxTypeAddr = max
 	return nil
 }
 

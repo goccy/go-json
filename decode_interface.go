@@ -10,13 +10,15 @@ type interfaceDecoder struct {
 	typ        *rtype
 	structName string
 	fieldName  string
+	dec        *Decoder
 }
 
-func newInterfaceDecoder(typ *rtype, structName, fieldName string) *interfaceDecoder {
+func newInterfaceDecoder(dec *Decoder, typ *rtype, structName, fieldName string) *interfaceDecoder {
 	return &interfaceDecoder{
 		typ:        typ,
 		structName: structName,
 		fieldName:  fieldName,
+		dec:        dec,
 	}
 }
 
@@ -40,7 +42,7 @@ var (
 	)
 )
 
-func decodeWithUnmarshaler(s *stream, unmarshaler Unmarshaler) error {
+func decodeStreamUnmarshaler(s *stream, unmarshaler Unmarshaler) error {
 	start := s.cursor
 	if err := s.skipValue(); err != nil {
 		return err
@@ -55,7 +57,7 @@ func decodeWithUnmarshaler(s *stream, unmarshaler Unmarshaler) error {
 	return nil
 }
 
-func decodeWithTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler) error {
+func decodeStreamTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler) error {
 	start := s.cursor
 	if err := s.skipValue(); err != nil {
 		return err
@@ -70,26 +72,11 @@ func decodeWithTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler) 
 	return nil
 }
 
-func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	for {
 		switch s.char() {
 		case '{':
-			runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-				typ: d.typ,
-				ptr: p,
-			}))
-			rv := reflect.ValueOf(runtimeInterfaceValue)
-			if rv.NumMethod() > 0 && rv.CanInterface() {
-				if u, ok := rv.Interface().(Unmarshaler); ok {
-					return decodeWithUnmarshaler(s, u)
-				}
-				if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
-					return decodeWithTextUnmarshaler(s, u)
-				}
-				return nil
-			}
-			// empty interface
 			var v map[string]interface{}
 			ptr := unsafe.Pointer(&v)
 			if err := newMapDecoder(
@@ -97,7 +84,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 				stringType,
 				newStringDecoder(d.structName, d.fieldName),
 				interfaceMapType.Elem(),
-				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+				newInterfaceDecoder(d.dec, d.typ, d.structName, d.fieldName),
 				d.structName,
 				d.fieldName,
 			).decodeStream(s, ptr); err != nil {
@@ -109,7 +96,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
 			if err := newSliceDecoder(
-				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+				newInterfaceDecoder(d.dec, d.typ, d.structName, d.fieldName),
 				d.typ,
 				d.typ.Size(),
 				d.structName,
@@ -171,7 +158,86 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return errNotAtBeginningOfValue(s.totalOffset())
 }
 
+func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+		typ: d.typ,
+		ptr: p,
+	}))
+	rv := reflect.ValueOf(runtimeInterfaceValue)
+	if rv.NumMethod() > 0 && rv.CanInterface() {
+		if u, ok := rv.Interface().(Unmarshaler); ok {
+			return decodeStreamUnmarshaler(s, u)
+		}
+		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+			return decodeStreamTextUnmarshaler(s, u)
+		}
+		return nil
+	}
+	iface := rv.Interface()
+	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
+	typ := ifaceHeader.typ
+	if d.typ == typ || typ == nil {
+		// concrete type is empty interface
+		return d.decodeStreamEmptyInterface(s, p)
+	}
+	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
+		return d.decodeStreamEmptyInterface(s, p)
+	}
+	if s.char() == 'n' {
+		if err := nullBytes(s); err != nil {
+			return err
+		}
+		*(*interface{})(p) = nil
+		return nil
+	}
+	decoder, err := d.dec.compileToGetDecoder(uintptr(unsafe.Pointer(typ)), typ)
+	if err != nil {
+		return err
+	}
+	return decoder.decodeStream(s, ifaceHeader.ptr)
+}
+
 func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+		typ: d.typ,
+		ptr: p,
+	}))
+	rv := reflect.ValueOf(runtimeInterfaceValue)
+	iface := rv.Interface()
+	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
+	typ := ifaceHeader.typ
+	if d.typ == typ || typ == nil {
+		// concrete type is empty interface
+		return d.decodeEmptyInterface(buf, cursor, p)
+	}
+	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
+		return d.decodeEmptyInterface(buf, cursor, p)
+	}
+	if buf[cursor] == 'n' {
+		if cursor+3 >= int64(len(buf)) {
+			return 0, errUnexpectedEndOfJSON("null", cursor)
+		}
+		if buf[cursor+1] != 'u' {
+			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+		}
+		if buf[cursor+2] != 'l' {
+			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+		}
+		if buf[cursor+3] != 'l' {
+			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		}
+		cursor += 4
+		**(**interface{})(unsafe.Pointer(&p)) = nil
+		return cursor, nil
+	}
+	decoder, err := d.dec.compileToGetDecoder(uintptr(unsafe.Pointer(typ)), typ)
+	if err != nil {
+		return 0, err
+	}
+	return decoder.decode(buf, cursor, ifaceHeader.ptr)
+}
+
+func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
@@ -182,7 +248,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 			stringType,
 			newStringDecoder(d.structName, d.fieldName),
 			interfaceMapType.Elem(),
-			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+			newInterfaceDecoder(d.dec, d.typ, d.structName, d.fieldName),
 			d.structName, d.fieldName,
 		)
 		cursor, err := dec.decode(buf, cursor, ptr)
@@ -195,7 +261,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
 		dec := newSliceDecoder(
-			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+			newInterfaceDecoder(d.dec, d.typ, d.structName, d.fieldName),
 			d.typ,
 			d.typ.Size(),
 			d.structName, d.fieldName,

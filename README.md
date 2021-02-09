@@ -31,8 +31,8 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 | [json-iterator/go](https://github.com/json-iterator/go) | ○ | ○ | △ |
 | [easyjson](https://github.com/mailru/easyjson) | ○ | ○ |  ✗ |
 | [gojay](https://github.com/francoispqt/gojay) | ○ | ○ |  ✗ |
-| [segmentio/encoding/json](github.com/segmentio/encoding/json) | ○ | ○ | ○ |
-| [jettison](github.com/wI2L/jettison) | ○ | ✗ | ✗ |
+| [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | ○ | ○ | ○ |
+| [jettison](https://github.com/wI2L/jettison) | ○ | ✗ | ✗ |
 | [simdjson-go](https://github.com/minio/simdjson-go) | ✗ | ○ | ✗ |
 | go-json | ○ | ○ | ○ |
 

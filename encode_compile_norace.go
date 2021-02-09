@@ -5,10 +5,11 @@ package json
 import "unsafe"
 
 func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
-	if !existsCachedOpcodeSets {
+	if typeptr > maxTypeAddr {
 		return encodeCompileToGetCodeSetSlowPath(typeptr)
 	}
-	if codeSet := cachedOpcodeSets[typeptr-baseTypeAddr]; codeSet != nil {
+	index := typeptr - baseTypeAddr
+	if codeSet := cachedOpcodeSets[index]; codeSet != nil {
 		return codeSet, nil
 	}
 
@@ -29,6 +30,6 @@ func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
 		code:       code,
 		codeLength: codeLength,
 	}
-	cachedOpcodeSets[int(typeptr-baseTypeAddr)] = codeSet
+	cachedOpcodeSets[index] = codeSet
 	return codeSet, nil
 }

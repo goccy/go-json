@@ -10,11 +10,12 @@ import (
 var setsMu sync.RWMutex
 
 func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
-	if !existsCachedOpcodeSets {
+	if typeptr > maxTypeAddr {
 		return encodeCompileToGetCodeSetSlowPath(typeptr)
 	}
+	index := typeptr - baseTypeAddr
 	setsMu.RLock()
-	if codeSet := cachedOpcodeSets[typeptr-baseTypeAddr]; codeSet != nil {
+	if codeSet := cachedOpcodeSets[index]; codeSet != nil {
 		setsMu.RUnlock()
 		return codeSet, nil
 	}
@@ -38,7 +39,7 @@ func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
 		codeLength: codeLength,
 	}
 	setsMu.Lock()
-	cachedOpcodeSets[int(typeptr-baseTypeAddr)] = codeSet
+	cachedOpcodeSets[index] = codeSet
 	setsMu.Unlock()
 	return codeSet, nil
 }

@@ -2,12 +2,14 @@
 
 package json
 
-import "sync"
+import (
+	"sync"
+)
 
 var decMu sync.RWMutex
 
 func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
-	if !existsCachedDecoder {
+	if typeptr > maxTypeAddr {
 		return d.compileToGetDecoderSlowPath(typeptr, typ)
 	}
 

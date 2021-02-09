@@ -19,6 +19,7 @@ var (
 	cachedDecoderMap       unsafe.Pointer // map[uintptr]decoder
 	existsCachedDecoder    bool
 	baseTypeAddr           uintptr
+	maxTypeAddr            uintptr
 )
 
 //go:linkname typelinks reflect.typelinks
@@ -72,6 +73,7 @@ func setupCodec() error {
 	cachedDecoder = make([]decoder, addrRange)
 	existsCachedDecoder = true
 	baseTypeAddr = min
+	maxTypeAddr = max
 	return nil
 }
 

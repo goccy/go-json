@@ -3,7 +3,7 @@
 package json
 
 func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
-	if !existsCachedDecoder {
+	if typeptr > maxTypeAddr {
 		return d.compileToGetDecoderSlowPath(typeptr, typ)
 	}
 

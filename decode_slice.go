@@ -1,6 +1,7 @@
 package json
 
 import (
+	"reflect"
 	"sync"
 	"unsafe"
 )
@@ -61,6 +62,16 @@ func copySlice(elemType *rtype, dst, src sliceHeader) int
 
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
+
+func (d *sliceDecoder) errNumber(buf []byte, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  "number",
+		Type:   reflect.SliceOf(rtype2type(d.elemType)),
+		Struct: d.structName,
+		Field:  d.fieldName,
+		Offset: offset,
+	}
+}
 
 func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	for {
@@ -140,10 +151,14 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 				}
 				s.cursor++
 			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return d.errNumber([]byte{s.char()}, s.totalOffset())
 		case nul:
 			if s.read() {
 				continue
 			}
+			goto ERROR
+		default:
 			goto ERROR
 		}
 	}

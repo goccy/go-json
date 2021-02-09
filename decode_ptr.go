@@ -68,7 +68,9 @@ func (d *ptrDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		if buf[cursor+3] != 'l' {
 			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
 		}
-		*(*unsafe.Pointer)(p) = nil
+		if p != nil {
+			*(*unsafe.Pointer)(p) = nil
+		}
 		cursor += 4
 		return cursor, nil
 	}

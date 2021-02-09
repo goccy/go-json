@@ -63,7 +63,7 @@ func copySlice(elemType *rtype, dst, src sliceHeader) int
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
 
-func (d *sliceDecoder) errNumber(buf []byte, offset int64) *UnmarshalTypeError {
+func (d *sliceDecoder) errNumber(offset int64) *UnmarshalTypeError {
 	return &UnmarshalTypeError{
 		Value:  "number",
 		Type:   reflect.SliceOf(rtype2type(d.elemType)),
@@ -152,7 +152,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 				s.cursor++
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return d.errNumber([]byte{s.char()}, s.totalOffset())
+			return d.errNumber(s.totalOffset())
 		case nul:
 			if s.read() {
 				continue
@@ -249,7 +249,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				cursor++
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return 0, d.errNumber([]byte{buf[cursor]}, cursor)
+			return 0, d.errNumber(cursor)
 		default:
 			goto ERROR
 		}

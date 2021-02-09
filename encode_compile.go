@@ -1116,7 +1116,7 @@ func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode 
 			isTaggedKey: f.isTaggedKey,
 		})
 		if f.next != nil && f.nextField != f.next && f.next.op.codeType() == codeStructField {
-			for k, v := range encodeAnonymousFieldPairRecursively(tags, named, f.next) {
+			for k, v := range encodeAnonymousFieldPairRecursively(named, f.next) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 		}
@@ -1129,7 +1129,7 @@ func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode 
 	return anonymousFields
 }
 
-func encodeAnonymousFieldPairRecursively(tags structTags, named string, valueCode *opcode) map[string][]structFieldPair {
+func encodeAnonymousFieldPairRecursively(named string, valueCode *opcode) map[string][]structFieldPair {
 	anonymousFields := map[string][]structFieldPair{}
 	f := valueCode
 	var prevAnonymousField *opcode
@@ -1142,7 +1142,7 @@ func encodeAnonymousFieldPairRecursively(tags structTags, named string, valueCod
 				isTaggedKey: f.isTaggedKey,
 			})
 			if f.next != nil && f.nextField != f.next && f.next.op.codeType() == codeStructField {
-				for k, v := range encodeAnonymousFieldPairRecursively(tags, named, f.next) {
+				for k, v := range encodeAnonymousFieldPairRecursively(named, f.next) {
 					anonymousFields[k] = append(anonymousFields[k], v...)
 				}
 			}

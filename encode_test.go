@@ -409,6 +409,53 @@ func Test_Marshal(t *testing.T) {
 	})
 }
 
+func TestIssue116(t *testing.T) {
+	t.Run("first", func(t *testing.T) {
+		type Boo struct{ B string }
+		type Struct struct {
+			A   int
+			Boo *Boo
+		}
+		type Embedded struct {
+			Struct
+		}
+		b, err := json.Marshal(Embedded{Struct: Struct{
+			A:   1,
+			Boo: &Boo{B: "foo"},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := `{"A":1,"Boo":{"B":"foo"}}`
+		actual := string(b)
+		if actual != expected {
+			t.Fatalf("expected %s but got %s", expected, actual)
+		}
+	})
+	t.Run("second", func(t *testing.T) {
+		type Boo struct{ B string }
+		type Struct struct {
+			A int
+			B *Boo
+		}
+		type Embedded struct {
+			Struct
+		}
+		b, err := json.Marshal(Embedded{Struct: Struct{
+			A: 1,
+			B: &Boo{B: "foo"},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual := string(b)
+		expected := `{"A":1,"B":{"B":"foo"}}`
+		if actual != expected {
+			t.Fatalf("expected %s but got %s", expected, actual)
+		}
+	})
+}
+
 type marshalJSON struct{}
 
 func (*marshalJSON) MarshalJSON() ([]byte, error) {

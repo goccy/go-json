@@ -1134,16 +1134,7 @@ func encodeAnonymousFieldPairRecursively(tags structTags, named string, valueCod
 	f := valueCode
 	var prevAnonymousField *opcode
 	for {
-		if f.displayKey == "" {
-			if f.nextField == nil {
-				break
-			}
-			prevAnonymousField = f
-			f = f.nextField
-			continue
-		}
-
-		if strings.Contains(f.op.String(), "Anonymous") {
+		if f.displayKey != "" && strings.Contains(f.op.String(), "Anonymous") {
 			key := fmt.Sprintf("%s.%s", named, f.displayKey)
 			anonymousFields[key] = append(anonymousFields[key], structFieldPair{
 				prevField:   prevAnonymousField,

@@ -71,7 +71,6 @@ func setupCodec() error {
 	cachedOpcodeSets = make([]*opcodeSet, addrRange)
 	existsCachedOpcodeSets = true
 	cachedDecoder = make([]decoder, addrRange)
-	existsCachedDecoder = true
 	baseTypeAddr = min
 	maxTypeAddr = max
 	return nil

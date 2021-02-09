@@ -248,7 +248,12 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				}
 				cursor++
 			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return 0, d.errNumber([]byte{buf[cursor]}, cursor)
+		default:
+			goto ERROR
 		}
 	}
+ERROR:
 	return 0, errUnexpectedEndOfJSON("slice", cursor)
 }

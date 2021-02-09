@@ -27,14 +27,14 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 
 |  name  |  encoder | decoder | compatible with `encoding/json` |
 | :----: | :------: | :-----: | :-----------------------------: |
-| encoding/json |  ○ | ○ | N/A |
-| [json-iterator/go](https://github.com/json-iterator/go) | ○ | ○ | △ |
-| [easyjson](https://github.com/mailru/easyjson) | ○ | ○ |  ✗ |
-| [gojay](https://github.com/francoispqt/gojay) | ○ | ○ |  ✗ |
-| [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | ○ | ○ | ○ |
-| [jettison](https://github.com/wI2L/jettison) | ○ | ✗ | ✗ |
-| [simdjson-go](https://github.com/minio/simdjson-go) | ✗ | ○ | ✗ |
-| go-json | ○ | ○ | ○ |
+| encoding/json |  yes | yes | N/A |
+| [json-iterator/go](https://github.com/json-iterator/go) | yes | yes | partial |
+| [easyjson](https://github.com/mailru/easyjson) | yes | yes |  no |
+| [gojay](https://github.com/francoispqt/gojay) | yes | yes |  no |
+| [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | yes | yes | yes |
+| [jettison](https://github.com/wI2L/jettison) | yes | no | no |
+| [simdjson-go](https://github.com/minio/simdjson-go) | no | yes | no |
+| goccy/go-json | yes | yes | yes |
 
 - `json-iterator/go` isn't compatible with `encoding/json` in many ways, but it hasn't been supported for a long time.
 

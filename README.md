@@ -327,7 +327,7 @@ At that time, if you check whether the buffer has reached the end, it will be ve
 
 ```go
 buflen := len(buf)
-for ; i < buflen; cursor++ { // compare i and buflen at all times, it is so slow.
+for ; cursor < buflen; cursor++ { // compare cursor and buflen at all times, it is so slow.
     switch buf[cursor] {
     case ' ', '\n', '\r', '\t':
     }

@@ -68,7 +68,7 @@ func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
 	if err := d.validateType(copiedType, ptr); err != nil {
 		return err
 	}
-	dec, err := d.compileToGetDecoder(typeptr, typ)
+	dec, err := decodeCompileToGetDecoder(typeptr, typ)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 
-	dec, err := d.compileToGetDecoder(typeptr, typ)
+	dec, err := decodeCompileToGetDecoder(typeptr, typ)
 	if err != nil {
 		return err
 	}

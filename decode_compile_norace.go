@@ -2,9 +2,9 @@
 
 package json
 
-func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
+func decodeCompileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
 	if typeptr > maxTypeAddr {
-		return d.compileToGetDecoderSlowPath(typeptr, typ)
+		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
 	}
 
 	index := typeptr - baseTypeAddr
@@ -12,8 +12,7 @@ func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, err
 		return dec, nil
 	}
 
-	d.structTypeToDecoder = map[uintptr]decoder{}
-	dec, err := d.compileHead(typ)
+	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
 	if err != nil {
 		return nil, err
 	}

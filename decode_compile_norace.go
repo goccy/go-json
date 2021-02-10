@@ -2,7 +2,10 @@
 
 package json
 
-func decodeCompileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
+import "unsafe"
+
+func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
+	typeptr := uintptr(unsafe.Pointer(typ))
 	if typeptr > maxTypeAddr {
 		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
 	}

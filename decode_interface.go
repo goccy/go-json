@@ -188,7 +188,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		*(*interface{})(p) = nil
 		return nil
 	}
-	decoder, err := decodeCompileToGetDecoder(uintptr(unsafe.Pointer(typ)), typ)
+	decoder, err := decodeCompileToGetDecoder(typ)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		**(**interface{})(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	}
-	decoder, err := decodeCompileToGetDecoder(uintptr(unsafe.Pointer(typ)), typ)
+	decoder, err := decodeCompileToGetDecoder(typ)
 	if err != nil {
 		return 0, err
 	}

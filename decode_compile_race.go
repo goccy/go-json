@@ -4,11 +4,13 @@ package json
 
 import (
 	"sync"
+	"unsafe"
 )
 
 var decMu sync.RWMutex
 
-func decodeCompileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
+func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
+	typeptr := uintptr(unsafe.Pointer(typ))
 	if typeptr > maxTypeAddr {
 		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
 	}

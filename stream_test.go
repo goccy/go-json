@@ -6,6 +6,7 @@ package json_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io"
 	"io/ioutil"
 	"log"
@@ -461,5 +462,43 @@ func TestHTTPDecoding(t *testing.T) {
 	err = d.Decode(&foo)
 	if err != io.EOF {
 		t.Errorf("err = %v; want io.EOF", err)
+	}
+}
+
+func TestGzipStreaming(t *testing.T) {
+	type someStruct struct {
+		ID   int      `json:"id"`
+		Text []string `json:"text"`
+	}
+
+	manyItems := strings.Repeat(`"Quis autem vel eum iure reprehenderit, qui in ea voluptate velit esse, quam`+
+		` nihil molestiae consequatur, vel illum, qui dolorem eum fugiat, quo voluptas nulla pariatur?",`, 400)
+
+	longJSON := `{"id":123,"text":[` + manyItems[0:len(manyItems)-1] + `]}`
+
+	compressed := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(compressed)
+
+	_, err := io.Copy(gw, bytes.NewReader([]byte(longJSON)))
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	err = gw.Close()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	gr, err := gzip.NewReader(bytes.NewReader(compressed.Bytes()))
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	var v someStruct
+	dec := json.NewDecoder(gr)
+
+	err = dec.Decode(&v)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }

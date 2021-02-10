@@ -75,7 +75,7 @@ func (s *stream) read() bool {
 	buf[last] = nul
 	n, err := s.r.Read(buf[:last])
 	s.length = s.cursor + int64(n)
-	if n < last || err == io.EOF {
+	if err == io.EOF {
 		s.allRead = true
 	} else if err != nil {
 		return false

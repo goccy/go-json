@@ -70,6 +70,7 @@ func unmarshalNoEscape(data []byte, v interface{}) error {
 	return nil
 }
 
+//nolint:staticcheck
 //go:nosplit
 func noescape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)

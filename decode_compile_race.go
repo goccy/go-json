@@ -4,13 +4,15 @@ package json
 
 import (
 	"sync"
+	"unsafe"
 )
 
 var decMu sync.RWMutex
 
-func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, error) {
+func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
+	typeptr := uintptr(unsafe.Pointer(typ))
 	if typeptr > maxTypeAddr {
-		return d.compileToGetDecoderSlowPath(typeptr, typ)
+		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
 	}
 
 	index := typeptr - baseTypeAddr
@@ -21,8 +23,7 @@ func (d *Decoder) compileToGetDecoder(typeptr uintptr, typ *rtype) (decoder, err
 	}
 	decMu.RUnlock()
 
-	d.structTypeToDecoder = map[uintptr]decoder{}
-	dec, err := d.compileHead(typ)
+	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
 	if err != nil {
 		return nil, err
 	}

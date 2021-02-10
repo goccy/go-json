@@ -262,17 +262,11 @@ func MarshalIndentWithOption(v interface{}, prefix, indent string, optFuncs ...E
 // character U+FFFD.
 //
 func Unmarshal(data []byte, v interface{}) error {
-	src := make([]byte, len(data)+1) // append nul byte to end
-	copy(src, data)
-	var dec Decoder
-	return dec.decodeForUnmarshal(src, v)
+	return unmarshal(data, v)
 }
 
 func UnmarshalNoEscape(data []byte, v interface{}) error {
-	src := make([]byte, len(data)+1) // append nul byte to end
-	copy(src, data)
-	var dec Decoder
-	return dec.decodeForUnmarshalNoEscape(src, v)
+	return unmarshalNoEscape(data, v)
 }
 
 // A Token holds a value of one of these types:

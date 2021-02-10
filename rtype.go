@@ -244,12 +244,6 @@ func (t *rtype) Out(i int) reflect.Type {
 	return rtype_Out(t, i)
 }
 
-//go:linkname rtype_escape reflect.(*rtype).Kind
-func rtype_escape(*rtype) reflect.Kind
-func (t *rtype) escape() {
-	rtype_escape(t)
-}
-
 //go:linkname rtype2type reflect.toType
 //go:noescape
 func rtype2type(t *rtype) reflect.Type

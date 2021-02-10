@@ -20,8 +20,7 @@ type decoder interface {
 }
 
 type Decoder struct {
-	s                   *stream
-	structTypeToDecoder map[uintptr]decoder
+	s *stream
 }
 
 var (
@@ -32,6 +31,58 @@ var (
 const (
 	nul = '\000'
 )
+
+func unmarshal(data []byte, v interface{}) error {
+	src := make([]byte, len(data)+1) // append nul byte to the end
+	copy(src, data)
+
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decodeCompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	if _, err := dec.decode(src, 0, header.ptr); err != nil {
+		return err
+	}
+	return nil
+}
+
+func unmarshalNoEscape(data []byte, v interface{}) error {
+	src := make([]byte, len(data)+1) // append nul byte to the end
+	copy(src, data)
+
+	header := (*interfaceHeader)(unsafe.Pointer(&v))
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decodeCompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	if _, err := dec.decode(src, 0, noescape(header.ptr)); err != nil {
+		return err
+	}
+	return nil
+}
+
+//nolint:staticcheck
+//go:nosplit
+func noescape(p unsafe.Pointer) unsafe.Pointer {
+	x := uintptr(p)
+	return unsafe.Pointer(x ^ 0)
+}
+
+func validateType(typ *rtype, p uintptr) error {
+	if typ.Kind() != reflect.Ptr || p == 0 {
+		return &InvalidUnmarshalError{Type: rtype2type(typ)}
+	}
+	return nil
+}
 
 // NewDecoder returns a new decoder that reads from r.
 //
@@ -48,45 +99,6 @@ func NewDecoder(r io.Reader) *Decoder {
 // buffer. The reader is valid until the next call to Decode.
 func (d *Decoder) Buffered() io.Reader {
 	return d.s.buffered()
-}
-
-func (d *Decoder) validateType(typ *rtype, p uintptr) error {
-	if typ.Kind() != reflect.Ptr || p == 0 {
-		return &InvalidUnmarshalError{Type: rtype2type(typ)}
-	}
-	return nil
-}
-
-func (d *Decoder) decode(src []byte, header *interfaceHeader) error {
-	typ := header.typ
-	typeptr := uintptr(unsafe.Pointer(typ))
-
-	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
-	ptr := uintptr(header.ptr)
-
-	if err := d.validateType(copiedType, ptr); err != nil {
-		return err
-	}
-	dec, err := d.compileToGetDecoder(typeptr, typ)
-	if err != nil {
-		return err
-	}
-	if _, err := dec.decode(src, 0, header.ptr); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *Decoder) decodeForUnmarshal(src []byte, v interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	header.typ.escape()
-	return d.decode(src, header)
-}
-
-func (d *Decoder) decodeForUnmarshalNoEscape(src []byte, v interface{}) error {
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
-	return d.decode(src, header)
 }
 
 func (d *Decoder) prepareForDecode() error {
@@ -123,11 +135,11 @@ func (d *Decoder) Decode(v interface{}) error {
 	// noescape trick for header.typ ( reflect.*rtype )
 	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
 
-	if err := d.validateType(copiedType, ptr); err != nil {
+	if err := validateType(copiedType, ptr); err != nil {
 		return err
 	}
 
-	dec, err := d.compileToGetDecoder(typeptr, typ)
+	dec, err := decodeCompileToGetDecoder(typ)
 	if err != nil {
 		return err
 	}

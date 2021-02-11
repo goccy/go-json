@@ -31,6 +31,16 @@ func Benchmark_Decode_SmallStruct_Unmarshal_JsonIter(b *testing.B) {
 	}
 }
 
+func Benchmark_Decode_SmallStruct_Unmarshal_EasyJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := NewSmallPayloadEasyJson()
+		if err := result.UnmarshalJSON(SmallFixture); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Decode_SmallStruct_Unmarshal_GoJay(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
@@ -161,6 +171,16 @@ func Benchmark_Decode_MediumStruct_Unmarshal_JsonIter(b *testing.B) {
 	}
 }
 
+func Benchmark_Decode_MediumStruct_Unmarshal_EasyJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := NewMediumPayloadEasyJson()
+		if err := result.UnmarshalJSON(MediumFixture); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Decode_MediumStruct_Unmarshal_GoJay(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
@@ -286,6 +306,16 @@ func Benchmark_Decode_LargeStruct_Unmarshal_JsonIter(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		result := LargePayload{}
 		if err := jsoniter.Unmarshal(LargeFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_EasyJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := NewLargePayloadEasyJson()
+		if err := result.UnmarshalJSON(LargeFixture); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -114,7 +114,6 @@ func (d *structDecoder) tryOptimize() {
 	// it is possible to avoid the process of comparing the index of the key with the length of the bitmap each time.
 	bitmapLen := maxKeyLen + 1
 	if len(sortedKeys) <= 8 {
-		// maxKeyLen
 		keyBitmap := make([][256]int8, bitmapLen)
 		for i, key := range sortedKeys {
 			for j := 0; j < len(key); j++ {

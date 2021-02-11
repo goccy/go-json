@@ -109,8 +109,12 @@ func (d *structDecoder) tryOptimize() {
 		sortedKeys = append(sortedKeys, key)
 	}
 	sort.Strings(sortedKeys)
+
+	// By allocating one extra capacity than `maxKeyLen`,
+	// it is possible to avoid the process of comparing the index of the key with the length of the bitmap each time.
+	bitmapLen := maxKeyLen + 1
 	if len(sortedKeys) <= 8 {
-		keyBitmap := make([][256]int8, maxKeyLen)
+		keyBitmap := make([][256]int8, bitmapLen)
 		for i, key := range sortedKeys {
 			for j := 0; j < len(key); j++ {
 				c := key[j]
@@ -122,7 +126,7 @@ func (d *structDecoder) tryOptimize() {
 		d.keyDecoder = decodeKeyByBitmapInt8
 		d.keyStreamDecoder = decodeKeyByBitmapInt8Stream
 	} else {
-		keyBitmap := make([][256]int16, maxKeyLen)
+		keyBitmap := make([][256]int16, bitmapLen)
 		for i, key := range sortedKeys {
 			for j := 0; j < len(key); j++ {
 				c := key[j]
@@ -158,7 +162,6 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 			}
 			keyIdx := 0
 			bitmap := d.keyBitmapInt8
-			keyBitmapLen := len(bitmap)
 			start := cursor
 			for {
 				c := char(b, cursor)
@@ -177,23 +180,6 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 				case nul:
 					return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 				default:
-					if keyIdx >= keyBitmapLen {
-						for {
-							cursor++
-							switch char(b, cursor) {
-							case '"':
-								cursor++
-								return cursor, field, nil
-							case '\\':
-								cursor++
-								if char(b, cursor) == nul {
-									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
-								}
-							case nul:
-								return 0, nil, errUnexpectedEndOfJSON("string", cursor)
-							}
-						}
-					}
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {
@@ -244,7 +230,6 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 			}
 			keyIdx := 0
 			bitmap := d.keyBitmapInt16
-			keyBitmapLen := len(bitmap)
 			start := cursor
 			for {
 				c := char(b, cursor)
@@ -263,23 +248,6 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 				case nul:
 					return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 				default:
-					if keyIdx >= keyBitmapLen {
-						for {
-							cursor++
-							switch char(b, cursor) {
-							case '"':
-								cursor++
-								return cursor, field, nil
-							case '\\':
-								cursor++
-								if char(b, cursor) == nul {
-									return 0, nil, errUnexpectedEndOfJSON("string", cursor)
-								}
-							case nul:
-								return 0, nil, errUnexpectedEndOfJSON("string", cursor)
-							}
-						}
-					}
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {
@@ -352,7 +320,6 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 			}
 			keyIdx := 0
 			bitmap := d.keyBitmapInt8
-			keyBitmapLen := len(bitmap)
 			for {
 				c := s.char()
 				switch c {
@@ -373,29 +340,6 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 					}
 					return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 				default:
-					if keyIdx >= keyBitmapLen {
-						for {
-							s.cursor++
-							switch s.char() {
-							case '"':
-								b := s.buf[start:s.cursor]
-								key := *(*string)(unsafe.Pointer(&b))
-								s.cursor++
-								return field, key, nil
-							case '\\':
-								s.cursor++
-								if s.char() == nul {
-									if !s.read() {
-										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
-									}
-								}
-							case nul:
-								if !s.read() {
-									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
-								}
-							}
-						}
-					}
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {
@@ -460,7 +404,6 @@ func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet,
 			}
 			keyIdx := 0
 			bitmap := d.keyBitmapInt16
-			keyBitmapLen := len(bitmap)
 			for {
 				c := s.char()
 				switch c {
@@ -481,29 +424,6 @@ func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet,
 					}
 					return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 				default:
-					if keyIdx >= keyBitmapLen {
-						for {
-							s.cursor++
-							switch s.char() {
-							case '"':
-								b := s.buf[start:s.cursor]
-								key := *(*string)(unsafe.Pointer(&b))
-								s.cursor++
-								return field, key, nil
-							case '\\':
-								s.cursor++
-								if s.char() == nul {
-									if !s.read() {
-										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
-									}
-								}
-							case nul:
-								if !s.read() {
-									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
-								}
-							}
-						}
-					}
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {

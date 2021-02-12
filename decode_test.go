@@ -197,6 +197,12 @@ func Test_Decoder(t *testing.T) {
 			assertEq(t, "interface.kind", "string", reflect.TypeOf(v).Kind().String())
 			assertEq(t, "interface", `hello`, fmt.Sprint(v))
 		})
+		t.Run("escaped string", func(t *testing.T) {
+			var v interface{}
+			assertErr(t, json.Unmarshal([]byte(`"he\"llo"`), &v))
+			assertEq(t, "interface.kind", "string", reflect.TypeOf(v).Kind().String())
+			assertEq(t, "interface", `he"llo`, fmt.Sprint(v))
+		})
 		t.Run("bool", func(t *testing.T) {
 			var v interface{}
 			assertErr(t, json.Unmarshal([]byte(`true`), &v))

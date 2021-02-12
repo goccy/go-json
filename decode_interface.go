@@ -13,12 +13,6 @@ type interfaceDecoder struct {
 }
 
 func newInterfaceDecoder(typ *rtype, structName, fieldName string) *interfaceDecoder {
-	if typ == emptyInterfaceType {
-		// If type is the same as emptyInterface ( `interface{}` ),
-		// the address of `*interface{}` type will be passed when actually decoding,
-		// so type must be converted to pointer type.
-		typ = type2rtype(reflect.New(rtype2type(typ)).Type())
-	}
 	return &interfaceDecoder{
 		typ:        typ,
 		structName: structName,
@@ -181,7 +175,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
-	if d.typ == typ || typ == nil {
+	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeStreamEmptyInterface(s, p)
 	}
@@ -211,7 +205,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
-	if d.typ == typ || typ == nil {
+	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeEmptyInterface(buf, cursor, p)
 	}

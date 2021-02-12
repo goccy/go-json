@@ -275,23 +275,15 @@ func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor int64, p unsa
 			*(*interface{})(p) = v
 		}).decode(buf, cursor, p)
 	case '"':
-		cursor++
-		start := cursor
-		for {
-			switch buf[cursor] {
-			case '\\':
-				cursor++
-				continue
-			case '"':
-				literal := buf[start:cursor]
-				cursor++
-				**(**interface{})(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&literal))
-				return cursor, nil
-			case nul:
-				return 0, errUnexpectedEndOfJSON("string", cursor)
-			}
-			cursor++
+		var v string
+		ptr := unsafe.Pointer(&v)
+		dec := newStringDecoder(d.structName, d.fieldName)
+		cursor, err := dec.decode(buf, cursor, ptr)
+		if err != nil {
+			return 0, err
 		}
+		**(**interface{})(unsafe.Pointer(&p)) = v
+		return cursor, nil
 	case 't':
 		if cursor+3 >= int64(len(buf)) {
 			return 0, errUnexpectedEndOfJSON("bool(true)", cursor)

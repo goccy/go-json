@@ -32,7 +32,8 @@ func (d *interfaceDecoder) numDecoder(s *stream) decoder {
 }
 
 var (
-	interfaceMapType = type2rtype(
+	emptyInterfaceType = type2rtype(reflect.TypeOf((*interface{})(nil)).Elem())
+	interfaceMapType   = type2rtype(
 		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
 	)
 	stringType = type2rtype(
@@ -82,7 +83,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, p unsafe.Pointe
 				stringType,
 				newStringDecoder(d.structName, d.fieldName),
 				interfaceMapType.Elem(),
-				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+				newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
 				d.structName,
 				d.fieldName,
 			).decodeStream(s, ptr); err != nil {
@@ -94,9 +95,9 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, p unsafe.Pointe
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
 			if err := newSliceDecoder(
-				newInterfaceDecoder(d.typ, d.structName, d.fieldName),
-				d.typ,
-				d.typ.Size(),
+				newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
+				emptyInterfaceType,
+				emptyInterfaceType.Size(),
 				d.structName,
 				d.fieldName,
 			).decodeStream(s, ptr); err != nil {
@@ -174,7 +175,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
-	if d.typ == typ || typ == nil {
+	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeStreamEmptyInterface(s, p)
 	}
@@ -204,7 +205,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
-	if d.typ == typ || typ == nil {
+	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeEmptyInterface(buf, cursor, p)
 	}
@@ -246,7 +247,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor int64, p unsa
 			stringType,
 			newStringDecoder(d.structName, d.fieldName),
 			interfaceMapType.Elem(),
-			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
+			newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
 			d.structName, d.fieldName,
 		)
 		cursor, err := dec.decode(buf, cursor, ptr)
@@ -259,9 +260,9 @@ func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor int64, p unsa
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
 		dec := newSliceDecoder(
-			newInterfaceDecoder(d.typ, d.structName, d.fieldName),
-			d.typ,
-			d.typ.Size(),
+			newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
+			emptyInterfaceType,
+			emptyInterfaceType.Size(),
 			d.structName, d.fieldName,
 		)
 		cursor, err := dec.decode(buf, cursor, ptr)

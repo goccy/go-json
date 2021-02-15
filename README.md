@@ -53,9 +53,9 @@ $ go test -bench .
 
 ## Decode
 
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126756-067c0780-68f5-11eb-938a-8bc61e3c5014.png"></img>
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126754-054ada80-68f5-11eb-9f93-199f2d75bec7.png"></img>
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126752-024fea00-68f5-11eb-8f63-f32844de2c99.png"></img>
+<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979944-bd1d6d80-7002-11eb-944b-9d17b6674e3f.png">
+<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979931-b989e680-7002-11eb-87a0-66fc22d90dd4.png">
+<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979940-bc84d700-7002-11eb-9647-869bbc25c9d9.png">
 
 # How it works
 

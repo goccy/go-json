@@ -44,10 +44,6 @@ func (s *stream) totalOffset() int64 {
 	return s.offset + s.cursor
 }
 
-func (s *stream) prevChar() byte {
-	return s.buf[s.cursor-1]
-}
-
 func (s *stream) char() byte {
 	return s.buf[s.cursor]
 }
@@ -103,7 +99,7 @@ LOOP:
 
 func (s *stream) skipObject() error {
 	braceCount := 1
-	buf, cursor, p := s.stat()
+	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
 		case '{':
@@ -119,7 +115,7 @@ func (s *stream) skipObject() error {
 				cursor++
 				switch char(p, cursor) {
 				case '"':
-					if buf[cursor-1] == '\\' {
+					if char(p, cursor-1) == '\\' {
 						continue
 					}
 					goto SWITCH_OUT
@@ -127,7 +123,7 @@ func (s *stream) skipObject() error {
 					s.cursor = cursor
 					if s.read() {
 						s.cursor-- // for retry current character
-						buf, cursor, p = s.stat()
+						_, cursor, p = s.stat()
 						continue
 					}
 					return errUnexpectedEndOfJSON("string of object", cursor)
@@ -136,7 +132,7 @@ func (s *stream) skipObject() error {
 		case nul:
 			s.cursor = cursor
 			if s.read() {
-				buf, cursor, p = s.stat()
+				_, cursor, p = s.stat()
 				continue
 			}
 			return errUnexpectedEndOfJSON("object of object", cursor)
@@ -148,7 +144,7 @@ func (s *stream) skipObject() error {
 
 func (s *stream) skipArray() error {
 	bracketCount := 1
-	buf, cursor, p := s.stat()
+	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
 		case '[':
@@ -164,7 +160,7 @@ func (s *stream) skipArray() error {
 				cursor++
 				switch char(p, cursor) {
 				case '"':
-					if buf[cursor-1] == '\\' {
+					if char(p, cursor-1) == '\\' {
 						continue
 					}
 					goto SWITCH_OUT
@@ -172,7 +168,7 @@ func (s *stream) skipArray() error {
 					s.cursor = cursor
 					if s.read() {
 						s.cursor-- // for retry current character
-						buf, cursor, p = s.stat()
+						_, cursor, p = s.stat()
 						continue
 					}
 					return errUnexpectedEndOfJSON("string of object", cursor)
@@ -181,7 +177,7 @@ func (s *stream) skipArray() error {
 		case nul:
 			s.cursor = cursor
 			if s.read() {
-				buf, cursor, p = s.stat()
+				_, cursor, p = s.stat()
 				continue
 			}
 			return errUnexpectedEndOfJSON("array of object", cursor)
@@ -192,7 +188,7 @@ func (s *stream) skipArray() error {
 }
 
 func (s *stream) skipValue() error {
-	buf, cursor, p := s.stat()
+	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
 		case ' ', '\n', '\t', '\r':
@@ -201,7 +197,7 @@ func (s *stream) skipValue() error {
 		case nul:
 			s.cursor = cursor
 			if s.read() {
-				buf, cursor, p = s.stat()
+				_, cursor, p = s.stat()
 				continue
 			}
 			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
@@ -214,9 +210,9 @@ func (s *stream) skipValue() error {
 		case '"':
 			for {
 				cursor++
-				switch buf[cursor] {
+				switch char(p, cursor) {
 				case '"':
-					if buf[cursor-1] == '\\' {
+					if char(p, cursor-1) == '\\' {
 						continue
 					}
 					s.cursor = cursor + 1
@@ -225,7 +221,7 @@ func (s *stream) skipValue() error {
 					s.cursor = cursor
 					if s.read() {
 						s.cursor-- // for retry current character
-						buf, cursor, p = s.stat()
+						_, cursor, p = s.stat()
 						continue
 					}
 					return errUnexpectedEndOfJSON("value of string", s.totalOffset())
@@ -240,7 +236,7 @@ func (s *stream) skipValue() error {
 				} else if c == nul {
 					if s.read() {
 						s.cursor-- // for retry current character
-						buf, cursor, p = s.stat()
+						_, cursor, p = s.stat()
 						continue
 					}
 				}

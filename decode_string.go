@@ -162,27 +162,34 @@ func appendCoerceInvalidUTF8(b []byte, s []byte) []byte {
 }
 
 func stringBytes(s *stream) ([]byte, error) {
-	s.cursor++
-	start := s.cursor
+	buf, cursor, p := s.stat()
+
+	cursor++ // skip double quote char
+	start := cursor
 	for {
-		switch s.char() {
+		switch char(p, cursor) {
 		case '\\':
+			s.cursor = cursor
 			if err := decodeEscapeString(s); err != nil {
 				return nil, err
 			}
+			buf, cursor, p = s.stat()
 		case '"':
-			literal := s.buf[start:s.cursor]
+			literal := buf[start:cursor]
 			// TODO: this flow is so slow sequence.
 			// literal = appendCoerceInvalidUTF8(make([]byte, 0, len(literal)), literal)
-			s.cursor++
+			cursor++
+			s.cursor = cursor
 			return literal, nil
 		case nul:
+			s.cursor = cursor
 			if s.read() {
+				buf, cursor, p = s.stat()
 				continue
 			}
 			goto ERROR
 		}
-		s.cursor++
+		cursor++
 	}
 ERROR:
 	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())

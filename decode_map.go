@@ -33,16 +33,6 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.keyDecoder.decode(buf, cursor, header.ptr)
-}
-
-func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.valueDecoder.decode(buf, cursor, header.ptr)
-}
-
 func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	switch s.char() {
@@ -130,27 +120,23 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		cursor++
 		return cursor, nil
 	}
-	for ; cursor < buflen; cursor++ {
-		var key interface{}
-		keyCursor, err := d.setKey(buf, cursor, &key)
+	for {
+		k := unsafe_New(d.keyType)
+		keyCursor, err := d.keyDecoder.decode(buf, cursor, k)
 		if err != nil {
 			return 0, err
 		}
-		cursor = keyCursor
-		cursor = skipWhiteSpace(buf, cursor)
+		cursor = skipWhiteSpace(buf, keyCursor)
 		if buf[cursor] != ':' {
 			return 0, errExpected("colon after object key", cursor)
 		}
 		cursor++
-		if cursor >= buflen {
-			return 0, errUnexpectedEndOfJSON("map", cursor)
-		}
-		var value interface{}
-		valueCursor, err := d.setValue(buf, cursor, &value)
+		v := unsafe_New(d.valueType)
+		valueCursor, err := d.valueDecoder.decode(buf, cursor, v)
 		if err != nil {
 			return 0, err
 		}
-		mapassign(d.mapType, mapValue, unsafe.Pointer(&key), unsafe.Pointer(&value))
+		mapassign(d.mapType, mapValue, k, v)
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
@@ -160,6 +146,6 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		if buf[cursor] != ',' {
 			return 0, errExpected("comma after object value", cursor)
 		}
+		cursor++
 	}
-	return cursor, nil
 }

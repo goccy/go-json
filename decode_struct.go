@@ -3,6 +3,7 @@ package json
 import (
 	"fmt"
 	"math"
+	"math/bits"
 	"sort"
 	"strings"
 	"unsafe"
@@ -22,24 +23,18 @@ type structDecoder struct {
 	structName       string
 	fieldName        string
 	isTriedOptimize  bool
-	keyBitmapInt8    [][256]int8
-	keyBitmapInt16   [][256]int16
+	keyBitmapUint8   [][256]uint8
+	keyBitmapUint16  [][256]uint16
 	sortedFieldSets  []*structFieldSet
 	keyDecoder       func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
 	keyStreamDecoder func(*structDecoder, *stream) (*structFieldSet, string, error)
 }
 
 var (
-	bitHashTable      [64]int
 	largeToSmallTable [256]byte
 )
 
 func init() {
-	hash := uint64(0x03F566ED27179461)
-	for i := 0; i < 64; i++ {
-		bitHashTable[hash>>58] = i
-		hash <<= 1
-	}
 	for i := 0; i < 256; i++ {
 		c := i
 		if 'A' <= c && c <= 'Z' {
@@ -114,7 +109,7 @@ func (d *structDecoder) tryOptimize() {
 	// it is possible to avoid the process of comparing the index of the key with the length of the bitmap each time.
 	bitmapLen := maxKeyLen + 1
 	if len(sortedKeys) <= 8 {
-		keyBitmap := make([][256]int8, bitmapLen)
+		keyBitmap := make([][256]uint8, bitmapLen)
 		for i, key := range sortedKeys {
 			for j := 0; j < len(key); j++ {
 				c := key[j]
@@ -122,11 +117,11 @@ func (d *structDecoder) tryOptimize() {
 			}
 			d.sortedFieldSets = append(d.sortedFieldSets, fieldMap[key])
 		}
-		d.keyBitmapInt8 = keyBitmap
-		d.keyDecoder = decodeKeyByBitmapInt8
-		d.keyStreamDecoder = decodeKeyByBitmapInt8Stream
+		d.keyBitmapUint8 = keyBitmap
+		d.keyDecoder = decodeKeyByBitmapUint8
+		d.keyStreamDecoder = decodeKeyByBitmapUint8Stream
 	} else {
-		keyBitmap := make([][256]int16, bitmapLen)
+		keyBitmap := make([][256]uint16, bitmapLen)
 		for i, key := range sortedKeys {
 			for j := 0; j < len(key); j++ {
 				c := key[j]
@@ -134,16 +129,16 @@ func (d *structDecoder) tryOptimize() {
 			}
 			d.sortedFieldSets = append(d.sortedFieldSets, fieldMap[key])
 		}
-		d.keyBitmapInt16 = keyBitmap
-		d.keyDecoder = decodeKeyByBitmapInt16
-		d.keyStreamDecoder = decodeKeyByBitmapInt16Stream
+		d.keyBitmapUint16 = keyBitmap
+		d.keyDecoder = decodeKeyByBitmapUint16
+		d.keyStreamDecoder = decodeKeyByBitmapUint16Stream
 	}
 }
 
-func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
+func decodeKeyByBitmapUint8(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
 	var (
 		field  *structFieldSet
-		curBit int8 = math.MaxInt8
+		curBit uint8 = math.MaxUint8
 	)
 	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	for {
@@ -161,14 +156,13 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 				return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 			}
 			keyIdx := 0
-			bitmap := d.keyBitmapInt8
+			bitmap := d.keyBitmapUint8
 			start := cursor
 			for {
 				c := char(b, cursor)
 				switch c {
 				case '"':
-					x := uint64(curBit & -curBit)
-					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
+					fieldSetIndex := bits.TrailingZeros8(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
 					keyLen := cursor - start
 					cursor++
@@ -208,10 +202,10 @@ func decodeKeyByBitmapInt8(d *structDecoder, buf []byte, cursor int64) (int64, *
 	}
 }
 
-func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
+func decodeKeyByBitmapUint16(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
 	var (
 		field  *structFieldSet
-		curBit int16 = math.MaxInt16
+		curBit uint16 = math.MaxUint16
 	)
 	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	for {
@@ -229,14 +223,13 @@ func decodeKeyByBitmapInt16(d *structDecoder, buf []byte, cursor int64) (int64, 
 				return 0, nil, errUnexpectedEndOfJSON("string", cursor)
 			}
 			keyIdx := 0
-			bitmap := d.keyBitmapInt16
+			bitmap := d.keyBitmapUint16
 			start := cursor
 			for {
 				c := char(b, cursor)
 				switch c {
 				case '"':
-					x := uint64(curBit & -curBit)
-					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
+					fieldSetIndex := bits.TrailingZeros16(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
 					keyLen := cursor - start
 					cursor++
@@ -290,10 +283,10 @@ func decodeKey(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldS
 	return cursor, field, nil
 }
 
-func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, string, error) {
+func decodeKeyByBitmapUint8Stream(d *structDecoder, s *stream) (*structFieldSet, string, error) {
 	var (
 		field  *structFieldSet
-		curBit int8 = math.MaxInt8
+		curBit uint8 = math.MaxUint8
 	)
 	for {
 		switch s.char() {
@@ -319,13 +312,12 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 				return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 			}
 			keyIdx := 0
-			bitmap := d.keyBitmapInt8
+			bitmap := d.keyBitmapUint8
 			for {
 				c := s.char()
 				switch c {
 				case '"':
-					x := uint64(curBit & -curBit)
-					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
+					fieldSetIndex := bits.TrailingZeros8(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
 					keyLen := s.cursor - start
 					s.cursor++
@@ -374,10 +366,10 @@ func decodeKeyByBitmapInt8Stream(d *structDecoder, s *stream) (*structFieldSet, 
 	}
 }
 
-func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet, string, error) {
+func decodeKeyByBitmapUint16Stream(d *structDecoder, s *stream) (*structFieldSet, string, error) {
 	var (
 		field  *structFieldSet
-		curBit int16 = math.MaxInt16
+		curBit uint16 = math.MaxUint16
 	)
 	for {
 		switch s.char() {
@@ -403,13 +395,12 @@ func decodeKeyByBitmapInt16Stream(d *structDecoder, s *stream) (*structFieldSet,
 				return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 			}
 			keyIdx := 0
-			bitmap := d.keyBitmapInt16
+			bitmap := d.keyBitmapUint16
 			for {
 				c := s.char()
 				switch c {
 				case '"':
-					x := uint64(curBit & -curBit)
-					fieldSetIndex := bitHashTable[(x*0x03F566ED27179461)>>58]
+					fieldSetIndex := bits.TrailingZeros16(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
 					keyLen := s.cursor - start
 					s.cursor++

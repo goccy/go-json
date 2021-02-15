@@ -150,6 +150,8 @@ func (d *Decoder) Decode(v interface{}) error {
 	if err := dec.decodeStream(s, header.ptr); err != nil {
 		return err
 	}
+	s.reset()
+	s.bufSize = initBufSize
 	return nil
 }
 

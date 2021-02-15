@@ -33,16 +33,6 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) setKey(buf []byte, cursor int64, key interface{}) (int64, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.keyDecoder.decode(buf, cursor, header.ptr)
-}
-
-func (d *mapDecoder) setValue(buf []byte, cursor int64, key interface{}) (int64, error) {
-	header := (*interfaceHeader)(unsafe.Pointer(&key))
-	return d.valueDecoder.decode(buf, cursor, header.ptr)
-}
-
 func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	switch s.char() {
@@ -136,7 +126,6 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		if err != nil {
 			return 0, err
 		}
-		cursor = keyCursor
 		cursor = skipWhiteSpace(buf, keyCursor)
 		if buf[cursor] != ':' {
 			return 0, errExpected("colon after object key", cursor)
@@ -159,5 +148,4 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		}
 		cursor++
 	}
-	return cursor, nil
 }

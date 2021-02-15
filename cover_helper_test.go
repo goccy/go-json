@@ -18,6 +18,7 @@ func uint64ptr(v uint64) *uint64    { return &v }
 func float32ptr(v float32) *float32 { return &v }
 func float64ptr(v float64) *float64 { return &v }
 func stringptr(v string) *string    { return &v }
+func boolptr(v bool) *bool          { return &v }
 
 func encodeByEncodingJSON(data interface{}, indent, escape bool) string {
 	var buf bytes.Buffer

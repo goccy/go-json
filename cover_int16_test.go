@@ -2,7 +2,6 @@ package json_test
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -30,42 +29,24 @@ func TestCoverInt16(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		expected       string
-		indentExpected string
-		data           interface{}
+		name string
+		data interface{}
 	}{
 		// HeadInt16Zero
 		{
-			name:     "HeadInt16Zero",
-			expected: `{"a":0}`,
-			indentExpected: `
-{
-  "a": 0
-}
-`,
+			name: "HeadInt16Zero",
 			data: struct {
 				A int16 `json:"a"`
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt16ZeroOmitEmpty",
 			data: struct {
 				A int16 `json:"a,omitempty"`
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroString",
-			expected: `{"a":"0"}`,
-			indentExpected: `
-{
-  "a": "0"
-}
-`,
+			name: "HeadInt16ZeroString",
 			data: struct {
 				A int16 `json:"a,string"`
 			}{},
@@ -73,37 +54,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// HeadInt16
 		{
-			name:     "HeadInt16",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt16",
 			data: struct {
 				A int16 `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "HeadInt16OmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt16OmitEmpty",
 			data: struct {
 				A int16 `json:"a,omitempty"`
 			}{A: 1},
 		},
 		{
-			name:     "HeadInt16String",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "HeadInt16String",
 			data: struct {
 				A int16 `json:"a,string"`
 			}{A: 1},
@@ -111,37 +74,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// HeadInt16Ptr
 		{
-			name:     "HeadInt16Ptr",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt16Ptr",
 			data: struct {
 				A *int16 `json:"a"`
 			}{A: int16ptr(1)},
 		},
 		{
-			name:     "HeadInt16PtrOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt16PtrOmitEmpty",
 			data: struct {
 				A *int16 `json:"a,omitempty"`
 			}{A: int16ptr(1)},
 		},
 		{
-			name:     "HeadInt16PtrString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "HeadInt16PtrString",
 			data: struct {
 				A *int16 `json:"a,string"`
 			}{A: int16ptr(1)},
@@ -149,35 +94,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// HeadInt16PtrNil
 		{
-			name:     "HeadInt16PtrNil",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "HeadInt16PtrNil",
 			data: struct {
 				A *int16 `json:"a"`
 			}{A: nil},
 		},
 		{
-			name:     "HeadInt16PtrNilOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt16PtrNilOmitEmpty",
 			data: struct {
 				A *int16 `json:"a,omitempty"`
 			}{A: nil},
 		},
 		{
-			name:     "HeadInt16PtrNilString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "HeadInt16PtrNilString",
 			data: struct {
 				A *int16 `json:"a,string"`
 			}{A: nil},
@@ -185,35 +114,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// PtrHeadInt16Zero
 		{
-			name:     "PtrHeadInt16Zero",
-			expected: `{"a":0}`,
-			indentExpected: `
-{
-  "a": 0
-}
-`,
+			name: "PtrHeadInt16Zero",
 			data: &struct {
 				A int16 `json:"a"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16ZeroOmitEmpty",
 			data: &struct {
 				A int16 `json:"a,omitempty"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroString",
-			expected: `{"a":"0"}`,
-			indentExpected: `
-{
-  "a": "0"
-}
-`,
+			name: "PtrHeadInt16ZeroString",
 			data: &struct {
 				A int16 `json:"a,string"`
 			}{},
@@ -221,37 +134,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// PtrHeadInt16
 		{
-			name:     "PtrHeadInt16",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt16",
 			data: &struct {
 				A int16 `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "PtrHeadInt16OmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt16OmitEmpty",
 			data: &struct {
 				A int16 `json:"a,omitempty"`
 			}{A: 1},
 		},
 		{
-			name:     "PtrHeadInt16String",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrHeadInt16String",
 			data: &struct {
 				A int16 `json:"a,string"`
 			}{A: 1},
@@ -259,37 +154,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// PtrHeadInt16Ptr
 		{
-			name:     "PtrHeadInt16Ptr",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt16Ptr",
 			data: &struct {
 				A *int16 `json:"a"`
 			}{A: int16ptr(1)},
 		},
 		{
-			name:     "PtrHeadInt16PtrOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt16PtrOmitEmpty",
 			data: &struct {
 				A *int16 `json:"a,omitempty"`
 			}{A: int16ptr(1)},
 		},
 		{
-			name:     "PtrHeadInt16PtrString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrHeadInt16PtrString",
 			data: &struct {
 				A *int16 `json:"a,string"`
 			}{A: int16ptr(1)},
@@ -297,35 +174,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// PtrHeadInt16PtrNil
 		{
-			name:     "PtrHeadInt16PtrNil",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "PtrHeadInt16PtrNil",
 			data: &struct {
 				A *int16 `json:"a"`
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16PtrNilOmitEmpty",
 			data: &struct {
 				A *int16 `json:"a,omitempty"`
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "PtrHeadInt16PtrNilString",
 			data: &struct {
 				A *int16 `json:"a,string"`
 			}{A: nil},
@@ -333,31 +194,19 @@ func TestCoverInt16(t *testing.T) {
 
 		// PtrHeadInt16Nil
 		{
-			name:     "PtrHeadInt16Nil",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16Nil",
 			data: (*struct {
 				A *int16 `json:"a"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilOmitEmpty",
 			data: (*struct {
 				A *int16 `json:"a,omitempty"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilString",
 			data: (*struct {
 				A *int16 `json:"a,string"`
 			})(nil),
@@ -365,209 +214,125 @@ null
 
 		// HeadInt16ZeroMultiFields
 		{
-			name:     "HeadInt16ZeroMultiFields",
-			expected: `{"a":0,"b":0}`,
-			indentExpected: `
-{
-  "a": 0,
-  "b": 0
-}
-`,
+			name: "HeadInt16ZeroMultiFields",
 			data: struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
+				C int16 `json:"c"`
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt16ZeroMultiFieldsOmitEmpty",
 			data: struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
+				C int16 `json:"c,omitempty"`
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroMultiFields",
-			expected: `{"a":"0","b":"0"}`,
-			indentExpected: `
-{
-  "a": "0",
-  "b": "0"
-}
-`,
+			name: "HeadInt16ZeroMultiFields",
 			data: struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
+				C int16 `json:"c,string"`
 			}{},
 		},
 
 		// HeadInt16MultiFields
 		{
-			name:     "HeadInt16MultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt16MultiFields",
 			data: struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
-			}{A: 1, B: 2},
+				C int16 `json:"c"`
+			}{A: 1, B: 2, C: 3},
 		},
 		{
-			name:     "HeadInt16MultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt16MultiFieldsOmitEmpty",
 			data: struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
-			}{A: 1, B: 2},
+				C int16 `json:"c,omitempty"`
+			}{A: 1, B: 2, C: 3},
 		},
 		{
-			name:     "HeadInt16MultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "HeadInt16MultiFieldsString",
 			data: struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
-			}{A: 1, B: 2},
+				C int16 `json:"c,string"`
+			}{A: 1, B: 2, C: 3},
 		},
 
 		// HeadInt16PtrMultiFields
 		{
-			name:     "HeadInt16PtrMultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt16PtrMultiFields",
 			data: struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+				C *int16 `json:"c"`
+			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
 		},
 		{
-			name:     "HeadInt16PtrMultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt16PtrMultiFieldsOmitEmpty",
 			data: struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+				C *int16 `json:"c,omitempty"`
+			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
 		},
 		{
-			name:     "HeadInt16PtrMultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "HeadInt16PtrMultiFieldsString",
 			data: struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+				C *int16 `json:"c,string"`
+			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
 		},
 
 		// HeadInt16PtrNilMultiFields
 		{
-			name:     "HeadInt16PtrNilMultiFields",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "HeadInt16PtrNilMultiFields",
 			data: struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
-			}{A: nil, B: nil},
+				C *int16 `json:"c"`
+			}{A: nil, B: nil, C: nil},
 		},
 		{
-			name:     "HeadInt16PtrNilMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt16PtrNilMultiFieldsOmitEmpty",
 			data: struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
-			}{A: nil, B: nil},
+				C *int16 `json:"c,omitempty"`
+			}{A: nil, B: nil, C: nil},
 		},
 		{
-			name:     "HeadInt16PtrNilMultiFieldsString",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "HeadInt16PtrNilMultiFieldsString",
 			data: struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
-			}{A: nil, B: nil},
+				C *int16 `json:"c,string"`
+			}{A: nil, B: nil, C: nil},
 		},
 
 		// PtrHeadInt16ZeroMultiFields
 		{
-			name:     "PtrHeadInt16ZeroMultiFields",
-			expected: `{"a":0,"b":0}`,
-			indentExpected: `
-{
-  "a": 0,
-  "b": 0
-}
-`,
+			name: "PtrHeadInt16ZeroMultiFields",
 			data: &struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16ZeroMultiFieldsOmitEmpty",
 			data: &struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroMultiFieldsString",
-			expected: `{"a":"0","b":"0"}`,
-			indentExpected: `
-{
-  "a": "0",
-  "b": "0"
-}
-`,
+			name: "PtrHeadInt16ZeroMultiFieldsString",
 			data: &struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
@@ -576,42 +341,21 @@ null
 
 		// PtrHeadInt16MultiFields
 		{
-			name:     "PtrHeadInt16MultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt16MultiFields",
 			data: &struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
 			}{A: 1, B: 2},
 		},
 		{
-			name:     "PtrHeadInt16MultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt16MultiFieldsOmitEmpty",
 			data: &struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
 			}{A: 1, B: 2},
 		},
 		{
-			name:     "PtrHeadInt16MultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrHeadInt16MultiFieldsString",
 			data: &struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
@@ -620,42 +364,21 @@ null
 
 		// PtrHeadInt16PtrMultiFields
 		{
-			name:     "PtrHeadInt16PtrMultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt16PtrMultiFields",
 			data: &struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 			}{A: int16ptr(1), B: int16ptr(2)},
 		},
 		{
-			name:     "PtrHeadInt16PtrMultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt16PtrMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
 			}{A: int16ptr(1), B: int16ptr(2)},
 		},
 		{
-			name:     "PtrHeadInt16PtrMultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrHeadInt16PtrMultiFieldsString",
 			data: &struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
@@ -664,39 +387,21 @@ null
 
 		// PtrHeadInt16PtrNilMultiFields
 		{
-			name:     "PtrHeadInt16PtrNilMultiFields",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "PtrHeadInt16PtrNilMultiFields",
 			data: &struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16PtrNilMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilMultiFieldsString",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "PtrHeadInt16PtrNilMultiFieldsString",
 			data: &struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
@@ -705,33 +410,21 @@ null
 
 		// PtrHeadInt16NilMultiFields
 		{
-			name:     "PtrHeadInt16NilMultiFields",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFields",
 			data: (*struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilMultiFieldsOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFieldsOmitEmpty",
 			data: (*struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilMultiFieldsString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFieldsString",
 			data: (*struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
@@ -740,15 +433,7 @@ null
 
 		// HeadInt16ZeroNotRoot
 		{
-			name:     "HeadInt16ZeroNotRoot",
-			expected: `{"A":{"a":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  }
-}
-`,
+			name: "HeadInt16ZeroNotRoot",
 			data: struct {
 				A struct {
 					A int16 `json:"a"`
@@ -756,13 +441,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "HeadInt16ZeroNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -770,15 +449,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroNotRootString",
-			expected: `{"A":{"a":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  }
-}
-`,
+			name: "HeadInt16ZeroNotRootString",
 			data: struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -788,15 +459,7 @@ null
 
 		// HeadInt16NotRoot
 		{
-			name:     "HeadInt16NotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt16NotRoot",
 			data: struct {
 				A struct {
 					A int16 `json:"a"`
@@ -806,15 +469,7 @@ null
 			}{A: 1}},
 		},
 		{
-			name:     "HeadInt16NotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt16NotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -824,15 +479,7 @@ null
 			}{A: 1}},
 		},
 		{
-			name:     "HeadInt16NotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "HeadInt16NotRootString",
 			data: struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -844,15 +491,7 @@ null
 
 		// HeadInt16PtrNotRoot
 		{
-			name:     "HeadInt16PtrNotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt16PtrNotRoot",
 			data: struct {
 				A struct {
 					A *int16 `json:"a"`
@@ -862,15 +501,7 @@ null
 			}{int16ptr(1)}},
 		},
 		{
-			name:     "HeadInt16PtrNotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt16PtrNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,omitempty"`
@@ -880,15 +511,7 @@ null
 			}{int16ptr(1)}},
 		},
 		{
-			name:     "HeadInt16PtrNotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "HeadInt16PtrNotRootString",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,string"`
@@ -900,15 +523,7 @@ null
 
 		// HeadInt16PtrNilNotRoot
 		{
-			name:     "HeadInt16PtrNilNotRoot",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "HeadInt16PtrNilNotRoot",
 			data: struct {
 				A struct {
 					A *int16 `json:"a"`
@@ -916,13 +531,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16PtrNilNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "HeadInt16PtrNilNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,omitempty"`
@@ -930,15 +539,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16PtrNilNotRootString",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "HeadInt16PtrNilNotRootString",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,string"`
@@ -948,15 +549,7 @@ null
 
 		// PtrHeadInt16ZeroNotRoot
 		{
-			name:     "PtrHeadInt16ZeroNotRoot",
-			expected: `{"A":{"a":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  }
-}
-`,
+			name: "PtrHeadInt16ZeroNotRoot",
 			data: struct {
 				A *struct {
 					A int16 `json:"a"`
@@ -966,13 +559,7 @@ null
 			})},
 		},
 		{
-			name:     "PtrHeadInt16ZeroNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "PtrHeadInt16ZeroNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A int16 `json:"a,omitempty"`
@@ -982,15 +569,7 @@ null
 			})},
 		},
 		{
-			name:     "PtrHeadInt16ZeroNotRootString",
-			expected: `{"A":{"a":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  }
-}
-`,
+			name: "PtrHeadInt16ZeroNotRootString",
 			data: struct {
 				A *struct {
 					A int16 `json:"a,string"`
@@ -1002,15 +581,7 @@ null
 
 		// PtrHeadInt16NotRoot
 		{
-			name:     "PtrHeadInt16NotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt16NotRoot",
 			data: struct {
 				A *struct {
 					A int16 `json:"a"`
@@ -1020,15 +591,7 @@ null
 			}{A: 1})},
 		},
 		{
-			name:     "PtrHeadInt16NotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt16NotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A int16 `json:"a,omitempty"`
@@ -1038,15 +601,7 @@ null
 			}{A: 1})},
 		},
 		{
-			name:     "PtrHeadInt16NotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "PtrHeadInt16NotRootString",
 			data: struct {
 				A *struct {
 					A int16 `json:"a,string"`
@@ -1058,15 +613,7 @@ null
 
 		// PtrHeadInt16PtrNotRoot
 		{
-			name:     "PtrHeadInt16PtrNotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt16PtrNotRoot",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1076,15 +623,7 @@ null
 			}{A: int16ptr(1)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrNotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt16PtrNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1094,15 +633,7 @@ null
 			}{A: int16ptr(1)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrNotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "PtrHeadInt16PtrNotRootString",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1114,15 +645,7 @@ null
 
 		// PtrHeadInt16PtrNilNotRoot
 		{
-			name:     "PtrHeadInt16PtrNilNotRoot",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "PtrHeadInt16PtrNilNotRoot",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1132,13 +655,7 @@ null
 			}{A: nil})},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "PtrHeadInt16PtrNilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1148,15 +665,7 @@ null
 			}{A: nil})},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilNotRootString",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "PtrHeadInt16PtrNilNotRootString",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1168,13 +677,7 @@ null
 
 		// PtrHeadInt16NilNotRoot
 		{
-			name:     "PtrHeadInt16NilNotRoot",
-			expected: `{"A":null}`,
-			indentExpected: `
-{
-  "A": null
-}
-`,
+			name: "PtrHeadInt16NilNotRoot",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1182,11 +685,7 @@ null
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt16NilNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16NilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1194,13 +693,7 @@ null
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt16NilNotRootString",
-			expected: `{"A":null}`,
-			indentExpected: `
-{
-  "A": null
-}
-`,
+			name: "PtrHeadInt16NilNotRootString",
 			data: struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1210,18 +703,7 @@ null
 
 		// HeadInt16ZeroMultiFieldsNotRoot
 		{
-			name:     "HeadInt16ZeroMultiFieldsNotRoot",
-			expected: `{"A":{"a":0},"B":{"b":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  },
-  "B": {
-    "b": 0
-  }
-}
-`,
+			name: "HeadInt16ZeroMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A int16 `json:"a"`
@@ -1232,14 +714,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "HeadInt16ZeroMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -1250,18 +725,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt16ZeroMultiFieldsNotRootString",
-			expected: `{"A":{"a":"0"},"B":{"b":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  },
-  "B": {
-    "b": "0"
-  }
-}
-`,
+			name: "HeadInt16ZeroMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -1274,18 +738,7 @@ null
 
 		// HeadInt16MultiFieldsNotRoot
 		{
-			name:     "HeadInt16MultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt16MultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A int16 `json:"a"`
@@ -1300,18 +753,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "HeadInt16MultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt16MultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -1326,18 +768,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "HeadInt16MultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "HeadInt16MultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -1354,18 +785,7 @@ null
 
 		// HeadInt16PtrMultiFieldsNotRoot
 		{
-			name:     "HeadInt16PtrMultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt16PtrMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A *int16 `json:"a"`
@@ -1380,18 +800,7 @@ null
 			}{B: int16ptr(2)}},
 		},
 		{
-			name:     "HeadInt16PtrMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt16PtrMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,omitempty"`
@@ -1406,18 +815,7 @@ null
 			}{B: int16ptr(2)}},
 		},
 		{
-			name:     "HeadInt16PtrMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "HeadInt16PtrMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,string"`
@@ -1434,18 +832,7 @@ null
 
 		// HeadInt16PtrNilMultiFieldsNotRoot
 		{
-			name:     "HeadInt16PtrNilMultiFieldsNotRoot",
-			expected: `{"A":{"a":null},"B":{"b":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  },
-  "B": {
-    "b": null
-  }
-}
-`,
+			name: "HeadInt16PtrNilMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A *int16 `json:"a"`
@@ -1460,14 +847,7 @@ null
 			}{B: nil}},
 		},
 		{
-			name:     "HeadInt16PtrNilMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "HeadInt16PtrNilMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,omitempty"`
@@ -1482,18 +862,7 @@ null
 			}{B: nil}},
 		},
 		{
-			name:     "HeadInt16PtrNilMultiFieldsNotRootString",
-			expected: `{"A":{"a":null},"B":{"b":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  },
-  "B": {
-    "b": null
-  }
-}
-`,
+			name: "HeadInt16PtrNilMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A *int16 `json:"a,string"`
@@ -1510,18 +879,7 @@ null
 
 		// PtrHeadInt16ZeroMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16ZeroMultiFieldsNotRoot",
-			expected: `{"A":{"a":0},"B":{"b":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  },
-  "B": {
-    "b": 0
-  }
-}
-`,
+			name: "PtrHeadInt16ZeroMultiFieldsNotRoot",
 			data: &struct {
 				A struct {
 					A int16 `json:"a"`
@@ -1532,14 +890,7 @@ null
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "PtrHeadInt16ZeroMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -1550,18 +901,7 @@ null
 			}{},
 		},
 		{
-			name:     "PtrHeadInt16ZeroMultiFieldsNotRootString",
-			expected: `{"A":{"a":"0"},"B":{"b":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  },
-  "B": {
-    "b": "0"
-  }
-}
-`,
+			name: "PtrHeadInt16ZeroMultiFieldsNotRootString",
 			data: &struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -1574,18 +914,7 @@ null
 
 		// PtrHeadInt16MultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16MultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt16MultiFieldsNotRoot",
 			data: &struct {
 				A struct {
 					A int16 `json:"a"`
@@ -1600,18 +929,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "PtrHeadInt16MultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt16MultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
 					A int16 `json:"a,omitempty"`
@@ -1626,18 +944,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "PtrHeadInt16MultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "PtrHeadInt16MultiFieldsNotRootString",
 			data: &struct {
 				A struct {
 					A int16 `json:"a,string"`
@@ -1654,18 +961,7 @@ null
 
 		// PtrHeadInt16PtrMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16PtrMultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt16PtrMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1680,18 +976,7 @@ null
 			}{B: int16ptr(2)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt16PtrMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1706,18 +991,7 @@ null
 			}{B: int16ptr(2)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "PtrHeadInt16PtrMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1734,14 +1008,7 @@ null
 
 		// PtrHeadInt16PtrNilMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16PtrNilMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16PtrNilMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1752,11 +1019,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16PtrNilMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1767,14 +1030,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16PtrNilMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1787,11 +1043,7 @@ null
 
 		// PtrHeadInt16NilMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16NilMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -1802,11 +1054,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -1817,11 +1065,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -1834,20 +1078,7 @@ null
 
 		// PtrHeadInt16DoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16DoubleMultiFieldsNotRoot",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt16DoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a"`
@@ -1866,20 +1097,7 @@ null
 			}{A: 3, B: 4})},
 		},
 		{
-			name:     "PtrHeadInt16DoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt16DoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a,omitempty"`
@@ -1898,20 +1116,7 @@ null
 			}{A: 3, B: 4})},
 		},
 		{
-			name:     "PtrHeadInt16DoubleMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1","b":"2"},"B":{"a":"3","b":"4"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1",
-    "b": "2"
-  },
-  "B": {
-    "a": "3",
-    "b": "4"
-  }
-}
-`,
+			name: "PtrHeadInt16DoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a,string"`
@@ -1932,14 +1137,7 @@ null
 
 		// PtrHeadInt16NilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a"`
@@ -1952,11 +1150,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a,omitempty"`
@@ -1969,14 +1163,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A int16 `json:"a,string"`
@@ -1991,11 +1178,7 @@ null
 
 		// PtrHeadInt16NilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A int16 `json:"a"`
@@ -2008,11 +1191,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A int16 `json:"a,omitempty"`
@@ -2025,11 +1204,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16NilDoubleMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16NilDoubleMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A int16 `json:"a,string"`
@@ -2044,20 +1219,7 @@ null
 
 		// PtrHeadInt16PtrDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16PtrDoubleMultiFieldsNotRoot",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt16PtrDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -2076,20 +1238,7 @@ null
 			}{A: int16ptr(3), B: int16ptr(4)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt16PtrDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -2108,20 +1257,7 @@ null
 			}{A: int16ptr(3), B: int16ptr(4)})},
 		},
 		{
-			name:     "PtrHeadInt16PtrDoubleMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1","b":"2"},"B":{"a":"3","b":"4"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1",
-    "b": "2"
-  },
-  "B": {
-    "a": "3",
-    "b": "4"
-  }
-}
-`,
+			name: "PtrHeadInt16PtrDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -2142,14 +1278,7 @@ null
 
 		// PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -2162,11 +1291,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -2179,14 +1304,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -2201,11 +1319,7 @@ null
 
 		// PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a"`
@@ -2218,11 +1332,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a,omitempty"`
@@ -2235,11 +1345,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt16PtrNilDoubleMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A *int16 `json:"a,string"`
@@ -2254,14 +1360,7 @@ null
 
 		// AnonymousHeadInt16
 		{
-			name:     "AnonymousHeadInt16",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16",
 			data: struct {
 				structInt16
 				B int16 `json:"b"`
@@ -2271,14 +1370,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16OmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16OmitEmpty",
 			data: struct {
 				structInt16OmitEmpty
 				B int16 `json:"b,omitempty"`
@@ -2288,14 +1380,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16String",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt16String",
 			data: struct {
 				structInt16String
 				B int16 `json:"b,string"`
@@ -2307,14 +1392,7 @@ null
 
 		// PtrAnonymousHeadInt16
 		{
-			name:     "PtrAnonymousHeadInt16",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt16",
 			data: struct {
 				*structInt16
 				B int16 `json:"b"`
@@ -2324,14 +1402,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16OmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt16OmitEmpty",
 			data: struct {
 				*structInt16OmitEmpty
 				B int16 `json:"b,omitempty"`
@@ -2341,14 +1412,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16String",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrAnonymousHeadInt16String",
 			data: struct {
 				*structInt16String
 				B int16 `json:"b,string"`
@@ -2360,13 +1424,7 @@ null
 
 		// NilPtrAnonymousHeadInt16
 		{
-			name:     "NilPtrAnonymousHeadInt16",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt16",
 			data: struct {
 				*structInt16
 				B int16 `json:"b"`
@@ -2376,13 +1434,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16OmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt16OmitEmpty",
 			data: struct {
 				*structInt16OmitEmpty
 				B int16 `json:"b,omitempty"`
@@ -2392,13 +1444,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16String",
-			expected: `{"b":"2"}`,
-			indentExpected: `
-{
-  "b": "2"
-}
-`,
+			name: "NilPtrAnonymousHeadInt16String",
 			data: struct {
 				*structInt16String
 				B int16 `json:"b,string"`
@@ -2410,14 +1456,7 @@ null
 
 		// AnonymousHeadInt16Ptr
 		{
-			name:     "AnonymousHeadInt16Ptr",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16Ptr",
 			data: struct {
 				structInt16Ptr
 				B *int16 `json:"b"`
@@ -2427,14 +1466,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16PtrOmitEmpty",
 			data: struct {
 				structInt16PtrOmitEmpty
 				B *int16 `json:"b,omitempty"`
@@ -2444,14 +1476,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt16PtrString",
 			data: struct {
 				structInt16PtrString
 				B *int16 `json:"b,string"`
@@ -2463,14 +1488,7 @@ null
 
 		// AnonymousHeadInt16PtrNil
 		{
-			name:     "AnonymousHeadInt16PtrNil",
-			expected: `{"a":null,"b":2}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16PtrNil",
 			data: struct {
 				structInt16Ptr
 				B *int16 `json:"b"`
@@ -2480,13 +1498,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrNilOmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt16PtrNilOmitEmpty",
 			data: struct {
 				structInt16PtrOmitEmpty
 				B *int16 `json:"b,omitempty"`
@@ -2496,14 +1508,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrNilString",
-			expected: `{"a":null,"b":"2"}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt16PtrNilString",
 			data: struct {
 				structInt16PtrString
 				B *int16 `json:"b,string"`
@@ -2515,14 +1520,7 @@ null
 
 		// PtrAnonymousHeadInt16Ptr
 		{
-			name:     "PtrAnonymousHeadInt16Ptr",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt16Ptr",
 			data: struct {
 				*structInt16Ptr
 				B *int16 `json:"b"`
@@ -2532,14 +1530,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16PtrOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt16PtrOmitEmpty",
 			data: struct {
 				*structInt16PtrOmitEmpty
 				B *int16 `json:"b,omitempty"`
@@ -2549,14 +1540,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16PtrString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrAnonymousHeadInt16PtrString",
 			data: struct {
 				*structInt16PtrString
 				B *int16 `json:"b,string"`
@@ -2568,13 +1552,7 @@ null
 
 		// NilPtrAnonymousHeadInt16Ptr
 		{
-			name:     "NilPtrAnonymousHeadInt16Ptr",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt16Ptr",
 			data: struct {
 				*structInt16Ptr
 				B *int16 `json:"b"`
@@ -2584,13 +1562,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16PtrOmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt16PtrOmitEmpty",
 			data: struct {
 				*structInt16PtrOmitEmpty
 				B *int16 `json:"b,omitempty"`
@@ -2600,13 +1572,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16PtrString",
-			expected: `{"b":"2"}`,
-			indentExpected: `
-{
-  "b": "2"
-}
-`,
+			name: "NilPtrAnonymousHeadInt16PtrString",
 			data: struct {
 				*structInt16PtrString
 				B *int16 `json:"b,string"`
@@ -2618,13 +1584,7 @@ null
 
 		// AnonymousHeadInt16Only
 		{
-			name:     "AnonymousHeadInt16Only",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt16Only",
 			data: struct {
 				structInt16
 			}{
@@ -2632,13 +1592,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16OnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt16OnlyOmitEmpty",
 			data: struct {
 				structInt16OmitEmpty
 			}{
@@ -2646,13 +1600,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16OnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "AnonymousHeadInt16OnlyString",
 			data: struct {
 				structInt16String
 			}{
@@ -2662,13 +1610,7 @@ null
 
 		// PtrAnonymousHeadInt16Only
 		{
-			name:     "PtrAnonymousHeadInt16Only",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt16Only",
 			data: struct {
 				*structInt16
 			}{
@@ -2676,13 +1618,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16OnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt16OnlyOmitEmpty",
 			data: struct {
 				*structInt16OmitEmpty
 			}{
@@ -2690,13 +1626,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16OnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrAnonymousHeadInt16OnlyString",
 			data: struct {
 				*structInt16String
 			}{
@@ -2706,11 +1636,7 @@ null
 
 		// NilPtrAnonymousHeadInt16Only
 		{
-			name:     "NilPtrAnonymousHeadInt16Only",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16Only",
 			data: struct {
 				*structInt16
 			}{
@@ -2718,11 +1644,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16OnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16OnlyOmitEmpty",
 			data: struct {
 				*structInt16OmitEmpty
 			}{
@@ -2730,11 +1652,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16OnlyString",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16OnlyString",
 			data: struct {
 				*structInt16String
 			}{
@@ -2744,13 +1662,7 @@ null
 
 		// AnonymousHeadInt16PtrOnly
 		{
-			name:     "AnonymousHeadInt16PtrOnly",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt16PtrOnly",
 			data: struct {
 				structInt16Ptr
 			}{
@@ -2758,13 +1670,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrOnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt16PtrOnlyOmitEmpty",
 			data: struct {
 				structInt16PtrOmitEmpty
 			}{
@@ -2772,13 +1678,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrOnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "AnonymousHeadInt16PtrOnlyString",
 			data: struct {
 				structInt16PtrString
 			}{
@@ -2788,13 +1688,7 @@ null
 
 		// AnonymousHeadInt16PtrNilOnly
 		{
-			name:     "AnonymousHeadInt16PtrNilOnly",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "AnonymousHeadInt16PtrNilOnly",
 			data: struct {
 				structInt16Ptr
 			}{
@@ -2802,11 +1696,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrNilOnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "AnonymousHeadInt16PtrNilOnlyOmitEmpty",
 			data: struct {
 				structInt16PtrOmitEmpty
 			}{
@@ -2814,13 +1704,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt16PtrNilOnlyString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "AnonymousHeadInt16PtrNilOnlyString",
 			data: struct {
 				structInt16PtrString
 			}{
@@ -2830,13 +1714,7 @@ null
 
 		// PtrAnonymousHeadInt16PtrOnly
 		{
-			name:     "PtrAnonymousHeadInt16PtrOnly",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt16PtrOnly",
 			data: struct {
 				*structInt16Ptr
 			}{
@@ -2844,13 +1722,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16PtrOnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt16PtrOnlyOmitEmpty",
 			data: struct {
 				*structInt16PtrOmitEmpty
 			}{
@@ -2858,13 +1730,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt16PtrOnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrAnonymousHeadInt16PtrOnlyString",
 			data: struct {
 				*structInt16PtrString
 			}{
@@ -2874,11 +1740,7 @@ null
 
 		// NilPtrAnonymousHeadInt16PtrOnly
 		{
-			name:     "NilPtrAnonymousHeadInt16PtrOnly",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16PtrOnly",
 			data: struct {
 				*structInt16Ptr
 			}{
@@ -2886,11 +1748,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16PtrOnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16PtrOnlyOmitEmpty",
 			data: struct {
 				*structInt16PtrOmitEmpty
 			}{
@@ -2898,11 +1756,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt16PtrOnlyString",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt16PtrOnlyString",
 			data: struct {
 				*structInt16PtrString
 			}{
@@ -2920,21 +1774,11 @@ null
 					enc.SetIndent("", "  ")
 				}
 				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+					t.Fatalf("%s(htmlEscape:%T): %+v: %s", test.name, htmlEscape, test.data, err)
 				}
 				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
 				if buf.String() != stdresult {
 					t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
-				}
-				if indent {
-					got := "\n" + buf.String()
-					if got != test.indentExpected {
-						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
-					}
-				} else {
-					if strings.TrimRight(buf.String(), "\n") != test.expected {
-						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
-					}
 				}
 			}
 		}

@@ -2,7 +2,6 @@ package json_test
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -30,42 +29,24 @@ func TestCoverInt64(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		expected       string
-		indentExpected string
-		data           interface{}
+		name string
+		data interface{}
 	}{
 		// HeadInt64Zero
 		{
-			name:     "HeadInt64Zero",
-			expected: `{"a":0}`,
-			indentExpected: `
-{
-  "a": 0
-}
-`,
+			name: "HeadInt64Zero",
 			data: struct {
 				A int64 `json:"a"`
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt64ZeroOmitEmpty",
 			data: struct {
 				A int64 `json:"a,omitempty"`
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroString",
-			expected: `{"a":"0"}`,
-			indentExpected: `
-{
-  "a": "0"
-}
-`,
+			name: "HeadInt64ZeroString",
 			data: struct {
 				A int64 `json:"a,string"`
 			}{},
@@ -73,37 +54,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// HeadInt64
 		{
-			name:     "HeadInt64",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt64",
 			data: struct {
 				A int64 `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "HeadInt64OmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt64OmitEmpty",
 			data: struct {
 				A int64 `json:"a,omitempty"`
 			}{A: 1},
 		},
 		{
-			name:     "HeadInt64String",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "HeadInt64String",
 			data: struct {
 				A int64 `json:"a,string"`
 			}{A: 1},
@@ -111,37 +74,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// HeadInt64Ptr
 		{
-			name:     "HeadInt64Ptr",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt64Ptr",
 			data: struct {
 				A *int64 `json:"a"`
 			}{A: int64ptr(1)},
 		},
 		{
-			name:     "HeadInt64PtrOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "HeadInt64PtrOmitEmpty",
 			data: struct {
 				A *int64 `json:"a,omitempty"`
 			}{A: int64ptr(1)},
 		},
 		{
-			name:     "HeadInt64PtrString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "HeadInt64PtrString",
 			data: struct {
 				A *int64 `json:"a,string"`
 			}{A: int64ptr(1)},
@@ -149,35 +94,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// HeadInt64PtrNil
 		{
-			name:     "HeadInt64PtrNil",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "HeadInt64PtrNil",
 			data: struct {
 				A *int64 `json:"a"`
 			}{A: nil},
 		},
 		{
-			name:     "HeadInt64PtrNilOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt64PtrNilOmitEmpty",
 			data: struct {
 				A *int64 `json:"a,omitempty"`
 			}{A: nil},
 		},
 		{
-			name:     "HeadInt64PtrNilString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "HeadInt64PtrNilString",
 			data: struct {
 				A *int64 `json:"a,string"`
 			}{A: nil},
@@ -185,35 +114,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// PtrHeadInt64Zero
 		{
-			name:     "PtrHeadInt64Zero",
-			expected: `{"a":0}`,
-			indentExpected: `
-{
-  "a": 0
-}
-`,
+			name: "PtrHeadInt64Zero",
 			data: &struct {
 				A int64 `json:"a"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64ZeroOmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroString",
-			expected: `{"a":"0"}`,
-			indentExpected: `
-{
-  "a": "0"
-}
-`,
+			name: "PtrHeadInt64ZeroString",
 			data: &struct {
 				A int64 `json:"a,string"`
 			}{},
@@ -221,37 +134,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// PtrHeadInt64
 		{
-			name:     "PtrHeadInt64",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt64",
 			data: &struct {
 				A int64 `json:"a"`
 			}{A: 1},
 		},
 		{
-			name:     "PtrHeadInt64OmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt64OmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
 			}{A: 1},
 		},
 		{
-			name:     "PtrHeadInt64String",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrHeadInt64String",
 			data: &struct {
 				A int64 `json:"a,string"`
 			}{A: 1},
@@ -259,37 +154,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// PtrHeadInt64Ptr
 		{
-			name:     "PtrHeadInt64Ptr",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt64Ptr",
 			data: &struct {
 				A *int64 `json:"a"`
 			}{A: int64ptr(1)},
 		},
 		{
-			name:     "PtrHeadInt64PtrOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrHeadInt64PtrOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
 			}{A: int64ptr(1)},
 		},
 		{
-			name:     "PtrHeadInt64PtrString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrHeadInt64PtrString",
 			data: &struct {
 				A *int64 `json:"a,string"`
 			}{A: int64ptr(1)},
@@ -297,35 +174,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// PtrHeadInt64PtrNil
 		{
-			name:     "PtrHeadInt64PtrNil",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "PtrHeadInt64PtrNil",
 			data: &struct {
 				A *int64 `json:"a"`
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64PtrNilOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "PtrHeadInt64PtrNilString",
 			data: &struct {
 				A *int64 `json:"a,string"`
 			}{A: nil},
@@ -333,31 +194,19 @@ func TestCoverInt64(t *testing.T) {
 
 		// PtrHeadInt64Nil
 		{
-			name:     "PtrHeadInt64Nil",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64Nil",
 			data: (*struct {
 				A *int64 `json:"a"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilOmitEmpty",
 			data: (*struct {
 				A *int64 `json:"a,omitempty"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilString",
 			data: (*struct {
 				A *int64 `json:"a,string"`
 			})(nil),
@@ -365,209 +214,125 @@ null
 
 		// HeadInt64ZeroMultiFields
 		{
-			name:     "HeadInt64ZeroMultiFields",
-			expected: `{"a":0,"b":0}`,
-			indentExpected: `
-{
-  "a": 0,
-  "b": 0
-}
-`,
+			name: "HeadInt64ZeroMultiFields",
 			data: struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
+				C int64 `json:"c"`
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt64ZeroMultiFieldsOmitEmpty",
 			data: struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
+				C int64 `json:"c,omitempty"`
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroMultiFields",
-			expected: `{"a":"0","b":"0"}`,
-			indentExpected: `
-{
-  "a": "0",
-  "b": "0"
-}
-`,
+			name: "HeadInt64ZeroMultiFields",
 			data: struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
+				C int64 `json:"c,string"`
 			}{},
 		},
 
 		// HeadInt64MultiFields
 		{
-			name:     "HeadInt64MultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt64MultiFields",
 			data: struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
-			}{A: 1, B: 2},
+				C int64 `json:"c"`
+			}{A: 1, B: 2, C: 3},
 		},
 		{
-			name:     "HeadInt64MultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt64MultiFieldsOmitEmpty",
 			data: struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
-			}{A: 1, B: 2},
+				C int64 `json:"c,omitempty"`
+			}{A: 1, B: 2, C: 3},
 		},
 		{
-			name:     "HeadInt64MultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "HeadInt64MultiFieldsString",
 			data: struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
-			}{A: 1, B: 2},
+				C int64 `json:"c,string"`
+			}{A: 1, B: 2, C: 3},
 		},
 
 		// HeadInt64PtrMultiFields
 		{
-			name:     "HeadInt64PtrMultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt64PtrMultiFields",
 			data: struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+				C *int64 `json:"c"`
+			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
 		},
 		{
-			name:     "HeadInt64PtrMultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "HeadInt64PtrMultiFieldsOmitEmpty",
 			data: struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+				C *int64 `json:"c,omitempty"`
+			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
 		},
 		{
-			name:     "HeadInt64PtrMultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "HeadInt64PtrMultiFieldsString",
 			data: struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+				C *int64 `json:"c,string"`
+			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
 		},
 
 		// HeadInt64PtrNilMultiFields
 		{
-			name:     "HeadInt64PtrNilMultiFields",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "HeadInt64PtrNilMultiFields",
 			data: struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
-			}{A: nil, B: nil},
+				C *int64 `json:"c"`
+			}{A: nil, B: nil, C: nil},
 		},
 		{
-			name:     "HeadInt64PtrNilMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "HeadInt64PtrNilMultiFieldsOmitEmpty",
 			data: struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
-			}{A: nil, B: nil},
+				C *int64 `json:"c,omitempty"`
+			}{A: nil, B: nil, C: nil},
 		},
 		{
-			name:     "HeadInt64PtrNilMultiFieldsString",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "HeadInt64PtrNilMultiFieldsString",
 			data: struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
-			}{A: nil, B: nil},
+				C *int64 `json:"c,string"`
+			}{A: nil, B: nil, C: nil},
 		},
 
 		// PtrHeadInt64ZeroMultiFields
 		{
-			name:     "PtrHeadInt64ZeroMultiFields",
-			expected: `{"a":0,"b":0}`,
-			indentExpected: `
-{
-  "a": 0,
-  "b": 0
-}
-`,
+			name: "PtrHeadInt64ZeroMultiFields",
 			data: &struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64ZeroMultiFieldsOmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroMultiFieldsString",
-			expected: `{"a":"0","b":"0"}`,
-			indentExpected: `
-{
-  "a": "0",
-  "b": "0"
-}
-`,
+			name: "PtrHeadInt64ZeroMultiFieldsString",
 			data: &struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
@@ -576,42 +341,21 @@ null
 
 		// PtrHeadInt64MultiFields
 		{
-			name:     "PtrHeadInt64MultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt64MultiFields",
 			data: &struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
 			}{A: 1, B: 2},
 		},
 		{
-			name:     "PtrHeadInt64MultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt64MultiFieldsOmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
 			}{A: 1, B: 2},
 		},
 		{
-			name:     "PtrHeadInt64MultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrHeadInt64MultiFieldsString",
 			data: &struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
@@ -620,42 +364,21 @@ null
 
 		// PtrHeadInt64PtrMultiFields
 		{
-			name:     "PtrHeadInt64PtrMultiFields",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt64PtrMultiFields",
 			data: &struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
 			}{A: int64ptr(1), B: int64ptr(2)},
 		},
 		{
-			name:     "PtrHeadInt64PtrMultiFieldsOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrHeadInt64PtrMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
 			}{A: int64ptr(1), B: int64ptr(2)},
 		},
 		{
-			name:     "PtrHeadInt64PtrMultiFieldsString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrHeadInt64PtrMultiFieldsString",
 			data: &struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
@@ -664,39 +387,21 @@ null
 
 		// PtrHeadInt64PtrNilMultiFields
 		{
-			name:     "PtrHeadInt64PtrNilMultiFields",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "PtrHeadInt64PtrNilMultiFields",
 			data: &struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilMultiFieldsOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64PtrNilMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilMultiFieldsString",
-			expected: `{"a":null,"b":null}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": null
-}
-`,
+			name: "PtrHeadInt64PtrNilMultiFieldsString",
 			data: &struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
@@ -705,33 +410,21 @@ null
 
 		// PtrHeadInt64NilMultiFields
 		{
-			name:     "PtrHeadInt64NilMultiFields",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFields",
 			data: (*struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilMultiFieldsOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFieldsOmitEmpty",
 			data: (*struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilMultiFieldsString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFieldsString",
 			data: (*struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
@@ -740,15 +433,7 @@ null
 
 		// HeadInt64ZeroNotRoot
 		{
-			name:     "HeadInt64ZeroNotRoot",
-			expected: `{"A":{"a":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  }
-}
-`,
+			name: "HeadInt64ZeroNotRoot",
 			data: struct {
 				A struct {
 					A int64 `json:"a"`
@@ -756,13 +441,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "HeadInt64ZeroNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -770,15 +449,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroNotRootString",
-			expected: `{"A":{"a":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  }
-}
-`,
+			name: "HeadInt64ZeroNotRootString",
 			data: struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -788,15 +459,7 @@ null
 
 		// HeadInt64NotRoot
 		{
-			name:     "HeadInt64NotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt64NotRoot",
 			data: struct {
 				A struct {
 					A int64 `json:"a"`
@@ -806,15 +469,7 @@ null
 			}{A: 1}},
 		},
 		{
-			name:     "HeadInt64NotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt64NotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -824,15 +479,7 @@ null
 			}{A: 1}},
 		},
 		{
-			name:     "HeadInt64NotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "HeadInt64NotRootString",
 			data: struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -844,15 +491,7 @@ null
 
 		// HeadInt64PtrNotRoot
 		{
-			name:     "HeadInt64PtrNotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt64PtrNotRoot",
 			data: struct {
 				A struct {
 					A *int64 `json:"a"`
@@ -862,15 +501,7 @@ null
 			}{int64ptr(1)}},
 		},
 		{
-			name:     "HeadInt64PtrNotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "HeadInt64PtrNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,omitempty"`
@@ -880,15 +511,7 @@ null
 			}{int64ptr(1)}},
 		},
 		{
-			name:     "HeadInt64PtrNotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "HeadInt64PtrNotRootString",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,string"`
@@ -900,15 +523,7 @@ null
 
 		// HeadInt64PtrNilNotRoot
 		{
-			name:     "HeadInt64PtrNilNotRoot",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "HeadInt64PtrNilNotRoot",
 			data: struct {
 				A struct {
 					A *int64 `json:"a"`
@@ -916,13 +531,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64PtrNilNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "HeadInt64PtrNilNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,omitempty"`
@@ -930,15 +539,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64PtrNilNotRootString",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "HeadInt64PtrNilNotRootString",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,string"`
@@ -948,15 +549,7 @@ null
 
 		// PtrHeadInt64ZeroNotRoot
 		{
-			name:     "PtrHeadInt64ZeroNotRoot",
-			expected: `{"A":{"a":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  }
-}
-`,
+			name: "PtrHeadInt64ZeroNotRoot",
 			data: struct {
 				A *struct {
 					A int64 `json:"a"`
@@ -966,13 +559,7 @@ null
 			})},
 		},
 		{
-			name:     "PtrHeadInt64ZeroNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "PtrHeadInt64ZeroNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A int64 `json:"a,omitempty"`
@@ -982,15 +569,7 @@ null
 			})},
 		},
 		{
-			name:     "PtrHeadInt64ZeroNotRootString",
-			expected: `{"A":{"a":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  }
-}
-`,
+			name: "PtrHeadInt64ZeroNotRootString",
 			data: struct {
 				A *struct {
 					A int64 `json:"a,string"`
@@ -1002,15 +581,7 @@ null
 
 		// PtrHeadInt64NotRoot
 		{
-			name:     "PtrHeadInt64NotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt64NotRoot",
 			data: struct {
 				A *struct {
 					A int64 `json:"a"`
@@ -1020,15 +591,7 @@ null
 			}{A: 1})},
 		},
 		{
-			name:     "PtrHeadInt64NotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt64NotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A int64 `json:"a,omitempty"`
@@ -1038,15 +601,7 @@ null
 			}{A: 1})},
 		},
 		{
-			name:     "PtrHeadInt64NotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "PtrHeadInt64NotRootString",
 			data: struct {
 				A *struct {
 					A int64 `json:"a,string"`
@@ -1058,15 +613,7 @@ null
 
 		// PtrHeadInt64PtrNotRoot
 		{
-			name:     "PtrHeadInt64PtrNotRoot",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt64PtrNotRoot",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1076,15 +623,7 @@ null
 			}{A: int64ptr(1)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrNotRootOmitEmpty",
-			expected: `{"A":{"a":1}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  }
-}
-`,
+			name: "PtrHeadInt64PtrNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1094,15 +633,7 @@ null
 			}{A: int64ptr(1)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrNotRootString",
-			expected: `{"A":{"a":"1"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  }
-}
-`,
+			name: "PtrHeadInt64PtrNotRootString",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1114,15 +645,7 @@ null
 
 		// PtrHeadInt64PtrNilNotRoot
 		{
-			name:     "PtrHeadInt64PtrNilNotRoot",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "PtrHeadInt64PtrNilNotRoot",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1132,13 +655,7 @@ null
 			}{A: nil})},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilNotRootOmitEmpty",
-			expected: `{"A":{}}`,
-			indentExpected: `
-{
-  "A": {}
-}
-`,
+			name: "PtrHeadInt64PtrNilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1148,15 +665,7 @@ null
 			}{A: nil})},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilNotRootString",
-			expected: `{"A":{"a":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  }
-}
-`,
+			name: "PtrHeadInt64PtrNilNotRootString",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1168,13 +677,7 @@ null
 
 		// PtrHeadInt64NilNotRoot
 		{
-			name:     "PtrHeadInt64NilNotRoot",
-			expected: `{"A":null}`,
-			indentExpected: `
-{
-  "A": null
-}
-`,
+			name: "PtrHeadInt64NilNotRoot",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1182,11 +685,7 @@ null
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt64NilNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64NilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1194,13 +693,7 @@ null
 			}{A: nil},
 		},
 		{
-			name:     "PtrHeadInt64NilNotRootString",
-			expected: `{"A":null}`,
-			indentExpected: `
-{
-  "A": null
-}
-`,
+			name: "PtrHeadInt64NilNotRootString",
 			data: struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1210,18 +703,7 @@ null
 
 		// HeadInt64ZeroMultiFieldsNotRoot
 		{
-			name:     "HeadInt64ZeroMultiFieldsNotRoot",
-			expected: `{"A":{"a":0},"B":{"b":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  },
-  "B": {
-    "b": 0
-  }
-}
-`,
+			name: "HeadInt64ZeroMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A int64 `json:"a"`
@@ -1232,14 +714,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "HeadInt64ZeroMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -1250,18 +725,7 @@ null
 			}{},
 		},
 		{
-			name:     "HeadInt64ZeroMultiFieldsNotRootString",
-			expected: `{"A":{"a":"0"},"B":{"b":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  },
-  "B": {
-    "b": "0"
-  }
-}
-`,
+			name: "HeadInt64ZeroMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -1274,18 +738,7 @@ null
 
 		// HeadInt64MultiFieldsNotRoot
 		{
-			name:     "HeadInt64MultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt64MultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A int64 `json:"a"`
@@ -1300,18 +753,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "HeadInt64MultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt64MultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -1326,18 +768,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "HeadInt64MultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "HeadInt64MultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -1354,18 +785,7 @@ null
 
 		// HeadInt64PtrMultiFieldsNotRoot
 		{
-			name:     "HeadInt64PtrMultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt64PtrMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A *int64 `json:"a"`
@@ -1380,18 +800,7 @@ null
 			}{B: int64ptr(2)}},
 		},
 		{
-			name:     "HeadInt64PtrMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "HeadInt64PtrMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,omitempty"`
@@ -1406,18 +815,7 @@ null
 			}{B: int64ptr(2)}},
 		},
 		{
-			name:     "HeadInt64PtrMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "HeadInt64PtrMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,string"`
@@ -1434,18 +832,7 @@ null
 
 		// HeadInt64PtrNilMultiFieldsNotRoot
 		{
-			name:     "HeadInt64PtrNilMultiFieldsNotRoot",
-			expected: `{"A":{"a":null},"B":{"b":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  },
-  "B": {
-    "b": null
-  }
-}
-`,
+			name: "HeadInt64PtrNilMultiFieldsNotRoot",
 			data: struct {
 				A struct {
 					A *int64 `json:"a"`
@@ -1460,14 +847,7 @@ null
 			}{B: nil}},
 		},
 		{
-			name:     "HeadInt64PtrNilMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "HeadInt64PtrNilMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,omitempty"`
@@ -1482,18 +862,7 @@ null
 			}{B: nil}},
 		},
 		{
-			name:     "HeadInt64PtrNilMultiFieldsNotRootString",
-			expected: `{"A":{"a":null},"B":{"b":null}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": null
-  },
-  "B": {
-    "b": null
-  }
-}
-`,
+			name: "HeadInt64PtrNilMultiFieldsNotRootString",
 			data: struct {
 				A struct {
 					A *int64 `json:"a,string"`
@@ -1510,18 +879,7 @@ null
 
 		// PtrHeadInt64ZeroMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64ZeroMultiFieldsNotRoot",
-			expected: `{"A":{"a":0},"B":{"b":0}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 0
-  },
-  "B": {
-    "b": 0
-  }
-}
-`,
+			name: "PtrHeadInt64ZeroMultiFieldsNotRoot",
 			data: &struct {
 				A struct {
 					A int64 `json:"a"`
@@ -1532,14 +890,7 @@ null
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{},"B":{}}`,
-			indentExpected: `
-{
-  "A": {},
-  "B": {}
-}
-`,
+			name: "PtrHeadInt64ZeroMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -1550,18 +901,7 @@ null
 			}{},
 		},
 		{
-			name:     "PtrHeadInt64ZeroMultiFieldsNotRootString",
-			expected: `{"A":{"a":"0"},"B":{"b":"0"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "0"
-  },
-  "B": {
-    "b": "0"
-  }
-}
-`,
+			name: "PtrHeadInt64ZeroMultiFieldsNotRootString",
 			data: &struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -1574,18 +914,7 @@ null
 
 		// PtrHeadInt64MultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64MultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt64MultiFieldsNotRoot",
 			data: &struct {
 				A struct {
 					A int64 `json:"a"`
@@ -1600,18 +929,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "PtrHeadInt64MultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt64MultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
 					A int64 `json:"a,omitempty"`
@@ -1626,18 +944,7 @@ null
 			}{B: 2}},
 		},
 		{
-			name:     "PtrHeadInt64MultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "PtrHeadInt64MultiFieldsNotRootString",
 			data: &struct {
 				A struct {
 					A int64 `json:"a,string"`
@@ -1654,18 +961,7 @@ null
 
 		// PtrHeadInt64PtrMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64PtrMultiFieldsNotRoot",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt64PtrMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1680,18 +976,7 @@ null
 			}{B: int64ptr(2)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1},"B":{"b":2}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1
-  },
-  "B": {
-    "b": 2
-  }
-}
-`,
+			name: "PtrHeadInt64PtrMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1706,18 +991,7 @@ null
 			}{B: int64ptr(2)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1"},"B":{"b":"2"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1"
-  },
-  "B": {
-    "b": "2"
-  }
-}
-`,
+			name: "PtrHeadInt64PtrMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1734,14 +1008,7 @@ null
 
 		// PtrHeadInt64PtrNilMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64PtrNilMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64PtrNilMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1752,11 +1019,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64PtrNilMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1767,14 +1030,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64PtrNilMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1787,11 +1043,7 @@ null
 
 		// PtrHeadInt64NilMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64NilMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -1802,11 +1054,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -1817,11 +1065,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -1834,20 +1078,7 @@ null
 
 		// PtrHeadInt64DoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64DoubleMultiFieldsNotRoot",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt64DoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a"`
@@ -1866,20 +1097,7 @@ null
 			}{A: 3, B: 4})},
 		},
 		{
-			name:     "PtrHeadInt64DoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt64DoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a,omitempty"`
@@ -1898,20 +1116,7 @@ null
 			}{A: 3, B: 4})},
 		},
 		{
-			name:     "PtrHeadInt64DoubleMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1","b":"2"},"B":{"a":"3","b":"4"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1",
-    "b": "2"
-  },
-  "B": {
-    "a": "3",
-    "b": "4"
-  }
-}
-`,
+			name: "PtrHeadInt64DoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a,string"`
@@ -1932,14 +1137,7 @@ null
 
 		// PtrHeadInt64NilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a"`
@@ -1952,11 +1150,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a,omitempty"`
@@ -1969,14 +1163,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A int64 `json:"a,string"`
@@ -1991,11 +1178,7 @@ null
 
 		// PtrHeadInt64NilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A int64 `json:"a"`
@@ -2008,11 +1191,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A int64 `json:"a,omitempty"`
@@ -2025,11 +1204,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64NilDoubleMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64NilDoubleMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A int64 `json:"a,string"`
@@ -2044,20 +1219,7 @@ null
 
 		// PtrHeadInt64PtrDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64PtrDoubleMultiFieldsNotRoot",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt64PtrDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -2076,20 +1238,7 @@ null
 			}{A: int64ptr(3), B: int64ptr(4)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{"A":{"a":1,"b":2},"B":{"a":3,"b":4}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": 1,
-    "b": 2
-  },
-  "B": {
-    "a": 3,
-    "b": 4
-  }
-}
-`,
+			name: "PtrHeadInt64PtrDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -2108,20 +1257,7 @@ null
 			}{A: int64ptr(3), B: int64ptr(4)})},
 		},
 		{
-			name:     "PtrHeadInt64PtrDoubleMultiFieldsNotRootString",
-			expected: `{"A":{"a":"1","b":"2"},"B":{"a":"3","b":"4"}}`,
-			indentExpected: `
-{
-  "A": {
-    "a": "1",
-    "b": "2"
-  },
-  "B": {
-    "a": "3",
-    "b": "4"
-  }
-}
-`,
+			name: "PtrHeadInt64PtrDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -2142,14 +1278,7 @@ null
 
 		// PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -2162,11 +1291,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -2179,14 +1304,7 @@ null
 			}{A: nil, B: nil},
 		},
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootString",
-			expected: `{"A":null,"B":null}`,
-			indentExpected: `
-{
-  "A": null,
-  "B": null
-}
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -2201,11 +1319,7 @@ null
 
 		// PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a"`
@@ -2218,11 +1332,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootOmitEmpty",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a,omitempty"`
@@ -2235,11 +1345,7 @@ null
 			})(nil),
 		},
 		{
-			name:     "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootString",
-			expected: `null`,
-			indentExpected: `
-null
-`,
+			name: "PtrHeadInt64PtrNilDoubleMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
 					A *int64 `json:"a,string"`
@@ -2254,14 +1360,7 @@ null
 
 		// AnonymousHeadInt64
 		{
-			name:     "AnonymousHeadInt64",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64",
 			data: struct {
 				structInt64
 				B int64 `json:"b"`
@@ -2271,14 +1370,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64OmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64OmitEmpty",
 			data: struct {
 				structInt64OmitEmpty
 				B int64 `json:"b,omitempty"`
@@ -2288,14 +1380,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64String",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt64String",
 			data: struct {
 				structInt64String
 				B int64 `json:"b,string"`
@@ -2307,14 +1392,7 @@ null
 
 		// PtrAnonymousHeadInt64
 		{
-			name:     "PtrAnonymousHeadInt64",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt64",
 			data: struct {
 				*structInt64
 				B int64 `json:"b"`
@@ -2324,14 +1402,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64OmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt64OmitEmpty",
 			data: struct {
 				*structInt64OmitEmpty
 				B int64 `json:"b,omitempty"`
@@ -2341,14 +1412,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64String",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrAnonymousHeadInt64String",
 			data: struct {
 				*structInt64String
 				B int64 `json:"b,string"`
@@ -2360,13 +1424,7 @@ null
 
 		// NilPtrAnonymousHeadInt64
 		{
-			name:     "NilPtrAnonymousHeadInt64",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt64",
 			data: struct {
 				*structInt64
 				B int64 `json:"b"`
@@ -2376,13 +1434,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64OmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt64OmitEmpty",
 			data: struct {
 				*structInt64OmitEmpty
 				B int64 `json:"b,omitempty"`
@@ -2392,13 +1444,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64String",
-			expected: `{"b":"2"}`,
-			indentExpected: `
-{
-  "b": "2"
-}
-`,
+			name: "NilPtrAnonymousHeadInt64String",
 			data: struct {
 				*structInt64String
 				B int64 `json:"b,string"`
@@ -2410,14 +1456,7 @@ null
 
 		// AnonymousHeadInt64Ptr
 		{
-			name:     "AnonymousHeadInt64Ptr",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64Ptr",
 			data: struct {
 				structInt64Ptr
 				B *int64 `json:"b"`
@@ -2427,14 +1466,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64PtrOmitEmpty",
 			data: struct {
 				structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
@@ -2444,14 +1476,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt64PtrString",
 			data: struct {
 				structInt64PtrString
 				B *int64 `json:"b,string"`
@@ -2463,14 +1488,7 @@ null
 
 		// AnonymousHeadInt64PtrNil
 		{
-			name:     "AnonymousHeadInt64PtrNil",
-			expected: `{"a":null,"b":2}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64PtrNil",
 			data: struct {
 				structInt64Ptr
 				B *int64 `json:"b"`
@@ -2480,13 +1498,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrNilOmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "AnonymousHeadInt64PtrNilOmitEmpty",
 			data: struct {
 				structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
@@ -2496,14 +1508,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrNilString",
-			expected: `{"a":null,"b":"2"}`,
-			indentExpected: `
-{
-  "a": null,
-  "b": "2"
-}
-`,
+			name: "AnonymousHeadInt64PtrNilString",
 			data: struct {
 				structInt64PtrString
 				B *int64 `json:"b,string"`
@@ -2515,14 +1520,7 @@ null
 
 		// PtrAnonymousHeadInt64Ptr
 		{
-			name:     "PtrAnonymousHeadInt64Ptr",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt64Ptr",
 			data: struct {
 				*structInt64Ptr
 				B *int64 `json:"b"`
@@ -2532,14 +1530,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64PtrOmitEmpty",
-			expected: `{"a":1,"b":2}`,
-			indentExpected: `
-{
-  "a": 1,
-  "b": 2
-}
-`,
+			name: "PtrAnonymousHeadInt64PtrOmitEmpty",
 			data: struct {
 				*structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
@@ -2549,14 +1540,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64PtrString",
-			expected: `{"a":"1","b":"2"}`,
-			indentExpected: `
-{
-  "a": "1",
-  "b": "2"
-}
-`,
+			name: "PtrAnonymousHeadInt64PtrString",
 			data: struct {
 				*structInt64PtrString
 				B *int64 `json:"b,string"`
@@ -2568,13 +1552,7 @@ null
 
 		// NilPtrAnonymousHeadInt64Ptr
 		{
-			name:     "NilPtrAnonymousHeadInt64Ptr",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt64Ptr",
 			data: struct {
 				*structInt64Ptr
 				B *int64 `json:"b"`
@@ -2584,13 +1562,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64PtrOmitEmpty",
-			expected: `{"b":2}`,
-			indentExpected: `
-{
-  "b": 2
-}
-`,
+			name: "NilPtrAnonymousHeadInt64PtrOmitEmpty",
 			data: struct {
 				*structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
@@ -2600,13 +1572,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64PtrString",
-			expected: `{"b":"2"}`,
-			indentExpected: `
-{
-  "b": "2"
-}
-`,
+			name: "NilPtrAnonymousHeadInt64PtrString",
 			data: struct {
 				*structInt64PtrString
 				B *int64 `json:"b,string"`
@@ -2618,13 +1584,7 @@ null
 
 		// AnonymousHeadInt64Only
 		{
-			name:     "AnonymousHeadInt64Only",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt64Only",
 			data: struct {
 				structInt64
 			}{
@@ -2632,13 +1592,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64OnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt64OnlyOmitEmpty",
 			data: struct {
 				structInt64OmitEmpty
 			}{
@@ -2646,13 +1600,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64OnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "AnonymousHeadInt64OnlyString",
 			data: struct {
 				structInt64String
 			}{
@@ -2662,13 +1610,7 @@ null
 
 		// PtrAnonymousHeadInt64Only
 		{
-			name:     "PtrAnonymousHeadInt64Only",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt64Only",
 			data: struct {
 				*structInt64
 			}{
@@ -2676,13 +1618,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64OnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt64OnlyOmitEmpty",
 			data: struct {
 				*structInt64OmitEmpty
 			}{
@@ -2690,13 +1626,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64OnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrAnonymousHeadInt64OnlyString",
 			data: struct {
 				*structInt64String
 			}{
@@ -2706,11 +1636,7 @@ null
 
 		// NilPtrAnonymousHeadInt64Only
 		{
-			name:     "NilPtrAnonymousHeadInt64Only",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64Only",
 			data: struct {
 				*structInt64
 			}{
@@ -2718,11 +1644,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64OnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64OnlyOmitEmpty",
 			data: struct {
 				*structInt64OmitEmpty
 			}{
@@ -2730,11 +1652,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64OnlyString",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64OnlyString",
 			data: struct {
 				*structInt64String
 			}{
@@ -2744,13 +1662,7 @@ null
 
 		// AnonymousHeadInt64PtrOnly
 		{
-			name:     "AnonymousHeadInt64PtrOnly",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt64PtrOnly",
 			data: struct {
 				structInt64Ptr
 			}{
@@ -2758,13 +1670,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrOnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "AnonymousHeadInt64PtrOnlyOmitEmpty",
 			data: struct {
 				structInt64PtrOmitEmpty
 			}{
@@ -2772,13 +1678,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrOnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "AnonymousHeadInt64PtrOnlyString",
 			data: struct {
 				structInt64PtrString
 			}{
@@ -2788,13 +1688,7 @@ null
 
 		// AnonymousHeadInt64PtrNilOnly
 		{
-			name:     "AnonymousHeadInt64PtrNilOnly",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "AnonymousHeadInt64PtrNilOnly",
 			data: struct {
 				structInt64Ptr
 			}{
@@ -2802,11 +1696,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrNilOnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "AnonymousHeadInt64PtrNilOnlyOmitEmpty",
 			data: struct {
 				structInt64PtrOmitEmpty
 			}{
@@ -2814,13 +1704,7 @@ null
 			},
 		},
 		{
-			name:     "AnonymousHeadInt64PtrNilOnlyString",
-			expected: `{"a":null}`,
-			indentExpected: `
-{
-  "a": null
-}
-`,
+			name: "AnonymousHeadInt64PtrNilOnlyString",
 			data: struct {
 				structInt64PtrString
 			}{
@@ -2830,13 +1714,7 @@ null
 
 		// PtrAnonymousHeadInt64PtrOnly
 		{
-			name:     "PtrAnonymousHeadInt64PtrOnly",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt64PtrOnly",
 			data: struct {
 				*structInt64Ptr
 			}{
@@ -2844,13 +1722,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64PtrOnlyOmitEmpty",
-			expected: `{"a":1}`,
-			indentExpected: `
-{
-  "a": 1
-}
-`,
+			name: "PtrAnonymousHeadInt64PtrOnlyOmitEmpty",
 			data: struct {
 				*structInt64PtrOmitEmpty
 			}{
@@ -2858,13 +1730,7 @@ null
 			},
 		},
 		{
-			name:     "PtrAnonymousHeadInt64PtrOnlyString",
-			expected: `{"a":"1"}`,
-			indentExpected: `
-{
-  "a": "1"
-}
-`,
+			name: "PtrAnonymousHeadInt64PtrOnlyString",
 			data: struct {
 				*structInt64PtrString
 			}{
@@ -2874,11 +1740,7 @@ null
 
 		// NilPtrAnonymousHeadInt64PtrOnly
 		{
-			name:     "NilPtrAnonymousHeadInt64PtrOnly",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64PtrOnly",
 			data: struct {
 				*structInt64Ptr
 			}{
@@ -2886,11 +1748,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64PtrOnlyOmitEmpty",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64PtrOnlyOmitEmpty",
 			data: struct {
 				*structInt64PtrOmitEmpty
 			}{
@@ -2898,11 +1756,7 @@ null
 			},
 		},
 		{
-			name:     "NilPtrAnonymousHeadInt64PtrOnlyString",
-			expected: `{}`,
-			indentExpected: `
-{}
-`,
+			name: "NilPtrAnonymousHeadInt64PtrOnlyString",
 			data: struct {
 				*structInt64PtrString
 			}{
@@ -2920,21 +1774,11 @@ null
 					enc.SetIndent("", "  ")
 				}
 				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%T): %s: %s", test.name, htmlEscape, test.expected, err)
+					t.Fatalf("%s(htmlEscape:%T): %+v: %s", test.name, htmlEscape, test.data, err)
 				}
 				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
 				if buf.String() != stdresult {
 					t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
-				}
-				if indent {
-					got := "\n" + buf.String()
-					if got != test.indentExpected {
-						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.indentExpected, got)
-					}
-				} else {
-					if strings.TrimRight(buf.String(), "\n") != test.expected {
-						t.Fatalf("%s(htmlEscape:%T): expected %q but got %q", test.name, htmlEscape, test.expected, buf.String())
-					}
 				}
 			}
 		}

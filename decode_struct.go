@@ -288,25 +288,31 @@ func decodeKeyByBitmapUint8Stream(d *structDecoder, s *stream) (*structFieldSet,
 		field  *structFieldSet
 		curBit uint8 = math.MaxUint8
 	)
+	buf, cursor, p := s.stat()
 	for {
-		switch s.char() {
+		switch char(p, cursor) {
 		case ' ', '\n', '\t', '\r':
-			s.cursor++
+			cursor++
 		case nul:
+			s.cursor = cursor
 			if s.read() {
+				buf, cursor, p = s.stat()
 				continue
 			}
 			return nil, "", errNotAtBeginningOfValue(s.totalOffset())
 		case '"':
-			s.cursor++
+			cursor++
 		FIRST_CHAR:
-			start := s.cursor
-			switch s.char() {
+			start := cursor
+			switch char(p, cursor) {
 			case '"':
-				s.cursor++
+				cursor++
+				s.cursor = cursor
 				return field, "", nil
 			case nul:
+				s.cursor = cursor
 				if s.read() {
+					buf, cursor, p = s.stat()
 					goto FIRST_CHAR
 				}
 				return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
@@ -314,20 +320,23 @@ func decodeKeyByBitmapUint8Stream(d *structDecoder, s *stream) (*structFieldSet,
 			keyIdx := 0
 			bitmap := d.keyBitmapUint8
 			for {
-				c := s.char()
+				c := char(p, cursor)
 				switch c {
 				case '"':
 					fieldSetIndex := bits.TrailingZeros8(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
-					keyLen := s.cursor - start
-					s.cursor++
+					keyLen := cursor - start
+					cursor++
+					s.cursor = cursor
 					if keyLen < field.keyLen {
 						// early match
 						return nil, field.key, nil
 					}
 					return field, field.key, nil
 				case nul:
+					s.cursor = cursor
 					if s.read() {
+						buf, cursor, p = s.stat()
 						continue
 					}
 					return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
@@ -335,30 +344,35 @@ func decodeKeyByBitmapUint8Stream(d *structDecoder, s *stream) (*structFieldSet,
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {
-							s.cursor++
-							switch s.char() {
+							cursor++
+							switch char(p, cursor) {
 							case '"':
-								b := s.buf[start:s.cursor]
+								b := buf[start:cursor]
 								key := *(*string)(unsafe.Pointer(&b))
-								s.cursor++
+								cursor++
+								s.cursor = cursor
 								return field, key, nil
 							case '\\':
-								s.cursor++
-								if s.char() == nul {
+								cursor++
+								if char(p, cursor) == nul {
+									s.cursor = cursor
 									if !s.read() {
 										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 									}
+									buf, cursor, p = s.stat()
 								}
 							case nul:
+								s.cursor = cursor
 								if !s.read() {
 									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 								}
+								buf, cursor, p = s.stat()
 							}
 						}
 					}
 					keyIdx++
 				}
-				s.cursor++
+				cursor++
 			}
 		default:
 			return nil, "", errNotAtBeginningOfValue(s.totalOffset())
@@ -371,25 +385,31 @@ func decodeKeyByBitmapUint16Stream(d *structDecoder, s *stream) (*structFieldSet
 		field  *structFieldSet
 		curBit uint16 = math.MaxUint16
 	)
+	buf, cursor, p := s.stat()
 	for {
-		switch s.char() {
+		switch char(p, cursor) {
 		case ' ', '\n', '\t', '\r':
-			s.cursor++
+			cursor++
 		case nul:
+			s.cursor = cursor
 			if s.read() {
+				buf, cursor, p = s.stat()
 				continue
 			}
 			return nil, "", errNotAtBeginningOfValue(s.totalOffset())
 		case '"':
-			s.cursor++
+			cursor++
 		FIRST_CHAR:
-			start := s.cursor
-			switch s.char() {
+			start := cursor
+			switch char(p, cursor) {
 			case '"':
-				s.cursor++
+				cursor++
+				s.cursor = cursor
 				return field, "", nil
 			case nul:
+				s.cursor = cursor
 				if s.read() {
+					buf, cursor, p = s.stat()
 					goto FIRST_CHAR
 				}
 				return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
@@ -397,20 +417,23 @@ func decodeKeyByBitmapUint16Stream(d *structDecoder, s *stream) (*structFieldSet
 			keyIdx := 0
 			bitmap := d.keyBitmapUint16
 			for {
-				c := s.char()
+				c := char(p, cursor)
 				switch c {
 				case '"':
 					fieldSetIndex := bits.TrailingZeros16(curBit)
 					field = d.sortedFieldSets[fieldSetIndex]
-					keyLen := s.cursor - start
-					s.cursor++
+					keyLen := cursor - start
+					cursor++
+					s.cursor = cursor
 					if keyLen < field.keyLen {
 						// early match
 						return nil, field.key, nil
 					}
 					return field, field.key, nil
 				case nul:
+					s.cursor = cursor
 					if s.read() {
+						buf, cursor, p = s.stat()
 						continue
 					}
 					return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
@@ -418,30 +441,35 @@ func decodeKeyByBitmapUint16Stream(d *structDecoder, s *stream) (*structFieldSet
 					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
 					if curBit == 0 {
 						for {
-							s.cursor++
-							switch s.char() {
+							cursor++
+							switch char(p, cursor) {
 							case '"':
-								b := s.buf[start:s.cursor]
+								b := buf[start:cursor]
 								key := *(*string)(unsafe.Pointer(&b))
-								s.cursor++
+								cursor++
+								s.cursor = cursor
 								return field, key, nil
 							case '\\':
-								s.cursor++
-								if s.char() == nul {
+								cursor++
+								if char(p, cursor) == nul {
+									s.cursor = cursor
 									if !s.read() {
 										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 									}
+									buf, cursor, p = s.stat()
 								}
 							case nul:
+								s.cursor = cursor
 								if !s.read() {
 									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 								}
+								buf, cursor, p = s.stat()
 							}
 						}
 					}
 					keyIdx++
 				}
-				s.cursor++
+				cursor++
 			}
 		default:
 			return nil, "", errNotAtBeginningOfValue(s.totalOffset())

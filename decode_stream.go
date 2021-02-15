@@ -3,6 +3,7 @@ package json
 import (
 	"bytes"
 	"io"
+	"unsafe"
 )
 
 const (
@@ -43,12 +44,12 @@ func (s *stream) totalOffset() int64 {
 	return s.offset + s.cursor
 }
 
-func (s *stream) prevChar() byte {
-	return s.buf[s.cursor-1]
-}
-
 func (s *stream) char() byte {
 	return s.buf[s.cursor]
+}
+
+func (s *stream) stat() ([]byte, int64, unsafe.Pointer) {
+	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
 func (s *stream) reset() {
@@ -96,107 +97,171 @@ LOOP:
 	}
 }
 
-func (s *stream) skipValue() error {
-	s.skipWhiteSpace()
-	braceCount := 0
-	bracketCount := 0
-	start := s.cursor
+func (s *stream) skipObject() error {
+	braceCount := 1
+	_, cursor, p := s.stat()
 	for {
-		switch s.char() {
-		case nul:
-			if s.read() {
-				continue
-			}
-			if start == s.cursor {
-				return errUnexpectedEndOfJSON("value of object", s.totalOffset())
-			}
-			if braceCount == 0 && bracketCount == 0 {
-				return nil
-			}
-			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
+		switch char(p, cursor) {
 		case '{':
 			braceCount++
-		case '[':
-			bracketCount++
 		case '}':
 			braceCount--
-			if braceCount == -1 && bracketCount == 0 {
-				return nil
-			}
-		case ']':
-			bracketCount--
-			if braceCount == 0 && bracketCount == -1 {
-				return nil
-			}
-		case ',':
-			if bracketCount == 0 && braceCount == 0 {
+			if braceCount == 0 {
+				s.cursor = cursor + 1
 				return nil
 			}
 		case '"':
 			for {
-				s.cursor++
-				c := s.char()
-				if c == nul {
-					if !s.read() {
-						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
+				cursor++
+				switch char(p, cursor) {
+				case '"':
+					if char(p, cursor-1) == '\\' {
+						continue
 					}
-					c = s.char()
+					goto SWITCH_OUT
+				case nul:
+					s.cursor = cursor
+					if s.read() {
+						s.cursor-- // for retry current character
+						_, cursor, p = s.stat()
+						continue
+					}
+					return errUnexpectedEndOfJSON("string of object", cursor)
 				}
-				if c != '"' {
-					continue
+			}
+		case nul:
+			s.cursor = cursor
+			if s.read() {
+				_, cursor, p = s.stat()
+				continue
+			}
+			return errUnexpectedEndOfJSON("object of object", cursor)
+		}
+	SWITCH_OUT:
+		cursor++
+	}
+}
+
+func (s *stream) skipArray() error {
+	bracketCount := 1
+	_, cursor, p := s.stat()
+	for {
+		switch char(p, cursor) {
+		case '[':
+			bracketCount++
+		case ']':
+			bracketCount--
+			if bracketCount == 0 {
+				s.cursor = cursor + 1
+				return nil
+			}
+		case '"':
+			for {
+				cursor++
+				switch char(p, cursor) {
+				case '"':
+					if char(p, cursor-1) == '\\' {
+						continue
+					}
+					goto SWITCH_OUT
+				case nul:
+					s.cursor = cursor
+					if s.read() {
+						s.cursor-- // for retry current character
+						_, cursor, p = s.stat()
+						continue
+					}
+					return errUnexpectedEndOfJSON("string of object", cursor)
 				}
-				if s.prevChar() == '\\' {
-					continue
-				}
-				if bracketCount == 0 && braceCount == 0 {
-					s.cursor++
+			}
+		case nul:
+			s.cursor = cursor
+			if s.read() {
+				_, cursor, p = s.stat()
+				continue
+			}
+			return errUnexpectedEndOfJSON("array of object", cursor)
+		}
+	SWITCH_OUT:
+		cursor++
+	}
+}
+
+func (s *stream) skipValue() error {
+	_, cursor, p := s.stat()
+	for {
+		switch char(p, cursor) {
+		case ' ', '\n', '\t', '\r':
+			cursor++
+			continue
+		case nul:
+			s.cursor = cursor
+			if s.read() {
+				_, cursor, p = s.stat()
+				continue
+			}
+			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
+		case '{':
+			s.cursor = cursor + 1
+			return s.skipObject()
+		case '[':
+			s.cursor = cursor + 1
+			return s.skipArray()
+		case '"':
+			for {
+				cursor++
+				switch char(p, cursor) {
+				case '"':
+					if char(p, cursor-1) == '\\' {
+						continue
+					}
+					s.cursor = cursor + 1
 					return nil
+				case nul:
+					s.cursor = cursor
+					if s.read() {
+						s.cursor-- // for retry current character
+						_, cursor, p = s.stat()
+						continue
+					}
+					return errUnexpectedEndOfJSON("value of string", s.totalOffset())
 				}
-				break
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			for {
-				s.cursor++
-				c := s.char()
+				cursor++
+				c := char(p, cursor)
 				if floatTable[c] {
 					continue
 				} else if c == nul {
 					if s.read() {
 						s.cursor-- // for retry current character
+						_, cursor, p = s.stat()
 						continue
 					}
 				}
-				break
-			}
-			if bracketCount == 0 && braceCount == 0 {
+				s.cursor = cursor
 				return nil
 			}
-			continue
 		case 't':
+			s.cursor = cursor
 			if err := trueBytes(s); err != nil {
 				return err
 			}
-			if bracketCount == 0 && braceCount == 0 {
-				return nil
-			}
-			continue
+			return nil
 		case 'f':
+			s.cursor = cursor
 			if err := falseBytes(s); err != nil {
 				return err
 			}
-			if bracketCount == 0 && braceCount == 0 {
-				return nil
-			}
-			continue
+			return nil
 		case 'n':
+			s.cursor = cursor
 			if err := nullBytes(s); err != nil {
 				return err
 			}
-			if bracketCount == 0 && braceCount == 0 {
-				return nil
-			}
-			continue
+			return nil
 		}
-		s.cursor++
+		cursor++
 	}
 }

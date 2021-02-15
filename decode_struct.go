@@ -483,6 +483,7 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		}
 	}
 	s.cursor++
+	s.skipWhiteSpace()
 	if s.char() == '}' {
 		s.cursor++
 		return nil
@@ -551,10 +552,12 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 	default:
 		return 0, errNotAtBeginningOfValue(cursor)
 	}
-	if buflen < 2 {
-		return 0, errUnexpectedEndOfJSON("object", cursor)
-	}
 	cursor++
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == '}' {
+		cursor++
+		return cursor, nil
+	}
 	for {
 		c, field, err := d.keyDecoder(d, buf, cursor)
 		if err != nil {

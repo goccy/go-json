@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"encoding"
 	"reflect"
 	"unsafe"
@@ -56,12 +57,34 @@ func decodeStreamUnmarshaler(s *stream, unmarshaler Unmarshaler) error {
 	return nil
 }
 
-func decodeStreamTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler) error {
+func decodeUnmarshaler(buf []byte, cursor int64, unmarshaler Unmarshaler) (int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	start := cursor
+	end, err := skipValue(buf, cursor)
+	if err != nil {
+		return 0, err
+	}
+	src := buf[start:end]
+	dst := make([]byte, len(src))
+	copy(dst, src)
+
+	if err := unmarshaler.UnmarshalJSON(dst); err != nil {
+		return 0, err
+	}
+	return end, nil
+}
+
+func decodeStreamTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler, p unsafe.Pointer) error {
 	start := s.cursor
 	if err := s.skipValue(); err != nil {
 		return err
 	}
 	src := s.buf[start:s.cursor]
+	if bytes.Equal(src, nullbytes) {
+		*(*unsafe.Pointer)(p) = nil
+		return nil
+	}
+
 	dst := make([]byte, len(src))
 	copy(dst, src)
 
@@ -69,6 +92,27 @@ func decodeStreamTextUnmarshaler(s *stream, unmarshaler encoding.TextUnmarshaler
 		return err
 	}
 	return nil
+}
+
+func decodeTextUnmarshaler(buf []byte, cursor int64, unmarshaler encoding.TextUnmarshaler, p unsafe.Pointer) (int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	start := cursor
+	end, err := skipValue(buf, cursor)
+	if err != nil {
+		return 0, err
+	}
+	src := buf[start:end]
+	if bytes.Equal(src, nullbytes) {
+		*(*unsafe.Pointer)(p) = nil
+		return end, nil
+	}
+	if s, ok := unquoteBytes(src); ok {
+		src = s
+	}
+	if err := unmarshaler.UnmarshalText(src); err != nil {
+		return 0, err
+	}
+	return end, nil
 }
 
 func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, p unsafe.Pointer) error {
@@ -168,9 +212,9 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			return decodeStreamUnmarshaler(s, u)
 		}
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
-			return decodeStreamTextUnmarshaler(s, u)
+			return decodeStreamTextUnmarshaler(s, u, p)
 		}
-		return nil
+		return &UnsupportedTypeError{Type: rv.Type()}
 	}
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
@@ -182,6 +226,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
 		return d.decodeStreamEmptyInterface(s, p)
 	}
+	s.skipWhiteSpace()
 	if s.char() == 'n' {
 		if err := nullBytes(s); err != nil {
 			return err
@@ -202,6 +247,16 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		ptr: p,
 	}))
 	rv := reflect.ValueOf(runtimeInterfaceValue)
+	if rv.NumMethod() > 0 && rv.CanInterface() {
+		if u, ok := rv.Interface().(Unmarshaler); ok {
+			return decodeUnmarshaler(buf, cursor, u)
+		}
+		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
+			return decodeTextUnmarshaler(buf, cursor, u, p)
+		}
+		return 0, &UnsupportedTypeError{Type: rv.Type()}
+	}
+
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
@@ -212,6 +267,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
 		return d.decodeEmptyInterface(buf, cursor, p)
 	}
+	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == 'n' {
 		if cursor+3 >= int64(len(buf)) {
 			return 0, errUnexpectedEndOfJSON("null", cursor)

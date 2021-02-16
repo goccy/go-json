@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"encoding"
 	"unicode"
 	"unicode/utf16"
@@ -32,6 +33,10 @@ func (d *unmarshalTextDecoder) annotateError(cursor int64, err error) {
 	}
 }
 
+var (
+	nullbytes = []byte(`null`)
+)
+
 func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	start := s.cursor
@@ -53,6 +58,11 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			Value:  "object",
 			Type:   rtype2type(d.typ),
 			Offset: s.totalOffset(),
+		}
+	case 'n':
+		if bytes.Equal(src, nullbytes) {
+			*(*unsafe.Pointer)(p) = nil
+			return nil
 		}
 	}
 	dst := make([]byte, len(src))
@@ -80,6 +90,11 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		return 0, err
 	}
 	src := buf[start:end]
+	if bytes.Equal(src, nullbytes) {
+		*(*unsafe.Pointer)(p) = nil
+		return end, nil
+	}
+
 	if s, ok := unquoteBytes(src); ok {
 		src = s
 	}

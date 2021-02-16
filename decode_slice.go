@@ -83,6 +83,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			if err := nullBytes(s); err != nil {
 				return err
 			}
+			*(*unsafe.Pointer)(p) = nil
 			return nil
 		case '[':
 			s.cursor++
@@ -187,6 +188,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 				return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
 			}
 			cursor += 4
+			*(*unsafe.Pointer)(p) = nil
 			return cursor, nil
 		case '[':
 			cursor++

@@ -116,6 +116,11 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			}
 			num := s.buf[start:s.cursor]
 			return num, nil
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return nil, err
+			}
+			return nil, nil
 		case nul:
 			if s.read() {
 				continue
@@ -146,6 +151,22 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
+		case 'n':
+			buflen := int64(len(buf))
+			if cursor+3 >= buflen {
+				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
+			}
+			if buf[cursor+1] != 'u' {
+				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
+			}
+			if buf[cursor+2] != 'l' {
+				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
+			}
+			if buf[cursor+3] != 'l' {
+				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			}
+			cursor += 4
+			return nil, cursor, nil
 		default:
 			return nil, 0, d.typeError([]byte{char(b, cursor)}, cursor)
 		}
@@ -156,6 +177,9 @@ func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
+	}
+	if bytes == nil {
+		return nil
 	}
 	i64 := d.parseInt(bytes)
 	switch d.kind {
@@ -181,6 +205,9 @@ func (d *intDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
+	}
+	if bytes == nil {
+		return c, nil
 	}
 	cursor = c
 	i64 := d.parseInt(bytes)

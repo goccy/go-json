@@ -1864,7 +1864,6 @@ func TestUnmarshal(t *testing.T) {
 	}
 }
 
-/*
 func TestUnmarshalMarshal(t *testing.T) {
 	initBig()
 	var v interface{}
@@ -1881,7 +1880,6 @@ func TestUnmarshalMarshal(t *testing.T) {
 		return
 	}
 }
-*/
 
 var numberTests = []struct {
 	in       string
@@ -1938,7 +1936,6 @@ type Xint struct {
 	X int
 }
 
-/*
 func TestUnmarshalInterface(t *testing.T) {
 	var xint Xint
 	var i interface{} = &xint
@@ -1949,8 +1946,7 @@ func TestUnmarshalInterface(t *testing.T) {
 		t.Fatalf("Did not write to xint")
 	}
 }
-*/
-/*
+
 func TestUnmarshalPtrPtr(t *testing.T) {
 	var xint Xint
 	pxint := &xint
@@ -1961,7 +1957,6 @@ func TestUnmarshalPtrPtr(t *testing.T) {
 		t.Fatalf("Did not write to xint")
 	}
 }
-*/
 
 func TestEscape(t *testing.T) {
 	const input = `"foobar"<html>` + " [\u2028 \u2029]"

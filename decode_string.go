@@ -233,7 +233,7 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			if err := nullBytes(s); err != nil {
 				return nil, err
 			}
-			return []byte{}, nil
+			return nil, nil
 		case nul:
 			if s.read() {
 				continue
@@ -322,7 +322,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
 			}
 			cursor += 4
-			return []byte{}, cursor, nil
+			return nil, cursor, nil
 		default:
 			goto ERROR
 		}

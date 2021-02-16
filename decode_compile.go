@@ -106,7 +106,7 @@ func decodeCompileMapKey(typ *rtype, structName, fieldName string, structTypeToD
 		case *stringDecoder, *interfaceDecoder:
 			return dec, nil
 		case *boolDecoder, *intDecoder, *uintDecoder, *numberDecoder:
-			return newWrappedStringDecoder(dec, structName, fieldName), nil
+			return newWrappedStringDecoder(typ, dec, structName, fieldName), nil
 		case *ptrDecoder:
 			dec = t.dec
 		default:
@@ -393,7 +393,7 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 			}
 		} else {
 			if tag.isString {
-				dec = newWrappedStringDecoder(dec, structName, field.Name)
+				dec = newWrappedStringDecoder(type2rtype(field.Type), dec, structName, field.Name)
 			}
 			var key string
 			if tag.key != "" {

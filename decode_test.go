@@ -2052,7 +2052,6 @@ func TestEmptyString(t *testing.T) {
 	}
 }
 
-/*
 // Test that a null for ,string is not replaced with the previous quoted string (issue 7046).
 // It should also not be an error (issue 2540, issue 8587).
 func TestNullString(t *testing.T) {
@@ -2074,7 +2073,6 @@ func TestNullString(t *testing.T) {
 		t.Fatalf("after Unmarshal, s.B=%d, s.C=%p, want 1, nil", s.B, s.C)
 	}
 }
-*/
 
 func intp(x int) *int {
 	p := new(int)

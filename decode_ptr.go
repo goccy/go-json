@@ -44,8 +44,13 @@ func (d *ptrDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		*(*unsafe.Pointer)(p) = nil
 		return nil
 	}
-	newptr := unsafe_New(d.typ)
-	*(*unsafe.Pointer)(p) = newptr
+	var newptr unsafe.Pointer
+	if *(*unsafe.Pointer)(p) == nil {
+		newptr = unsafe_New(d.typ)
+		*(*unsafe.Pointer)(p) = newptr
+	} else {
+		newptr = *(*unsafe.Pointer)(p)
+	}
 	if err := d.dec.decodeStream(s, newptr); err != nil {
 		return err
 	}
@@ -74,8 +79,13 @@ func (d *ptrDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		cursor += 4
 		return cursor, nil
 	}
-	newptr := unsafe_New(d.typ)
-	*(*unsafe.Pointer)(p) = newptr
+	var newptr unsafe.Pointer
+	if *(*unsafe.Pointer)(p) == nil {
+		newptr = unsafe_New(d.typ)
+		*(*unsafe.Pointer)(p) = newptr
+	} else {
+		newptr = *(*unsafe.Pointer)(p)
+	}
 	c, err := d.dec.decode(buf, cursor, newptr)
 	if err != nil {
 		return 0, err

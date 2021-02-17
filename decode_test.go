@@ -2114,7 +2114,6 @@ func TestInterfaceSet(t *testing.T) {
 	}
 }
 
-/*
 // JSON null values should be ignored for primitives and string values instead of resulting in an error.
 // Issue 2540
 func TestUnmarshalNulls(t *testing.T) {
@@ -2239,7 +2238,6 @@ func TestUnmarshalNulls(t *testing.T) {
 		t.Errorf("Unmarshal of big.Int null set int to %v", nulls.BigInt.String())
 	}
 }
-*/
 
 func TestStringKind(t *testing.T) {
 	type stringKind string

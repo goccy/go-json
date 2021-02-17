@@ -81,7 +81,7 @@ func (d *boolDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			if err := nullBytes(s); err != nil {
 				return err
 			}
-			**(**bool)(unsafe.Pointer(&p)) = false
+			return nil
 		case nul:
 			if s.read() {
 				continue
@@ -147,7 +147,6 @@ func (d *boolDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64,
 			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
 		}
 		cursor += 4
-		**(**bool)(unsafe.Pointer(&p)) = false
 		return cursor, nil
 	}
 	return 0, errUnexpectedEndOfJSON("bool", cursor)

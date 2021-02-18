@@ -15,6 +15,7 @@ type structFieldSet struct {
 	isTaggedKey bool
 	key         string
 	keyLen      int64
+	err         error
 }
 
 type structDecoder struct {
@@ -524,6 +525,9 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			}
 		}
 		if field != nil {
+			if field.err != nil {
+				return field.err
+			}
 			if err := field.dec.decodeStream(s, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
 				return err
 			}
@@ -591,6 +595,9 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 			return 0, errExpected("object value after colon", cursor)
 		}
 		if field != nil {
+			if field.err != nil {
+				return 0, field.err
+			}
 			c, err := field.dec.decode(buf, cursor, unsafe.Pointer(uintptr(p)+field.offset))
 			if err != nil {
 				return 0, err

@@ -1,8 +1,10 @@
 package json
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -247,7 +249,7 @@ func decodeCompileInterface(typ *rtype, structName, fieldName string) (decoder, 
 	return newInterfaceDecoder(typ, structName, fieldName), nil
 }
 
-func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, baseOffset uintptr) {
+func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, field reflect.StructField) {
 	for k, v := range dec.fieldMap {
 		if _, exists := conflictedMap[k]; exists {
 			// already conflicted key
@@ -257,7 +259,7 @@ func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedM
 		if !exists {
 			fieldSet := &structFieldSet{
 				dec:         v.dec,
-				offset:      baseOffset + v.offset,
+				offset:      field.Offset + v.offset,
 				isTaggedKey: v.isTaggedKey,
 				key:         k,
 				keyLen:      int64(len(k)),
@@ -281,7 +283,7 @@ func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedM
 			if v.isTaggedKey {
 				fieldSet := &structFieldSet{
 					dec:         v.dec,
-					offset:      baseOffset + v.offset,
+					offset:      field.Offset + v.offset,
 					isTaggedKey: v.isTaggedKey,
 					key:         k,
 					keyLen:      int64(len(k)),
@@ -318,6 +320,7 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 		if isIgnoredStructField(field) {
 			continue
 		}
+		isUnexportedField := unicode.IsLower([]rune(field.Name)[0])
 		tag := structTagFromField(field)
 		dec, err := decodeCompile(type2rtype(field.Type), structName, field.Name, structTypeToDecoder)
 		if err != nil {
@@ -329,12 +332,19 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 					// recursive definition
 					continue
 				}
-				decodeRemoveConflictFields(fieldMap, conflictedMap, stDec, field.Offset)
+				decodeRemoveConflictFields(fieldMap, conflictedMap, stDec, field)
 			} else if pdec, ok := dec.(*ptrDecoder); ok {
 				contentDec := pdec.contentDecoder()
 				if pdec.typ == typ {
 					// recursive definition
 					continue
+				}
+				var fieldSetErr error
+				if isUnexportedField {
+					fieldSetErr = fmt.Errorf(
+						"json: cannot set embedded pointer to unexported struct: %v",
+						field.Type.Elem(),
+					)
 				}
 				if dec, ok := contentDec.(*structDecoder); ok {
 					for k, v := range dec.fieldMap {
@@ -350,6 +360,7 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 								isTaggedKey: v.isTaggedKey,
 								key:         k,
 								keyLen:      int64(len(k)),
+								err:         fieldSetErr,
 							}
 							fieldMap[k] = fieldSet
 							lower := strings.ToLower(k)
@@ -374,6 +385,7 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 									isTaggedKey: v.isTaggedKey,
 									key:         k,
 									keyLen:      int64(len(k)),
+									err:         fieldSetErr,
 								}
 								fieldMap[k] = fieldSet
 								lower := strings.ToLower(k)

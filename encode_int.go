@@ -49,9 +49,7 @@ var intBELookup = [100]uint16{
 
 var intLookup = [2]*[100]uint16{&intLELookup, &intBELookup}
 
-func appendInt(b []byte, n int64) []byte {
-	return formatInteger(b, uint64(n), n < 0)
-}
+var appendInt = formatInteger
 
 func appendUint(b []byte, n uint64) []byte {
 	return formatInteger(b, n, false)

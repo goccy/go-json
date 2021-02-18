@@ -20,7 +20,7 @@ func newNumberDecoder(structName, fieldName string, op func(unsafe.Pointer, Numb
 	}
 }
 
-func (d *numberDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *numberDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.floatDecoder.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -30,7 +30,7 @@ func (d *numberDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *numberDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *numberDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.floatDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

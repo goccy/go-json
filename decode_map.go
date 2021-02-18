@@ -33,7 +33,12 @@ func makemap(*rtype, int) unsafe.Pointer
 //go:noescape
 func mapassign(t *rtype, m unsafe.Pointer, key, val unsafe.Pointer)
 
-func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *mapDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return errExceededMaxDepth(s.char(), s.cursor)
+	}
+
 	s.skipWhiteSpace()
 	switch s.char() {
 	case 'n':
@@ -59,7 +64,7 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	for {
 		s.cursor++
 		k := unsafe_New(d.keyType)
-		if err := d.keyDecoder.decodeStream(s, k); err != nil {
+		if err := d.keyDecoder.decodeStream(s, depth, k); err != nil {
 			return err
 		}
 		s.skipWhiteSpace()
@@ -71,7 +76,7 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		}
 		s.cursor++
 		v := unsafe_New(d.valueType)
-		if err := d.valueDecoder.decodeStream(s, v); err != nil {
+		if err := d.valueDecoder.decodeStream(s, depth, v); err != nil {
 			return err
 		}
 		mapassign(d.mapType, mapValue, k, v)
@@ -90,7 +95,12 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 }
 
-func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *mapDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errExceededMaxDepth(buf[cursor], cursor)
+	}
+
 	cursor = skipWhiteSpace(buf, cursor)
 	buflen := int64(len(buf))
 	if buflen < 2 {
@@ -130,7 +140,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 	}
 	for {
 		k := unsafe_New(d.keyType)
-		keyCursor, err := d.keyDecoder.decode(buf, cursor, k)
+		keyCursor, err := d.keyDecoder.decode(buf, cursor, depth, k)
 		if err != nil {
 			return 0, err
 		}
@@ -140,7 +150,7 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 		}
 		cursor++
 		v := unsafe_New(d.valueType)
-		valueCursor, err := d.valueDecoder.decode(buf, cursor, v)
+		valueCursor, err := d.valueDecoder.decode(buf, cursor, depth, v)
 		if err != nil {
 			return 0, err
 		}

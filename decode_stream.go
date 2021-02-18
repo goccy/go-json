@@ -97,19 +97,31 @@ LOOP:
 	}
 }
 
-func (s *stream) skipObject() error {
+func (s *stream) skipObject(depth int64) error {
 	braceCount := 1
 	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
 		case '{':
 			braceCount++
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return errExceededMaxDepth(s.char(), s.cursor)
+			}
 		case '}':
 			braceCount--
+			depth--
 			if braceCount == 0 {
 				s.cursor = cursor + 1
 				return nil
 			}
+		case '[':
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return errExceededMaxDepth(s.char(), s.cursor)
+			}
+		case ']':
+			depth--
 		case '"':
 			for {
 				cursor++
@@ -142,19 +154,31 @@ func (s *stream) skipObject() error {
 	}
 }
 
-func (s *stream) skipArray() error {
+func (s *stream) skipArray(depth int64) error {
 	bracketCount := 1
 	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
 		case '[':
 			bracketCount++
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return errExceededMaxDepth(s.char(), s.cursor)
+			}
 		case ']':
 			bracketCount--
+			depth--
 			if bracketCount == 0 {
 				s.cursor = cursor + 1
 				return nil
 			}
+		case '{':
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return errExceededMaxDepth(s.char(), s.cursor)
+			}
+		case '}':
+			depth--
 		case '"':
 			for {
 				cursor++
@@ -187,7 +211,7 @@ func (s *stream) skipArray() error {
 	}
 }
 
-func (s *stream) skipValue() error {
+func (s *stream) skipValue(depth int64) error {
 	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
@@ -203,10 +227,10 @@ func (s *stream) skipValue() error {
 			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
 		case '{':
 			s.cursor = cursor + 1
-			return s.skipObject()
+			return s.skipObject(depth + 1)
 		case '[':
 			s.cursor = cursor + 1
-			return s.skipArray()
+			return s.skipArray(depth + 1)
 		case '"':
 			for {
 				cursor++

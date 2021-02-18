@@ -117,6 +117,13 @@ func (e *UnsupportedValueError) Error() string {
 	return fmt.Sprintf("json: unsupported value: %s", e.Str)
 }
 
+func errExceededMaxDepth(c byte, cursor int64) *SyntaxError {
+	return &SyntaxError{
+		msg:    fmt.Sprintf(`invalid character "%c" exceeded max depth`, c),
+		Offset: cursor,
+	}
+}
+
 func errNotAtBeginningOfValue(cursor int64) *SyntaxError {
 	return &SyntaxError{msg: "not at beginning of value", Offset: cursor}
 }

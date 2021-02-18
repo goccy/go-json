@@ -487,7 +487,12 @@ func decodeKeyStream(d *structDecoder, s *stream) (*structFieldSet, string, erro
 	return d.fieldMap[k], k, nil
 }
 
-func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *structDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return errExceededMaxDepth(s.char(), s.cursor)
+	}
+
 	s.skipWhiteSpace()
 	switch s.char() {
 	case 'n':
@@ -528,13 +533,13 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 			if field.err != nil {
 				return field.err
 			}
-			if err := field.dec.decodeStream(s, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+			if err := field.dec.decodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
 				return err
 			}
 		} else if s.disallowUnknownFields {
 			return fmt.Errorf("json: unknown field %q", key)
 		} else {
-			if err := s.skipValue(); err != nil {
+			if err := s.skipValue(depth); err != nil {
 				return err
 			}
 		}
@@ -551,7 +556,11 @@ func (d *structDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 }
 
-func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *structDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errExceededMaxDepth(buf[cursor], cursor)
+	}
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
 	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
@@ -598,13 +607,13 @@ func (d *structDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int6
 			if field.err != nil {
 				return 0, field.err
 			}
-			c, err := field.dec.decode(buf, cursor, unsafe.Pointer(uintptr(p)+field.offset))
+			c, err := field.dec.decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
 			if err != nil {
 				return 0, err
 			}
 			cursor = c
 		} else {
-			c, err := skipValue(buf, cursor)
+			c, err := skipValue(buf, cursor, depth)
 			if err != nil {
 				return 0, err
 			}

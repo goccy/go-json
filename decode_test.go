@@ -2796,7 +2796,6 @@ func TestUnmarshalRescanLiteralMangledUnquote(t *testing.T) {
 	}
 }
 
-/*
 func TestUnmarshalMaxDepth(t *testing.T) {
 	testcases := []struct {
 		name        string
@@ -2876,20 +2875,35 @@ func TestUnmarshalMaxDepth(t *testing.T) {
 	for _, tc := range testcases {
 		for _, target := range targets {
 			t.Run(target.name+"-"+tc.name, func(t *testing.T) {
-				err := json.Unmarshal([]byte(tc.data), target.newValue())
-				if !tc.errMaxDepth {
-					if err != nil {
-						t.Errorf("unexpected error: %v", err)
+				t.Run("unmarshal", func(t *testing.T) {
+					err := json.Unmarshal([]byte(tc.data), target.newValue())
+					if !tc.errMaxDepth {
+						if err != nil {
+							t.Errorf("unexpected error: %v", err)
+						}
+					} else {
+						if err == nil {
+							t.Errorf("expected error containing 'exceeded max depth', got none")
+						} else if !strings.Contains(err.Error(), "exceeded max depth") {
+							t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+						}
 					}
-				} else {
-					if err == nil {
-						t.Errorf("expected error containing 'exceeded max depth', got none")
-					} else if !strings.Contains(err.Error(), "exceeded max depth") {
-						t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+				})
+				t.Run("stream", func(t *testing.T) {
+					err := json.NewDecoder(strings.NewReader(tc.data)).Decode(target.newValue())
+					if !tc.errMaxDepth {
+						if err != nil {
+							t.Errorf("unexpected error: %v", err)
+						}
+					} else {
+						if err == nil {
+							t.Errorf("expected error containing 'exceeded max depth', got none")
+						} else if !strings.Contains(err.Error(), "exceeded max depth") {
+							t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+						}
 					}
-				}
+				})
 			})
 		}
 	}
 }
-*/

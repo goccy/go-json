@@ -32,7 +32,7 @@ func (d *ptrDecoder) contentDecoder() decoder {
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*rtype) unsafe.Pointer
 
-func (d *ptrDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *ptrDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	if s.char() == nul {
 		s.read()
@@ -51,13 +51,13 @@ func (d *ptrDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	} else {
 		newptr = *(*unsafe.Pointer)(p)
 	}
-	if err := d.dec.decodeStream(s, newptr); err != nil {
+	if err := d.dec.decodeStream(s, depth, newptr); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *ptrDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *ptrDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == 'n' {
 		buflen := int64(len(buf))
@@ -86,7 +86,7 @@ func (d *ptrDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 	} else {
 		newptr = *(*unsafe.Pointer)(p)
 	}
-	c, err := d.dec.decode(buf, cursor, newptr)
+	c, err := d.dec.decode(buf, cursor, depth, newptr)
 	if err != nil {
 		return 0, err
 	}

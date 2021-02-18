@@ -28,17 +28,29 @@ LOOP:
 	return cursor
 }
 
-func skipObject(buf []byte, cursor int64) (int64, error) {
+func skipObject(buf []byte, cursor, depth int64) (int64, error) {
 	braceCount := 1
 	for {
 		switch buf[cursor] {
 		case '{':
 			braceCount++
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return 0, errExceededMaxDepth(buf[cursor], cursor)
+			}
 		case '}':
+			depth--
 			braceCount--
 			if braceCount == 0 {
 				return cursor + 1, nil
 			}
+		case '[':
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return 0, errExceededMaxDepth(buf[cursor], cursor)
+			}
+		case ']':
+			depth--
 		case '"':
 			for {
 				cursor++
@@ -60,17 +72,29 @@ func skipObject(buf []byte, cursor int64) (int64, error) {
 	}
 }
 
-func skipArray(buf []byte, cursor int64) (int64, error) {
+func skipArray(buf []byte, cursor, depth int64) (int64, error) {
 	bracketCount := 1
 	for {
 		switch buf[cursor] {
 		case '[':
 			bracketCount++
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return 0, errExceededMaxDepth(buf[cursor], cursor)
+			}
 		case ']':
 			bracketCount--
+			depth--
 			if bracketCount == 0 {
 				return cursor + 1, nil
 			}
+		case '{':
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return 0, errExceededMaxDepth(buf[cursor], cursor)
+			}
+		case '}':
+			depth--
 		case '"':
 			for {
 				cursor++
@@ -92,16 +116,16 @@ func skipArray(buf []byte, cursor int64) (int64, error) {
 	}
 }
 
-func skipValue(buf []byte, cursor int64) (int64, error) {
+func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 	for {
 		switch buf[cursor] {
 		case ' ', '\t', '\n', '\r':
 			cursor++
 			continue
 		case '{':
-			return skipObject(buf, cursor+1)
+			return skipObject(buf, cursor+1, depth+1)
 		case '[':
-			return skipArray(buf, cursor+1)
+			return skipArray(buf, cursor+1, depth+1)
 		case '"':
 			for {
 				cursor++

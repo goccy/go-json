@@ -242,7 +242,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.idx)
 			isPtr := code.typ.Kind() == reflect.Ptr
 			p := ptrToUnsafePtr(ptr)
-			if p == nil || isPtr && *(*unsafe.Pointer)(p) == nil {
+			if p == nil || isPtr && **(**unsafe.Pointer)(unsafe.Pointer(&p)) == nil {
 				b = append(b, '"', '"', ',')
 			} else {
 				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{

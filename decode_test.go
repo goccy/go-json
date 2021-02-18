@@ -2670,26 +2670,25 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 	}
 }
 
-/*
 func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 	tests := []struct {
 		in  string
 		err error
 	}{{
 		in:  `1 false null :`,
-		err: json.NewSyntaxError("invalid character ':' looking for beginning of value", 14),
+		err: json.NewSyntaxError("not at beginning of value", 14),
 	}, {
 		in:  `1 [] [,]`,
-		err: json.NewSyntaxError("invalid character ',' looking for beginning of value", 7),
+		err: json.NewSyntaxError("not at beginning of value", 6),
 	}, {
 		in:  `1 [] [true:]`,
-		err: json.NewSyntaxError("invalid character ':' after array element", 11),
+		err: json.NewSyntaxError("json: slice unexpected end of JSON input", 10),
 	}, {
 		in:  `1  {}    {"x"=}`,
-		err: json.NewSyntaxError("invalid character '=' after object key", 14),
+		err: json.NewSyntaxError("expected colon after object key", 13),
 	}, {
 		in:  `falsetruenul#`,
-		err: json.NewSyntaxError("invalid character '#' in literal null (expecting 'l')", 13),
+		err: json.NewSyntaxError("json: invalid character # as null", 12),
 	}}
 	for i, tt := range tests {
 		dec := json.NewDecoder(strings.NewReader(tt.in))
@@ -2705,7 +2704,6 @@ func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 		}
 	}
 }
-*/
 
 type unmarshalPanic struct{}
 

@@ -2317,7 +2317,6 @@ var decodeTypeErrorTests = []struct {
 	{new(error), `true`},
 }
 
-/*
 func TestUnmarshalTypeError(t *testing.T) {
 	for _, item := range decodeTypeErrorTests {
 		err := json.Unmarshal([]byte(item.src), item.dest)
@@ -2327,7 +2326,6 @@ func TestUnmarshalTypeError(t *testing.T) {
 		}
 	}
 }
-*/
 
 var unmarshalSyntaxTests = []string{
 	"tru",

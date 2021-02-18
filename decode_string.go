@@ -231,6 +231,8 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			continue
 		case '[':
 			return nil, d.errUnmarshalType("array", s.totalOffset())
+		case '{':
+			return nil, d.errUnmarshalType("object", s.totalOffset())
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return nil, d.errUnmarshalType("number", s.totalOffset())
 		case '"':
@@ -257,6 +259,8 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor++
 		case '[':
 			return nil, 0, d.errUnmarshalType("array", cursor)
+		case '{':
+			return nil, 0, d.errUnmarshalType("object", cursor)
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return nil, 0, d.errUnmarshalType("number", cursor)
 		case '"':

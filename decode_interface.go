@@ -214,7 +214,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 			return decodeStreamTextUnmarshaler(s, u, p)
 		}
-		return &UnsupportedTypeError{Type: rv.Type()}
+		return d.errUnmarshalType(rv.Type(), s.totalOffset())
 	}
 	iface := rv.Interface()
 	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
@@ -241,6 +241,16 @@ func (d *interfaceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return decoder.decodeStream(s, ifaceHeader.ptr)
 }
 
+func (d *interfaceDecoder) errUnmarshalType(typ reflect.Type, offset int64) *UnmarshalTypeError {
+	return &UnmarshalTypeError{
+		Value:  typ.String(),
+		Type:   typ,
+		Offset: offset,
+		Struct: d.structName,
+		Field:  d.fieldName,
+	}
+}
+
 func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
 	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
 		typ: d.typ,
@@ -254,7 +264,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (i
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 			return decodeTextUnmarshaler(buf, cursor, u, p)
 		}
-		return 0, &UnsupportedTypeError{Type: rv.Type()}
+		return 0, d.errUnmarshalType(rv.Type(), cursor)
 	}
 
 	iface := rv.Interface()

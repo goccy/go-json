@@ -104,8 +104,6 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 		typ = orgType
 	} else if isPtr && typ.Implements(marshalJSONType) {
 		typ = orgType
-	} else if isPtr && isIntOrUintType(typ) {
-		//typ = orgType
 	}
 	code, err := encodeCompile(ctx.withType(typ))
 	if err != nil {

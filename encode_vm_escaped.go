@@ -29,7 +29,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opInt:
 			p := load(ctxptr, code.idx)
 			u64 := ptrToUint64(p)
-			b = appendInt(b, u64&code.mask, (u64>>code.rshiftNum)&1 == 1)
+			if (u64>>code.rshiftNum)&1 == 1 {
+				v := ^u64&code.mask + 1
+				b = appendInt(b, -v, true)
+			} else {
+				b = appendInt(b, u64&code.mask, (u64>>code.rshiftNum)&1 == 1)
+			}
 			b = encodeComma(b)
 			code = code.next
 		case opUint:

@@ -1063,19 +1063,18 @@ var unmarshalTests = []unmarshalTest{
 		out:    []byteWithPtrMarshalJSON{1, 2, 3},
 		golden: true,
 	},
-	/*
-			{
-				in:  `"AQID"`, // 108
-				ptr: new([]byteWithPtrMarshalText),
-				out: []byteWithPtrMarshalText{1, 2, 3},
-			},
-		{
-			in:     `["Z01","Z02","Z03"]`, // 109
-			ptr:    new([]byteWithPtrMarshalText),
-			out:    []byteWithPtrMarshalText{1, 2, 3},
-			golden: true,
-		},
-	*/
+	{
+		in:  `"AQID"`, // 108
+		ptr: new([]byteWithPtrMarshalText),
+		out: []byteWithPtrMarshalText{1, 2, 3},
+	},
+	{
+		in:     `["Z01","Z02","Z03"]`, // 109
+		ptr:    new([]byteWithPtrMarshalText),
+		out:    []byteWithPtrMarshalText{1, 2, 3},
+		golden: true,
+	},
+
 	// ints work with the marshaler but not the base64 []byte case
 	{
 		in:     `["Z01","Z02","Z03"]`, // 110

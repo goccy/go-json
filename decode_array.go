@@ -11,9 +11,11 @@ type arrayDecoder struct {
 	alen         int
 	structName   string
 	fieldName    string
+	zeroValue    unsafe.Pointer
 }
 
 func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldName string) *arrayDecoder {
+	zeroValue := *(*unsafe.Pointer)(unsafe_New(elemType))
 	return &arrayDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
@@ -21,6 +23,7 @@ func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldNa
 		alen:         alen,
 		structName:   structName,
 		fieldName:    fieldName,
+		zeroValue:    zeroValue,
 	}
 }
 
@@ -46,13 +49,18 @@ func (d *arrayDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 						return err
 					}
 				}
+				idx++
 				s.skipWhiteSpace()
 				switch s.char() {
 				case ']':
+					for idx < d.alen {
+						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+						idx++
+					}
 					s.cursor++
 					return nil
 				case ',':
-					idx++
+					continue
 				case nul:
 					if s.read() {
 						continue
@@ -115,13 +123,17 @@ func (d *arrayDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					}
 					cursor = c
 				}
+				idx++
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
+					for idx < d.alen {
+						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+						idx++
+					}
 					cursor++
 					return cursor, nil
 				case ',':
-					idx++
 					continue
 				default:
 					return 0, errInvalidCharacter(buf[cursor], "array", cursor)

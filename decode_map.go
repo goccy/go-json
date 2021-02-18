@@ -47,7 +47,10 @@ func (d *mapDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return errExpected("{ character for map value", s.totalOffset())
 	}
 	s.skipWhiteSpace()
-	mapValue := makemap(d.mapType, 0)
+	mapValue := *(*unsafe.Pointer)(p)
+	if mapValue == nil {
+		mapValue = makemap(d.mapType, 0)
+	}
 	if s.buf[s.cursor+1] == '}' {
 		*(*unsafe.Pointer)(p) = mapValue
 		s.cursor += 2
@@ -116,7 +119,10 @@ func (d *mapDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, 
 	}
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)
-	mapValue := makemap(d.mapType, 0)
+	mapValue := *(*unsafe.Pointer)(p)
+	if mapValue == nil {
+		mapValue = makemap(d.mapType, 0)
+	}
 	if buf[cursor] == '}' {
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 		cursor++

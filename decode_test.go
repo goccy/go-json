@@ -2412,7 +2412,6 @@ func TestSkipArrayObjects(t *testing.T) {
 	}
 }
 
-/*
 // Test semantics of pre-filled data, such as struct fields, map elements,
 // slices, and arrays.
 // Issues 4900 and 8837, among others.
@@ -2466,7 +2465,6 @@ func TestPrefilled(t *testing.T) {
 		}
 	}
 }
-*/
 
 var invalidUnmarshalTests = []struct {
 	v    interface{}

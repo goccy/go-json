@@ -2475,7 +2475,6 @@ var invalidUnmarshalTests = []struct {
 	{(*int)(nil), "json: Unmarshal(nil *int)"},
 }
 
-/*
 func TestInvalidUnmarshal(t *testing.T) {
 	buf := []byte(`{"a":"1"}`)
 	for _, tt := range invalidUnmarshalTests {
@@ -2489,7 +2488,6 @@ func TestInvalidUnmarshal(t *testing.T) {
 		}
 	}
 }
-*/
 
 var invalidUnmarshalTextTests = []struct {
 	v    interface{}
@@ -2501,7 +2499,6 @@ var invalidUnmarshalTextTests = []struct {
 	{new(net.IP), "json: cannot unmarshal number into Go value of type *net.IP"},
 }
 
-/*
 func TestInvalidUnmarshalText(t *testing.T) {
 	buf := []byte(`123`)
 	for _, tt := range invalidUnmarshalTextTests {
@@ -2515,7 +2512,6 @@ func TestInvalidUnmarshalText(t *testing.T) {
 		}
 	}
 }
-*/
 
 /*
 // Test that string option is ignored for invalid types.

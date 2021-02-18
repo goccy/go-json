@@ -44,25 +44,31 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 		return err
 	}
 	src := s.buf[start:s.cursor]
-	switch src[0] {
-	case '[':
-		// cannot decode array value by unmarshal text
-		return &UnmarshalTypeError{
-			Value:  "array",
-			Type:   rtype2type(d.typ),
-			Offset: s.totalOffset(),
-		}
-	case '{':
-		// cannot decode object value by unmarshal text
-		return &UnmarshalTypeError{
-			Value:  "object",
-			Type:   rtype2type(d.typ),
-			Offset: s.totalOffset(),
-		}
-	case 'n':
-		if bytes.Equal(src, nullbytes) {
-			*(*unsafe.Pointer)(p) = nil
-			return nil
+	if len(src) > 0 {
+		switch src[0] {
+		case '[':
+			return &UnmarshalTypeError{
+				Value:  "array",
+				Type:   rtype2type(d.typ),
+				Offset: s.totalOffset(),
+			}
+		case '{':
+			return &UnmarshalTypeError{
+				Value:  "object",
+				Type:   rtype2type(d.typ),
+				Offset: s.totalOffset(),
+			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return &UnmarshalTypeError{
+				Value:  "number",
+				Type:   rtype2type(d.typ),
+				Offset: s.totalOffset(),
+			}
+		case 'n':
+			if bytes.Equal(src, nullbytes) {
+				*(*unsafe.Pointer)(p) = nil
+				return nil
+			}
 		}
 	}
 	dst := make([]byte, len(src))
@@ -90,9 +96,32 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		return 0, err
 	}
 	src := buf[start:end]
-	if bytes.Equal(src, nullbytes) {
-		*(*unsafe.Pointer)(p) = nil
-		return end, nil
+	if len(src) > 0 {
+		switch src[0] {
+		case '[':
+			return 0, &UnmarshalTypeError{
+				Value:  "array",
+				Type:   rtype2type(d.typ),
+				Offset: start,
+			}
+		case '{':
+			return 0, &UnmarshalTypeError{
+				Value:  "object",
+				Type:   rtype2type(d.typ),
+				Offset: start,
+			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return 0, &UnmarshalTypeError{
+				Value:  "number",
+				Type:   rtype2type(d.typ),
+				Offset: start,
+			}
+		case 'n':
+			if bytes.Equal(src, nullbytes) {
+				*(*unsafe.Pointer)(p) = nil
+				return end, nil
+			}
+		}
 	}
 
 	if s, ok := unquoteBytes(src); ok {

@@ -300,7 +300,7 @@ func (u *unmarshalText) UnmarshalText(b []byte) error {
 func Test_UnmarshalText(t *testing.T) {
 	t.Run("*struct", func(t *testing.T) {
 		var v unmarshalText
-		assertErr(t, json.Unmarshal([]byte(`11`), &v))
+		assertErr(t, json.Unmarshal([]byte(`"11"`), &v))
 		assertEq(t, "unmarshal", v.v, 11)
 	})
 }

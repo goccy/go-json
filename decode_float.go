@@ -129,7 +129,7 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 	return nil, 0, errUnexpectedEndOfJSON("float", cursor)
 }
 
-func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *floatDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (d *floatDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *floatDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *floatDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

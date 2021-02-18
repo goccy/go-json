@@ -300,7 +300,7 @@ func (u *unmarshalText) UnmarshalText(b []byte) error {
 func Test_UnmarshalText(t *testing.T) {
 	t.Run("*struct", func(t *testing.T) {
 		var v unmarshalText
-		assertErr(t, json.Unmarshal([]byte(`11`), &v))
+		assertErr(t, json.Unmarshal([]byte(`"11"`), &v))
 		assertEq(t, "unmarshal", v.v, 11)
 	})
 }
@@ -1063,19 +1063,18 @@ var unmarshalTests = []unmarshalTest{
 		out:    []byteWithPtrMarshalJSON{1, 2, 3},
 		golden: true,
 	},
-	/*
-			{
-				in:  `"AQID"`, // 108
-				ptr: new([]byteWithPtrMarshalText),
-				out: []byteWithPtrMarshalText{1, 2, 3},
-			},
-		{
-			in:     `["Z01","Z02","Z03"]`, // 109
-			ptr:    new([]byteWithPtrMarshalText),
-			out:    []byteWithPtrMarshalText{1, 2, 3},
-			golden: true,
-		},
-	*/
+	{
+		in:  `"AQID"`, // 108
+		ptr: new([]byteWithPtrMarshalText),
+		out: []byteWithPtrMarshalText{1, 2, 3},
+	},
+	{
+		in:     `["Z01","Z02","Z03"]`, // 109
+		ptr:    new([]byteWithPtrMarshalText),
+		out:    []byteWithPtrMarshalText{1, 2, 3},
+		golden: true,
+	},
+
 	// ints work with the marshaler but not the base64 []byte case
 	{
 		in:     `["Z01","Z02","Z03"]`, // 110
@@ -2317,7 +2316,6 @@ var decodeTypeErrorTests = []struct {
 	{new(error), `true`},
 }
 
-/*
 func TestUnmarshalTypeError(t *testing.T) {
 	for _, item := range decodeTypeErrorTests {
 		err := json.Unmarshal([]byte(item.src), item.dest)
@@ -2327,7 +2325,6 @@ func TestUnmarshalTypeError(t *testing.T) {
 		}
 	}
 }
-*/
 
 var unmarshalSyntaxTests = []string{
 	"tru",
@@ -2414,7 +2411,6 @@ func TestSkipArrayObjects(t *testing.T) {
 	}
 }
 
-/*
 // Test semantics of pre-filled data, such as struct fields, map elements,
 // slices, and arrays.
 // Issues 4900 and 8837, among others.
@@ -2468,7 +2464,6 @@ func TestPrefilled(t *testing.T) {
 		}
 	}
 }
-*/
 
 var invalidUnmarshalTests = []struct {
 	v    interface{}
@@ -2479,7 +2474,6 @@ var invalidUnmarshalTests = []struct {
 	{(*int)(nil), "json: Unmarshal(nil *int)"},
 }
 
-/*
 func TestInvalidUnmarshal(t *testing.T) {
 	buf := []byte(`{"a":"1"}`)
 	for _, tt := range invalidUnmarshalTests {
@@ -2493,7 +2487,6 @@ func TestInvalidUnmarshal(t *testing.T) {
 		}
 	}
 }
-*/
 
 var invalidUnmarshalTextTests = []struct {
 	v    interface{}
@@ -2505,7 +2498,6 @@ var invalidUnmarshalTextTests = []struct {
 	{new(net.IP), "json: cannot unmarshal number into Go value of type *net.IP"},
 }
 
-/*
 func TestInvalidUnmarshalText(t *testing.T) {
 	buf := []byte(`123`)
 	for _, tt := range invalidUnmarshalTextTests {
@@ -2519,7 +2511,6 @@ func TestInvalidUnmarshalText(t *testing.T) {
 		}
 	}
 }
-*/
 
 /*
 // Test that string option is ignored for invalid types.
@@ -2547,7 +2538,6 @@ func TestInvalidStringOption(t *testing.T) {
 }
 */
 
-/*
 // Test unmarshal behavior with regards to embedded unexported structs.
 //
 // (Issue 21357) If the embedded struct is a pointer and is unallocated,
@@ -2612,7 +2602,7 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 		in:  `{"R":2,"Q":1}`,
 		ptr: new(S1),
 		out: &S1{R: 2},
-		err: fmt.Errorf("json: cannot set embedded pointer to unexported struct: json.embed1"),
+		err: fmt.Errorf("json: cannot set embedded pointer to unexported struct: json_test.embed1"),
 	}, {
 		// The top level Q field takes precedence.
 		in:  `{"Q":1}`,
@@ -2634,7 +2624,7 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 		in:  `{"R":2,"Q":1}`,
 		ptr: new(S5),
 		out: &S5{R: 2},
-		err: fmt.Errorf("json: cannot set embedded pointer to unexported struct: json.embed3"),
+		err: fmt.Errorf("json: cannot set embedded pointer to unexported struct: json_test.embed3"),
 	}, {
 		// Issue 24152, ensure decodeState.indirect does not panic.
 		in:  `{"embed1": {"Q": 1}}`,
@@ -2678,28 +2668,26 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 		}
 	}
 }
-*/
 
-/*
 func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 	tests := []struct {
 		in  string
 		err error
 	}{{
 		in:  `1 false null :`,
-		err: json.NewSyntaxError("invalid character ':' looking for beginning of value", 14),
+		err: json.NewSyntaxError("not at beginning of value", 14),
 	}, {
 		in:  `1 [] [,]`,
-		err: json.NewSyntaxError("invalid character ',' looking for beginning of value", 7),
+		err: json.NewSyntaxError("not at beginning of value", 6),
 	}, {
 		in:  `1 [] [true:]`,
-		err: json.NewSyntaxError("invalid character ':' after array element", 11),
+		err: json.NewSyntaxError("json: slice unexpected end of JSON input", 10),
 	}, {
 		in:  `1  {}    {"x"=}`,
-		err: json.NewSyntaxError("invalid character '=' after object key", 14),
+		err: json.NewSyntaxError("expected colon after object key", 13),
 	}, {
 		in:  `falsetruenul#`,
-		err: json.NewSyntaxError("invalid character '#' in literal null (expecting 'l')", 13),
+		err: json.NewSyntaxError("json: invalid character # as null", 12),
 	}}
 	for i, tt := range tests {
 		dec := json.NewDecoder(strings.NewReader(tt.in))
@@ -2715,7 +2703,6 @@ func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 		}
 	}
 }
-*/
 
 type unmarshalPanic struct{}
 
@@ -2808,7 +2795,6 @@ func TestUnmarshalRescanLiteralMangledUnquote(t *testing.T) {
 	}
 }
 
-/*
 func TestUnmarshalMaxDepth(t *testing.T) {
 	testcases := []struct {
 		name        string
@@ -2888,20 +2874,35 @@ func TestUnmarshalMaxDepth(t *testing.T) {
 	for _, tc := range testcases {
 		for _, target := range targets {
 			t.Run(target.name+"-"+tc.name, func(t *testing.T) {
-				err := json.Unmarshal([]byte(tc.data), target.newValue())
-				if !tc.errMaxDepth {
-					if err != nil {
-						t.Errorf("unexpected error: %v", err)
+				t.Run("unmarshal", func(t *testing.T) {
+					err := json.Unmarshal([]byte(tc.data), target.newValue())
+					if !tc.errMaxDepth {
+						if err != nil {
+							t.Errorf("unexpected error: %v", err)
+						}
+					} else {
+						if err == nil {
+							t.Errorf("expected error containing 'exceeded max depth', got none")
+						} else if !strings.Contains(err.Error(), "exceeded max depth") {
+							t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+						}
 					}
-				} else {
-					if err == nil {
-						t.Errorf("expected error containing 'exceeded max depth', got none")
-					} else if !strings.Contains(err.Error(), "exceeded max depth") {
-						t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+				})
+				t.Run("stream", func(t *testing.T) {
+					err := json.NewDecoder(strings.NewReader(tc.data)).Decode(target.newValue())
+					if !tc.errMaxDepth {
+						if err != nil {
+							t.Errorf("unexpected error: %v", err)
+						}
+					} else {
+						if err == nil {
+							t.Errorf("expected error containing 'exceeded max depth', got none")
+						} else if !strings.Contains(err.Error(), "exceeded max depth") {
+							t.Errorf("expected error containing 'exceeded max depth', got: %v", err)
+						}
 					}
-				}
+				})
 			})
 		}
 	}
 }
-*/

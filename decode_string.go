@@ -30,7 +30,7 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *Unmarsh
 	}
 }
 
-func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *stringDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (d *stringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *stringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *stringDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -231,6 +231,8 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			continue
 		case '[':
 			return nil, d.errUnmarshalType("array", s.totalOffset())
+		case '{':
+			return nil, d.errUnmarshalType("object", s.totalOffset())
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return nil, d.errUnmarshalType("number", s.totalOffset())
 		case '"':
@@ -257,6 +259,8 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor++
 		case '[':
 			return nil, 0, d.errUnmarshalType("array", cursor)
+		case '{':
+			return nil, 0, d.errUnmarshalType("object", cursor)
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return nil, 0, d.errUnmarshalType("number", cursor)
 		case '"':

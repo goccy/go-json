@@ -25,7 +25,7 @@ func newWrappedStringDecoder(typ *rtype, dec decoder, structName, fieldName stri
 	}
 }
 
-func (d *wrappedStringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *wrappedStringDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.stringDecoder.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -38,13 +38,13 @@ func (d *wrappedStringDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	}
 	b := make([]byte, len(bytes)+1)
 	copy(b, bytes)
-	if _, err := d.dec.decode(b, 0, p); err != nil {
+	if _, err := d.dec.decode(b, 0, depth, p); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *wrappedStringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *wrappedStringDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.stringDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -56,7 +56,7 @@ func (d *wrappedStringDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer
 		return c, nil
 	}
 	bytes = append(bytes, nul)
-	if _, err := d.dec.decode(bytes, 0, p); err != nil {
+	if _, err := d.dec.decode(bytes, 0, depth, p); err != nil {
 		return 0, err
 	}
 	return c, nil

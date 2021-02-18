@@ -15,8 +15,8 @@ func (d Delim) String() string {
 }
 
 type decoder interface {
-	decode([]byte, int64, unsafe.Pointer) (int64, error)
-	decodeStream(*stream, unsafe.Pointer) error
+	decode([]byte, int64, int64, unsafe.Pointer) (int64, error)
+	decodeStream(*stream, int64, unsafe.Pointer) error
 }
 
 type Decoder struct {
@@ -29,7 +29,8 @@ var (
 )
 
 const (
-	nul = '\000'
+	nul                   = '\000'
+	maxDecodeNestingDepth = 10000
 )
 
 func unmarshal(data []byte, v interface{}) error {
@@ -45,7 +46,7 @@ func unmarshal(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if _, err := dec.decode(src, 0, header.ptr); err != nil {
+	if _, err := dec.decode(src, 0, 0, header.ptr); err != nil {
 		return err
 	}
 	return nil
@@ -64,7 +65,7 @@ func unmarshalNoEscape(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if _, err := dec.decode(src, 0, noescape(header.ptr)); err != nil {
+	if _, err := dec.decode(src, 0, 0, noescape(header.ptr)); err != nil {
 		return err
 	}
 	return nil
@@ -78,7 +79,7 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 }
 
 func validateType(typ *rtype, p uintptr) error {
-	if typ.Kind() != reflect.Ptr || p == 0 {
+	if typ == nil || typ.Kind() != reflect.Ptr || p == 0 {
 		return &InvalidUnmarshalError{Type: rtype2type(typ)}
 	}
 	return nil
@@ -147,7 +148,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 	s := d.s
-	if err := dec.decodeStream(s, header.ptr); err != nil {
+	if err := dec.decodeStream(s, 0, header.ptr); err != nil {
 		return err
 	}
 	s.reset()

@@ -35,8 +35,8 @@ func newBytesDecoder(typ *rtype, structName string, fieldName string) *bytesDeco
 	}
 }
 
-func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
-	bytes, err := d.decodeStreamBinary(s, p)
+func (d *bytesDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+	bytes, err := d.decodeStreamBinary(s, depth, p)
 	if err != nil {
 		return err
 	}
@@ -54,8 +54,8 @@ func (d *bytesDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *bytesDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeBinary(buf, cursor, p)
+func (d *bytesDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	bytes, c, err := d.decodeBinary(buf, cursor, depth, p)
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +94,7 @@ ERROR:
 	return nil, errUnexpectedEndOfJSON("[]byte", s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeStreamBinary(s *stream, p unsafe.Pointer) ([]byte, error) {
+func (d *bytesDecoder) decodeStreamBinary(s *stream, depth int64, p unsafe.Pointer) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -114,7 +114,7 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream, p unsafe.Pointer) ([]byte, 
 					Offset: s.totalOffset(),
 				}
 			}
-			if err := d.sliceDecoder.decodeStream(s, p); err != nil {
+			if err := d.sliceDecoder.decodeStream(s, depth, p); err != nil {
 				return nil, err
 			}
 			return nil, nil
@@ -128,7 +128,7 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream, p unsafe.Pointer) ([]byte, 
 	return nil, errNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) ([]byte, int64, error) {
+func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Pointer) ([]byte, int64, error) {
 	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -154,7 +154,7 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor int64, p unsafe.Pointer) 
 					Offset: cursor,
 				}
 			}
-			c, err := d.sliceDecoder.decode(buf, cursor, p)
+			c, err := d.sliceDecoder.decode(buf, cursor, depth, p)
 			if err != nil {
 				return nil, 0, err
 			}

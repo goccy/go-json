@@ -73,7 +73,12 @@ func (d *sliceDecoder) errNumber(offset int64) *UnmarshalTypeError {
 	}
 }
 
-func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return errExceededMaxDepth(s.char(), s.cursor)
+	}
+
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -109,7 +114,7 @@ func (d *sliceDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
-				if err := d.valueDecoder.decodeStream(s, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size)); err != nil {
+				if err := d.valueDecoder.decodeStream(s, depth, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size)); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
@@ -167,7 +172,12 @@ ERROR:
 	return errUnexpectedEndOfJSON("slice", s.totalOffset())
 }
 
-func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errExceededMaxDepth(buf[cursor], cursor)
+	}
+
 	buflen := int64(len(buf))
 	for ; cursor < buflen; cursor++ {
 		switch buf[cursor] {
@@ -214,7 +224,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
-				c, err := d.valueDecoder.decode(buf, cursor, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size))
+				c, err := d.valueDecoder.decode(buf, cursor, depth, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size))
 				if err != nil {
 					return 0, err
 				}

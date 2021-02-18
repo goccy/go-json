@@ -376,25 +376,26 @@ var tokenStreamCases = []tokenStreamCase{
 			map[string]interface{}{"a": float64(1)},
 		}},
 		json.Delim('}')}},
-	{json: ` [{"a": 1} {"a": 2}] `, expTokens: []interface{}{
-		json.Delim('['),
-		decodeThis{map[string]interface{}{"a": float64(1)}},
-		decodeThis{json.NewSyntaxError("expected comma after array element", 11)},
-	}},
-	{json: `{ "` + strings.Repeat("a", 513) + `" 1 }`, expTokens: []interface{}{
-		json.Delim('{'), strings.Repeat("a", 513),
-		decodeThis{json.NewSyntaxError("expected colon after object key", 518)},
-	}},
-	{json: `{ "\a" }`, expTokens: []interface{}{
-		json.Delim('{'),
-		json.NewSyntaxError("invalid character 'a' in string escape code", 3),
-	}},
-	{json: ` \a`, expTokens: []interface{}{
-		json.NewSyntaxError("invalid character '\\\\' looking for beginning of value", 1),
-	}},
+	/*
+		{json: ` [{"a": 1} {"a": 2}] `, expTokens: []interface{}{
+			json.Delim('['),
+			decodeThis{map[string]interface{}{"a": float64(1)}},
+			decodeThis{json.NewSyntaxError("expected comma after array element", 11)},
+		}},
+		{json: `{ "` + strings.Repeat("a", 513) + `" 1 }`, expTokens: []interface{}{
+			json.Delim('{'), strings.Repeat("a", 513),
+			decodeThis{json.NewSyntaxError("expected colon after object key", 518)},
+		}},
+		{json: `{ "\a" }`, expTokens: []interface{}{
+			json.Delim('{'),
+			json.NewSyntaxError("invalid character 'a' in string escape code", 3),
+		}},
+		{json: ` \a`, expTokens: []interface{}{
+			json.NewSyntaxError("invalid character '\\\\' looking for beginning of value", 1),
+		}},
+	*/
 }
 
-/*
 func TestDecodeInStream(t *testing.T) {
 	for ci, tcase := range tokenStreamCases {
 
@@ -429,7 +430,6 @@ func TestDecodeInStream(t *testing.T) {
 		}
 	}
 }
-*/
 
 // Test from golang.org/issue/11893
 func TestHTTPDecoding(t *testing.T) {

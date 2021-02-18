@@ -173,7 +173,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 	}
 }
 
-func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
+func (d *intDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ func (d *intDecoder) decodeStream(s *stream, p unsafe.Pointer) error {
 	return nil
 }
 
-func (d *intDecoder) decode(buf []byte, cursor int64, p unsafe.Pointer) (int64, error) {
+func (d *intDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

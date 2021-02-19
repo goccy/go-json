@@ -57,19 +57,19 @@ func TestCoverInt(t *testing.T) {
 			name: "HeadInt",
 			data: struct {
 				A int `json:"a"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "HeadIntOmitEmpty",
 			data: struct {
 				A int `json:"a,omitempty"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "HeadIntString",
 			data: struct {
 				A int `json:"a,string"`
-			}{A: 1},
+			}{A: -1},
 		},
 
 		// HeadIntPtr
@@ -77,19 +77,19 @@ func TestCoverInt(t *testing.T) {
 			name: "HeadIntPtr",
 			data: struct {
 				A *int `json:"a"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 		{
 			name: "HeadIntPtrOmitEmpty",
 			data: struct {
 				A *int `json:"a,omitempty"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 		{
 			name: "HeadIntPtrString",
 			data: struct {
 				A *int `json:"a,string"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 
 		// HeadIntPtrNil
@@ -137,19 +137,19 @@ func TestCoverInt(t *testing.T) {
 			name: "PtrHeadInt",
 			data: &struct {
 				A int `json:"a"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "PtrHeadIntOmitEmpty",
 			data: &struct {
 				A int `json:"a,omitempty"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "PtrHeadIntString",
 			data: &struct {
 				A int `json:"a,string"`
-			}{A: 1},
+			}{A: -1},
 		},
 
 		// PtrHeadIntPtr
@@ -157,19 +157,19 @@ func TestCoverInt(t *testing.T) {
 			name: "PtrHeadIntPtr",
 			data: &struct {
 				A *int `json:"a"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 		{
 			name: "PtrHeadIntPtrOmitEmpty",
 			data: &struct {
 				A *int `json:"a,omitempty"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 		{
 			name: "PtrHeadIntPtrString",
 			data: &struct {
 				A *int `json:"a,string"`
-			}{A: intptr(1)},
+			}{A: intptr(-1)},
 		},
 
 		// PtrHeadIntPtrNil
@@ -245,7 +245,7 @@ func TestCoverInt(t *testing.T) {
 				A int `json:"a"`
 				B int `json:"b"`
 				C int `json:"c"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 		{
 			name: "HeadIntMultiFieldsOmitEmpty",
@@ -253,7 +253,7 @@ func TestCoverInt(t *testing.T) {
 				A int `json:"a,omitempty"`
 				B int `json:"b,omitempty"`
 				C int `json:"c,omitempty"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 		{
 			name: "HeadIntMultiFieldsString",
@@ -261,7 +261,7 @@ func TestCoverInt(t *testing.T) {
 				A int `json:"a,string"`
 				B int `json:"b,string"`
 				C int `json:"c,string"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 
 		// HeadIntPtrMultiFields
@@ -271,7 +271,7 @@ func TestCoverInt(t *testing.T) {
 				A *int `json:"a"`
 				B *int `json:"b"`
 				C *int `json:"c"`
-			}{A: intptr(1), B: intptr(2), C: intptr(3)},
+			}{A: intptr(-1), B: intptr(2), C: intptr(3)},
 		},
 		{
 			name: "HeadIntPtrMultiFieldsOmitEmpty",
@@ -279,7 +279,7 @@ func TestCoverInt(t *testing.T) {
 				A *int `json:"a,omitempty"`
 				B *int `json:"b,omitempty"`
 				C *int `json:"c,omitempty"`
-			}{A: intptr(1), B: intptr(2), C: intptr(3)},
+			}{A: intptr(-1), B: intptr(2), C: intptr(3)},
 		},
 		{
 			name: "HeadIntPtrMultiFieldsString",
@@ -287,7 +287,7 @@ func TestCoverInt(t *testing.T) {
 				A *int `json:"a,string"`
 				B *int `json:"b,string"`
 				C *int `json:"c,string"`
-			}{A: intptr(1), B: intptr(2), C: intptr(3)},
+			}{A: intptr(-1), B: intptr(2), C: intptr(3)},
 		},
 
 		// HeadIntPtrNilMultiFields
@@ -345,21 +345,21 @@ func TestCoverInt(t *testing.T) {
 			data: &struct {
 				A int `json:"a"`
 				B int `json:"b"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 		{
 			name: "PtrHeadIntMultiFieldsOmitEmpty",
 			data: &struct {
 				A int `json:"a,omitempty"`
 				B int `json:"b,omitempty"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 		{
 			name: "PtrHeadIntMultiFieldsString",
 			data: &struct {
 				A int `json:"a,string"`
 				B int `json:"b,string"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 
 		// PtrHeadIntPtrMultiFields
@@ -368,21 +368,21 @@ func TestCoverInt(t *testing.T) {
 			data: &struct {
 				A *int `json:"a"`
 				B *int `json:"b"`
-			}{A: intptr(1), B: intptr(2)},
+			}{A: intptr(-1), B: intptr(2)},
 		},
 		{
 			name: "PtrHeadIntPtrMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int `json:"a,omitempty"`
 				B *int `json:"b,omitempty"`
-			}{A: intptr(1), B: intptr(2)},
+			}{A: intptr(-1), B: intptr(2)},
 		},
 		{
 			name: "PtrHeadIntPtrMultiFieldsString",
 			data: &struct {
 				A *int `json:"a,string"`
 				B *int `json:"b,string"`
-			}{A: intptr(1), B: intptr(2)},
+			}{A: intptr(-1), B: intptr(2)},
 		},
 
 		// PtrHeadIntPtrNilMultiFields
@@ -466,7 +466,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 		{
 			name: "HeadIntNotRootOmitEmpty",
@@ -476,7 +476,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,omitempty"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 		{
 			name: "HeadIntNotRootString",
@@ -486,7 +486,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,string"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 
 		// HeadIntPtrNotRoot
@@ -498,7 +498,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a"`
-			}{intptr(1)}},
+			}{intptr(-1)}},
 		},
 		{
 			name: "HeadIntPtrNotRootOmitEmpty",
@@ -508,7 +508,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a,omitempty"`
-			}{intptr(1)}},
+			}{intptr(-1)}},
 		},
 		{
 			name: "HeadIntPtrNotRootString",
@@ -518,7 +518,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a,string"`
-			}{intptr(1)}},
+			}{intptr(-1)}},
 		},
 
 		// HeadIntPtrNilNotRoot
@@ -588,7 +588,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int `json:"a"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 		{
 			name: "PtrHeadIntNotRootOmitEmpty",
@@ -598,7 +598,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int `json:"a,omitempty"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 		{
 			name: "PtrHeadIntNotRootString",
@@ -608,7 +608,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int `json:"a,string"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 
 		// PtrHeadIntPtrNotRoot
@@ -620,7 +620,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a"`
-			}{A: intptr(1)})},
+			}{A: intptr(-1)})},
 		},
 		{
 			name: "PtrHeadIntPtrNotRootOmitEmpty",
@@ -630,7 +630,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a,omitempty"`
-			}{A: intptr(1)})},
+			}{A: intptr(-1)})},
 		},
 		{
 			name: "PtrHeadIntPtrNotRootString",
@@ -640,7 +640,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a,string"`
-			}{A: intptr(1)})},
+			}{A: intptr(-1)})},
 		},
 
 		// PtrHeadIntPtrNilNotRoot
@@ -748,7 +748,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b"`
 			}{B: 2}},
 		},
@@ -763,7 +763,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,omitempty"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b,omitempty"`
 			}{B: 2}},
 		},
@@ -778,7 +778,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,string"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b,string"`
 			}{B: 2}},
 		},
@@ -795,7 +795,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a"`
-			}{A: intptr(1)}, B: struct {
+			}{A: intptr(-1)}, B: struct {
 				B *int `json:"b"`
 			}{B: intptr(2)}},
 		},
@@ -810,7 +810,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a,omitempty"`
-			}{A: intptr(1)}, B: struct {
+			}{A: intptr(-1)}, B: struct {
 				B *int `json:"b,omitempty"`
 			}{B: intptr(2)}},
 		},
@@ -825,7 +825,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A *int `json:"a,string"`
-			}{A: intptr(1)}, B: struct {
+			}{A: intptr(-1)}, B: struct {
 				B *int `json:"b,string"`
 			}{B: intptr(2)}},
 		},
@@ -924,7 +924,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b"`
 			}{B: 2}},
 		},
@@ -939,7 +939,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,omitempty"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b,omitempty"`
 			}{B: 2}},
 		},
@@ -954,7 +954,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: struct {
 				A int `json:"a,string"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int `json:"b,string"`
 			}{B: 2}},
 		},
@@ -971,7 +971,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a"`
-			}{A: intptr(1)}), B: &(struct {
+			}{A: intptr(-1)}), B: &(struct {
 				B *int `json:"b"`
 			}{B: intptr(2)})},
 		},
@@ -986,7 +986,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a,omitempty"`
-			}{A: intptr(1)}), B: &(struct {
+			}{A: intptr(-1)}), B: &(struct {
 				B *int `json:"b,omitempty"`
 			}{B: intptr(2)})},
 		},
@@ -1001,7 +1001,7 @@ func TestCoverInt(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int `json:"a,string"`
-			}{A: intptr(1)}), B: &(struct {
+			}{A: intptr(-1)}), B: &(struct {
 				B *int `json:"b,string"`
 			}{B: intptr(2)})},
 		},
@@ -1091,7 +1091,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A int `json:"a"`
 				B int `json:"b"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int `json:"a"`
 				B int `json:"b"`
 			}{A: 3, B: 4})},
@@ -1110,7 +1110,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A int `json:"a,omitempty"`
 				B int `json:"b,omitempty"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int `json:"a,omitempty"`
 				B int `json:"b,omitempty"`
 			}{A: 3, B: 4})},
@@ -1129,7 +1129,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A int `json:"a,string"`
 				B int `json:"b,string"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int `json:"a,string"`
 				B int `json:"b,string"`
 			}{A: 3, B: 4})},
@@ -1232,7 +1232,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A *int `json:"a"`
 				B *int `json:"b"`
-			}{A: intptr(1), B: intptr(2)}), B: &(struct {
+			}{A: intptr(-1), B: intptr(2)}), B: &(struct {
 				A *int `json:"a"`
 				B *int `json:"b"`
 			}{A: intptr(3), B: intptr(4)})},
@@ -1251,7 +1251,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A *int `json:"a,omitempty"`
 				B *int `json:"b,omitempty"`
-			}{A: intptr(1), B: intptr(2)}), B: &(struct {
+			}{A: intptr(-1), B: intptr(2)}), B: &(struct {
 				A *int `json:"a,omitempty"`
 				B *int `json:"b,omitempty"`
 			}{A: intptr(3), B: intptr(4)})},
@@ -1270,7 +1270,7 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A *int `json:"a,string"`
 				B *int `json:"b,string"`
-			}{A: intptr(1), B: intptr(2)}), B: &(struct {
+			}{A: intptr(-1), B: intptr(2)}), B: &(struct {
 				A *int `json:"a,string"`
 				B *int `json:"b,string"`
 			}{A: intptr(3), B: intptr(4)})},
@@ -1365,7 +1365,7 @@ func TestCoverInt(t *testing.T) {
 				structInt
 				B int `json:"b"`
 			}{
-				structInt: structInt{A: 1},
+				structInt: structInt{A: -1},
 				B:         2,
 			},
 		},
@@ -1375,7 +1375,7 @@ func TestCoverInt(t *testing.T) {
 				structIntOmitEmpty
 				B int `json:"b,omitempty"`
 			}{
-				structIntOmitEmpty: structIntOmitEmpty{A: 1},
+				structIntOmitEmpty: structIntOmitEmpty{A: -1},
 				B:                  2,
 			},
 		},
@@ -1385,7 +1385,7 @@ func TestCoverInt(t *testing.T) {
 				structIntString
 				B int `json:"b,string"`
 			}{
-				structIntString: structIntString{A: 1},
+				structIntString: structIntString{A: -1},
 				B:               2,
 			},
 		},
@@ -1397,7 +1397,7 @@ func TestCoverInt(t *testing.T) {
 				*structInt
 				B int `json:"b"`
 			}{
-				structInt: &structInt{A: 1},
+				structInt: &structInt{A: -1},
 				B:         2,
 			},
 		},
@@ -1407,7 +1407,7 @@ func TestCoverInt(t *testing.T) {
 				*structIntOmitEmpty
 				B int `json:"b,omitempty"`
 			}{
-				structIntOmitEmpty: &structIntOmitEmpty{A: 1},
+				structIntOmitEmpty: &structIntOmitEmpty{A: -1},
 				B:                  2,
 			},
 		},
@@ -1417,7 +1417,7 @@ func TestCoverInt(t *testing.T) {
 				*structIntString
 				B int `json:"b,string"`
 			}{
-				structIntString: &structIntString{A: 1},
+				structIntString: &structIntString{A: -1},
 				B:               2,
 			},
 		},
@@ -1461,7 +1461,7 @@ func TestCoverInt(t *testing.T) {
 				structIntPtr
 				B *int `json:"b"`
 			}{
-				structIntPtr: structIntPtr{A: intptr(1)},
+				structIntPtr: structIntPtr{A: intptr(-1)},
 				B:            intptr(2),
 			},
 		},
@@ -1471,7 +1471,7 @@ func TestCoverInt(t *testing.T) {
 				structIntPtrOmitEmpty
 				B *int `json:"b,omitempty"`
 			}{
-				structIntPtrOmitEmpty: structIntPtrOmitEmpty{A: intptr(1)},
+				structIntPtrOmitEmpty: structIntPtrOmitEmpty{A: intptr(-1)},
 				B:                     intptr(2),
 			},
 		},
@@ -1481,7 +1481,7 @@ func TestCoverInt(t *testing.T) {
 				structIntPtrString
 				B *int `json:"b,string"`
 			}{
-				structIntPtrString: structIntPtrString{A: intptr(1)},
+				structIntPtrString: structIntPtrString{A: intptr(-1)},
 				B:                  intptr(2),
 			},
 		},
@@ -1525,7 +1525,7 @@ func TestCoverInt(t *testing.T) {
 				*structIntPtr
 				B *int `json:"b"`
 			}{
-				structIntPtr: &structIntPtr{A: intptr(1)},
+				structIntPtr: &structIntPtr{A: intptr(-1)},
 				B:            intptr(2),
 			},
 		},
@@ -1535,7 +1535,7 @@ func TestCoverInt(t *testing.T) {
 				*structIntPtrOmitEmpty
 				B *int `json:"b,omitempty"`
 			}{
-				structIntPtrOmitEmpty: &structIntPtrOmitEmpty{A: intptr(1)},
+				structIntPtrOmitEmpty: &structIntPtrOmitEmpty{A: intptr(-1)},
 				B:                     intptr(2),
 			},
 		},
@@ -1545,7 +1545,7 @@ func TestCoverInt(t *testing.T) {
 				*structIntPtrString
 				B *int `json:"b,string"`
 			}{
-				structIntPtrString: &structIntPtrString{A: intptr(1)},
+				structIntPtrString: &structIntPtrString{A: intptr(-1)},
 				B:                  intptr(2),
 			},
 		},
@@ -1588,7 +1588,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structInt
 			}{
-				structInt: structInt{A: 1},
+				structInt: structInt{A: -1},
 			},
 		},
 		{
@@ -1596,7 +1596,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structIntOmitEmpty
 			}{
-				structIntOmitEmpty: structIntOmitEmpty{A: 1},
+				structIntOmitEmpty: structIntOmitEmpty{A: -1},
 			},
 		},
 		{
@@ -1604,7 +1604,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structIntString
 			}{
-				structIntString: structIntString{A: 1},
+				structIntString: structIntString{A: -1},
 			},
 		},
 
@@ -1614,7 +1614,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structInt
 			}{
-				structInt: &structInt{A: 1},
+				structInt: &structInt{A: -1},
 			},
 		},
 		{
@@ -1622,7 +1622,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structIntOmitEmpty
 			}{
-				structIntOmitEmpty: &structIntOmitEmpty{A: 1},
+				structIntOmitEmpty: &structIntOmitEmpty{A: -1},
 			},
 		},
 		{
@@ -1630,7 +1630,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structIntString
 			}{
-				structIntString: &structIntString{A: 1},
+				structIntString: &structIntString{A: -1},
 			},
 		},
 
@@ -1666,7 +1666,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structIntPtr
 			}{
-				structIntPtr: structIntPtr{A: intptr(1)},
+				structIntPtr: structIntPtr{A: intptr(-1)},
 			},
 		},
 		{
@@ -1674,7 +1674,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structIntPtrOmitEmpty
 			}{
-				structIntPtrOmitEmpty: structIntPtrOmitEmpty{A: intptr(1)},
+				structIntPtrOmitEmpty: structIntPtrOmitEmpty{A: intptr(-1)},
 			},
 		},
 		{
@@ -1682,7 +1682,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				structIntPtrString
 			}{
-				structIntPtrString: structIntPtrString{A: intptr(1)},
+				structIntPtrString: structIntPtrString{A: intptr(-1)},
 			},
 		},
 
@@ -1718,7 +1718,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structIntPtr
 			}{
-				structIntPtr: &structIntPtr{A: intptr(1)},
+				structIntPtr: &structIntPtr{A: intptr(-1)},
 			},
 		},
 		{
@@ -1726,7 +1726,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structIntPtrOmitEmpty
 			}{
-				structIntPtrOmitEmpty: &structIntPtrOmitEmpty{A: intptr(1)},
+				structIntPtrOmitEmpty: &structIntPtrOmitEmpty{A: intptr(-1)},
 			},
 		},
 		{
@@ -1734,7 +1734,7 @@ func TestCoverInt(t *testing.T) {
 			data: struct {
 				*structIntPtrString
 			}{
-				structIntPtrString: &structIntPtrString{A: intptr(1)},
+				structIntPtrString: &structIntPtrString{A: intptr(-1)},
 			},
 		},
 

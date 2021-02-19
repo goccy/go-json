@@ -57,19 +57,19 @@ func TestCoverInt64(t *testing.T) {
 			name: "HeadInt64",
 			data: struct {
 				A int64 `json:"a"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "HeadInt64OmitEmpty",
 			data: struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "HeadInt64String",
 			data: struct {
 				A int64 `json:"a,string"`
-			}{A: 1},
+			}{A: -1},
 		},
 
 		// HeadInt64Ptr
@@ -77,19 +77,19 @@ func TestCoverInt64(t *testing.T) {
 			name: "HeadInt64Ptr",
 			data: struct {
 				A *int64 `json:"a"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 		{
 			name: "HeadInt64PtrOmitEmpty",
 			data: struct {
 				A *int64 `json:"a,omitempty"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 		{
 			name: "HeadInt64PtrString",
 			data: struct {
 				A *int64 `json:"a,string"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 
 		// HeadInt64PtrNil
@@ -137,19 +137,19 @@ func TestCoverInt64(t *testing.T) {
 			name: "PtrHeadInt64",
 			data: &struct {
 				A int64 `json:"a"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "PtrHeadInt64OmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1},
+			}{A: -1},
 		},
 		{
 			name: "PtrHeadInt64String",
 			data: &struct {
 				A int64 `json:"a,string"`
-			}{A: 1},
+			}{A: -1},
 		},
 
 		// PtrHeadInt64Ptr
@@ -157,19 +157,19 @@ func TestCoverInt64(t *testing.T) {
 			name: "PtrHeadInt64Ptr",
 			data: &struct {
 				A *int64 `json:"a"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 		{
 			name: "PtrHeadInt64PtrOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 		{
 			name: "PtrHeadInt64PtrString",
 			data: &struct {
 				A *int64 `json:"a,string"`
-			}{A: int64ptr(1)},
+			}{A: int64ptr(-1)},
 		},
 
 		// PtrHeadInt64PtrNil
@@ -245,7 +245,7 @@ func TestCoverInt64(t *testing.T) {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
 				C int64 `json:"c"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 		{
 			name: "HeadInt64MultiFieldsOmitEmpty",
@@ -253,7 +253,7 @@ func TestCoverInt64(t *testing.T) {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
 				C int64 `json:"c,omitempty"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 		{
 			name: "HeadInt64MultiFieldsString",
@@ -261,7 +261,7 @@ func TestCoverInt64(t *testing.T) {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
 				C int64 `json:"c,string"`
-			}{A: 1, B: 2, C: 3},
+			}{A: -1, B: 2, C: 3},
 		},
 
 		// HeadInt64PtrMultiFields
@@ -271,7 +271,7 @@ func TestCoverInt64(t *testing.T) {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
 				C *int64 `json:"c"`
-			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
+			}{A: int64ptr(-1), B: int64ptr(2), C: int64ptr(3)},
 		},
 		{
 			name: "HeadInt64PtrMultiFieldsOmitEmpty",
@@ -279,7 +279,7 @@ func TestCoverInt64(t *testing.T) {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
 				C *int64 `json:"c,omitempty"`
-			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
+			}{A: int64ptr(-1), B: int64ptr(2), C: int64ptr(3)},
 		},
 		{
 			name: "HeadInt64PtrMultiFieldsString",
@@ -287,7 +287,7 @@ func TestCoverInt64(t *testing.T) {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
 				C *int64 `json:"c,string"`
-			}{A: int64ptr(1), B: int64ptr(2), C: int64ptr(3)},
+			}{A: int64ptr(-1), B: int64ptr(2), C: int64ptr(3)},
 		},
 
 		// HeadInt64PtrNilMultiFields
@@ -345,21 +345,21 @@ func TestCoverInt64(t *testing.T) {
 			data: &struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 		{
 			name: "PtrHeadInt64MultiFieldsOmitEmpty",
 			data: &struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 		{
 			name: "PtrHeadInt64MultiFieldsString",
 			data: &struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
-			}{A: 1, B: 2},
+			}{A: -1, B: 2},
 		},
 
 		// PtrHeadInt64PtrMultiFields
@@ -368,21 +368,21 @@ func TestCoverInt64(t *testing.T) {
 			data: &struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+			}{A: int64ptr(-1), B: int64ptr(2)},
 		},
 		{
 			name: "PtrHeadInt64PtrMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+			}{A: int64ptr(-1), B: int64ptr(2)},
 		},
 		{
 			name: "PtrHeadInt64PtrMultiFieldsString",
 			data: &struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
-			}{A: int64ptr(1), B: int64ptr(2)},
+			}{A: int64ptr(-1), B: int64ptr(2)},
 		},
 
 		// PtrHeadInt64PtrNilMultiFields
@@ -466,7 +466,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 		{
 			name: "HeadInt64NotRootOmitEmpty",
@@ -476,7 +476,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 		{
 			name: "HeadInt64NotRootString",
@@ -486,7 +486,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,string"`
-			}{A: 1}},
+			}{A: -1}},
 		},
 
 		// HeadInt64PtrNotRoot
@@ -498,7 +498,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a"`
-			}{int64ptr(1)}},
+			}{int64ptr(-1)}},
 		},
 		{
 			name: "HeadInt64PtrNotRootOmitEmpty",
@@ -508,7 +508,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a,omitempty"`
-			}{int64ptr(1)}},
+			}{int64ptr(-1)}},
 		},
 		{
 			name: "HeadInt64PtrNotRootString",
@@ -518,7 +518,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a,string"`
-			}{int64ptr(1)}},
+			}{int64ptr(-1)}},
 		},
 
 		// HeadInt64PtrNilNotRoot
@@ -588,7 +588,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int64 `json:"a"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 		{
 			name: "PtrHeadInt64NotRootOmitEmpty",
@@ -598,7 +598,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 		{
 			name: "PtrHeadInt64NotRootString",
@@ -608,7 +608,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A int64 `json:"a,string"`
-			}{A: 1})},
+			}{A: -1})},
 		},
 
 		// PtrHeadInt64PtrNotRoot
@@ -620,7 +620,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a"`
-			}{A: int64ptr(1)})},
+			}{A: int64ptr(-1)})},
 		},
 		{
 			name: "PtrHeadInt64PtrNotRootOmitEmpty",
@@ -630,7 +630,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a,omitempty"`
-			}{A: int64ptr(1)})},
+			}{A: int64ptr(-1)})},
 		},
 		{
 			name: "PtrHeadInt64PtrNotRootString",
@@ -640,7 +640,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a,string"`
-			}{A: int64ptr(1)})},
+			}{A: int64ptr(-1)})},
 		},
 
 		// PtrHeadInt64PtrNilNotRoot
@@ -748,7 +748,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b"`
 			}{B: 2}},
 		},
@@ -763,7 +763,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b,omitempty"`
 			}{B: 2}},
 		},
@@ -778,7 +778,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,string"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b,string"`
 			}{B: 2}},
 		},
@@ -795,7 +795,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a"`
-			}{A: int64ptr(1)}, B: struct {
+			}{A: int64ptr(-1)}, B: struct {
 				B *int64 `json:"b"`
 			}{B: int64ptr(2)}},
 		},
@@ -810,7 +810,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a,omitempty"`
-			}{A: int64ptr(1)}, B: struct {
+			}{A: int64ptr(-1)}, B: struct {
 				B *int64 `json:"b,omitempty"`
 			}{B: int64ptr(2)}},
 		},
@@ -825,7 +825,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A *int64 `json:"a,string"`
-			}{A: int64ptr(1)}, B: struct {
+			}{A: int64ptr(-1)}, B: struct {
 				B *int64 `json:"b,string"`
 			}{B: int64ptr(2)}},
 		},
@@ -924,7 +924,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b"`
 			}{B: 2}},
 		},
@@ -939,7 +939,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,omitempty"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b,omitempty"`
 			}{B: 2}},
 		},
@@ -954,7 +954,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: struct {
 				A int64 `json:"a,string"`
-			}{A: 1}, B: struct {
+			}{A: -1}, B: struct {
 				B int64 `json:"b,string"`
 			}{B: 2}},
 		},
@@ -971,7 +971,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a"`
-			}{A: int64ptr(1)}), B: &(struct {
+			}{A: int64ptr(-1)}), B: &(struct {
 				B *int64 `json:"b"`
 			}{B: int64ptr(2)})},
 		},
@@ -986,7 +986,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a,omitempty"`
-			}{A: int64ptr(1)}), B: &(struct {
+			}{A: int64ptr(-1)}), B: &(struct {
 				B *int64 `json:"b,omitempty"`
 			}{B: int64ptr(2)})},
 		},
@@ -1001,7 +1001,7 @@ func TestCoverInt64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A *int64 `json:"a,string"`
-			}{A: int64ptr(1)}), B: &(struct {
+			}{A: int64ptr(-1)}), B: &(struct {
 				B *int64 `json:"b,string"`
 			}{B: int64ptr(2)})},
 		},
@@ -1091,7 +1091,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int64 `json:"a"`
 				B int64 `json:"b"`
 			}{A: 3, B: 4})},
@@ -1110,7 +1110,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int64 `json:"a,omitempty"`
 				B int64 `json:"b,omitempty"`
 			}{A: 3, B: 4})},
@@ -1129,7 +1129,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: -1, B: 2}), B: &(struct {
 				A int64 `json:"a,string"`
 				B int64 `json:"b,string"`
 			}{A: 3, B: 4})},
@@ -1232,7 +1232,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
-			}{A: int64ptr(1), B: int64ptr(2)}), B: &(struct {
+			}{A: int64ptr(-1), B: int64ptr(2)}), B: &(struct {
 				A *int64 `json:"a"`
 				B *int64 `json:"b"`
 			}{A: int64ptr(3), B: int64ptr(4)})},
@@ -1251,7 +1251,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
-			}{A: int64ptr(1), B: int64ptr(2)}), B: &(struct {
+			}{A: int64ptr(-1), B: int64ptr(2)}), B: &(struct {
 				A *int64 `json:"a,omitempty"`
 				B *int64 `json:"b,omitempty"`
 			}{A: int64ptr(3), B: int64ptr(4)})},
@@ -1270,7 +1270,7 @@ func TestCoverInt64(t *testing.T) {
 			}{A: &(struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
-			}{A: int64ptr(1), B: int64ptr(2)}), B: &(struct {
+			}{A: int64ptr(-1), B: int64ptr(2)}), B: &(struct {
 				A *int64 `json:"a,string"`
 				B *int64 `json:"b,string"`
 			}{A: int64ptr(3), B: int64ptr(4)})},
@@ -1365,7 +1365,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64
 				B int64 `json:"b"`
 			}{
-				structInt64: structInt64{A: 1},
+				structInt64: structInt64{A: -1},
 				B:           2,
 			},
 		},
@@ -1375,7 +1375,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64OmitEmpty
 				B int64 `json:"b,omitempty"`
 			}{
-				structInt64OmitEmpty: structInt64OmitEmpty{A: 1},
+				structInt64OmitEmpty: structInt64OmitEmpty{A: -1},
 				B:                    2,
 			},
 		},
@@ -1385,7 +1385,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64String
 				B int64 `json:"b,string"`
 			}{
-				structInt64String: structInt64String{A: 1},
+				structInt64String: structInt64String{A: -1},
 				B:                 2,
 			},
 		},
@@ -1397,7 +1397,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64
 				B int64 `json:"b"`
 			}{
-				structInt64: &structInt64{A: 1},
+				structInt64: &structInt64{A: -1},
 				B:           2,
 			},
 		},
@@ -1407,7 +1407,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64OmitEmpty
 				B int64 `json:"b,omitempty"`
 			}{
-				structInt64OmitEmpty: &structInt64OmitEmpty{A: 1},
+				structInt64OmitEmpty: &structInt64OmitEmpty{A: -1},
 				B:                    2,
 			},
 		},
@@ -1417,7 +1417,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64String
 				B int64 `json:"b,string"`
 			}{
-				structInt64String: &structInt64String{A: 1},
+				structInt64String: &structInt64String{A: -1},
 				B:                 2,
 			},
 		},
@@ -1461,7 +1461,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64Ptr
 				B *int64 `json:"b"`
 			}{
-				structInt64Ptr: structInt64Ptr{A: int64ptr(1)},
+				structInt64Ptr: structInt64Ptr{A: int64ptr(-1)},
 				B:              int64ptr(2),
 			},
 		},
@@ -1471,7 +1471,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
 			}{
-				structInt64PtrOmitEmpty: structInt64PtrOmitEmpty{A: int64ptr(1)},
+				structInt64PtrOmitEmpty: structInt64PtrOmitEmpty{A: int64ptr(-1)},
 				B:                       int64ptr(2),
 			},
 		},
@@ -1481,7 +1481,7 @@ func TestCoverInt64(t *testing.T) {
 				structInt64PtrString
 				B *int64 `json:"b,string"`
 			}{
-				structInt64PtrString: structInt64PtrString{A: int64ptr(1)},
+				structInt64PtrString: structInt64PtrString{A: int64ptr(-1)},
 				B:                    int64ptr(2),
 			},
 		},
@@ -1525,7 +1525,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64Ptr
 				B *int64 `json:"b"`
 			}{
-				structInt64Ptr: &structInt64Ptr{A: int64ptr(1)},
+				structInt64Ptr: &structInt64Ptr{A: int64ptr(-1)},
 				B:              int64ptr(2),
 			},
 		},
@@ -1535,7 +1535,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64PtrOmitEmpty
 				B *int64 `json:"b,omitempty"`
 			}{
-				structInt64PtrOmitEmpty: &structInt64PtrOmitEmpty{A: int64ptr(1)},
+				structInt64PtrOmitEmpty: &structInt64PtrOmitEmpty{A: int64ptr(-1)},
 				B:                       int64ptr(2),
 			},
 		},
@@ -1545,7 +1545,7 @@ func TestCoverInt64(t *testing.T) {
 				*structInt64PtrString
 				B *int64 `json:"b,string"`
 			}{
-				structInt64PtrString: &structInt64PtrString{A: int64ptr(1)},
+				structInt64PtrString: &structInt64PtrString{A: int64ptr(-1)},
 				B:                    int64ptr(2),
 			},
 		},
@@ -1588,7 +1588,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64
 			}{
-				structInt64: structInt64{A: 1},
+				structInt64: structInt64{A: -1},
 			},
 		},
 		{
@@ -1596,7 +1596,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64OmitEmpty
 			}{
-				structInt64OmitEmpty: structInt64OmitEmpty{A: 1},
+				structInt64OmitEmpty: structInt64OmitEmpty{A: -1},
 			},
 		},
 		{
@@ -1604,7 +1604,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64String
 			}{
-				structInt64String: structInt64String{A: 1},
+				structInt64String: structInt64String{A: -1},
 			},
 		},
 
@@ -1614,7 +1614,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64
 			}{
-				structInt64: &structInt64{A: 1},
+				structInt64: &structInt64{A: -1},
 			},
 		},
 		{
@@ -1622,7 +1622,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64OmitEmpty
 			}{
-				structInt64OmitEmpty: &structInt64OmitEmpty{A: 1},
+				structInt64OmitEmpty: &structInt64OmitEmpty{A: -1},
 			},
 		},
 		{
@@ -1630,7 +1630,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64String
 			}{
-				structInt64String: &structInt64String{A: 1},
+				structInt64String: &structInt64String{A: -1},
 			},
 		},
 
@@ -1666,7 +1666,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64Ptr
 			}{
-				structInt64Ptr: structInt64Ptr{A: int64ptr(1)},
+				structInt64Ptr: structInt64Ptr{A: int64ptr(-1)},
 			},
 		},
 		{
@@ -1674,7 +1674,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64PtrOmitEmpty
 			}{
-				structInt64PtrOmitEmpty: structInt64PtrOmitEmpty{A: int64ptr(1)},
+				structInt64PtrOmitEmpty: structInt64PtrOmitEmpty{A: int64ptr(-1)},
 			},
 		},
 		{
@@ -1682,7 +1682,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				structInt64PtrString
 			}{
-				structInt64PtrString: structInt64PtrString{A: int64ptr(1)},
+				structInt64PtrString: structInt64PtrString{A: int64ptr(-1)},
 			},
 		},
 
@@ -1718,7 +1718,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64Ptr
 			}{
-				structInt64Ptr: &structInt64Ptr{A: int64ptr(1)},
+				structInt64Ptr: &structInt64Ptr{A: int64ptr(-1)},
 			},
 		},
 		{
@@ -1726,7 +1726,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64PtrOmitEmpty
 			}{
-				structInt64PtrOmitEmpty: &structInt64PtrOmitEmpty{A: int64ptr(1)},
+				structInt64PtrOmitEmpty: &structInt64PtrOmitEmpty{A: int64ptr(-1)},
 			},
 		},
 		{
@@ -1734,7 +1734,7 @@ func TestCoverInt64(t *testing.T) {
 			data: struct {
 				*structInt64PtrString
 			}{
-				structInt64PtrString: &structInt64PtrString{A: int64ptr(1)},
+				structInt64PtrString: &structInt64PtrString{A: int64ptr(-1)},
 			},
 		},
 

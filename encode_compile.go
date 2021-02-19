@@ -3,6 +3,7 @@ package json
 import (
 	"encoding"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -393,122 +394,188 @@ func encodeCompileMarshalTextPtr(ctx *encodeCompileContext) (*opcode, error) {
 	return code, nil
 }
 
+const intSize = 32 << (^uint(0) >> 63)
+
 func encodeCompileInt(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opInt)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt8(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt8)
+	code := newOpCode(ctx, opInt)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt16(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt16)
+	code := newOpCode(ctx, opInt)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt32(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt32)
+	code := newOpCode(ctx, opInt)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt64(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt64)
+	code := newOpCode(ctx, opInt)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUint)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint8(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint8)
+	code := newOpCode(ctx, opUint)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint16(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint16)
+	code := newOpCode(ctx, opUint)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint32(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint32)
+	code := newOpCode(ctx, opUint)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint64(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint64)
+	code := newOpCode(ctx, opUint)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileIntString(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opIntString)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt8String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt8String)
+	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt16String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt16String)
+	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt32String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt32String)
+	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt64String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt64String)
+	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUintString(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint8String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint8String)
+	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint16String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint16String)
+	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint32String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint32String)
+	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint64String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opUint64String)
+	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }
@@ -697,25 +764,12 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		if ptrNum > 1 {
 			switch code.next.op {
 			case opInt:
+				c.mask = code.next.mask
+				c.rshiftNum = code.next.rshiftNum
 				return opStructFieldHeadIntNPtr
-			case opInt8:
-				return opStructFieldHeadInt8NPtr
-			case opInt16:
-				return opStructFieldHeadInt16NPtr
-			case opInt32:
-				return opStructFieldHeadInt32NPtr
-			case opInt64:
-				return opStructFieldHeadInt64NPtr
 			case opUint:
+				c.mask = code.next.mask
 				return opStructFieldHeadUintNPtr
-			case opUint8:
-				return opStructFieldHeadUint8NPtr
-			case opUint16:
-				return opStructFieldHeadUint16NPtr
-			case opUint32:
-				return opStructFieldHeadUint32NPtr
-			case opUint64:
-				return opStructFieldHeadUint64NPtr
 			case opFloat32:
 				return opStructFieldHeadFloat32NPtr
 			case opFloat64:
@@ -728,25 +782,12 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		} else {
 			switch code.next.op {
 			case opInt:
+				c.mask = code.next.mask
+				c.rshiftNum = code.next.rshiftNum
 				return opStructFieldHeadIntPtr
-			case opInt8:
-				return opStructFieldHeadInt8Ptr
-			case opInt16:
-				return opStructFieldHeadInt16Ptr
-			case opInt32:
-				return opStructFieldHeadInt32Ptr
-			case opInt64:
-				return opStructFieldHeadInt64Ptr
 			case opUint:
+				c.mask = code.next.mask
 				return opStructFieldHeadUintPtr
-			case opUint8:
-				return opStructFieldHeadUint8Ptr
-			case opUint16:
-				return opStructFieldHeadUint16Ptr
-			case opUint32:
-				return opStructFieldHeadUint32Ptr
-			case opUint64:
-				return opStructFieldHeadUint64Ptr
 			case opFloat32:
 				return opStructFieldHeadFloat32Ptr
 			case opFloat64:
@@ -759,24 +800,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		}
 	case opInt:
 		return opStructFieldHeadInt
-	case opInt8:
-		return opStructFieldHeadInt8
-	case opInt16:
-		return opStructFieldHeadInt16
-	case opInt32:
-		return opStructFieldHeadInt32
-	case opInt64:
-		return opStructFieldHeadInt64
 	case opUint:
 		return opStructFieldHeadUint
-	case opUint8:
-		return opStructFieldHeadUint8
-	case opUint16:
-		return opStructFieldHeadUint16
-	case opUint32:
-		return opStructFieldHeadUint32
-	case opUint64:
-		return opStructFieldHeadUint64
 	case opFloat32:
 		return opStructFieldHeadFloat32
 	case opFloat64:
@@ -822,25 +847,12 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		if ptrNum > 1 {
 			switch code.next.op {
 			case opInt:
+				c.mask = code.next.mask
+				c.rshiftNum = code.next.rshiftNum
 				return opStructFieldIntNPtr
-			case opInt8:
-				return opStructFieldInt8NPtr
-			case opInt16:
-				return opStructFieldInt16NPtr
-			case opInt32:
-				return opStructFieldInt32NPtr
-			case opInt64:
-				return opStructFieldInt64NPtr
 			case opUint:
+				c.mask = code.next.mask
 				return opStructFieldUintNPtr
-			case opUint8:
-				return opStructFieldUint8NPtr
-			case opUint16:
-				return opStructFieldUint16NPtr
-			case opUint32:
-				return opStructFieldUint32NPtr
-			case opUint64:
-				return opStructFieldUint64NPtr
 			case opFloat32:
 				return opStructFieldFloat32NPtr
 			case opFloat64:
@@ -853,25 +865,12 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		} else {
 			switch code.next.op {
 			case opInt:
+				c.mask = code.next.mask
+				c.rshiftNum = code.next.rshiftNum
 				return opStructFieldIntPtr
-			case opInt8:
-				return opStructFieldInt8Ptr
-			case opInt16:
-				return opStructFieldInt16Ptr
-			case opInt32:
-				return opStructFieldInt32Ptr
-			case opInt64:
-				return opStructFieldInt64Ptr
 			case opUint:
+				c.mask = code.next.mask
 				return opStructFieldUintPtr
-			case opUint8:
-				return opStructFieldUint8Ptr
-			case opUint16:
-				return opStructFieldUint16Ptr
-			case opUint32:
-				return opStructFieldUint32Ptr
-			case opUint64:
-				return opStructFieldUint64Ptr
 			case opFloat32:
 				return opStructFieldFloat32Ptr
 			case opFloat64:
@@ -884,24 +883,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		}
 	case opInt:
 		return opStructFieldInt
-	case opInt8:
-		return opStructFieldInt8
-	case opInt16:
-		return opStructFieldInt16
-	case opInt32:
-		return opStructFieldInt32
-	case opInt64:
-		return opStructFieldInt64
 	case opUint:
 		return opStructFieldUint
-	case opUint8:
-		return opStructFieldUint8
-	case opUint16:
-		return opStructFieldUint16
-	case opUint32:
-		return opStructFieldUint32
-	case opUint64:
-		return opStructFieldUint64
 	case opFloat32:
 		return opStructFieldFloat32
 	case opFloat64:
@@ -969,6 +952,8 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 	fieldCode.indent--
 	op := encodeOptimizeStructHeader(ctx, valueCode, tag)
 	fieldCode.op = op
+	fieldCode.mask = valueCode.mask
+	fieldCode.rshiftNum = valueCode.rshiftNum
 	fieldCode.ptrNum = valueCode.ptrNum
 	switch op {
 	case opStructFieldHead,
@@ -995,6 +980,8 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 	op := encodeOptimizeStructField(ctx, valueCode, tag)
 	fieldCode.op = op
 	fieldCode.ptrNum = valueCode.ptrNum
+	fieldCode.mask = valueCode.mask
+	fieldCode.rshiftNum = valueCode.rshiftNum
 	switch op {
 	case opStructField,
 		opStructFieldSlice,

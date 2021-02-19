@@ -27,18 +27,23 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			code = code.next
 			store(ctxptr, code.idx, ptrToPtr(ptr))
 		case opInt:
-			p := load(ctxptr, code.idx)
-			u64 := ptrToUint64(p)
-			if (u64>>code.rshiftNum)&1 == 1 {
-				v := ^u64&code.mask + 1
-				b = appendInt(b, -v, true)
-			} else {
-				b = appendInt(b, u64&code.mask, (u64>>code.rshiftNum)&1 == 1)
-			}
+			b = appendInt(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = encodeComma(b)
 			code = code.next
 		case opUint:
-			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx))&code.mask)
+			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)), code)
+			b = encodeComma(b)
+			code = code.next
+		case opIntString:
+			b = append(b, '"')
+			b = appendInt(b, ptrToUint64(load(ctxptr, code.idx)), code)
+			b = append(b, '"')
+			b = encodeComma(b)
+			code = code.next
+		case opUintString:
+			b = append(b, '"')
+			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)), code)
+			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
 		case opFloat32:
@@ -542,8 +547,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -567,7 +571,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, v, v>>code.rshiftNum == 1)
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -588,8 +592,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -598,8 +601,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
-			u64 := ptrToUint64(p)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(p), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyIntOnly, opStructFieldHeadOmitEmptyIntOnly:
@@ -609,7 +611,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, v, u64>>code.rshiftNum == 1)
+				b = appendInt(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -618,8 +620,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			u64 := ptrToUint64(p)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(p), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -640,8 +641,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					u64 := ptrToUint64(p)
-					b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+					b = appendInt(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -660,8 +660,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				p = ptrToPtr(p + code.offset)
 				if p != 0 {
 					b = append(b, code.escapedKey...)
-					u64 := ptrToUint64(p)
-					b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+					b = appendInt(b, ptrToUint64(p), code)
 					b = encodeComma(b)
 				}
 				code = code.next
@@ -684,8 +683,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					b = encodeNull(b)
 				} else {
 					b = append(b, '"')
-					u64 := ptrToUint64(p)
-					b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+					b = appendInt(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
 			}
@@ -708,8 +706,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -728,8 +725,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -751,8 +747,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -773,8 +768,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					u64 := ptrToUint64(p)
-					b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+					b = appendInt(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -788,8 +782,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -810,7 +803,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, v, u64>>code.rshiftNum == 1)
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -828,8 +821,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -840,8 +832,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -856,7 +847,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, v, u64>>code.rshiftNum == 1)
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -868,8 +859,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				u64 := ptrToUint64(ptr + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -888,8 +878,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -907,8 +896,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -927,8 +915,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -947,8 +934,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -966,8 +952,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(p + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -986,8 +971,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				u64 := ptrToUint64(p + code.offset)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1004,7 +988,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1022,12 +1006,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, '{')
-				v := ptrToUint64(ptr+code.offset) & code.mask
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -1048,7 +1033,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -1057,16 +1042,17 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(p)&code.mask)
+			b = appendUint(b, ptrToUint64(p), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyUintOnly, opStructFieldHeadOmitEmptyUintOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
-			v := ptrToUint64(p) & code.mask
+			u64 := ptrToUint64(p)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
+				b = appendUint(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -1075,7 +1061,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p)&code.mask)
+			b = appendUint(b, ptrToUint64(p), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -1096,7 +1082,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendUint(b, ptrToUint64(p)&code.mask)
+					b = appendUint(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -1115,7 +1101,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				p = ptrToPtr(p + code.offset)
 				if p != 0 {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, ptrToUint64(p)&code.mask)
+					b = appendUint(b, ptrToUint64(p), code)
 					b = encodeComma(b)
 				}
 				code = code.next
@@ -1138,7 +1124,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					b = encodeNull(b)
 				} else {
 					b = append(b, '"')
-					b = appendUint(b, ptrToUint64(p)&code.mask)
+					b = appendUint(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
 			}
@@ -1161,7 +1147,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1180,7 +1166,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -1202,7 +1188,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1223,7 +1209,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendUint(b, ptrToUint64(p)&code.mask)
+					b = appendUint(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -1237,7 +1223,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1252,12 +1238,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToUint64(ptr+code.offset) & code.mask
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -1275,7 +1262,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -1286,7 +1273,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1295,12 +1282,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToUint64(ptr+code.offset) & code.mask
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -1312,7 +1300,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -1331,7 +1319,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1349,7 +1337,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1368,7 +1356,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1387,7 +1375,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1405,7 +1393,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1424,7 +1412,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset)&code.mask)
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -3972,8 +3960,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructFieldInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			u64 := ptrToUint64(ptr + code.offset)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyInt:
@@ -3982,7 +3969,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, v, u64>>code.rshiftNum == 1)
+				b = appendInt(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -3990,8 +3977,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			u64 := ptrToUint64(ptr + code.offset)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -4002,8 +3988,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -4012,8 +3997,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -4025,8 +4009,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -4044,23 +4027,23 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint64(ptr+code.offset) & code.mask
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
+				b = appendUint(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -4068,7 +4051,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -4079,7 +4062,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -4088,7 +4071,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -4100,7 +4083,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -4602,8 +4585,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructEndInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			u64 := ptrToUint64(ptr + code.offset)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyInt:
@@ -4612,7 +4594,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, v, u64>>code.rshiftNum == 1)
+				b = appendInt(b, u64, code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -4628,8 +4610,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			u64 := ptrToUint64(ptr + code.offset)
-			b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = appendStructEnd(b)
 			code = code.next
@@ -4640,8 +4621,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
@@ -4650,8 +4630,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -4671,8 +4650,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
@@ -4690,23 +4668,23 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				u64 := ptrToUint64(p)
-				b = appendInt(b, u64&code.mask, u64>>code.rshiftNum == 1)
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint64(ptr+code.offset) & code.mask
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
+				b = appendUint(b, u64, code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -4722,7 +4700,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(ptr+code.offset)&code.mask)
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = appendStructEnd(b)
 			code = code.next
@@ -4733,7 +4711,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
@@ -4742,7 +4720,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -4762,7 +4740,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
@@ -4780,7 +4758,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, ptrToUint64(p)&code.mask)
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next

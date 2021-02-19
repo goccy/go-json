@@ -508,60 +508,92 @@ func encodeCompileUint64(ctx *encodeCompileContext) (*opcode, error) {
 
 func encodeCompileIntString(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opIntString)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt8String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt16String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt32String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileInt64String(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opInt64String)
+	code := newOpCode(ctx, opIntString)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUintString(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	switch intSize {
+	case 32:
+		code.mask = math.MaxUint32
+		code.rshiftNum = 31
+	default:
+		code.mask = math.MaxUint64
+		code.rshiftNum = 63
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint8String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint8
+	code.rshiftNum = 7
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint16String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint16
+	code.rshiftNum = 15
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint32String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint32
+	code.rshiftNum = 31
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileUint64String(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opUintString)
+	code.mask = math.MaxUint64
+	code.rshiftNum = 63
 	ctx.incIndex()
 	return code, nil
 }

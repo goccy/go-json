@@ -238,6 +238,9 @@ func encodeConvertHeadOnlyCode(c *opcode, isPtrHead bool) {
 	if strings.Contains(c.op.String(), "Map") {
 		return
 	}
+	if strings.Contains(c.op.String(), "EmptyStruct") {
+		return
+	}
 
 	isPtrOp := strings.Contains(c.op.String(), "Ptr")
 	if isPtrOp && !isPtrHead {
@@ -628,6 +631,12 @@ func encodeCompileBytes(ctx *encodeCompileContext) (*opcode, error) {
 	return code, nil
 }
 
+func encodeCompileEmptyStruct(ctx *encodeCompileContext) (*opcode, error) {
+	code := newOpCode(ctx, opEmptyStruct)
+	ctx.incIndex()
+	return code, nil
+}
+
 func encodeCompileInterface(ctx *encodeCompileContext) (*opcode, error) {
 	code := newInterfaceCode(ctx)
 	ctx.incIndex()
@@ -814,6 +823,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldHeadStringPtr
 			case opBool:
 				return opStructFieldHeadBoolPtr
+			case opEmptyStruct:
+				return opStructFieldHeadEmptyStructPtr
 			}
 		}
 	case opInt:
@@ -828,6 +839,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldHeadString
 	case opBool:
 		return opStructFieldHeadBool
+	case opEmptyStruct:
+		return opStructFieldHeadEmptyStruct
 	case opMapHead:
 		return opStructFieldHeadMap
 	case opMapHeadLoad:
@@ -836,8 +849,6 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldHeadArray
 	case opSliceHead:
 		return opStructFieldHeadSlice
-	case opStructFieldHead:
-		return opStructFieldHeadStruct
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
 	case opMarshalText:
@@ -897,6 +908,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldStringPtr
 			case opBool:
 				return opStructFieldBoolPtr
+			case opEmptyStruct:
+				return opStructFieldEmptyStructPtr
 			}
 		}
 	case opInt:
@@ -911,6 +924,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldString
 	case opBool:
 		return opStructFieldBool
+	case opEmptyStruct:
+		return opStructFieldEmptyStruct
 	case opMapHead:
 		return opStructFieldMap
 	case opMapHeadLoad:
@@ -919,8 +934,6 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldArray
 	case opSliceHead:
 		return opStructFieldSlice
-	case opStructFieldHead:
-		return opStructFieldStruct
 	case opMarshalJSON:
 		return opStructFieldMarshalJSON
 	case opMarshalText:
@@ -1220,13 +1233,16 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		return code, nil
 	}
 	typ := ctx.typ
+	fieldNum := typ.NumField()
+	if fieldNum == 0 {
+		return encodeCompileEmptyStruct(ctx)
+	}
 	typeptr := uintptr(unsafe.Pointer(typ))
 	compiled := &compiledCode{}
 	ctx.structTypeToCompiledCode[typeptr] = compiled
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
-	fieldNum := typ.NumField()
 	fieldIdx := 0
 	var (
 		head      *opcode

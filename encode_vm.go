@@ -142,6 +142,10 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opEmptyStruct:
+			b = append(b, '{', '}')
+			b = encodeComma(b)
+			code = code.next
 		case opInterface:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
@@ -3357,6 +3361,64 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
+		case opStructFieldPtrHeadEmptyStruct:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadEmptyStruct:
+			b = append(b, '{')
+			b = append(b, code.key...)
+			b = append(b, '{', '}')
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrHeadEmptyStructPtr:
+			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldHeadEmptyStructPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			} else {
+				b = append(b, '{')
+				b = append(b, code.key...)
+				p = ptrToPtr(p)
+				if p == 0 {
+					b = encodeNull(b)
+				} else {
+					b = append(b, '{', '}')
+				}
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyEmptyStructPtr:
+			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldHeadOmitEmptyEmptyStructPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			} else {
+				p = ptrToPtr(p)
+				b = append(b, '{')
+				if p != 0 {
+					b = append(b, code.key...)
+					b = append(b, '{', '}')
+				}
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opStructFieldPtrHeadArray:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
@@ -4453,6 +4515,52 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, '{', '}')
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, '{', '}')
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldStringTagEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, `"{}"`...)
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldEmptyStructPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '{', '}')
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyEmptyStructPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = append(b, code.key...)
+				b = append(b, '{', '}')
+				b = encodeComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagEmptyStructPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, `"{}"`...)
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opStructFieldMarshalJSON:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.key...)
@@ -5213,6 +5321,52 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			v := ptrToBytes(ptr + code.offset)
 			b = append(b, code.key...)
 			b = encodeByteSlice(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, '{', '}')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, '{', '}')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndStringTagEmptyStruct:
+			b = append(b, code.key...)
+			b = append(b, `"{}"`...)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndEmptyStructPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '{', '}')
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyEmptyStructPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = append(b, code.key...)
+				b = append(b, '{', '}')
+				b = appendStructEnd(b)
+			}
+			code = code.next
+		case opStructEndStringTagEmptyStructPtr:
+			b = append(b, code.key...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, `"{}"`...)
+			}
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndMarshalJSON:

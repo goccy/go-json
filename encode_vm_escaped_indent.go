@@ -75,6 +75,10 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			}
 			b = encodeIndentComma(b)
 			code = code.next
+		case opEmptyStruct:
+			b = append(b, '{', '}')
+			b = encodeIndentComma(b)
+			code = code.next
 		case opInterface:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
@@ -493,13 +497,11 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else if code.next == code.end {
 				// not exists fields
-				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '}', ',', '\n')
 				code = code.end.next
 				store(ctxptr, code.idx, ptr)
@@ -523,12 +525,10 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldHeadOmitEmpty:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
-				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				b = appendIndent(ctx, b, code.indent)
 				b = append(b, '{', '\n')
 				p := ptr + code.offset
 				if p == 0 || *(*uintptr)(*(*unsafe.Pointer)(unsafe.Pointer(&p))) == 0 {
@@ -3579,6 +3579,64 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					code = code.next
 				}
 			}
+		case opStructFieldPtrHeadEmptyStruct:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadEmptyStruct:
+			b = append(b, '{')
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '{', '}')
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldPtrHeadEmptyStructPtr:
+			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldHeadEmptyStructPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.end.next
+				break
+			} else {
+				b = append(b, '{')
+				b = append(b, code.escapedKey...)
+				p = ptrToPtr(p)
+				if p == 0 {
+					b = encodeNull(b)
+				} else {
+					b = append(b, '{', '}')
+				}
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyEmptyStructPtr:
+			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			fallthrough
+		case opStructFieldHeadOmitEmptyEmptyStructPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeIndentComma(b)
+				code = code.end.next
+				break
+			} else {
+				p = ptrToPtr(p)
+				b = append(b, '{')
+				if p != 0 {
+					b = append(b, code.escapedKey...)
+					b = append(b, ' ', '{', '}')
+				}
+			}
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldPtrHeadStringTag:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {
@@ -4136,6 +4194,58 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = encodeNull(b)
 			} else {
 				b = encodeByteSlice(b, ptrToBytes(p))
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '{', '}')
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '{', '}')
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldStringTagEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ` "{}"`...)
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldEmptyStructPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, ' ', '{', '}')
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyEmptyStructPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ', '{', '}')
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructFieldStringTagEmptyStructPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, ` "{}"`...)
 			}
 			b = encodeIndentComma(b)
 			code = code.next
@@ -5021,6 +5131,58 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
 			b = encodeByteSlice(b, ptrToBytes(ptr+code.offset))
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '{', '}')
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ', '{', '}')
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndStringTagEmptyStruct:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ` "{}"`...)
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndEmptyStructPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, ' ', '{', '}')
+			}
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyEmptyStructPtr:
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p != 0 {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ', '{', '}')
+				b = appendStructEndIndent(ctx, b, code.indent-1)
+			}
+			code = code.next
+		case opStructEndStringTagEmptyStructPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			ptr := load(ctxptr, code.headIdx)
+			p := ptrToPtr(ptr + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, ` "{}"`...)
+			}
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opStructEndMarshalJSON:

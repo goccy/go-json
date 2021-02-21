@@ -1674,3 +1674,27 @@ func TestOmitEmpty(t *testing.T) {
 		t.Errorf(" got: %s\nwant: %s\n", got, optionalsExpected)
 	}
 }
+
+func TestIssue104(t *testing.T) {
+	type T struct {
+		ID   uint   `json:"id"`
+		TYPE string `json:"type"`
+	}
+
+	type U struct {
+		A     uint      `json:"a"`
+		Start time.Time `json:"start"`
+		End   time.Time `json:"end"`
+		T     T         `json:"t,omitempty"`
+	}
+	var u U
+	bytes, err := json.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(bytes)
+	want := `{"a":0,"start":"0001-01-01T00:00:00Z","end":"0001-01-01T00:00:00Z"}`
+	if got != want {
+		t.Errorf(" got: %s\nwant: %s\n", got, want)
+	}
+}

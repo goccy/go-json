@@ -22,7 +22,7 @@ const (
 	codeStructEnd            codeType = 11
 )
 
-var opTypeStrings = [2770]string{
+var opTypeStrings = [1480]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -43,15 +43,7 @@ var opTypeStrings = [2770]string{
 	"StructFieldRecursiveEnd",
 	"StructAnonymousEnd",
 	"Int",
-	"Int8",
-	"Int16",
-	"Int32",
-	"Int64",
 	"Uint",
-	"Uint8",
-	"Uint16",
-	"Uint32",
-	"Uint64",
 	"Float32",
 	"Float64",
 	"Bool",
@@ -66,45 +58,23 @@ var opTypeStrings = [2770]string{
 	"MarshalText",
 	"Recursive",
 	"IntString",
-	"Int8String",
-	"Int16String",
-	"Int32String",
-	"Int64String",
 	"UintString",
-	"Uint8String",
-	"Uint16String",
-	"Uint32String",
-	"Uint64String",
 	"IntPtr",
-	"Int8Ptr",
-	"Int16Ptr",
-	"Int32Ptr",
-	"Int64Ptr",
 	"UintPtr",
-	"Uint8Ptr",
-	"Uint16Ptr",
-	"Uint32Ptr",
-	"Uint64Ptr",
 	"Float32Ptr",
 	"Float64Ptr",
 	"BoolPtr",
 	"StringPtr",
 	"BytesPtr",
 	"IntNPtr",
-	"Int8NPtr",
-	"Int16NPtr",
-	"Int32NPtr",
-	"Int64NPtr",
 	"UintNPtr",
-	"Uint8NPtr",
-	"Uint16NPtr",
-	"Uint32NPtr",
-	"Uint64NPtr",
 	"Float32NPtr",
 	"Float64NPtr",
 	"BoolNPtr",
 	"StringNPtr",
 	"BytesNPtr",
+	"EmptyStruct",
+	"EmptyStructPtr",
 	"StructFieldHeadInt",
 	"StructFieldHeadIntOnly",
 	"StructFieldHeadOmitEmptyInt",
@@ -141,150 +111,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyIntOnly",
 	"StructFieldNPtrAnonymousHeadStringTagInt",
 	"StructFieldNPtrAnonymousHeadStringTagIntOnly",
-	"StructFieldHeadInt8",
-	"StructFieldHeadInt8Only",
-	"StructFieldHeadOmitEmptyInt8",
-	"StructFieldHeadOmitEmptyInt8Only",
-	"StructFieldHeadStringTagInt8",
-	"StructFieldHeadStringTagInt8Only",
-	"StructFieldAnonymousHeadInt8",
-	"StructFieldAnonymousHeadInt8Only",
-	"StructFieldAnonymousHeadOmitEmptyInt8",
-	"StructFieldAnonymousHeadOmitEmptyInt8Only",
-	"StructFieldAnonymousHeadStringTagInt8",
-	"StructFieldAnonymousHeadStringTagInt8Only",
-	"StructFieldPtrHeadInt8",
-	"StructFieldPtrHeadInt8Only",
-	"StructFieldPtrHeadOmitEmptyInt8",
-	"StructFieldPtrHeadOmitEmptyInt8Only",
-	"StructFieldPtrHeadStringTagInt8",
-	"StructFieldPtrHeadStringTagInt8Only",
-	"StructFieldPtrAnonymousHeadInt8",
-	"StructFieldPtrAnonymousHeadInt8Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8Only",
-	"StructFieldPtrAnonymousHeadStringTagInt8",
-	"StructFieldPtrAnonymousHeadStringTagInt8Only",
-	"StructFieldNPtrHeadInt8",
-	"StructFieldNPtrHeadInt8Only",
-	"StructFieldNPtrHeadOmitEmptyInt8",
-	"StructFieldNPtrHeadOmitEmptyInt8Only",
-	"StructFieldNPtrHeadStringTagInt8",
-	"StructFieldNPtrHeadStringTagInt8Only",
-	"StructFieldNPtrAnonymousHeadInt8",
-	"StructFieldNPtrAnonymousHeadInt8Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8Only",
-	"StructFieldNPtrAnonymousHeadStringTagInt8",
-	"StructFieldNPtrAnonymousHeadStringTagInt8Only",
-	"StructFieldHeadInt16",
-	"StructFieldHeadInt16Only",
-	"StructFieldHeadOmitEmptyInt16",
-	"StructFieldHeadOmitEmptyInt16Only",
-	"StructFieldHeadStringTagInt16",
-	"StructFieldHeadStringTagInt16Only",
-	"StructFieldAnonymousHeadInt16",
-	"StructFieldAnonymousHeadInt16Only",
-	"StructFieldAnonymousHeadOmitEmptyInt16",
-	"StructFieldAnonymousHeadOmitEmptyInt16Only",
-	"StructFieldAnonymousHeadStringTagInt16",
-	"StructFieldAnonymousHeadStringTagInt16Only",
-	"StructFieldPtrHeadInt16",
-	"StructFieldPtrHeadInt16Only",
-	"StructFieldPtrHeadOmitEmptyInt16",
-	"StructFieldPtrHeadOmitEmptyInt16Only",
-	"StructFieldPtrHeadStringTagInt16",
-	"StructFieldPtrHeadStringTagInt16Only",
-	"StructFieldPtrAnonymousHeadInt16",
-	"StructFieldPtrAnonymousHeadInt16Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16Only",
-	"StructFieldPtrAnonymousHeadStringTagInt16",
-	"StructFieldPtrAnonymousHeadStringTagInt16Only",
-	"StructFieldNPtrHeadInt16",
-	"StructFieldNPtrHeadInt16Only",
-	"StructFieldNPtrHeadOmitEmptyInt16",
-	"StructFieldNPtrHeadOmitEmptyInt16Only",
-	"StructFieldNPtrHeadStringTagInt16",
-	"StructFieldNPtrHeadStringTagInt16Only",
-	"StructFieldNPtrAnonymousHeadInt16",
-	"StructFieldNPtrAnonymousHeadInt16Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16Only",
-	"StructFieldNPtrAnonymousHeadStringTagInt16",
-	"StructFieldNPtrAnonymousHeadStringTagInt16Only",
-	"StructFieldHeadInt32",
-	"StructFieldHeadInt32Only",
-	"StructFieldHeadOmitEmptyInt32",
-	"StructFieldHeadOmitEmptyInt32Only",
-	"StructFieldHeadStringTagInt32",
-	"StructFieldHeadStringTagInt32Only",
-	"StructFieldAnonymousHeadInt32",
-	"StructFieldAnonymousHeadInt32Only",
-	"StructFieldAnonymousHeadOmitEmptyInt32",
-	"StructFieldAnonymousHeadOmitEmptyInt32Only",
-	"StructFieldAnonymousHeadStringTagInt32",
-	"StructFieldAnonymousHeadStringTagInt32Only",
-	"StructFieldPtrHeadInt32",
-	"StructFieldPtrHeadInt32Only",
-	"StructFieldPtrHeadOmitEmptyInt32",
-	"StructFieldPtrHeadOmitEmptyInt32Only",
-	"StructFieldPtrHeadStringTagInt32",
-	"StructFieldPtrHeadStringTagInt32Only",
-	"StructFieldPtrAnonymousHeadInt32",
-	"StructFieldPtrAnonymousHeadInt32Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32Only",
-	"StructFieldPtrAnonymousHeadStringTagInt32",
-	"StructFieldPtrAnonymousHeadStringTagInt32Only",
-	"StructFieldNPtrHeadInt32",
-	"StructFieldNPtrHeadInt32Only",
-	"StructFieldNPtrHeadOmitEmptyInt32",
-	"StructFieldNPtrHeadOmitEmptyInt32Only",
-	"StructFieldNPtrHeadStringTagInt32",
-	"StructFieldNPtrHeadStringTagInt32Only",
-	"StructFieldNPtrAnonymousHeadInt32",
-	"StructFieldNPtrAnonymousHeadInt32Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32Only",
-	"StructFieldNPtrAnonymousHeadStringTagInt32",
-	"StructFieldNPtrAnonymousHeadStringTagInt32Only",
-	"StructFieldHeadInt64",
-	"StructFieldHeadInt64Only",
-	"StructFieldHeadOmitEmptyInt64",
-	"StructFieldHeadOmitEmptyInt64Only",
-	"StructFieldHeadStringTagInt64",
-	"StructFieldHeadStringTagInt64Only",
-	"StructFieldAnonymousHeadInt64",
-	"StructFieldAnonymousHeadInt64Only",
-	"StructFieldAnonymousHeadOmitEmptyInt64",
-	"StructFieldAnonymousHeadOmitEmptyInt64Only",
-	"StructFieldAnonymousHeadStringTagInt64",
-	"StructFieldAnonymousHeadStringTagInt64Only",
-	"StructFieldPtrHeadInt64",
-	"StructFieldPtrHeadInt64Only",
-	"StructFieldPtrHeadOmitEmptyInt64",
-	"StructFieldPtrHeadOmitEmptyInt64Only",
-	"StructFieldPtrHeadStringTagInt64",
-	"StructFieldPtrHeadStringTagInt64Only",
-	"StructFieldPtrAnonymousHeadInt64",
-	"StructFieldPtrAnonymousHeadInt64Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64Only",
-	"StructFieldPtrAnonymousHeadStringTagInt64",
-	"StructFieldPtrAnonymousHeadStringTagInt64Only",
-	"StructFieldNPtrHeadInt64",
-	"StructFieldNPtrHeadInt64Only",
-	"StructFieldNPtrHeadOmitEmptyInt64",
-	"StructFieldNPtrHeadOmitEmptyInt64Only",
-	"StructFieldNPtrHeadStringTagInt64",
-	"StructFieldNPtrHeadStringTagInt64Only",
-	"StructFieldNPtrAnonymousHeadInt64",
-	"StructFieldNPtrAnonymousHeadInt64Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64Only",
-	"StructFieldNPtrAnonymousHeadStringTagInt64",
-	"StructFieldNPtrAnonymousHeadStringTagInt64Only",
 	"StructFieldHeadUint",
 	"StructFieldHeadUintOnly",
 	"StructFieldHeadOmitEmptyUint",
@@ -321,150 +147,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyUintOnly",
 	"StructFieldNPtrAnonymousHeadStringTagUint",
 	"StructFieldNPtrAnonymousHeadStringTagUintOnly",
-	"StructFieldHeadUint8",
-	"StructFieldHeadUint8Only",
-	"StructFieldHeadOmitEmptyUint8",
-	"StructFieldHeadOmitEmptyUint8Only",
-	"StructFieldHeadStringTagUint8",
-	"StructFieldHeadStringTagUint8Only",
-	"StructFieldAnonymousHeadUint8",
-	"StructFieldAnonymousHeadUint8Only",
-	"StructFieldAnonymousHeadOmitEmptyUint8",
-	"StructFieldAnonymousHeadOmitEmptyUint8Only",
-	"StructFieldAnonymousHeadStringTagUint8",
-	"StructFieldAnonymousHeadStringTagUint8Only",
-	"StructFieldPtrHeadUint8",
-	"StructFieldPtrHeadUint8Only",
-	"StructFieldPtrHeadOmitEmptyUint8",
-	"StructFieldPtrHeadOmitEmptyUint8Only",
-	"StructFieldPtrHeadStringTagUint8",
-	"StructFieldPtrHeadStringTagUint8Only",
-	"StructFieldPtrAnonymousHeadUint8",
-	"StructFieldPtrAnonymousHeadUint8Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8Only",
-	"StructFieldPtrAnonymousHeadStringTagUint8",
-	"StructFieldPtrAnonymousHeadStringTagUint8Only",
-	"StructFieldNPtrHeadUint8",
-	"StructFieldNPtrHeadUint8Only",
-	"StructFieldNPtrHeadOmitEmptyUint8",
-	"StructFieldNPtrHeadOmitEmptyUint8Only",
-	"StructFieldNPtrHeadStringTagUint8",
-	"StructFieldNPtrHeadStringTagUint8Only",
-	"StructFieldNPtrAnonymousHeadUint8",
-	"StructFieldNPtrAnonymousHeadUint8Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8Only",
-	"StructFieldNPtrAnonymousHeadStringTagUint8",
-	"StructFieldNPtrAnonymousHeadStringTagUint8Only",
-	"StructFieldHeadUint16",
-	"StructFieldHeadUint16Only",
-	"StructFieldHeadOmitEmptyUint16",
-	"StructFieldHeadOmitEmptyUint16Only",
-	"StructFieldHeadStringTagUint16",
-	"StructFieldHeadStringTagUint16Only",
-	"StructFieldAnonymousHeadUint16",
-	"StructFieldAnonymousHeadUint16Only",
-	"StructFieldAnonymousHeadOmitEmptyUint16",
-	"StructFieldAnonymousHeadOmitEmptyUint16Only",
-	"StructFieldAnonymousHeadStringTagUint16",
-	"StructFieldAnonymousHeadStringTagUint16Only",
-	"StructFieldPtrHeadUint16",
-	"StructFieldPtrHeadUint16Only",
-	"StructFieldPtrHeadOmitEmptyUint16",
-	"StructFieldPtrHeadOmitEmptyUint16Only",
-	"StructFieldPtrHeadStringTagUint16",
-	"StructFieldPtrHeadStringTagUint16Only",
-	"StructFieldPtrAnonymousHeadUint16",
-	"StructFieldPtrAnonymousHeadUint16Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16Only",
-	"StructFieldPtrAnonymousHeadStringTagUint16",
-	"StructFieldPtrAnonymousHeadStringTagUint16Only",
-	"StructFieldNPtrHeadUint16",
-	"StructFieldNPtrHeadUint16Only",
-	"StructFieldNPtrHeadOmitEmptyUint16",
-	"StructFieldNPtrHeadOmitEmptyUint16Only",
-	"StructFieldNPtrHeadStringTagUint16",
-	"StructFieldNPtrHeadStringTagUint16Only",
-	"StructFieldNPtrAnonymousHeadUint16",
-	"StructFieldNPtrAnonymousHeadUint16Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16Only",
-	"StructFieldNPtrAnonymousHeadStringTagUint16",
-	"StructFieldNPtrAnonymousHeadStringTagUint16Only",
-	"StructFieldHeadUint32",
-	"StructFieldHeadUint32Only",
-	"StructFieldHeadOmitEmptyUint32",
-	"StructFieldHeadOmitEmptyUint32Only",
-	"StructFieldHeadStringTagUint32",
-	"StructFieldHeadStringTagUint32Only",
-	"StructFieldAnonymousHeadUint32",
-	"StructFieldAnonymousHeadUint32Only",
-	"StructFieldAnonymousHeadOmitEmptyUint32",
-	"StructFieldAnonymousHeadOmitEmptyUint32Only",
-	"StructFieldAnonymousHeadStringTagUint32",
-	"StructFieldAnonymousHeadStringTagUint32Only",
-	"StructFieldPtrHeadUint32",
-	"StructFieldPtrHeadUint32Only",
-	"StructFieldPtrHeadOmitEmptyUint32",
-	"StructFieldPtrHeadOmitEmptyUint32Only",
-	"StructFieldPtrHeadStringTagUint32",
-	"StructFieldPtrHeadStringTagUint32Only",
-	"StructFieldPtrAnonymousHeadUint32",
-	"StructFieldPtrAnonymousHeadUint32Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32Only",
-	"StructFieldPtrAnonymousHeadStringTagUint32",
-	"StructFieldPtrAnonymousHeadStringTagUint32Only",
-	"StructFieldNPtrHeadUint32",
-	"StructFieldNPtrHeadUint32Only",
-	"StructFieldNPtrHeadOmitEmptyUint32",
-	"StructFieldNPtrHeadOmitEmptyUint32Only",
-	"StructFieldNPtrHeadStringTagUint32",
-	"StructFieldNPtrHeadStringTagUint32Only",
-	"StructFieldNPtrAnonymousHeadUint32",
-	"StructFieldNPtrAnonymousHeadUint32Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32Only",
-	"StructFieldNPtrAnonymousHeadStringTagUint32",
-	"StructFieldNPtrAnonymousHeadStringTagUint32Only",
-	"StructFieldHeadUint64",
-	"StructFieldHeadUint64Only",
-	"StructFieldHeadOmitEmptyUint64",
-	"StructFieldHeadOmitEmptyUint64Only",
-	"StructFieldHeadStringTagUint64",
-	"StructFieldHeadStringTagUint64Only",
-	"StructFieldAnonymousHeadUint64",
-	"StructFieldAnonymousHeadUint64Only",
-	"StructFieldAnonymousHeadOmitEmptyUint64",
-	"StructFieldAnonymousHeadOmitEmptyUint64Only",
-	"StructFieldAnonymousHeadStringTagUint64",
-	"StructFieldAnonymousHeadStringTagUint64Only",
-	"StructFieldPtrHeadUint64",
-	"StructFieldPtrHeadUint64Only",
-	"StructFieldPtrHeadOmitEmptyUint64",
-	"StructFieldPtrHeadOmitEmptyUint64Only",
-	"StructFieldPtrHeadStringTagUint64",
-	"StructFieldPtrHeadStringTagUint64Only",
-	"StructFieldPtrAnonymousHeadUint64",
-	"StructFieldPtrAnonymousHeadUint64Only",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64Only",
-	"StructFieldPtrAnonymousHeadStringTagUint64",
-	"StructFieldPtrAnonymousHeadStringTagUint64Only",
-	"StructFieldNPtrHeadUint64",
-	"StructFieldNPtrHeadUint64Only",
-	"StructFieldNPtrHeadOmitEmptyUint64",
-	"StructFieldNPtrHeadOmitEmptyUint64Only",
-	"StructFieldNPtrHeadStringTagUint64",
-	"StructFieldNPtrHeadStringTagUint64Only",
-	"StructFieldNPtrAnonymousHeadUint64",
-	"StructFieldNPtrAnonymousHeadUint64Only",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64Only",
-	"StructFieldNPtrAnonymousHeadStringTagUint64",
-	"StructFieldNPtrAnonymousHeadStringTagUint64Only",
 	"StructFieldHeadFloat32",
 	"StructFieldHeadFloat32Only",
 	"StructFieldHeadOmitEmptyFloat32",
@@ -969,150 +651,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyIntStringOnly",
 	"StructFieldNPtrAnonymousHeadStringTagIntString",
 	"StructFieldNPtrAnonymousHeadStringTagIntStringOnly",
-	"StructFieldHeadInt8String",
-	"StructFieldHeadInt8StringOnly",
-	"StructFieldHeadOmitEmptyInt8String",
-	"StructFieldHeadOmitEmptyInt8StringOnly",
-	"StructFieldHeadStringTagInt8String",
-	"StructFieldHeadStringTagInt8StringOnly",
-	"StructFieldAnonymousHeadInt8String",
-	"StructFieldAnonymousHeadInt8StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt8String",
-	"StructFieldAnonymousHeadOmitEmptyInt8StringOnly",
-	"StructFieldAnonymousHeadStringTagInt8String",
-	"StructFieldAnonymousHeadStringTagInt8StringOnly",
-	"StructFieldPtrHeadInt8String",
-	"StructFieldPtrHeadInt8StringOnly",
-	"StructFieldPtrHeadOmitEmptyInt8String",
-	"StructFieldPtrHeadOmitEmptyInt8StringOnly",
-	"StructFieldPtrHeadStringTagInt8String",
-	"StructFieldPtrHeadStringTagInt8StringOnly",
-	"StructFieldPtrAnonymousHeadInt8String",
-	"StructFieldPtrAnonymousHeadInt8StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8String",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt8String",
-	"StructFieldPtrAnonymousHeadStringTagInt8StringOnly",
-	"StructFieldNPtrHeadInt8String",
-	"StructFieldNPtrHeadInt8StringOnly",
-	"StructFieldNPtrHeadOmitEmptyInt8String",
-	"StructFieldNPtrHeadOmitEmptyInt8StringOnly",
-	"StructFieldNPtrHeadStringTagInt8String",
-	"StructFieldNPtrHeadStringTagInt8StringOnly",
-	"StructFieldNPtrAnonymousHeadInt8String",
-	"StructFieldNPtrAnonymousHeadInt8StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt8String",
-	"StructFieldNPtrAnonymousHeadStringTagInt8StringOnly",
-	"StructFieldHeadInt16String",
-	"StructFieldHeadInt16StringOnly",
-	"StructFieldHeadOmitEmptyInt16String",
-	"StructFieldHeadOmitEmptyInt16StringOnly",
-	"StructFieldHeadStringTagInt16String",
-	"StructFieldHeadStringTagInt16StringOnly",
-	"StructFieldAnonymousHeadInt16String",
-	"StructFieldAnonymousHeadInt16StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt16String",
-	"StructFieldAnonymousHeadOmitEmptyInt16StringOnly",
-	"StructFieldAnonymousHeadStringTagInt16String",
-	"StructFieldAnonymousHeadStringTagInt16StringOnly",
-	"StructFieldPtrHeadInt16String",
-	"StructFieldPtrHeadInt16StringOnly",
-	"StructFieldPtrHeadOmitEmptyInt16String",
-	"StructFieldPtrHeadOmitEmptyInt16StringOnly",
-	"StructFieldPtrHeadStringTagInt16String",
-	"StructFieldPtrHeadStringTagInt16StringOnly",
-	"StructFieldPtrAnonymousHeadInt16String",
-	"StructFieldPtrAnonymousHeadInt16StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16String",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt16String",
-	"StructFieldPtrAnonymousHeadStringTagInt16StringOnly",
-	"StructFieldNPtrHeadInt16String",
-	"StructFieldNPtrHeadInt16StringOnly",
-	"StructFieldNPtrHeadOmitEmptyInt16String",
-	"StructFieldNPtrHeadOmitEmptyInt16StringOnly",
-	"StructFieldNPtrHeadStringTagInt16String",
-	"StructFieldNPtrHeadStringTagInt16StringOnly",
-	"StructFieldNPtrAnonymousHeadInt16String",
-	"StructFieldNPtrAnonymousHeadInt16StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt16String",
-	"StructFieldNPtrAnonymousHeadStringTagInt16StringOnly",
-	"StructFieldHeadInt32String",
-	"StructFieldHeadInt32StringOnly",
-	"StructFieldHeadOmitEmptyInt32String",
-	"StructFieldHeadOmitEmptyInt32StringOnly",
-	"StructFieldHeadStringTagInt32String",
-	"StructFieldHeadStringTagInt32StringOnly",
-	"StructFieldAnonymousHeadInt32String",
-	"StructFieldAnonymousHeadInt32StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt32String",
-	"StructFieldAnonymousHeadOmitEmptyInt32StringOnly",
-	"StructFieldAnonymousHeadStringTagInt32String",
-	"StructFieldAnonymousHeadStringTagInt32StringOnly",
-	"StructFieldPtrHeadInt32String",
-	"StructFieldPtrHeadInt32StringOnly",
-	"StructFieldPtrHeadOmitEmptyInt32String",
-	"StructFieldPtrHeadOmitEmptyInt32StringOnly",
-	"StructFieldPtrHeadStringTagInt32String",
-	"StructFieldPtrHeadStringTagInt32StringOnly",
-	"StructFieldPtrAnonymousHeadInt32String",
-	"StructFieldPtrAnonymousHeadInt32StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32String",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt32String",
-	"StructFieldPtrAnonymousHeadStringTagInt32StringOnly",
-	"StructFieldNPtrHeadInt32String",
-	"StructFieldNPtrHeadInt32StringOnly",
-	"StructFieldNPtrHeadOmitEmptyInt32String",
-	"StructFieldNPtrHeadOmitEmptyInt32StringOnly",
-	"StructFieldNPtrHeadStringTagInt32String",
-	"StructFieldNPtrHeadStringTagInt32StringOnly",
-	"StructFieldNPtrAnonymousHeadInt32String",
-	"StructFieldNPtrAnonymousHeadInt32StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt32String",
-	"StructFieldNPtrAnonymousHeadStringTagInt32StringOnly",
-	"StructFieldHeadInt64String",
-	"StructFieldHeadInt64StringOnly",
-	"StructFieldHeadOmitEmptyInt64String",
-	"StructFieldHeadOmitEmptyInt64StringOnly",
-	"StructFieldHeadStringTagInt64String",
-	"StructFieldHeadStringTagInt64StringOnly",
-	"StructFieldAnonymousHeadInt64String",
-	"StructFieldAnonymousHeadInt64StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt64String",
-	"StructFieldAnonymousHeadOmitEmptyInt64StringOnly",
-	"StructFieldAnonymousHeadStringTagInt64String",
-	"StructFieldAnonymousHeadStringTagInt64StringOnly",
-	"StructFieldPtrHeadInt64String",
-	"StructFieldPtrHeadInt64StringOnly",
-	"StructFieldPtrHeadOmitEmptyInt64String",
-	"StructFieldPtrHeadOmitEmptyInt64StringOnly",
-	"StructFieldPtrHeadStringTagInt64String",
-	"StructFieldPtrHeadStringTagInt64StringOnly",
-	"StructFieldPtrAnonymousHeadInt64String",
-	"StructFieldPtrAnonymousHeadInt64StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64String",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt64String",
-	"StructFieldPtrAnonymousHeadStringTagInt64StringOnly",
-	"StructFieldNPtrHeadInt64String",
-	"StructFieldNPtrHeadInt64StringOnly",
-	"StructFieldNPtrHeadOmitEmptyInt64String",
-	"StructFieldNPtrHeadOmitEmptyInt64StringOnly",
-	"StructFieldNPtrHeadStringTagInt64String",
-	"StructFieldNPtrHeadStringTagInt64StringOnly",
-	"StructFieldNPtrAnonymousHeadInt64String",
-	"StructFieldNPtrAnonymousHeadInt64StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt64String",
-	"StructFieldNPtrAnonymousHeadStringTagInt64StringOnly",
 	"StructFieldHeadUintString",
 	"StructFieldHeadUintStringOnly",
 	"StructFieldHeadOmitEmptyUintString",
@@ -1149,150 +687,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyUintStringOnly",
 	"StructFieldNPtrAnonymousHeadStringTagUintString",
 	"StructFieldNPtrAnonymousHeadStringTagUintStringOnly",
-	"StructFieldHeadUint8String",
-	"StructFieldHeadUint8StringOnly",
-	"StructFieldHeadOmitEmptyUint8String",
-	"StructFieldHeadOmitEmptyUint8StringOnly",
-	"StructFieldHeadStringTagUint8String",
-	"StructFieldHeadStringTagUint8StringOnly",
-	"StructFieldAnonymousHeadUint8String",
-	"StructFieldAnonymousHeadUint8StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint8String",
-	"StructFieldAnonymousHeadOmitEmptyUint8StringOnly",
-	"StructFieldAnonymousHeadStringTagUint8String",
-	"StructFieldAnonymousHeadStringTagUint8StringOnly",
-	"StructFieldPtrHeadUint8String",
-	"StructFieldPtrHeadUint8StringOnly",
-	"StructFieldPtrHeadOmitEmptyUint8String",
-	"StructFieldPtrHeadOmitEmptyUint8StringOnly",
-	"StructFieldPtrHeadStringTagUint8String",
-	"StructFieldPtrHeadStringTagUint8StringOnly",
-	"StructFieldPtrAnonymousHeadUint8String",
-	"StructFieldPtrAnonymousHeadUint8StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8String",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint8String",
-	"StructFieldPtrAnonymousHeadStringTagUint8StringOnly",
-	"StructFieldNPtrHeadUint8String",
-	"StructFieldNPtrHeadUint8StringOnly",
-	"StructFieldNPtrHeadOmitEmptyUint8String",
-	"StructFieldNPtrHeadOmitEmptyUint8StringOnly",
-	"StructFieldNPtrHeadStringTagUint8String",
-	"StructFieldNPtrHeadStringTagUint8StringOnly",
-	"StructFieldNPtrAnonymousHeadUint8String",
-	"StructFieldNPtrAnonymousHeadUint8StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint8String",
-	"StructFieldNPtrAnonymousHeadStringTagUint8StringOnly",
-	"StructFieldHeadUint16String",
-	"StructFieldHeadUint16StringOnly",
-	"StructFieldHeadOmitEmptyUint16String",
-	"StructFieldHeadOmitEmptyUint16StringOnly",
-	"StructFieldHeadStringTagUint16String",
-	"StructFieldHeadStringTagUint16StringOnly",
-	"StructFieldAnonymousHeadUint16String",
-	"StructFieldAnonymousHeadUint16StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint16String",
-	"StructFieldAnonymousHeadOmitEmptyUint16StringOnly",
-	"StructFieldAnonymousHeadStringTagUint16String",
-	"StructFieldAnonymousHeadStringTagUint16StringOnly",
-	"StructFieldPtrHeadUint16String",
-	"StructFieldPtrHeadUint16StringOnly",
-	"StructFieldPtrHeadOmitEmptyUint16String",
-	"StructFieldPtrHeadOmitEmptyUint16StringOnly",
-	"StructFieldPtrHeadStringTagUint16String",
-	"StructFieldPtrHeadStringTagUint16StringOnly",
-	"StructFieldPtrAnonymousHeadUint16String",
-	"StructFieldPtrAnonymousHeadUint16StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16String",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint16String",
-	"StructFieldPtrAnonymousHeadStringTagUint16StringOnly",
-	"StructFieldNPtrHeadUint16String",
-	"StructFieldNPtrHeadUint16StringOnly",
-	"StructFieldNPtrHeadOmitEmptyUint16String",
-	"StructFieldNPtrHeadOmitEmptyUint16StringOnly",
-	"StructFieldNPtrHeadStringTagUint16String",
-	"StructFieldNPtrHeadStringTagUint16StringOnly",
-	"StructFieldNPtrAnonymousHeadUint16String",
-	"StructFieldNPtrAnonymousHeadUint16StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint16String",
-	"StructFieldNPtrAnonymousHeadStringTagUint16StringOnly",
-	"StructFieldHeadUint32String",
-	"StructFieldHeadUint32StringOnly",
-	"StructFieldHeadOmitEmptyUint32String",
-	"StructFieldHeadOmitEmptyUint32StringOnly",
-	"StructFieldHeadStringTagUint32String",
-	"StructFieldHeadStringTagUint32StringOnly",
-	"StructFieldAnonymousHeadUint32String",
-	"StructFieldAnonymousHeadUint32StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint32String",
-	"StructFieldAnonymousHeadOmitEmptyUint32StringOnly",
-	"StructFieldAnonymousHeadStringTagUint32String",
-	"StructFieldAnonymousHeadStringTagUint32StringOnly",
-	"StructFieldPtrHeadUint32String",
-	"StructFieldPtrHeadUint32StringOnly",
-	"StructFieldPtrHeadOmitEmptyUint32String",
-	"StructFieldPtrHeadOmitEmptyUint32StringOnly",
-	"StructFieldPtrHeadStringTagUint32String",
-	"StructFieldPtrHeadStringTagUint32StringOnly",
-	"StructFieldPtrAnonymousHeadUint32String",
-	"StructFieldPtrAnonymousHeadUint32StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32String",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint32String",
-	"StructFieldPtrAnonymousHeadStringTagUint32StringOnly",
-	"StructFieldNPtrHeadUint32String",
-	"StructFieldNPtrHeadUint32StringOnly",
-	"StructFieldNPtrHeadOmitEmptyUint32String",
-	"StructFieldNPtrHeadOmitEmptyUint32StringOnly",
-	"StructFieldNPtrHeadStringTagUint32String",
-	"StructFieldNPtrHeadStringTagUint32StringOnly",
-	"StructFieldNPtrAnonymousHeadUint32String",
-	"StructFieldNPtrAnonymousHeadUint32StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint32String",
-	"StructFieldNPtrAnonymousHeadStringTagUint32StringOnly",
-	"StructFieldHeadUint64String",
-	"StructFieldHeadUint64StringOnly",
-	"StructFieldHeadOmitEmptyUint64String",
-	"StructFieldHeadOmitEmptyUint64StringOnly",
-	"StructFieldHeadStringTagUint64String",
-	"StructFieldHeadStringTagUint64StringOnly",
-	"StructFieldAnonymousHeadUint64String",
-	"StructFieldAnonymousHeadUint64StringOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint64String",
-	"StructFieldAnonymousHeadOmitEmptyUint64StringOnly",
-	"StructFieldAnonymousHeadStringTagUint64String",
-	"StructFieldAnonymousHeadStringTagUint64StringOnly",
-	"StructFieldPtrHeadUint64String",
-	"StructFieldPtrHeadUint64StringOnly",
-	"StructFieldPtrHeadOmitEmptyUint64String",
-	"StructFieldPtrHeadOmitEmptyUint64StringOnly",
-	"StructFieldPtrHeadStringTagUint64String",
-	"StructFieldPtrHeadStringTagUint64StringOnly",
-	"StructFieldPtrAnonymousHeadUint64String",
-	"StructFieldPtrAnonymousHeadUint64StringOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64String",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64StringOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint64String",
-	"StructFieldPtrAnonymousHeadStringTagUint64StringOnly",
-	"StructFieldNPtrHeadUint64String",
-	"StructFieldNPtrHeadUint64StringOnly",
-	"StructFieldNPtrHeadOmitEmptyUint64String",
-	"StructFieldNPtrHeadOmitEmptyUint64StringOnly",
-	"StructFieldNPtrHeadStringTagUint64String",
-	"StructFieldNPtrHeadStringTagUint64StringOnly",
-	"StructFieldNPtrAnonymousHeadUint64String",
-	"StructFieldNPtrAnonymousHeadUint64StringOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64String",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64StringOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint64String",
-	"StructFieldNPtrAnonymousHeadStringTagUint64StringOnly",
 	"StructFieldHeadIntPtr",
 	"StructFieldHeadIntPtrOnly",
 	"StructFieldHeadOmitEmptyIntPtr",
@@ -1329,150 +723,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyIntPtrOnly",
 	"StructFieldNPtrAnonymousHeadStringTagIntPtr",
 	"StructFieldNPtrAnonymousHeadStringTagIntPtrOnly",
-	"StructFieldHeadInt8Ptr",
-	"StructFieldHeadInt8PtrOnly",
-	"StructFieldHeadOmitEmptyInt8Ptr",
-	"StructFieldHeadOmitEmptyInt8PtrOnly",
-	"StructFieldHeadStringTagInt8Ptr",
-	"StructFieldHeadStringTagInt8PtrOnly",
-	"StructFieldAnonymousHeadInt8Ptr",
-	"StructFieldAnonymousHeadInt8PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt8Ptr",
-	"StructFieldAnonymousHeadOmitEmptyInt8PtrOnly",
-	"StructFieldAnonymousHeadStringTagInt8Ptr",
-	"StructFieldAnonymousHeadStringTagInt8PtrOnly",
-	"StructFieldPtrHeadInt8Ptr",
-	"StructFieldPtrHeadInt8PtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt8Ptr",
-	"StructFieldPtrHeadOmitEmptyInt8PtrOnly",
-	"StructFieldPtrHeadStringTagInt8Ptr",
-	"StructFieldPtrHeadStringTagInt8PtrOnly",
-	"StructFieldPtrAnonymousHeadInt8Ptr",
-	"StructFieldPtrAnonymousHeadInt8PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt8Ptr",
-	"StructFieldPtrAnonymousHeadStringTagInt8PtrOnly",
-	"StructFieldNPtrHeadInt8Ptr",
-	"StructFieldNPtrHeadInt8PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt8Ptr",
-	"StructFieldNPtrHeadOmitEmptyInt8PtrOnly",
-	"StructFieldNPtrHeadStringTagInt8Ptr",
-	"StructFieldNPtrHeadStringTagInt8PtrOnly",
-	"StructFieldNPtrAnonymousHeadInt8Ptr",
-	"StructFieldNPtrAnonymousHeadInt8PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt8Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagInt8PtrOnly",
-	"StructFieldHeadInt16Ptr",
-	"StructFieldHeadInt16PtrOnly",
-	"StructFieldHeadOmitEmptyInt16Ptr",
-	"StructFieldHeadOmitEmptyInt16PtrOnly",
-	"StructFieldHeadStringTagInt16Ptr",
-	"StructFieldHeadStringTagInt16PtrOnly",
-	"StructFieldAnonymousHeadInt16Ptr",
-	"StructFieldAnonymousHeadInt16PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt16Ptr",
-	"StructFieldAnonymousHeadOmitEmptyInt16PtrOnly",
-	"StructFieldAnonymousHeadStringTagInt16Ptr",
-	"StructFieldAnonymousHeadStringTagInt16PtrOnly",
-	"StructFieldPtrHeadInt16Ptr",
-	"StructFieldPtrHeadInt16PtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt16Ptr",
-	"StructFieldPtrHeadOmitEmptyInt16PtrOnly",
-	"StructFieldPtrHeadStringTagInt16Ptr",
-	"StructFieldPtrHeadStringTagInt16PtrOnly",
-	"StructFieldPtrAnonymousHeadInt16Ptr",
-	"StructFieldPtrAnonymousHeadInt16PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt16Ptr",
-	"StructFieldPtrAnonymousHeadStringTagInt16PtrOnly",
-	"StructFieldNPtrHeadInt16Ptr",
-	"StructFieldNPtrHeadInt16PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt16Ptr",
-	"StructFieldNPtrHeadOmitEmptyInt16PtrOnly",
-	"StructFieldNPtrHeadStringTagInt16Ptr",
-	"StructFieldNPtrHeadStringTagInt16PtrOnly",
-	"StructFieldNPtrAnonymousHeadInt16Ptr",
-	"StructFieldNPtrAnonymousHeadInt16PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt16Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagInt16PtrOnly",
-	"StructFieldHeadInt32Ptr",
-	"StructFieldHeadInt32PtrOnly",
-	"StructFieldHeadOmitEmptyInt32Ptr",
-	"StructFieldHeadOmitEmptyInt32PtrOnly",
-	"StructFieldHeadStringTagInt32Ptr",
-	"StructFieldHeadStringTagInt32PtrOnly",
-	"StructFieldAnonymousHeadInt32Ptr",
-	"StructFieldAnonymousHeadInt32PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt32Ptr",
-	"StructFieldAnonymousHeadOmitEmptyInt32PtrOnly",
-	"StructFieldAnonymousHeadStringTagInt32Ptr",
-	"StructFieldAnonymousHeadStringTagInt32PtrOnly",
-	"StructFieldPtrHeadInt32Ptr",
-	"StructFieldPtrHeadInt32PtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt32Ptr",
-	"StructFieldPtrHeadOmitEmptyInt32PtrOnly",
-	"StructFieldPtrHeadStringTagInt32Ptr",
-	"StructFieldPtrHeadStringTagInt32PtrOnly",
-	"StructFieldPtrAnonymousHeadInt32Ptr",
-	"StructFieldPtrAnonymousHeadInt32PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt32Ptr",
-	"StructFieldPtrAnonymousHeadStringTagInt32PtrOnly",
-	"StructFieldNPtrHeadInt32Ptr",
-	"StructFieldNPtrHeadInt32PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt32Ptr",
-	"StructFieldNPtrHeadOmitEmptyInt32PtrOnly",
-	"StructFieldNPtrHeadStringTagInt32Ptr",
-	"StructFieldNPtrHeadStringTagInt32PtrOnly",
-	"StructFieldNPtrAnonymousHeadInt32Ptr",
-	"StructFieldNPtrAnonymousHeadInt32PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt32Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagInt32PtrOnly",
-	"StructFieldHeadInt64Ptr",
-	"StructFieldHeadInt64PtrOnly",
-	"StructFieldHeadOmitEmptyInt64Ptr",
-	"StructFieldHeadOmitEmptyInt64PtrOnly",
-	"StructFieldHeadStringTagInt64Ptr",
-	"StructFieldHeadStringTagInt64PtrOnly",
-	"StructFieldAnonymousHeadInt64Ptr",
-	"StructFieldAnonymousHeadInt64PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt64Ptr",
-	"StructFieldAnonymousHeadOmitEmptyInt64PtrOnly",
-	"StructFieldAnonymousHeadStringTagInt64Ptr",
-	"StructFieldAnonymousHeadStringTagInt64PtrOnly",
-	"StructFieldPtrHeadInt64Ptr",
-	"StructFieldPtrHeadInt64PtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt64Ptr",
-	"StructFieldPtrHeadOmitEmptyInt64PtrOnly",
-	"StructFieldPtrHeadStringTagInt64Ptr",
-	"StructFieldPtrHeadStringTagInt64PtrOnly",
-	"StructFieldPtrAnonymousHeadInt64Ptr",
-	"StructFieldPtrAnonymousHeadInt64PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt64Ptr",
-	"StructFieldPtrAnonymousHeadStringTagInt64PtrOnly",
-	"StructFieldNPtrHeadInt64Ptr",
-	"StructFieldNPtrHeadInt64PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt64Ptr",
-	"StructFieldNPtrHeadOmitEmptyInt64PtrOnly",
-	"StructFieldNPtrHeadStringTagInt64Ptr",
-	"StructFieldNPtrHeadStringTagInt64PtrOnly",
-	"StructFieldNPtrAnonymousHeadInt64Ptr",
-	"StructFieldNPtrAnonymousHeadInt64PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt64Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagInt64PtrOnly",
 	"StructFieldHeadUintPtr",
 	"StructFieldHeadUintPtrOnly",
 	"StructFieldHeadOmitEmptyUintPtr",
@@ -1509,150 +759,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyUintPtrOnly",
 	"StructFieldNPtrAnonymousHeadStringTagUintPtr",
 	"StructFieldNPtrAnonymousHeadStringTagUintPtrOnly",
-	"StructFieldHeadUint8Ptr",
-	"StructFieldHeadUint8PtrOnly",
-	"StructFieldHeadOmitEmptyUint8Ptr",
-	"StructFieldHeadOmitEmptyUint8PtrOnly",
-	"StructFieldHeadStringTagUint8Ptr",
-	"StructFieldHeadStringTagUint8PtrOnly",
-	"StructFieldAnonymousHeadUint8Ptr",
-	"StructFieldAnonymousHeadUint8PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint8Ptr",
-	"StructFieldAnonymousHeadOmitEmptyUint8PtrOnly",
-	"StructFieldAnonymousHeadStringTagUint8Ptr",
-	"StructFieldAnonymousHeadStringTagUint8PtrOnly",
-	"StructFieldPtrHeadUint8Ptr",
-	"StructFieldPtrHeadUint8PtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint8Ptr",
-	"StructFieldPtrHeadOmitEmptyUint8PtrOnly",
-	"StructFieldPtrHeadStringTagUint8Ptr",
-	"StructFieldPtrHeadStringTagUint8PtrOnly",
-	"StructFieldPtrAnonymousHeadUint8Ptr",
-	"StructFieldPtrAnonymousHeadUint8PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint8Ptr",
-	"StructFieldPtrAnonymousHeadStringTagUint8PtrOnly",
-	"StructFieldNPtrHeadUint8Ptr",
-	"StructFieldNPtrHeadUint8PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint8Ptr",
-	"StructFieldNPtrHeadOmitEmptyUint8PtrOnly",
-	"StructFieldNPtrHeadStringTagUint8Ptr",
-	"StructFieldNPtrHeadStringTagUint8PtrOnly",
-	"StructFieldNPtrAnonymousHeadUint8Ptr",
-	"StructFieldNPtrAnonymousHeadUint8PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint8Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagUint8PtrOnly",
-	"StructFieldHeadUint16Ptr",
-	"StructFieldHeadUint16PtrOnly",
-	"StructFieldHeadOmitEmptyUint16Ptr",
-	"StructFieldHeadOmitEmptyUint16PtrOnly",
-	"StructFieldHeadStringTagUint16Ptr",
-	"StructFieldHeadStringTagUint16PtrOnly",
-	"StructFieldAnonymousHeadUint16Ptr",
-	"StructFieldAnonymousHeadUint16PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint16Ptr",
-	"StructFieldAnonymousHeadOmitEmptyUint16PtrOnly",
-	"StructFieldAnonymousHeadStringTagUint16Ptr",
-	"StructFieldAnonymousHeadStringTagUint16PtrOnly",
-	"StructFieldPtrHeadUint16Ptr",
-	"StructFieldPtrHeadUint16PtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint16Ptr",
-	"StructFieldPtrHeadOmitEmptyUint16PtrOnly",
-	"StructFieldPtrHeadStringTagUint16Ptr",
-	"StructFieldPtrHeadStringTagUint16PtrOnly",
-	"StructFieldPtrAnonymousHeadUint16Ptr",
-	"StructFieldPtrAnonymousHeadUint16PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint16Ptr",
-	"StructFieldPtrAnonymousHeadStringTagUint16PtrOnly",
-	"StructFieldNPtrHeadUint16Ptr",
-	"StructFieldNPtrHeadUint16PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint16Ptr",
-	"StructFieldNPtrHeadOmitEmptyUint16PtrOnly",
-	"StructFieldNPtrHeadStringTagUint16Ptr",
-	"StructFieldNPtrHeadStringTagUint16PtrOnly",
-	"StructFieldNPtrAnonymousHeadUint16Ptr",
-	"StructFieldNPtrAnonymousHeadUint16PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint16Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagUint16PtrOnly",
-	"StructFieldHeadUint32Ptr",
-	"StructFieldHeadUint32PtrOnly",
-	"StructFieldHeadOmitEmptyUint32Ptr",
-	"StructFieldHeadOmitEmptyUint32PtrOnly",
-	"StructFieldHeadStringTagUint32Ptr",
-	"StructFieldHeadStringTagUint32PtrOnly",
-	"StructFieldAnonymousHeadUint32Ptr",
-	"StructFieldAnonymousHeadUint32PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint32Ptr",
-	"StructFieldAnonymousHeadOmitEmptyUint32PtrOnly",
-	"StructFieldAnonymousHeadStringTagUint32Ptr",
-	"StructFieldAnonymousHeadStringTagUint32PtrOnly",
-	"StructFieldPtrHeadUint32Ptr",
-	"StructFieldPtrHeadUint32PtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint32Ptr",
-	"StructFieldPtrHeadOmitEmptyUint32PtrOnly",
-	"StructFieldPtrHeadStringTagUint32Ptr",
-	"StructFieldPtrHeadStringTagUint32PtrOnly",
-	"StructFieldPtrAnonymousHeadUint32Ptr",
-	"StructFieldPtrAnonymousHeadUint32PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint32Ptr",
-	"StructFieldPtrAnonymousHeadStringTagUint32PtrOnly",
-	"StructFieldNPtrHeadUint32Ptr",
-	"StructFieldNPtrHeadUint32PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint32Ptr",
-	"StructFieldNPtrHeadOmitEmptyUint32PtrOnly",
-	"StructFieldNPtrHeadStringTagUint32Ptr",
-	"StructFieldNPtrHeadStringTagUint32PtrOnly",
-	"StructFieldNPtrAnonymousHeadUint32Ptr",
-	"StructFieldNPtrAnonymousHeadUint32PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint32Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagUint32PtrOnly",
-	"StructFieldHeadUint64Ptr",
-	"StructFieldHeadUint64PtrOnly",
-	"StructFieldHeadOmitEmptyUint64Ptr",
-	"StructFieldHeadOmitEmptyUint64PtrOnly",
-	"StructFieldHeadStringTagUint64Ptr",
-	"StructFieldHeadStringTagUint64PtrOnly",
-	"StructFieldAnonymousHeadUint64Ptr",
-	"StructFieldAnonymousHeadUint64PtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint64Ptr",
-	"StructFieldAnonymousHeadOmitEmptyUint64PtrOnly",
-	"StructFieldAnonymousHeadStringTagUint64Ptr",
-	"StructFieldAnonymousHeadStringTagUint64PtrOnly",
-	"StructFieldPtrHeadUint64Ptr",
-	"StructFieldPtrHeadUint64PtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint64Ptr",
-	"StructFieldPtrHeadOmitEmptyUint64PtrOnly",
-	"StructFieldPtrHeadStringTagUint64Ptr",
-	"StructFieldPtrHeadStringTagUint64PtrOnly",
-	"StructFieldPtrAnonymousHeadUint64Ptr",
-	"StructFieldPtrAnonymousHeadUint64PtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64Ptr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64PtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint64Ptr",
-	"StructFieldPtrAnonymousHeadStringTagUint64PtrOnly",
-	"StructFieldNPtrHeadUint64Ptr",
-	"StructFieldNPtrHeadUint64PtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint64Ptr",
-	"StructFieldNPtrHeadOmitEmptyUint64PtrOnly",
-	"StructFieldNPtrHeadStringTagUint64Ptr",
-	"StructFieldNPtrHeadStringTagUint64PtrOnly",
-	"StructFieldNPtrAnonymousHeadUint64Ptr",
-	"StructFieldNPtrAnonymousHeadUint64PtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64Ptr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64PtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint64Ptr",
-	"StructFieldNPtrAnonymousHeadStringTagUint64PtrOnly",
 	"StructFieldHeadFloat32Ptr",
 	"StructFieldHeadFloat32PtrOnly",
 	"StructFieldHeadOmitEmptyFloat32Ptr",
@@ -1869,150 +975,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyIntNPtrOnly",
 	"StructFieldNPtrAnonymousHeadStringTagIntNPtr",
 	"StructFieldNPtrAnonymousHeadStringTagIntNPtrOnly",
-	"StructFieldHeadInt8NPtr",
-	"StructFieldHeadInt8NPtrOnly",
-	"StructFieldHeadOmitEmptyInt8NPtr",
-	"StructFieldHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldHeadStringTagInt8NPtr",
-	"StructFieldHeadStringTagInt8NPtrOnly",
-	"StructFieldAnonymousHeadInt8NPtr",
-	"StructFieldAnonymousHeadInt8NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt8NPtr",
-	"StructFieldAnonymousHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldAnonymousHeadStringTagInt8NPtr",
-	"StructFieldAnonymousHeadStringTagInt8NPtrOnly",
-	"StructFieldPtrHeadInt8NPtr",
-	"StructFieldPtrHeadInt8NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt8NPtr",
-	"StructFieldPtrHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldPtrHeadStringTagInt8NPtr",
-	"StructFieldPtrHeadStringTagInt8NPtrOnly",
-	"StructFieldPtrAnonymousHeadInt8NPtr",
-	"StructFieldPtrAnonymousHeadInt8NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt8NPtr",
-	"StructFieldPtrAnonymousHeadStringTagInt8NPtrOnly",
-	"StructFieldNPtrHeadInt8NPtr",
-	"StructFieldNPtrHeadInt8NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt8NPtr",
-	"StructFieldNPtrHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldNPtrHeadStringTagInt8NPtr",
-	"StructFieldNPtrHeadStringTagInt8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadInt8NPtr",
-	"StructFieldNPtrAnonymousHeadInt8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt8NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagInt8NPtrOnly",
-	"StructFieldHeadInt16NPtr",
-	"StructFieldHeadInt16NPtrOnly",
-	"StructFieldHeadOmitEmptyInt16NPtr",
-	"StructFieldHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldHeadStringTagInt16NPtr",
-	"StructFieldHeadStringTagInt16NPtrOnly",
-	"StructFieldAnonymousHeadInt16NPtr",
-	"StructFieldAnonymousHeadInt16NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt16NPtr",
-	"StructFieldAnonymousHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldAnonymousHeadStringTagInt16NPtr",
-	"StructFieldAnonymousHeadStringTagInt16NPtrOnly",
-	"StructFieldPtrHeadInt16NPtr",
-	"StructFieldPtrHeadInt16NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt16NPtr",
-	"StructFieldPtrHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldPtrHeadStringTagInt16NPtr",
-	"StructFieldPtrHeadStringTagInt16NPtrOnly",
-	"StructFieldPtrAnonymousHeadInt16NPtr",
-	"StructFieldPtrAnonymousHeadInt16NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt16NPtr",
-	"StructFieldPtrAnonymousHeadStringTagInt16NPtrOnly",
-	"StructFieldNPtrHeadInt16NPtr",
-	"StructFieldNPtrHeadInt16NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt16NPtr",
-	"StructFieldNPtrHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldNPtrHeadStringTagInt16NPtr",
-	"StructFieldNPtrHeadStringTagInt16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadInt16NPtr",
-	"StructFieldNPtrAnonymousHeadInt16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt16NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagInt16NPtrOnly",
-	"StructFieldHeadInt32NPtr",
-	"StructFieldHeadInt32NPtrOnly",
-	"StructFieldHeadOmitEmptyInt32NPtr",
-	"StructFieldHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldHeadStringTagInt32NPtr",
-	"StructFieldHeadStringTagInt32NPtrOnly",
-	"StructFieldAnonymousHeadInt32NPtr",
-	"StructFieldAnonymousHeadInt32NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt32NPtr",
-	"StructFieldAnonymousHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldAnonymousHeadStringTagInt32NPtr",
-	"StructFieldAnonymousHeadStringTagInt32NPtrOnly",
-	"StructFieldPtrHeadInt32NPtr",
-	"StructFieldPtrHeadInt32NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt32NPtr",
-	"StructFieldPtrHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldPtrHeadStringTagInt32NPtr",
-	"StructFieldPtrHeadStringTagInt32NPtrOnly",
-	"StructFieldPtrAnonymousHeadInt32NPtr",
-	"StructFieldPtrAnonymousHeadInt32NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt32NPtr",
-	"StructFieldPtrAnonymousHeadStringTagInt32NPtrOnly",
-	"StructFieldNPtrHeadInt32NPtr",
-	"StructFieldNPtrHeadInt32NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt32NPtr",
-	"StructFieldNPtrHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldNPtrHeadStringTagInt32NPtr",
-	"StructFieldNPtrHeadStringTagInt32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadInt32NPtr",
-	"StructFieldNPtrAnonymousHeadInt32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt32NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagInt32NPtrOnly",
-	"StructFieldHeadInt64NPtr",
-	"StructFieldHeadInt64NPtrOnly",
-	"StructFieldHeadOmitEmptyInt64NPtr",
-	"StructFieldHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldHeadStringTagInt64NPtr",
-	"StructFieldHeadStringTagInt64NPtrOnly",
-	"StructFieldAnonymousHeadInt64NPtr",
-	"StructFieldAnonymousHeadInt64NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyInt64NPtr",
-	"StructFieldAnonymousHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldAnonymousHeadStringTagInt64NPtr",
-	"StructFieldAnonymousHeadStringTagInt64NPtrOnly",
-	"StructFieldPtrHeadInt64NPtr",
-	"StructFieldPtrHeadInt64NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyInt64NPtr",
-	"StructFieldPtrHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldPtrHeadStringTagInt64NPtr",
-	"StructFieldPtrHeadStringTagInt64NPtrOnly",
-	"StructFieldPtrAnonymousHeadInt64NPtr",
-	"StructFieldPtrAnonymousHeadInt64NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagInt64NPtr",
-	"StructFieldPtrAnonymousHeadStringTagInt64NPtrOnly",
-	"StructFieldNPtrHeadInt64NPtr",
-	"StructFieldNPtrHeadInt64NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyInt64NPtr",
-	"StructFieldNPtrHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldNPtrHeadStringTagInt64NPtr",
-	"StructFieldNPtrHeadStringTagInt64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadInt64NPtr",
-	"StructFieldNPtrAnonymousHeadInt64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyInt64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagInt64NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagInt64NPtrOnly",
 	"StructFieldHeadUintNPtr",
 	"StructFieldHeadUintNPtrOnly",
 	"StructFieldHeadOmitEmptyUintNPtr",
@@ -2049,150 +1011,6 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyUintNPtrOnly",
 	"StructFieldNPtrAnonymousHeadStringTagUintNPtr",
 	"StructFieldNPtrAnonymousHeadStringTagUintNPtrOnly",
-	"StructFieldHeadUint8NPtr",
-	"StructFieldHeadUint8NPtrOnly",
-	"StructFieldHeadOmitEmptyUint8NPtr",
-	"StructFieldHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldHeadStringTagUint8NPtr",
-	"StructFieldHeadStringTagUint8NPtrOnly",
-	"StructFieldAnonymousHeadUint8NPtr",
-	"StructFieldAnonymousHeadUint8NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint8NPtr",
-	"StructFieldAnonymousHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldAnonymousHeadStringTagUint8NPtr",
-	"StructFieldAnonymousHeadStringTagUint8NPtrOnly",
-	"StructFieldPtrHeadUint8NPtr",
-	"StructFieldPtrHeadUint8NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint8NPtr",
-	"StructFieldPtrHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldPtrHeadStringTagUint8NPtr",
-	"StructFieldPtrHeadStringTagUint8NPtrOnly",
-	"StructFieldPtrAnonymousHeadUint8NPtr",
-	"StructFieldPtrAnonymousHeadUint8NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint8NPtr",
-	"StructFieldPtrAnonymousHeadStringTagUint8NPtrOnly",
-	"StructFieldNPtrHeadUint8NPtr",
-	"StructFieldNPtrHeadUint8NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint8NPtr",
-	"StructFieldNPtrHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldNPtrHeadStringTagUint8NPtr",
-	"StructFieldNPtrHeadStringTagUint8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadUint8NPtr",
-	"StructFieldNPtrAnonymousHeadUint8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint8NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint8NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagUint8NPtrOnly",
-	"StructFieldHeadUint16NPtr",
-	"StructFieldHeadUint16NPtrOnly",
-	"StructFieldHeadOmitEmptyUint16NPtr",
-	"StructFieldHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldHeadStringTagUint16NPtr",
-	"StructFieldHeadStringTagUint16NPtrOnly",
-	"StructFieldAnonymousHeadUint16NPtr",
-	"StructFieldAnonymousHeadUint16NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint16NPtr",
-	"StructFieldAnonymousHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldAnonymousHeadStringTagUint16NPtr",
-	"StructFieldAnonymousHeadStringTagUint16NPtrOnly",
-	"StructFieldPtrHeadUint16NPtr",
-	"StructFieldPtrHeadUint16NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint16NPtr",
-	"StructFieldPtrHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldPtrHeadStringTagUint16NPtr",
-	"StructFieldPtrHeadStringTagUint16NPtrOnly",
-	"StructFieldPtrAnonymousHeadUint16NPtr",
-	"StructFieldPtrAnonymousHeadUint16NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint16NPtr",
-	"StructFieldPtrAnonymousHeadStringTagUint16NPtrOnly",
-	"StructFieldNPtrHeadUint16NPtr",
-	"StructFieldNPtrHeadUint16NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint16NPtr",
-	"StructFieldNPtrHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldNPtrHeadStringTagUint16NPtr",
-	"StructFieldNPtrHeadStringTagUint16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadUint16NPtr",
-	"StructFieldNPtrAnonymousHeadUint16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint16NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint16NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagUint16NPtrOnly",
-	"StructFieldHeadUint32NPtr",
-	"StructFieldHeadUint32NPtrOnly",
-	"StructFieldHeadOmitEmptyUint32NPtr",
-	"StructFieldHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldHeadStringTagUint32NPtr",
-	"StructFieldHeadStringTagUint32NPtrOnly",
-	"StructFieldAnonymousHeadUint32NPtr",
-	"StructFieldAnonymousHeadUint32NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint32NPtr",
-	"StructFieldAnonymousHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldAnonymousHeadStringTagUint32NPtr",
-	"StructFieldAnonymousHeadStringTagUint32NPtrOnly",
-	"StructFieldPtrHeadUint32NPtr",
-	"StructFieldPtrHeadUint32NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint32NPtr",
-	"StructFieldPtrHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldPtrHeadStringTagUint32NPtr",
-	"StructFieldPtrHeadStringTagUint32NPtrOnly",
-	"StructFieldPtrAnonymousHeadUint32NPtr",
-	"StructFieldPtrAnonymousHeadUint32NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint32NPtr",
-	"StructFieldPtrAnonymousHeadStringTagUint32NPtrOnly",
-	"StructFieldNPtrHeadUint32NPtr",
-	"StructFieldNPtrHeadUint32NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint32NPtr",
-	"StructFieldNPtrHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldNPtrHeadStringTagUint32NPtr",
-	"StructFieldNPtrHeadStringTagUint32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadUint32NPtr",
-	"StructFieldNPtrAnonymousHeadUint32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint32NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint32NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagUint32NPtrOnly",
-	"StructFieldHeadUint64NPtr",
-	"StructFieldHeadUint64NPtrOnly",
-	"StructFieldHeadOmitEmptyUint64NPtr",
-	"StructFieldHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldHeadStringTagUint64NPtr",
-	"StructFieldHeadStringTagUint64NPtrOnly",
-	"StructFieldAnonymousHeadUint64NPtr",
-	"StructFieldAnonymousHeadUint64NPtrOnly",
-	"StructFieldAnonymousHeadOmitEmptyUint64NPtr",
-	"StructFieldAnonymousHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldAnonymousHeadStringTagUint64NPtr",
-	"StructFieldAnonymousHeadStringTagUint64NPtrOnly",
-	"StructFieldPtrHeadUint64NPtr",
-	"StructFieldPtrHeadUint64NPtrOnly",
-	"StructFieldPtrHeadOmitEmptyUint64NPtr",
-	"StructFieldPtrHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldPtrHeadStringTagUint64NPtr",
-	"StructFieldPtrHeadStringTagUint64NPtrOnly",
-	"StructFieldPtrAnonymousHeadUint64NPtr",
-	"StructFieldPtrAnonymousHeadUint64NPtrOnly",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64NPtr",
-	"StructFieldPtrAnonymousHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldPtrAnonymousHeadStringTagUint64NPtr",
-	"StructFieldPtrAnonymousHeadStringTagUint64NPtrOnly",
-	"StructFieldNPtrHeadUint64NPtr",
-	"StructFieldNPtrHeadUint64NPtrOnly",
-	"StructFieldNPtrHeadOmitEmptyUint64NPtr",
-	"StructFieldNPtrHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldNPtrHeadStringTagUint64NPtr",
-	"StructFieldNPtrHeadStringTagUint64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadUint64NPtr",
-	"StructFieldNPtrAnonymousHeadUint64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64NPtr",
-	"StructFieldNPtrAnonymousHeadOmitEmptyUint64NPtrOnly",
-	"StructFieldNPtrAnonymousHeadStringTagUint64NPtr",
-	"StructFieldNPtrAnonymousHeadStringTagUint64NPtrOnly",
 	"StructFieldHeadFloat32NPtr",
 	"StructFieldHeadFloat32NPtrOnly",
 	"StructFieldHeadOmitEmptyFloat32NPtr",
@@ -2373,6 +1191,78 @@ var opTypeStrings = [2770]string{
 	"StructFieldNPtrAnonymousHeadOmitEmptyBytesNPtrOnly",
 	"StructFieldNPtrAnonymousHeadStringTagBytesNPtr",
 	"StructFieldNPtrAnonymousHeadStringTagBytesNPtrOnly",
+	"StructFieldHeadEmptyStruct",
+	"StructFieldHeadEmptyStructOnly",
+	"StructFieldHeadOmitEmptyEmptyStruct",
+	"StructFieldHeadOmitEmptyEmptyStructOnly",
+	"StructFieldHeadStringTagEmptyStruct",
+	"StructFieldHeadStringTagEmptyStructOnly",
+	"StructFieldAnonymousHeadEmptyStruct",
+	"StructFieldAnonymousHeadEmptyStructOnly",
+	"StructFieldAnonymousHeadOmitEmptyEmptyStruct",
+	"StructFieldAnonymousHeadOmitEmptyEmptyStructOnly",
+	"StructFieldAnonymousHeadStringTagEmptyStruct",
+	"StructFieldAnonymousHeadStringTagEmptyStructOnly",
+	"StructFieldPtrHeadEmptyStruct",
+	"StructFieldPtrHeadEmptyStructOnly",
+	"StructFieldPtrHeadOmitEmptyEmptyStruct",
+	"StructFieldPtrHeadOmitEmptyEmptyStructOnly",
+	"StructFieldPtrHeadStringTagEmptyStruct",
+	"StructFieldPtrHeadStringTagEmptyStructOnly",
+	"StructFieldPtrAnonymousHeadEmptyStruct",
+	"StructFieldPtrAnonymousHeadEmptyStructOnly",
+	"StructFieldPtrAnonymousHeadOmitEmptyEmptyStruct",
+	"StructFieldPtrAnonymousHeadOmitEmptyEmptyStructOnly",
+	"StructFieldPtrAnonymousHeadStringTagEmptyStruct",
+	"StructFieldPtrAnonymousHeadStringTagEmptyStructOnly",
+	"StructFieldNPtrHeadEmptyStruct",
+	"StructFieldNPtrHeadEmptyStructOnly",
+	"StructFieldNPtrHeadOmitEmptyEmptyStruct",
+	"StructFieldNPtrHeadOmitEmptyEmptyStructOnly",
+	"StructFieldNPtrHeadStringTagEmptyStruct",
+	"StructFieldNPtrHeadStringTagEmptyStructOnly",
+	"StructFieldNPtrAnonymousHeadEmptyStruct",
+	"StructFieldNPtrAnonymousHeadEmptyStructOnly",
+	"StructFieldNPtrAnonymousHeadOmitEmptyEmptyStruct",
+	"StructFieldNPtrAnonymousHeadOmitEmptyEmptyStructOnly",
+	"StructFieldNPtrAnonymousHeadStringTagEmptyStruct",
+	"StructFieldNPtrAnonymousHeadStringTagEmptyStructOnly",
+	"StructFieldHeadEmptyStructPtr",
+	"StructFieldHeadEmptyStructPtrOnly",
+	"StructFieldHeadOmitEmptyEmptyStructPtr",
+	"StructFieldHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldHeadStringTagEmptyStructPtr",
+	"StructFieldHeadStringTagEmptyStructPtrOnly",
+	"StructFieldAnonymousHeadEmptyStructPtr",
+	"StructFieldAnonymousHeadEmptyStructPtrOnly",
+	"StructFieldAnonymousHeadOmitEmptyEmptyStructPtr",
+	"StructFieldAnonymousHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldAnonymousHeadStringTagEmptyStructPtr",
+	"StructFieldAnonymousHeadStringTagEmptyStructPtrOnly",
+	"StructFieldPtrHeadEmptyStructPtr",
+	"StructFieldPtrHeadEmptyStructPtrOnly",
+	"StructFieldPtrHeadOmitEmptyEmptyStructPtr",
+	"StructFieldPtrHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldPtrHeadStringTagEmptyStructPtr",
+	"StructFieldPtrHeadStringTagEmptyStructPtrOnly",
+	"StructFieldPtrAnonymousHeadEmptyStructPtr",
+	"StructFieldPtrAnonymousHeadEmptyStructPtrOnly",
+	"StructFieldPtrAnonymousHeadOmitEmptyEmptyStructPtr",
+	"StructFieldPtrAnonymousHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldPtrAnonymousHeadStringTagEmptyStructPtr",
+	"StructFieldPtrAnonymousHeadStringTagEmptyStructPtrOnly",
+	"StructFieldNPtrHeadEmptyStructPtr",
+	"StructFieldNPtrHeadEmptyStructPtrOnly",
+	"StructFieldNPtrHeadOmitEmptyEmptyStructPtr",
+	"StructFieldNPtrHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldNPtrHeadStringTagEmptyStructPtr",
+	"StructFieldNPtrHeadStringTagEmptyStructPtrOnly",
+	"StructFieldNPtrAnonymousHeadEmptyStructPtr",
+	"StructFieldNPtrAnonymousHeadEmptyStructPtrOnly",
+	"StructFieldNPtrAnonymousHeadOmitEmptyEmptyStructPtr",
+	"StructFieldNPtrAnonymousHeadOmitEmptyEmptyStructPtrOnly",
+	"StructFieldNPtrAnonymousHeadStringTagEmptyStructPtr",
+	"StructFieldNPtrAnonymousHeadStringTagEmptyStructPtrOnly",
 	"StructFieldHead",
 	"StructFieldHeadOnly",
 	"StructFieldHeadOmitEmpty",
@@ -2412,33 +1302,9 @@ var opTypeStrings = [2770]string{
 	"StructFieldInt",
 	"StructFieldOmitEmptyInt",
 	"StructFieldStringTagInt",
-	"StructFieldInt8",
-	"StructFieldOmitEmptyInt8",
-	"StructFieldStringTagInt8",
-	"StructFieldInt16",
-	"StructFieldOmitEmptyInt16",
-	"StructFieldStringTagInt16",
-	"StructFieldInt32",
-	"StructFieldOmitEmptyInt32",
-	"StructFieldStringTagInt32",
-	"StructFieldInt64",
-	"StructFieldOmitEmptyInt64",
-	"StructFieldStringTagInt64",
 	"StructFieldUint",
 	"StructFieldOmitEmptyUint",
 	"StructFieldStringTagUint",
-	"StructFieldUint8",
-	"StructFieldOmitEmptyUint8",
-	"StructFieldStringTagUint8",
-	"StructFieldUint16",
-	"StructFieldOmitEmptyUint16",
-	"StructFieldStringTagUint16",
-	"StructFieldUint32",
-	"StructFieldOmitEmptyUint32",
-	"StructFieldStringTagUint32",
-	"StructFieldUint64",
-	"StructFieldOmitEmptyUint64",
-	"StructFieldStringTagUint64",
 	"StructFieldFloat32",
 	"StructFieldOmitEmptyFloat32",
 	"StructFieldStringTagFloat32",
@@ -2481,63 +1347,15 @@ var opTypeStrings = [2770]string{
 	"StructFieldIntString",
 	"StructFieldOmitEmptyIntString",
 	"StructFieldStringTagIntString",
-	"StructFieldInt8String",
-	"StructFieldOmitEmptyInt8String",
-	"StructFieldStringTagInt8String",
-	"StructFieldInt16String",
-	"StructFieldOmitEmptyInt16String",
-	"StructFieldStringTagInt16String",
-	"StructFieldInt32String",
-	"StructFieldOmitEmptyInt32String",
-	"StructFieldStringTagInt32String",
-	"StructFieldInt64String",
-	"StructFieldOmitEmptyInt64String",
-	"StructFieldStringTagInt64String",
 	"StructFieldUintString",
 	"StructFieldOmitEmptyUintString",
 	"StructFieldStringTagUintString",
-	"StructFieldUint8String",
-	"StructFieldOmitEmptyUint8String",
-	"StructFieldStringTagUint8String",
-	"StructFieldUint16String",
-	"StructFieldOmitEmptyUint16String",
-	"StructFieldStringTagUint16String",
-	"StructFieldUint32String",
-	"StructFieldOmitEmptyUint32String",
-	"StructFieldStringTagUint32String",
-	"StructFieldUint64String",
-	"StructFieldOmitEmptyUint64String",
-	"StructFieldStringTagUint64String",
 	"StructFieldIntPtr",
 	"StructFieldOmitEmptyIntPtr",
 	"StructFieldStringTagIntPtr",
-	"StructFieldInt8Ptr",
-	"StructFieldOmitEmptyInt8Ptr",
-	"StructFieldStringTagInt8Ptr",
-	"StructFieldInt16Ptr",
-	"StructFieldOmitEmptyInt16Ptr",
-	"StructFieldStringTagInt16Ptr",
-	"StructFieldInt32Ptr",
-	"StructFieldOmitEmptyInt32Ptr",
-	"StructFieldStringTagInt32Ptr",
-	"StructFieldInt64Ptr",
-	"StructFieldOmitEmptyInt64Ptr",
-	"StructFieldStringTagInt64Ptr",
 	"StructFieldUintPtr",
 	"StructFieldOmitEmptyUintPtr",
 	"StructFieldStringTagUintPtr",
-	"StructFieldUint8Ptr",
-	"StructFieldOmitEmptyUint8Ptr",
-	"StructFieldStringTagUint8Ptr",
-	"StructFieldUint16Ptr",
-	"StructFieldOmitEmptyUint16Ptr",
-	"StructFieldStringTagUint16Ptr",
-	"StructFieldUint32Ptr",
-	"StructFieldOmitEmptyUint32Ptr",
-	"StructFieldStringTagUint32Ptr",
-	"StructFieldUint64Ptr",
-	"StructFieldOmitEmptyUint64Ptr",
-	"StructFieldStringTagUint64Ptr",
 	"StructFieldFloat32Ptr",
 	"StructFieldOmitEmptyFloat32Ptr",
 	"StructFieldStringTagFloat32Ptr",
@@ -2556,33 +1374,9 @@ var opTypeStrings = [2770]string{
 	"StructFieldIntNPtr",
 	"StructFieldOmitEmptyIntNPtr",
 	"StructFieldStringTagIntNPtr",
-	"StructFieldInt8NPtr",
-	"StructFieldOmitEmptyInt8NPtr",
-	"StructFieldStringTagInt8NPtr",
-	"StructFieldInt16NPtr",
-	"StructFieldOmitEmptyInt16NPtr",
-	"StructFieldStringTagInt16NPtr",
-	"StructFieldInt32NPtr",
-	"StructFieldOmitEmptyInt32NPtr",
-	"StructFieldStringTagInt32NPtr",
-	"StructFieldInt64NPtr",
-	"StructFieldOmitEmptyInt64NPtr",
-	"StructFieldStringTagInt64NPtr",
 	"StructFieldUintNPtr",
 	"StructFieldOmitEmptyUintNPtr",
 	"StructFieldStringTagUintNPtr",
-	"StructFieldUint8NPtr",
-	"StructFieldOmitEmptyUint8NPtr",
-	"StructFieldStringTagUint8NPtr",
-	"StructFieldUint16NPtr",
-	"StructFieldOmitEmptyUint16NPtr",
-	"StructFieldStringTagUint16NPtr",
-	"StructFieldUint32NPtr",
-	"StructFieldOmitEmptyUint32NPtr",
-	"StructFieldStringTagUint32NPtr",
-	"StructFieldUint64NPtr",
-	"StructFieldOmitEmptyUint64NPtr",
-	"StructFieldStringTagUint64NPtr",
 	"StructFieldFloat32NPtr",
 	"StructFieldOmitEmptyFloat32NPtr",
 	"StructFieldStringTagFloat32NPtr",
@@ -2598,39 +1392,21 @@ var opTypeStrings = [2770]string{
 	"StructFieldBytesNPtr",
 	"StructFieldOmitEmptyBytesNPtr",
 	"StructFieldStringTagBytesNPtr",
+	"StructFieldEmptyStruct",
+	"StructFieldOmitEmptyEmptyStruct",
+	"StructFieldStringTagEmptyStruct",
+	"StructFieldEmptyStructPtr",
+	"StructFieldOmitEmptyEmptyStructPtr",
+	"StructFieldStringTagEmptyStructPtr",
 	"StructField",
 	"StructFieldOmitEmpty",
 	"StructFieldStringTag",
 	"StructEndInt",
 	"StructEndOmitEmptyInt",
 	"StructEndStringTagInt",
-	"StructEndInt8",
-	"StructEndOmitEmptyInt8",
-	"StructEndStringTagInt8",
-	"StructEndInt16",
-	"StructEndOmitEmptyInt16",
-	"StructEndStringTagInt16",
-	"StructEndInt32",
-	"StructEndOmitEmptyInt32",
-	"StructEndStringTagInt32",
-	"StructEndInt64",
-	"StructEndOmitEmptyInt64",
-	"StructEndStringTagInt64",
 	"StructEndUint",
 	"StructEndOmitEmptyUint",
 	"StructEndStringTagUint",
-	"StructEndUint8",
-	"StructEndOmitEmptyUint8",
-	"StructEndStringTagUint8",
-	"StructEndUint16",
-	"StructEndOmitEmptyUint16",
-	"StructEndStringTagUint16",
-	"StructEndUint32",
-	"StructEndOmitEmptyUint32",
-	"StructEndStringTagUint32",
-	"StructEndUint64",
-	"StructEndOmitEmptyUint64",
-	"StructEndStringTagUint64",
 	"StructEndFloat32",
 	"StructEndOmitEmptyFloat32",
 	"StructEndStringTagFloat32",
@@ -2673,63 +1449,15 @@ var opTypeStrings = [2770]string{
 	"StructEndIntString",
 	"StructEndOmitEmptyIntString",
 	"StructEndStringTagIntString",
-	"StructEndInt8String",
-	"StructEndOmitEmptyInt8String",
-	"StructEndStringTagInt8String",
-	"StructEndInt16String",
-	"StructEndOmitEmptyInt16String",
-	"StructEndStringTagInt16String",
-	"StructEndInt32String",
-	"StructEndOmitEmptyInt32String",
-	"StructEndStringTagInt32String",
-	"StructEndInt64String",
-	"StructEndOmitEmptyInt64String",
-	"StructEndStringTagInt64String",
 	"StructEndUintString",
 	"StructEndOmitEmptyUintString",
 	"StructEndStringTagUintString",
-	"StructEndUint8String",
-	"StructEndOmitEmptyUint8String",
-	"StructEndStringTagUint8String",
-	"StructEndUint16String",
-	"StructEndOmitEmptyUint16String",
-	"StructEndStringTagUint16String",
-	"StructEndUint32String",
-	"StructEndOmitEmptyUint32String",
-	"StructEndStringTagUint32String",
-	"StructEndUint64String",
-	"StructEndOmitEmptyUint64String",
-	"StructEndStringTagUint64String",
 	"StructEndIntPtr",
 	"StructEndOmitEmptyIntPtr",
 	"StructEndStringTagIntPtr",
-	"StructEndInt8Ptr",
-	"StructEndOmitEmptyInt8Ptr",
-	"StructEndStringTagInt8Ptr",
-	"StructEndInt16Ptr",
-	"StructEndOmitEmptyInt16Ptr",
-	"StructEndStringTagInt16Ptr",
-	"StructEndInt32Ptr",
-	"StructEndOmitEmptyInt32Ptr",
-	"StructEndStringTagInt32Ptr",
-	"StructEndInt64Ptr",
-	"StructEndOmitEmptyInt64Ptr",
-	"StructEndStringTagInt64Ptr",
 	"StructEndUintPtr",
 	"StructEndOmitEmptyUintPtr",
 	"StructEndStringTagUintPtr",
-	"StructEndUint8Ptr",
-	"StructEndOmitEmptyUint8Ptr",
-	"StructEndStringTagUint8Ptr",
-	"StructEndUint16Ptr",
-	"StructEndOmitEmptyUint16Ptr",
-	"StructEndStringTagUint16Ptr",
-	"StructEndUint32Ptr",
-	"StructEndOmitEmptyUint32Ptr",
-	"StructEndStringTagUint32Ptr",
-	"StructEndUint64Ptr",
-	"StructEndOmitEmptyUint64Ptr",
-	"StructEndStringTagUint64Ptr",
 	"StructEndFloat32Ptr",
 	"StructEndOmitEmptyFloat32Ptr",
 	"StructEndStringTagFloat32Ptr",
@@ -2748,33 +1476,9 @@ var opTypeStrings = [2770]string{
 	"StructEndIntNPtr",
 	"StructEndOmitEmptyIntNPtr",
 	"StructEndStringTagIntNPtr",
-	"StructEndInt8NPtr",
-	"StructEndOmitEmptyInt8NPtr",
-	"StructEndStringTagInt8NPtr",
-	"StructEndInt16NPtr",
-	"StructEndOmitEmptyInt16NPtr",
-	"StructEndStringTagInt16NPtr",
-	"StructEndInt32NPtr",
-	"StructEndOmitEmptyInt32NPtr",
-	"StructEndStringTagInt32NPtr",
-	"StructEndInt64NPtr",
-	"StructEndOmitEmptyInt64NPtr",
-	"StructEndStringTagInt64NPtr",
 	"StructEndUintNPtr",
 	"StructEndOmitEmptyUintNPtr",
 	"StructEndStringTagUintNPtr",
-	"StructEndUint8NPtr",
-	"StructEndOmitEmptyUint8NPtr",
-	"StructEndStringTagUint8NPtr",
-	"StructEndUint16NPtr",
-	"StructEndOmitEmptyUint16NPtr",
-	"StructEndStringTagUint16NPtr",
-	"StructEndUint32NPtr",
-	"StructEndOmitEmptyUint32NPtr",
-	"StructEndStringTagUint32NPtr",
-	"StructEndUint64NPtr",
-	"StructEndOmitEmptyUint64NPtr",
-	"StructEndStringTagUint64NPtr",
 	"StructEndFloat32NPtr",
 	"StructEndOmitEmptyFloat32NPtr",
 	"StructEndStringTagFloat32NPtr",
@@ -2790,6 +1494,12 @@ var opTypeStrings = [2770]string{
 	"StructEndBytesNPtr",
 	"StructEndOmitEmptyBytesNPtr",
 	"StructEndStringTagBytesNPtr",
+	"StructEndEmptyStruct",
+	"StructEndOmitEmptyEmptyStruct",
+	"StructEndStringTagEmptyStruct",
+	"StructEndEmptyStructPtr",
+	"StructEndOmitEmptyEmptyStructPtr",
+	"StructEndStringTagEmptyStructPtr",
 	"StructEnd",
 	"StructEndOmitEmpty",
 	"StructEndStringTag",
@@ -2798,2780 +1508,1490 @@ var opTypeStrings = [2770]string{
 type opType int
 
 const (
-	opEnd                                                   opType = 0
-	opInterface                                             opType = 1
-	opPtr                                                   opType = 2
-	opNPtr                                                  opType = 3
-	opSliceHead                                             opType = 4
-	opRootSliceHead                                         opType = 5
-	opSliceElem                                             opType = 6
-	opRootSliceElem                                         opType = 7
-	opSliceEnd                                              opType = 8
-	opArrayHead                                             opType = 9
-	opArrayElem                                             opType = 10
-	opArrayEnd                                              opType = 11
-	opMapHead                                               opType = 12
-	opMapHeadLoad                                           opType = 13
-	opMapKey                                                opType = 14
-	opMapValue                                              opType = 15
-	opMapEnd                                                opType = 16
-	opStructFieldRecursiveEnd                               opType = 17
-	opStructAnonymousEnd                                    opType = 18
-	opInt                                                   opType = 19
-	opInt8                                                  opType = 20
-	opInt16                                                 opType = 21
-	opInt32                                                 opType = 22
-	opInt64                                                 opType = 23
-	opUint                                                  opType = 24
-	opUint8                                                 opType = 25
-	opUint16                                                opType = 26
-	opUint32                                                opType = 27
-	opUint64                                                opType = 28
-	opFloat32                                               opType = 29
-	opFloat64                                               opType = 30
-	opBool                                                  opType = 31
-	opString                                                opType = 32
-	opBytes                                                 opType = 33
-	opArray                                                 opType = 34
-	opMap                                                   opType = 35
-	opMapLoad                                               opType = 36
-	opSlice                                                 opType = 37
-	opStruct                                                opType = 38
-	opMarshalJSON                                           opType = 39
-	opMarshalText                                           opType = 40
-	opRecursive                                             opType = 41
-	opIntString                                             opType = 42
-	opInt8String                                            opType = 43
-	opInt16String                                           opType = 44
-	opInt32String                                           opType = 45
-	opInt64String                                           opType = 46
-	opUintString                                            opType = 47
-	opUint8String                                           opType = 48
-	opUint16String                                          opType = 49
-	opUint32String                                          opType = 50
-	opUint64String                                          opType = 51
-	opIntPtr                                                opType = 52
-	opInt8Ptr                                               opType = 53
-	opInt16Ptr                                              opType = 54
-	opInt32Ptr                                              opType = 55
-	opInt64Ptr                                              opType = 56
-	opUintPtr                                               opType = 57
-	opUint8Ptr                                              opType = 58
-	opUint16Ptr                                             opType = 59
-	opUint32Ptr                                             opType = 60
-	opUint64Ptr                                             opType = 61
-	opFloat32Ptr                                            opType = 62
-	opFloat64Ptr                                            opType = 63
-	opBoolPtr                                               opType = 64
-	opStringPtr                                             opType = 65
-	opBytesPtr                                              opType = 66
-	opIntNPtr                                               opType = 67
-	opInt8NPtr                                              opType = 68
-	opInt16NPtr                                             opType = 69
-	opInt32NPtr                                             opType = 70
-	opInt64NPtr                                             opType = 71
-	opUintNPtr                                              opType = 72
-	opUint8NPtr                                             opType = 73
-	opUint16NPtr                                            opType = 74
-	opUint32NPtr                                            opType = 75
-	opUint64NPtr                                            opType = 76
-	opFloat32NPtr                                           opType = 77
-	opFloat64NPtr                                           opType = 78
-	opBoolNPtr                                              opType = 79
-	opStringNPtr                                            opType = 80
-	opBytesNPtr                                             opType = 81
-	opStructFieldHeadInt                                    opType = 82
-	opStructFieldHeadIntOnly                                opType = 83
-	opStructFieldHeadOmitEmptyInt                           opType = 84
-	opStructFieldHeadOmitEmptyIntOnly                       opType = 85
-	opStructFieldHeadStringTagInt                           opType = 86
-	opStructFieldHeadStringTagIntOnly                       opType = 87
-	opStructFieldAnonymousHeadInt                           opType = 88
-	opStructFieldAnonymousHeadIntOnly                       opType = 89
-	opStructFieldAnonymousHeadOmitEmptyInt                  opType = 90
-	opStructFieldAnonymousHeadOmitEmptyIntOnly              opType = 91
-	opStructFieldAnonymousHeadStringTagInt                  opType = 92
-	opStructFieldAnonymousHeadStringTagIntOnly              opType = 93
-	opStructFieldPtrHeadInt                                 opType = 94
-	opStructFieldPtrHeadIntOnly                             opType = 95
-	opStructFieldPtrHeadOmitEmptyInt                        opType = 96
-	opStructFieldPtrHeadOmitEmptyIntOnly                    opType = 97
-	opStructFieldPtrHeadStringTagInt                        opType = 98
-	opStructFieldPtrHeadStringTagIntOnly                    opType = 99
-	opStructFieldPtrAnonymousHeadInt                        opType = 100
-	opStructFieldPtrAnonymousHeadIntOnly                    opType = 101
-	opStructFieldPtrAnonymousHeadOmitEmptyInt               opType = 102
-	opStructFieldPtrAnonymousHeadOmitEmptyIntOnly           opType = 103
-	opStructFieldPtrAnonymousHeadStringTagInt               opType = 104
-	opStructFieldPtrAnonymousHeadStringTagIntOnly           opType = 105
-	opStructFieldNPtrHeadInt                                opType = 106
-	opStructFieldNPtrHeadIntOnly                            opType = 107
-	opStructFieldNPtrHeadOmitEmptyInt                       opType = 108
-	opStructFieldNPtrHeadOmitEmptyIntOnly                   opType = 109
-	opStructFieldNPtrHeadStringTagInt                       opType = 110
-	opStructFieldNPtrHeadStringTagIntOnly                   opType = 111
-	opStructFieldNPtrAnonymousHeadInt                       opType = 112
-	opStructFieldNPtrAnonymousHeadIntOnly                   opType = 113
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt              opType = 114
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntOnly          opType = 115
-	opStructFieldNPtrAnonymousHeadStringTagInt              opType = 116
-	opStructFieldNPtrAnonymousHeadStringTagIntOnly          opType = 117
-	opStructFieldHeadInt8                                   opType = 118
-	opStructFieldHeadInt8Only                               opType = 119
-	opStructFieldHeadOmitEmptyInt8                          opType = 120
-	opStructFieldHeadOmitEmptyInt8Only                      opType = 121
-	opStructFieldHeadStringTagInt8                          opType = 122
-	opStructFieldHeadStringTagInt8Only                      opType = 123
-	opStructFieldAnonymousHeadInt8                          opType = 124
-	opStructFieldAnonymousHeadInt8Only                      opType = 125
-	opStructFieldAnonymousHeadOmitEmptyInt8                 opType = 126
-	opStructFieldAnonymousHeadOmitEmptyInt8Only             opType = 127
-	opStructFieldAnonymousHeadStringTagInt8                 opType = 128
-	opStructFieldAnonymousHeadStringTagInt8Only             opType = 129
-	opStructFieldPtrHeadInt8                                opType = 130
-	opStructFieldPtrHeadInt8Only                            opType = 131
-	opStructFieldPtrHeadOmitEmptyInt8                       opType = 132
-	opStructFieldPtrHeadOmitEmptyInt8Only                   opType = 133
-	opStructFieldPtrHeadStringTagInt8                       opType = 134
-	opStructFieldPtrHeadStringTagInt8Only                   opType = 135
-	opStructFieldPtrAnonymousHeadInt8                       opType = 136
-	opStructFieldPtrAnonymousHeadInt8Only                   opType = 137
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8              opType = 138
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8Only          opType = 139
-	opStructFieldPtrAnonymousHeadStringTagInt8              opType = 140
-	opStructFieldPtrAnonymousHeadStringTagInt8Only          opType = 141
-	opStructFieldNPtrHeadInt8                               opType = 142
-	opStructFieldNPtrHeadInt8Only                           opType = 143
-	opStructFieldNPtrHeadOmitEmptyInt8                      opType = 144
-	opStructFieldNPtrHeadOmitEmptyInt8Only                  opType = 145
-	opStructFieldNPtrHeadStringTagInt8                      opType = 146
-	opStructFieldNPtrHeadStringTagInt8Only                  opType = 147
-	opStructFieldNPtrAnonymousHeadInt8                      opType = 148
-	opStructFieldNPtrAnonymousHeadInt8Only                  opType = 149
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8             opType = 150
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8Only         opType = 151
-	opStructFieldNPtrAnonymousHeadStringTagInt8             opType = 152
-	opStructFieldNPtrAnonymousHeadStringTagInt8Only         opType = 153
-	opStructFieldHeadInt16                                  opType = 154
-	opStructFieldHeadInt16Only                              opType = 155
-	opStructFieldHeadOmitEmptyInt16                         opType = 156
-	opStructFieldHeadOmitEmptyInt16Only                     opType = 157
-	opStructFieldHeadStringTagInt16                         opType = 158
-	opStructFieldHeadStringTagInt16Only                     opType = 159
-	opStructFieldAnonymousHeadInt16                         opType = 160
-	opStructFieldAnonymousHeadInt16Only                     opType = 161
-	opStructFieldAnonymousHeadOmitEmptyInt16                opType = 162
-	opStructFieldAnonymousHeadOmitEmptyInt16Only            opType = 163
-	opStructFieldAnonymousHeadStringTagInt16                opType = 164
-	opStructFieldAnonymousHeadStringTagInt16Only            opType = 165
-	opStructFieldPtrHeadInt16                               opType = 166
-	opStructFieldPtrHeadInt16Only                           opType = 167
-	opStructFieldPtrHeadOmitEmptyInt16                      opType = 168
-	opStructFieldPtrHeadOmitEmptyInt16Only                  opType = 169
-	opStructFieldPtrHeadStringTagInt16                      opType = 170
-	opStructFieldPtrHeadStringTagInt16Only                  opType = 171
-	opStructFieldPtrAnonymousHeadInt16                      opType = 172
-	opStructFieldPtrAnonymousHeadInt16Only                  opType = 173
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16             opType = 174
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16Only         opType = 175
-	opStructFieldPtrAnonymousHeadStringTagInt16             opType = 176
-	opStructFieldPtrAnonymousHeadStringTagInt16Only         opType = 177
-	opStructFieldNPtrHeadInt16                              opType = 178
-	opStructFieldNPtrHeadInt16Only                          opType = 179
-	opStructFieldNPtrHeadOmitEmptyInt16                     opType = 180
-	opStructFieldNPtrHeadOmitEmptyInt16Only                 opType = 181
-	opStructFieldNPtrHeadStringTagInt16                     opType = 182
-	opStructFieldNPtrHeadStringTagInt16Only                 opType = 183
-	opStructFieldNPtrAnonymousHeadInt16                     opType = 184
-	opStructFieldNPtrAnonymousHeadInt16Only                 opType = 185
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16            opType = 186
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16Only        opType = 187
-	opStructFieldNPtrAnonymousHeadStringTagInt16            opType = 188
-	opStructFieldNPtrAnonymousHeadStringTagInt16Only        opType = 189
-	opStructFieldHeadInt32                                  opType = 190
-	opStructFieldHeadInt32Only                              opType = 191
-	opStructFieldHeadOmitEmptyInt32                         opType = 192
-	opStructFieldHeadOmitEmptyInt32Only                     opType = 193
-	opStructFieldHeadStringTagInt32                         opType = 194
-	opStructFieldHeadStringTagInt32Only                     opType = 195
-	opStructFieldAnonymousHeadInt32                         opType = 196
-	opStructFieldAnonymousHeadInt32Only                     opType = 197
-	opStructFieldAnonymousHeadOmitEmptyInt32                opType = 198
-	opStructFieldAnonymousHeadOmitEmptyInt32Only            opType = 199
-	opStructFieldAnonymousHeadStringTagInt32                opType = 200
-	opStructFieldAnonymousHeadStringTagInt32Only            opType = 201
-	opStructFieldPtrHeadInt32                               opType = 202
-	opStructFieldPtrHeadInt32Only                           opType = 203
-	opStructFieldPtrHeadOmitEmptyInt32                      opType = 204
-	opStructFieldPtrHeadOmitEmptyInt32Only                  opType = 205
-	opStructFieldPtrHeadStringTagInt32                      opType = 206
-	opStructFieldPtrHeadStringTagInt32Only                  opType = 207
-	opStructFieldPtrAnonymousHeadInt32                      opType = 208
-	opStructFieldPtrAnonymousHeadInt32Only                  opType = 209
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32             opType = 210
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32Only         opType = 211
-	opStructFieldPtrAnonymousHeadStringTagInt32             opType = 212
-	opStructFieldPtrAnonymousHeadStringTagInt32Only         opType = 213
-	opStructFieldNPtrHeadInt32                              opType = 214
-	opStructFieldNPtrHeadInt32Only                          opType = 215
-	opStructFieldNPtrHeadOmitEmptyInt32                     opType = 216
-	opStructFieldNPtrHeadOmitEmptyInt32Only                 opType = 217
-	opStructFieldNPtrHeadStringTagInt32                     opType = 218
-	opStructFieldNPtrHeadStringTagInt32Only                 opType = 219
-	opStructFieldNPtrAnonymousHeadInt32                     opType = 220
-	opStructFieldNPtrAnonymousHeadInt32Only                 opType = 221
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32            opType = 222
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32Only        opType = 223
-	opStructFieldNPtrAnonymousHeadStringTagInt32            opType = 224
-	opStructFieldNPtrAnonymousHeadStringTagInt32Only        opType = 225
-	opStructFieldHeadInt64                                  opType = 226
-	opStructFieldHeadInt64Only                              opType = 227
-	opStructFieldHeadOmitEmptyInt64                         opType = 228
-	opStructFieldHeadOmitEmptyInt64Only                     opType = 229
-	opStructFieldHeadStringTagInt64                         opType = 230
-	opStructFieldHeadStringTagInt64Only                     opType = 231
-	opStructFieldAnonymousHeadInt64                         opType = 232
-	opStructFieldAnonymousHeadInt64Only                     opType = 233
-	opStructFieldAnonymousHeadOmitEmptyInt64                opType = 234
-	opStructFieldAnonymousHeadOmitEmptyInt64Only            opType = 235
-	opStructFieldAnonymousHeadStringTagInt64                opType = 236
-	opStructFieldAnonymousHeadStringTagInt64Only            opType = 237
-	opStructFieldPtrHeadInt64                               opType = 238
-	opStructFieldPtrHeadInt64Only                           opType = 239
-	opStructFieldPtrHeadOmitEmptyInt64                      opType = 240
-	opStructFieldPtrHeadOmitEmptyInt64Only                  opType = 241
-	opStructFieldPtrHeadStringTagInt64                      opType = 242
-	opStructFieldPtrHeadStringTagInt64Only                  opType = 243
-	opStructFieldPtrAnonymousHeadInt64                      opType = 244
-	opStructFieldPtrAnonymousHeadInt64Only                  opType = 245
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64             opType = 246
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64Only         opType = 247
-	opStructFieldPtrAnonymousHeadStringTagInt64             opType = 248
-	opStructFieldPtrAnonymousHeadStringTagInt64Only         opType = 249
-	opStructFieldNPtrHeadInt64                              opType = 250
-	opStructFieldNPtrHeadInt64Only                          opType = 251
-	opStructFieldNPtrHeadOmitEmptyInt64                     opType = 252
-	opStructFieldNPtrHeadOmitEmptyInt64Only                 opType = 253
-	opStructFieldNPtrHeadStringTagInt64                     opType = 254
-	opStructFieldNPtrHeadStringTagInt64Only                 opType = 255
-	opStructFieldNPtrAnonymousHeadInt64                     opType = 256
-	opStructFieldNPtrAnonymousHeadInt64Only                 opType = 257
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64            opType = 258
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64Only        opType = 259
-	opStructFieldNPtrAnonymousHeadStringTagInt64            opType = 260
-	opStructFieldNPtrAnonymousHeadStringTagInt64Only        opType = 261
-	opStructFieldHeadUint                                   opType = 262
-	opStructFieldHeadUintOnly                               opType = 263
-	opStructFieldHeadOmitEmptyUint                          opType = 264
-	opStructFieldHeadOmitEmptyUintOnly                      opType = 265
-	opStructFieldHeadStringTagUint                          opType = 266
-	opStructFieldHeadStringTagUintOnly                      opType = 267
-	opStructFieldAnonymousHeadUint                          opType = 268
-	opStructFieldAnonymousHeadUintOnly                      opType = 269
-	opStructFieldAnonymousHeadOmitEmptyUint                 opType = 270
-	opStructFieldAnonymousHeadOmitEmptyUintOnly             opType = 271
-	opStructFieldAnonymousHeadStringTagUint                 opType = 272
-	opStructFieldAnonymousHeadStringTagUintOnly             opType = 273
-	opStructFieldPtrHeadUint                                opType = 274
-	opStructFieldPtrHeadUintOnly                            opType = 275
-	opStructFieldPtrHeadOmitEmptyUint                       opType = 276
-	opStructFieldPtrHeadOmitEmptyUintOnly                   opType = 277
-	opStructFieldPtrHeadStringTagUint                       opType = 278
-	opStructFieldPtrHeadStringTagUintOnly                   opType = 279
-	opStructFieldPtrAnonymousHeadUint                       opType = 280
-	opStructFieldPtrAnonymousHeadUintOnly                   opType = 281
-	opStructFieldPtrAnonymousHeadOmitEmptyUint              opType = 282
-	opStructFieldPtrAnonymousHeadOmitEmptyUintOnly          opType = 283
-	opStructFieldPtrAnonymousHeadStringTagUint              opType = 284
-	opStructFieldPtrAnonymousHeadStringTagUintOnly          opType = 285
-	opStructFieldNPtrHeadUint                               opType = 286
-	opStructFieldNPtrHeadUintOnly                           opType = 287
-	opStructFieldNPtrHeadOmitEmptyUint                      opType = 288
-	opStructFieldNPtrHeadOmitEmptyUintOnly                  opType = 289
-	opStructFieldNPtrHeadStringTagUint                      opType = 290
-	opStructFieldNPtrHeadStringTagUintOnly                  opType = 291
-	opStructFieldNPtrAnonymousHeadUint                      opType = 292
-	opStructFieldNPtrAnonymousHeadUintOnly                  opType = 293
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint             opType = 294
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintOnly         opType = 295
-	opStructFieldNPtrAnonymousHeadStringTagUint             opType = 296
-	opStructFieldNPtrAnonymousHeadStringTagUintOnly         opType = 297
-	opStructFieldHeadUint8                                  opType = 298
-	opStructFieldHeadUint8Only                              opType = 299
-	opStructFieldHeadOmitEmptyUint8                         opType = 300
-	opStructFieldHeadOmitEmptyUint8Only                     opType = 301
-	opStructFieldHeadStringTagUint8                         opType = 302
-	opStructFieldHeadStringTagUint8Only                     opType = 303
-	opStructFieldAnonymousHeadUint8                         opType = 304
-	opStructFieldAnonymousHeadUint8Only                     opType = 305
-	opStructFieldAnonymousHeadOmitEmptyUint8                opType = 306
-	opStructFieldAnonymousHeadOmitEmptyUint8Only            opType = 307
-	opStructFieldAnonymousHeadStringTagUint8                opType = 308
-	opStructFieldAnonymousHeadStringTagUint8Only            opType = 309
-	opStructFieldPtrHeadUint8                               opType = 310
-	opStructFieldPtrHeadUint8Only                           opType = 311
-	opStructFieldPtrHeadOmitEmptyUint8                      opType = 312
-	opStructFieldPtrHeadOmitEmptyUint8Only                  opType = 313
-	opStructFieldPtrHeadStringTagUint8                      opType = 314
-	opStructFieldPtrHeadStringTagUint8Only                  opType = 315
-	opStructFieldPtrAnonymousHeadUint8                      opType = 316
-	opStructFieldPtrAnonymousHeadUint8Only                  opType = 317
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8             opType = 318
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8Only         opType = 319
-	opStructFieldPtrAnonymousHeadStringTagUint8             opType = 320
-	opStructFieldPtrAnonymousHeadStringTagUint8Only         opType = 321
-	opStructFieldNPtrHeadUint8                              opType = 322
-	opStructFieldNPtrHeadUint8Only                          opType = 323
-	opStructFieldNPtrHeadOmitEmptyUint8                     opType = 324
-	opStructFieldNPtrHeadOmitEmptyUint8Only                 opType = 325
-	opStructFieldNPtrHeadStringTagUint8                     opType = 326
-	opStructFieldNPtrHeadStringTagUint8Only                 opType = 327
-	opStructFieldNPtrAnonymousHeadUint8                     opType = 328
-	opStructFieldNPtrAnonymousHeadUint8Only                 opType = 329
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8            opType = 330
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8Only        opType = 331
-	opStructFieldNPtrAnonymousHeadStringTagUint8            opType = 332
-	opStructFieldNPtrAnonymousHeadStringTagUint8Only        opType = 333
-	opStructFieldHeadUint16                                 opType = 334
-	opStructFieldHeadUint16Only                             opType = 335
-	opStructFieldHeadOmitEmptyUint16                        opType = 336
-	opStructFieldHeadOmitEmptyUint16Only                    opType = 337
-	opStructFieldHeadStringTagUint16                        opType = 338
-	opStructFieldHeadStringTagUint16Only                    opType = 339
-	opStructFieldAnonymousHeadUint16                        opType = 340
-	opStructFieldAnonymousHeadUint16Only                    opType = 341
-	opStructFieldAnonymousHeadOmitEmptyUint16               opType = 342
-	opStructFieldAnonymousHeadOmitEmptyUint16Only           opType = 343
-	opStructFieldAnonymousHeadStringTagUint16               opType = 344
-	opStructFieldAnonymousHeadStringTagUint16Only           opType = 345
-	opStructFieldPtrHeadUint16                              opType = 346
-	opStructFieldPtrHeadUint16Only                          opType = 347
-	opStructFieldPtrHeadOmitEmptyUint16                     opType = 348
-	opStructFieldPtrHeadOmitEmptyUint16Only                 opType = 349
-	opStructFieldPtrHeadStringTagUint16                     opType = 350
-	opStructFieldPtrHeadStringTagUint16Only                 opType = 351
-	opStructFieldPtrAnonymousHeadUint16                     opType = 352
-	opStructFieldPtrAnonymousHeadUint16Only                 opType = 353
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16            opType = 354
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16Only        opType = 355
-	opStructFieldPtrAnonymousHeadStringTagUint16            opType = 356
-	opStructFieldPtrAnonymousHeadStringTagUint16Only        opType = 357
-	opStructFieldNPtrHeadUint16                             opType = 358
-	opStructFieldNPtrHeadUint16Only                         opType = 359
-	opStructFieldNPtrHeadOmitEmptyUint16                    opType = 360
-	opStructFieldNPtrHeadOmitEmptyUint16Only                opType = 361
-	opStructFieldNPtrHeadStringTagUint16                    opType = 362
-	opStructFieldNPtrHeadStringTagUint16Only                opType = 363
-	opStructFieldNPtrAnonymousHeadUint16                    opType = 364
-	opStructFieldNPtrAnonymousHeadUint16Only                opType = 365
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16           opType = 366
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16Only       opType = 367
-	opStructFieldNPtrAnonymousHeadStringTagUint16           opType = 368
-	opStructFieldNPtrAnonymousHeadStringTagUint16Only       opType = 369
-	opStructFieldHeadUint32                                 opType = 370
-	opStructFieldHeadUint32Only                             opType = 371
-	opStructFieldHeadOmitEmptyUint32                        opType = 372
-	opStructFieldHeadOmitEmptyUint32Only                    opType = 373
-	opStructFieldHeadStringTagUint32                        opType = 374
-	opStructFieldHeadStringTagUint32Only                    opType = 375
-	opStructFieldAnonymousHeadUint32                        opType = 376
-	opStructFieldAnonymousHeadUint32Only                    opType = 377
-	opStructFieldAnonymousHeadOmitEmptyUint32               opType = 378
-	opStructFieldAnonymousHeadOmitEmptyUint32Only           opType = 379
-	opStructFieldAnonymousHeadStringTagUint32               opType = 380
-	opStructFieldAnonymousHeadStringTagUint32Only           opType = 381
-	opStructFieldPtrHeadUint32                              opType = 382
-	opStructFieldPtrHeadUint32Only                          opType = 383
-	opStructFieldPtrHeadOmitEmptyUint32                     opType = 384
-	opStructFieldPtrHeadOmitEmptyUint32Only                 opType = 385
-	opStructFieldPtrHeadStringTagUint32                     opType = 386
-	opStructFieldPtrHeadStringTagUint32Only                 opType = 387
-	opStructFieldPtrAnonymousHeadUint32                     opType = 388
-	opStructFieldPtrAnonymousHeadUint32Only                 opType = 389
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32            opType = 390
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32Only        opType = 391
-	opStructFieldPtrAnonymousHeadStringTagUint32            opType = 392
-	opStructFieldPtrAnonymousHeadStringTagUint32Only        opType = 393
-	opStructFieldNPtrHeadUint32                             opType = 394
-	opStructFieldNPtrHeadUint32Only                         opType = 395
-	opStructFieldNPtrHeadOmitEmptyUint32                    opType = 396
-	opStructFieldNPtrHeadOmitEmptyUint32Only                opType = 397
-	opStructFieldNPtrHeadStringTagUint32                    opType = 398
-	opStructFieldNPtrHeadStringTagUint32Only                opType = 399
-	opStructFieldNPtrAnonymousHeadUint32                    opType = 400
-	opStructFieldNPtrAnonymousHeadUint32Only                opType = 401
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32           opType = 402
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32Only       opType = 403
-	opStructFieldNPtrAnonymousHeadStringTagUint32           opType = 404
-	opStructFieldNPtrAnonymousHeadStringTagUint32Only       opType = 405
-	opStructFieldHeadUint64                                 opType = 406
-	opStructFieldHeadUint64Only                             opType = 407
-	opStructFieldHeadOmitEmptyUint64                        opType = 408
-	opStructFieldHeadOmitEmptyUint64Only                    opType = 409
-	opStructFieldHeadStringTagUint64                        opType = 410
-	opStructFieldHeadStringTagUint64Only                    opType = 411
-	opStructFieldAnonymousHeadUint64                        opType = 412
-	opStructFieldAnonymousHeadUint64Only                    opType = 413
-	opStructFieldAnonymousHeadOmitEmptyUint64               opType = 414
-	opStructFieldAnonymousHeadOmitEmptyUint64Only           opType = 415
-	opStructFieldAnonymousHeadStringTagUint64               opType = 416
-	opStructFieldAnonymousHeadStringTagUint64Only           opType = 417
-	opStructFieldPtrHeadUint64                              opType = 418
-	opStructFieldPtrHeadUint64Only                          opType = 419
-	opStructFieldPtrHeadOmitEmptyUint64                     opType = 420
-	opStructFieldPtrHeadOmitEmptyUint64Only                 opType = 421
-	opStructFieldPtrHeadStringTagUint64                     opType = 422
-	opStructFieldPtrHeadStringTagUint64Only                 opType = 423
-	opStructFieldPtrAnonymousHeadUint64                     opType = 424
-	opStructFieldPtrAnonymousHeadUint64Only                 opType = 425
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64            opType = 426
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64Only        opType = 427
-	opStructFieldPtrAnonymousHeadStringTagUint64            opType = 428
-	opStructFieldPtrAnonymousHeadStringTagUint64Only        opType = 429
-	opStructFieldNPtrHeadUint64                             opType = 430
-	opStructFieldNPtrHeadUint64Only                         opType = 431
-	opStructFieldNPtrHeadOmitEmptyUint64                    opType = 432
-	opStructFieldNPtrHeadOmitEmptyUint64Only                opType = 433
-	opStructFieldNPtrHeadStringTagUint64                    opType = 434
-	opStructFieldNPtrHeadStringTagUint64Only                opType = 435
-	opStructFieldNPtrAnonymousHeadUint64                    opType = 436
-	opStructFieldNPtrAnonymousHeadUint64Only                opType = 437
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64           opType = 438
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64Only       opType = 439
-	opStructFieldNPtrAnonymousHeadStringTagUint64           opType = 440
-	opStructFieldNPtrAnonymousHeadStringTagUint64Only       opType = 441
-	opStructFieldHeadFloat32                                opType = 442
-	opStructFieldHeadFloat32Only                            opType = 443
-	opStructFieldHeadOmitEmptyFloat32                       opType = 444
-	opStructFieldHeadOmitEmptyFloat32Only                   opType = 445
-	opStructFieldHeadStringTagFloat32                       opType = 446
-	opStructFieldHeadStringTagFloat32Only                   opType = 447
-	opStructFieldAnonymousHeadFloat32                       opType = 448
-	opStructFieldAnonymousHeadFloat32Only                   opType = 449
-	opStructFieldAnonymousHeadOmitEmptyFloat32              opType = 450
-	opStructFieldAnonymousHeadOmitEmptyFloat32Only          opType = 451
-	opStructFieldAnonymousHeadStringTagFloat32              opType = 452
-	opStructFieldAnonymousHeadStringTagFloat32Only          opType = 453
-	opStructFieldPtrHeadFloat32                             opType = 454
-	opStructFieldPtrHeadFloat32Only                         opType = 455
-	opStructFieldPtrHeadOmitEmptyFloat32                    opType = 456
-	opStructFieldPtrHeadOmitEmptyFloat32Only                opType = 457
-	opStructFieldPtrHeadStringTagFloat32                    opType = 458
-	opStructFieldPtrHeadStringTagFloat32Only                opType = 459
-	opStructFieldPtrAnonymousHeadFloat32                    opType = 460
-	opStructFieldPtrAnonymousHeadFloat32Only                opType = 461
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32           opType = 462
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Only       opType = 463
-	opStructFieldPtrAnonymousHeadStringTagFloat32           opType = 464
-	opStructFieldPtrAnonymousHeadStringTagFloat32Only       opType = 465
-	opStructFieldNPtrHeadFloat32                            opType = 466
-	opStructFieldNPtrHeadFloat32Only                        opType = 467
-	opStructFieldNPtrHeadOmitEmptyFloat32                   opType = 468
-	opStructFieldNPtrHeadOmitEmptyFloat32Only               opType = 469
-	opStructFieldNPtrHeadStringTagFloat32                   opType = 470
-	opStructFieldNPtrHeadStringTagFloat32Only               opType = 471
-	opStructFieldNPtrAnonymousHeadFloat32                   opType = 472
-	opStructFieldNPtrAnonymousHeadFloat32Only               opType = 473
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32          opType = 474
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Only      opType = 475
-	opStructFieldNPtrAnonymousHeadStringTagFloat32          opType = 476
-	opStructFieldNPtrAnonymousHeadStringTagFloat32Only      opType = 477
-	opStructFieldHeadFloat64                                opType = 478
-	opStructFieldHeadFloat64Only                            opType = 479
-	opStructFieldHeadOmitEmptyFloat64                       opType = 480
-	opStructFieldHeadOmitEmptyFloat64Only                   opType = 481
-	opStructFieldHeadStringTagFloat64                       opType = 482
-	opStructFieldHeadStringTagFloat64Only                   opType = 483
-	opStructFieldAnonymousHeadFloat64                       opType = 484
-	opStructFieldAnonymousHeadFloat64Only                   opType = 485
-	opStructFieldAnonymousHeadOmitEmptyFloat64              opType = 486
-	opStructFieldAnonymousHeadOmitEmptyFloat64Only          opType = 487
-	opStructFieldAnonymousHeadStringTagFloat64              opType = 488
-	opStructFieldAnonymousHeadStringTagFloat64Only          opType = 489
-	opStructFieldPtrHeadFloat64                             opType = 490
-	opStructFieldPtrHeadFloat64Only                         opType = 491
-	opStructFieldPtrHeadOmitEmptyFloat64                    opType = 492
-	opStructFieldPtrHeadOmitEmptyFloat64Only                opType = 493
-	opStructFieldPtrHeadStringTagFloat64                    opType = 494
-	opStructFieldPtrHeadStringTagFloat64Only                opType = 495
-	opStructFieldPtrAnonymousHeadFloat64                    opType = 496
-	opStructFieldPtrAnonymousHeadFloat64Only                opType = 497
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64           opType = 498
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Only       opType = 499
-	opStructFieldPtrAnonymousHeadStringTagFloat64           opType = 500
-	opStructFieldPtrAnonymousHeadStringTagFloat64Only       opType = 501
-	opStructFieldNPtrHeadFloat64                            opType = 502
-	opStructFieldNPtrHeadFloat64Only                        opType = 503
-	opStructFieldNPtrHeadOmitEmptyFloat64                   opType = 504
-	opStructFieldNPtrHeadOmitEmptyFloat64Only               opType = 505
-	opStructFieldNPtrHeadStringTagFloat64                   opType = 506
-	opStructFieldNPtrHeadStringTagFloat64Only               opType = 507
-	opStructFieldNPtrAnonymousHeadFloat64                   opType = 508
-	opStructFieldNPtrAnonymousHeadFloat64Only               opType = 509
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64          opType = 510
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Only      opType = 511
-	opStructFieldNPtrAnonymousHeadStringTagFloat64          opType = 512
-	opStructFieldNPtrAnonymousHeadStringTagFloat64Only      opType = 513
-	opStructFieldHeadBool                                   opType = 514
-	opStructFieldHeadBoolOnly                               opType = 515
-	opStructFieldHeadOmitEmptyBool                          opType = 516
-	opStructFieldHeadOmitEmptyBoolOnly                      opType = 517
-	opStructFieldHeadStringTagBool                          opType = 518
-	opStructFieldHeadStringTagBoolOnly                      opType = 519
-	opStructFieldAnonymousHeadBool                          opType = 520
-	opStructFieldAnonymousHeadBoolOnly                      opType = 521
-	opStructFieldAnonymousHeadOmitEmptyBool                 opType = 522
-	opStructFieldAnonymousHeadOmitEmptyBoolOnly             opType = 523
-	opStructFieldAnonymousHeadStringTagBool                 opType = 524
-	opStructFieldAnonymousHeadStringTagBoolOnly             opType = 525
-	opStructFieldPtrHeadBool                                opType = 526
-	opStructFieldPtrHeadBoolOnly                            opType = 527
-	opStructFieldPtrHeadOmitEmptyBool                       opType = 528
-	opStructFieldPtrHeadOmitEmptyBoolOnly                   opType = 529
-	opStructFieldPtrHeadStringTagBool                       opType = 530
-	opStructFieldPtrHeadStringTagBoolOnly                   opType = 531
-	opStructFieldPtrAnonymousHeadBool                       opType = 532
-	opStructFieldPtrAnonymousHeadBoolOnly                   opType = 533
-	opStructFieldPtrAnonymousHeadOmitEmptyBool              opType = 534
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolOnly          opType = 535
-	opStructFieldPtrAnonymousHeadStringTagBool              opType = 536
-	opStructFieldPtrAnonymousHeadStringTagBoolOnly          opType = 537
-	opStructFieldNPtrHeadBool                               opType = 538
-	opStructFieldNPtrHeadBoolOnly                           opType = 539
-	opStructFieldNPtrHeadOmitEmptyBool                      opType = 540
-	opStructFieldNPtrHeadOmitEmptyBoolOnly                  opType = 541
-	opStructFieldNPtrHeadStringTagBool                      opType = 542
-	opStructFieldNPtrHeadStringTagBoolOnly                  opType = 543
-	opStructFieldNPtrAnonymousHeadBool                      opType = 544
-	opStructFieldNPtrAnonymousHeadBoolOnly                  opType = 545
-	opStructFieldNPtrAnonymousHeadOmitEmptyBool             opType = 546
-	opStructFieldNPtrAnonymousHeadOmitEmptyBoolOnly         opType = 547
-	opStructFieldNPtrAnonymousHeadStringTagBool             opType = 548
-	opStructFieldNPtrAnonymousHeadStringTagBoolOnly         opType = 549
-	opStructFieldHeadString                                 opType = 550
-	opStructFieldHeadStringOnly                             opType = 551
-	opStructFieldHeadOmitEmptyString                        opType = 552
-	opStructFieldHeadOmitEmptyStringOnly                    opType = 553
-	opStructFieldHeadStringTagString                        opType = 554
-	opStructFieldHeadStringTagStringOnly                    opType = 555
-	opStructFieldAnonymousHeadString                        opType = 556
-	opStructFieldAnonymousHeadStringOnly                    opType = 557
-	opStructFieldAnonymousHeadOmitEmptyString               opType = 558
-	opStructFieldAnonymousHeadOmitEmptyStringOnly           opType = 559
-	opStructFieldAnonymousHeadStringTagString               opType = 560
-	opStructFieldAnonymousHeadStringTagStringOnly           opType = 561
-	opStructFieldPtrHeadString                              opType = 562
-	opStructFieldPtrHeadStringOnly                          opType = 563
-	opStructFieldPtrHeadOmitEmptyString                     opType = 564
-	opStructFieldPtrHeadOmitEmptyStringOnly                 opType = 565
-	opStructFieldPtrHeadStringTagString                     opType = 566
-	opStructFieldPtrHeadStringTagStringOnly                 opType = 567
-	opStructFieldPtrAnonymousHeadString                     opType = 568
-	opStructFieldPtrAnonymousHeadStringOnly                 opType = 569
-	opStructFieldPtrAnonymousHeadOmitEmptyString            opType = 570
-	opStructFieldPtrAnonymousHeadOmitEmptyStringOnly        opType = 571
-	opStructFieldPtrAnonymousHeadStringTagString            opType = 572
-	opStructFieldPtrAnonymousHeadStringTagStringOnly        opType = 573
-	opStructFieldNPtrHeadString                             opType = 574
-	opStructFieldNPtrHeadStringOnly                         opType = 575
-	opStructFieldNPtrHeadOmitEmptyString                    opType = 576
-	opStructFieldNPtrHeadOmitEmptyStringOnly                opType = 577
-	opStructFieldNPtrHeadStringTagString                    opType = 578
-	opStructFieldNPtrHeadStringTagStringOnly                opType = 579
-	opStructFieldNPtrAnonymousHeadString                    opType = 580
-	opStructFieldNPtrAnonymousHeadStringOnly                opType = 581
-	opStructFieldNPtrAnonymousHeadOmitEmptyString           opType = 582
-	opStructFieldNPtrAnonymousHeadOmitEmptyStringOnly       opType = 583
-	opStructFieldNPtrAnonymousHeadStringTagString           opType = 584
-	opStructFieldNPtrAnonymousHeadStringTagStringOnly       opType = 585
-	opStructFieldHeadBytes                                  opType = 586
-	opStructFieldHeadBytesOnly                              opType = 587
-	opStructFieldHeadOmitEmptyBytes                         opType = 588
-	opStructFieldHeadOmitEmptyBytesOnly                     opType = 589
-	opStructFieldHeadStringTagBytes                         opType = 590
-	opStructFieldHeadStringTagBytesOnly                     opType = 591
-	opStructFieldAnonymousHeadBytes                         opType = 592
-	opStructFieldAnonymousHeadBytesOnly                     opType = 593
-	opStructFieldAnonymousHeadOmitEmptyBytes                opType = 594
-	opStructFieldAnonymousHeadOmitEmptyBytesOnly            opType = 595
-	opStructFieldAnonymousHeadStringTagBytes                opType = 596
-	opStructFieldAnonymousHeadStringTagBytesOnly            opType = 597
-	opStructFieldPtrHeadBytes                               opType = 598
-	opStructFieldPtrHeadBytesOnly                           opType = 599
-	opStructFieldPtrHeadOmitEmptyBytes                      opType = 600
-	opStructFieldPtrHeadOmitEmptyBytesOnly                  opType = 601
-	opStructFieldPtrHeadStringTagBytes                      opType = 602
-	opStructFieldPtrHeadStringTagBytesOnly                  opType = 603
-	opStructFieldPtrAnonymousHeadBytes                      opType = 604
-	opStructFieldPtrAnonymousHeadBytesOnly                  opType = 605
-	opStructFieldPtrAnonymousHeadOmitEmptyBytes             opType = 606
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesOnly         opType = 607
-	opStructFieldPtrAnonymousHeadStringTagBytes             opType = 608
-	opStructFieldPtrAnonymousHeadStringTagBytesOnly         opType = 609
-	opStructFieldNPtrHeadBytes                              opType = 610
-	opStructFieldNPtrHeadBytesOnly                          opType = 611
-	opStructFieldNPtrHeadOmitEmptyBytes                     opType = 612
-	opStructFieldNPtrHeadOmitEmptyBytesOnly                 opType = 613
-	opStructFieldNPtrHeadStringTagBytes                     opType = 614
-	opStructFieldNPtrHeadStringTagBytesOnly                 opType = 615
-	opStructFieldNPtrAnonymousHeadBytes                     opType = 616
-	opStructFieldNPtrAnonymousHeadBytesOnly                 opType = 617
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytes            opType = 618
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytesOnly        opType = 619
-	opStructFieldNPtrAnonymousHeadStringTagBytes            opType = 620
-	opStructFieldNPtrAnonymousHeadStringTagBytesOnly        opType = 621
-	opStructFieldHeadArray                                  opType = 622
-	opStructFieldHeadArrayOnly                              opType = 623
-	opStructFieldHeadOmitEmptyArray                         opType = 624
-	opStructFieldHeadOmitEmptyArrayOnly                     opType = 625
-	opStructFieldHeadStringTagArray                         opType = 626
-	opStructFieldHeadStringTagArrayOnly                     opType = 627
-	opStructFieldAnonymousHeadArray                         opType = 628
-	opStructFieldAnonymousHeadArrayOnly                     opType = 629
-	opStructFieldAnonymousHeadOmitEmptyArray                opType = 630
-	opStructFieldAnonymousHeadOmitEmptyArrayOnly            opType = 631
-	opStructFieldAnonymousHeadStringTagArray                opType = 632
-	opStructFieldAnonymousHeadStringTagArrayOnly            opType = 633
-	opStructFieldPtrHeadArray                               opType = 634
-	opStructFieldPtrHeadArrayOnly                           opType = 635
-	opStructFieldPtrHeadOmitEmptyArray                      opType = 636
-	opStructFieldPtrHeadOmitEmptyArrayOnly                  opType = 637
-	opStructFieldPtrHeadStringTagArray                      opType = 638
-	opStructFieldPtrHeadStringTagArrayOnly                  opType = 639
-	opStructFieldPtrAnonymousHeadArray                      opType = 640
-	opStructFieldPtrAnonymousHeadArrayOnly                  opType = 641
-	opStructFieldPtrAnonymousHeadOmitEmptyArray             opType = 642
-	opStructFieldPtrAnonymousHeadOmitEmptyArrayOnly         opType = 643
-	opStructFieldPtrAnonymousHeadStringTagArray             opType = 644
-	opStructFieldPtrAnonymousHeadStringTagArrayOnly         opType = 645
-	opStructFieldNPtrHeadArray                              opType = 646
-	opStructFieldNPtrHeadArrayOnly                          opType = 647
-	opStructFieldNPtrHeadOmitEmptyArray                     opType = 648
-	opStructFieldNPtrHeadOmitEmptyArrayOnly                 opType = 649
-	opStructFieldNPtrHeadStringTagArray                     opType = 650
-	opStructFieldNPtrHeadStringTagArrayOnly                 opType = 651
-	opStructFieldNPtrAnonymousHeadArray                     opType = 652
-	opStructFieldNPtrAnonymousHeadArrayOnly                 opType = 653
-	opStructFieldNPtrAnonymousHeadOmitEmptyArray            opType = 654
-	opStructFieldNPtrAnonymousHeadOmitEmptyArrayOnly        opType = 655
-	opStructFieldNPtrAnonymousHeadStringTagArray            opType = 656
-	opStructFieldNPtrAnonymousHeadStringTagArrayOnly        opType = 657
-	opStructFieldHeadMap                                    opType = 658
-	opStructFieldHeadMapOnly                                opType = 659
-	opStructFieldHeadOmitEmptyMap                           opType = 660
-	opStructFieldHeadOmitEmptyMapOnly                       opType = 661
-	opStructFieldHeadStringTagMap                           opType = 662
-	opStructFieldHeadStringTagMapOnly                       opType = 663
-	opStructFieldAnonymousHeadMap                           opType = 664
-	opStructFieldAnonymousHeadMapOnly                       opType = 665
-	opStructFieldAnonymousHeadOmitEmptyMap                  opType = 666
-	opStructFieldAnonymousHeadOmitEmptyMapOnly              opType = 667
-	opStructFieldAnonymousHeadStringTagMap                  opType = 668
-	opStructFieldAnonymousHeadStringTagMapOnly              opType = 669
-	opStructFieldPtrHeadMap                                 opType = 670
-	opStructFieldPtrHeadMapOnly                             opType = 671
-	opStructFieldPtrHeadOmitEmptyMap                        opType = 672
-	opStructFieldPtrHeadOmitEmptyMapOnly                    opType = 673
-	opStructFieldPtrHeadStringTagMap                        opType = 674
-	opStructFieldPtrHeadStringTagMapOnly                    opType = 675
-	opStructFieldPtrAnonymousHeadMap                        opType = 676
-	opStructFieldPtrAnonymousHeadMapOnly                    opType = 677
-	opStructFieldPtrAnonymousHeadOmitEmptyMap               opType = 678
-	opStructFieldPtrAnonymousHeadOmitEmptyMapOnly           opType = 679
-	opStructFieldPtrAnonymousHeadStringTagMap               opType = 680
-	opStructFieldPtrAnonymousHeadStringTagMapOnly           opType = 681
-	opStructFieldNPtrHeadMap                                opType = 682
-	opStructFieldNPtrHeadMapOnly                            opType = 683
-	opStructFieldNPtrHeadOmitEmptyMap                       opType = 684
-	opStructFieldNPtrHeadOmitEmptyMapOnly                   opType = 685
-	opStructFieldNPtrHeadStringTagMap                       opType = 686
-	opStructFieldNPtrHeadStringTagMapOnly                   opType = 687
-	opStructFieldNPtrAnonymousHeadMap                       opType = 688
-	opStructFieldNPtrAnonymousHeadMapOnly                   opType = 689
-	opStructFieldNPtrAnonymousHeadOmitEmptyMap              opType = 690
-	opStructFieldNPtrAnonymousHeadOmitEmptyMapOnly          opType = 691
-	opStructFieldNPtrAnonymousHeadStringTagMap              opType = 692
-	opStructFieldNPtrAnonymousHeadStringTagMapOnly          opType = 693
-	opStructFieldHeadMapLoad                                opType = 694
-	opStructFieldHeadMapLoadOnly                            opType = 695
-	opStructFieldHeadOmitEmptyMapLoad                       opType = 696
-	opStructFieldHeadOmitEmptyMapLoadOnly                   opType = 697
-	opStructFieldHeadStringTagMapLoad                       opType = 698
-	opStructFieldHeadStringTagMapLoadOnly                   opType = 699
-	opStructFieldAnonymousHeadMapLoad                       opType = 700
-	opStructFieldAnonymousHeadMapLoadOnly                   opType = 701
-	opStructFieldAnonymousHeadOmitEmptyMapLoad              opType = 702
-	opStructFieldAnonymousHeadOmitEmptyMapLoadOnly          opType = 703
-	opStructFieldAnonymousHeadStringTagMapLoad              opType = 704
-	opStructFieldAnonymousHeadStringTagMapLoadOnly          opType = 705
-	opStructFieldPtrHeadMapLoad                             opType = 706
-	opStructFieldPtrHeadMapLoadOnly                         opType = 707
-	opStructFieldPtrHeadOmitEmptyMapLoad                    opType = 708
-	opStructFieldPtrHeadOmitEmptyMapLoadOnly                opType = 709
-	opStructFieldPtrHeadStringTagMapLoad                    opType = 710
-	opStructFieldPtrHeadStringTagMapLoadOnly                opType = 711
-	opStructFieldPtrAnonymousHeadMapLoad                    opType = 712
-	opStructFieldPtrAnonymousHeadMapLoadOnly                opType = 713
-	opStructFieldPtrAnonymousHeadOmitEmptyMapLoad           opType = 714
-	opStructFieldPtrAnonymousHeadOmitEmptyMapLoadOnly       opType = 715
-	opStructFieldPtrAnonymousHeadStringTagMapLoad           opType = 716
-	opStructFieldPtrAnonymousHeadStringTagMapLoadOnly       opType = 717
-	opStructFieldNPtrHeadMapLoad                            opType = 718
-	opStructFieldNPtrHeadMapLoadOnly                        opType = 719
-	opStructFieldNPtrHeadOmitEmptyMapLoad                   opType = 720
-	opStructFieldNPtrHeadOmitEmptyMapLoadOnly               opType = 721
-	opStructFieldNPtrHeadStringTagMapLoad                   opType = 722
-	opStructFieldNPtrHeadStringTagMapLoadOnly               opType = 723
-	opStructFieldNPtrAnonymousHeadMapLoad                   opType = 724
-	opStructFieldNPtrAnonymousHeadMapLoadOnly               opType = 725
-	opStructFieldNPtrAnonymousHeadOmitEmptyMapLoad          opType = 726
-	opStructFieldNPtrAnonymousHeadOmitEmptyMapLoadOnly      opType = 727
-	opStructFieldNPtrAnonymousHeadStringTagMapLoad          opType = 728
-	opStructFieldNPtrAnonymousHeadStringTagMapLoadOnly      opType = 729
-	opStructFieldHeadSlice                                  opType = 730
-	opStructFieldHeadSliceOnly                              opType = 731
-	opStructFieldHeadOmitEmptySlice                         opType = 732
-	opStructFieldHeadOmitEmptySliceOnly                     opType = 733
-	opStructFieldHeadStringTagSlice                         opType = 734
-	opStructFieldHeadStringTagSliceOnly                     opType = 735
-	opStructFieldAnonymousHeadSlice                         opType = 736
-	opStructFieldAnonymousHeadSliceOnly                     opType = 737
-	opStructFieldAnonymousHeadOmitEmptySlice                opType = 738
-	opStructFieldAnonymousHeadOmitEmptySliceOnly            opType = 739
-	opStructFieldAnonymousHeadStringTagSlice                opType = 740
-	opStructFieldAnonymousHeadStringTagSliceOnly            opType = 741
-	opStructFieldPtrHeadSlice                               opType = 742
-	opStructFieldPtrHeadSliceOnly                           opType = 743
-	opStructFieldPtrHeadOmitEmptySlice                      opType = 744
-	opStructFieldPtrHeadOmitEmptySliceOnly                  opType = 745
-	opStructFieldPtrHeadStringTagSlice                      opType = 746
-	opStructFieldPtrHeadStringTagSliceOnly                  opType = 747
-	opStructFieldPtrAnonymousHeadSlice                      opType = 748
-	opStructFieldPtrAnonymousHeadSliceOnly                  opType = 749
-	opStructFieldPtrAnonymousHeadOmitEmptySlice             opType = 750
-	opStructFieldPtrAnonymousHeadOmitEmptySliceOnly         opType = 751
-	opStructFieldPtrAnonymousHeadStringTagSlice             opType = 752
-	opStructFieldPtrAnonymousHeadStringTagSliceOnly         opType = 753
-	opStructFieldNPtrHeadSlice                              opType = 754
-	opStructFieldNPtrHeadSliceOnly                          opType = 755
-	opStructFieldNPtrHeadOmitEmptySlice                     opType = 756
-	opStructFieldNPtrHeadOmitEmptySliceOnly                 opType = 757
-	opStructFieldNPtrHeadStringTagSlice                     opType = 758
-	opStructFieldNPtrHeadStringTagSliceOnly                 opType = 759
-	opStructFieldNPtrAnonymousHeadSlice                     opType = 760
-	opStructFieldNPtrAnonymousHeadSliceOnly                 opType = 761
-	opStructFieldNPtrAnonymousHeadOmitEmptySlice            opType = 762
-	opStructFieldNPtrAnonymousHeadOmitEmptySliceOnly        opType = 763
-	opStructFieldNPtrAnonymousHeadStringTagSlice            opType = 764
-	opStructFieldNPtrAnonymousHeadStringTagSliceOnly        opType = 765
-	opStructFieldHeadStruct                                 opType = 766
-	opStructFieldHeadStructOnly                             opType = 767
-	opStructFieldHeadOmitEmptyStruct                        opType = 768
-	opStructFieldHeadOmitEmptyStructOnly                    opType = 769
-	opStructFieldHeadStringTagStruct                        opType = 770
-	opStructFieldHeadStringTagStructOnly                    opType = 771
-	opStructFieldAnonymousHeadStruct                        opType = 772
-	opStructFieldAnonymousHeadStructOnly                    opType = 773
-	opStructFieldAnonymousHeadOmitEmptyStruct               opType = 774
-	opStructFieldAnonymousHeadOmitEmptyStructOnly           opType = 775
-	opStructFieldAnonymousHeadStringTagStruct               opType = 776
-	opStructFieldAnonymousHeadStringTagStructOnly           opType = 777
-	opStructFieldPtrHeadStruct                              opType = 778
-	opStructFieldPtrHeadStructOnly                          opType = 779
-	opStructFieldPtrHeadOmitEmptyStruct                     opType = 780
-	opStructFieldPtrHeadOmitEmptyStructOnly                 opType = 781
-	opStructFieldPtrHeadStringTagStruct                     opType = 782
-	opStructFieldPtrHeadStringTagStructOnly                 opType = 783
-	opStructFieldPtrAnonymousHeadStruct                     opType = 784
-	opStructFieldPtrAnonymousHeadStructOnly                 opType = 785
-	opStructFieldPtrAnonymousHeadOmitEmptyStruct            opType = 786
-	opStructFieldPtrAnonymousHeadOmitEmptyStructOnly        opType = 787
-	opStructFieldPtrAnonymousHeadStringTagStruct            opType = 788
-	opStructFieldPtrAnonymousHeadStringTagStructOnly        opType = 789
-	opStructFieldNPtrHeadStruct                             opType = 790
-	opStructFieldNPtrHeadStructOnly                         opType = 791
-	opStructFieldNPtrHeadOmitEmptyStruct                    opType = 792
-	opStructFieldNPtrHeadOmitEmptyStructOnly                opType = 793
-	opStructFieldNPtrHeadStringTagStruct                    opType = 794
-	opStructFieldNPtrHeadStringTagStructOnly                opType = 795
-	opStructFieldNPtrAnonymousHeadStruct                    opType = 796
-	opStructFieldNPtrAnonymousHeadStructOnly                opType = 797
-	opStructFieldNPtrAnonymousHeadOmitEmptyStruct           opType = 798
-	opStructFieldNPtrAnonymousHeadOmitEmptyStructOnly       opType = 799
-	opStructFieldNPtrAnonymousHeadStringTagStruct           opType = 800
-	opStructFieldNPtrAnonymousHeadStringTagStructOnly       opType = 801
-	opStructFieldHeadMarshalJSON                            opType = 802
-	opStructFieldHeadMarshalJSONOnly                        opType = 803
-	opStructFieldHeadOmitEmptyMarshalJSON                   opType = 804
-	opStructFieldHeadOmitEmptyMarshalJSONOnly               opType = 805
-	opStructFieldHeadStringTagMarshalJSON                   opType = 806
-	opStructFieldHeadStringTagMarshalJSONOnly               opType = 807
-	opStructFieldAnonymousHeadMarshalJSON                   opType = 808
-	opStructFieldAnonymousHeadMarshalJSONOnly               opType = 809
-	opStructFieldAnonymousHeadOmitEmptyMarshalJSON          opType = 810
-	opStructFieldAnonymousHeadOmitEmptyMarshalJSONOnly      opType = 811
-	opStructFieldAnonymousHeadStringTagMarshalJSON          opType = 812
-	opStructFieldAnonymousHeadStringTagMarshalJSONOnly      opType = 813
-	opStructFieldPtrHeadMarshalJSON                         opType = 814
-	opStructFieldPtrHeadMarshalJSONOnly                     opType = 815
-	opStructFieldPtrHeadOmitEmptyMarshalJSON                opType = 816
-	opStructFieldPtrHeadOmitEmptyMarshalJSONOnly            opType = 817
-	opStructFieldPtrHeadStringTagMarshalJSON                opType = 818
-	opStructFieldPtrHeadStringTagMarshalJSONOnly            opType = 819
-	opStructFieldPtrAnonymousHeadMarshalJSON                opType = 820
-	opStructFieldPtrAnonymousHeadMarshalJSONOnly            opType = 821
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON       opType = 822
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONOnly   opType = 823
-	opStructFieldPtrAnonymousHeadStringTagMarshalJSON       opType = 824
-	opStructFieldPtrAnonymousHeadStringTagMarshalJSONOnly   opType = 825
-	opStructFieldNPtrHeadMarshalJSON                        opType = 826
-	opStructFieldNPtrHeadMarshalJSONOnly                    opType = 827
-	opStructFieldNPtrHeadOmitEmptyMarshalJSON               opType = 828
-	opStructFieldNPtrHeadOmitEmptyMarshalJSONOnly           opType = 829
-	opStructFieldNPtrHeadStringTagMarshalJSON               opType = 830
-	opStructFieldNPtrHeadStringTagMarshalJSONOnly           opType = 831
-	opStructFieldNPtrAnonymousHeadMarshalJSON               opType = 832
-	opStructFieldNPtrAnonymousHeadMarshalJSONOnly           opType = 833
-	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalJSON      opType = 834
-	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalJSONOnly  opType = 835
-	opStructFieldNPtrAnonymousHeadStringTagMarshalJSON      opType = 836
-	opStructFieldNPtrAnonymousHeadStringTagMarshalJSONOnly  opType = 837
-	opStructFieldHeadMarshalText                            opType = 838
-	opStructFieldHeadMarshalTextOnly                        opType = 839
-	opStructFieldHeadOmitEmptyMarshalText                   opType = 840
-	opStructFieldHeadOmitEmptyMarshalTextOnly               opType = 841
-	opStructFieldHeadStringTagMarshalText                   opType = 842
-	opStructFieldHeadStringTagMarshalTextOnly               opType = 843
-	opStructFieldAnonymousHeadMarshalText                   opType = 844
-	opStructFieldAnonymousHeadMarshalTextOnly               opType = 845
-	opStructFieldAnonymousHeadOmitEmptyMarshalText          opType = 846
-	opStructFieldAnonymousHeadOmitEmptyMarshalTextOnly      opType = 847
-	opStructFieldAnonymousHeadStringTagMarshalText          opType = 848
-	opStructFieldAnonymousHeadStringTagMarshalTextOnly      opType = 849
-	opStructFieldPtrHeadMarshalText                         opType = 850
-	opStructFieldPtrHeadMarshalTextOnly                     opType = 851
-	opStructFieldPtrHeadOmitEmptyMarshalText                opType = 852
-	opStructFieldPtrHeadOmitEmptyMarshalTextOnly            opType = 853
-	opStructFieldPtrHeadStringTagMarshalText                opType = 854
-	opStructFieldPtrHeadStringTagMarshalTextOnly            opType = 855
-	opStructFieldPtrAnonymousHeadMarshalText                opType = 856
-	opStructFieldPtrAnonymousHeadMarshalTextOnly            opType = 857
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalText       opType = 858
-	opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextOnly   opType = 859
-	opStructFieldPtrAnonymousHeadStringTagMarshalText       opType = 860
-	opStructFieldPtrAnonymousHeadStringTagMarshalTextOnly   opType = 861
-	opStructFieldNPtrHeadMarshalText                        opType = 862
-	opStructFieldNPtrHeadMarshalTextOnly                    opType = 863
-	opStructFieldNPtrHeadOmitEmptyMarshalText               opType = 864
-	opStructFieldNPtrHeadOmitEmptyMarshalTextOnly           opType = 865
-	opStructFieldNPtrHeadStringTagMarshalText               opType = 866
-	opStructFieldNPtrHeadStringTagMarshalTextOnly           opType = 867
-	opStructFieldNPtrAnonymousHeadMarshalText               opType = 868
-	opStructFieldNPtrAnonymousHeadMarshalTextOnly           opType = 869
-	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalText      opType = 870
-	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalTextOnly  opType = 871
-	opStructFieldNPtrAnonymousHeadStringTagMarshalText      opType = 872
-	opStructFieldNPtrAnonymousHeadStringTagMarshalTextOnly  opType = 873
-	opStructFieldHeadRecursive                              opType = 874
-	opStructFieldHeadRecursiveOnly                          opType = 875
-	opStructFieldHeadOmitEmptyRecursive                     opType = 876
-	opStructFieldHeadOmitEmptyRecursiveOnly                 opType = 877
-	opStructFieldHeadStringTagRecursive                     opType = 878
-	opStructFieldHeadStringTagRecursiveOnly                 opType = 879
-	opStructFieldAnonymousHeadRecursive                     opType = 880
-	opStructFieldAnonymousHeadRecursiveOnly                 opType = 881
-	opStructFieldAnonymousHeadOmitEmptyRecursive            opType = 882
-	opStructFieldAnonymousHeadOmitEmptyRecursiveOnly        opType = 883
-	opStructFieldAnonymousHeadStringTagRecursive            opType = 884
-	opStructFieldAnonymousHeadStringTagRecursiveOnly        opType = 885
-	opStructFieldPtrHeadRecursive                           opType = 886
-	opStructFieldPtrHeadRecursiveOnly                       opType = 887
-	opStructFieldPtrHeadOmitEmptyRecursive                  opType = 888
-	opStructFieldPtrHeadOmitEmptyRecursiveOnly              opType = 889
-	opStructFieldPtrHeadStringTagRecursive                  opType = 890
-	opStructFieldPtrHeadStringTagRecursiveOnly              opType = 891
-	opStructFieldPtrAnonymousHeadRecursive                  opType = 892
-	opStructFieldPtrAnonymousHeadRecursiveOnly              opType = 893
-	opStructFieldPtrAnonymousHeadOmitEmptyRecursive         opType = 894
-	opStructFieldPtrAnonymousHeadOmitEmptyRecursiveOnly     opType = 895
-	opStructFieldPtrAnonymousHeadStringTagRecursive         opType = 896
-	opStructFieldPtrAnonymousHeadStringTagRecursiveOnly     opType = 897
-	opStructFieldNPtrHeadRecursive                          opType = 898
-	opStructFieldNPtrHeadRecursiveOnly                      opType = 899
-	opStructFieldNPtrHeadOmitEmptyRecursive                 opType = 900
-	opStructFieldNPtrHeadOmitEmptyRecursiveOnly             opType = 901
-	opStructFieldNPtrHeadStringTagRecursive                 opType = 902
-	opStructFieldNPtrHeadStringTagRecursiveOnly             opType = 903
-	opStructFieldNPtrAnonymousHeadRecursive                 opType = 904
-	opStructFieldNPtrAnonymousHeadRecursiveOnly             opType = 905
-	opStructFieldNPtrAnonymousHeadOmitEmptyRecursive        opType = 906
-	opStructFieldNPtrAnonymousHeadOmitEmptyRecursiveOnly    opType = 907
-	opStructFieldNPtrAnonymousHeadStringTagRecursive        opType = 908
-	opStructFieldNPtrAnonymousHeadStringTagRecursiveOnly    opType = 909
-	opStructFieldHeadIntString                              opType = 910
-	opStructFieldHeadIntStringOnly                          opType = 911
-	opStructFieldHeadOmitEmptyIntString                     opType = 912
-	opStructFieldHeadOmitEmptyIntStringOnly                 opType = 913
-	opStructFieldHeadStringTagIntString                     opType = 914
-	opStructFieldHeadStringTagIntStringOnly                 opType = 915
-	opStructFieldAnonymousHeadIntString                     opType = 916
-	opStructFieldAnonymousHeadIntStringOnly                 opType = 917
-	opStructFieldAnonymousHeadOmitEmptyIntString            opType = 918
-	opStructFieldAnonymousHeadOmitEmptyIntStringOnly        opType = 919
-	opStructFieldAnonymousHeadStringTagIntString            opType = 920
-	opStructFieldAnonymousHeadStringTagIntStringOnly        opType = 921
-	opStructFieldPtrHeadIntString                           opType = 922
-	opStructFieldPtrHeadIntStringOnly                       opType = 923
-	opStructFieldPtrHeadOmitEmptyIntString                  opType = 924
-	opStructFieldPtrHeadOmitEmptyIntStringOnly              opType = 925
-	opStructFieldPtrHeadStringTagIntString                  opType = 926
-	opStructFieldPtrHeadStringTagIntStringOnly              opType = 927
-	opStructFieldPtrAnonymousHeadIntString                  opType = 928
-	opStructFieldPtrAnonymousHeadIntStringOnly              opType = 929
-	opStructFieldPtrAnonymousHeadOmitEmptyIntString         opType = 930
-	opStructFieldPtrAnonymousHeadOmitEmptyIntStringOnly     opType = 931
-	opStructFieldPtrAnonymousHeadStringTagIntString         opType = 932
-	opStructFieldPtrAnonymousHeadStringTagIntStringOnly     opType = 933
-	opStructFieldNPtrHeadIntString                          opType = 934
-	opStructFieldNPtrHeadIntStringOnly                      opType = 935
-	opStructFieldNPtrHeadOmitEmptyIntString                 opType = 936
-	opStructFieldNPtrHeadOmitEmptyIntStringOnly             opType = 937
-	opStructFieldNPtrHeadStringTagIntString                 opType = 938
-	opStructFieldNPtrHeadStringTagIntStringOnly             opType = 939
-	opStructFieldNPtrAnonymousHeadIntString                 opType = 940
-	opStructFieldNPtrAnonymousHeadIntStringOnly             opType = 941
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntString        opType = 942
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntStringOnly    opType = 943
-	opStructFieldNPtrAnonymousHeadStringTagIntString        opType = 944
-	opStructFieldNPtrAnonymousHeadStringTagIntStringOnly    opType = 945
-	opStructFieldHeadInt8String                             opType = 946
-	opStructFieldHeadInt8StringOnly                         opType = 947
-	opStructFieldHeadOmitEmptyInt8String                    opType = 948
-	opStructFieldHeadOmitEmptyInt8StringOnly                opType = 949
-	opStructFieldHeadStringTagInt8String                    opType = 950
-	opStructFieldHeadStringTagInt8StringOnly                opType = 951
-	opStructFieldAnonymousHeadInt8String                    opType = 952
-	opStructFieldAnonymousHeadInt8StringOnly                opType = 953
-	opStructFieldAnonymousHeadOmitEmptyInt8String           opType = 954
-	opStructFieldAnonymousHeadOmitEmptyInt8StringOnly       opType = 955
-	opStructFieldAnonymousHeadStringTagInt8String           opType = 956
-	opStructFieldAnonymousHeadStringTagInt8StringOnly       opType = 957
-	opStructFieldPtrHeadInt8String                          opType = 958
-	opStructFieldPtrHeadInt8StringOnly                      opType = 959
-	opStructFieldPtrHeadOmitEmptyInt8String                 opType = 960
-	opStructFieldPtrHeadOmitEmptyInt8StringOnly             opType = 961
-	opStructFieldPtrHeadStringTagInt8String                 opType = 962
-	opStructFieldPtrHeadStringTagInt8StringOnly             opType = 963
-	opStructFieldPtrAnonymousHeadInt8String                 opType = 964
-	opStructFieldPtrAnonymousHeadInt8StringOnly             opType = 965
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8String        opType = 966
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8StringOnly    opType = 967
-	opStructFieldPtrAnonymousHeadStringTagInt8String        opType = 968
-	opStructFieldPtrAnonymousHeadStringTagInt8StringOnly    opType = 969
-	opStructFieldNPtrHeadInt8String                         opType = 970
-	opStructFieldNPtrHeadInt8StringOnly                     opType = 971
-	opStructFieldNPtrHeadOmitEmptyInt8String                opType = 972
-	opStructFieldNPtrHeadOmitEmptyInt8StringOnly            opType = 973
-	opStructFieldNPtrHeadStringTagInt8String                opType = 974
-	opStructFieldNPtrHeadStringTagInt8StringOnly            opType = 975
-	opStructFieldNPtrAnonymousHeadInt8String                opType = 976
-	opStructFieldNPtrAnonymousHeadInt8StringOnly            opType = 977
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8String       opType = 978
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8StringOnly   opType = 979
-	opStructFieldNPtrAnonymousHeadStringTagInt8String       opType = 980
-	opStructFieldNPtrAnonymousHeadStringTagInt8StringOnly   opType = 981
-	opStructFieldHeadInt16String                            opType = 982
-	opStructFieldHeadInt16StringOnly                        opType = 983
-	opStructFieldHeadOmitEmptyInt16String                   opType = 984
-	opStructFieldHeadOmitEmptyInt16StringOnly               opType = 985
-	opStructFieldHeadStringTagInt16String                   opType = 986
-	opStructFieldHeadStringTagInt16StringOnly               opType = 987
-	opStructFieldAnonymousHeadInt16String                   opType = 988
-	opStructFieldAnonymousHeadInt16StringOnly               opType = 989
-	opStructFieldAnonymousHeadOmitEmptyInt16String          opType = 990
-	opStructFieldAnonymousHeadOmitEmptyInt16StringOnly      opType = 991
-	opStructFieldAnonymousHeadStringTagInt16String          opType = 992
-	opStructFieldAnonymousHeadStringTagInt16StringOnly      opType = 993
-	opStructFieldPtrHeadInt16String                         opType = 994
-	opStructFieldPtrHeadInt16StringOnly                     opType = 995
-	opStructFieldPtrHeadOmitEmptyInt16String                opType = 996
-	opStructFieldPtrHeadOmitEmptyInt16StringOnly            opType = 997
-	opStructFieldPtrHeadStringTagInt16String                opType = 998
-	opStructFieldPtrHeadStringTagInt16StringOnly            opType = 999
-	opStructFieldPtrAnonymousHeadInt16String                opType = 1000
-	opStructFieldPtrAnonymousHeadInt16StringOnly            opType = 1001
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16String       opType = 1002
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16StringOnly   opType = 1003
-	opStructFieldPtrAnonymousHeadStringTagInt16String       opType = 1004
-	opStructFieldPtrAnonymousHeadStringTagInt16StringOnly   opType = 1005
-	opStructFieldNPtrHeadInt16String                        opType = 1006
-	opStructFieldNPtrHeadInt16StringOnly                    opType = 1007
-	opStructFieldNPtrHeadOmitEmptyInt16String               opType = 1008
-	opStructFieldNPtrHeadOmitEmptyInt16StringOnly           opType = 1009
-	opStructFieldNPtrHeadStringTagInt16String               opType = 1010
-	opStructFieldNPtrHeadStringTagInt16StringOnly           opType = 1011
-	opStructFieldNPtrAnonymousHeadInt16String               opType = 1012
-	opStructFieldNPtrAnonymousHeadInt16StringOnly           opType = 1013
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16String      opType = 1014
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16StringOnly  opType = 1015
-	opStructFieldNPtrAnonymousHeadStringTagInt16String      opType = 1016
-	opStructFieldNPtrAnonymousHeadStringTagInt16StringOnly  opType = 1017
-	opStructFieldHeadInt32String                            opType = 1018
-	opStructFieldHeadInt32StringOnly                        opType = 1019
-	opStructFieldHeadOmitEmptyInt32String                   opType = 1020
-	opStructFieldHeadOmitEmptyInt32StringOnly               opType = 1021
-	opStructFieldHeadStringTagInt32String                   opType = 1022
-	opStructFieldHeadStringTagInt32StringOnly               opType = 1023
-	opStructFieldAnonymousHeadInt32String                   opType = 1024
-	opStructFieldAnonymousHeadInt32StringOnly               opType = 1025
-	opStructFieldAnonymousHeadOmitEmptyInt32String          opType = 1026
-	opStructFieldAnonymousHeadOmitEmptyInt32StringOnly      opType = 1027
-	opStructFieldAnonymousHeadStringTagInt32String          opType = 1028
-	opStructFieldAnonymousHeadStringTagInt32StringOnly      opType = 1029
-	opStructFieldPtrHeadInt32String                         opType = 1030
-	opStructFieldPtrHeadInt32StringOnly                     opType = 1031
-	opStructFieldPtrHeadOmitEmptyInt32String                opType = 1032
-	opStructFieldPtrHeadOmitEmptyInt32StringOnly            opType = 1033
-	opStructFieldPtrHeadStringTagInt32String                opType = 1034
-	opStructFieldPtrHeadStringTagInt32StringOnly            opType = 1035
-	opStructFieldPtrAnonymousHeadInt32String                opType = 1036
-	opStructFieldPtrAnonymousHeadInt32StringOnly            opType = 1037
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32String       opType = 1038
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32StringOnly   opType = 1039
-	opStructFieldPtrAnonymousHeadStringTagInt32String       opType = 1040
-	opStructFieldPtrAnonymousHeadStringTagInt32StringOnly   opType = 1041
-	opStructFieldNPtrHeadInt32String                        opType = 1042
-	opStructFieldNPtrHeadInt32StringOnly                    opType = 1043
-	opStructFieldNPtrHeadOmitEmptyInt32String               opType = 1044
-	opStructFieldNPtrHeadOmitEmptyInt32StringOnly           opType = 1045
-	opStructFieldNPtrHeadStringTagInt32String               opType = 1046
-	opStructFieldNPtrHeadStringTagInt32StringOnly           opType = 1047
-	opStructFieldNPtrAnonymousHeadInt32String               opType = 1048
-	opStructFieldNPtrAnonymousHeadInt32StringOnly           opType = 1049
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32String      opType = 1050
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32StringOnly  opType = 1051
-	opStructFieldNPtrAnonymousHeadStringTagInt32String      opType = 1052
-	opStructFieldNPtrAnonymousHeadStringTagInt32StringOnly  opType = 1053
-	opStructFieldHeadInt64String                            opType = 1054
-	opStructFieldHeadInt64StringOnly                        opType = 1055
-	opStructFieldHeadOmitEmptyInt64String                   opType = 1056
-	opStructFieldHeadOmitEmptyInt64StringOnly               opType = 1057
-	opStructFieldHeadStringTagInt64String                   opType = 1058
-	opStructFieldHeadStringTagInt64StringOnly               opType = 1059
-	opStructFieldAnonymousHeadInt64String                   opType = 1060
-	opStructFieldAnonymousHeadInt64StringOnly               opType = 1061
-	opStructFieldAnonymousHeadOmitEmptyInt64String          opType = 1062
-	opStructFieldAnonymousHeadOmitEmptyInt64StringOnly      opType = 1063
-	opStructFieldAnonymousHeadStringTagInt64String          opType = 1064
-	opStructFieldAnonymousHeadStringTagInt64StringOnly      opType = 1065
-	opStructFieldPtrHeadInt64String                         opType = 1066
-	opStructFieldPtrHeadInt64StringOnly                     opType = 1067
-	opStructFieldPtrHeadOmitEmptyInt64String                opType = 1068
-	opStructFieldPtrHeadOmitEmptyInt64StringOnly            opType = 1069
-	opStructFieldPtrHeadStringTagInt64String                opType = 1070
-	opStructFieldPtrHeadStringTagInt64StringOnly            opType = 1071
-	opStructFieldPtrAnonymousHeadInt64String                opType = 1072
-	opStructFieldPtrAnonymousHeadInt64StringOnly            opType = 1073
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64String       opType = 1074
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64StringOnly   opType = 1075
-	opStructFieldPtrAnonymousHeadStringTagInt64String       opType = 1076
-	opStructFieldPtrAnonymousHeadStringTagInt64StringOnly   opType = 1077
-	opStructFieldNPtrHeadInt64String                        opType = 1078
-	opStructFieldNPtrHeadInt64StringOnly                    opType = 1079
-	opStructFieldNPtrHeadOmitEmptyInt64String               opType = 1080
-	opStructFieldNPtrHeadOmitEmptyInt64StringOnly           opType = 1081
-	opStructFieldNPtrHeadStringTagInt64String               opType = 1082
-	opStructFieldNPtrHeadStringTagInt64StringOnly           opType = 1083
-	opStructFieldNPtrAnonymousHeadInt64String               opType = 1084
-	opStructFieldNPtrAnonymousHeadInt64StringOnly           opType = 1085
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64String      opType = 1086
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64StringOnly  opType = 1087
-	opStructFieldNPtrAnonymousHeadStringTagInt64String      opType = 1088
-	opStructFieldNPtrAnonymousHeadStringTagInt64StringOnly  opType = 1089
-	opStructFieldHeadUintString                             opType = 1090
-	opStructFieldHeadUintStringOnly                         opType = 1091
-	opStructFieldHeadOmitEmptyUintString                    opType = 1092
-	opStructFieldHeadOmitEmptyUintStringOnly                opType = 1093
-	opStructFieldHeadStringTagUintString                    opType = 1094
-	opStructFieldHeadStringTagUintStringOnly                opType = 1095
-	opStructFieldAnonymousHeadUintString                    opType = 1096
-	opStructFieldAnonymousHeadUintStringOnly                opType = 1097
-	opStructFieldAnonymousHeadOmitEmptyUintString           opType = 1098
-	opStructFieldAnonymousHeadOmitEmptyUintStringOnly       opType = 1099
-	opStructFieldAnonymousHeadStringTagUintString           opType = 1100
-	opStructFieldAnonymousHeadStringTagUintStringOnly       opType = 1101
-	opStructFieldPtrHeadUintString                          opType = 1102
-	opStructFieldPtrHeadUintStringOnly                      opType = 1103
-	opStructFieldPtrHeadOmitEmptyUintString                 opType = 1104
-	opStructFieldPtrHeadOmitEmptyUintStringOnly             opType = 1105
-	opStructFieldPtrHeadStringTagUintString                 opType = 1106
-	opStructFieldPtrHeadStringTagUintStringOnly             opType = 1107
-	opStructFieldPtrAnonymousHeadUintString                 opType = 1108
-	opStructFieldPtrAnonymousHeadUintStringOnly             opType = 1109
-	opStructFieldPtrAnonymousHeadOmitEmptyUintString        opType = 1110
-	opStructFieldPtrAnonymousHeadOmitEmptyUintStringOnly    opType = 1111
-	opStructFieldPtrAnonymousHeadStringTagUintString        opType = 1112
-	opStructFieldPtrAnonymousHeadStringTagUintStringOnly    opType = 1113
-	opStructFieldNPtrHeadUintString                         opType = 1114
-	opStructFieldNPtrHeadUintStringOnly                     opType = 1115
-	opStructFieldNPtrHeadOmitEmptyUintString                opType = 1116
-	opStructFieldNPtrHeadOmitEmptyUintStringOnly            opType = 1117
-	opStructFieldNPtrHeadStringTagUintString                opType = 1118
-	opStructFieldNPtrHeadStringTagUintStringOnly            opType = 1119
-	opStructFieldNPtrAnonymousHeadUintString                opType = 1120
-	opStructFieldNPtrAnonymousHeadUintStringOnly            opType = 1121
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintString       opType = 1122
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintStringOnly   opType = 1123
-	opStructFieldNPtrAnonymousHeadStringTagUintString       opType = 1124
-	opStructFieldNPtrAnonymousHeadStringTagUintStringOnly   opType = 1125
-	opStructFieldHeadUint8String                            opType = 1126
-	opStructFieldHeadUint8StringOnly                        opType = 1127
-	opStructFieldHeadOmitEmptyUint8String                   opType = 1128
-	opStructFieldHeadOmitEmptyUint8StringOnly               opType = 1129
-	opStructFieldHeadStringTagUint8String                   opType = 1130
-	opStructFieldHeadStringTagUint8StringOnly               opType = 1131
-	opStructFieldAnonymousHeadUint8String                   opType = 1132
-	opStructFieldAnonymousHeadUint8StringOnly               opType = 1133
-	opStructFieldAnonymousHeadOmitEmptyUint8String          opType = 1134
-	opStructFieldAnonymousHeadOmitEmptyUint8StringOnly      opType = 1135
-	opStructFieldAnonymousHeadStringTagUint8String          opType = 1136
-	opStructFieldAnonymousHeadStringTagUint8StringOnly      opType = 1137
-	opStructFieldPtrHeadUint8String                         opType = 1138
-	opStructFieldPtrHeadUint8StringOnly                     opType = 1139
-	opStructFieldPtrHeadOmitEmptyUint8String                opType = 1140
-	opStructFieldPtrHeadOmitEmptyUint8StringOnly            opType = 1141
-	opStructFieldPtrHeadStringTagUint8String                opType = 1142
-	opStructFieldPtrHeadStringTagUint8StringOnly            opType = 1143
-	opStructFieldPtrAnonymousHeadUint8String                opType = 1144
-	opStructFieldPtrAnonymousHeadUint8StringOnly            opType = 1145
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8String       opType = 1146
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8StringOnly   opType = 1147
-	opStructFieldPtrAnonymousHeadStringTagUint8String       opType = 1148
-	opStructFieldPtrAnonymousHeadStringTagUint8StringOnly   opType = 1149
-	opStructFieldNPtrHeadUint8String                        opType = 1150
-	opStructFieldNPtrHeadUint8StringOnly                    opType = 1151
-	opStructFieldNPtrHeadOmitEmptyUint8String               opType = 1152
-	opStructFieldNPtrHeadOmitEmptyUint8StringOnly           opType = 1153
-	opStructFieldNPtrHeadStringTagUint8String               opType = 1154
-	opStructFieldNPtrHeadStringTagUint8StringOnly           opType = 1155
-	opStructFieldNPtrAnonymousHeadUint8String               opType = 1156
-	opStructFieldNPtrAnonymousHeadUint8StringOnly           opType = 1157
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8String      opType = 1158
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8StringOnly  opType = 1159
-	opStructFieldNPtrAnonymousHeadStringTagUint8String      opType = 1160
-	opStructFieldNPtrAnonymousHeadStringTagUint8StringOnly  opType = 1161
-	opStructFieldHeadUint16String                           opType = 1162
-	opStructFieldHeadUint16StringOnly                       opType = 1163
-	opStructFieldHeadOmitEmptyUint16String                  opType = 1164
-	opStructFieldHeadOmitEmptyUint16StringOnly              opType = 1165
-	opStructFieldHeadStringTagUint16String                  opType = 1166
-	opStructFieldHeadStringTagUint16StringOnly              opType = 1167
-	opStructFieldAnonymousHeadUint16String                  opType = 1168
-	opStructFieldAnonymousHeadUint16StringOnly              opType = 1169
-	opStructFieldAnonymousHeadOmitEmptyUint16String         opType = 1170
-	opStructFieldAnonymousHeadOmitEmptyUint16StringOnly     opType = 1171
-	opStructFieldAnonymousHeadStringTagUint16String         opType = 1172
-	opStructFieldAnonymousHeadStringTagUint16StringOnly     opType = 1173
-	opStructFieldPtrHeadUint16String                        opType = 1174
-	opStructFieldPtrHeadUint16StringOnly                    opType = 1175
-	opStructFieldPtrHeadOmitEmptyUint16String               opType = 1176
-	opStructFieldPtrHeadOmitEmptyUint16StringOnly           opType = 1177
-	opStructFieldPtrHeadStringTagUint16String               opType = 1178
-	opStructFieldPtrHeadStringTagUint16StringOnly           opType = 1179
-	opStructFieldPtrAnonymousHeadUint16String               opType = 1180
-	opStructFieldPtrAnonymousHeadUint16StringOnly           opType = 1181
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16String      opType = 1182
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16StringOnly  opType = 1183
-	opStructFieldPtrAnonymousHeadStringTagUint16String      opType = 1184
-	opStructFieldPtrAnonymousHeadStringTagUint16StringOnly  opType = 1185
-	opStructFieldNPtrHeadUint16String                       opType = 1186
-	opStructFieldNPtrHeadUint16StringOnly                   opType = 1187
-	opStructFieldNPtrHeadOmitEmptyUint16String              opType = 1188
-	opStructFieldNPtrHeadOmitEmptyUint16StringOnly          opType = 1189
-	opStructFieldNPtrHeadStringTagUint16String              opType = 1190
-	opStructFieldNPtrHeadStringTagUint16StringOnly          opType = 1191
-	opStructFieldNPtrAnonymousHeadUint16String              opType = 1192
-	opStructFieldNPtrAnonymousHeadUint16StringOnly          opType = 1193
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16String     opType = 1194
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16StringOnly opType = 1195
-	opStructFieldNPtrAnonymousHeadStringTagUint16String     opType = 1196
-	opStructFieldNPtrAnonymousHeadStringTagUint16StringOnly opType = 1197
-	opStructFieldHeadUint32String                           opType = 1198
-	opStructFieldHeadUint32StringOnly                       opType = 1199
-	opStructFieldHeadOmitEmptyUint32String                  opType = 1200
-	opStructFieldHeadOmitEmptyUint32StringOnly              opType = 1201
-	opStructFieldHeadStringTagUint32String                  opType = 1202
-	opStructFieldHeadStringTagUint32StringOnly              opType = 1203
-	opStructFieldAnonymousHeadUint32String                  opType = 1204
-	opStructFieldAnonymousHeadUint32StringOnly              opType = 1205
-	opStructFieldAnonymousHeadOmitEmptyUint32String         opType = 1206
-	opStructFieldAnonymousHeadOmitEmptyUint32StringOnly     opType = 1207
-	opStructFieldAnonymousHeadStringTagUint32String         opType = 1208
-	opStructFieldAnonymousHeadStringTagUint32StringOnly     opType = 1209
-	opStructFieldPtrHeadUint32String                        opType = 1210
-	opStructFieldPtrHeadUint32StringOnly                    opType = 1211
-	opStructFieldPtrHeadOmitEmptyUint32String               opType = 1212
-	opStructFieldPtrHeadOmitEmptyUint32StringOnly           opType = 1213
-	opStructFieldPtrHeadStringTagUint32String               opType = 1214
-	opStructFieldPtrHeadStringTagUint32StringOnly           opType = 1215
-	opStructFieldPtrAnonymousHeadUint32String               opType = 1216
-	opStructFieldPtrAnonymousHeadUint32StringOnly           opType = 1217
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32String      opType = 1218
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32StringOnly  opType = 1219
-	opStructFieldPtrAnonymousHeadStringTagUint32String      opType = 1220
-	opStructFieldPtrAnonymousHeadStringTagUint32StringOnly  opType = 1221
-	opStructFieldNPtrHeadUint32String                       opType = 1222
-	opStructFieldNPtrHeadUint32StringOnly                   opType = 1223
-	opStructFieldNPtrHeadOmitEmptyUint32String              opType = 1224
-	opStructFieldNPtrHeadOmitEmptyUint32StringOnly          opType = 1225
-	opStructFieldNPtrHeadStringTagUint32String              opType = 1226
-	opStructFieldNPtrHeadStringTagUint32StringOnly          opType = 1227
-	opStructFieldNPtrAnonymousHeadUint32String              opType = 1228
-	opStructFieldNPtrAnonymousHeadUint32StringOnly          opType = 1229
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32String     opType = 1230
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32StringOnly opType = 1231
-	opStructFieldNPtrAnonymousHeadStringTagUint32String     opType = 1232
-	opStructFieldNPtrAnonymousHeadStringTagUint32StringOnly opType = 1233
-	opStructFieldHeadUint64String                           opType = 1234
-	opStructFieldHeadUint64StringOnly                       opType = 1235
-	opStructFieldHeadOmitEmptyUint64String                  opType = 1236
-	opStructFieldHeadOmitEmptyUint64StringOnly              opType = 1237
-	opStructFieldHeadStringTagUint64String                  opType = 1238
-	opStructFieldHeadStringTagUint64StringOnly              opType = 1239
-	opStructFieldAnonymousHeadUint64String                  opType = 1240
-	opStructFieldAnonymousHeadUint64StringOnly              opType = 1241
-	opStructFieldAnonymousHeadOmitEmptyUint64String         opType = 1242
-	opStructFieldAnonymousHeadOmitEmptyUint64StringOnly     opType = 1243
-	opStructFieldAnonymousHeadStringTagUint64String         opType = 1244
-	opStructFieldAnonymousHeadStringTagUint64StringOnly     opType = 1245
-	opStructFieldPtrHeadUint64String                        opType = 1246
-	opStructFieldPtrHeadUint64StringOnly                    opType = 1247
-	opStructFieldPtrHeadOmitEmptyUint64String               opType = 1248
-	opStructFieldPtrHeadOmitEmptyUint64StringOnly           opType = 1249
-	opStructFieldPtrHeadStringTagUint64String               opType = 1250
-	opStructFieldPtrHeadStringTagUint64StringOnly           opType = 1251
-	opStructFieldPtrAnonymousHeadUint64String               opType = 1252
-	opStructFieldPtrAnonymousHeadUint64StringOnly           opType = 1253
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64String      opType = 1254
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64StringOnly  opType = 1255
-	opStructFieldPtrAnonymousHeadStringTagUint64String      opType = 1256
-	opStructFieldPtrAnonymousHeadStringTagUint64StringOnly  opType = 1257
-	opStructFieldNPtrHeadUint64String                       opType = 1258
-	opStructFieldNPtrHeadUint64StringOnly                   opType = 1259
-	opStructFieldNPtrHeadOmitEmptyUint64String              opType = 1260
-	opStructFieldNPtrHeadOmitEmptyUint64StringOnly          opType = 1261
-	opStructFieldNPtrHeadStringTagUint64String              opType = 1262
-	opStructFieldNPtrHeadStringTagUint64StringOnly          opType = 1263
-	opStructFieldNPtrAnonymousHeadUint64String              opType = 1264
-	opStructFieldNPtrAnonymousHeadUint64StringOnly          opType = 1265
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64String     opType = 1266
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64StringOnly opType = 1267
-	opStructFieldNPtrAnonymousHeadStringTagUint64String     opType = 1268
-	opStructFieldNPtrAnonymousHeadStringTagUint64StringOnly opType = 1269
-	opStructFieldHeadIntPtr                                 opType = 1270
-	opStructFieldHeadIntPtrOnly                             opType = 1271
-	opStructFieldHeadOmitEmptyIntPtr                        opType = 1272
-	opStructFieldHeadOmitEmptyIntPtrOnly                    opType = 1273
-	opStructFieldHeadStringTagIntPtr                        opType = 1274
-	opStructFieldHeadStringTagIntPtrOnly                    opType = 1275
-	opStructFieldAnonymousHeadIntPtr                        opType = 1276
-	opStructFieldAnonymousHeadIntPtrOnly                    opType = 1277
-	opStructFieldAnonymousHeadOmitEmptyIntPtr               opType = 1278
-	opStructFieldAnonymousHeadOmitEmptyIntPtrOnly           opType = 1279
-	opStructFieldAnonymousHeadStringTagIntPtr               opType = 1280
-	opStructFieldAnonymousHeadStringTagIntPtrOnly           opType = 1281
-	opStructFieldPtrHeadIntPtr                              opType = 1282
-	opStructFieldPtrHeadIntPtrOnly                          opType = 1283
-	opStructFieldPtrHeadOmitEmptyIntPtr                     opType = 1284
-	opStructFieldPtrHeadOmitEmptyIntPtrOnly                 opType = 1285
-	opStructFieldPtrHeadStringTagIntPtr                     opType = 1286
-	opStructFieldPtrHeadStringTagIntPtrOnly                 opType = 1287
-	opStructFieldPtrAnonymousHeadIntPtr                     opType = 1288
-	opStructFieldPtrAnonymousHeadIntPtrOnly                 opType = 1289
-	opStructFieldPtrAnonymousHeadOmitEmptyIntPtr            opType = 1290
-	opStructFieldPtrAnonymousHeadOmitEmptyIntPtrOnly        opType = 1291
-	opStructFieldPtrAnonymousHeadStringTagIntPtr            opType = 1292
-	opStructFieldPtrAnonymousHeadStringTagIntPtrOnly        opType = 1293
-	opStructFieldNPtrHeadIntPtr                             opType = 1294
-	opStructFieldNPtrHeadIntPtrOnly                         opType = 1295
-	opStructFieldNPtrHeadOmitEmptyIntPtr                    opType = 1296
-	opStructFieldNPtrHeadOmitEmptyIntPtrOnly                opType = 1297
-	opStructFieldNPtrHeadStringTagIntPtr                    opType = 1298
-	opStructFieldNPtrHeadStringTagIntPtrOnly                opType = 1299
-	opStructFieldNPtrAnonymousHeadIntPtr                    opType = 1300
-	opStructFieldNPtrAnonymousHeadIntPtrOnly                opType = 1301
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntPtr           opType = 1302
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntPtrOnly       opType = 1303
-	opStructFieldNPtrAnonymousHeadStringTagIntPtr           opType = 1304
-	opStructFieldNPtrAnonymousHeadStringTagIntPtrOnly       opType = 1305
-	opStructFieldHeadInt8Ptr                                opType = 1306
-	opStructFieldHeadInt8PtrOnly                            opType = 1307
-	opStructFieldHeadOmitEmptyInt8Ptr                       opType = 1308
-	opStructFieldHeadOmitEmptyInt8PtrOnly                   opType = 1309
-	opStructFieldHeadStringTagInt8Ptr                       opType = 1310
-	opStructFieldHeadStringTagInt8PtrOnly                   opType = 1311
-	opStructFieldAnonymousHeadInt8Ptr                       opType = 1312
-	opStructFieldAnonymousHeadInt8PtrOnly                   opType = 1313
-	opStructFieldAnonymousHeadOmitEmptyInt8Ptr              opType = 1314
-	opStructFieldAnonymousHeadOmitEmptyInt8PtrOnly          opType = 1315
-	opStructFieldAnonymousHeadStringTagInt8Ptr              opType = 1316
-	opStructFieldAnonymousHeadStringTagInt8PtrOnly          opType = 1317
-	opStructFieldPtrHeadInt8Ptr                             opType = 1318
-	opStructFieldPtrHeadInt8PtrOnly                         opType = 1319
-	opStructFieldPtrHeadOmitEmptyInt8Ptr                    opType = 1320
-	opStructFieldPtrHeadOmitEmptyInt8PtrOnly                opType = 1321
-	opStructFieldPtrHeadStringTagInt8Ptr                    opType = 1322
-	opStructFieldPtrHeadStringTagInt8PtrOnly                opType = 1323
-	opStructFieldPtrAnonymousHeadInt8Ptr                    opType = 1324
-	opStructFieldPtrAnonymousHeadInt8PtrOnly                opType = 1325
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8Ptr           opType = 1326
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8PtrOnly       opType = 1327
-	opStructFieldPtrAnonymousHeadStringTagInt8Ptr           opType = 1328
-	opStructFieldPtrAnonymousHeadStringTagInt8PtrOnly       opType = 1329
-	opStructFieldNPtrHeadInt8Ptr                            opType = 1330
-	opStructFieldNPtrHeadInt8PtrOnly                        opType = 1331
-	opStructFieldNPtrHeadOmitEmptyInt8Ptr                   opType = 1332
-	opStructFieldNPtrHeadOmitEmptyInt8PtrOnly               opType = 1333
-	opStructFieldNPtrHeadStringTagInt8Ptr                   opType = 1334
-	opStructFieldNPtrHeadStringTagInt8PtrOnly               opType = 1335
-	opStructFieldNPtrAnonymousHeadInt8Ptr                   opType = 1336
-	opStructFieldNPtrAnonymousHeadInt8PtrOnly               opType = 1337
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8Ptr          opType = 1338
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8PtrOnly      opType = 1339
-	opStructFieldNPtrAnonymousHeadStringTagInt8Ptr          opType = 1340
-	opStructFieldNPtrAnonymousHeadStringTagInt8PtrOnly      opType = 1341
-	opStructFieldHeadInt16Ptr                               opType = 1342
-	opStructFieldHeadInt16PtrOnly                           opType = 1343
-	opStructFieldHeadOmitEmptyInt16Ptr                      opType = 1344
-	opStructFieldHeadOmitEmptyInt16PtrOnly                  opType = 1345
-	opStructFieldHeadStringTagInt16Ptr                      opType = 1346
-	opStructFieldHeadStringTagInt16PtrOnly                  opType = 1347
-	opStructFieldAnonymousHeadInt16Ptr                      opType = 1348
-	opStructFieldAnonymousHeadInt16PtrOnly                  opType = 1349
-	opStructFieldAnonymousHeadOmitEmptyInt16Ptr             opType = 1350
-	opStructFieldAnonymousHeadOmitEmptyInt16PtrOnly         opType = 1351
-	opStructFieldAnonymousHeadStringTagInt16Ptr             opType = 1352
-	opStructFieldAnonymousHeadStringTagInt16PtrOnly         opType = 1353
-	opStructFieldPtrHeadInt16Ptr                            opType = 1354
-	opStructFieldPtrHeadInt16PtrOnly                        opType = 1355
-	opStructFieldPtrHeadOmitEmptyInt16Ptr                   opType = 1356
-	opStructFieldPtrHeadOmitEmptyInt16PtrOnly               opType = 1357
-	opStructFieldPtrHeadStringTagInt16Ptr                   opType = 1358
-	opStructFieldPtrHeadStringTagInt16PtrOnly               opType = 1359
-	opStructFieldPtrAnonymousHeadInt16Ptr                   opType = 1360
-	opStructFieldPtrAnonymousHeadInt16PtrOnly               opType = 1361
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16Ptr          opType = 1362
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16PtrOnly      opType = 1363
-	opStructFieldPtrAnonymousHeadStringTagInt16Ptr          opType = 1364
-	opStructFieldPtrAnonymousHeadStringTagInt16PtrOnly      opType = 1365
-	opStructFieldNPtrHeadInt16Ptr                           opType = 1366
-	opStructFieldNPtrHeadInt16PtrOnly                       opType = 1367
-	opStructFieldNPtrHeadOmitEmptyInt16Ptr                  opType = 1368
-	opStructFieldNPtrHeadOmitEmptyInt16PtrOnly              opType = 1369
-	opStructFieldNPtrHeadStringTagInt16Ptr                  opType = 1370
-	opStructFieldNPtrHeadStringTagInt16PtrOnly              opType = 1371
-	opStructFieldNPtrAnonymousHeadInt16Ptr                  opType = 1372
-	opStructFieldNPtrAnonymousHeadInt16PtrOnly              opType = 1373
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16Ptr         opType = 1374
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16PtrOnly     opType = 1375
-	opStructFieldNPtrAnonymousHeadStringTagInt16Ptr         opType = 1376
-	opStructFieldNPtrAnonymousHeadStringTagInt16PtrOnly     opType = 1377
-	opStructFieldHeadInt32Ptr                               opType = 1378
-	opStructFieldHeadInt32PtrOnly                           opType = 1379
-	opStructFieldHeadOmitEmptyInt32Ptr                      opType = 1380
-	opStructFieldHeadOmitEmptyInt32PtrOnly                  opType = 1381
-	opStructFieldHeadStringTagInt32Ptr                      opType = 1382
-	opStructFieldHeadStringTagInt32PtrOnly                  opType = 1383
-	opStructFieldAnonymousHeadInt32Ptr                      opType = 1384
-	opStructFieldAnonymousHeadInt32PtrOnly                  opType = 1385
-	opStructFieldAnonymousHeadOmitEmptyInt32Ptr             opType = 1386
-	opStructFieldAnonymousHeadOmitEmptyInt32PtrOnly         opType = 1387
-	opStructFieldAnonymousHeadStringTagInt32Ptr             opType = 1388
-	opStructFieldAnonymousHeadStringTagInt32PtrOnly         opType = 1389
-	opStructFieldPtrHeadInt32Ptr                            opType = 1390
-	opStructFieldPtrHeadInt32PtrOnly                        opType = 1391
-	opStructFieldPtrHeadOmitEmptyInt32Ptr                   opType = 1392
-	opStructFieldPtrHeadOmitEmptyInt32PtrOnly               opType = 1393
-	opStructFieldPtrHeadStringTagInt32Ptr                   opType = 1394
-	opStructFieldPtrHeadStringTagInt32PtrOnly               opType = 1395
-	opStructFieldPtrAnonymousHeadInt32Ptr                   opType = 1396
-	opStructFieldPtrAnonymousHeadInt32PtrOnly               opType = 1397
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32Ptr          opType = 1398
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32PtrOnly      opType = 1399
-	opStructFieldPtrAnonymousHeadStringTagInt32Ptr          opType = 1400
-	opStructFieldPtrAnonymousHeadStringTagInt32PtrOnly      opType = 1401
-	opStructFieldNPtrHeadInt32Ptr                           opType = 1402
-	opStructFieldNPtrHeadInt32PtrOnly                       opType = 1403
-	opStructFieldNPtrHeadOmitEmptyInt32Ptr                  opType = 1404
-	opStructFieldNPtrHeadOmitEmptyInt32PtrOnly              opType = 1405
-	opStructFieldNPtrHeadStringTagInt32Ptr                  opType = 1406
-	opStructFieldNPtrHeadStringTagInt32PtrOnly              opType = 1407
-	opStructFieldNPtrAnonymousHeadInt32Ptr                  opType = 1408
-	opStructFieldNPtrAnonymousHeadInt32PtrOnly              opType = 1409
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32Ptr         opType = 1410
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32PtrOnly     opType = 1411
-	opStructFieldNPtrAnonymousHeadStringTagInt32Ptr         opType = 1412
-	opStructFieldNPtrAnonymousHeadStringTagInt32PtrOnly     opType = 1413
-	opStructFieldHeadInt64Ptr                               opType = 1414
-	opStructFieldHeadInt64PtrOnly                           opType = 1415
-	opStructFieldHeadOmitEmptyInt64Ptr                      opType = 1416
-	opStructFieldHeadOmitEmptyInt64PtrOnly                  opType = 1417
-	opStructFieldHeadStringTagInt64Ptr                      opType = 1418
-	opStructFieldHeadStringTagInt64PtrOnly                  opType = 1419
-	opStructFieldAnonymousHeadInt64Ptr                      opType = 1420
-	opStructFieldAnonymousHeadInt64PtrOnly                  opType = 1421
-	opStructFieldAnonymousHeadOmitEmptyInt64Ptr             opType = 1422
-	opStructFieldAnonymousHeadOmitEmptyInt64PtrOnly         opType = 1423
-	opStructFieldAnonymousHeadStringTagInt64Ptr             opType = 1424
-	opStructFieldAnonymousHeadStringTagInt64PtrOnly         opType = 1425
-	opStructFieldPtrHeadInt64Ptr                            opType = 1426
-	opStructFieldPtrHeadInt64PtrOnly                        opType = 1427
-	opStructFieldPtrHeadOmitEmptyInt64Ptr                   opType = 1428
-	opStructFieldPtrHeadOmitEmptyInt64PtrOnly               opType = 1429
-	opStructFieldPtrHeadStringTagInt64Ptr                   opType = 1430
-	opStructFieldPtrHeadStringTagInt64PtrOnly               opType = 1431
-	opStructFieldPtrAnonymousHeadInt64Ptr                   opType = 1432
-	opStructFieldPtrAnonymousHeadInt64PtrOnly               opType = 1433
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64Ptr          opType = 1434
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64PtrOnly      opType = 1435
-	opStructFieldPtrAnonymousHeadStringTagInt64Ptr          opType = 1436
-	opStructFieldPtrAnonymousHeadStringTagInt64PtrOnly      opType = 1437
-	opStructFieldNPtrHeadInt64Ptr                           opType = 1438
-	opStructFieldNPtrHeadInt64PtrOnly                       opType = 1439
-	opStructFieldNPtrHeadOmitEmptyInt64Ptr                  opType = 1440
-	opStructFieldNPtrHeadOmitEmptyInt64PtrOnly              opType = 1441
-	opStructFieldNPtrHeadStringTagInt64Ptr                  opType = 1442
-	opStructFieldNPtrHeadStringTagInt64PtrOnly              opType = 1443
-	opStructFieldNPtrAnonymousHeadInt64Ptr                  opType = 1444
-	opStructFieldNPtrAnonymousHeadInt64PtrOnly              opType = 1445
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64Ptr         opType = 1446
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64PtrOnly     opType = 1447
-	opStructFieldNPtrAnonymousHeadStringTagInt64Ptr         opType = 1448
-	opStructFieldNPtrAnonymousHeadStringTagInt64PtrOnly     opType = 1449
-	opStructFieldHeadUintPtr                                opType = 1450
-	opStructFieldHeadUintPtrOnly                            opType = 1451
-	opStructFieldHeadOmitEmptyUintPtr                       opType = 1452
-	opStructFieldHeadOmitEmptyUintPtrOnly                   opType = 1453
-	opStructFieldHeadStringTagUintPtr                       opType = 1454
-	opStructFieldHeadStringTagUintPtrOnly                   opType = 1455
-	opStructFieldAnonymousHeadUintPtr                       opType = 1456
-	opStructFieldAnonymousHeadUintPtrOnly                   opType = 1457
-	opStructFieldAnonymousHeadOmitEmptyUintPtr              opType = 1458
-	opStructFieldAnonymousHeadOmitEmptyUintPtrOnly          opType = 1459
-	opStructFieldAnonymousHeadStringTagUintPtr              opType = 1460
-	opStructFieldAnonymousHeadStringTagUintPtrOnly          opType = 1461
-	opStructFieldPtrHeadUintPtr                             opType = 1462
-	opStructFieldPtrHeadUintPtrOnly                         opType = 1463
-	opStructFieldPtrHeadOmitEmptyUintPtr                    opType = 1464
-	opStructFieldPtrHeadOmitEmptyUintPtrOnly                opType = 1465
-	opStructFieldPtrHeadStringTagUintPtr                    opType = 1466
-	opStructFieldPtrHeadStringTagUintPtrOnly                opType = 1467
-	opStructFieldPtrAnonymousHeadUintPtr                    opType = 1468
-	opStructFieldPtrAnonymousHeadUintPtrOnly                opType = 1469
-	opStructFieldPtrAnonymousHeadOmitEmptyUintPtr           opType = 1470
-	opStructFieldPtrAnonymousHeadOmitEmptyUintPtrOnly       opType = 1471
-	opStructFieldPtrAnonymousHeadStringTagUintPtr           opType = 1472
-	opStructFieldPtrAnonymousHeadStringTagUintPtrOnly       opType = 1473
-	opStructFieldNPtrHeadUintPtr                            opType = 1474
-	opStructFieldNPtrHeadUintPtrOnly                        opType = 1475
-	opStructFieldNPtrHeadOmitEmptyUintPtr                   opType = 1476
-	opStructFieldNPtrHeadOmitEmptyUintPtrOnly               opType = 1477
-	opStructFieldNPtrHeadStringTagUintPtr                   opType = 1478
-	opStructFieldNPtrHeadStringTagUintPtrOnly               opType = 1479
-	opStructFieldNPtrAnonymousHeadUintPtr                   opType = 1480
-	opStructFieldNPtrAnonymousHeadUintPtrOnly               opType = 1481
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintPtr          opType = 1482
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintPtrOnly      opType = 1483
-	opStructFieldNPtrAnonymousHeadStringTagUintPtr          opType = 1484
-	opStructFieldNPtrAnonymousHeadStringTagUintPtrOnly      opType = 1485
-	opStructFieldHeadUint8Ptr                               opType = 1486
-	opStructFieldHeadUint8PtrOnly                           opType = 1487
-	opStructFieldHeadOmitEmptyUint8Ptr                      opType = 1488
-	opStructFieldHeadOmitEmptyUint8PtrOnly                  opType = 1489
-	opStructFieldHeadStringTagUint8Ptr                      opType = 1490
-	opStructFieldHeadStringTagUint8PtrOnly                  opType = 1491
-	opStructFieldAnonymousHeadUint8Ptr                      opType = 1492
-	opStructFieldAnonymousHeadUint8PtrOnly                  opType = 1493
-	opStructFieldAnonymousHeadOmitEmptyUint8Ptr             opType = 1494
-	opStructFieldAnonymousHeadOmitEmptyUint8PtrOnly         opType = 1495
-	opStructFieldAnonymousHeadStringTagUint8Ptr             opType = 1496
-	opStructFieldAnonymousHeadStringTagUint8PtrOnly         opType = 1497
-	opStructFieldPtrHeadUint8Ptr                            opType = 1498
-	opStructFieldPtrHeadUint8PtrOnly                        opType = 1499
-	opStructFieldPtrHeadOmitEmptyUint8Ptr                   opType = 1500
-	opStructFieldPtrHeadOmitEmptyUint8PtrOnly               opType = 1501
-	opStructFieldPtrHeadStringTagUint8Ptr                   opType = 1502
-	opStructFieldPtrHeadStringTagUint8PtrOnly               opType = 1503
-	opStructFieldPtrAnonymousHeadUint8Ptr                   opType = 1504
-	opStructFieldPtrAnonymousHeadUint8PtrOnly               opType = 1505
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8Ptr          opType = 1506
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8PtrOnly      opType = 1507
-	opStructFieldPtrAnonymousHeadStringTagUint8Ptr          opType = 1508
-	opStructFieldPtrAnonymousHeadStringTagUint8PtrOnly      opType = 1509
-	opStructFieldNPtrHeadUint8Ptr                           opType = 1510
-	opStructFieldNPtrHeadUint8PtrOnly                       opType = 1511
-	opStructFieldNPtrHeadOmitEmptyUint8Ptr                  opType = 1512
-	opStructFieldNPtrHeadOmitEmptyUint8PtrOnly              opType = 1513
-	opStructFieldNPtrHeadStringTagUint8Ptr                  opType = 1514
-	opStructFieldNPtrHeadStringTagUint8PtrOnly              opType = 1515
-	opStructFieldNPtrAnonymousHeadUint8Ptr                  opType = 1516
-	opStructFieldNPtrAnonymousHeadUint8PtrOnly              opType = 1517
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8Ptr         opType = 1518
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8PtrOnly     opType = 1519
-	opStructFieldNPtrAnonymousHeadStringTagUint8Ptr         opType = 1520
-	opStructFieldNPtrAnonymousHeadStringTagUint8PtrOnly     opType = 1521
-	opStructFieldHeadUint16Ptr                              opType = 1522
-	opStructFieldHeadUint16PtrOnly                          opType = 1523
-	opStructFieldHeadOmitEmptyUint16Ptr                     opType = 1524
-	opStructFieldHeadOmitEmptyUint16PtrOnly                 opType = 1525
-	opStructFieldHeadStringTagUint16Ptr                     opType = 1526
-	opStructFieldHeadStringTagUint16PtrOnly                 opType = 1527
-	opStructFieldAnonymousHeadUint16Ptr                     opType = 1528
-	opStructFieldAnonymousHeadUint16PtrOnly                 opType = 1529
-	opStructFieldAnonymousHeadOmitEmptyUint16Ptr            opType = 1530
-	opStructFieldAnonymousHeadOmitEmptyUint16PtrOnly        opType = 1531
-	opStructFieldAnonymousHeadStringTagUint16Ptr            opType = 1532
-	opStructFieldAnonymousHeadStringTagUint16PtrOnly        opType = 1533
-	opStructFieldPtrHeadUint16Ptr                           opType = 1534
-	opStructFieldPtrHeadUint16PtrOnly                       opType = 1535
-	opStructFieldPtrHeadOmitEmptyUint16Ptr                  opType = 1536
-	opStructFieldPtrHeadOmitEmptyUint16PtrOnly              opType = 1537
-	opStructFieldPtrHeadStringTagUint16Ptr                  opType = 1538
-	opStructFieldPtrHeadStringTagUint16PtrOnly              opType = 1539
-	opStructFieldPtrAnonymousHeadUint16Ptr                  opType = 1540
-	opStructFieldPtrAnonymousHeadUint16PtrOnly              opType = 1541
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16Ptr         opType = 1542
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16PtrOnly     opType = 1543
-	opStructFieldPtrAnonymousHeadStringTagUint16Ptr         opType = 1544
-	opStructFieldPtrAnonymousHeadStringTagUint16PtrOnly     opType = 1545
-	opStructFieldNPtrHeadUint16Ptr                          opType = 1546
-	opStructFieldNPtrHeadUint16PtrOnly                      opType = 1547
-	opStructFieldNPtrHeadOmitEmptyUint16Ptr                 opType = 1548
-	opStructFieldNPtrHeadOmitEmptyUint16PtrOnly             opType = 1549
-	opStructFieldNPtrHeadStringTagUint16Ptr                 opType = 1550
-	opStructFieldNPtrHeadStringTagUint16PtrOnly             opType = 1551
-	opStructFieldNPtrAnonymousHeadUint16Ptr                 opType = 1552
-	opStructFieldNPtrAnonymousHeadUint16PtrOnly             opType = 1553
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16Ptr        opType = 1554
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16PtrOnly    opType = 1555
-	opStructFieldNPtrAnonymousHeadStringTagUint16Ptr        opType = 1556
-	opStructFieldNPtrAnonymousHeadStringTagUint16PtrOnly    opType = 1557
-	opStructFieldHeadUint32Ptr                              opType = 1558
-	opStructFieldHeadUint32PtrOnly                          opType = 1559
-	opStructFieldHeadOmitEmptyUint32Ptr                     opType = 1560
-	opStructFieldHeadOmitEmptyUint32PtrOnly                 opType = 1561
-	opStructFieldHeadStringTagUint32Ptr                     opType = 1562
-	opStructFieldHeadStringTagUint32PtrOnly                 opType = 1563
-	opStructFieldAnonymousHeadUint32Ptr                     opType = 1564
-	opStructFieldAnonymousHeadUint32PtrOnly                 opType = 1565
-	opStructFieldAnonymousHeadOmitEmptyUint32Ptr            opType = 1566
-	opStructFieldAnonymousHeadOmitEmptyUint32PtrOnly        opType = 1567
-	opStructFieldAnonymousHeadStringTagUint32Ptr            opType = 1568
-	opStructFieldAnonymousHeadStringTagUint32PtrOnly        opType = 1569
-	opStructFieldPtrHeadUint32Ptr                           opType = 1570
-	opStructFieldPtrHeadUint32PtrOnly                       opType = 1571
-	opStructFieldPtrHeadOmitEmptyUint32Ptr                  opType = 1572
-	opStructFieldPtrHeadOmitEmptyUint32PtrOnly              opType = 1573
-	opStructFieldPtrHeadStringTagUint32Ptr                  opType = 1574
-	opStructFieldPtrHeadStringTagUint32PtrOnly              opType = 1575
-	opStructFieldPtrAnonymousHeadUint32Ptr                  opType = 1576
-	opStructFieldPtrAnonymousHeadUint32PtrOnly              opType = 1577
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32Ptr         opType = 1578
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32PtrOnly     opType = 1579
-	opStructFieldPtrAnonymousHeadStringTagUint32Ptr         opType = 1580
-	opStructFieldPtrAnonymousHeadStringTagUint32PtrOnly     opType = 1581
-	opStructFieldNPtrHeadUint32Ptr                          opType = 1582
-	opStructFieldNPtrHeadUint32PtrOnly                      opType = 1583
-	opStructFieldNPtrHeadOmitEmptyUint32Ptr                 opType = 1584
-	opStructFieldNPtrHeadOmitEmptyUint32PtrOnly             opType = 1585
-	opStructFieldNPtrHeadStringTagUint32Ptr                 opType = 1586
-	opStructFieldNPtrHeadStringTagUint32PtrOnly             opType = 1587
-	opStructFieldNPtrAnonymousHeadUint32Ptr                 opType = 1588
-	opStructFieldNPtrAnonymousHeadUint32PtrOnly             opType = 1589
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32Ptr        opType = 1590
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32PtrOnly    opType = 1591
-	opStructFieldNPtrAnonymousHeadStringTagUint32Ptr        opType = 1592
-	opStructFieldNPtrAnonymousHeadStringTagUint32PtrOnly    opType = 1593
-	opStructFieldHeadUint64Ptr                              opType = 1594
-	opStructFieldHeadUint64PtrOnly                          opType = 1595
-	opStructFieldHeadOmitEmptyUint64Ptr                     opType = 1596
-	opStructFieldHeadOmitEmptyUint64PtrOnly                 opType = 1597
-	opStructFieldHeadStringTagUint64Ptr                     opType = 1598
-	opStructFieldHeadStringTagUint64PtrOnly                 opType = 1599
-	opStructFieldAnonymousHeadUint64Ptr                     opType = 1600
-	opStructFieldAnonymousHeadUint64PtrOnly                 opType = 1601
-	opStructFieldAnonymousHeadOmitEmptyUint64Ptr            opType = 1602
-	opStructFieldAnonymousHeadOmitEmptyUint64PtrOnly        opType = 1603
-	opStructFieldAnonymousHeadStringTagUint64Ptr            opType = 1604
-	opStructFieldAnonymousHeadStringTagUint64PtrOnly        opType = 1605
-	opStructFieldPtrHeadUint64Ptr                           opType = 1606
-	opStructFieldPtrHeadUint64PtrOnly                       opType = 1607
-	opStructFieldPtrHeadOmitEmptyUint64Ptr                  opType = 1608
-	opStructFieldPtrHeadOmitEmptyUint64PtrOnly              opType = 1609
-	opStructFieldPtrHeadStringTagUint64Ptr                  opType = 1610
-	opStructFieldPtrHeadStringTagUint64PtrOnly              opType = 1611
-	opStructFieldPtrAnonymousHeadUint64Ptr                  opType = 1612
-	opStructFieldPtrAnonymousHeadUint64PtrOnly              opType = 1613
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64Ptr         opType = 1614
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64PtrOnly     opType = 1615
-	opStructFieldPtrAnonymousHeadStringTagUint64Ptr         opType = 1616
-	opStructFieldPtrAnonymousHeadStringTagUint64PtrOnly     opType = 1617
-	opStructFieldNPtrHeadUint64Ptr                          opType = 1618
-	opStructFieldNPtrHeadUint64PtrOnly                      opType = 1619
-	opStructFieldNPtrHeadOmitEmptyUint64Ptr                 opType = 1620
-	opStructFieldNPtrHeadOmitEmptyUint64PtrOnly             opType = 1621
-	opStructFieldNPtrHeadStringTagUint64Ptr                 opType = 1622
-	opStructFieldNPtrHeadStringTagUint64PtrOnly             opType = 1623
-	opStructFieldNPtrAnonymousHeadUint64Ptr                 opType = 1624
-	opStructFieldNPtrAnonymousHeadUint64PtrOnly             opType = 1625
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64Ptr        opType = 1626
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64PtrOnly    opType = 1627
-	opStructFieldNPtrAnonymousHeadStringTagUint64Ptr        opType = 1628
-	opStructFieldNPtrAnonymousHeadStringTagUint64PtrOnly    opType = 1629
-	opStructFieldHeadFloat32Ptr                             opType = 1630
-	opStructFieldHeadFloat32PtrOnly                         opType = 1631
-	opStructFieldHeadOmitEmptyFloat32Ptr                    opType = 1632
-	opStructFieldHeadOmitEmptyFloat32PtrOnly                opType = 1633
-	opStructFieldHeadStringTagFloat32Ptr                    opType = 1634
-	opStructFieldHeadStringTagFloat32PtrOnly                opType = 1635
-	opStructFieldAnonymousHeadFloat32Ptr                    opType = 1636
-	opStructFieldAnonymousHeadFloat32PtrOnly                opType = 1637
-	opStructFieldAnonymousHeadOmitEmptyFloat32Ptr           opType = 1638
-	opStructFieldAnonymousHeadOmitEmptyFloat32PtrOnly       opType = 1639
-	opStructFieldAnonymousHeadStringTagFloat32Ptr           opType = 1640
-	opStructFieldAnonymousHeadStringTagFloat32PtrOnly       opType = 1641
-	opStructFieldPtrHeadFloat32Ptr                          opType = 1642
-	opStructFieldPtrHeadFloat32PtrOnly                      opType = 1643
-	opStructFieldPtrHeadOmitEmptyFloat32Ptr                 opType = 1644
-	opStructFieldPtrHeadOmitEmptyFloat32PtrOnly             opType = 1645
-	opStructFieldPtrHeadStringTagFloat32Ptr                 opType = 1646
-	opStructFieldPtrHeadStringTagFloat32PtrOnly             opType = 1647
-	opStructFieldPtrAnonymousHeadFloat32Ptr                 opType = 1648
-	opStructFieldPtrAnonymousHeadFloat32PtrOnly             opType = 1649
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Ptr        opType = 1650
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32PtrOnly    opType = 1651
-	opStructFieldPtrAnonymousHeadStringTagFloat32Ptr        opType = 1652
-	opStructFieldPtrAnonymousHeadStringTagFloat32PtrOnly    opType = 1653
-	opStructFieldNPtrHeadFloat32Ptr                         opType = 1654
-	opStructFieldNPtrHeadFloat32PtrOnly                     opType = 1655
-	opStructFieldNPtrHeadOmitEmptyFloat32Ptr                opType = 1656
-	opStructFieldNPtrHeadOmitEmptyFloat32PtrOnly            opType = 1657
-	opStructFieldNPtrHeadStringTagFloat32Ptr                opType = 1658
-	opStructFieldNPtrHeadStringTagFloat32PtrOnly            opType = 1659
-	opStructFieldNPtrAnonymousHeadFloat32Ptr                opType = 1660
-	opStructFieldNPtrAnonymousHeadFloat32PtrOnly            opType = 1661
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Ptr       opType = 1662
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32PtrOnly   opType = 1663
-	opStructFieldNPtrAnonymousHeadStringTagFloat32Ptr       opType = 1664
-	opStructFieldNPtrAnonymousHeadStringTagFloat32PtrOnly   opType = 1665
-	opStructFieldHeadFloat64Ptr                             opType = 1666
-	opStructFieldHeadFloat64PtrOnly                         opType = 1667
-	opStructFieldHeadOmitEmptyFloat64Ptr                    opType = 1668
-	opStructFieldHeadOmitEmptyFloat64PtrOnly                opType = 1669
-	opStructFieldHeadStringTagFloat64Ptr                    opType = 1670
-	opStructFieldHeadStringTagFloat64PtrOnly                opType = 1671
-	opStructFieldAnonymousHeadFloat64Ptr                    opType = 1672
-	opStructFieldAnonymousHeadFloat64PtrOnly                opType = 1673
-	opStructFieldAnonymousHeadOmitEmptyFloat64Ptr           opType = 1674
-	opStructFieldAnonymousHeadOmitEmptyFloat64PtrOnly       opType = 1675
-	opStructFieldAnonymousHeadStringTagFloat64Ptr           opType = 1676
-	opStructFieldAnonymousHeadStringTagFloat64PtrOnly       opType = 1677
-	opStructFieldPtrHeadFloat64Ptr                          opType = 1678
-	opStructFieldPtrHeadFloat64PtrOnly                      opType = 1679
-	opStructFieldPtrHeadOmitEmptyFloat64Ptr                 opType = 1680
-	opStructFieldPtrHeadOmitEmptyFloat64PtrOnly             opType = 1681
-	opStructFieldPtrHeadStringTagFloat64Ptr                 opType = 1682
-	opStructFieldPtrHeadStringTagFloat64PtrOnly             opType = 1683
-	opStructFieldPtrAnonymousHeadFloat64Ptr                 opType = 1684
-	opStructFieldPtrAnonymousHeadFloat64PtrOnly             opType = 1685
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Ptr        opType = 1686
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64PtrOnly    opType = 1687
-	opStructFieldPtrAnonymousHeadStringTagFloat64Ptr        opType = 1688
-	opStructFieldPtrAnonymousHeadStringTagFloat64PtrOnly    opType = 1689
-	opStructFieldNPtrHeadFloat64Ptr                         opType = 1690
-	opStructFieldNPtrHeadFloat64PtrOnly                     opType = 1691
-	opStructFieldNPtrHeadOmitEmptyFloat64Ptr                opType = 1692
-	opStructFieldNPtrHeadOmitEmptyFloat64PtrOnly            opType = 1693
-	opStructFieldNPtrHeadStringTagFloat64Ptr                opType = 1694
-	opStructFieldNPtrHeadStringTagFloat64PtrOnly            opType = 1695
-	opStructFieldNPtrAnonymousHeadFloat64Ptr                opType = 1696
-	opStructFieldNPtrAnonymousHeadFloat64PtrOnly            opType = 1697
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Ptr       opType = 1698
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64PtrOnly   opType = 1699
-	opStructFieldNPtrAnonymousHeadStringTagFloat64Ptr       opType = 1700
-	opStructFieldNPtrAnonymousHeadStringTagFloat64PtrOnly   opType = 1701
-	opStructFieldHeadBoolPtr                                opType = 1702
-	opStructFieldHeadBoolPtrOnly                            opType = 1703
-	opStructFieldHeadOmitEmptyBoolPtr                       opType = 1704
-	opStructFieldHeadOmitEmptyBoolPtrOnly                   opType = 1705
-	opStructFieldHeadStringTagBoolPtr                       opType = 1706
-	opStructFieldHeadStringTagBoolPtrOnly                   opType = 1707
-	opStructFieldAnonymousHeadBoolPtr                       opType = 1708
-	opStructFieldAnonymousHeadBoolPtrOnly                   opType = 1709
-	opStructFieldAnonymousHeadOmitEmptyBoolPtr              opType = 1710
-	opStructFieldAnonymousHeadOmitEmptyBoolPtrOnly          opType = 1711
-	opStructFieldAnonymousHeadStringTagBoolPtr              opType = 1712
-	opStructFieldAnonymousHeadStringTagBoolPtrOnly          opType = 1713
-	opStructFieldPtrHeadBoolPtr                             opType = 1714
-	opStructFieldPtrHeadBoolPtrOnly                         opType = 1715
-	opStructFieldPtrHeadOmitEmptyBoolPtr                    opType = 1716
-	opStructFieldPtrHeadOmitEmptyBoolPtrOnly                opType = 1717
-	opStructFieldPtrHeadStringTagBoolPtr                    opType = 1718
-	opStructFieldPtrHeadStringTagBoolPtrOnly                opType = 1719
-	opStructFieldPtrAnonymousHeadBoolPtr                    opType = 1720
-	opStructFieldPtrAnonymousHeadBoolPtrOnly                opType = 1721
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolPtr           opType = 1722
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolPtrOnly       opType = 1723
-	opStructFieldPtrAnonymousHeadStringTagBoolPtr           opType = 1724
-	opStructFieldPtrAnonymousHeadStringTagBoolPtrOnly       opType = 1725
-	opStructFieldNPtrHeadBoolPtr                            opType = 1726
-	opStructFieldNPtrHeadBoolPtrOnly                        opType = 1727
-	opStructFieldNPtrHeadOmitEmptyBoolPtr                   opType = 1728
-	opStructFieldNPtrHeadOmitEmptyBoolPtrOnly               opType = 1729
-	opStructFieldNPtrHeadStringTagBoolPtr                   opType = 1730
-	opStructFieldNPtrHeadStringTagBoolPtrOnly               opType = 1731
-	opStructFieldNPtrAnonymousHeadBoolPtr                   opType = 1732
-	opStructFieldNPtrAnonymousHeadBoolPtrOnly               opType = 1733
-	opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtr          opType = 1734
-	opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtrOnly      opType = 1735
-	opStructFieldNPtrAnonymousHeadStringTagBoolPtr          opType = 1736
-	opStructFieldNPtrAnonymousHeadStringTagBoolPtrOnly      opType = 1737
-	opStructFieldHeadStringPtr                              opType = 1738
-	opStructFieldHeadStringPtrOnly                          opType = 1739
-	opStructFieldHeadOmitEmptyStringPtr                     opType = 1740
-	opStructFieldHeadOmitEmptyStringPtrOnly                 opType = 1741
-	opStructFieldHeadStringTagStringPtr                     opType = 1742
-	opStructFieldHeadStringTagStringPtrOnly                 opType = 1743
-	opStructFieldAnonymousHeadStringPtr                     opType = 1744
-	opStructFieldAnonymousHeadStringPtrOnly                 opType = 1745
-	opStructFieldAnonymousHeadOmitEmptyStringPtr            opType = 1746
-	opStructFieldAnonymousHeadOmitEmptyStringPtrOnly        opType = 1747
-	opStructFieldAnonymousHeadStringTagStringPtr            opType = 1748
-	opStructFieldAnonymousHeadStringTagStringPtrOnly        opType = 1749
-	opStructFieldPtrHeadStringPtr                           opType = 1750
-	opStructFieldPtrHeadStringPtrOnly                       opType = 1751
-	opStructFieldPtrHeadOmitEmptyStringPtr                  opType = 1752
-	opStructFieldPtrHeadOmitEmptyStringPtrOnly              opType = 1753
-	opStructFieldPtrHeadStringTagStringPtr                  opType = 1754
-	opStructFieldPtrHeadStringTagStringPtrOnly              opType = 1755
-	opStructFieldPtrAnonymousHeadStringPtr                  opType = 1756
-	opStructFieldPtrAnonymousHeadStringPtrOnly              opType = 1757
-	opStructFieldPtrAnonymousHeadOmitEmptyStringPtr         opType = 1758
-	opStructFieldPtrAnonymousHeadOmitEmptyStringPtrOnly     opType = 1759
-	opStructFieldPtrAnonymousHeadStringTagStringPtr         opType = 1760
-	opStructFieldPtrAnonymousHeadStringTagStringPtrOnly     opType = 1761
-	opStructFieldNPtrHeadStringPtr                          opType = 1762
-	opStructFieldNPtrHeadStringPtrOnly                      opType = 1763
-	opStructFieldNPtrHeadOmitEmptyStringPtr                 opType = 1764
-	opStructFieldNPtrHeadOmitEmptyStringPtrOnly             opType = 1765
-	opStructFieldNPtrHeadStringTagStringPtr                 opType = 1766
-	opStructFieldNPtrHeadStringTagStringPtrOnly             opType = 1767
-	opStructFieldNPtrAnonymousHeadStringPtr                 opType = 1768
-	opStructFieldNPtrAnonymousHeadStringPtrOnly             opType = 1769
-	opStructFieldNPtrAnonymousHeadOmitEmptyStringPtr        opType = 1770
-	opStructFieldNPtrAnonymousHeadOmitEmptyStringPtrOnly    opType = 1771
-	opStructFieldNPtrAnonymousHeadStringTagStringPtr        opType = 1772
-	opStructFieldNPtrAnonymousHeadStringTagStringPtrOnly    opType = 1773
-	opStructFieldHeadBytesPtr                               opType = 1774
-	opStructFieldHeadBytesPtrOnly                           opType = 1775
-	opStructFieldHeadOmitEmptyBytesPtr                      opType = 1776
-	opStructFieldHeadOmitEmptyBytesPtrOnly                  opType = 1777
-	opStructFieldHeadStringTagBytesPtr                      opType = 1778
-	opStructFieldHeadStringTagBytesPtrOnly                  opType = 1779
-	opStructFieldAnonymousHeadBytesPtr                      opType = 1780
-	opStructFieldAnonymousHeadBytesPtrOnly                  opType = 1781
-	opStructFieldAnonymousHeadOmitEmptyBytesPtr             opType = 1782
-	opStructFieldAnonymousHeadOmitEmptyBytesPtrOnly         opType = 1783
-	opStructFieldAnonymousHeadStringTagBytesPtr             opType = 1784
-	opStructFieldAnonymousHeadStringTagBytesPtrOnly         opType = 1785
-	opStructFieldPtrHeadBytesPtr                            opType = 1786
-	opStructFieldPtrHeadBytesPtrOnly                        opType = 1787
-	opStructFieldPtrHeadOmitEmptyBytesPtr                   opType = 1788
-	opStructFieldPtrHeadOmitEmptyBytesPtrOnly               opType = 1789
-	opStructFieldPtrHeadStringTagBytesPtr                   opType = 1790
-	opStructFieldPtrHeadStringTagBytesPtrOnly               opType = 1791
-	opStructFieldPtrAnonymousHeadBytesPtr                   opType = 1792
-	opStructFieldPtrAnonymousHeadBytesPtrOnly               opType = 1793
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesPtr          opType = 1794
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesPtrOnly      opType = 1795
-	opStructFieldPtrAnonymousHeadStringTagBytesPtr          opType = 1796
-	opStructFieldPtrAnonymousHeadStringTagBytesPtrOnly      opType = 1797
-	opStructFieldNPtrHeadBytesPtr                           opType = 1798
-	opStructFieldNPtrHeadBytesPtrOnly                       opType = 1799
-	opStructFieldNPtrHeadOmitEmptyBytesPtr                  opType = 1800
-	opStructFieldNPtrHeadOmitEmptyBytesPtrOnly              opType = 1801
-	opStructFieldNPtrHeadStringTagBytesPtr                  opType = 1802
-	opStructFieldNPtrHeadStringTagBytesPtrOnly              opType = 1803
-	opStructFieldNPtrAnonymousHeadBytesPtr                  opType = 1804
-	opStructFieldNPtrAnonymousHeadBytesPtrOnly              opType = 1805
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtr         opType = 1806
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtrOnly     opType = 1807
-	opStructFieldNPtrAnonymousHeadStringTagBytesPtr         opType = 1808
-	opStructFieldNPtrAnonymousHeadStringTagBytesPtrOnly     opType = 1809
-	opStructFieldHeadIntNPtr                                opType = 1810
-	opStructFieldHeadIntNPtrOnly                            opType = 1811
-	opStructFieldHeadOmitEmptyIntNPtr                       opType = 1812
-	opStructFieldHeadOmitEmptyIntNPtrOnly                   opType = 1813
-	opStructFieldHeadStringTagIntNPtr                       opType = 1814
-	opStructFieldHeadStringTagIntNPtrOnly                   opType = 1815
-	opStructFieldAnonymousHeadIntNPtr                       opType = 1816
-	opStructFieldAnonymousHeadIntNPtrOnly                   opType = 1817
-	opStructFieldAnonymousHeadOmitEmptyIntNPtr              opType = 1818
-	opStructFieldAnonymousHeadOmitEmptyIntNPtrOnly          opType = 1819
-	opStructFieldAnonymousHeadStringTagIntNPtr              opType = 1820
-	opStructFieldAnonymousHeadStringTagIntNPtrOnly          opType = 1821
-	opStructFieldPtrHeadIntNPtr                             opType = 1822
-	opStructFieldPtrHeadIntNPtrOnly                         opType = 1823
-	opStructFieldPtrHeadOmitEmptyIntNPtr                    opType = 1824
-	opStructFieldPtrHeadOmitEmptyIntNPtrOnly                opType = 1825
-	opStructFieldPtrHeadStringTagIntNPtr                    opType = 1826
-	opStructFieldPtrHeadStringTagIntNPtrOnly                opType = 1827
-	opStructFieldPtrAnonymousHeadIntNPtr                    opType = 1828
-	opStructFieldPtrAnonymousHeadIntNPtrOnly                opType = 1829
-	opStructFieldPtrAnonymousHeadOmitEmptyIntNPtr           opType = 1830
-	opStructFieldPtrAnonymousHeadOmitEmptyIntNPtrOnly       opType = 1831
-	opStructFieldPtrAnonymousHeadStringTagIntNPtr           opType = 1832
-	opStructFieldPtrAnonymousHeadStringTagIntNPtrOnly       opType = 1833
-	opStructFieldNPtrHeadIntNPtr                            opType = 1834
-	opStructFieldNPtrHeadIntNPtrOnly                        opType = 1835
-	opStructFieldNPtrHeadOmitEmptyIntNPtr                   opType = 1836
-	opStructFieldNPtrHeadOmitEmptyIntNPtrOnly               opType = 1837
-	opStructFieldNPtrHeadStringTagIntNPtr                   opType = 1838
-	opStructFieldNPtrHeadStringTagIntNPtrOnly               opType = 1839
-	opStructFieldNPtrAnonymousHeadIntNPtr                   opType = 1840
-	opStructFieldNPtrAnonymousHeadIntNPtrOnly               opType = 1841
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtr          opType = 1842
-	opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtrOnly      opType = 1843
-	opStructFieldNPtrAnonymousHeadStringTagIntNPtr          opType = 1844
-	opStructFieldNPtrAnonymousHeadStringTagIntNPtrOnly      opType = 1845
-	opStructFieldHeadInt8NPtr                               opType = 1846
-	opStructFieldHeadInt8NPtrOnly                           opType = 1847
-	opStructFieldHeadOmitEmptyInt8NPtr                      opType = 1848
-	opStructFieldHeadOmitEmptyInt8NPtrOnly                  opType = 1849
-	opStructFieldHeadStringTagInt8NPtr                      opType = 1850
-	opStructFieldHeadStringTagInt8NPtrOnly                  opType = 1851
-	opStructFieldAnonymousHeadInt8NPtr                      opType = 1852
-	opStructFieldAnonymousHeadInt8NPtrOnly                  opType = 1853
-	opStructFieldAnonymousHeadOmitEmptyInt8NPtr             opType = 1854
-	opStructFieldAnonymousHeadOmitEmptyInt8NPtrOnly         opType = 1855
-	opStructFieldAnonymousHeadStringTagInt8NPtr             opType = 1856
-	opStructFieldAnonymousHeadStringTagInt8NPtrOnly         opType = 1857
-	opStructFieldPtrHeadInt8NPtr                            opType = 1858
-	opStructFieldPtrHeadInt8NPtrOnly                        opType = 1859
-	opStructFieldPtrHeadOmitEmptyInt8NPtr                   opType = 1860
-	opStructFieldPtrHeadOmitEmptyInt8NPtrOnly               opType = 1861
-	opStructFieldPtrHeadStringTagInt8NPtr                   opType = 1862
-	opStructFieldPtrHeadStringTagInt8NPtrOnly               opType = 1863
-	opStructFieldPtrAnonymousHeadInt8NPtr                   opType = 1864
-	opStructFieldPtrAnonymousHeadInt8NPtrOnly               opType = 1865
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8NPtr          opType = 1866
-	opStructFieldPtrAnonymousHeadOmitEmptyInt8NPtrOnly      opType = 1867
-	opStructFieldPtrAnonymousHeadStringTagInt8NPtr          opType = 1868
-	opStructFieldPtrAnonymousHeadStringTagInt8NPtrOnly      opType = 1869
-	opStructFieldNPtrHeadInt8NPtr                           opType = 1870
-	opStructFieldNPtrHeadInt8NPtrOnly                       opType = 1871
-	opStructFieldNPtrHeadOmitEmptyInt8NPtr                  opType = 1872
-	opStructFieldNPtrHeadOmitEmptyInt8NPtrOnly              opType = 1873
-	opStructFieldNPtrHeadStringTagInt8NPtr                  opType = 1874
-	opStructFieldNPtrHeadStringTagInt8NPtrOnly              opType = 1875
-	opStructFieldNPtrAnonymousHeadInt8NPtr                  opType = 1876
-	opStructFieldNPtrAnonymousHeadInt8NPtrOnly              opType = 1877
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8NPtr         opType = 1878
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt8NPtrOnly     opType = 1879
-	opStructFieldNPtrAnonymousHeadStringTagInt8NPtr         opType = 1880
-	opStructFieldNPtrAnonymousHeadStringTagInt8NPtrOnly     opType = 1881
-	opStructFieldHeadInt16NPtr                              opType = 1882
-	opStructFieldHeadInt16NPtrOnly                          opType = 1883
-	opStructFieldHeadOmitEmptyInt16NPtr                     opType = 1884
-	opStructFieldHeadOmitEmptyInt16NPtrOnly                 opType = 1885
-	opStructFieldHeadStringTagInt16NPtr                     opType = 1886
-	opStructFieldHeadStringTagInt16NPtrOnly                 opType = 1887
-	opStructFieldAnonymousHeadInt16NPtr                     opType = 1888
-	opStructFieldAnonymousHeadInt16NPtrOnly                 opType = 1889
-	opStructFieldAnonymousHeadOmitEmptyInt16NPtr            opType = 1890
-	opStructFieldAnonymousHeadOmitEmptyInt16NPtrOnly        opType = 1891
-	opStructFieldAnonymousHeadStringTagInt16NPtr            opType = 1892
-	opStructFieldAnonymousHeadStringTagInt16NPtrOnly        opType = 1893
-	opStructFieldPtrHeadInt16NPtr                           opType = 1894
-	opStructFieldPtrHeadInt16NPtrOnly                       opType = 1895
-	opStructFieldPtrHeadOmitEmptyInt16NPtr                  opType = 1896
-	opStructFieldPtrHeadOmitEmptyInt16NPtrOnly              opType = 1897
-	opStructFieldPtrHeadStringTagInt16NPtr                  opType = 1898
-	opStructFieldPtrHeadStringTagInt16NPtrOnly              opType = 1899
-	opStructFieldPtrAnonymousHeadInt16NPtr                  opType = 1900
-	opStructFieldPtrAnonymousHeadInt16NPtrOnly              opType = 1901
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16NPtr         opType = 1902
-	opStructFieldPtrAnonymousHeadOmitEmptyInt16NPtrOnly     opType = 1903
-	opStructFieldPtrAnonymousHeadStringTagInt16NPtr         opType = 1904
-	opStructFieldPtrAnonymousHeadStringTagInt16NPtrOnly     opType = 1905
-	opStructFieldNPtrHeadInt16NPtr                          opType = 1906
-	opStructFieldNPtrHeadInt16NPtrOnly                      opType = 1907
-	opStructFieldNPtrHeadOmitEmptyInt16NPtr                 opType = 1908
-	opStructFieldNPtrHeadOmitEmptyInt16NPtrOnly             opType = 1909
-	opStructFieldNPtrHeadStringTagInt16NPtr                 opType = 1910
-	opStructFieldNPtrHeadStringTagInt16NPtrOnly             opType = 1911
-	opStructFieldNPtrAnonymousHeadInt16NPtr                 opType = 1912
-	opStructFieldNPtrAnonymousHeadInt16NPtrOnly             opType = 1913
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16NPtr        opType = 1914
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt16NPtrOnly    opType = 1915
-	opStructFieldNPtrAnonymousHeadStringTagInt16NPtr        opType = 1916
-	opStructFieldNPtrAnonymousHeadStringTagInt16NPtrOnly    opType = 1917
-	opStructFieldHeadInt32NPtr                              opType = 1918
-	opStructFieldHeadInt32NPtrOnly                          opType = 1919
-	opStructFieldHeadOmitEmptyInt32NPtr                     opType = 1920
-	opStructFieldHeadOmitEmptyInt32NPtrOnly                 opType = 1921
-	opStructFieldHeadStringTagInt32NPtr                     opType = 1922
-	opStructFieldHeadStringTagInt32NPtrOnly                 opType = 1923
-	opStructFieldAnonymousHeadInt32NPtr                     opType = 1924
-	opStructFieldAnonymousHeadInt32NPtrOnly                 opType = 1925
-	opStructFieldAnonymousHeadOmitEmptyInt32NPtr            opType = 1926
-	opStructFieldAnonymousHeadOmitEmptyInt32NPtrOnly        opType = 1927
-	opStructFieldAnonymousHeadStringTagInt32NPtr            opType = 1928
-	opStructFieldAnonymousHeadStringTagInt32NPtrOnly        opType = 1929
-	opStructFieldPtrHeadInt32NPtr                           opType = 1930
-	opStructFieldPtrHeadInt32NPtrOnly                       opType = 1931
-	opStructFieldPtrHeadOmitEmptyInt32NPtr                  opType = 1932
-	opStructFieldPtrHeadOmitEmptyInt32NPtrOnly              opType = 1933
-	opStructFieldPtrHeadStringTagInt32NPtr                  opType = 1934
-	opStructFieldPtrHeadStringTagInt32NPtrOnly              opType = 1935
-	opStructFieldPtrAnonymousHeadInt32NPtr                  opType = 1936
-	opStructFieldPtrAnonymousHeadInt32NPtrOnly              opType = 1937
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32NPtr         opType = 1938
-	opStructFieldPtrAnonymousHeadOmitEmptyInt32NPtrOnly     opType = 1939
-	opStructFieldPtrAnonymousHeadStringTagInt32NPtr         opType = 1940
-	opStructFieldPtrAnonymousHeadStringTagInt32NPtrOnly     opType = 1941
-	opStructFieldNPtrHeadInt32NPtr                          opType = 1942
-	opStructFieldNPtrHeadInt32NPtrOnly                      opType = 1943
-	opStructFieldNPtrHeadOmitEmptyInt32NPtr                 opType = 1944
-	opStructFieldNPtrHeadOmitEmptyInt32NPtrOnly             opType = 1945
-	opStructFieldNPtrHeadStringTagInt32NPtr                 opType = 1946
-	opStructFieldNPtrHeadStringTagInt32NPtrOnly             opType = 1947
-	opStructFieldNPtrAnonymousHeadInt32NPtr                 opType = 1948
-	opStructFieldNPtrAnonymousHeadInt32NPtrOnly             opType = 1949
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32NPtr        opType = 1950
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt32NPtrOnly    opType = 1951
-	opStructFieldNPtrAnonymousHeadStringTagInt32NPtr        opType = 1952
-	opStructFieldNPtrAnonymousHeadStringTagInt32NPtrOnly    opType = 1953
-	opStructFieldHeadInt64NPtr                              opType = 1954
-	opStructFieldHeadInt64NPtrOnly                          opType = 1955
-	opStructFieldHeadOmitEmptyInt64NPtr                     opType = 1956
-	opStructFieldHeadOmitEmptyInt64NPtrOnly                 opType = 1957
-	opStructFieldHeadStringTagInt64NPtr                     opType = 1958
-	opStructFieldHeadStringTagInt64NPtrOnly                 opType = 1959
-	opStructFieldAnonymousHeadInt64NPtr                     opType = 1960
-	opStructFieldAnonymousHeadInt64NPtrOnly                 opType = 1961
-	opStructFieldAnonymousHeadOmitEmptyInt64NPtr            opType = 1962
-	opStructFieldAnonymousHeadOmitEmptyInt64NPtrOnly        opType = 1963
-	opStructFieldAnonymousHeadStringTagInt64NPtr            opType = 1964
-	opStructFieldAnonymousHeadStringTagInt64NPtrOnly        opType = 1965
-	opStructFieldPtrHeadInt64NPtr                           opType = 1966
-	opStructFieldPtrHeadInt64NPtrOnly                       opType = 1967
-	opStructFieldPtrHeadOmitEmptyInt64NPtr                  opType = 1968
-	opStructFieldPtrHeadOmitEmptyInt64NPtrOnly              opType = 1969
-	opStructFieldPtrHeadStringTagInt64NPtr                  opType = 1970
-	opStructFieldPtrHeadStringTagInt64NPtrOnly              opType = 1971
-	opStructFieldPtrAnonymousHeadInt64NPtr                  opType = 1972
-	opStructFieldPtrAnonymousHeadInt64NPtrOnly              opType = 1973
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64NPtr         opType = 1974
-	opStructFieldPtrAnonymousHeadOmitEmptyInt64NPtrOnly     opType = 1975
-	opStructFieldPtrAnonymousHeadStringTagInt64NPtr         opType = 1976
-	opStructFieldPtrAnonymousHeadStringTagInt64NPtrOnly     opType = 1977
-	opStructFieldNPtrHeadInt64NPtr                          opType = 1978
-	opStructFieldNPtrHeadInt64NPtrOnly                      opType = 1979
-	opStructFieldNPtrHeadOmitEmptyInt64NPtr                 opType = 1980
-	opStructFieldNPtrHeadOmitEmptyInt64NPtrOnly             opType = 1981
-	opStructFieldNPtrHeadStringTagInt64NPtr                 opType = 1982
-	opStructFieldNPtrHeadStringTagInt64NPtrOnly             opType = 1983
-	opStructFieldNPtrAnonymousHeadInt64NPtr                 opType = 1984
-	opStructFieldNPtrAnonymousHeadInt64NPtrOnly             opType = 1985
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64NPtr        opType = 1986
-	opStructFieldNPtrAnonymousHeadOmitEmptyInt64NPtrOnly    opType = 1987
-	opStructFieldNPtrAnonymousHeadStringTagInt64NPtr        opType = 1988
-	opStructFieldNPtrAnonymousHeadStringTagInt64NPtrOnly    opType = 1989
-	opStructFieldHeadUintNPtr                               opType = 1990
-	opStructFieldHeadUintNPtrOnly                           opType = 1991
-	opStructFieldHeadOmitEmptyUintNPtr                      opType = 1992
-	opStructFieldHeadOmitEmptyUintNPtrOnly                  opType = 1993
-	opStructFieldHeadStringTagUintNPtr                      opType = 1994
-	opStructFieldHeadStringTagUintNPtrOnly                  opType = 1995
-	opStructFieldAnonymousHeadUintNPtr                      opType = 1996
-	opStructFieldAnonymousHeadUintNPtrOnly                  opType = 1997
-	opStructFieldAnonymousHeadOmitEmptyUintNPtr             opType = 1998
-	opStructFieldAnonymousHeadOmitEmptyUintNPtrOnly         opType = 1999
-	opStructFieldAnonymousHeadStringTagUintNPtr             opType = 2000
-	opStructFieldAnonymousHeadStringTagUintNPtrOnly         opType = 2001
-	opStructFieldPtrHeadUintNPtr                            opType = 2002
-	opStructFieldPtrHeadUintNPtrOnly                        opType = 2003
-	opStructFieldPtrHeadOmitEmptyUintNPtr                   opType = 2004
-	opStructFieldPtrHeadOmitEmptyUintNPtrOnly               opType = 2005
-	opStructFieldPtrHeadStringTagUintNPtr                   opType = 2006
-	opStructFieldPtrHeadStringTagUintNPtrOnly               opType = 2007
-	opStructFieldPtrAnonymousHeadUintNPtr                   opType = 2008
-	opStructFieldPtrAnonymousHeadUintNPtrOnly               opType = 2009
-	opStructFieldPtrAnonymousHeadOmitEmptyUintNPtr          opType = 2010
-	opStructFieldPtrAnonymousHeadOmitEmptyUintNPtrOnly      opType = 2011
-	opStructFieldPtrAnonymousHeadStringTagUintNPtr          opType = 2012
-	opStructFieldPtrAnonymousHeadStringTagUintNPtrOnly      opType = 2013
-	opStructFieldNPtrHeadUintNPtr                           opType = 2014
-	opStructFieldNPtrHeadUintNPtrOnly                       opType = 2015
-	opStructFieldNPtrHeadOmitEmptyUintNPtr                  opType = 2016
-	opStructFieldNPtrHeadOmitEmptyUintNPtrOnly              opType = 2017
-	opStructFieldNPtrHeadStringTagUintNPtr                  opType = 2018
-	opStructFieldNPtrHeadStringTagUintNPtrOnly              opType = 2019
-	opStructFieldNPtrAnonymousHeadUintNPtr                  opType = 2020
-	opStructFieldNPtrAnonymousHeadUintNPtrOnly              opType = 2021
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtr         opType = 2022
-	opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtrOnly     opType = 2023
-	opStructFieldNPtrAnonymousHeadStringTagUintNPtr         opType = 2024
-	opStructFieldNPtrAnonymousHeadStringTagUintNPtrOnly     opType = 2025
-	opStructFieldHeadUint8NPtr                              opType = 2026
-	opStructFieldHeadUint8NPtrOnly                          opType = 2027
-	opStructFieldHeadOmitEmptyUint8NPtr                     opType = 2028
-	opStructFieldHeadOmitEmptyUint8NPtrOnly                 opType = 2029
-	opStructFieldHeadStringTagUint8NPtr                     opType = 2030
-	opStructFieldHeadStringTagUint8NPtrOnly                 opType = 2031
-	opStructFieldAnonymousHeadUint8NPtr                     opType = 2032
-	opStructFieldAnonymousHeadUint8NPtrOnly                 opType = 2033
-	opStructFieldAnonymousHeadOmitEmptyUint8NPtr            opType = 2034
-	opStructFieldAnonymousHeadOmitEmptyUint8NPtrOnly        opType = 2035
-	opStructFieldAnonymousHeadStringTagUint8NPtr            opType = 2036
-	opStructFieldAnonymousHeadStringTagUint8NPtrOnly        opType = 2037
-	opStructFieldPtrHeadUint8NPtr                           opType = 2038
-	opStructFieldPtrHeadUint8NPtrOnly                       opType = 2039
-	opStructFieldPtrHeadOmitEmptyUint8NPtr                  opType = 2040
-	opStructFieldPtrHeadOmitEmptyUint8NPtrOnly              opType = 2041
-	opStructFieldPtrHeadStringTagUint8NPtr                  opType = 2042
-	opStructFieldPtrHeadStringTagUint8NPtrOnly              opType = 2043
-	opStructFieldPtrAnonymousHeadUint8NPtr                  opType = 2044
-	opStructFieldPtrAnonymousHeadUint8NPtrOnly              opType = 2045
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8NPtr         opType = 2046
-	opStructFieldPtrAnonymousHeadOmitEmptyUint8NPtrOnly     opType = 2047
-	opStructFieldPtrAnonymousHeadStringTagUint8NPtr         opType = 2048
-	opStructFieldPtrAnonymousHeadStringTagUint8NPtrOnly     opType = 2049
-	opStructFieldNPtrHeadUint8NPtr                          opType = 2050
-	opStructFieldNPtrHeadUint8NPtrOnly                      opType = 2051
-	opStructFieldNPtrHeadOmitEmptyUint8NPtr                 opType = 2052
-	opStructFieldNPtrHeadOmitEmptyUint8NPtrOnly             opType = 2053
-	opStructFieldNPtrHeadStringTagUint8NPtr                 opType = 2054
-	opStructFieldNPtrHeadStringTagUint8NPtrOnly             opType = 2055
-	opStructFieldNPtrAnonymousHeadUint8NPtr                 opType = 2056
-	opStructFieldNPtrAnonymousHeadUint8NPtrOnly             opType = 2057
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8NPtr        opType = 2058
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint8NPtrOnly    opType = 2059
-	opStructFieldNPtrAnonymousHeadStringTagUint8NPtr        opType = 2060
-	opStructFieldNPtrAnonymousHeadStringTagUint8NPtrOnly    opType = 2061
-	opStructFieldHeadUint16NPtr                             opType = 2062
-	opStructFieldHeadUint16NPtrOnly                         opType = 2063
-	opStructFieldHeadOmitEmptyUint16NPtr                    opType = 2064
-	opStructFieldHeadOmitEmptyUint16NPtrOnly                opType = 2065
-	opStructFieldHeadStringTagUint16NPtr                    opType = 2066
-	opStructFieldHeadStringTagUint16NPtrOnly                opType = 2067
-	opStructFieldAnonymousHeadUint16NPtr                    opType = 2068
-	opStructFieldAnonymousHeadUint16NPtrOnly                opType = 2069
-	opStructFieldAnonymousHeadOmitEmptyUint16NPtr           opType = 2070
-	opStructFieldAnonymousHeadOmitEmptyUint16NPtrOnly       opType = 2071
-	opStructFieldAnonymousHeadStringTagUint16NPtr           opType = 2072
-	opStructFieldAnonymousHeadStringTagUint16NPtrOnly       opType = 2073
-	opStructFieldPtrHeadUint16NPtr                          opType = 2074
-	opStructFieldPtrHeadUint16NPtrOnly                      opType = 2075
-	opStructFieldPtrHeadOmitEmptyUint16NPtr                 opType = 2076
-	opStructFieldPtrHeadOmitEmptyUint16NPtrOnly             opType = 2077
-	opStructFieldPtrHeadStringTagUint16NPtr                 opType = 2078
-	opStructFieldPtrHeadStringTagUint16NPtrOnly             opType = 2079
-	opStructFieldPtrAnonymousHeadUint16NPtr                 opType = 2080
-	opStructFieldPtrAnonymousHeadUint16NPtrOnly             opType = 2081
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16NPtr        opType = 2082
-	opStructFieldPtrAnonymousHeadOmitEmptyUint16NPtrOnly    opType = 2083
-	opStructFieldPtrAnonymousHeadStringTagUint16NPtr        opType = 2084
-	opStructFieldPtrAnonymousHeadStringTagUint16NPtrOnly    opType = 2085
-	opStructFieldNPtrHeadUint16NPtr                         opType = 2086
-	opStructFieldNPtrHeadUint16NPtrOnly                     opType = 2087
-	opStructFieldNPtrHeadOmitEmptyUint16NPtr                opType = 2088
-	opStructFieldNPtrHeadOmitEmptyUint16NPtrOnly            opType = 2089
-	opStructFieldNPtrHeadStringTagUint16NPtr                opType = 2090
-	opStructFieldNPtrHeadStringTagUint16NPtrOnly            opType = 2091
-	opStructFieldNPtrAnonymousHeadUint16NPtr                opType = 2092
-	opStructFieldNPtrAnonymousHeadUint16NPtrOnly            opType = 2093
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16NPtr       opType = 2094
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint16NPtrOnly   opType = 2095
-	opStructFieldNPtrAnonymousHeadStringTagUint16NPtr       opType = 2096
-	opStructFieldNPtrAnonymousHeadStringTagUint16NPtrOnly   opType = 2097
-	opStructFieldHeadUint32NPtr                             opType = 2098
-	opStructFieldHeadUint32NPtrOnly                         opType = 2099
-	opStructFieldHeadOmitEmptyUint32NPtr                    opType = 2100
-	opStructFieldHeadOmitEmptyUint32NPtrOnly                opType = 2101
-	opStructFieldHeadStringTagUint32NPtr                    opType = 2102
-	opStructFieldHeadStringTagUint32NPtrOnly                opType = 2103
-	opStructFieldAnonymousHeadUint32NPtr                    opType = 2104
-	opStructFieldAnonymousHeadUint32NPtrOnly                opType = 2105
-	opStructFieldAnonymousHeadOmitEmptyUint32NPtr           opType = 2106
-	opStructFieldAnonymousHeadOmitEmptyUint32NPtrOnly       opType = 2107
-	opStructFieldAnonymousHeadStringTagUint32NPtr           opType = 2108
-	opStructFieldAnonymousHeadStringTagUint32NPtrOnly       opType = 2109
-	opStructFieldPtrHeadUint32NPtr                          opType = 2110
-	opStructFieldPtrHeadUint32NPtrOnly                      opType = 2111
-	opStructFieldPtrHeadOmitEmptyUint32NPtr                 opType = 2112
-	opStructFieldPtrHeadOmitEmptyUint32NPtrOnly             opType = 2113
-	opStructFieldPtrHeadStringTagUint32NPtr                 opType = 2114
-	opStructFieldPtrHeadStringTagUint32NPtrOnly             opType = 2115
-	opStructFieldPtrAnonymousHeadUint32NPtr                 opType = 2116
-	opStructFieldPtrAnonymousHeadUint32NPtrOnly             opType = 2117
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32NPtr        opType = 2118
-	opStructFieldPtrAnonymousHeadOmitEmptyUint32NPtrOnly    opType = 2119
-	opStructFieldPtrAnonymousHeadStringTagUint32NPtr        opType = 2120
-	opStructFieldPtrAnonymousHeadStringTagUint32NPtrOnly    opType = 2121
-	opStructFieldNPtrHeadUint32NPtr                         opType = 2122
-	opStructFieldNPtrHeadUint32NPtrOnly                     opType = 2123
-	opStructFieldNPtrHeadOmitEmptyUint32NPtr                opType = 2124
-	opStructFieldNPtrHeadOmitEmptyUint32NPtrOnly            opType = 2125
-	opStructFieldNPtrHeadStringTagUint32NPtr                opType = 2126
-	opStructFieldNPtrHeadStringTagUint32NPtrOnly            opType = 2127
-	opStructFieldNPtrAnonymousHeadUint32NPtr                opType = 2128
-	opStructFieldNPtrAnonymousHeadUint32NPtrOnly            opType = 2129
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32NPtr       opType = 2130
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint32NPtrOnly   opType = 2131
-	opStructFieldNPtrAnonymousHeadStringTagUint32NPtr       opType = 2132
-	opStructFieldNPtrAnonymousHeadStringTagUint32NPtrOnly   opType = 2133
-	opStructFieldHeadUint64NPtr                             opType = 2134
-	opStructFieldHeadUint64NPtrOnly                         opType = 2135
-	opStructFieldHeadOmitEmptyUint64NPtr                    opType = 2136
-	opStructFieldHeadOmitEmptyUint64NPtrOnly                opType = 2137
-	opStructFieldHeadStringTagUint64NPtr                    opType = 2138
-	opStructFieldHeadStringTagUint64NPtrOnly                opType = 2139
-	opStructFieldAnonymousHeadUint64NPtr                    opType = 2140
-	opStructFieldAnonymousHeadUint64NPtrOnly                opType = 2141
-	opStructFieldAnonymousHeadOmitEmptyUint64NPtr           opType = 2142
-	opStructFieldAnonymousHeadOmitEmptyUint64NPtrOnly       opType = 2143
-	opStructFieldAnonymousHeadStringTagUint64NPtr           opType = 2144
-	opStructFieldAnonymousHeadStringTagUint64NPtrOnly       opType = 2145
-	opStructFieldPtrHeadUint64NPtr                          opType = 2146
-	opStructFieldPtrHeadUint64NPtrOnly                      opType = 2147
-	opStructFieldPtrHeadOmitEmptyUint64NPtr                 opType = 2148
-	opStructFieldPtrHeadOmitEmptyUint64NPtrOnly             opType = 2149
-	opStructFieldPtrHeadStringTagUint64NPtr                 opType = 2150
-	opStructFieldPtrHeadStringTagUint64NPtrOnly             opType = 2151
-	opStructFieldPtrAnonymousHeadUint64NPtr                 opType = 2152
-	opStructFieldPtrAnonymousHeadUint64NPtrOnly             opType = 2153
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64NPtr        opType = 2154
-	opStructFieldPtrAnonymousHeadOmitEmptyUint64NPtrOnly    opType = 2155
-	opStructFieldPtrAnonymousHeadStringTagUint64NPtr        opType = 2156
-	opStructFieldPtrAnonymousHeadStringTagUint64NPtrOnly    opType = 2157
-	opStructFieldNPtrHeadUint64NPtr                         opType = 2158
-	opStructFieldNPtrHeadUint64NPtrOnly                     opType = 2159
-	opStructFieldNPtrHeadOmitEmptyUint64NPtr                opType = 2160
-	opStructFieldNPtrHeadOmitEmptyUint64NPtrOnly            opType = 2161
-	opStructFieldNPtrHeadStringTagUint64NPtr                opType = 2162
-	opStructFieldNPtrHeadStringTagUint64NPtrOnly            opType = 2163
-	opStructFieldNPtrAnonymousHeadUint64NPtr                opType = 2164
-	opStructFieldNPtrAnonymousHeadUint64NPtrOnly            opType = 2165
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64NPtr       opType = 2166
-	opStructFieldNPtrAnonymousHeadOmitEmptyUint64NPtrOnly   opType = 2167
-	opStructFieldNPtrAnonymousHeadStringTagUint64NPtr       opType = 2168
-	opStructFieldNPtrAnonymousHeadStringTagUint64NPtrOnly   opType = 2169
-	opStructFieldHeadFloat32NPtr                            opType = 2170
-	opStructFieldHeadFloat32NPtrOnly                        opType = 2171
-	opStructFieldHeadOmitEmptyFloat32NPtr                   opType = 2172
-	opStructFieldHeadOmitEmptyFloat32NPtrOnly               opType = 2173
-	opStructFieldHeadStringTagFloat32NPtr                   opType = 2174
-	opStructFieldHeadStringTagFloat32NPtrOnly               opType = 2175
-	opStructFieldAnonymousHeadFloat32NPtr                   opType = 2176
-	opStructFieldAnonymousHeadFloat32NPtrOnly               opType = 2177
-	opStructFieldAnonymousHeadOmitEmptyFloat32NPtr          opType = 2178
-	opStructFieldAnonymousHeadOmitEmptyFloat32NPtrOnly      opType = 2179
-	opStructFieldAnonymousHeadStringTagFloat32NPtr          opType = 2180
-	opStructFieldAnonymousHeadStringTagFloat32NPtrOnly      opType = 2181
-	opStructFieldPtrHeadFloat32NPtr                         opType = 2182
-	opStructFieldPtrHeadFloat32NPtrOnly                     opType = 2183
-	opStructFieldPtrHeadOmitEmptyFloat32NPtr                opType = 2184
-	opStructFieldPtrHeadOmitEmptyFloat32NPtrOnly            opType = 2185
-	opStructFieldPtrHeadStringTagFloat32NPtr                opType = 2186
-	opStructFieldPtrHeadStringTagFloat32NPtrOnly            opType = 2187
-	opStructFieldPtrAnonymousHeadFloat32NPtr                opType = 2188
-	opStructFieldPtrAnonymousHeadFloat32NPtrOnly            opType = 2189
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtr       opType = 2190
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtrOnly   opType = 2191
-	opStructFieldPtrAnonymousHeadStringTagFloat32NPtr       opType = 2192
-	opStructFieldPtrAnonymousHeadStringTagFloat32NPtrOnly   opType = 2193
-	opStructFieldNPtrHeadFloat32NPtr                        opType = 2194
-	opStructFieldNPtrHeadFloat32NPtrOnly                    opType = 2195
-	opStructFieldNPtrHeadOmitEmptyFloat32NPtr               opType = 2196
-	opStructFieldNPtrHeadOmitEmptyFloat32NPtrOnly           opType = 2197
-	opStructFieldNPtrHeadStringTagFloat32NPtr               opType = 2198
-	opStructFieldNPtrHeadStringTagFloat32NPtrOnly           opType = 2199
-	opStructFieldNPtrAnonymousHeadFloat32NPtr               opType = 2200
-	opStructFieldNPtrAnonymousHeadFloat32NPtrOnly           opType = 2201
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtr      opType = 2202
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtrOnly  opType = 2203
-	opStructFieldNPtrAnonymousHeadStringTagFloat32NPtr      opType = 2204
-	opStructFieldNPtrAnonymousHeadStringTagFloat32NPtrOnly  opType = 2205
-	opStructFieldHeadFloat64NPtr                            opType = 2206
-	opStructFieldHeadFloat64NPtrOnly                        opType = 2207
-	opStructFieldHeadOmitEmptyFloat64NPtr                   opType = 2208
-	opStructFieldHeadOmitEmptyFloat64NPtrOnly               opType = 2209
-	opStructFieldHeadStringTagFloat64NPtr                   opType = 2210
-	opStructFieldHeadStringTagFloat64NPtrOnly               opType = 2211
-	opStructFieldAnonymousHeadFloat64NPtr                   opType = 2212
-	opStructFieldAnonymousHeadFloat64NPtrOnly               opType = 2213
-	opStructFieldAnonymousHeadOmitEmptyFloat64NPtr          opType = 2214
-	opStructFieldAnonymousHeadOmitEmptyFloat64NPtrOnly      opType = 2215
-	opStructFieldAnonymousHeadStringTagFloat64NPtr          opType = 2216
-	opStructFieldAnonymousHeadStringTagFloat64NPtrOnly      opType = 2217
-	opStructFieldPtrHeadFloat64NPtr                         opType = 2218
-	opStructFieldPtrHeadFloat64NPtrOnly                     opType = 2219
-	opStructFieldPtrHeadOmitEmptyFloat64NPtr                opType = 2220
-	opStructFieldPtrHeadOmitEmptyFloat64NPtrOnly            opType = 2221
-	opStructFieldPtrHeadStringTagFloat64NPtr                opType = 2222
-	opStructFieldPtrHeadStringTagFloat64NPtrOnly            opType = 2223
-	opStructFieldPtrAnonymousHeadFloat64NPtr                opType = 2224
-	opStructFieldPtrAnonymousHeadFloat64NPtrOnly            opType = 2225
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtr       opType = 2226
-	opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtrOnly   opType = 2227
-	opStructFieldPtrAnonymousHeadStringTagFloat64NPtr       opType = 2228
-	opStructFieldPtrAnonymousHeadStringTagFloat64NPtrOnly   opType = 2229
-	opStructFieldNPtrHeadFloat64NPtr                        opType = 2230
-	opStructFieldNPtrHeadFloat64NPtrOnly                    opType = 2231
-	opStructFieldNPtrHeadOmitEmptyFloat64NPtr               opType = 2232
-	opStructFieldNPtrHeadOmitEmptyFloat64NPtrOnly           opType = 2233
-	opStructFieldNPtrHeadStringTagFloat64NPtr               opType = 2234
-	opStructFieldNPtrHeadStringTagFloat64NPtrOnly           opType = 2235
-	opStructFieldNPtrAnonymousHeadFloat64NPtr               opType = 2236
-	opStructFieldNPtrAnonymousHeadFloat64NPtrOnly           opType = 2237
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtr      opType = 2238
-	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtrOnly  opType = 2239
-	opStructFieldNPtrAnonymousHeadStringTagFloat64NPtr      opType = 2240
-	opStructFieldNPtrAnonymousHeadStringTagFloat64NPtrOnly  opType = 2241
-	opStructFieldHeadBoolNPtr                               opType = 2242
-	opStructFieldHeadBoolNPtrOnly                           opType = 2243
-	opStructFieldHeadOmitEmptyBoolNPtr                      opType = 2244
-	opStructFieldHeadOmitEmptyBoolNPtrOnly                  opType = 2245
-	opStructFieldHeadStringTagBoolNPtr                      opType = 2246
-	opStructFieldHeadStringTagBoolNPtrOnly                  opType = 2247
-	opStructFieldAnonymousHeadBoolNPtr                      opType = 2248
-	opStructFieldAnonymousHeadBoolNPtrOnly                  opType = 2249
-	opStructFieldAnonymousHeadOmitEmptyBoolNPtr             opType = 2250
-	opStructFieldAnonymousHeadOmitEmptyBoolNPtrOnly         opType = 2251
-	opStructFieldAnonymousHeadStringTagBoolNPtr             opType = 2252
-	opStructFieldAnonymousHeadStringTagBoolNPtrOnly         opType = 2253
-	opStructFieldPtrHeadBoolNPtr                            opType = 2254
-	opStructFieldPtrHeadBoolNPtrOnly                        opType = 2255
-	opStructFieldPtrHeadOmitEmptyBoolNPtr                   opType = 2256
-	opStructFieldPtrHeadOmitEmptyBoolNPtrOnly               opType = 2257
-	opStructFieldPtrHeadStringTagBoolNPtr                   opType = 2258
-	opStructFieldPtrHeadStringTagBoolNPtrOnly               opType = 2259
-	opStructFieldPtrAnonymousHeadBoolNPtr                   opType = 2260
-	opStructFieldPtrAnonymousHeadBoolNPtrOnly               opType = 2261
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtr          opType = 2262
-	opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtrOnly      opType = 2263
-	opStructFieldPtrAnonymousHeadStringTagBoolNPtr          opType = 2264
-	opStructFieldPtrAnonymousHeadStringTagBoolNPtrOnly      opType = 2265
-	opStructFieldNPtrHeadBoolNPtr                           opType = 2266
-	opStructFieldNPtrHeadBoolNPtrOnly                       opType = 2267
-	opStructFieldNPtrHeadOmitEmptyBoolNPtr                  opType = 2268
-	opStructFieldNPtrHeadOmitEmptyBoolNPtrOnly              opType = 2269
-	opStructFieldNPtrHeadStringTagBoolNPtr                  opType = 2270
-	opStructFieldNPtrHeadStringTagBoolNPtrOnly              opType = 2271
-	opStructFieldNPtrAnonymousHeadBoolNPtr                  opType = 2272
-	opStructFieldNPtrAnonymousHeadBoolNPtrOnly              opType = 2273
-	opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtr         opType = 2274
-	opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtrOnly     opType = 2275
-	opStructFieldNPtrAnonymousHeadStringTagBoolNPtr         opType = 2276
-	opStructFieldNPtrAnonymousHeadStringTagBoolNPtrOnly     opType = 2277
-	opStructFieldHeadStringNPtr                             opType = 2278
-	opStructFieldHeadStringNPtrOnly                         opType = 2279
-	opStructFieldHeadOmitEmptyStringNPtr                    opType = 2280
-	opStructFieldHeadOmitEmptyStringNPtrOnly                opType = 2281
-	opStructFieldHeadStringTagStringNPtr                    opType = 2282
-	opStructFieldHeadStringTagStringNPtrOnly                opType = 2283
-	opStructFieldAnonymousHeadStringNPtr                    opType = 2284
-	opStructFieldAnonymousHeadStringNPtrOnly                opType = 2285
-	opStructFieldAnonymousHeadOmitEmptyStringNPtr           opType = 2286
-	opStructFieldAnonymousHeadOmitEmptyStringNPtrOnly       opType = 2287
-	opStructFieldAnonymousHeadStringTagStringNPtr           opType = 2288
-	opStructFieldAnonymousHeadStringTagStringNPtrOnly       opType = 2289
-	opStructFieldPtrHeadStringNPtr                          opType = 2290
-	opStructFieldPtrHeadStringNPtrOnly                      opType = 2291
-	opStructFieldPtrHeadOmitEmptyStringNPtr                 opType = 2292
-	opStructFieldPtrHeadOmitEmptyStringNPtrOnly             opType = 2293
-	opStructFieldPtrHeadStringTagStringNPtr                 opType = 2294
-	opStructFieldPtrHeadStringTagStringNPtrOnly             opType = 2295
-	opStructFieldPtrAnonymousHeadStringNPtr                 opType = 2296
-	opStructFieldPtrAnonymousHeadStringNPtrOnly             opType = 2297
-	opStructFieldPtrAnonymousHeadOmitEmptyStringNPtr        opType = 2298
-	opStructFieldPtrAnonymousHeadOmitEmptyStringNPtrOnly    opType = 2299
-	opStructFieldPtrAnonymousHeadStringTagStringNPtr        opType = 2300
-	opStructFieldPtrAnonymousHeadStringTagStringNPtrOnly    opType = 2301
-	opStructFieldNPtrHeadStringNPtr                         opType = 2302
-	opStructFieldNPtrHeadStringNPtrOnly                     opType = 2303
-	opStructFieldNPtrHeadOmitEmptyStringNPtr                opType = 2304
-	opStructFieldNPtrHeadOmitEmptyStringNPtrOnly            opType = 2305
-	opStructFieldNPtrHeadStringTagStringNPtr                opType = 2306
-	opStructFieldNPtrHeadStringTagStringNPtrOnly            opType = 2307
-	opStructFieldNPtrAnonymousHeadStringNPtr                opType = 2308
-	opStructFieldNPtrAnonymousHeadStringNPtrOnly            opType = 2309
-	opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtr       opType = 2310
-	opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtrOnly   opType = 2311
-	opStructFieldNPtrAnonymousHeadStringTagStringNPtr       opType = 2312
-	opStructFieldNPtrAnonymousHeadStringTagStringNPtrOnly   opType = 2313
-	opStructFieldHeadBytesNPtr                              opType = 2314
-	opStructFieldHeadBytesNPtrOnly                          opType = 2315
-	opStructFieldHeadOmitEmptyBytesNPtr                     opType = 2316
-	opStructFieldHeadOmitEmptyBytesNPtrOnly                 opType = 2317
-	opStructFieldHeadStringTagBytesNPtr                     opType = 2318
-	opStructFieldHeadStringTagBytesNPtrOnly                 opType = 2319
-	opStructFieldAnonymousHeadBytesNPtr                     opType = 2320
-	opStructFieldAnonymousHeadBytesNPtrOnly                 opType = 2321
-	opStructFieldAnonymousHeadOmitEmptyBytesNPtr            opType = 2322
-	opStructFieldAnonymousHeadOmitEmptyBytesNPtrOnly        opType = 2323
-	opStructFieldAnonymousHeadStringTagBytesNPtr            opType = 2324
-	opStructFieldAnonymousHeadStringTagBytesNPtrOnly        opType = 2325
-	opStructFieldPtrHeadBytesNPtr                           opType = 2326
-	opStructFieldPtrHeadBytesNPtrOnly                       opType = 2327
-	opStructFieldPtrHeadOmitEmptyBytesNPtr                  opType = 2328
-	opStructFieldPtrHeadOmitEmptyBytesNPtrOnly              opType = 2329
-	opStructFieldPtrHeadStringTagBytesNPtr                  opType = 2330
-	opStructFieldPtrHeadStringTagBytesNPtrOnly              opType = 2331
-	opStructFieldPtrAnonymousHeadBytesNPtr                  opType = 2332
-	opStructFieldPtrAnonymousHeadBytesNPtrOnly              opType = 2333
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtr         opType = 2334
-	opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtrOnly     opType = 2335
-	opStructFieldPtrAnonymousHeadStringTagBytesNPtr         opType = 2336
-	opStructFieldPtrAnonymousHeadStringTagBytesNPtrOnly     opType = 2337
-	opStructFieldNPtrHeadBytesNPtr                          opType = 2338
-	opStructFieldNPtrHeadBytesNPtrOnly                      opType = 2339
-	opStructFieldNPtrHeadOmitEmptyBytesNPtr                 opType = 2340
-	opStructFieldNPtrHeadOmitEmptyBytesNPtrOnly             opType = 2341
-	opStructFieldNPtrHeadStringTagBytesNPtr                 opType = 2342
-	opStructFieldNPtrHeadStringTagBytesNPtrOnly             opType = 2343
-	opStructFieldNPtrAnonymousHeadBytesNPtr                 opType = 2344
-	opStructFieldNPtrAnonymousHeadBytesNPtrOnly             opType = 2345
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtr        opType = 2346
-	opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtrOnly    opType = 2347
-	opStructFieldNPtrAnonymousHeadStringTagBytesNPtr        opType = 2348
-	opStructFieldNPtrAnonymousHeadStringTagBytesNPtrOnly    opType = 2349
-	opStructFieldHead                                       opType = 2350
-	opStructFieldHeadOnly                                   opType = 2351
-	opStructFieldHeadOmitEmpty                              opType = 2352
-	opStructFieldHeadOmitEmptyOnly                          opType = 2353
-	opStructFieldHeadStringTag                              opType = 2354
-	opStructFieldHeadStringTagOnly                          opType = 2355
-	opStructFieldAnonymousHead                              opType = 2356
-	opStructFieldAnonymousHeadOnly                          opType = 2357
-	opStructFieldAnonymousHeadOmitEmpty                     opType = 2358
-	opStructFieldAnonymousHeadOmitEmptyOnly                 opType = 2359
-	opStructFieldAnonymousHeadStringTag                     opType = 2360
-	opStructFieldAnonymousHeadStringTagOnly                 opType = 2361
-	opStructFieldPtrHead                                    opType = 2362
-	opStructFieldPtrHeadOnly                                opType = 2363
-	opStructFieldPtrHeadOmitEmpty                           opType = 2364
-	opStructFieldPtrHeadOmitEmptyOnly                       opType = 2365
-	opStructFieldPtrHeadStringTag                           opType = 2366
-	opStructFieldPtrHeadStringTagOnly                       opType = 2367
-	opStructFieldPtrAnonymousHead                           opType = 2368
-	opStructFieldPtrAnonymousHeadOnly                       opType = 2369
-	opStructFieldPtrAnonymousHeadOmitEmpty                  opType = 2370
-	opStructFieldPtrAnonymousHeadOmitEmptyOnly              opType = 2371
-	opStructFieldPtrAnonymousHeadStringTag                  opType = 2372
-	opStructFieldPtrAnonymousHeadStringTagOnly              opType = 2373
-	opStructFieldNPtrHead                                   opType = 2374
-	opStructFieldNPtrHeadOnly                               opType = 2375
-	opStructFieldNPtrHeadOmitEmpty                          opType = 2376
-	opStructFieldNPtrHeadOmitEmptyOnly                      opType = 2377
-	opStructFieldNPtrHeadStringTag                          opType = 2378
-	opStructFieldNPtrHeadStringTagOnly                      opType = 2379
-	opStructFieldNPtrAnonymousHead                          opType = 2380
-	opStructFieldNPtrAnonymousHeadOnly                      opType = 2381
-	opStructFieldNPtrAnonymousHeadOmitEmpty                 opType = 2382
-	opStructFieldNPtrAnonymousHeadOmitEmptyOnly             opType = 2383
-	opStructFieldNPtrAnonymousHeadStringTag                 opType = 2384
-	opStructFieldNPtrAnonymousHeadStringTagOnly             opType = 2385
-	opStructFieldInt                                        opType = 2386
-	opStructFieldOmitEmptyInt                               opType = 2387
-	opStructFieldStringTagInt                               opType = 2388
-	opStructFieldInt8                                       opType = 2389
-	opStructFieldOmitEmptyInt8                              opType = 2390
-	opStructFieldStringTagInt8                              opType = 2391
-	opStructFieldInt16                                      opType = 2392
-	opStructFieldOmitEmptyInt16                             opType = 2393
-	opStructFieldStringTagInt16                             opType = 2394
-	opStructFieldInt32                                      opType = 2395
-	opStructFieldOmitEmptyInt32                             opType = 2396
-	opStructFieldStringTagInt32                             opType = 2397
-	opStructFieldInt64                                      opType = 2398
-	opStructFieldOmitEmptyInt64                             opType = 2399
-	opStructFieldStringTagInt64                             opType = 2400
-	opStructFieldUint                                       opType = 2401
-	opStructFieldOmitEmptyUint                              opType = 2402
-	opStructFieldStringTagUint                              opType = 2403
-	opStructFieldUint8                                      opType = 2404
-	opStructFieldOmitEmptyUint8                             opType = 2405
-	opStructFieldStringTagUint8                             opType = 2406
-	opStructFieldUint16                                     opType = 2407
-	opStructFieldOmitEmptyUint16                            opType = 2408
-	opStructFieldStringTagUint16                            opType = 2409
-	opStructFieldUint32                                     opType = 2410
-	opStructFieldOmitEmptyUint32                            opType = 2411
-	opStructFieldStringTagUint32                            opType = 2412
-	opStructFieldUint64                                     opType = 2413
-	opStructFieldOmitEmptyUint64                            opType = 2414
-	opStructFieldStringTagUint64                            opType = 2415
-	opStructFieldFloat32                                    opType = 2416
-	opStructFieldOmitEmptyFloat32                           opType = 2417
-	opStructFieldStringTagFloat32                           opType = 2418
-	opStructFieldFloat64                                    opType = 2419
-	opStructFieldOmitEmptyFloat64                           opType = 2420
-	opStructFieldStringTagFloat64                           opType = 2421
-	opStructFieldBool                                       opType = 2422
-	opStructFieldOmitEmptyBool                              opType = 2423
-	opStructFieldStringTagBool                              opType = 2424
-	opStructFieldString                                     opType = 2425
-	opStructFieldOmitEmptyString                            opType = 2426
-	opStructFieldStringTagString                            opType = 2427
-	opStructFieldBytes                                      opType = 2428
-	opStructFieldOmitEmptyBytes                             opType = 2429
-	opStructFieldStringTagBytes                             opType = 2430
-	opStructFieldArray                                      opType = 2431
-	opStructFieldOmitEmptyArray                             opType = 2432
-	opStructFieldStringTagArray                             opType = 2433
-	opStructFieldMap                                        opType = 2434
-	opStructFieldOmitEmptyMap                               opType = 2435
-	opStructFieldStringTagMap                               opType = 2436
-	opStructFieldMapLoad                                    opType = 2437
-	opStructFieldOmitEmptyMapLoad                           opType = 2438
-	opStructFieldStringTagMapLoad                           opType = 2439
-	opStructFieldSlice                                      opType = 2440
-	opStructFieldOmitEmptySlice                             opType = 2441
-	opStructFieldStringTagSlice                             opType = 2442
-	opStructFieldStruct                                     opType = 2443
-	opStructFieldOmitEmptyStruct                            opType = 2444
-	opStructFieldStringTagStruct                            opType = 2445
-	opStructFieldMarshalJSON                                opType = 2446
-	opStructFieldOmitEmptyMarshalJSON                       opType = 2447
-	opStructFieldStringTagMarshalJSON                       opType = 2448
-	opStructFieldMarshalText                                opType = 2449
-	opStructFieldOmitEmptyMarshalText                       opType = 2450
-	opStructFieldStringTagMarshalText                       opType = 2451
-	opStructFieldRecursive                                  opType = 2452
-	opStructFieldOmitEmptyRecursive                         opType = 2453
-	opStructFieldStringTagRecursive                         opType = 2454
-	opStructFieldIntString                                  opType = 2455
-	opStructFieldOmitEmptyIntString                         opType = 2456
-	opStructFieldStringTagIntString                         opType = 2457
-	opStructFieldInt8String                                 opType = 2458
-	opStructFieldOmitEmptyInt8String                        opType = 2459
-	opStructFieldStringTagInt8String                        opType = 2460
-	opStructFieldInt16String                                opType = 2461
-	opStructFieldOmitEmptyInt16String                       opType = 2462
-	opStructFieldStringTagInt16String                       opType = 2463
-	opStructFieldInt32String                                opType = 2464
-	opStructFieldOmitEmptyInt32String                       opType = 2465
-	opStructFieldStringTagInt32String                       opType = 2466
-	opStructFieldInt64String                                opType = 2467
-	opStructFieldOmitEmptyInt64String                       opType = 2468
-	opStructFieldStringTagInt64String                       opType = 2469
-	opStructFieldUintString                                 opType = 2470
-	opStructFieldOmitEmptyUintString                        opType = 2471
-	opStructFieldStringTagUintString                        opType = 2472
-	opStructFieldUint8String                                opType = 2473
-	opStructFieldOmitEmptyUint8String                       opType = 2474
-	opStructFieldStringTagUint8String                       opType = 2475
-	opStructFieldUint16String                               opType = 2476
-	opStructFieldOmitEmptyUint16String                      opType = 2477
-	opStructFieldStringTagUint16String                      opType = 2478
-	opStructFieldUint32String                               opType = 2479
-	opStructFieldOmitEmptyUint32String                      opType = 2480
-	opStructFieldStringTagUint32String                      opType = 2481
-	opStructFieldUint64String                               opType = 2482
-	opStructFieldOmitEmptyUint64String                      opType = 2483
-	opStructFieldStringTagUint64String                      opType = 2484
-	opStructFieldIntPtr                                     opType = 2485
-	opStructFieldOmitEmptyIntPtr                            opType = 2486
-	opStructFieldStringTagIntPtr                            opType = 2487
-	opStructFieldInt8Ptr                                    opType = 2488
-	opStructFieldOmitEmptyInt8Ptr                           opType = 2489
-	opStructFieldStringTagInt8Ptr                           opType = 2490
-	opStructFieldInt16Ptr                                   opType = 2491
-	opStructFieldOmitEmptyInt16Ptr                          opType = 2492
-	opStructFieldStringTagInt16Ptr                          opType = 2493
-	opStructFieldInt32Ptr                                   opType = 2494
-	opStructFieldOmitEmptyInt32Ptr                          opType = 2495
-	opStructFieldStringTagInt32Ptr                          opType = 2496
-	opStructFieldInt64Ptr                                   opType = 2497
-	opStructFieldOmitEmptyInt64Ptr                          opType = 2498
-	opStructFieldStringTagInt64Ptr                          opType = 2499
-	opStructFieldUintPtr                                    opType = 2500
-	opStructFieldOmitEmptyUintPtr                           opType = 2501
-	opStructFieldStringTagUintPtr                           opType = 2502
-	opStructFieldUint8Ptr                                   opType = 2503
-	opStructFieldOmitEmptyUint8Ptr                          opType = 2504
-	opStructFieldStringTagUint8Ptr                          opType = 2505
-	opStructFieldUint16Ptr                                  opType = 2506
-	opStructFieldOmitEmptyUint16Ptr                         opType = 2507
-	opStructFieldStringTagUint16Ptr                         opType = 2508
-	opStructFieldUint32Ptr                                  opType = 2509
-	opStructFieldOmitEmptyUint32Ptr                         opType = 2510
-	opStructFieldStringTagUint32Ptr                         opType = 2511
-	opStructFieldUint64Ptr                                  opType = 2512
-	opStructFieldOmitEmptyUint64Ptr                         opType = 2513
-	opStructFieldStringTagUint64Ptr                         opType = 2514
-	opStructFieldFloat32Ptr                                 opType = 2515
-	opStructFieldOmitEmptyFloat32Ptr                        opType = 2516
-	opStructFieldStringTagFloat32Ptr                        opType = 2517
-	opStructFieldFloat64Ptr                                 opType = 2518
-	opStructFieldOmitEmptyFloat64Ptr                        opType = 2519
-	opStructFieldStringTagFloat64Ptr                        opType = 2520
-	opStructFieldBoolPtr                                    opType = 2521
-	opStructFieldOmitEmptyBoolPtr                           opType = 2522
-	opStructFieldStringTagBoolPtr                           opType = 2523
-	opStructFieldStringPtr                                  opType = 2524
-	opStructFieldOmitEmptyStringPtr                         opType = 2525
-	opStructFieldStringTagStringPtr                         opType = 2526
-	opStructFieldBytesPtr                                   opType = 2527
-	opStructFieldOmitEmptyBytesPtr                          opType = 2528
-	opStructFieldStringTagBytesPtr                          opType = 2529
-	opStructFieldIntNPtr                                    opType = 2530
-	opStructFieldOmitEmptyIntNPtr                           opType = 2531
-	opStructFieldStringTagIntNPtr                           opType = 2532
-	opStructFieldInt8NPtr                                   opType = 2533
-	opStructFieldOmitEmptyInt8NPtr                          opType = 2534
-	opStructFieldStringTagInt8NPtr                          opType = 2535
-	opStructFieldInt16NPtr                                  opType = 2536
-	opStructFieldOmitEmptyInt16NPtr                         opType = 2537
-	opStructFieldStringTagInt16NPtr                         opType = 2538
-	opStructFieldInt32NPtr                                  opType = 2539
-	opStructFieldOmitEmptyInt32NPtr                         opType = 2540
-	opStructFieldStringTagInt32NPtr                         opType = 2541
-	opStructFieldInt64NPtr                                  opType = 2542
-	opStructFieldOmitEmptyInt64NPtr                         opType = 2543
-	opStructFieldStringTagInt64NPtr                         opType = 2544
-	opStructFieldUintNPtr                                   opType = 2545
-	opStructFieldOmitEmptyUintNPtr                          opType = 2546
-	opStructFieldStringTagUintNPtr                          opType = 2547
-	opStructFieldUint8NPtr                                  opType = 2548
-	opStructFieldOmitEmptyUint8NPtr                         opType = 2549
-	opStructFieldStringTagUint8NPtr                         opType = 2550
-	opStructFieldUint16NPtr                                 opType = 2551
-	opStructFieldOmitEmptyUint16NPtr                        opType = 2552
-	opStructFieldStringTagUint16NPtr                        opType = 2553
-	opStructFieldUint32NPtr                                 opType = 2554
-	opStructFieldOmitEmptyUint32NPtr                        opType = 2555
-	opStructFieldStringTagUint32NPtr                        opType = 2556
-	opStructFieldUint64NPtr                                 opType = 2557
-	opStructFieldOmitEmptyUint64NPtr                        opType = 2558
-	opStructFieldStringTagUint64NPtr                        opType = 2559
-	opStructFieldFloat32NPtr                                opType = 2560
-	opStructFieldOmitEmptyFloat32NPtr                       opType = 2561
-	opStructFieldStringTagFloat32NPtr                       opType = 2562
-	opStructFieldFloat64NPtr                                opType = 2563
-	opStructFieldOmitEmptyFloat64NPtr                       opType = 2564
-	opStructFieldStringTagFloat64NPtr                       opType = 2565
-	opStructFieldBoolNPtr                                   opType = 2566
-	opStructFieldOmitEmptyBoolNPtr                          opType = 2567
-	opStructFieldStringTagBoolNPtr                          opType = 2568
-	opStructFieldStringNPtr                                 opType = 2569
-	opStructFieldOmitEmptyStringNPtr                        opType = 2570
-	opStructFieldStringTagStringNPtr                        opType = 2571
-	opStructFieldBytesNPtr                                  opType = 2572
-	opStructFieldOmitEmptyBytesNPtr                         opType = 2573
-	opStructFieldStringTagBytesNPtr                         opType = 2574
-	opStructField                                           opType = 2575
-	opStructFieldOmitEmpty                                  opType = 2576
-	opStructFieldStringTag                                  opType = 2577
-	opStructEndInt                                          opType = 2578
-	opStructEndOmitEmptyInt                                 opType = 2579
-	opStructEndStringTagInt                                 opType = 2580
-	opStructEndInt8                                         opType = 2581
-	opStructEndOmitEmptyInt8                                opType = 2582
-	opStructEndStringTagInt8                                opType = 2583
-	opStructEndInt16                                        opType = 2584
-	opStructEndOmitEmptyInt16                               opType = 2585
-	opStructEndStringTagInt16                               opType = 2586
-	opStructEndInt32                                        opType = 2587
-	opStructEndOmitEmptyInt32                               opType = 2588
-	opStructEndStringTagInt32                               opType = 2589
-	opStructEndInt64                                        opType = 2590
-	opStructEndOmitEmptyInt64                               opType = 2591
-	opStructEndStringTagInt64                               opType = 2592
-	opStructEndUint                                         opType = 2593
-	opStructEndOmitEmptyUint                                opType = 2594
-	opStructEndStringTagUint                                opType = 2595
-	opStructEndUint8                                        opType = 2596
-	opStructEndOmitEmptyUint8                               opType = 2597
-	opStructEndStringTagUint8                               opType = 2598
-	opStructEndUint16                                       opType = 2599
-	opStructEndOmitEmptyUint16                              opType = 2600
-	opStructEndStringTagUint16                              opType = 2601
-	opStructEndUint32                                       opType = 2602
-	opStructEndOmitEmptyUint32                              opType = 2603
-	opStructEndStringTagUint32                              opType = 2604
-	opStructEndUint64                                       opType = 2605
-	opStructEndOmitEmptyUint64                              opType = 2606
-	opStructEndStringTagUint64                              opType = 2607
-	opStructEndFloat32                                      opType = 2608
-	opStructEndOmitEmptyFloat32                             opType = 2609
-	opStructEndStringTagFloat32                             opType = 2610
-	opStructEndFloat64                                      opType = 2611
-	opStructEndOmitEmptyFloat64                             opType = 2612
-	opStructEndStringTagFloat64                             opType = 2613
-	opStructEndBool                                         opType = 2614
-	opStructEndOmitEmptyBool                                opType = 2615
-	opStructEndStringTagBool                                opType = 2616
-	opStructEndString                                       opType = 2617
-	opStructEndOmitEmptyString                              opType = 2618
-	opStructEndStringTagString                              opType = 2619
-	opStructEndBytes                                        opType = 2620
-	opStructEndOmitEmptyBytes                               opType = 2621
-	opStructEndStringTagBytes                               opType = 2622
-	opStructEndArray                                        opType = 2623
-	opStructEndOmitEmptyArray                               opType = 2624
-	opStructEndStringTagArray                               opType = 2625
-	opStructEndMap                                          opType = 2626
-	opStructEndOmitEmptyMap                                 opType = 2627
-	opStructEndStringTagMap                                 opType = 2628
-	opStructEndMapLoad                                      opType = 2629
-	opStructEndOmitEmptyMapLoad                             opType = 2630
-	opStructEndStringTagMapLoad                             opType = 2631
-	opStructEndSlice                                        opType = 2632
-	opStructEndOmitEmptySlice                               opType = 2633
-	opStructEndStringTagSlice                               opType = 2634
-	opStructEndStruct                                       opType = 2635
-	opStructEndOmitEmptyStruct                              opType = 2636
-	opStructEndStringTagStruct                              opType = 2637
-	opStructEndMarshalJSON                                  opType = 2638
-	opStructEndOmitEmptyMarshalJSON                         opType = 2639
-	opStructEndStringTagMarshalJSON                         opType = 2640
-	opStructEndMarshalText                                  opType = 2641
-	opStructEndOmitEmptyMarshalText                         opType = 2642
-	opStructEndStringTagMarshalText                         opType = 2643
-	opStructEndRecursive                                    opType = 2644
-	opStructEndOmitEmptyRecursive                           opType = 2645
-	opStructEndStringTagRecursive                           opType = 2646
-	opStructEndIntString                                    opType = 2647
-	opStructEndOmitEmptyIntString                           opType = 2648
-	opStructEndStringTagIntString                           opType = 2649
-	opStructEndInt8String                                   opType = 2650
-	opStructEndOmitEmptyInt8String                          opType = 2651
-	opStructEndStringTagInt8String                          opType = 2652
-	opStructEndInt16String                                  opType = 2653
-	opStructEndOmitEmptyInt16String                         opType = 2654
-	opStructEndStringTagInt16String                         opType = 2655
-	opStructEndInt32String                                  opType = 2656
-	opStructEndOmitEmptyInt32String                         opType = 2657
-	opStructEndStringTagInt32String                         opType = 2658
-	opStructEndInt64String                                  opType = 2659
-	opStructEndOmitEmptyInt64String                         opType = 2660
-	opStructEndStringTagInt64String                         opType = 2661
-	opStructEndUintString                                   opType = 2662
-	opStructEndOmitEmptyUintString                          opType = 2663
-	opStructEndStringTagUintString                          opType = 2664
-	opStructEndUint8String                                  opType = 2665
-	opStructEndOmitEmptyUint8String                         opType = 2666
-	opStructEndStringTagUint8String                         opType = 2667
-	opStructEndUint16String                                 opType = 2668
-	opStructEndOmitEmptyUint16String                        opType = 2669
-	opStructEndStringTagUint16String                        opType = 2670
-	opStructEndUint32String                                 opType = 2671
-	opStructEndOmitEmptyUint32String                        opType = 2672
-	opStructEndStringTagUint32String                        opType = 2673
-	opStructEndUint64String                                 opType = 2674
-	opStructEndOmitEmptyUint64String                        opType = 2675
-	opStructEndStringTagUint64String                        opType = 2676
-	opStructEndIntPtr                                       opType = 2677
-	opStructEndOmitEmptyIntPtr                              opType = 2678
-	opStructEndStringTagIntPtr                              opType = 2679
-	opStructEndInt8Ptr                                      opType = 2680
-	opStructEndOmitEmptyInt8Ptr                             opType = 2681
-	opStructEndStringTagInt8Ptr                             opType = 2682
-	opStructEndInt16Ptr                                     opType = 2683
-	opStructEndOmitEmptyInt16Ptr                            opType = 2684
-	opStructEndStringTagInt16Ptr                            opType = 2685
-	opStructEndInt32Ptr                                     opType = 2686
-	opStructEndOmitEmptyInt32Ptr                            opType = 2687
-	opStructEndStringTagInt32Ptr                            opType = 2688
-	opStructEndInt64Ptr                                     opType = 2689
-	opStructEndOmitEmptyInt64Ptr                            opType = 2690
-	opStructEndStringTagInt64Ptr                            opType = 2691
-	opStructEndUintPtr                                      opType = 2692
-	opStructEndOmitEmptyUintPtr                             opType = 2693
-	opStructEndStringTagUintPtr                             opType = 2694
-	opStructEndUint8Ptr                                     opType = 2695
-	opStructEndOmitEmptyUint8Ptr                            opType = 2696
-	opStructEndStringTagUint8Ptr                            opType = 2697
-	opStructEndUint16Ptr                                    opType = 2698
-	opStructEndOmitEmptyUint16Ptr                           opType = 2699
-	opStructEndStringTagUint16Ptr                           opType = 2700
-	opStructEndUint32Ptr                                    opType = 2701
-	opStructEndOmitEmptyUint32Ptr                           opType = 2702
-	opStructEndStringTagUint32Ptr                           opType = 2703
-	opStructEndUint64Ptr                                    opType = 2704
-	opStructEndOmitEmptyUint64Ptr                           opType = 2705
-	opStructEndStringTagUint64Ptr                           opType = 2706
-	opStructEndFloat32Ptr                                   opType = 2707
-	opStructEndOmitEmptyFloat32Ptr                          opType = 2708
-	opStructEndStringTagFloat32Ptr                          opType = 2709
-	opStructEndFloat64Ptr                                   opType = 2710
-	opStructEndOmitEmptyFloat64Ptr                          opType = 2711
-	opStructEndStringTagFloat64Ptr                          opType = 2712
-	opStructEndBoolPtr                                      opType = 2713
-	opStructEndOmitEmptyBoolPtr                             opType = 2714
-	opStructEndStringTagBoolPtr                             opType = 2715
-	opStructEndStringPtr                                    opType = 2716
-	opStructEndOmitEmptyStringPtr                           opType = 2717
-	opStructEndStringTagStringPtr                           opType = 2718
-	opStructEndBytesPtr                                     opType = 2719
-	opStructEndOmitEmptyBytesPtr                            opType = 2720
-	opStructEndStringTagBytesPtr                            opType = 2721
-	opStructEndIntNPtr                                      opType = 2722
-	opStructEndOmitEmptyIntNPtr                             opType = 2723
-	opStructEndStringTagIntNPtr                             opType = 2724
-	opStructEndInt8NPtr                                     opType = 2725
-	opStructEndOmitEmptyInt8NPtr                            opType = 2726
-	opStructEndStringTagInt8NPtr                            opType = 2727
-	opStructEndInt16NPtr                                    opType = 2728
-	opStructEndOmitEmptyInt16NPtr                           opType = 2729
-	opStructEndStringTagInt16NPtr                           opType = 2730
-	opStructEndInt32NPtr                                    opType = 2731
-	opStructEndOmitEmptyInt32NPtr                           opType = 2732
-	opStructEndStringTagInt32NPtr                           opType = 2733
-	opStructEndInt64NPtr                                    opType = 2734
-	opStructEndOmitEmptyInt64NPtr                           opType = 2735
-	opStructEndStringTagInt64NPtr                           opType = 2736
-	opStructEndUintNPtr                                     opType = 2737
-	opStructEndOmitEmptyUintNPtr                            opType = 2738
-	opStructEndStringTagUintNPtr                            opType = 2739
-	opStructEndUint8NPtr                                    opType = 2740
-	opStructEndOmitEmptyUint8NPtr                           opType = 2741
-	opStructEndStringTagUint8NPtr                           opType = 2742
-	opStructEndUint16NPtr                                   opType = 2743
-	opStructEndOmitEmptyUint16NPtr                          opType = 2744
-	opStructEndStringTagUint16NPtr                          opType = 2745
-	opStructEndUint32NPtr                                   opType = 2746
-	opStructEndOmitEmptyUint32NPtr                          opType = 2747
-	opStructEndStringTagUint32NPtr                          opType = 2748
-	opStructEndUint64NPtr                                   opType = 2749
-	opStructEndOmitEmptyUint64NPtr                          opType = 2750
-	opStructEndStringTagUint64NPtr                          opType = 2751
-	opStructEndFloat32NPtr                                  opType = 2752
-	opStructEndOmitEmptyFloat32NPtr                         opType = 2753
-	opStructEndStringTagFloat32NPtr                         opType = 2754
-	opStructEndFloat64NPtr                                  opType = 2755
-	opStructEndOmitEmptyFloat64NPtr                         opType = 2756
-	opStructEndStringTagFloat64NPtr                         opType = 2757
-	opStructEndBoolNPtr                                     opType = 2758
-	opStructEndOmitEmptyBoolNPtr                            opType = 2759
-	opStructEndStringTagBoolNPtr                            opType = 2760
-	opStructEndStringNPtr                                   opType = 2761
-	opStructEndOmitEmptyStringNPtr                          opType = 2762
-	opStructEndStringTagStringNPtr                          opType = 2763
-	opStructEndBytesNPtr                                    opType = 2764
-	opStructEndOmitEmptyBytesNPtr                           opType = 2765
-	opStructEndStringTagBytesNPtr                           opType = 2766
-	opStructEnd                                             opType = 2767
-	opStructEndOmitEmpty                                    opType = 2768
-	opStructEndStringTag                                    opType = 2769
+	opEnd                                                     opType = 0
+	opInterface                                               opType = 1
+	opPtr                                                     opType = 2
+	opNPtr                                                    opType = 3
+	opSliceHead                                               opType = 4
+	opRootSliceHead                                           opType = 5
+	opSliceElem                                               opType = 6
+	opRootSliceElem                                           opType = 7
+	opSliceEnd                                                opType = 8
+	opArrayHead                                               opType = 9
+	opArrayElem                                               opType = 10
+	opArrayEnd                                                opType = 11
+	opMapHead                                                 opType = 12
+	opMapHeadLoad                                             opType = 13
+	opMapKey                                                  opType = 14
+	opMapValue                                                opType = 15
+	opMapEnd                                                  opType = 16
+	opStructFieldRecursiveEnd                                 opType = 17
+	opStructAnonymousEnd                                      opType = 18
+	opInt                                                     opType = 19
+	opUint                                                    opType = 20
+	opFloat32                                                 opType = 21
+	opFloat64                                                 opType = 22
+	opBool                                                    opType = 23
+	opString                                                  opType = 24
+	opBytes                                                   opType = 25
+	opArray                                                   opType = 26
+	opMap                                                     opType = 27
+	opMapLoad                                                 opType = 28
+	opSlice                                                   opType = 29
+	opStruct                                                  opType = 30
+	opMarshalJSON                                             opType = 31
+	opMarshalText                                             opType = 32
+	opRecursive                                               opType = 33
+	opIntString                                               opType = 34
+	opUintString                                              opType = 35
+	opIntPtr                                                  opType = 36
+	opUintPtr                                                 opType = 37
+	opFloat32Ptr                                              opType = 38
+	opFloat64Ptr                                              opType = 39
+	opBoolPtr                                                 opType = 40
+	opStringPtr                                               opType = 41
+	opBytesPtr                                                opType = 42
+	opIntNPtr                                                 opType = 43
+	opUintNPtr                                                opType = 44
+	opFloat32NPtr                                             opType = 45
+	opFloat64NPtr                                             opType = 46
+	opBoolNPtr                                                opType = 47
+	opStringNPtr                                              opType = 48
+	opBytesNPtr                                               opType = 49
+	opEmptyStruct                                             opType = 50
+	opEmptyStructPtr                                          opType = 51
+	opStructFieldHeadInt                                      opType = 52
+	opStructFieldHeadIntOnly                                  opType = 53
+	opStructFieldHeadOmitEmptyInt                             opType = 54
+	opStructFieldHeadOmitEmptyIntOnly                         opType = 55
+	opStructFieldHeadStringTagInt                             opType = 56
+	opStructFieldHeadStringTagIntOnly                         opType = 57
+	opStructFieldAnonymousHeadInt                             opType = 58
+	opStructFieldAnonymousHeadIntOnly                         opType = 59
+	opStructFieldAnonymousHeadOmitEmptyInt                    opType = 60
+	opStructFieldAnonymousHeadOmitEmptyIntOnly                opType = 61
+	opStructFieldAnonymousHeadStringTagInt                    opType = 62
+	opStructFieldAnonymousHeadStringTagIntOnly                opType = 63
+	opStructFieldPtrHeadInt                                   opType = 64
+	opStructFieldPtrHeadIntOnly                               opType = 65
+	opStructFieldPtrHeadOmitEmptyInt                          opType = 66
+	opStructFieldPtrHeadOmitEmptyIntOnly                      opType = 67
+	opStructFieldPtrHeadStringTagInt                          opType = 68
+	opStructFieldPtrHeadStringTagIntOnly                      opType = 69
+	opStructFieldPtrAnonymousHeadInt                          opType = 70
+	opStructFieldPtrAnonymousHeadIntOnly                      opType = 71
+	opStructFieldPtrAnonymousHeadOmitEmptyInt                 opType = 72
+	opStructFieldPtrAnonymousHeadOmitEmptyIntOnly             opType = 73
+	opStructFieldPtrAnonymousHeadStringTagInt                 opType = 74
+	opStructFieldPtrAnonymousHeadStringTagIntOnly             opType = 75
+	opStructFieldNPtrHeadInt                                  opType = 76
+	opStructFieldNPtrHeadIntOnly                              opType = 77
+	opStructFieldNPtrHeadOmitEmptyInt                         opType = 78
+	opStructFieldNPtrHeadOmitEmptyIntOnly                     opType = 79
+	opStructFieldNPtrHeadStringTagInt                         opType = 80
+	opStructFieldNPtrHeadStringTagIntOnly                     opType = 81
+	opStructFieldNPtrAnonymousHeadInt                         opType = 82
+	opStructFieldNPtrAnonymousHeadIntOnly                     opType = 83
+	opStructFieldNPtrAnonymousHeadOmitEmptyInt                opType = 84
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntOnly            opType = 85
+	opStructFieldNPtrAnonymousHeadStringTagInt                opType = 86
+	opStructFieldNPtrAnonymousHeadStringTagIntOnly            opType = 87
+	opStructFieldHeadUint                                     opType = 88
+	opStructFieldHeadUintOnly                                 opType = 89
+	opStructFieldHeadOmitEmptyUint                            opType = 90
+	opStructFieldHeadOmitEmptyUintOnly                        opType = 91
+	opStructFieldHeadStringTagUint                            opType = 92
+	opStructFieldHeadStringTagUintOnly                        opType = 93
+	opStructFieldAnonymousHeadUint                            opType = 94
+	opStructFieldAnonymousHeadUintOnly                        opType = 95
+	opStructFieldAnonymousHeadOmitEmptyUint                   opType = 96
+	opStructFieldAnonymousHeadOmitEmptyUintOnly               opType = 97
+	opStructFieldAnonymousHeadStringTagUint                   opType = 98
+	opStructFieldAnonymousHeadStringTagUintOnly               opType = 99
+	opStructFieldPtrHeadUint                                  opType = 100
+	opStructFieldPtrHeadUintOnly                              opType = 101
+	opStructFieldPtrHeadOmitEmptyUint                         opType = 102
+	opStructFieldPtrHeadOmitEmptyUintOnly                     opType = 103
+	opStructFieldPtrHeadStringTagUint                         opType = 104
+	opStructFieldPtrHeadStringTagUintOnly                     opType = 105
+	opStructFieldPtrAnonymousHeadUint                         opType = 106
+	opStructFieldPtrAnonymousHeadUintOnly                     opType = 107
+	opStructFieldPtrAnonymousHeadOmitEmptyUint                opType = 108
+	opStructFieldPtrAnonymousHeadOmitEmptyUintOnly            opType = 109
+	opStructFieldPtrAnonymousHeadStringTagUint                opType = 110
+	opStructFieldPtrAnonymousHeadStringTagUintOnly            opType = 111
+	opStructFieldNPtrHeadUint                                 opType = 112
+	opStructFieldNPtrHeadUintOnly                             opType = 113
+	opStructFieldNPtrHeadOmitEmptyUint                        opType = 114
+	opStructFieldNPtrHeadOmitEmptyUintOnly                    opType = 115
+	opStructFieldNPtrHeadStringTagUint                        opType = 116
+	opStructFieldNPtrHeadStringTagUintOnly                    opType = 117
+	opStructFieldNPtrAnonymousHeadUint                        opType = 118
+	opStructFieldNPtrAnonymousHeadUintOnly                    opType = 119
+	opStructFieldNPtrAnonymousHeadOmitEmptyUint               opType = 120
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintOnly           opType = 121
+	opStructFieldNPtrAnonymousHeadStringTagUint               opType = 122
+	opStructFieldNPtrAnonymousHeadStringTagUintOnly           opType = 123
+	opStructFieldHeadFloat32                                  opType = 124
+	opStructFieldHeadFloat32Only                              opType = 125
+	opStructFieldHeadOmitEmptyFloat32                         opType = 126
+	opStructFieldHeadOmitEmptyFloat32Only                     opType = 127
+	opStructFieldHeadStringTagFloat32                         opType = 128
+	opStructFieldHeadStringTagFloat32Only                     opType = 129
+	opStructFieldAnonymousHeadFloat32                         opType = 130
+	opStructFieldAnonymousHeadFloat32Only                     opType = 131
+	opStructFieldAnonymousHeadOmitEmptyFloat32                opType = 132
+	opStructFieldAnonymousHeadOmitEmptyFloat32Only            opType = 133
+	opStructFieldAnonymousHeadStringTagFloat32                opType = 134
+	opStructFieldAnonymousHeadStringTagFloat32Only            opType = 135
+	opStructFieldPtrHeadFloat32                               opType = 136
+	opStructFieldPtrHeadFloat32Only                           opType = 137
+	opStructFieldPtrHeadOmitEmptyFloat32                      opType = 138
+	opStructFieldPtrHeadOmitEmptyFloat32Only                  opType = 139
+	opStructFieldPtrHeadStringTagFloat32                      opType = 140
+	opStructFieldPtrHeadStringTagFloat32Only                  opType = 141
+	opStructFieldPtrAnonymousHeadFloat32                      opType = 142
+	opStructFieldPtrAnonymousHeadFloat32Only                  opType = 143
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32             opType = 144
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Only         opType = 145
+	opStructFieldPtrAnonymousHeadStringTagFloat32             opType = 146
+	opStructFieldPtrAnonymousHeadStringTagFloat32Only         opType = 147
+	opStructFieldNPtrHeadFloat32                              opType = 148
+	opStructFieldNPtrHeadFloat32Only                          opType = 149
+	opStructFieldNPtrHeadOmitEmptyFloat32                     opType = 150
+	opStructFieldNPtrHeadOmitEmptyFloat32Only                 opType = 151
+	opStructFieldNPtrHeadStringTagFloat32                     opType = 152
+	opStructFieldNPtrHeadStringTagFloat32Only                 opType = 153
+	opStructFieldNPtrAnonymousHeadFloat32                     opType = 154
+	opStructFieldNPtrAnonymousHeadFloat32Only                 opType = 155
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32            opType = 156
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Only        opType = 157
+	opStructFieldNPtrAnonymousHeadStringTagFloat32            opType = 158
+	opStructFieldNPtrAnonymousHeadStringTagFloat32Only        opType = 159
+	opStructFieldHeadFloat64                                  opType = 160
+	opStructFieldHeadFloat64Only                              opType = 161
+	opStructFieldHeadOmitEmptyFloat64                         opType = 162
+	opStructFieldHeadOmitEmptyFloat64Only                     opType = 163
+	opStructFieldHeadStringTagFloat64                         opType = 164
+	opStructFieldHeadStringTagFloat64Only                     opType = 165
+	opStructFieldAnonymousHeadFloat64                         opType = 166
+	opStructFieldAnonymousHeadFloat64Only                     opType = 167
+	opStructFieldAnonymousHeadOmitEmptyFloat64                opType = 168
+	opStructFieldAnonymousHeadOmitEmptyFloat64Only            opType = 169
+	opStructFieldAnonymousHeadStringTagFloat64                opType = 170
+	opStructFieldAnonymousHeadStringTagFloat64Only            opType = 171
+	opStructFieldPtrHeadFloat64                               opType = 172
+	opStructFieldPtrHeadFloat64Only                           opType = 173
+	opStructFieldPtrHeadOmitEmptyFloat64                      opType = 174
+	opStructFieldPtrHeadOmitEmptyFloat64Only                  opType = 175
+	opStructFieldPtrHeadStringTagFloat64                      opType = 176
+	opStructFieldPtrHeadStringTagFloat64Only                  opType = 177
+	opStructFieldPtrAnonymousHeadFloat64                      opType = 178
+	opStructFieldPtrAnonymousHeadFloat64Only                  opType = 179
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64             opType = 180
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Only         opType = 181
+	opStructFieldPtrAnonymousHeadStringTagFloat64             opType = 182
+	opStructFieldPtrAnonymousHeadStringTagFloat64Only         opType = 183
+	opStructFieldNPtrHeadFloat64                              opType = 184
+	opStructFieldNPtrHeadFloat64Only                          opType = 185
+	opStructFieldNPtrHeadOmitEmptyFloat64                     opType = 186
+	opStructFieldNPtrHeadOmitEmptyFloat64Only                 opType = 187
+	opStructFieldNPtrHeadStringTagFloat64                     opType = 188
+	opStructFieldNPtrHeadStringTagFloat64Only                 opType = 189
+	opStructFieldNPtrAnonymousHeadFloat64                     opType = 190
+	opStructFieldNPtrAnonymousHeadFloat64Only                 opType = 191
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64            opType = 192
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Only        opType = 193
+	opStructFieldNPtrAnonymousHeadStringTagFloat64            opType = 194
+	opStructFieldNPtrAnonymousHeadStringTagFloat64Only        opType = 195
+	opStructFieldHeadBool                                     opType = 196
+	opStructFieldHeadBoolOnly                                 opType = 197
+	opStructFieldHeadOmitEmptyBool                            opType = 198
+	opStructFieldHeadOmitEmptyBoolOnly                        opType = 199
+	opStructFieldHeadStringTagBool                            opType = 200
+	opStructFieldHeadStringTagBoolOnly                        opType = 201
+	opStructFieldAnonymousHeadBool                            opType = 202
+	opStructFieldAnonymousHeadBoolOnly                        opType = 203
+	opStructFieldAnonymousHeadOmitEmptyBool                   opType = 204
+	opStructFieldAnonymousHeadOmitEmptyBoolOnly               opType = 205
+	opStructFieldAnonymousHeadStringTagBool                   opType = 206
+	opStructFieldAnonymousHeadStringTagBoolOnly               opType = 207
+	opStructFieldPtrHeadBool                                  opType = 208
+	opStructFieldPtrHeadBoolOnly                              opType = 209
+	opStructFieldPtrHeadOmitEmptyBool                         opType = 210
+	opStructFieldPtrHeadOmitEmptyBoolOnly                     opType = 211
+	opStructFieldPtrHeadStringTagBool                         opType = 212
+	opStructFieldPtrHeadStringTagBoolOnly                     opType = 213
+	opStructFieldPtrAnonymousHeadBool                         opType = 214
+	opStructFieldPtrAnonymousHeadBoolOnly                     opType = 215
+	opStructFieldPtrAnonymousHeadOmitEmptyBool                opType = 216
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolOnly            opType = 217
+	opStructFieldPtrAnonymousHeadStringTagBool                opType = 218
+	opStructFieldPtrAnonymousHeadStringTagBoolOnly            opType = 219
+	opStructFieldNPtrHeadBool                                 opType = 220
+	opStructFieldNPtrHeadBoolOnly                             opType = 221
+	opStructFieldNPtrHeadOmitEmptyBool                        opType = 222
+	opStructFieldNPtrHeadOmitEmptyBoolOnly                    opType = 223
+	opStructFieldNPtrHeadStringTagBool                        opType = 224
+	opStructFieldNPtrHeadStringTagBoolOnly                    opType = 225
+	opStructFieldNPtrAnonymousHeadBool                        opType = 226
+	opStructFieldNPtrAnonymousHeadBoolOnly                    opType = 227
+	opStructFieldNPtrAnonymousHeadOmitEmptyBool               opType = 228
+	opStructFieldNPtrAnonymousHeadOmitEmptyBoolOnly           opType = 229
+	opStructFieldNPtrAnonymousHeadStringTagBool               opType = 230
+	opStructFieldNPtrAnonymousHeadStringTagBoolOnly           opType = 231
+	opStructFieldHeadString                                   opType = 232
+	opStructFieldHeadStringOnly                               opType = 233
+	opStructFieldHeadOmitEmptyString                          opType = 234
+	opStructFieldHeadOmitEmptyStringOnly                      opType = 235
+	opStructFieldHeadStringTagString                          opType = 236
+	opStructFieldHeadStringTagStringOnly                      opType = 237
+	opStructFieldAnonymousHeadString                          opType = 238
+	opStructFieldAnonymousHeadStringOnly                      opType = 239
+	opStructFieldAnonymousHeadOmitEmptyString                 opType = 240
+	opStructFieldAnonymousHeadOmitEmptyStringOnly             opType = 241
+	opStructFieldAnonymousHeadStringTagString                 opType = 242
+	opStructFieldAnonymousHeadStringTagStringOnly             opType = 243
+	opStructFieldPtrHeadString                                opType = 244
+	opStructFieldPtrHeadStringOnly                            opType = 245
+	opStructFieldPtrHeadOmitEmptyString                       opType = 246
+	opStructFieldPtrHeadOmitEmptyStringOnly                   opType = 247
+	opStructFieldPtrHeadStringTagString                       opType = 248
+	opStructFieldPtrHeadStringTagStringOnly                   opType = 249
+	opStructFieldPtrAnonymousHeadString                       opType = 250
+	opStructFieldPtrAnonymousHeadStringOnly                   opType = 251
+	opStructFieldPtrAnonymousHeadOmitEmptyString              opType = 252
+	opStructFieldPtrAnonymousHeadOmitEmptyStringOnly          opType = 253
+	opStructFieldPtrAnonymousHeadStringTagString              opType = 254
+	opStructFieldPtrAnonymousHeadStringTagStringOnly          opType = 255
+	opStructFieldNPtrHeadString                               opType = 256
+	opStructFieldNPtrHeadStringOnly                           opType = 257
+	opStructFieldNPtrHeadOmitEmptyString                      opType = 258
+	opStructFieldNPtrHeadOmitEmptyStringOnly                  opType = 259
+	opStructFieldNPtrHeadStringTagString                      opType = 260
+	opStructFieldNPtrHeadStringTagStringOnly                  opType = 261
+	opStructFieldNPtrAnonymousHeadString                      opType = 262
+	opStructFieldNPtrAnonymousHeadStringOnly                  opType = 263
+	opStructFieldNPtrAnonymousHeadOmitEmptyString             opType = 264
+	opStructFieldNPtrAnonymousHeadOmitEmptyStringOnly         opType = 265
+	opStructFieldNPtrAnonymousHeadStringTagString             opType = 266
+	opStructFieldNPtrAnonymousHeadStringTagStringOnly         opType = 267
+	opStructFieldHeadBytes                                    opType = 268
+	opStructFieldHeadBytesOnly                                opType = 269
+	opStructFieldHeadOmitEmptyBytes                           opType = 270
+	opStructFieldHeadOmitEmptyBytesOnly                       opType = 271
+	opStructFieldHeadStringTagBytes                           opType = 272
+	opStructFieldHeadStringTagBytesOnly                       opType = 273
+	opStructFieldAnonymousHeadBytes                           opType = 274
+	opStructFieldAnonymousHeadBytesOnly                       opType = 275
+	opStructFieldAnonymousHeadOmitEmptyBytes                  opType = 276
+	opStructFieldAnonymousHeadOmitEmptyBytesOnly              opType = 277
+	opStructFieldAnonymousHeadStringTagBytes                  opType = 278
+	opStructFieldAnonymousHeadStringTagBytesOnly              opType = 279
+	opStructFieldPtrHeadBytes                                 opType = 280
+	opStructFieldPtrHeadBytesOnly                             opType = 281
+	opStructFieldPtrHeadOmitEmptyBytes                        opType = 282
+	opStructFieldPtrHeadOmitEmptyBytesOnly                    opType = 283
+	opStructFieldPtrHeadStringTagBytes                        opType = 284
+	opStructFieldPtrHeadStringTagBytesOnly                    opType = 285
+	opStructFieldPtrAnonymousHeadBytes                        opType = 286
+	opStructFieldPtrAnonymousHeadBytesOnly                    opType = 287
+	opStructFieldPtrAnonymousHeadOmitEmptyBytes               opType = 288
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesOnly           opType = 289
+	opStructFieldPtrAnonymousHeadStringTagBytes               opType = 290
+	opStructFieldPtrAnonymousHeadStringTagBytesOnly           opType = 291
+	opStructFieldNPtrHeadBytes                                opType = 292
+	opStructFieldNPtrHeadBytesOnly                            opType = 293
+	opStructFieldNPtrHeadOmitEmptyBytes                       opType = 294
+	opStructFieldNPtrHeadOmitEmptyBytesOnly                   opType = 295
+	opStructFieldNPtrHeadStringTagBytes                       opType = 296
+	opStructFieldNPtrHeadStringTagBytesOnly                   opType = 297
+	opStructFieldNPtrAnonymousHeadBytes                       opType = 298
+	opStructFieldNPtrAnonymousHeadBytesOnly                   opType = 299
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytes              opType = 300
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytesOnly          opType = 301
+	opStructFieldNPtrAnonymousHeadStringTagBytes              opType = 302
+	opStructFieldNPtrAnonymousHeadStringTagBytesOnly          opType = 303
+	opStructFieldHeadArray                                    opType = 304
+	opStructFieldHeadArrayOnly                                opType = 305
+	opStructFieldHeadOmitEmptyArray                           opType = 306
+	opStructFieldHeadOmitEmptyArrayOnly                       opType = 307
+	opStructFieldHeadStringTagArray                           opType = 308
+	opStructFieldHeadStringTagArrayOnly                       opType = 309
+	opStructFieldAnonymousHeadArray                           opType = 310
+	opStructFieldAnonymousHeadArrayOnly                       opType = 311
+	opStructFieldAnonymousHeadOmitEmptyArray                  opType = 312
+	opStructFieldAnonymousHeadOmitEmptyArrayOnly              opType = 313
+	opStructFieldAnonymousHeadStringTagArray                  opType = 314
+	opStructFieldAnonymousHeadStringTagArrayOnly              opType = 315
+	opStructFieldPtrHeadArray                                 opType = 316
+	opStructFieldPtrHeadArrayOnly                             opType = 317
+	opStructFieldPtrHeadOmitEmptyArray                        opType = 318
+	opStructFieldPtrHeadOmitEmptyArrayOnly                    opType = 319
+	opStructFieldPtrHeadStringTagArray                        opType = 320
+	opStructFieldPtrHeadStringTagArrayOnly                    opType = 321
+	opStructFieldPtrAnonymousHeadArray                        opType = 322
+	opStructFieldPtrAnonymousHeadArrayOnly                    opType = 323
+	opStructFieldPtrAnonymousHeadOmitEmptyArray               opType = 324
+	opStructFieldPtrAnonymousHeadOmitEmptyArrayOnly           opType = 325
+	opStructFieldPtrAnonymousHeadStringTagArray               opType = 326
+	opStructFieldPtrAnonymousHeadStringTagArrayOnly           opType = 327
+	opStructFieldNPtrHeadArray                                opType = 328
+	opStructFieldNPtrHeadArrayOnly                            opType = 329
+	opStructFieldNPtrHeadOmitEmptyArray                       opType = 330
+	opStructFieldNPtrHeadOmitEmptyArrayOnly                   opType = 331
+	opStructFieldNPtrHeadStringTagArray                       opType = 332
+	opStructFieldNPtrHeadStringTagArrayOnly                   opType = 333
+	opStructFieldNPtrAnonymousHeadArray                       opType = 334
+	opStructFieldNPtrAnonymousHeadArrayOnly                   opType = 335
+	opStructFieldNPtrAnonymousHeadOmitEmptyArray              opType = 336
+	opStructFieldNPtrAnonymousHeadOmitEmptyArrayOnly          opType = 337
+	opStructFieldNPtrAnonymousHeadStringTagArray              opType = 338
+	opStructFieldNPtrAnonymousHeadStringTagArrayOnly          opType = 339
+	opStructFieldHeadMap                                      opType = 340
+	opStructFieldHeadMapOnly                                  opType = 341
+	opStructFieldHeadOmitEmptyMap                             opType = 342
+	opStructFieldHeadOmitEmptyMapOnly                         opType = 343
+	opStructFieldHeadStringTagMap                             opType = 344
+	opStructFieldHeadStringTagMapOnly                         opType = 345
+	opStructFieldAnonymousHeadMap                             opType = 346
+	opStructFieldAnonymousHeadMapOnly                         opType = 347
+	opStructFieldAnonymousHeadOmitEmptyMap                    opType = 348
+	opStructFieldAnonymousHeadOmitEmptyMapOnly                opType = 349
+	opStructFieldAnonymousHeadStringTagMap                    opType = 350
+	opStructFieldAnonymousHeadStringTagMapOnly                opType = 351
+	opStructFieldPtrHeadMap                                   opType = 352
+	opStructFieldPtrHeadMapOnly                               opType = 353
+	opStructFieldPtrHeadOmitEmptyMap                          opType = 354
+	opStructFieldPtrHeadOmitEmptyMapOnly                      opType = 355
+	opStructFieldPtrHeadStringTagMap                          opType = 356
+	opStructFieldPtrHeadStringTagMapOnly                      opType = 357
+	opStructFieldPtrAnonymousHeadMap                          opType = 358
+	opStructFieldPtrAnonymousHeadMapOnly                      opType = 359
+	opStructFieldPtrAnonymousHeadOmitEmptyMap                 opType = 360
+	opStructFieldPtrAnonymousHeadOmitEmptyMapOnly             opType = 361
+	opStructFieldPtrAnonymousHeadStringTagMap                 opType = 362
+	opStructFieldPtrAnonymousHeadStringTagMapOnly             opType = 363
+	opStructFieldNPtrHeadMap                                  opType = 364
+	opStructFieldNPtrHeadMapOnly                              opType = 365
+	opStructFieldNPtrHeadOmitEmptyMap                         opType = 366
+	opStructFieldNPtrHeadOmitEmptyMapOnly                     opType = 367
+	opStructFieldNPtrHeadStringTagMap                         opType = 368
+	opStructFieldNPtrHeadStringTagMapOnly                     opType = 369
+	opStructFieldNPtrAnonymousHeadMap                         opType = 370
+	opStructFieldNPtrAnonymousHeadMapOnly                     opType = 371
+	opStructFieldNPtrAnonymousHeadOmitEmptyMap                opType = 372
+	opStructFieldNPtrAnonymousHeadOmitEmptyMapOnly            opType = 373
+	opStructFieldNPtrAnonymousHeadStringTagMap                opType = 374
+	opStructFieldNPtrAnonymousHeadStringTagMapOnly            opType = 375
+	opStructFieldHeadMapLoad                                  opType = 376
+	opStructFieldHeadMapLoadOnly                              opType = 377
+	opStructFieldHeadOmitEmptyMapLoad                         opType = 378
+	opStructFieldHeadOmitEmptyMapLoadOnly                     opType = 379
+	opStructFieldHeadStringTagMapLoad                         opType = 380
+	opStructFieldHeadStringTagMapLoadOnly                     opType = 381
+	opStructFieldAnonymousHeadMapLoad                         opType = 382
+	opStructFieldAnonymousHeadMapLoadOnly                     opType = 383
+	opStructFieldAnonymousHeadOmitEmptyMapLoad                opType = 384
+	opStructFieldAnonymousHeadOmitEmptyMapLoadOnly            opType = 385
+	opStructFieldAnonymousHeadStringTagMapLoad                opType = 386
+	opStructFieldAnonymousHeadStringTagMapLoadOnly            opType = 387
+	opStructFieldPtrHeadMapLoad                               opType = 388
+	opStructFieldPtrHeadMapLoadOnly                           opType = 389
+	opStructFieldPtrHeadOmitEmptyMapLoad                      opType = 390
+	opStructFieldPtrHeadOmitEmptyMapLoadOnly                  opType = 391
+	opStructFieldPtrHeadStringTagMapLoad                      opType = 392
+	opStructFieldPtrHeadStringTagMapLoadOnly                  opType = 393
+	opStructFieldPtrAnonymousHeadMapLoad                      opType = 394
+	opStructFieldPtrAnonymousHeadMapLoadOnly                  opType = 395
+	opStructFieldPtrAnonymousHeadOmitEmptyMapLoad             opType = 396
+	opStructFieldPtrAnonymousHeadOmitEmptyMapLoadOnly         opType = 397
+	opStructFieldPtrAnonymousHeadStringTagMapLoad             opType = 398
+	opStructFieldPtrAnonymousHeadStringTagMapLoadOnly         opType = 399
+	opStructFieldNPtrHeadMapLoad                              opType = 400
+	opStructFieldNPtrHeadMapLoadOnly                          opType = 401
+	opStructFieldNPtrHeadOmitEmptyMapLoad                     opType = 402
+	opStructFieldNPtrHeadOmitEmptyMapLoadOnly                 opType = 403
+	opStructFieldNPtrHeadStringTagMapLoad                     opType = 404
+	opStructFieldNPtrHeadStringTagMapLoadOnly                 opType = 405
+	opStructFieldNPtrAnonymousHeadMapLoad                     opType = 406
+	opStructFieldNPtrAnonymousHeadMapLoadOnly                 opType = 407
+	opStructFieldNPtrAnonymousHeadOmitEmptyMapLoad            opType = 408
+	opStructFieldNPtrAnonymousHeadOmitEmptyMapLoadOnly        opType = 409
+	opStructFieldNPtrAnonymousHeadStringTagMapLoad            opType = 410
+	opStructFieldNPtrAnonymousHeadStringTagMapLoadOnly        opType = 411
+	opStructFieldHeadSlice                                    opType = 412
+	opStructFieldHeadSliceOnly                                opType = 413
+	opStructFieldHeadOmitEmptySlice                           opType = 414
+	opStructFieldHeadOmitEmptySliceOnly                       opType = 415
+	opStructFieldHeadStringTagSlice                           opType = 416
+	opStructFieldHeadStringTagSliceOnly                       opType = 417
+	opStructFieldAnonymousHeadSlice                           opType = 418
+	opStructFieldAnonymousHeadSliceOnly                       opType = 419
+	opStructFieldAnonymousHeadOmitEmptySlice                  opType = 420
+	opStructFieldAnonymousHeadOmitEmptySliceOnly              opType = 421
+	opStructFieldAnonymousHeadStringTagSlice                  opType = 422
+	opStructFieldAnonymousHeadStringTagSliceOnly              opType = 423
+	opStructFieldPtrHeadSlice                                 opType = 424
+	opStructFieldPtrHeadSliceOnly                             opType = 425
+	opStructFieldPtrHeadOmitEmptySlice                        opType = 426
+	opStructFieldPtrHeadOmitEmptySliceOnly                    opType = 427
+	opStructFieldPtrHeadStringTagSlice                        opType = 428
+	opStructFieldPtrHeadStringTagSliceOnly                    opType = 429
+	opStructFieldPtrAnonymousHeadSlice                        opType = 430
+	opStructFieldPtrAnonymousHeadSliceOnly                    opType = 431
+	opStructFieldPtrAnonymousHeadOmitEmptySlice               opType = 432
+	opStructFieldPtrAnonymousHeadOmitEmptySliceOnly           opType = 433
+	opStructFieldPtrAnonymousHeadStringTagSlice               opType = 434
+	opStructFieldPtrAnonymousHeadStringTagSliceOnly           opType = 435
+	opStructFieldNPtrHeadSlice                                opType = 436
+	opStructFieldNPtrHeadSliceOnly                            opType = 437
+	opStructFieldNPtrHeadOmitEmptySlice                       opType = 438
+	opStructFieldNPtrHeadOmitEmptySliceOnly                   opType = 439
+	opStructFieldNPtrHeadStringTagSlice                       opType = 440
+	opStructFieldNPtrHeadStringTagSliceOnly                   opType = 441
+	opStructFieldNPtrAnonymousHeadSlice                       opType = 442
+	opStructFieldNPtrAnonymousHeadSliceOnly                   opType = 443
+	opStructFieldNPtrAnonymousHeadOmitEmptySlice              opType = 444
+	opStructFieldNPtrAnonymousHeadOmitEmptySliceOnly          opType = 445
+	opStructFieldNPtrAnonymousHeadStringTagSlice              opType = 446
+	opStructFieldNPtrAnonymousHeadStringTagSliceOnly          opType = 447
+	opStructFieldHeadStruct                                   opType = 448
+	opStructFieldHeadStructOnly                               opType = 449
+	opStructFieldHeadOmitEmptyStruct                          opType = 450
+	opStructFieldHeadOmitEmptyStructOnly                      opType = 451
+	opStructFieldHeadStringTagStruct                          opType = 452
+	opStructFieldHeadStringTagStructOnly                      opType = 453
+	opStructFieldAnonymousHeadStruct                          opType = 454
+	opStructFieldAnonymousHeadStructOnly                      opType = 455
+	opStructFieldAnonymousHeadOmitEmptyStruct                 opType = 456
+	opStructFieldAnonymousHeadOmitEmptyStructOnly             opType = 457
+	opStructFieldAnonymousHeadStringTagStruct                 opType = 458
+	opStructFieldAnonymousHeadStringTagStructOnly             opType = 459
+	opStructFieldPtrHeadStruct                                opType = 460
+	opStructFieldPtrHeadStructOnly                            opType = 461
+	opStructFieldPtrHeadOmitEmptyStruct                       opType = 462
+	opStructFieldPtrHeadOmitEmptyStructOnly                   opType = 463
+	opStructFieldPtrHeadStringTagStruct                       opType = 464
+	opStructFieldPtrHeadStringTagStructOnly                   opType = 465
+	opStructFieldPtrAnonymousHeadStruct                       opType = 466
+	opStructFieldPtrAnonymousHeadStructOnly                   opType = 467
+	opStructFieldPtrAnonymousHeadOmitEmptyStruct              opType = 468
+	opStructFieldPtrAnonymousHeadOmitEmptyStructOnly          opType = 469
+	opStructFieldPtrAnonymousHeadStringTagStruct              opType = 470
+	opStructFieldPtrAnonymousHeadStringTagStructOnly          opType = 471
+	opStructFieldNPtrHeadStruct                               opType = 472
+	opStructFieldNPtrHeadStructOnly                           opType = 473
+	opStructFieldNPtrHeadOmitEmptyStruct                      opType = 474
+	opStructFieldNPtrHeadOmitEmptyStructOnly                  opType = 475
+	opStructFieldNPtrHeadStringTagStruct                      opType = 476
+	opStructFieldNPtrHeadStringTagStructOnly                  opType = 477
+	opStructFieldNPtrAnonymousHeadStruct                      opType = 478
+	opStructFieldNPtrAnonymousHeadStructOnly                  opType = 479
+	opStructFieldNPtrAnonymousHeadOmitEmptyStruct             opType = 480
+	opStructFieldNPtrAnonymousHeadOmitEmptyStructOnly         opType = 481
+	opStructFieldNPtrAnonymousHeadStringTagStruct             opType = 482
+	opStructFieldNPtrAnonymousHeadStringTagStructOnly         opType = 483
+	opStructFieldHeadMarshalJSON                              opType = 484
+	opStructFieldHeadMarshalJSONOnly                          opType = 485
+	opStructFieldHeadOmitEmptyMarshalJSON                     opType = 486
+	opStructFieldHeadOmitEmptyMarshalJSONOnly                 opType = 487
+	opStructFieldHeadStringTagMarshalJSON                     opType = 488
+	opStructFieldHeadStringTagMarshalJSONOnly                 opType = 489
+	opStructFieldAnonymousHeadMarshalJSON                     opType = 490
+	opStructFieldAnonymousHeadMarshalJSONOnly                 opType = 491
+	opStructFieldAnonymousHeadOmitEmptyMarshalJSON            opType = 492
+	opStructFieldAnonymousHeadOmitEmptyMarshalJSONOnly        opType = 493
+	opStructFieldAnonymousHeadStringTagMarshalJSON            opType = 494
+	opStructFieldAnonymousHeadStringTagMarshalJSONOnly        opType = 495
+	opStructFieldPtrHeadMarshalJSON                           opType = 496
+	opStructFieldPtrHeadMarshalJSONOnly                       opType = 497
+	opStructFieldPtrHeadOmitEmptyMarshalJSON                  opType = 498
+	opStructFieldPtrHeadOmitEmptyMarshalJSONOnly              opType = 499
+	opStructFieldPtrHeadStringTagMarshalJSON                  opType = 500
+	opStructFieldPtrHeadStringTagMarshalJSONOnly              opType = 501
+	opStructFieldPtrAnonymousHeadMarshalJSON                  opType = 502
+	opStructFieldPtrAnonymousHeadMarshalJSONOnly              opType = 503
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON         opType = 504
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONOnly     opType = 505
+	opStructFieldPtrAnonymousHeadStringTagMarshalJSON         opType = 506
+	opStructFieldPtrAnonymousHeadStringTagMarshalJSONOnly     opType = 507
+	opStructFieldNPtrHeadMarshalJSON                          opType = 508
+	opStructFieldNPtrHeadMarshalJSONOnly                      opType = 509
+	opStructFieldNPtrHeadOmitEmptyMarshalJSON                 opType = 510
+	opStructFieldNPtrHeadOmitEmptyMarshalJSONOnly             opType = 511
+	opStructFieldNPtrHeadStringTagMarshalJSON                 opType = 512
+	opStructFieldNPtrHeadStringTagMarshalJSONOnly             opType = 513
+	opStructFieldNPtrAnonymousHeadMarshalJSON                 opType = 514
+	opStructFieldNPtrAnonymousHeadMarshalJSONOnly             opType = 515
+	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalJSON        opType = 516
+	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalJSONOnly    opType = 517
+	opStructFieldNPtrAnonymousHeadStringTagMarshalJSON        opType = 518
+	opStructFieldNPtrAnonymousHeadStringTagMarshalJSONOnly    opType = 519
+	opStructFieldHeadMarshalText                              opType = 520
+	opStructFieldHeadMarshalTextOnly                          opType = 521
+	opStructFieldHeadOmitEmptyMarshalText                     opType = 522
+	opStructFieldHeadOmitEmptyMarshalTextOnly                 opType = 523
+	opStructFieldHeadStringTagMarshalText                     opType = 524
+	opStructFieldHeadStringTagMarshalTextOnly                 opType = 525
+	opStructFieldAnonymousHeadMarshalText                     opType = 526
+	opStructFieldAnonymousHeadMarshalTextOnly                 opType = 527
+	opStructFieldAnonymousHeadOmitEmptyMarshalText            opType = 528
+	opStructFieldAnonymousHeadOmitEmptyMarshalTextOnly        opType = 529
+	opStructFieldAnonymousHeadStringTagMarshalText            opType = 530
+	opStructFieldAnonymousHeadStringTagMarshalTextOnly        opType = 531
+	opStructFieldPtrHeadMarshalText                           opType = 532
+	opStructFieldPtrHeadMarshalTextOnly                       opType = 533
+	opStructFieldPtrHeadOmitEmptyMarshalText                  opType = 534
+	opStructFieldPtrHeadOmitEmptyMarshalTextOnly              opType = 535
+	opStructFieldPtrHeadStringTagMarshalText                  opType = 536
+	opStructFieldPtrHeadStringTagMarshalTextOnly              opType = 537
+	opStructFieldPtrAnonymousHeadMarshalText                  opType = 538
+	opStructFieldPtrAnonymousHeadMarshalTextOnly              opType = 539
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalText         opType = 540
+	opStructFieldPtrAnonymousHeadOmitEmptyMarshalTextOnly     opType = 541
+	opStructFieldPtrAnonymousHeadStringTagMarshalText         opType = 542
+	opStructFieldPtrAnonymousHeadStringTagMarshalTextOnly     opType = 543
+	opStructFieldNPtrHeadMarshalText                          opType = 544
+	opStructFieldNPtrHeadMarshalTextOnly                      opType = 545
+	opStructFieldNPtrHeadOmitEmptyMarshalText                 opType = 546
+	opStructFieldNPtrHeadOmitEmptyMarshalTextOnly             opType = 547
+	opStructFieldNPtrHeadStringTagMarshalText                 opType = 548
+	opStructFieldNPtrHeadStringTagMarshalTextOnly             opType = 549
+	opStructFieldNPtrAnonymousHeadMarshalText                 opType = 550
+	opStructFieldNPtrAnonymousHeadMarshalTextOnly             opType = 551
+	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalText        opType = 552
+	opStructFieldNPtrAnonymousHeadOmitEmptyMarshalTextOnly    opType = 553
+	opStructFieldNPtrAnonymousHeadStringTagMarshalText        opType = 554
+	opStructFieldNPtrAnonymousHeadStringTagMarshalTextOnly    opType = 555
+	opStructFieldHeadRecursive                                opType = 556
+	opStructFieldHeadRecursiveOnly                            opType = 557
+	opStructFieldHeadOmitEmptyRecursive                       opType = 558
+	opStructFieldHeadOmitEmptyRecursiveOnly                   opType = 559
+	opStructFieldHeadStringTagRecursive                       opType = 560
+	opStructFieldHeadStringTagRecursiveOnly                   opType = 561
+	opStructFieldAnonymousHeadRecursive                       opType = 562
+	opStructFieldAnonymousHeadRecursiveOnly                   opType = 563
+	opStructFieldAnonymousHeadOmitEmptyRecursive              opType = 564
+	opStructFieldAnonymousHeadOmitEmptyRecursiveOnly          opType = 565
+	opStructFieldAnonymousHeadStringTagRecursive              opType = 566
+	opStructFieldAnonymousHeadStringTagRecursiveOnly          opType = 567
+	opStructFieldPtrHeadRecursive                             opType = 568
+	opStructFieldPtrHeadRecursiveOnly                         opType = 569
+	opStructFieldPtrHeadOmitEmptyRecursive                    opType = 570
+	opStructFieldPtrHeadOmitEmptyRecursiveOnly                opType = 571
+	opStructFieldPtrHeadStringTagRecursive                    opType = 572
+	opStructFieldPtrHeadStringTagRecursiveOnly                opType = 573
+	opStructFieldPtrAnonymousHeadRecursive                    opType = 574
+	opStructFieldPtrAnonymousHeadRecursiveOnly                opType = 575
+	opStructFieldPtrAnonymousHeadOmitEmptyRecursive           opType = 576
+	opStructFieldPtrAnonymousHeadOmitEmptyRecursiveOnly       opType = 577
+	opStructFieldPtrAnonymousHeadStringTagRecursive           opType = 578
+	opStructFieldPtrAnonymousHeadStringTagRecursiveOnly       opType = 579
+	opStructFieldNPtrHeadRecursive                            opType = 580
+	opStructFieldNPtrHeadRecursiveOnly                        opType = 581
+	opStructFieldNPtrHeadOmitEmptyRecursive                   opType = 582
+	opStructFieldNPtrHeadOmitEmptyRecursiveOnly               opType = 583
+	opStructFieldNPtrHeadStringTagRecursive                   opType = 584
+	opStructFieldNPtrHeadStringTagRecursiveOnly               opType = 585
+	opStructFieldNPtrAnonymousHeadRecursive                   opType = 586
+	opStructFieldNPtrAnonymousHeadRecursiveOnly               opType = 587
+	opStructFieldNPtrAnonymousHeadOmitEmptyRecursive          opType = 588
+	opStructFieldNPtrAnonymousHeadOmitEmptyRecursiveOnly      opType = 589
+	opStructFieldNPtrAnonymousHeadStringTagRecursive          opType = 590
+	opStructFieldNPtrAnonymousHeadStringTagRecursiveOnly      opType = 591
+	opStructFieldHeadIntString                                opType = 592
+	opStructFieldHeadIntStringOnly                            opType = 593
+	opStructFieldHeadOmitEmptyIntString                       opType = 594
+	opStructFieldHeadOmitEmptyIntStringOnly                   opType = 595
+	opStructFieldHeadStringTagIntString                       opType = 596
+	opStructFieldHeadStringTagIntStringOnly                   opType = 597
+	opStructFieldAnonymousHeadIntString                       opType = 598
+	opStructFieldAnonymousHeadIntStringOnly                   opType = 599
+	opStructFieldAnonymousHeadOmitEmptyIntString              opType = 600
+	opStructFieldAnonymousHeadOmitEmptyIntStringOnly          opType = 601
+	opStructFieldAnonymousHeadStringTagIntString              opType = 602
+	opStructFieldAnonymousHeadStringTagIntStringOnly          opType = 603
+	opStructFieldPtrHeadIntString                             opType = 604
+	opStructFieldPtrHeadIntStringOnly                         opType = 605
+	opStructFieldPtrHeadOmitEmptyIntString                    opType = 606
+	opStructFieldPtrHeadOmitEmptyIntStringOnly                opType = 607
+	opStructFieldPtrHeadStringTagIntString                    opType = 608
+	opStructFieldPtrHeadStringTagIntStringOnly                opType = 609
+	opStructFieldPtrAnonymousHeadIntString                    opType = 610
+	opStructFieldPtrAnonymousHeadIntStringOnly                opType = 611
+	opStructFieldPtrAnonymousHeadOmitEmptyIntString           opType = 612
+	opStructFieldPtrAnonymousHeadOmitEmptyIntStringOnly       opType = 613
+	opStructFieldPtrAnonymousHeadStringTagIntString           opType = 614
+	opStructFieldPtrAnonymousHeadStringTagIntStringOnly       opType = 615
+	opStructFieldNPtrHeadIntString                            opType = 616
+	opStructFieldNPtrHeadIntStringOnly                        opType = 617
+	opStructFieldNPtrHeadOmitEmptyIntString                   opType = 618
+	opStructFieldNPtrHeadOmitEmptyIntStringOnly               opType = 619
+	opStructFieldNPtrHeadStringTagIntString                   opType = 620
+	opStructFieldNPtrHeadStringTagIntStringOnly               opType = 621
+	opStructFieldNPtrAnonymousHeadIntString                   opType = 622
+	opStructFieldNPtrAnonymousHeadIntStringOnly               opType = 623
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntString          opType = 624
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntStringOnly      opType = 625
+	opStructFieldNPtrAnonymousHeadStringTagIntString          opType = 626
+	opStructFieldNPtrAnonymousHeadStringTagIntStringOnly      opType = 627
+	opStructFieldHeadUintString                               opType = 628
+	opStructFieldHeadUintStringOnly                           opType = 629
+	opStructFieldHeadOmitEmptyUintString                      opType = 630
+	opStructFieldHeadOmitEmptyUintStringOnly                  opType = 631
+	opStructFieldHeadStringTagUintString                      opType = 632
+	opStructFieldHeadStringTagUintStringOnly                  opType = 633
+	opStructFieldAnonymousHeadUintString                      opType = 634
+	opStructFieldAnonymousHeadUintStringOnly                  opType = 635
+	opStructFieldAnonymousHeadOmitEmptyUintString             opType = 636
+	opStructFieldAnonymousHeadOmitEmptyUintStringOnly         opType = 637
+	opStructFieldAnonymousHeadStringTagUintString             opType = 638
+	opStructFieldAnonymousHeadStringTagUintStringOnly         opType = 639
+	opStructFieldPtrHeadUintString                            opType = 640
+	opStructFieldPtrHeadUintStringOnly                        opType = 641
+	opStructFieldPtrHeadOmitEmptyUintString                   opType = 642
+	opStructFieldPtrHeadOmitEmptyUintStringOnly               opType = 643
+	opStructFieldPtrHeadStringTagUintString                   opType = 644
+	opStructFieldPtrHeadStringTagUintStringOnly               opType = 645
+	opStructFieldPtrAnonymousHeadUintString                   opType = 646
+	opStructFieldPtrAnonymousHeadUintStringOnly               opType = 647
+	opStructFieldPtrAnonymousHeadOmitEmptyUintString          opType = 648
+	opStructFieldPtrAnonymousHeadOmitEmptyUintStringOnly      opType = 649
+	opStructFieldPtrAnonymousHeadStringTagUintString          opType = 650
+	opStructFieldPtrAnonymousHeadStringTagUintStringOnly      opType = 651
+	opStructFieldNPtrHeadUintString                           opType = 652
+	opStructFieldNPtrHeadUintStringOnly                       opType = 653
+	opStructFieldNPtrHeadOmitEmptyUintString                  opType = 654
+	opStructFieldNPtrHeadOmitEmptyUintStringOnly              opType = 655
+	opStructFieldNPtrHeadStringTagUintString                  opType = 656
+	opStructFieldNPtrHeadStringTagUintStringOnly              opType = 657
+	opStructFieldNPtrAnonymousHeadUintString                  opType = 658
+	opStructFieldNPtrAnonymousHeadUintStringOnly              opType = 659
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintString         opType = 660
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintStringOnly     opType = 661
+	opStructFieldNPtrAnonymousHeadStringTagUintString         opType = 662
+	opStructFieldNPtrAnonymousHeadStringTagUintStringOnly     opType = 663
+	opStructFieldHeadIntPtr                                   opType = 664
+	opStructFieldHeadIntPtrOnly                               opType = 665
+	opStructFieldHeadOmitEmptyIntPtr                          opType = 666
+	opStructFieldHeadOmitEmptyIntPtrOnly                      opType = 667
+	opStructFieldHeadStringTagIntPtr                          opType = 668
+	opStructFieldHeadStringTagIntPtrOnly                      opType = 669
+	opStructFieldAnonymousHeadIntPtr                          opType = 670
+	opStructFieldAnonymousHeadIntPtrOnly                      opType = 671
+	opStructFieldAnonymousHeadOmitEmptyIntPtr                 opType = 672
+	opStructFieldAnonymousHeadOmitEmptyIntPtrOnly             opType = 673
+	opStructFieldAnonymousHeadStringTagIntPtr                 opType = 674
+	opStructFieldAnonymousHeadStringTagIntPtrOnly             opType = 675
+	opStructFieldPtrHeadIntPtr                                opType = 676
+	opStructFieldPtrHeadIntPtrOnly                            opType = 677
+	opStructFieldPtrHeadOmitEmptyIntPtr                       opType = 678
+	opStructFieldPtrHeadOmitEmptyIntPtrOnly                   opType = 679
+	opStructFieldPtrHeadStringTagIntPtr                       opType = 680
+	opStructFieldPtrHeadStringTagIntPtrOnly                   opType = 681
+	opStructFieldPtrAnonymousHeadIntPtr                       opType = 682
+	opStructFieldPtrAnonymousHeadIntPtrOnly                   opType = 683
+	opStructFieldPtrAnonymousHeadOmitEmptyIntPtr              opType = 684
+	opStructFieldPtrAnonymousHeadOmitEmptyIntPtrOnly          opType = 685
+	opStructFieldPtrAnonymousHeadStringTagIntPtr              opType = 686
+	opStructFieldPtrAnonymousHeadStringTagIntPtrOnly          opType = 687
+	opStructFieldNPtrHeadIntPtr                               opType = 688
+	opStructFieldNPtrHeadIntPtrOnly                           opType = 689
+	opStructFieldNPtrHeadOmitEmptyIntPtr                      opType = 690
+	opStructFieldNPtrHeadOmitEmptyIntPtrOnly                  opType = 691
+	opStructFieldNPtrHeadStringTagIntPtr                      opType = 692
+	opStructFieldNPtrHeadStringTagIntPtrOnly                  opType = 693
+	opStructFieldNPtrAnonymousHeadIntPtr                      opType = 694
+	opStructFieldNPtrAnonymousHeadIntPtrOnly                  opType = 695
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntPtr             opType = 696
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntPtrOnly         opType = 697
+	opStructFieldNPtrAnonymousHeadStringTagIntPtr             opType = 698
+	opStructFieldNPtrAnonymousHeadStringTagIntPtrOnly         opType = 699
+	opStructFieldHeadUintPtr                                  opType = 700
+	opStructFieldHeadUintPtrOnly                              opType = 701
+	opStructFieldHeadOmitEmptyUintPtr                         opType = 702
+	opStructFieldHeadOmitEmptyUintPtrOnly                     opType = 703
+	opStructFieldHeadStringTagUintPtr                         opType = 704
+	opStructFieldHeadStringTagUintPtrOnly                     opType = 705
+	opStructFieldAnonymousHeadUintPtr                         opType = 706
+	opStructFieldAnonymousHeadUintPtrOnly                     opType = 707
+	opStructFieldAnonymousHeadOmitEmptyUintPtr                opType = 708
+	opStructFieldAnonymousHeadOmitEmptyUintPtrOnly            opType = 709
+	opStructFieldAnonymousHeadStringTagUintPtr                opType = 710
+	opStructFieldAnonymousHeadStringTagUintPtrOnly            opType = 711
+	opStructFieldPtrHeadUintPtr                               opType = 712
+	opStructFieldPtrHeadUintPtrOnly                           opType = 713
+	opStructFieldPtrHeadOmitEmptyUintPtr                      opType = 714
+	opStructFieldPtrHeadOmitEmptyUintPtrOnly                  opType = 715
+	opStructFieldPtrHeadStringTagUintPtr                      opType = 716
+	opStructFieldPtrHeadStringTagUintPtrOnly                  opType = 717
+	opStructFieldPtrAnonymousHeadUintPtr                      opType = 718
+	opStructFieldPtrAnonymousHeadUintPtrOnly                  opType = 719
+	opStructFieldPtrAnonymousHeadOmitEmptyUintPtr             opType = 720
+	opStructFieldPtrAnonymousHeadOmitEmptyUintPtrOnly         opType = 721
+	opStructFieldPtrAnonymousHeadStringTagUintPtr             opType = 722
+	opStructFieldPtrAnonymousHeadStringTagUintPtrOnly         opType = 723
+	opStructFieldNPtrHeadUintPtr                              opType = 724
+	opStructFieldNPtrHeadUintPtrOnly                          opType = 725
+	opStructFieldNPtrHeadOmitEmptyUintPtr                     opType = 726
+	opStructFieldNPtrHeadOmitEmptyUintPtrOnly                 opType = 727
+	opStructFieldNPtrHeadStringTagUintPtr                     opType = 728
+	opStructFieldNPtrHeadStringTagUintPtrOnly                 opType = 729
+	opStructFieldNPtrAnonymousHeadUintPtr                     opType = 730
+	opStructFieldNPtrAnonymousHeadUintPtrOnly                 opType = 731
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintPtr            opType = 732
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintPtrOnly        opType = 733
+	opStructFieldNPtrAnonymousHeadStringTagUintPtr            opType = 734
+	opStructFieldNPtrAnonymousHeadStringTagUintPtrOnly        opType = 735
+	opStructFieldHeadFloat32Ptr                               opType = 736
+	opStructFieldHeadFloat32PtrOnly                           opType = 737
+	opStructFieldHeadOmitEmptyFloat32Ptr                      opType = 738
+	opStructFieldHeadOmitEmptyFloat32PtrOnly                  opType = 739
+	opStructFieldHeadStringTagFloat32Ptr                      opType = 740
+	opStructFieldHeadStringTagFloat32PtrOnly                  opType = 741
+	opStructFieldAnonymousHeadFloat32Ptr                      opType = 742
+	opStructFieldAnonymousHeadFloat32PtrOnly                  opType = 743
+	opStructFieldAnonymousHeadOmitEmptyFloat32Ptr             opType = 744
+	opStructFieldAnonymousHeadOmitEmptyFloat32PtrOnly         opType = 745
+	opStructFieldAnonymousHeadStringTagFloat32Ptr             opType = 746
+	opStructFieldAnonymousHeadStringTagFloat32PtrOnly         opType = 747
+	opStructFieldPtrHeadFloat32Ptr                            opType = 748
+	opStructFieldPtrHeadFloat32PtrOnly                        opType = 749
+	opStructFieldPtrHeadOmitEmptyFloat32Ptr                   opType = 750
+	opStructFieldPtrHeadOmitEmptyFloat32PtrOnly               opType = 751
+	opStructFieldPtrHeadStringTagFloat32Ptr                   opType = 752
+	opStructFieldPtrHeadStringTagFloat32PtrOnly               opType = 753
+	opStructFieldPtrAnonymousHeadFloat32Ptr                   opType = 754
+	opStructFieldPtrAnonymousHeadFloat32PtrOnly               opType = 755
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32Ptr          opType = 756
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32PtrOnly      opType = 757
+	opStructFieldPtrAnonymousHeadStringTagFloat32Ptr          opType = 758
+	opStructFieldPtrAnonymousHeadStringTagFloat32PtrOnly      opType = 759
+	opStructFieldNPtrHeadFloat32Ptr                           opType = 760
+	opStructFieldNPtrHeadFloat32PtrOnly                       opType = 761
+	opStructFieldNPtrHeadOmitEmptyFloat32Ptr                  opType = 762
+	opStructFieldNPtrHeadOmitEmptyFloat32PtrOnly              opType = 763
+	opStructFieldNPtrHeadStringTagFloat32Ptr                  opType = 764
+	opStructFieldNPtrHeadStringTagFloat32PtrOnly              opType = 765
+	opStructFieldNPtrAnonymousHeadFloat32Ptr                  opType = 766
+	opStructFieldNPtrAnonymousHeadFloat32PtrOnly              opType = 767
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32Ptr         opType = 768
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32PtrOnly     opType = 769
+	opStructFieldNPtrAnonymousHeadStringTagFloat32Ptr         opType = 770
+	opStructFieldNPtrAnonymousHeadStringTagFloat32PtrOnly     opType = 771
+	opStructFieldHeadFloat64Ptr                               opType = 772
+	opStructFieldHeadFloat64PtrOnly                           opType = 773
+	opStructFieldHeadOmitEmptyFloat64Ptr                      opType = 774
+	opStructFieldHeadOmitEmptyFloat64PtrOnly                  opType = 775
+	opStructFieldHeadStringTagFloat64Ptr                      opType = 776
+	opStructFieldHeadStringTagFloat64PtrOnly                  opType = 777
+	opStructFieldAnonymousHeadFloat64Ptr                      opType = 778
+	opStructFieldAnonymousHeadFloat64PtrOnly                  opType = 779
+	opStructFieldAnonymousHeadOmitEmptyFloat64Ptr             opType = 780
+	opStructFieldAnonymousHeadOmitEmptyFloat64PtrOnly         opType = 781
+	opStructFieldAnonymousHeadStringTagFloat64Ptr             opType = 782
+	opStructFieldAnonymousHeadStringTagFloat64PtrOnly         opType = 783
+	opStructFieldPtrHeadFloat64Ptr                            opType = 784
+	opStructFieldPtrHeadFloat64PtrOnly                        opType = 785
+	opStructFieldPtrHeadOmitEmptyFloat64Ptr                   opType = 786
+	opStructFieldPtrHeadOmitEmptyFloat64PtrOnly               opType = 787
+	opStructFieldPtrHeadStringTagFloat64Ptr                   opType = 788
+	opStructFieldPtrHeadStringTagFloat64PtrOnly               opType = 789
+	opStructFieldPtrAnonymousHeadFloat64Ptr                   opType = 790
+	opStructFieldPtrAnonymousHeadFloat64PtrOnly               opType = 791
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64Ptr          opType = 792
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64PtrOnly      opType = 793
+	opStructFieldPtrAnonymousHeadStringTagFloat64Ptr          opType = 794
+	opStructFieldPtrAnonymousHeadStringTagFloat64PtrOnly      opType = 795
+	opStructFieldNPtrHeadFloat64Ptr                           opType = 796
+	opStructFieldNPtrHeadFloat64PtrOnly                       opType = 797
+	opStructFieldNPtrHeadOmitEmptyFloat64Ptr                  opType = 798
+	opStructFieldNPtrHeadOmitEmptyFloat64PtrOnly              opType = 799
+	opStructFieldNPtrHeadStringTagFloat64Ptr                  opType = 800
+	opStructFieldNPtrHeadStringTagFloat64PtrOnly              opType = 801
+	opStructFieldNPtrAnonymousHeadFloat64Ptr                  opType = 802
+	opStructFieldNPtrAnonymousHeadFloat64PtrOnly              opType = 803
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64Ptr         opType = 804
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64PtrOnly     opType = 805
+	opStructFieldNPtrAnonymousHeadStringTagFloat64Ptr         opType = 806
+	opStructFieldNPtrAnonymousHeadStringTagFloat64PtrOnly     opType = 807
+	opStructFieldHeadBoolPtr                                  opType = 808
+	opStructFieldHeadBoolPtrOnly                              opType = 809
+	opStructFieldHeadOmitEmptyBoolPtr                         opType = 810
+	opStructFieldHeadOmitEmptyBoolPtrOnly                     opType = 811
+	opStructFieldHeadStringTagBoolPtr                         opType = 812
+	opStructFieldHeadStringTagBoolPtrOnly                     opType = 813
+	opStructFieldAnonymousHeadBoolPtr                         opType = 814
+	opStructFieldAnonymousHeadBoolPtrOnly                     opType = 815
+	opStructFieldAnonymousHeadOmitEmptyBoolPtr                opType = 816
+	opStructFieldAnonymousHeadOmitEmptyBoolPtrOnly            opType = 817
+	opStructFieldAnonymousHeadStringTagBoolPtr                opType = 818
+	opStructFieldAnonymousHeadStringTagBoolPtrOnly            opType = 819
+	opStructFieldPtrHeadBoolPtr                               opType = 820
+	opStructFieldPtrHeadBoolPtrOnly                           opType = 821
+	opStructFieldPtrHeadOmitEmptyBoolPtr                      opType = 822
+	opStructFieldPtrHeadOmitEmptyBoolPtrOnly                  opType = 823
+	opStructFieldPtrHeadStringTagBoolPtr                      opType = 824
+	opStructFieldPtrHeadStringTagBoolPtrOnly                  opType = 825
+	opStructFieldPtrAnonymousHeadBoolPtr                      opType = 826
+	opStructFieldPtrAnonymousHeadBoolPtrOnly                  opType = 827
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolPtr             opType = 828
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolPtrOnly         opType = 829
+	opStructFieldPtrAnonymousHeadStringTagBoolPtr             opType = 830
+	opStructFieldPtrAnonymousHeadStringTagBoolPtrOnly         opType = 831
+	opStructFieldNPtrHeadBoolPtr                              opType = 832
+	opStructFieldNPtrHeadBoolPtrOnly                          opType = 833
+	opStructFieldNPtrHeadOmitEmptyBoolPtr                     opType = 834
+	opStructFieldNPtrHeadOmitEmptyBoolPtrOnly                 opType = 835
+	opStructFieldNPtrHeadStringTagBoolPtr                     opType = 836
+	opStructFieldNPtrHeadStringTagBoolPtrOnly                 opType = 837
+	opStructFieldNPtrAnonymousHeadBoolPtr                     opType = 838
+	opStructFieldNPtrAnonymousHeadBoolPtrOnly                 opType = 839
+	opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtr            opType = 840
+	opStructFieldNPtrAnonymousHeadOmitEmptyBoolPtrOnly        opType = 841
+	opStructFieldNPtrAnonymousHeadStringTagBoolPtr            opType = 842
+	opStructFieldNPtrAnonymousHeadStringTagBoolPtrOnly        opType = 843
+	opStructFieldHeadStringPtr                                opType = 844
+	opStructFieldHeadStringPtrOnly                            opType = 845
+	opStructFieldHeadOmitEmptyStringPtr                       opType = 846
+	opStructFieldHeadOmitEmptyStringPtrOnly                   opType = 847
+	opStructFieldHeadStringTagStringPtr                       opType = 848
+	opStructFieldHeadStringTagStringPtrOnly                   opType = 849
+	opStructFieldAnonymousHeadStringPtr                       opType = 850
+	opStructFieldAnonymousHeadStringPtrOnly                   opType = 851
+	opStructFieldAnonymousHeadOmitEmptyStringPtr              opType = 852
+	opStructFieldAnonymousHeadOmitEmptyStringPtrOnly          opType = 853
+	opStructFieldAnonymousHeadStringTagStringPtr              opType = 854
+	opStructFieldAnonymousHeadStringTagStringPtrOnly          opType = 855
+	opStructFieldPtrHeadStringPtr                             opType = 856
+	opStructFieldPtrHeadStringPtrOnly                         opType = 857
+	opStructFieldPtrHeadOmitEmptyStringPtr                    opType = 858
+	opStructFieldPtrHeadOmitEmptyStringPtrOnly                opType = 859
+	opStructFieldPtrHeadStringTagStringPtr                    opType = 860
+	opStructFieldPtrHeadStringTagStringPtrOnly                opType = 861
+	opStructFieldPtrAnonymousHeadStringPtr                    opType = 862
+	opStructFieldPtrAnonymousHeadStringPtrOnly                opType = 863
+	opStructFieldPtrAnonymousHeadOmitEmptyStringPtr           opType = 864
+	opStructFieldPtrAnonymousHeadOmitEmptyStringPtrOnly       opType = 865
+	opStructFieldPtrAnonymousHeadStringTagStringPtr           opType = 866
+	opStructFieldPtrAnonymousHeadStringTagStringPtrOnly       opType = 867
+	opStructFieldNPtrHeadStringPtr                            opType = 868
+	opStructFieldNPtrHeadStringPtrOnly                        opType = 869
+	opStructFieldNPtrHeadOmitEmptyStringPtr                   opType = 870
+	opStructFieldNPtrHeadOmitEmptyStringPtrOnly               opType = 871
+	opStructFieldNPtrHeadStringTagStringPtr                   opType = 872
+	opStructFieldNPtrHeadStringTagStringPtrOnly               opType = 873
+	opStructFieldNPtrAnonymousHeadStringPtr                   opType = 874
+	opStructFieldNPtrAnonymousHeadStringPtrOnly               opType = 875
+	opStructFieldNPtrAnonymousHeadOmitEmptyStringPtr          opType = 876
+	opStructFieldNPtrAnonymousHeadOmitEmptyStringPtrOnly      opType = 877
+	opStructFieldNPtrAnonymousHeadStringTagStringPtr          opType = 878
+	opStructFieldNPtrAnonymousHeadStringTagStringPtrOnly      opType = 879
+	opStructFieldHeadBytesPtr                                 opType = 880
+	opStructFieldHeadBytesPtrOnly                             opType = 881
+	opStructFieldHeadOmitEmptyBytesPtr                        opType = 882
+	opStructFieldHeadOmitEmptyBytesPtrOnly                    opType = 883
+	opStructFieldHeadStringTagBytesPtr                        opType = 884
+	opStructFieldHeadStringTagBytesPtrOnly                    opType = 885
+	opStructFieldAnonymousHeadBytesPtr                        opType = 886
+	opStructFieldAnonymousHeadBytesPtrOnly                    opType = 887
+	opStructFieldAnonymousHeadOmitEmptyBytesPtr               opType = 888
+	opStructFieldAnonymousHeadOmitEmptyBytesPtrOnly           opType = 889
+	opStructFieldAnonymousHeadStringTagBytesPtr               opType = 890
+	opStructFieldAnonymousHeadStringTagBytesPtrOnly           opType = 891
+	opStructFieldPtrHeadBytesPtr                              opType = 892
+	opStructFieldPtrHeadBytesPtrOnly                          opType = 893
+	opStructFieldPtrHeadOmitEmptyBytesPtr                     opType = 894
+	opStructFieldPtrHeadOmitEmptyBytesPtrOnly                 opType = 895
+	opStructFieldPtrHeadStringTagBytesPtr                     opType = 896
+	opStructFieldPtrHeadStringTagBytesPtrOnly                 opType = 897
+	opStructFieldPtrAnonymousHeadBytesPtr                     opType = 898
+	opStructFieldPtrAnonymousHeadBytesPtrOnly                 opType = 899
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesPtr            opType = 900
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesPtrOnly        opType = 901
+	opStructFieldPtrAnonymousHeadStringTagBytesPtr            opType = 902
+	opStructFieldPtrAnonymousHeadStringTagBytesPtrOnly        opType = 903
+	opStructFieldNPtrHeadBytesPtr                             opType = 904
+	opStructFieldNPtrHeadBytesPtrOnly                         opType = 905
+	opStructFieldNPtrHeadOmitEmptyBytesPtr                    opType = 906
+	opStructFieldNPtrHeadOmitEmptyBytesPtrOnly                opType = 907
+	opStructFieldNPtrHeadStringTagBytesPtr                    opType = 908
+	opStructFieldNPtrHeadStringTagBytesPtrOnly                opType = 909
+	opStructFieldNPtrAnonymousHeadBytesPtr                    opType = 910
+	opStructFieldNPtrAnonymousHeadBytesPtrOnly                opType = 911
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtr           opType = 912
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytesPtrOnly       opType = 913
+	opStructFieldNPtrAnonymousHeadStringTagBytesPtr           opType = 914
+	opStructFieldNPtrAnonymousHeadStringTagBytesPtrOnly       opType = 915
+	opStructFieldHeadIntNPtr                                  opType = 916
+	opStructFieldHeadIntNPtrOnly                              opType = 917
+	opStructFieldHeadOmitEmptyIntNPtr                         opType = 918
+	opStructFieldHeadOmitEmptyIntNPtrOnly                     opType = 919
+	opStructFieldHeadStringTagIntNPtr                         opType = 920
+	opStructFieldHeadStringTagIntNPtrOnly                     opType = 921
+	opStructFieldAnonymousHeadIntNPtr                         opType = 922
+	opStructFieldAnonymousHeadIntNPtrOnly                     opType = 923
+	opStructFieldAnonymousHeadOmitEmptyIntNPtr                opType = 924
+	opStructFieldAnonymousHeadOmitEmptyIntNPtrOnly            opType = 925
+	opStructFieldAnonymousHeadStringTagIntNPtr                opType = 926
+	opStructFieldAnonymousHeadStringTagIntNPtrOnly            opType = 927
+	opStructFieldPtrHeadIntNPtr                               opType = 928
+	opStructFieldPtrHeadIntNPtrOnly                           opType = 929
+	opStructFieldPtrHeadOmitEmptyIntNPtr                      opType = 930
+	opStructFieldPtrHeadOmitEmptyIntNPtrOnly                  opType = 931
+	opStructFieldPtrHeadStringTagIntNPtr                      opType = 932
+	opStructFieldPtrHeadStringTagIntNPtrOnly                  opType = 933
+	opStructFieldPtrAnonymousHeadIntNPtr                      opType = 934
+	opStructFieldPtrAnonymousHeadIntNPtrOnly                  opType = 935
+	opStructFieldPtrAnonymousHeadOmitEmptyIntNPtr             opType = 936
+	opStructFieldPtrAnonymousHeadOmitEmptyIntNPtrOnly         opType = 937
+	opStructFieldPtrAnonymousHeadStringTagIntNPtr             opType = 938
+	opStructFieldPtrAnonymousHeadStringTagIntNPtrOnly         opType = 939
+	opStructFieldNPtrHeadIntNPtr                              opType = 940
+	opStructFieldNPtrHeadIntNPtrOnly                          opType = 941
+	opStructFieldNPtrHeadOmitEmptyIntNPtr                     opType = 942
+	opStructFieldNPtrHeadOmitEmptyIntNPtrOnly                 opType = 943
+	opStructFieldNPtrHeadStringTagIntNPtr                     opType = 944
+	opStructFieldNPtrHeadStringTagIntNPtrOnly                 opType = 945
+	opStructFieldNPtrAnonymousHeadIntNPtr                     opType = 946
+	opStructFieldNPtrAnonymousHeadIntNPtrOnly                 opType = 947
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtr            opType = 948
+	opStructFieldNPtrAnonymousHeadOmitEmptyIntNPtrOnly        opType = 949
+	opStructFieldNPtrAnonymousHeadStringTagIntNPtr            opType = 950
+	opStructFieldNPtrAnonymousHeadStringTagIntNPtrOnly        opType = 951
+	opStructFieldHeadUintNPtr                                 opType = 952
+	opStructFieldHeadUintNPtrOnly                             opType = 953
+	opStructFieldHeadOmitEmptyUintNPtr                        opType = 954
+	opStructFieldHeadOmitEmptyUintNPtrOnly                    opType = 955
+	opStructFieldHeadStringTagUintNPtr                        opType = 956
+	opStructFieldHeadStringTagUintNPtrOnly                    opType = 957
+	opStructFieldAnonymousHeadUintNPtr                        opType = 958
+	opStructFieldAnonymousHeadUintNPtrOnly                    opType = 959
+	opStructFieldAnonymousHeadOmitEmptyUintNPtr               opType = 960
+	opStructFieldAnonymousHeadOmitEmptyUintNPtrOnly           opType = 961
+	opStructFieldAnonymousHeadStringTagUintNPtr               opType = 962
+	opStructFieldAnonymousHeadStringTagUintNPtrOnly           opType = 963
+	opStructFieldPtrHeadUintNPtr                              opType = 964
+	opStructFieldPtrHeadUintNPtrOnly                          opType = 965
+	opStructFieldPtrHeadOmitEmptyUintNPtr                     opType = 966
+	opStructFieldPtrHeadOmitEmptyUintNPtrOnly                 opType = 967
+	opStructFieldPtrHeadStringTagUintNPtr                     opType = 968
+	opStructFieldPtrHeadStringTagUintNPtrOnly                 opType = 969
+	opStructFieldPtrAnonymousHeadUintNPtr                     opType = 970
+	opStructFieldPtrAnonymousHeadUintNPtrOnly                 opType = 971
+	opStructFieldPtrAnonymousHeadOmitEmptyUintNPtr            opType = 972
+	opStructFieldPtrAnonymousHeadOmitEmptyUintNPtrOnly        opType = 973
+	opStructFieldPtrAnonymousHeadStringTagUintNPtr            opType = 974
+	opStructFieldPtrAnonymousHeadStringTagUintNPtrOnly        opType = 975
+	opStructFieldNPtrHeadUintNPtr                             opType = 976
+	opStructFieldNPtrHeadUintNPtrOnly                         opType = 977
+	opStructFieldNPtrHeadOmitEmptyUintNPtr                    opType = 978
+	opStructFieldNPtrHeadOmitEmptyUintNPtrOnly                opType = 979
+	opStructFieldNPtrHeadStringTagUintNPtr                    opType = 980
+	opStructFieldNPtrHeadStringTagUintNPtrOnly                opType = 981
+	opStructFieldNPtrAnonymousHeadUintNPtr                    opType = 982
+	opStructFieldNPtrAnonymousHeadUintNPtrOnly                opType = 983
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtr           opType = 984
+	opStructFieldNPtrAnonymousHeadOmitEmptyUintNPtrOnly       opType = 985
+	opStructFieldNPtrAnonymousHeadStringTagUintNPtr           opType = 986
+	opStructFieldNPtrAnonymousHeadStringTagUintNPtrOnly       opType = 987
+	opStructFieldHeadFloat32NPtr                              opType = 988
+	opStructFieldHeadFloat32NPtrOnly                          opType = 989
+	opStructFieldHeadOmitEmptyFloat32NPtr                     opType = 990
+	opStructFieldHeadOmitEmptyFloat32NPtrOnly                 opType = 991
+	opStructFieldHeadStringTagFloat32NPtr                     opType = 992
+	opStructFieldHeadStringTagFloat32NPtrOnly                 opType = 993
+	opStructFieldAnonymousHeadFloat32NPtr                     opType = 994
+	opStructFieldAnonymousHeadFloat32NPtrOnly                 opType = 995
+	opStructFieldAnonymousHeadOmitEmptyFloat32NPtr            opType = 996
+	opStructFieldAnonymousHeadOmitEmptyFloat32NPtrOnly        opType = 997
+	opStructFieldAnonymousHeadStringTagFloat32NPtr            opType = 998
+	opStructFieldAnonymousHeadStringTagFloat32NPtrOnly        opType = 999
+	opStructFieldPtrHeadFloat32NPtr                           opType = 1000
+	opStructFieldPtrHeadFloat32NPtrOnly                       opType = 1001
+	opStructFieldPtrHeadOmitEmptyFloat32NPtr                  opType = 1002
+	opStructFieldPtrHeadOmitEmptyFloat32NPtrOnly              opType = 1003
+	opStructFieldPtrHeadStringTagFloat32NPtr                  opType = 1004
+	opStructFieldPtrHeadStringTagFloat32NPtrOnly              opType = 1005
+	opStructFieldPtrAnonymousHeadFloat32NPtr                  opType = 1006
+	opStructFieldPtrAnonymousHeadFloat32NPtrOnly              opType = 1007
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtr         opType = 1008
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat32NPtrOnly     opType = 1009
+	opStructFieldPtrAnonymousHeadStringTagFloat32NPtr         opType = 1010
+	opStructFieldPtrAnonymousHeadStringTagFloat32NPtrOnly     opType = 1011
+	opStructFieldNPtrHeadFloat32NPtr                          opType = 1012
+	opStructFieldNPtrHeadFloat32NPtrOnly                      opType = 1013
+	opStructFieldNPtrHeadOmitEmptyFloat32NPtr                 opType = 1014
+	opStructFieldNPtrHeadOmitEmptyFloat32NPtrOnly             opType = 1015
+	opStructFieldNPtrHeadStringTagFloat32NPtr                 opType = 1016
+	opStructFieldNPtrHeadStringTagFloat32NPtrOnly             opType = 1017
+	opStructFieldNPtrAnonymousHeadFloat32NPtr                 opType = 1018
+	opStructFieldNPtrAnonymousHeadFloat32NPtrOnly             opType = 1019
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtr        opType = 1020
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat32NPtrOnly    opType = 1021
+	opStructFieldNPtrAnonymousHeadStringTagFloat32NPtr        opType = 1022
+	opStructFieldNPtrAnonymousHeadStringTagFloat32NPtrOnly    opType = 1023
+	opStructFieldHeadFloat64NPtr                              opType = 1024
+	opStructFieldHeadFloat64NPtrOnly                          opType = 1025
+	opStructFieldHeadOmitEmptyFloat64NPtr                     opType = 1026
+	opStructFieldHeadOmitEmptyFloat64NPtrOnly                 opType = 1027
+	opStructFieldHeadStringTagFloat64NPtr                     opType = 1028
+	opStructFieldHeadStringTagFloat64NPtrOnly                 opType = 1029
+	opStructFieldAnonymousHeadFloat64NPtr                     opType = 1030
+	opStructFieldAnonymousHeadFloat64NPtrOnly                 opType = 1031
+	opStructFieldAnonymousHeadOmitEmptyFloat64NPtr            opType = 1032
+	opStructFieldAnonymousHeadOmitEmptyFloat64NPtrOnly        opType = 1033
+	opStructFieldAnonymousHeadStringTagFloat64NPtr            opType = 1034
+	opStructFieldAnonymousHeadStringTagFloat64NPtrOnly        opType = 1035
+	opStructFieldPtrHeadFloat64NPtr                           opType = 1036
+	opStructFieldPtrHeadFloat64NPtrOnly                       opType = 1037
+	opStructFieldPtrHeadOmitEmptyFloat64NPtr                  opType = 1038
+	opStructFieldPtrHeadOmitEmptyFloat64NPtrOnly              opType = 1039
+	opStructFieldPtrHeadStringTagFloat64NPtr                  opType = 1040
+	opStructFieldPtrHeadStringTagFloat64NPtrOnly              opType = 1041
+	opStructFieldPtrAnonymousHeadFloat64NPtr                  opType = 1042
+	opStructFieldPtrAnonymousHeadFloat64NPtrOnly              opType = 1043
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtr         opType = 1044
+	opStructFieldPtrAnonymousHeadOmitEmptyFloat64NPtrOnly     opType = 1045
+	opStructFieldPtrAnonymousHeadStringTagFloat64NPtr         opType = 1046
+	opStructFieldPtrAnonymousHeadStringTagFloat64NPtrOnly     opType = 1047
+	opStructFieldNPtrHeadFloat64NPtr                          opType = 1048
+	opStructFieldNPtrHeadFloat64NPtrOnly                      opType = 1049
+	opStructFieldNPtrHeadOmitEmptyFloat64NPtr                 opType = 1050
+	opStructFieldNPtrHeadOmitEmptyFloat64NPtrOnly             opType = 1051
+	opStructFieldNPtrHeadStringTagFloat64NPtr                 opType = 1052
+	opStructFieldNPtrHeadStringTagFloat64NPtrOnly             opType = 1053
+	opStructFieldNPtrAnonymousHeadFloat64NPtr                 opType = 1054
+	opStructFieldNPtrAnonymousHeadFloat64NPtrOnly             opType = 1055
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtr        opType = 1056
+	opStructFieldNPtrAnonymousHeadOmitEmptyFloat64NPtrOnly    opType = 1057
+	opStructFieldNPtrAnonymousHeadStringTagFloat64NPtr        opType = 1058
+	opStructFieldNPtrAnonymousHeadStringTagFloat64NPtrOnly    opType = 1059
+	opStructFieldHeadBoolNPtr                                 opType = 1060
+	opStructFieldHeadBoolNPtrOnly                             opType = 1061
+	opStructFieldHeadOmitEmptyBoolNPtr                        opType = 1062
+	opStructFieldHeadOmitEmptyBoolNPtrOnly                    opType = 1063
+	opStructFieldHeadStringTagBoolNPtr                        opType = 1064
+	opStructFieldHeadStringTagBoolNPtrOnly                    opType = 1065
+	opStructFieldAnonymousHeadBoolNPtr                        opType = 1066
+	opStructFieldAnonymousHeadBoolNPtrOnly                    opType = 1067
+	opStructFieldAnonymousHeadOmitEmptyBoolNPtr               opType = 1068
+	opStructFieldAnonymousHeadOmitEmptyBoolNPtrOnly           opType = 1069
+	opStructFieldAnonymousHeadStringTagBoolNPtr               opType = 1070
+	opStructFieldAnonymousHeadStringTagBoolNPtrOnly           opType = 1071
+	opStructFieldPtrHeadBoolNPtr                              opType = 1072
+	opStructFieldPtrHeadBoolNPtrOnly                          opType = 1073
+	opStructFieldPtrHeadOmitEmptyBoolNPtr                     opType = 1074
+	opStructFieldPtrHeadOmitEmptyBoolNPtrOnly                 opType = 1075
+	opStructFieldPtrHeadStringTagBoolNPtr                     opType = 1076
+	opStructFieldPtrHeadStringTagBoolNPtrOnly                 opType = 1077
+	opStructFieldPtrAnonymousHeadBoolNPtr                     opType = 1078
+	opStructFieldPtrAnonymousHeadBoolNPtrOnly                 opType = 1079
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtr            opType = 1080
+	opStructFieldPtrAnonymousHeadOmitEmptyBoolNPtrOnly        opType = 1081
+	opStructFieldPtrAnonymousHeadStringTagBoolNPtr            opType = 1082
+	opStructFieldPtrAnonymousHeadStringTagBoolNPtrOnly        opType = 1083
+	opStructFieldNPtrHeadBoolNPtr                             opType = 1084
+	opStructFieldNPtrHeadBoolNPtrOnly                         opType = 1085
+	opStructFieldNPtrHeadOmitEmptyBoolNPtr                    opType = 1086
+	opStructFieldNPtrHeadOmitEmptyBoolNPtrOnly                opType = 1087
+	opStructFieldNPtrHeadStringTagBoolNPtr                    opType = 1088
+	opStructFieldNPtrHeadStringTagBoolNPtrOnly                opType = 1089
+	opStructFieldNPtrAnonymousHeadBoolNPtr                    opType = 1090
+	opStructFieldNPtrAnonymousHeadBoolNPtrOnly                opType = 1091
+	opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtr           opType = 1092
+	opStructFieldNPtrAnonymousHeadOmitEmptyBoolNPtrOnly       opType = 1093
+	opStructFieldNPtrAnonymousHeadStringTagBoolNPtr           opType = 1094
+	opStructFieldNPtrAnonymousHeadStringTagBoolNPtrOnly       opType = 1095
+	opStructFieldHeadStringNPtr                               opType = 1096
+	opStructFieldHeadStringNPtrOnly                           opType = 1097
+	opStructFieldHeadOmitEmptyStringNPtr                      opType = 1098
+	opStructFieldHeadOmitEmptyStringNPtrOnly                  opType = 1099
+	opStructFieldHeadStringTagStringNPtr                      opType = 1100
+	opStructFieldHeadStringTagStringNPtrOnly                  opType = 1101
+	opStructFieldAnonymousHeadStringNPtr                      opType = 1102
+	opStructFieldAnonymousHeadStringNPtrOnly                  opType = 1103
+	opStructFieldAnonymousHeadOmitEmptyStringNPtr             opType = 1104
+	opStructFieldAnonymousHeadOmitEmptyStringNPtrOnly         opType = 1105
+	opStructFieldAnonymousHeadStringTagStringNPtr             opType = 1106
+	opStructFieldAnonymousHeadStringTagStringNPtrOnly         opType = 1107
+	opStructFieldPtrHeadStringNPtr                            opType = 1108
+	opStructFieldPtrHeadStringNPtrOnly                        opType = 1109
+	opStructFieldPtrHeadOmitEmptyStringNPtr                   opType = 1110
+	opStructFieldPtrHeadOmitEmptyStringNPtrOnly               opType = 1111
+	opStructFieldPtrHeadStringTagStringNPtr                   opType = 1112
+	opStructFieldPtrHeadStringTagStringNPtrOnly               opType = 1113
+	opStructFieldPtrAnonymousHeadStringNPtr                   opType = 1114
+	opStructFieldPtrAnonymousHeadStringNPtrOnly               opType = 1115
+	opStructFieldPtrAnonymousHeadOmitEmptyStringNPtr          opType = 1116
+	opStructFieldPtrAnonymousHeadOmitEmptyStringNPtrOnly      opType = 1117
+	opStructFieldPtrAnonymousHeadStringTagStringNPtr          opType = 1118
+	opStructFieldPtrAnonymousHeadStringTagStringNPtrOnly      opType = 1119
+	opStructFieldNPtrHeadStringNPtr                           opType = 1120
+	opStructFieldNPtrHeadStringNPtrOnly                       opType = 1121
+	opStructFieldNPtrHeadOmitEmptyStringNPtr                  opType = 1122
+	opStructFieldNPtrHeadOmitEmptyStringNPtrOnly              opType = 1123
+	opStructFieldNPtrHeadStringTagStringNPtr                  opType = 1124
+	opStructFieldNPtrHeadStringTagStringNPtrOnly              opType = 1125
+	opStructFieldNPtrAnonymousHeadStringNPtr                  opType = 1126
+	opStructFieldNPtrAnonymousHeadStringNPtrOnly              opType = 1127
+	opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtr         opType = 1128
+	opStructFieldNPtrAnonymousHeadOmitEmptyStringNPtrOnly     opType = 1129
+	opStructFieldNPtrAnonymousHeadStringTagStringNPtr         opType = 1130
+	opStructFieldNPtrAnonymousHeadStringTagStringNPtrOnly     opType = 1131
+	opStructFieldHeadBytesNPtr                                opType = 1132
+	opStructFieldHeadBytesNPtrOnly                            opType = 1133
+	opStructFieldHeadOmitEmptyBytesNPtr                       opType = 1134
+	opStructFieldHeadOmitEmptyBytesNPtrOnly                   opType = 1135
+	opStructFieldHeadStringTagBytesNPtr                       opType = 1136
+	opStructFieldHeadStringTagBytesNPtrOnly                   opType = 1137
+	opStructFieldAnonymousHeadBytesNPtr                       opType = 1138
+	opStructFieldAnonymousHeadBytesNPtrOnly                   opType = 1139
+	opStructFieldAnonymousHeadOmitEmptyBytesNPtr              opType = 1140
+	opStructFieldAnonymousHeadOmitEmptyBytesNPtrOnly          opType = 1141
+	opStructFieldAnonymousHeadStringTagBytesNPtr              opType = 1142
+	opStructFieldAnonymousHeadStringTagBytesNPtrOnly          opType = 1143
+	opStructFieldPtrHeadBytesNPtr                             opType = 1144
+	opStructFieldPtrHeadBytesNPtrOnly                         opType = 1145
+	opStructFieldPtrHeadOmitEmptyBytesNPtr                    opType = 1146
+	opStructFieldPtrHeadOmitEmptyBytesNPtrOnly                opType = 1147
+	opStructFieldPtrHeadStringTagBytesNPtr                    opType = 1148
+	opStructFieldPtrHeadStringTagBytesNPtrOnly                opType = 1149
+	opStructFieldPtrAnonymousHeadBytesNPtr                    opType = 1150
+	opStructFieldPtrAnonymousHeadBytesNPtrOnly                opType = 1151
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtr           opType = 1152
+	opStructFieldPtrAnonymousHeadOmitEmptyBytesNPtrOnly       opType = 1153
+	opStructFieldPtrAnonymousHeadStringTagBytesNPtr           opType = 1154
+	opStructFieldPtrAnonymousHeadStringTagBytesNPtrOnly       opType = 1155
+	opStructFieldNPtrHeadBytesNPtr                            opType = 1156
+	opStructFieldNPtrHeadBytesNPtrOnly                        opType = 1157
+	opStructFieldNPtrHeadOmitEmptyBytesNPtr                   opType = 1158
+	opStructFieldNPtrHeadOmitEmptyBytesNPtrOnly               opType = 1159
+	opStructFieldNPtrHeadStringTagBytesNPtr                   opType = 1160
+	opStructFieldNPtrHeadStringTagBytesNPtrOnly               opType = 1161
+	opStructFieldNPtrAnonymousHeadBytesNPtr                   opType = 1162
+	opStructFieldNPtrAnonymousHeadBytesNPtrOnly               opType = 1163
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtr          opType = 1164
+	opStructFieldNPtrAnonymousHeadOmitEmptyBytesNPtrOnly      opType = 1165
+	opStructFieldNPtrAnonymousHeadStringTagBytesNPtr          opType = 1166
+	opStructFieldNPtrAnonymousHeadStringTagBytesNPtrOnly      opType = 1167
+	opStructFieldHeadEmptyStruct                              opType = 1168
+	opStructFieldHeadEmptyStructOnly                          opType = 1169
+	opStructFieldHeadOmitEmptyEmptyStruct                     opType = 1170
+	opStructFieldHeadOmitEmptyEmptyStructOnly                 opType = 1171
+	opStructFieldHeadStringTagEmptyStruct                     opType = 1172
+	opStructFieldHeadStringTagEmptyStructOnly                 opType = 1173
+	opStructFieldAnonymousHeadEmptyStruct                     opType = 1174
+	opStructFieldAnonymousHeadEmptyStructOnly                 opType = 1175
+	opStructFieldAnonymousHeadOmitEmptyEmptyStruct            opType = 1176
+	opStructFieldAnonymousHeadOmitEmptyEmptyStructOnly        opType = 1177
+	opStructFieldAnonymousHeadStringTagEmptyStruct            opType = 1178
+	opStructFieldAnonymousHeadStringTagEmptyStructOnly        opType = 1179
+	opStructFieldPtrHeadEmptyStruct                           opType = 1180
+	opStructFieldPtrHeadEmptyStructOnly                       opType = 1181
+	opStructFieldPtrHeadOmitEmptyEmptyStruct                  opType = 1182
+	opStructFieldPtrHeadOmitEmptyEmptyStructOnly              opType = 1183
+	opStructFieldPtrHeadStringTagEmptyStruct                  opType = 1184
+	opStructFieldPtrHeadStringTagEmptyStructOnly              opType = 1185
+	opStructFieldPtrAnonymousHeadEmptyStruct                  opType = 1186
+	opStructFieldPtrAnonymousHeadEmptyStructOnly              opType = 1187
+	opStructFieldPtrAnonymousHeadOmitEmptyEmptyStruct         opType = 1188
+	opStructFieldPtrAnonymousHeadOmitEmptyEmptyStructOnly     opType = 1189
+	opStructFieldPtrAnonymousHeadStringTagEmptyStruct         opType = 1190
+	opStructFieldPtrAnonymousHeadStringTagEmptyStructOnly     opType = 1191
+	opStructFieldNPtrHeadEmptyStruct                          opType = 1192
+	opStructFieldNPtrHeadEmptyStructOnly                      opType = 1193
+	opStructFieldNPtrHeadOmitEmptyEmptyStruct                 opType = 1194
+	opStructFieldNPtrHeadOmitEmptyEmptyStructOnly             opType = 1195
+	opStructFieldNPtrHeadStringTagEmptyStruct                 opType = 1196
+	opStructFieldNPtrHeadStringTagEmptyStructOnly             opType = 1197
+	opStructFieldNPtrAnonymousHeadEmptyStruct                 opType = 1198
+	opStructFieldNPtrAnonymousHeadEmptyStructOnly             opType = 1199
+	opStructFieldNPtrAnonymousHeadOmitEmptyEmptyStruct        opType = 1200
+	opStructFieldNPtrAnonymousHeadOmitEmptyEmptyStructOnly    opType = 1201
+	opStructFieldNPtrAnonymousHeadStringTagEmptyStruct        opType = 1202
+	opStructFieldNPtrAnonymousHeadStringTagEmptyStructOnly    opType = 1203
+	opStructFieldHeadEmptyStructPtr                           opType = 1204
+	opStructFieldHeadEmptyStructPtrOnly                       opType = 1205
+	opStructFieldHeadOmitEmptyEmptyStructPtr                  opType = 1206
+	opStructFieldHeadOmitEmptyEmptyStructPtrOnly              opType = 1207
+	opStructFieldHeadStringTagEmptyStructPtr                  opType = 1208
+	opStructFieldHeadStringTagEmptyStructPtrOnly              opType = 1209
+	opStructFieldAnonymousHeadEmptyStructPtr                  opType = 1210
+	opStructFieldAnonymousHeadEmptyStructPtrOnly              opType = 1211
+	opStructFieldAnonymousHeadOmitEmptyEmptyStructPtr         opType = 1212
+	opStructFieldAnonymousHeadOmitEmptyEmptyStructPtrOnly     opType = 1213
+	opStructFieldAnonymousHeadStringTagEmptyStructPtr         opType = 1214
+	opStructFieldAnonymousHeadStringTagEmptyStructPtrOnly     opType = 1215
+	opStructFieldPtrHeadEmptyStructPtr                        opType = 1216
+	opStructFieldPtrHeadEmptyStructPtrOnly                    opType = 1217
+	opStructFieldPtrHeadOmitEmptyEmptyStructPtr               opType = 1218
+	opStructFieldPtrHeadOmitEmptyEmptyStructPtrOnly           opType = 1219
+	opStructFieldPtrHeadStringTagEmptyStructPtr               opType = 1220
+	opStructFieldPtrHeadStringTagEmptyStructPtrOnly           opType = 1221
+	opStructFieldPtrAnonymousHeadEmptyStructPtr               opType = 1222
+	opStructFieldPtrAnonymousHeadEmptyStructPtrOnly           opType = 1223
+	opStructFieldPtrAnonymousHeadOmitEmptyEmptyStructPtr      opType = 1224
+	opStructFieldPtrAnonymousHeadOmitEmptyEmptyStructPtrOnly  opType = 1225
+	opStructFieldPtrAnonymousHeadStringTagEmptyStructPtr      opType = 1226
+	opStructFieldPtrAnonymousHeadStringTagEmptyStructPtrOnly  opType = 1227
+	opStructFieldNPtrHeadEmptyStructPtr                       opType = 1228
+	opStructFieldNPtrHeadEmptyStructPtrOnly                   opType = 1229
+	opStructFieldNPtrHeadOmitEmptyEmptyStructPtr              opType = 1230
+	opStructFieldNPtrHeadOmitEmptyEmptyStructPtrOnly          opType = 1231
+	opStructFieldNPtrHeadStringTagEmptyStructPtr              opType = 1232
+	opStructFieldNPtrHeadStringTagEmptyStructPtrOnly          opType = 1233
+	opStructFieldNPtrAnonymousHeadEmptyStructPtr              opType = 1234
+	opStructFieldNPtrAnonymousHeadEmptyStructPtrOnly          opType = 1235
+	opStructFieldNPtrAnonymousHeadOmitEmptyEmptyStructPtr     opType = 1236
+	opStructFieldNPtrAnonymousHeadOmitEmptyEmptyStructPtrOnly opType = 1237
+	opStructFieldNPtrAnonymousHeadStringTagEmptyStructPtr     opType = 1238
+	opStructFieldNPtrAnonymousHeadStringTagEmptyStructPtrOnly opType = 1239
+	opStructFieldHead                                         opType = 1240
+	opStructFieldHeadOnly                                     opType = 1241
+	opStructFieldHeadOmitEmpty                                opType = 1242
+	opStructFieldHeadOmitEmptyOnly                            opType = 1243
+	opStructFieldHeadStringTag                                opType = 1244
+	opStructFieldHeadStringTagOnly                            opType = 1245
+	opStructFieldAnonymousHead                                opType = 1246
+	opStructFieldAnonymousHeadOnly                            opType = 1247
+	opStructFieldAnonymousHeadOmitEmpty                       opType = 1248
+	opStructFieldAnonymousHeadOmitEmptyOnly                   opType = 1249
+	opStructFieldAnonymousHeadStringTag                       opType = 1250
+	opStructFieldAnonymousHeadStringTagOnly                   opType = 1251
+	opStructFieldPtrHead                                      opType = 1252
+	opStructFieldPtrHeadOnly                                  opType = 1253
+	opStructFieldPtrHeadOmitEmpty                             opType = 1254
+	opStructFieldPtrHeadOmitEmptyOnly                         opType = 1255
+	opStructFieldPtrHeadStringTag                             opType = 1256
+	opStructFieldPtrHeadStringTagOnly                         opType = 1257
+	opStructFieldPtrAnonymousHead                             opType = 1258
+	opStructFieldPtrAnonymousHeadOnly                         opType = 1259
+	opStructFieldPtrAnonymousHeadOmitEmpty                    opType = 1260
+	opStructFieldPtrAnonymousHeadOmitEmptyOnly                opType = 1261
+	opStructFieldPtrAnonymousHeadStringTag                    opType = 1262
+	opStructFieldPtrAnonymousHeadStringTagOnly                opType = 1263
+	opStructFieldNPtrHead                                     opType = 1264
+	opStructFieldNPtrHeadOnly                                 opType = 1265
+	opStructFieldNPtrHeadOmitEmpty                            opType = 1266
+	opStructFieldNPtrHeadOmitEmptyOnly                        opType = 1267
+	opStructFieldNPtrHeadStringTag                            opType = 1268
+	opStructFieldNPtrHeadStringTagOnly                        opType = 1269
+	opStructFieldNPtrAnonymousHead                            opType = 1270
+	opStructFieldNPtrAnonymousHeadOnly                        opType = 1271
+	opStructFieldNPtrAnonymousHeadOmitEmpty                   opType = 1272
+	opStructFieldNPtrAnonymousHeadOmitEmptyOnly               opType = 1273
+	opStructFieldNPtrAnonymousHeadStringTag                   opType = 1274
+	opStructFieldNPtrAnonymousHeadStringTagOnly               opType = 1275
+	opStructFieldInt                                          opType = 1276
+	opStructFieldOmitEmptyInt                                 opType = 1277
+	opStructFieldStringTagInt                                 opType = 1278
+	opStructFieldUint                                         opType = 1279
+	opStructFieldOmitEmptyUint                                opType = 1280
+	opStructFieldStringTagUint                                opType = 1281
+	opStructFieldFloat32                                      opType = 1282
+	opStructFieldOmitEmptyFloat32                             opType = 1283
+	opStructFieldStringTagFloat32                             opType = 1284
+	opStructFieldFloat64                                      opType = 1285
+	opStructFieldOmitEmptyFloat64                             opType = 1286
+	opStructFieldStringTagFloat64                             opType = 1287
+	opStructFieldBool                                         opType = 1288
+	opStructFieldOmitEmptyBool                                opType = 1289
+	opStructFieldStringTagBool                                opType = 1290
+	opStructFieldString                                       opType = 1291
+	opStructFieldOmitEmptyString                              opType = 1292
+	opStructFieldStringTagString                              opType = 1293
+	opStructFieldBytes                                        opType = 1294
+	opStructFieldOmitEmptyBytes                               opType = 1295
+	opStructFieldStringTagBytes                               opType = 1296
+	opStructFieldArray                                        opType = 1297
+	opStructFieldOmitEmptyArray                               opType = 1298
+	opStructFieldStringTagArray                               opType = 1299
+	opStructFieldMap                                          opType = 1300
+	opStructFieldOmitEmptyMap                                 opType = 1301
+	opStructFieldStringTagMap                                 opType = 1302
+	opStructFieldMapLoad                                      opType = 1303
+	opStructFieldOmitEmptyMapLoad                             opType = 1304
+	opStructFieldStringTagMapLoad                             opType = 1305
+	opStructFieldSlice                                        opType = 1306
+	opStructFieldOmitEmptySlice                               opType = 1307
+	opStructFieldStringTagSlice                               opType = 1308
+	opStructFieldStruct                                       opType = 1309
+	opStructFieldOmitEmptyStruct                              opType = 1310
+	opStructFieldStringTagStruct                              opType = 1311
+	opStructFieldMarshalJSON                                  opType = 1312
+	opStructFieldOmitEmptyMarshalJSON                         opType = 1313
+	opStructFieldStringTagMarshalJSON                         opType = 1314
+	opStructFieldMarshalText                                  opType = 1315
+	opStructFieldOmitEmptyMarshalText                         opType = 1316
+	opStructFieldStringTagMarshalText                         opType = 1317
+	opStructFieldRecursive                                    opType = 1318
+	opStructFieldOmitEmptyRecursive                           opType = 1319
+	opStructFieldStringTagRecursive                           opType = 1320
+	opStructFieldIntString                                    opType = 1321
+	opStructFieldOmitEmptyIntString                           opType = 1322
+	opStructFieldStringTagIntString                           opType = 1323
+	opStructFieldUintString                                   opType = 1324
+	opStructFieldOmitEmptyUintString                          opType = 1325
+	opStructFieldStringTagUintString                          opType = 1326
+	opStructFieldIntPtr                                       opType = 1327
+	opStructFieldOmitEmptyIntPtr                              opType = 1328
+	opStructFieldStringTagIntPtr                              opType = 1329
+	opStructFieldUintPtr                                      opType = 1330
+	opStructFieldOmitEmptyUintPtr                             opType = 1331
+	opStructFieldStringTagUintPtr                             opType = 1332
+	opStructFieldFloat32Ptr                                   opType = 1333
+	opStructFieldOmitEmptyFloat32Ptr                          opType = 1334
+	opStructFieldStringTagFloat32Ptr                          opType = 1335
+	opStructFieldFloat64Ptr                                   opType = 1336
+	opStructFieldOmitEmptyFloat64Ptr                          opType = 1337
+	opStructFieldStringTagFloat64Ptr                          opType = 1338
+	opStructFieldBoolPtr                                      opType = 1339
+	opStructFieldOmitEmptyBoolPtr                             opType = 1340
+	opStructFieldStringTagBoolPtr                             opType = 1341
+	opStructFieldStringPtr                                    opType = 1342
+	opStructFieldOmitEmptyStringPtr                           opType = 1343
+	opStructFieldStringTagStringPtr                           opType = 1344
+	opStructFieldBytesPtr                                     opType = 1345
+	opStructFieldOmitEmptyBytesPtr                            opType = 1346
+	opStructFieldStringTagBytesPtr                            opType = 1347
+	opStructFieldIntNPtr                                      opType = 1348
+	opStructFieldOmitEmptyIntNPtr                             opType = 1349
+	opStructFieldStringTagIntNPtr                             opType = 1350
+	opStructFieldUintNPtr                                     opType = 1351
+	opStructFieldOmitEmptyUintNPtr                            opType = 1352
+	opStructFieldStringTagUintNPtr                            opType = 1353
+	opStructFieldFloat32NPtr                                  opType = 1354
+	opStructFieldOmitEmptyFloat32NPtr                         opType = 1355
+	opStructFieldStringTagFloat32NPtr                         opType = 1356
+	opStructFieldFloat64NPtr                                  opType = 1357
+	opStructFieldOmitEmptyFloat64NPtr                         opType = 1358
+	opStructFieldStringTagFloat64NPtr                         opType = 1359
+	opStructFieldBoolNPtr                                     opType = 1360
+	opStructFieldOmitEmptyBoolNPtr                            opType = 1361
+	opStructFieldStringTagBoolNPtr                            opType = 1362
+	opStructFieldStringNPtr                                   opType = 1363
+	opStructFieldOmitEmptyStringNPtr                          opType = 1364
+	opStructFieldStringTagStringNPtr                          opType = 1365
+	opStructFieldBytesNPtr                                    opType = 1366
+	opStructFieldOmitEmptyBytesNPtr                           opType = 1367
+	opStructFieldStringTagBytesNPtr                           opType = 1368
+	opStructFieldEmptyStruct                                  opType = 1369
+	opStructFieldOmitEmptyEmptyStruct                         opType = 1370
+	opStructFieldStringTagEmptyStruct                         opType = 1371
+	opStructFieldEmptyStructPtr                               opType = 1372
+	opStructFieldOmitEmptyEmptyStructPtr                      opType = 1373
+	opStructFieldStringTagEmptyStructPtr                      opType = 1374
+	opStructField                                             opType = 1375
+	opStructFieldOmitEmpty                                    opType = 1376
+	opStructFieldStringTag                                    opType = 1377
+	opStructEndInt                                            opType = 1378
+	opStructEndOmitEmptyInt                                   opType = 1379
+	opStructEndStringTagInt                                   opType = 1380
+	opStructEndUint                                           opType = 1381
+	opStructEndOmitEmptyUint                                  opType = 1382
+	opStructEndStringTagUint                                  opType = 1383
+	opStructEndFloat32                                        opType = 1384
+	opStructEndOmitEmptyFloat32                               opType = 1385
+	opStructEndStringTagFloat32                               opType = 1386
+	opStructEndFloat64                                        opType = 1387
+	opStructEndOmitEmptyFloat64                               opType = 1388
+	opStructEndStringTagFloat64                               opType = 1389
+	opStructEndBool                                           opType = 1390
+	opStructEndOmitEmptyBool                                  opType = 1391
+	opStructEndStringTagBool                                  opType = 1392
+	opStructEndString                                         opType = 1393
+	opStructEndOmitEmptyString                                opType = 1394
+	opStructEndStringTagString                                opType = 1395
+	opStructEndBytes                                          opType = 1396
+	opStructEndOmitEmptyBytes                                 opType = 1397
+	opStructEndStringTagBytes                                 opType = 1398
+	opStructEndArray                                          opType = 1399
+	opStructEndOmitEmptyArray                                 opType = 1400
+	opStructEndStringTagArray                                 opType = 1401
+	opStructEndMap                                            opType = 1402
+	opStructEndOmitEmptyMap                                   opType = 1403
+	opStructEndStringTagMap                                   opType = 1404
+	opStructEndMapLoad                                        opType = 1405
+	opStructEndOmitEmptyMapLoad                               opType = 1406
+	opStructEndStringTagMapLoad                               opType = 1407
+	opStructEndSlice                                          opType = 1408
+	opStructEndOmitEmptySlice                                 opType = 1409
+	opStructEndStringTagSlice                                 opType = 1410
+	opStructEndStruct                                         opType = 1411
+	opStructEndOmitEmptyStruct                                opType = 1412
+	opStructEndStringTagStruct                                opType = 1413
+	opStructEndMarshalJSON                                    opType = 1414
+	opStructEndOmitEmptyMarshalJSON                           opType = 1415
+	opStructEndStringTagMarshalJSON                           opType = 1416
+	opStructEndMarshalText                                    opType = 1417
+	opStructEndOmitEmptyMarshalText                           opType = 1418
+	opStructEndStringTagMarshalText                           opType = 1419
+	opStructEndRecursive                                      opType = 1420
+	opStructEndOmitEmptyRecursive                             opType = 1421
+	opStructEndStringTagRecursive                             opType = 1422
+	opStructEndIntString                                      opType = 1423
+	opStructEndOmitEmptyIntString                             opType = 1424
+	opStructEndStringTagIntString                             opType = 1425
+	opStructEndUintString                                     opType = 1426
+	opStructEndOmitEmptyUintString                            opType = 1427
+	opStructEndStringTagUintString                            opType = 1428
+	opStructEndIntPtr                                         opType = 1429
+	opStructEndOmitEmptyIntPtr                                opType = 1430
+	opStructEndStringTagIntPtr                                opType = 1431
+	opStructEndUintPtr                                        opType = 1432
+	opStructEndOmitEmptyUintPtr                               opType = 1433
+	opStructEndStringTagUintPtr                               opType = 1434
+	opStructEndFloat32Ptr                                     opType = 1435
+	opStructEndOmitEmptyFloat32Ptr                            opType = 1436
+	opStructEndStringTagFloat32Ptr                            opType = 1437
+	opStructEndFloat64Ptr                                     opType = 1438
+	opStructEndOmitEmptyFloat64Ptr                            opType = 1439
+	opStructEndStringTagFloat64Ptr                            opType = 1440
+	opStructEndBoolPtr                                        opType = 1441
+	opStructEndOmitEmptyBoolPtr                               opType = 1442
+	opStructEndStringTagBoolPtr                               opType = 1443
+	opStructEndStringPtr                                      opType = 1444
+	opStructEndOmitEmptyStringPtr                             opType = 1445
+	opStructEndStringTagStringPtr                             opType = 1446
+	opStructEndBytesPtr                                       opType = 1447
+	opStructEndOmitEmptyBytesPtr                              opType = 1448
+	opStructEndStringTagBytesPtr                              opType = 1449
+	opStructEndIntNPtr                                        opType = 1450
+	opStructEndOmitEmptyIntNPtr                               opType = 1451
+	opStructEndStringTagIntNPtr                               opType = 1452
+	opStructEndUintNPtr                                       opType = 1453
+	opStructEndOmitEmptyUintNPtr                              opType = 1454
+	opStructEndStringTagUintNPtr                              opType = 1455
+	opStructEndFloat32NPtr                                    opType = 1456
+	opStructEndOmitEmptyFloat32NPtr                           opType = 1457
+	opStructEndStringTagFloat32NPtr                           opType = 1458
+	opStructEndFloat64NPtr                                    opType = 1459
+	opStructEndOmitEmptyFloat64NPtr                           opType = 1460
+	opStructEndStringTagFloat64NPtr                           opType = 1461
+	opStructEndBoolNPtr                                       opType = 1462
+	opStructEndOmitEmptyBoolNPtr                              opType = 1463
+	opStructEndStringTagBoolNPtr                              opType = 1464
+	opStructEndStringNPtr                                     opType = 1465
+	opStructEndOmitEmptyStringNPtr                            opType = 1466
+	opStructEndStringTagStringNPtr                            opType = 1467
+	opStructEndBytesNPtr                                      opType = 1468
+	opStructEndOmitEmptyBytesNPtr                             opType = 1469
+	opStructEndStringTagBytesNPtr                             opType = 1470
+	opStructEndEmptyStruct                                    opType = 1471
+	opStructEndOmitEmptyEmptyStruct                           opType = 1472
+	opStructEndStringTagEmptyStruct                           opType = 1473
+	opStructEndEmptyStructPtr                                 opType = 1474
+	opStructEndOmitEmptyEmptyStructPtr                        opType = 1475
+	opStructEndStringTagEmptyStructPtr                        opType = 1476
+	opStructEnd                                               opType = 1477
+	opStructEndOmitEmpty                                      opType = 1478
+	opStructEndStringTag                                      opType = 1479
 )
 
 func (t opType) String() string {
-	if int(t) >= 2770 {
+	if int(t) >= 1480 {
 		return ""
 	}
 	return opTypeStrings[int(t)]
@@ -5713,60 +3133,12 @@ func (t opType) fieldToEnd() opType {
 		return opStructEndOmitEmptyInt
 	case opStructFieldStringTagInt:
 		return opStructEndStringTagInt
-	case opStructFieldInt8:
-		return opStructEndInt8
-	case opStructFieldOmitEmptyInt8:
-		return opStructEndOmitEmptyInt8
-	case opStructFieldStringTagInt8:
-		return opStructEndStringTagInt8
-	case opStructFieldInt16:
-		return opStructEndInt16
-	case opStructFieldOmitEmptyInt16:
-		return opStructEndOmitEmptyInt16
-	case opStructFieldStringTagInt16:
-		return opStructEndStringTagInt16
-	case opStructFieldInt32:
-		return opStructEndInt32
-	case opStructFieldOmitEmptyInt32:
-		return opStructEndOmitEmptyInt32
-	case opStructFieldStringTagInt32:
-		return opStructEndStringTagInt32
-	case opStructFieldInt64:
-		return opStructEndInt64
-	case opStructFieldOmitEmptyInt64:
-		return opStructEndOmitEmptyInt64
-	case opStructFieldStringTagInt64:
-		return opStructEndStringTagInt64
 	case opStructFieldUint:
 		return opStructEndUint
 	case opStructFieldOmitEmptyUint:
 		return opStructEndOmitEmptyUint
 	case opStructFieldStringTagUint:
 		return opStructEndStringTagUint
-	case opStructFieldUint8:
-		return opStructEndUint8
-	case opStructFieldOmitEmptyUint8:
-		return opStructEndOmitEmptyUint8
-	case opStructFieldStringTagUint8:
-		return opStructEndStringTagUint8
-	case opStructFieldUint16:
-		return opStructEndUint16
-	case opStructFieldOmitEmptyUint16:
-		return opStructEndOmitEmptyUint16
-	case opStructFieldStringTagUint16:
-		return opStructEndStringTagUint16
-	case opStructFieldUint32:
-		return opStructEndUint32
-	case opStructFieldOmitEmptyUint32:
-		return opStructEndOmitEmptyUint32
-	case opStructFieldStringTagUint32:
-		return opStructEndStringTagUint32
-	case opStructFieldUint64:
-		return opStructEndUint64
-	case opStructFieldOmitEmptyUint64:
-		return opStructEndOmitEmptyUint64
-	case opStructFieldStringTagUint64:
-		return opStructEndStringTagUint64
 	case opStructFieldFloat32:
 		return opStructEndFloat32
 	case opStructFieldOmitEmptyFloat32:
@@ -5815,120 +3187,24 @@ func (t opType) fieldToEnd() opType {
 		return opStructEndOmitEmptyIntString
 	case opStructFieldStringTagIntString:
 		return opStructEndStringTagIntString
-	case opStructFieldInt8String:
-		return opStructEndInt8String
-	case opStructFieldOmitEmptyInt8String:
-		return opStructEndOmitEmptyInt8String
-	case opStructFieldStringTagInt8String:
-		return opStructEndStringTagInt8String
-	case opStructFieldInt16String:
-		return opStructEndInt16String
-	case opStructFieldOmitEmptyInt16String:
-		return opStructEndOmitEmptyInt16String
-	case opStructFieldStringTagInt16String:
-		return opStructEndStringTagInt16String
-	case opStructFieldInt32String:
-		return opStructEndInt32String
-	case opStructFieldOmitEmptyInt32String:
-		return opStructEndOmitEmptyInt32String
-	case opStructFieldStringTagInt32String:
-		return opStructEndStringTagInt32String
-	case opStructFieldInt64String:
-		return opStructEndInt64String
-	case opStructFieldOmitEmptyInt64String:
-		return opStructEndOmitEmptyInt64String
-	case opStructFieldStringTagInt64String:
-		return opStructEndStringTagInt64String
 	case opStructFieldUintString:
 		return opStructEndUintString
 	case opStructFieldOmitEmptyUintString:
 		return opStructEndOmitEmptyUintString
 	case opStructFieldStringTagUintString:
 		return opStructEndStringTagUintString
-	case opStructFieldUint8String:
-		return opStructEndUint8String
-	case opStructFieldOmitEmptyUint8String:
-		return opStructEndOmitEmptyUint8String
-	case opStructFieldStringTagUint8String:
-		return opStructEndStringTagUint8String
-	case opStructFieldUint16String:
-		return opStructEndUint16String
-	case opStructFieldOmitEmptyUint16String:
-		return opStructEndOmitEmptyUint16String
-	case opStructFieldStringTagUint16String:
-		return opStructEndStringTagUint16String
-	case opStructFieldUint32String:
-		return opStructEndUint32String
-	case opStructFieldOmitEmptyUint32String:
-		return opStructEndOmitEmptyUint32String
-	case opStructFieldStringTagUint32String:
-		return opStructEndStringTagUint32String
-	case opStructFieldUint64String:
-		return opStructEndUint64String
-	case opStructFieldOmitEmptyUint64String:
-		return opStructEndOmitEmptyUint64String
-	case opStructFieldStringTagUint64String:
-		return opStructEndStringTagUint64String
 	case opStructFieldIntPtr:
 		return opStructEndIntPtr
 	case opStructFieldOmitEmptyIntPtr:
 		return opStructEndOmitEmptyIntPtr
 	case opStructFieldStringTagIntPtr:
 		return opStructEndStringTagIntPtr
-	case opStructFieldInt8Ptr:
-		return opStructEndInt8Ptr
-	case opStructFieldOmitEmptyInt8Ptr:
-		return opStructEndOmitEmptyInt8Ptr
-	case opStructFieldStringTagInt8Ptr:
-		return opStructEndStringTagInt8Ptr
-	case opStructFieldInt16Ptr:
-		return opStructEndInt16Ptr
-	case opStructFieldOmitEmptyInt16Ptr:
-		return opStructEndOmitEmptyInt16Ptr
-	case opStructFieldStringTagInt16Ptr:
-		return opStructEndStringTagInt16Ptr
-	case opStructFieldInt32Ptr:
-		return opStructEndInt32Ptr
-	case opStructFieldOmitEmptyInt32Ptr:
-		return opStructEndOmitEmptyInt32Ptr
-	case opStructFieldStringTagInt32Ptr:
-		return opStructEndStringTagInt32Ptr
-	case opStructFieldInt64Ptr:
-		return opStructEndInt64Ptr
-	case opStructFieldOmitEmptyInt64Ptr:
-		return opStructEndOmitEmptyInt64Ptr
-	case opStructFieldStringTagInt64Ptr:
-		return opStructEndStringTagInt64Ptr
 	case opStructFieldUintPtr:
 		return opStructEndUintPtr
 	case opStructFieldOmitEmptyUintPtr:
 		return opStructEndOmitEmptyUintPtr
 	case opStructFieldStringTagUintPtr:
 		return opStructEndStringTagUintPtr
-	case opStructFieldUint8Ptr:
-		return opStructEndUint8Ptr
-	case opStructFieldOmitEmptyUint8Ptr:
-		return opStructEndOmitEmptyUint8Ptr
-	case opStructFieldStringTagUint8Ptr:
-		return opStructEndStringTagUint8Ptr
-	case opStructFieldUint16Ptr:
-		return opStructEndUint16Ptr
-	case opStructFieldOmitEmptyUint16Ptr:
-		return opStructEndOmitEmptyUint16Ptr
-	case opStructFieldStringTagUint16Ptr:
-		return opStructEndStringTagUint16Ptr
-	case opStructFieldUint32Ptr:
-		return opStructEndUint32Ptr
-	case opStructFieldOmitEmptyUint32Ptr:
-		return opStructEndOmitEmptyUint32Ptr
-	case opStructFieldStringTagUint32Ptr:
-		return opStructEndStringTagUint32Ptr
-	case opStructFieldUint64Ptr:
-		return opStructEndUint64Ptr
-	case opStructFieldOmitEmptyUint64Ptr:
-		return opStructEndOmitEmptyUint64Ptr
-	case opStructFieldStringTagUint64Ptr:
-		return opStructEndStringTagUint64Ptr
 	case opStructFieldFloat32Ptr:
 		return opStructEndFloat32Ptr
 	case opStructFieldOmitEmptyFloat32Ptr:
@@ -5965,60 +3241,12 @@ func (t opType) fieldToEnd() opType {
 		return opStructEndOmitEmptyIntNPtr
 	case opStructFieldStringTagIntNPtr:
 		return opStructEndStringTagIntNPtr
-	case opStructFieldInt8NPtr:
-		return opStructEndInt8NPtr
-	case opStructFieldOmitEmptyInt8NPtr:
-		return opStructEndOmitEmptyInt8NPtr
-	case opStructFieldStringTagInt8NPtr:
-		return opStructEndStringTagInt8NPtr
-	case opStructFieldInt16NPtr:
-		return opStructEndInt16NPtr
-	case opStructFieldOmitEmptyInt16NPtr:
-		return opStructEndOmitEmptyInt16NPtr
-	case opStructFieldStringTagInt16NPtr:
-		return opStructEndStringTagInt16NPtr
-	case opStructFieldInt32NPtr:
-		return opStructEndInt32NPtr
-	case opStructFieldOmitEmptyInt32NPtr:
-		return opStructEndOmitEmptyInt32NPtr
-	case opStructFieldStringTagInt32NPtr:
-		return opStructEndStringTagInt32NPtr
-	case opStructFieldInt64NPtr:
-		return opStructEndInt64NPtr
-	case opStructFieldOmitEmptyInt64NPtr:
-		return opStructEndOmitEmptyInt64NPtr
-	case opStructFieldStringTagInt64NPtr:
-		return opStructEndStringTagInt64NPtr
 	case opStructFieldUintNPtr:
 		return opStructEndUintNPtr
 	case opStructFieldOmitEmptyUintNPtr:
 		return opStructEndOmitEmptyUintNPtr
 	case opStructFieldStringTagUintNPtr:
 		return opStructEndStringTagUintNPtr
-	case opStructFieldUint8NPtr:
-		return opStructEndUint8NPtr
-	case opStructFieldOmitEmptyUint8NPtr:
-		return opStructEndOmitEmptyUint8NPtr
-	case opStructFieldStringTagUint8NPtr:
-		return opStructEndStringTagUint8NPtr
-	case opStructFieldUint16NPtr:
-		return opStructEndUint16NPtr
-	case opStructFieldOmitEmptyUint16NPtr:
-		return opStructEndOmitEmptyUint16NPtr
-	case opStructFieldStringTagUint16NPtr:
-		return opStructEndStringTagUint16NPtr
-	case opStructFieldUint32NPtr:
-		return opStructEndUint32NPtr
-	case opStructFieldOmitEmptyUint32NPtr:
-		return opStructEndOmitEmptyUint32NPtr
-	case opStructFieldStringTagUint32NPtr:
-		return opStructEndStringTagUint32NPtr
-	case opStructFieldUint64NPtr:
-		return opStructEndUint64NPtr
-	case opStructFieldOmitEmptyUint64NPtr:
-		return opStructEndOmitEmptyUint64NPtr
-	case opStructFieldStringTagUint64NPtr:
-		return opStructEndStringTagUint64NPtr
 	case opStructFieldFloat32NPtr:
 		return opStructEndFloat32NPtr
 	case opStructFieldOmitEmptyFloat32NPtr:
@@ -6049,6 +3277,18 @@ func (t opType) fieldToEnd() opType {
 		return opStructEndOmitEmptyBytesNPtr
 	case opStructFieldStringTagBytesNPtr:
 		return opStructEndStringTagBytesNPtr
+	case opStructFieldEmptyStruct:
+		return opStructEndEmptyStruct
+	case opStructFieldOmitEmptyEmptyStruct:
+		return opStructEndOmitEmptyEmptyStruct
+	case opStructFieldStringTagEmptyStruct:
+		return opStructEndStringTagEmptyStruct
+	case opStructFieldEmptyStructPtr:
+		return opStructEndEmptyStructPtr
+	case opStructFieldOmitEmptyEmptyStructPtr:
+		return opStructEndOmitEmptyEmptyStructPtr
+	case opStructFieldStringTagEmptyStructPtr:
+		return opStructEndStringTagEmptyStructPtr
 	}
 	return t
 }

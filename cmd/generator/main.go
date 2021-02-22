@@ -295,18 +295,11 @@ func (t opType) fieldToStringTagField() opType {
 		"StructEnd",
 	}
 	primitiveTypes := []string{
-		"int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64", "bool", "string", "bytes",
+		"int", "uint", "float32", "float64", "bool", "string", "bytes",
 		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
-		"intString", "int8String", "int16String", "int32String", "int64String",
-		"uintString", "uint8String", "uint16String", "uint32String", "uint64String",
-		"intPtr", "int8Ptr", "int16Ptr", "int32Ptr", "int64Ptr",
-		"uintPtr", "uint8Ptr", "uint16Ptr", "uint32Ptr", "uint64Ptr",
-		"float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr",
-		"intNPtr", "int8NPtr", "int16NPtr", "int32NPtr", "int64NPtr",
-		"uintNPtr", "uint8NPtr", "uint16NPtr", "uint32NPtr", "uint64NPtr",
-		"float32NPtr", "float64NPtr", "boolNPtr", "stringNPtr", "bytesNPtr",
+		"intString", "uintString",
+		"intPtr", "uintPtr", "float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr",
+		"intNPtr", "uintNPtr", "float32NPtr", "float64NPtr", "boolNPtr", "stringNPtr", "bytesNPtr",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
@@ -408,8 +401,7 @@ func (t opType) fieldToStringTagField() opType {
 								switch typ {
 								case "", "Array", "Map", "MapLoad", "Slice",
 									"Struct", "Recursive", "MarshalJSON", "MarshalText",
-									"IntString", "Int8String", "Int16String", "Int32String", "Int64String",
-									"UintString", "Uint8String", "Uint16String", "Uint32String", "Uint64String":
+									"IntString", "UintString":
 									return op
 								}
 								return fmt.Sprintf(

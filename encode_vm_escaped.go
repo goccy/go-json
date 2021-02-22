@@ -27,102 +27,22 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			code = code.next
 			store(ctxptr, code.idx, ptrToPtr(ptr))
 		case opInt:
-			b = appendInt(b, int64(ptrToInt(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opInt8:
-			b = appendInt(b, int64(ptrToInt8(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opInt16:
-			b = appendInt(b, int64(ptrToInt16(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opInt32:
-			b = appendInt(b, int64(ptrToInt32(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opInt64:
-			b = appendInt(b, ptrToInt64(load(ctxptr, code.idx)))
+			b = appendInt(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = encodeComma(b)
 			code = code.next
 		case opUint:
-			b = appendUint(b, uint64(ptrToUint(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opUint8:
-			b = appendUint(b, uint64(ptrToUint8(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opUint16:
-			b = appendUint(b, uint64(ptrToUint16(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opUint32:
-			b = appendUint(b, uint64(ptrToUint32(load(ctxptr, code.idx))))
-			b = encodeComma(b)
-			code = code.next
-		case opUint64:
-			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)))
+			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = encodeComma(b)
 			code = code.next
 		case opIntString:
 			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opInt8String:
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt8(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opInt16String:
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt16(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opInt32String:
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt32(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opInt64String:
-			b = append(b, '"')
-			b = appendInt(b, ptrToInt64(load(ctxptr, code.idx)))
+			b = appendInt(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
 		case opUintString:
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opUint8String:
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint8(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opUint16String:
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint16(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opUint32String:
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint32(load(ctxptr, code.idx))))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opUint64String:
-			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)))
+			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -627,7 +547,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -645,12 +565,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, '{')
-				v := ptrToInt(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -671,7 +592,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -680,16 +601,17 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt(p)))
+			b = appendInt(b, ptrToUint64(p), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyIntOnly, opStructFieldHeadOmitEmptyIntOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
-			v := int64(ptrToInt(p))
+			u64 := ptrToUint64(p)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
+				b = appendInt(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -698,7 +620,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt(p)))
+			b = appendInt(b, ptrToUint64(p), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -715,11 +637,11 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendInt(b, int64(ptrToInt(p+code.offset)))
+					b = appendInt(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -735,10 +657,10 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, '{')
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p != 0 {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(ptrToInt(p)))
+					b = appendInt(b, ptrToUint64(p), code)
 					b = encodeComma(b)
 				}
 				code = code.next
@@ -756,12 +678,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
 					b = append(b, '"')
-					b = appendInt(b, int64(ptrToInt(p+code.offset)))
+					b = appendInt(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
 			}
@@ -784,7 +706,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -803,7 +725,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -825,7 +747,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -846,7 +768,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendInt(b, int64(ptrToInt(p+code.offset)))
+					b = appendInt(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -860,7 +782,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -875,12 +797,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToInt(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -898,7 +821,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -909,7 +832,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -918,12 +841,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToInt(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
+					b = appendInt(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -935,7 +859,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -950,11 +874,11 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -967,12 +891,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 				break
 			}
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -986,12 +910,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1010,7 +934,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1028,7 +952,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -1047,1755 +971,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt8:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToInt8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadInt8Only, opStructFieldHeadInt8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt8(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt8Only, opStructFieldHeadOmitEmptyInt8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := int64(ptrToInt8(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt8Only, opStructFieldHeadStringTagInt8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt8(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(ptrToInt8(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt8PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadInt8NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt8:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt8Only, opStructFieldAnonymousHeadInt8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt8Only, opStructFieldAnonymousHeadOmitEmptyInt8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt8Only, opStructFieldAnonymousHeadStringTagInt8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt16:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToInt16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadInt16Only, opStructFieldHeadInt16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt16(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt16Only, opStructFieldHeadOmitEmptyInt16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := int64(ptrToInt16(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt16Only, opStructFieldHeadStringTagInt16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt16(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(ptrToInt16(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt16PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadInt16NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt16:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt16Only, opStructFieldAnonymousHeadInt16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt16Only, opStructFieldAnonymousHeadOmitEmptyInt16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt16Only, opStructFieldAnonymousHeadStringTagInt16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt32:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToInt32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadInt32Only, opStructFieldHeadInt32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt32(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt32Only, opStructFieldHeadOmitEmptyInt32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := int64(ptrToInt32(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt32Only, opStructFieldHeadStringTagInt32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt32(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(ptrToInt32(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt32PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadInt32NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt32:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt32Only, opStructFieldAnonymousHeadInt32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt32Only, opStructFieldAnonymousHeadOmitEmptyInt32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, int64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt32Only, opStructFieldAnonymousHeadStringTagInt32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt64:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToInt64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadInt64Only, opStructFieldHeadInt64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, ptrToInt64(p))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt64Only, opStructFieldHeadOmitEmptyInt64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToInt64(p)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt64Only, opStructFieldHeadStringTagInt64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, ptrToInt64(p))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, ptrToInt64(p+code.offset))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, ptrToInt64(p))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendInt(b, ptrToInt64(p+code.offset))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt64PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(p+code.offset))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadInt64NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendInt(b, ptrToInt64(p+code.offset))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt64:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt64Only, opStructFieldAnonymousHeadInt64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt64Only, opStructFieldAnonymousHeadOmitEmptyInt64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToInt64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendInt(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt64Only, opStructFieldAnonymousHeadStringTagInt64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(p))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(p+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagInt64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(p+code.offset))
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -2812,7 +988,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -2830,12 +1006,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, '{')
-				v := ptrToUint(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -2856,7 +1033,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -2865,16 +1042,17 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint(p)))
+			b = appendUint(b, ptrToUint64(p), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyUintOnly, opStructFieldHeadOmitEmptyUintOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')
-			v := uint64(ptrToUint(p))
+			u64 := ptrToUint64(p)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
+				b = appendUint(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -2883,7 +1061,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = append(b, '{')
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint(p)))
+			b = appendUint(b, ptrToUint64(p), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -2900,11 +1078,11 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+					b = appendUint(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -2920,10 +1098,10 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, '{')
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p != 0 {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(ptrToUint(p)))
+					b = appendUint(b, ptrToUint64(p), code)
 					b = encodeComma(b)
 				}
 				code = code.next
@@ -2941,12 +1119,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, '{')
 				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
+				p = ptrToPtr(p + code.offset)
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
 					b = append(b, '"')
-					b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+					b = appendUint(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
 			}
@@ -2969,7 +1147,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -2988,7 +1166,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := load(ctxptr, code.idx)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -3010,7 +1188,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -3031,7 +1209,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
-					b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+					b = appendUint(b, ptrToUint64(p), code)
 				}
 			}
 			b = encodeComma(b)
@@ -3045,7 +1223,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -3060,12 +1238,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToUint(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -3083,7 +1262,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -3094,7 +1273,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -3103,12 +1282,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if ptr == 0 {
 				code = code.end.next
 			} else {
-				v := ptrToUint(ptr + code.offset)
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
 				} else {
 					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
+					b = appendUint(b, u64, code)
 					b = encodeComma(b)
 					code = code.next
 				}
@@ -3120,7 +1300,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			} else {
 				b = append(b, code.escapedKey...)
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
@@ -3135,11 +1315,11 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -3152,12 +1332,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.end.next
 				break
 			}
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -3171,12 +1351,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -3195,7 +1375,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -3213,7 +1393,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
@@ -3232,1755 +1412,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint8:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToUint8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadUint8Only, opStructFieldHeadUint8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint8(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint8Only, opStructFieldHeadOmitEmptyUint8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := uint64(ptrToUint8(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint8Only, opStructFieldHeadStringTagUint8Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint8(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(ptrToUint8(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint8PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadUint8NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint8:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint8:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint8Only, opStructFieldAnonymousHeadUint8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint8Only, opStructFieldAnonymousHeadOmitEmptyUint8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint8(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint8Only, opStructFieldAnonymousHeadStringTagUint8Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint8Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint8Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint8PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint16:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToUint16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadUint16Only, opStructFieldHeadUint16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint16(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint16Only, opStructFieldHeadOmitEmptyUint16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := uint64(ptrToUint16(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint16Only, opStructFieldHeadStringTagUint16Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint16(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(ptrToUint16(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint16PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadUint16NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint16:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint16:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint16Only, opStructFieldAnonymousHeadUint16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint16Only, opStructFieldAnonymousHeadOmitEmptyUint16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint16(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint16Only, opStructFieldAnonymousHeadStringTagUint16Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint16Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint16Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint16PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint32:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToUint32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadUint32Only, opStructFieldHeadUint32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint32(p)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint32Only, opStructFieldHeadOmitEmptyUint32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := uint64(ptrToUint32(p))
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint32Only, opStructFieldHeadStringTagUint32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint32(p)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(ptrToUint32(p)))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint32PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadUint32NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint32:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint32:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint32Only, opStructFieldAnonymousHeadUint32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint32Only, opStructFieldAnonymousHeadOmitEmptyUint32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, uint64(v))
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint32Only, opStructFieldAnonymousHeadStringTagUint32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(p)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint32Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint32Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(p+code.offset)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint64:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadOmitEmptyUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				v := ptrToUint64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrHeadUint64Only, opStructFieldHeadUint64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(p))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint64Only, opStructFieldHeadOmitEmptyUint64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToUint64(p)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint64Only, opStructFieldHeadStringTagUint64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, ptrToUint64(p+code.offset))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p = ptrToPtr(p)
-				if p != 0 {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, ptrToUint64(p))
-					b = encodeComma(b)
-				}
-				code = code.next
-			}
-		case opStructFieldPtrHeadStringTagUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadStringTagUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				p = ptrToPtr(p)
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = append(b, '"')
-					b = appendUint(b, ptrToUint64(p+code.offset))
-					b = append(b, '"')
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUint64PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p+code.offset))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldHeadUint64NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '{')
-				b = append(b, code.escapedKey...)
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = appendUint(b, ptrToUint64(p+code.offset))
-				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint64:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint64:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint64Only, opStructFieldAnonymousHeadUint64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint64Only, opStructFieldAnonymousHeadOmitEmptyUint64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToUint64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					b = appendUint(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint64Only, opStructFieldAnonymousHeadStringTagUint64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.escapedKey...)
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			p = ptrToPtr(p)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint64Ptr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint64Ptr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			b = append(b, code.escapedKey...)
-			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUint64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset))
+				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -7528,15 +3960,16 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructFieldInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyInt:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt(ptr + code.offset)
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
+				b = appendInt(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -7544,7 +3977,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -7555,7 +3988,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -7564,7 +3997,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -7576,7 +4009,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -7594,246 +4027,23 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt8:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt8(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt16:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt16(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt32:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt32(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, ptrToInt64(ptr+code.offset))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt64:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt64(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, ptrToInt64(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldInt64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyInt64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(p))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagInt64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(p))
-				b = append(b, '"')
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint(ptr + code.offset)
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
+				b = appendUint(b, u64, code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -7841,7 +4051,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = encodeComma(b)
 			code = code.next
@@ -7852,7 +4062,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -7861,7 +4071,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = encodeComma(b)
 			}
 			code = code.next
@@ -7873,231 +4083,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint8:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint8(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint16:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint16(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint32:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint32(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p)))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(p)))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(p)))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(ptr+code.offset))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint64:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint64(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(ptr+code.offset))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldUint64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldOmitEmptyUint64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldStringTagUint64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			b = append(b, code.escapedKey...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -8599,15 +4585,16 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 		case opStructEndInt:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyInt:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt(ptr + code.offset)
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
+				b = appendInt(b, u64, code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -8623,7 +4610,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt(ptr+code.offset)))
+			b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = appendStructEnd(b)
 			code = code.next
@@ -8634,7 +4621,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
@@ -8643,7 +4630,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -8663,7 +4650,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt(p)))
+				b = appendInt(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
@@ -8681,378 +4668,23 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendInt(b, int64(ptrToInt(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt8:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt8(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt8(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt8(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt8(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt8NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt8(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt16:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt16(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt16(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt16(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt16(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt16NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt16(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt32:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt32(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, int64(ptrToInt32(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, int64(ptrToInt32(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, int64(ptrToInt32(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt32NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, int64(ptrToInt32(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendInt(b, ptrToInt64(ptr+code.offset))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt64:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToInt64(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, v)
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendInt(b, ptrToInt64(ptr+code.offset))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyInt64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendInt(b, ptrToInt64(p))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagInt64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToInt64(p))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndInt64NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToInt64(p))
+				b = appendInt(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndUint:
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = appendStructEnd(b)
 			code = code.next
 		case opStructEndOmitEmptyUint:
 			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint(ptr + code.offset)
+			u64 := ptrToUint64(ptr + code.offset)
+			v := u64 & code.mask
 			if v != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
+				b = appendUint(b, u64, code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -9068,7 +4700,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			ptr := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
 			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint(ptr+code.offset)))
+			b = appendUint(b, ptrToUint64(ptr+code.offset), code)
 			b = append(b, '"')
 			b = appendStructEnd(b)
 			code = code.next
@@ -9079,7 +4711,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next
@@ -9088,7 +4720,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p := ptrToPtr(ptr + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = appendStructEnd(b)
 			} else {
 				last := len(b) - 1
@@ -9108,7 +4740,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint(p)))
+				b = appendUint(b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
@@ -9126,363 +4758,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				b = appendUint(b, uint64(ptrToUint(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint8:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint8(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint8:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint8(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint8Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint8(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint8Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint8(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint8NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint8(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint16:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint16(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint16:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint16(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint16Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint16(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint16Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint16(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint16NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint16(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint32:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint32(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(v))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint32:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, uint64(ptrToUint32(ptr+code.offset)))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint32Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, uint64(ptrToUint32(p)))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint32Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, uint64(ptrToUint32(p)))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint32NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, uint64(ptrToUint32(p)))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = appendUint(b, ptrToUint64(ptr+code.offset))
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint64:
-			ptr := load(ctxptr, code.headIdx)
-			v := ptrToUint64(ptr + code.offset)
-			if v != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, v)
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint64:
-			ptr := load(ctxptr, code.headIdx)
-			b = append(b, code.escapedKey...)
-			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(ptr+code.offset))
-			b = append(b, '"')
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p))
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndOmitEmptyUint64Ptr:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p != 0 {
-				b = append(b, code.escapedKey...)
-				b = appendUint(b, ptrToUint64(p))
-				b = appendStructEnd(b)
-			} else {
-				last := len(b) - 1
-				if b[last] == ',' {
-					b[last] = '}'
-					b = encodeComma(b)
-				} else {
-					b = appendStructEnd(b)
-				}
-			}
-			code = code.next
-		case opStructEndStringTagUint64Ptr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(b)
-			code = code.next
-		case opStructEndUint64NPtr:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptrToPtr(ptr + code.offset)
-			for i := 0; i < code.ptrNum-1; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p))
+				b = appendUint(b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(b)
 			code = code.next

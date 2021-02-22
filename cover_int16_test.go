@@ -245,7 +245,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
 				C int16 `json:"c"`
-			}{A: 1, B: 2, C: 3},
+			}{A: 1, B: -2, C: 3},
 		},
 		{
 			name: "HeadInt16MultiFieldsOmitEmpty",
@@ -253,7 +253,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
 				C int16 `json:"c,omitempty"`
-			}{A: 1, B: 2, C: 3},
+			}{A: 1, B: -2, C: 3},
 		},
 		{
 			name: "HeadInt16MultiFieldsString",
@@ -261,7 +261,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
 				C int16 `json:"c,string"`
-			}{A: 1, B: 2, C: 3},
+			}{A: 1, B: -2, C: 3},
 		},
 
 		// HeadInt16PtrMultiFields
@@ -271,7 +271,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 				C *int16 `json:"c"`
-			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
+			}{A: int16ptr(1), B: int16ptr(-2), C: int16ptr(3)},
 		},
 		{
 			name: "HeadInt16PtrMultiFieldsOmitEmpty",
@@ -279,7 +279,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
 				C *int16 `json:"c,omitempty"`
-			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
+			}{A: int16ptr(1), B: int16ptr(-2), C: int16ptr(3)},
 		},
 		{
 			name: "HeadInt16PtrMultiFieldsString",
@@ -287,7 +287,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
 				C *int16 `json:"c,string"`
-			}{A: int16ptr(1), B: int16ptr(2), C: int16ptr(3)},
+			}{A: int16ptr(1), B: int16ptr(-2), C: int16ptr(3)},
 		},
 
 		// HeadInt16PtrNilMultiFields
@@ -345,21 +345,21 @@ func TestCoverInt16(t *testing.T) {
 			data: &struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
-			}{A: 1, B: 2},
+			}{A: 1, B: -2},
 		},
 		{
 			name: "PtrHeadInt16MultiFieldsOmitEmpty",
 			data: &struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
-			}{A: 1, B: 2},
+			}{A: 1, B: -2},
 		},
 		{
 			name: "PtrHeadInt16MultiFieldsString",
 			data: &struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
-			}{A: 1, B: 2},
+			}{A: 1, B: -2},
 		},
 
 		// PtrHeadInt16PtrMultiFields
@@ -368,21 +368,21 @@ func TestCoverInt16(t *testing.T) {
 			data: &struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+			}{A: int16ptr(1), B: int16ptr(-2)},
 		},
 		{
 			name: "PtrHeadInt16PtrMultiFieldsOmitEmpty",
 			data: &struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+			}{A: int16ptr(1), B: int16ptr(-2)},
 		},
 		{
 			name: "PtrHeadInt16PtrMultiFieldsString",
 			data: &struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
-			}{A: int16ptr(1), B: int16ptr(2)},
+			}{A: int16ptr(1), B: int16ptr(-2)},
 		},
 
 		// PtrHeadInt16PtrNilMultiFields
@@ -750,7 +750,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 		{
 			name: "HeadInt16MultiFieldsNotRootOmitEmpty",
@@ -765,7 +765,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,omitempty"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b,omitempty"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 		{
 			name: "HeadInt16MultiFieldsNotRootString",
@@ -780,7 +780,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,string"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b,string"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 
 		// HeadInt16PtrMultiFieldsNotRoot
@@ -797,7 +797,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a"`
 			}{A: int16ptr(1)}, B: struct {
 				B *int16 `json:"b"`
-			}{B: int16ptr(2)}},
+			}{B: int16ptr(-2)}},
 		},
 		{
 			name: "HeadInt16PtrMultiFieldsNotRootOmitEmpty",
@@ -812,7 +812,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,omitempty"`
 			}{A: int16ptr(1)}, B: struct {
 				B *int16 `json:"b,omitempty"`
-			}{B: int16ptr(2)}},
+			}{B: int16ptr(-2)}},
 		},
 		{
 			name: "HeadInt16PtrMultiFieldsNotRootString",
@@ -827,7 +827,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,string"`
 			}{A: int16ptr(1)}, B: struct {
 				B *int16 `json:"b,string"`
-			}{B: int16ptr(2)}},
+			}{B: int16ptr(-2)}},
 		},
 
 		// HeadInt16PtrNilMultiFieldsNotRoot
@@ -926,7 +926,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 		{
 			name: "PtrHeadInt16MultiFieldsNotRootOmitEmpty",
@@ -941,7 +941,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,omitempty"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b,omitempty"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 		{
 			name: "PtrHeadInt16MultiFieldsNotRootString",
@@ -956,7 +956,7 @@ func TestCoverInt16(t *testing.T) {
 				A int16 `json:"a,string"`
 			}{A: 1}, B: struct {
 				B int16 `json:"b,string"`
-			}{B: 2}},
+			}{B: -2}},
 		},
 
 		// PtrHeadInt16PtrMultiFieldsNotRoot
@@ -973,7 +973,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a"`
 			}{A: int16ptr(1)}), B: &(struct {
 				B *int16 `json:"b"`
-			}{B: int16ptr(2)})},
+			}{B: int16ptr(-2)})},
 		},
 		{
 			name: "PtrHeadInt16PtrMultiFieldsNotRootOmitEmpty",
@@ -988,7 +988,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,omitempty"`
 			}{A: int16ptr(1)}), B: &(struct {
 				B *int16 `json:"b,omitempty"`
-			}{B: int16ptr(2)})},
+			}{B: int16ptr(-2)})},
 		},
 		{
 			name: "PtrHeadInt16PtrMultiFieldsNotRootString",
@@ -1003,7 +1003,7 @@ func TestCoverInt16(t *testing.T) {
 				A *int16 `json:"a,string"`
 			}{A: int16ptr(1)}), B: &(struct {
 				B *int16 `json:"b,string"`
-			}{B: int16ptr(2)})},
+			}{B: int16ptr(-2)})},
 		},
 
 		// PtrHeadInt16PtrNilMultiFieldsNotRoot
@@ -1091,7 +1091,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: 1, B: -2}), B: &(struct {
 				A int16 `json:"a"`
 				B int16 `json:"b"`
 			}{A: 3, B: 4})},
@@ -1110,7 +1110,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: 1, B: -2}), B: &(struct {
 				A int16 `json:"a,omitempty"`
 				B int16 `json:"b,omitempty"`
 			}{A: 3, B: 4})},
@@ -1129,7 +1129,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
-			}{A: 1, B: 2}), B: &(struct {
+			}{A: 1, B: -2}), B: &(struct {
 				A int16 `json:"a,string"`
 				B int16 `json:"b,string"`
 			}{A: 3, B: 4})},
@@ -1232,7 +1232,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
-			}{A: int16ptr(1), B: int16ptr(2)}), B: &(struct {
+			}{A: int16ptr(1), B: int16ptr(-2)}), B: &(struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 			}{A: int16ptr(3), B: int16ptr(4)})},
@@ -1251,7 +1251,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
-			}{A: int16ptr(1), B: int16ptr(2)}), B: &(struct {
+			}{A: int16ptr(1), B: int16ptr(-2)}), B: &(struct {
 				A *int16 `json:"a,omitempty"`
 				B *int16 `json:"b,omitempty"`
 			}{A: int16ptr(3), B: int16ptr(4)})},
@@ -1270,7 +1270,7 @@ func TestCoverInt16(t *testing.T) {
 			}{A: &(struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
-			}{A: int16ptr(1), B: int16ptr(2)}), B: &(struct {
+			}{A: int16ptr(1), B: int16ptr(-2)}), B: &(struct {
 				A *int16 `json:"a,string"`
 				B *int16 `json:"b,string"`
 			}{A: int16ptr(3), B: int16ptr(4)})},
@@ -1366,7 +1366,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b"`
 			}{
 				structInt16: structInt16{A: 1},
-				B:           2,
+				B:           -2,
 			},
 		},
 		{
@@ -1376,7 +1376,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,omitempty"`
 			}{
 				structInt16OmitEmpty: structInt16OmitEmpty{A: 1},
-				B:                    2,
+				B:                    -2,
 			},
 		},
 		{
@@ -1386,7 +1386,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,string"`
 			}{
 				structInt16String: structInt16String{A: 1},
-				B:                 2,
+				B:                 -2,
 			},
 		},
 
@@ -1398,7 +1398,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b"`
 			}{
 				structInt16: &structInt16{A: 1},
-				B:           2,
+				B:           -2,
 			},
 		},
 		{
@@ -1408,7 +1408,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,omitempty"`
 			}{
 				structInt16OmitEmpty: &structInt16OmitEmpty{A: 1},
-				B:                    2,
+				B:                    -2,
 			},
 		},
 		{
@@ -1418,7 +1418,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,string"`
 			}{
 				structInt16String: &structInt16String{A: 1},
-				B:                 2,
+				B:                 -2,
 			},
 		},
 
@@ -1430,7 +1430,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b"`
 			}{
 				structInt16: nil,
-				B:           2,
+				B:           -2,
 			},
 		},
 		{
@@ -1440,7 +1440,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,omitempty"`
 			}{
 				structInt16OmitEmpty: nil,
-				B:                    2,
+				B:                    -2,
 			},
 		},
 		{
@@ -1450,7 +1450,7 @@ func TestCoverInt16(t *testing.T) {
 				B int16 `json:"b,string"`
 			}{
 				structInt16String: nil,
-				B:                 2,
+				B:                 -2,
 			},
 		},
 
@@ -1462,7 +1462,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b"`
 			}{
 				structInt16Ptr: structInt16Ptr{A: int16ptr(1)},
-				B:              int16ptr(2),
+				B:              int16ptr(-2),
 			},
 		},
 		{
@@ -1472,7 +1472,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,omitempty"`
 			}{
 				structInt16PtrOmitEmpty: structInt16PtrOmitEmpty{A: int16ptr(1)},
-				B:                       int16ptr(2),
+				B:                       int16ptr(-2),
 			},
 		},
 		{
@@ -1482,7 +1482,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,string"`
 			}{
 				structInt16PtrString: structInt16PtrString{A: int16ptr(1)},
-				B:                    int16ptr(2),
+				B:                    int16ptr(-2),
 			},
 		},
 
@@ -1494,7 +1494,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b"`
 			}{
 				structInt16Ptr: structInt16Ptr{A: nil},
-				B:              int16ptr(2),
+				B:              int16ptr(-2),
 			},
 		},
 		{
@@ -1504,7 +1504,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,omitempty"`
 			}{
 				structInt16PtrOmitEmpty: structInt16PtrOmitEmpty{A: nil},
-				B:                       int16ptr(2),
+				B:                       int16ptr(-2),
 			},
 		},
 		{
@@ -1514,7 +1514,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,string"`
 			}{
 				structInt16PtrString: structInt16PtrString{A: nil},
-				B:                    int16ptr(2),
+				B:                    int16ptr(-2),
 			},
 		},
 
@@ -1526,7 +1526,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b"`
 			}{
 				structInt16Ptr: &structInt16Ptr{A: int16ptr(1)},
-				B:              int16ptr(2),
+				B:              int16ptr(-2),
 			},
 		},
 		{
@@ -1536,7 +1536,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,omitempty"`
 			}{
 				structInt16PtrOmitEmpty: &structInt16PtrOmitEmpty{A: int16ptr(1)},
-				B:                       int16ptr(2),
+				B:                       int16ptr(-2),
 			},
 		},
 		{
@@ -1546,7 +1546,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,string"`
 			}{
 				structInt16PtrString: &structInt16PtrString{A: int16ptr(1)},
-				B:                    int16ptr(2),
+				B:                    int16ptr(-2),
 			},
 		},
 
@@ -1558,7 +1558,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b"`
 			}{
 				structInt16Ptr: nil,
-				B:              int16ptr(2),
+				B:              int16ptr(-2),
 			},
 		},
 		{
@@ -1568,7 +1568,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,omitempty"`
 			}{
 				structInt16PtrOmitEmpty: nil,
-				B:                       int16ptr(2),
+				B:                       int16ptr(-2),
 			},
 		},
 		{
@@ -1578,7 +1578,7 @@ func TestCoverInt16(t *testing.T) {
 				B *int16 `json:"b,string"`
 			}{
 				structInt16PtrString: nil,
-				B:                    int16ptr(2),
+				B:                    int16ptr(-2),
 			},
 		},
 

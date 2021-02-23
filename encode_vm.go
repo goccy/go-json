@@ -390,7 +390,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
+			if p == 0 || slice.data == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next

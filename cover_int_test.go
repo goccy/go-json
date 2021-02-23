@@ -28,10 +28,81 @@ func TestCoverInt(t *testing.T) {
 		A *int `json:"a,string"`
 	}
 
+	type structIntTriplePtr struct {
+		A ***int `json:"a"`
+	}
+	type structIntTriplePtrOmitEmpty struct {
+		A ***int `json:"a,omitempty"`
+	}
+	type structIntTriplePtrString struct {
+		A ***int `json:"a,string"`
+	}
+
 	tests := []struct {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Int",
+			data: 10,
+		},
+		{
+			name: "IntPtr",
+			data: intptr(10),
+		},
+		{
+			name: "IntTriplePtr",
+			data: intptr3(10),
+		},
+		{
+			name: "IntSlice",
+			data: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name: "IntPtrSlice",
+			data: []*int{nil, nil, intptr(1), nil, nil},
+		},
+		{
+			name: "StructIntSliceNil",
+			data: ([]structInt)(nil),
+		},
+		{
+			name: "PtrStructIntSliceNil",
+			data: ([]*structInt)(nil),
+		},
+		{
+			name: "StructIntSliceZero",
+			data: []structInt{},
+		},
+		{
+			name: "PtrStructIntSliceZero",
+			data: []*structInt{},
+		},
+		{
+			name: "PtrStructIntNilSlice",
+			data: []*structInt{nil, nil},
+		},
+		{
+			name: "StructIntOmitEmptySliceNil",
+			data: ([]structIntOmitEmpty)(nil),
+		},
+		{
+			name: "PtrStructIntOmitEmptySliceNil",
+			data: ([]*structIntOmitEmpty)(nil),
+		},
+		{
+			name: "StructIntOmitEmptySliceZero",
+			data: []structIntOmitEmpty{},
+		},
+		{
+			name: "PtrStructIntOmitEmptySliceZero",
+			data: []*structIntOmitEmpty{},
+		},
+		{
+			name: "PtrStructIntOmitEmptyNilSlice",
+			data: []*structIntOmitEmpty{nil, nil},
+		},
+
 		// HeadIntZero
 		{
 			name: "HeadIntZero",

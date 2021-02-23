@@ -348,13 +348,13 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 			code = code.next
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			slice := ptrToSlice(p)
+			if p == 0 || slice.data == nil {
 				b = appendIndent(ctx, b, code.indent)
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.end.next
 			} else {
-				slice := ptrToSlice(p)
 				store(ctxptr, code.elemIdx, 0)
 				store(ctxptr, code.length, uintptr(slice.len))
 				store(ctxptr, code.idx, uintptr(slice.data))
@@ -365,7 +365,7 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 					store(ctxptr, code.idx, uintptr(slice.data))
 				} else {
 					b = appendIndent(ctx, b, code.indent)
-					b = append(b, '[', ']', '\n')
+					b = append(b, '[', ']', ',', '\n')
 					code = code.end.next
 				}
 			}

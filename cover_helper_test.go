@@ -6,6 +6,7 @@ import (
 )
 
 func intptr(v int) *int             { return &v }
+func intptr3(v int) ***int          { vv := &v; vvv := &vv; return &vvv }
 func int8ptr(v int8) *int8          { return &v }
 func int16ptr(v int16) *int16       { return &v }
 func int32ptr(v int32) *int32       { return &v }

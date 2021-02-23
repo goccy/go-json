@@ -19,7 +19,6 @@ type opType struct {
 	HeadToAnonymousHead   func() string
 	HeadToOmitEmptyHead   func() string
 	HeadToStringTagHead   func() string
-	HeadToOnlyHead        func() string
 	PtrHeadToHead         func() string
 	FieldToEnd            func() string
 	FieldToOmitEmptyField func() string
@@ -50,10 +49,6 @@ func (t opType) IsPtrHeadToHead() bool {
 	return t.Op != t.PtrHeadToHead()
 }
 
-func (t opType) IsHeadToOnlyHead() bool {
-	return t.Op != t.HeadToOnlyHead()
-}
-
 func (t opType) IsFieldToEnd() bool {
 	return t.Op != t.FieldToEnd()
 }
@@ -75,7 +70,6 @@ func createOpType(op, code string) opType {
 		HeadToAnonymousHead:   func() string { return op },
 		HeadToOmitEmptyHead:   func() string { return op },
 		HeadToStringTagHead:   func() string { return op },
-		HeadToOnlyHead:        func() string { return op },
 		PtrHeadToHead:         func() string { return op },
 		FieldToEnd:            func() string { return op },
 		FieldToOmitEmptyField: func() string { return op },
@@ -222,18 +216,6 @@ func (t opType) headToStringTagHead() opType {
   return t
 }
 
-func (t opType) headToOnlyHead() opType {
-  if strings.HasSuffix(t.String(), "Head") || strings.HasSuffix(t.String(), "HeadOmitEmpty") || strings.HasSuffix(t.String(), "HeadStringTag") {
-    return t
-  }
-
-  const toOnlyOffset = 1
-  if opType(int(t) + toOnlyOffset).String() == t.String() + "Only" {
-    return opType(int(t) + toOnlyOffset)
-  }
-  return t
-}
-
 func (t opType) ptrHeadToHead() opType {
   idx := strings.Index(t.String(), "Ptr")
   if idx == -1 {
@@ -334,98 +316,73 @@ func (t opType) fieldToStringTagField() opType {
 		for _, ptrOrNot := range []string{"", "Ptr", "NPtr"} {
 			for _, headType := range []string{"", "Anonymous"} {
 				for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
-					for _, onlyOrNot := range []string{"", "Only"} {
-						ptrOrNot := ptrOrNot
-						headType := headType
-						opt := opt
-						typ := typ
-						onlyOrNot := onlyOrNot
+					ptrOrNot := ptrOrNot
+					headType := headType
+					opt := opt
+					typ := typ
 
-						op := fmt.Sprintf(
-							"StructField%s%sHead%s%s%s",
-							ptrOrNot,
-							headType,
-							opt,
-							typ,
-							onlyOrNot,
-						)
-						opTypes = append(opTypes, opType{
-							Op:   op,
-							Code: "StructField",
-							HeadToPtrHead: func() string {
-								return fmt.Sprintf(
-									"StructFieldPtr%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToNPtrHead: func() string {
-								return fmt.Sprintf(
-									"StructFieldNPtr%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToAnonymousHead: func() string {
-								return fmt.Sprintf(
-									"StructField%sAnonymousHead%s%s%s",
-									ptrOrNot,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToOmitEmptyHead: func() string {
-								return fmt.Sprintf(
-									"StructField%s%sHeadOmitEmpty%s%s",
-									ptrOrNot,
-									headType,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToStringTagHead: func() string {
-								return fmt.Sprintf(
-									"StructField%s%sHeadStringTag%s%s",
-									ptrOrNot,
-									headType,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToOnlyHead: func() string {
-								switch typ {
-								case "", "Array", "Map", "MapLoad", "Slice",
-									"Struct", "Recursive", "MarshalJSON", "MarshalText",
-									"IntString", "UintString":
-									return op
-								}
-								return fmt.Sprintf(
-									"StructField%s%sHead%s%sOnly",
-									ptrOrNot,
-									headType,
-									opt,
-									typ,
-								)
-							},
-							PtrHeadToHead: func() string {
-								return fmt.Sprintf(
-									"StructField%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							FieldToEnd:            func() string { return op },
-							FieldToOmitEmptyField: func() string { return op },
-							FieldToStringTagField: func() string { return op },
-						})
-					}
+					op := fmt.Sprintf(
+						"StructField%s%sHead%s%s",
+						ptrOrNot,
+						headType,
+						opt,
+						typ,
+					)
+					opTypes = append(opTypes, opType{
+						Op:   op,
+						Code: "StructField",
+						HeadToPtrHead: func() string {
+							return fmt.Sprintf(
+								"StructFieldPtr%sHead%s%s",
+								headType,
+								opt,
+								typ,
+							)
+						},
+						HeadToNPtrHead: func() string {
+							return fmt.Sprintf(
+								"StructFieldNPtr%sHead%s%s",
+								headType,
+								opt,
+								typ,
+							)
+						},
+						HeadToAnonymousHead: func() string {
+							return fmt.Sprintf(
+								"StructField%sAnonymousHead%s%s",
+								ptrOrNot,
+								opt,
+								typ,
+							)
+						},
+						HeadToOmitEmptyHead: func() string {
+							return fmt.Sprintf(
+								"StructField%s%sHeadOmitEmpty%s",
+								ptrOrNot,
+								headType,
+								typ,
+							)
+						},
+						HeadToStringTagHead: func() string {
+							return fmt.Sprintf(
+								"StructField%s%sHeadStringTag%s",
+								ptrOrNot,
+								headType,
+								typ,
+							)
+						},
+						PtrHeadToHead: func() string {
+							return fmt.Sprintf(
+								"StructField%sHead%s%s",
+								headType,
+								opt,
+								typ,
+							)
+						},
+						FieldToEnd:            func() string { return op },
+						FieldToOmitEmptyField: func() string { return op },
+						FieldToStringTagField: func() string { return op },
+					})
 				}
 			}
 		}
@@ -448,7 +405,6 @@ func (t opType) fieldToStringTagField() opType {
 				HeadToAnonymousHead: func() string { return op },
 				HeadToOmitEmptyHead: func() string { return op },
 				HeadToStringTagHead: func() string { return op },
-				HeadToOnlyHead:      func() string { return op },
 				PtrHeadToHead:       func() string { return op },
 				FieldToEnd: func() string {
 					switch typ {
@@ -494,7 +450,6 @@ func (t opType) fieldToStringTagField() opType {
 				HeadToAnonymousHead:   func() string { return op },
 				HeadToOmitEmptyHead:   func() string { return op },
 				HeadToStringTagHead:   func() string { return op },
-				HeadToOnlyHead:        func() string { return op },
 				PtrHeadToHead:         func() string { return op },
 				FieldToEnd:            func() string { return op },
 				FieldToOmitEmptyField: func() string { return op },

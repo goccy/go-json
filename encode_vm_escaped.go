@@ -30,8 +30,56 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = appendInt(b, ptrToUint64(load(ctxptr, code.idx)), code)
 			b = encodeComma(b)
 			code = code.next
+		case opIntPtr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, ptrToUint64(p), code)
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opIntNPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendInt(b, ptrToUint64(p), code)
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opUint:
 			b = appendUint(b, ptrToUint64(load(ctxptr, code.idx)), code)
+			b = encodeComma(b)
+			code = code.next
+		case opUintPtr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, ptrToUint64(p), code)
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opUintNPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = appendUint(b, ptrToUint64(p), code)
+			}
 			b = encodeComma(b)
 			code = code.next
 		case opIntString:
@@ -50,6 +98,30 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = encodeFloat32(b, ptrToFloat32(load(ctxptr, code.idx)))
 			b = encodeComma(b)
 			code = code.next
+		case opFloat32Ptr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeFloat32(b, ptrToFloat32(p))
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opFloat32NPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeFloat32(b, ptrToFloat32(p))
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opFloat64:
 			v := ptrToFloat64(load(ctxptr, code.idx))
 			if math.IsInf(v, 0) || math.IsNaN(v) {
@@ -58,12 +130,92 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			b = encodeFloat64(b, v)
 			b = encodeComma(b)
 			code = code.next
+		case opFloat64Ptr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				v := ptrToFloat64(p)
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = encodeFloat64(b, v)
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opFloat64NPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				v := ptrToFloat64(p)
+				if math.IsInf(v, 0) || math.IsNaN(v) {
+					return nil, errUnsupportedFloat(v)
+				}
+				b = encodeFloat64(b, v)
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opString:
 			b = encodeEscapedString(b, ptrToString(load(ctxptr, code.idx)))
 			b = encodeComma(b)
 			code = code.next
+		case opStringPtr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, ptrToString(p))
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStringNPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeEscapedString(b, ptrToString(p))
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opBool:
 			b = encodeBool(b, ptrToBool(load(ctxptr, code.idx)))
+			b = encodeComma(b)
+			code = code.next
+		case opBoolPtr:
+			p := ptrToPtr(load(ctxptr, code.idx))
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeBool(b, ptrToBool(p))
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opBoolNPtr:
+			p := load(ctxptr, code.idx)
+			for i := 0; i < code.ptrNum; i++ {
+				if p == 0 {
+					break
+				}
+				p = ptrToPtr(p)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = encodeBool(b, ptrToBool(p))
+			}
 			b = encodeComma(b)
 			code = code.next
 		case opBytes:

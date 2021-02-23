@@ -19,6 +19,8 @@ type opcode struct {
 	isTaggedKey  bool   // whether tagged key
 	anonymousKey bool   // whether anonymous key
 	root         bool   // whether root
+	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
+	mask         uint64 // mask for number
 	indent       int    // indent number
 	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
 	mask         uint64 // mask for number

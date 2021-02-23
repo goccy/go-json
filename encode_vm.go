@@ -24,15 +24,6 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func ptrToInt(p uintptr) int            { return **(**int)(unsafe.Pointer(&p)) }
-func ptrToInt8(p uintptr) int8          { return **(**int8)(unsafe.Pointer(&p)) }
-func ptrToInt16(p uintptr) int16        { return **(**int16)(unsafe.Pointer(&p)) }
-func ptrToInt32(p uintptr) int32        { return **(**int32)(unsafe.Pointer(&p)) }
-func ptrToInt64(p uintptr) int64        { return **(**int64)(unsafe.Pointer(&p)) }
-func ptrToUint(p uintptr) uint          { return **(**uint)(unsafe.Pointer(&p)) }
-func ptrToUint8(p uintptr) uint8        { return **(**uint8)(unsafe.Pointer(&p)) }
-func ptrToUint16(p uintptr) uint16      { return **(**uint16)(unsafe.Pointer(&p)) }
-func ptrToUint32(p uintptr) uint32      { return **(**uint32)(unsafe.Pointer(&p)) }
 func ptrToUint64(p uintptr) uint64      { return **(**uint64)(unsafe.Pointer(&p)) }
 func ptrToFloat32(p uintptr) float32    { return **(**float32)(unsafe.Pointer(&p)) }
 func ptrToFloat64(p uintptr) float64    { return **(**float64)(unsafe.Pointer(&p)) }

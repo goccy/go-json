@@ -357,9 +357,7 @@ func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	ptrHeadOp := code.op.headToPtrHead()
-	if code.op != ptrHeadOp {
-		code.op = ptrHeadOp
+	if encodeConvertPtrOp(code) {
 		code.decOpcodeIndex()
 		ctx.decIndex()
 		return code, nil
@@ -368,6 +366,84 @@ func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	c.opcodeIndex = ptrOpcodeIndex
 	c.ptrIndex = ptrIndex
 	return newOpCodeWithNext(c, opPtr, code), nil
+}
+
+func encodeConvertPtrOp(code *opcode) bool {
+	ptrHeadOp := code.op.headToPtrHead()
+	if code.op != ptrHeadOp {
+		code.op = ptrHeadOp
+		return true
+	}
+	switch code.op {
+	case opInt:
+		code.op = opIntPtr
+		code.ptrNum++
+		return true
+	case opIntPtr:
+		code.op = opIntNPtr
+		code.ptrNum++
+		return true
+	case opIntNPtr:
+		code.ptrNum++
+		return true
+	case opUint:
+		code.op = opUintPtr
+		code.ptrNum++
+		return true
+	case opUintPtr:
+		code.op = opUintNPtr
+		code.ptrNum++
+		return true
+	case opUintNPtr:
+		code.ptrNum++
+		return true
+	case opFloat32:
+		code.op = opFloat32Ptr
+		code.ptrNum++
+		return true
+	case opFloat32Ptr:
+		code.op = opFloat32NPtr
+		code.ptrNum++
+		return true
+	case opFloat32NPtr:
+		code.ptrNum++
+		return true
+	case opFloat64:
+		code.op = opFloat64Ptr
+		code.ptrNum++
+		return true
+	case opFloat64Ptr:
+		code.op = opFloat64NPtr
+		code.ptrNum++
+		return true
+	case opFloat64NPtr:
+		code.ptrNum++
+		return true
+	case opString:
+		code.op = opStringPtr
+		code.ptrNum++
+		return true
+	case opStringPtr:
+		code.op = opStringNPtr
+		code.ptrNum++
+		return true
+	case opStringNPtr:
+		code.ptrNum++
+		return true
+	case opBool:
+		code.op = opBoolPtr
+		code.ptrNum++
+		return true
+	case opBoolPtr:
+		code.op = opBoolNPtr
+		code.ptrNum++
+		return true
+	case opBoolNPtr:
+		code.ptrNum++
+		return true
+	default:
+		return false
+	}
 }
 
 func encodeCompileMarshalJSON(ctx *encodeCompileContext) (*opcode, error) {
@@ -747,69 +823,42 @@ func encodeCompileMap(ctx *encodeCompileContext, withLoad bool) (*opcode, error)
 
 func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 	switch code.op {
-	case opPtr:
-		ptrNum := 1
-		c := code
-		ctx.decIndex()
-		for {
-			if code.next.op == opPtr {
-				ptrNum++
-				code = code.next
-				ctx.decIndex()
-				continue
-			}
-			break
-		}
-		c.ptrNum = ptrNum
-		if ptrNum > 1 {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldHeadIntNPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldHeadUintNPtr
-			case opFloat32:
-				return opStructFieldHeadFloat32NPtr
-			case opFloat64:
-				return opStructFieldHeadFloat64NPtr
-			case opString:
-				return opStructFieldHeadStringNPtr
-			case opBool:
-				return opStructFieldHeadBoolNPtr
-			}
-		} else {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldHeadIntPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldHeadUintPtr
-			case opFloat32:
-				return opStructFieldHeadFloat32Ptr
-			case opFloat64:
-				return opStructFieldHeadFloat64Ptr
-			case opString:
-				return opStructFieldHeadStringPtr
-			case opBool:
-				return opStructFieldHeadBoolPtr
-			}
-		}
 	case opInt:
 		return opStructFieldHeadInt
+	case opIntPtr:
+		return opStructFieldHeadIntPtr
+	case opIntNPtr:
+		return opStructFieldHeadIntNPtr
 	case opUint:
 		return opStructFieldHeadUint
+	case opUintPtr:
+		return opStructFieldHeadUintPtr
+	case opUintNPtr:
+		return opStructFieldHeadUintNPtr
 	case opFloat32:
 		return opStructFieldHeadFloat32
+	case opFloat32Ptr:
+		return opStructFieldHeadFloat32Ptr
+	case opFloat32NPtr:
+		return opStructFieldHeadFloat32NPtr
 	case opFloat64:
 		return opStructFieldHeadFloat64
+	case opFloat64Ptr:
+		return opStructFieldHeadFloat64Ptr
+	case opFloat64NPtr:
+		return opStructFieldHeadFloat64NPtr
 	case opString:
 		return opStructFieldHeadString
+	case opStringPtr:
+		return opStructFieldHeadStringPtr
+	case opStringNPtr:
+		return opStructFieldHeadStringNPtr
 	case opBool:
 		return opStructFieldHeadBool
+	case opBoolPtr:
+		return opStructFieldHeadBoolPtr
+	case opBoolNPtr:
+		return opStructFieldHeadBoolNPtr
 	case opMapHead:
 		return opStructFieldHeadMap
 	case opMapHeadLoad:
@@ -830,69 +879,42 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 
 func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	switch code.op {
-	case opPtr:
-		ptrNum := 1
-		ctx.decIndex()
-		c := code
-		for {
-			if code.next.op == opPtr {
-				ptrNum++
-				code = code.next
-				ctx.decIndex()
-				continue
-			}
-			break
-		}
-		c.ptrNum = ptrNum
-		if ptrNum > 1 {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldIntNPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldUintNPtr
-			case opFloat32:
-				return opStructFieldFloat32NPtr
-			case opFloat64:
-				return opStructFieldFloat64NPtr
-			case opString:
-				return opStructFieldStringNPtr
-			case opBool:
-				return opStructFieldBoolNPtr
-			}
-		} else {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldIntPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldUintPtr
-			case opFloat32:
-				return opStructFieldFloat32Ptr
-			case opFloat64:
-				return opStructFieldFloat64Ptr
-			case opString:
-				return opStructFieldStringPtr
-			case opBool:
-				return opStructFieldBoolPtr
-			}
-		}
 	case opInt:
 		return opStructFieldInt
+	case opIntPtr:
+		return opStructFieldIntPtr
+	case opIntNPtr:
+		return opStructFieldIntNPtr
 	case opUint:
 		return opStructFieldUint
+	case opUintPtr:
+		return opStructFieldUintPtr
+	case opUintNPtr:
+		return opStructFieldUintNPtr
 	case opFloat32:
 		return opStructFieldFloat32
+	case opFloat32Ptr:
+		return opStructFieldFloat32Ptr
+	case opFloat32NPtr:
+		return opStructFieldFloat32NPtr
 	case opFloat64:
 		return opStructFieldFloat64
+	case opFloat64Ptr:
+		return opStructFieldFloat64Ptr
+	case opFloat64NPtr:
+		return opStructFieldFloat64NPtr
 	case opString:
 		return opStructFieldString
+	case opStringPtr:
+		return opStructFieldStringPtr
+	case opStringNPtr:
+		return opStructFieldStringNPtr
 	case opBool:
 		return opStructFieldBool
+	case opBoolPtr:
+		return opStructFieldBoolPtr
+	case opBoolNPtr:
+		return opStructFieldBoolNPtr
 	case opMapHead:
 		return opStructFieldMap
 	case opMapHeadLoad:

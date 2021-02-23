@@ -748,64 +748,67 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				}
 			}
 		case opStructFieldPtrHeadInt:
-			p := ptrToPtr(load(ctxptr, code.idx))
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, p)
+			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
 		case opStructFieldHeadInt:
-			p := load(ctxptr, code.idx) + code.offset
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = appendInt(b, ptrToUint64(p), code)
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyInt:
-			p := ptrToPtr(load(ctxptr, code.idx))
-			if p == 0 {
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, p)
-			fallthrough
-		case opStructFieldHeadOmitEmptyInt:
-			p := load(ctxptr, code.idx) + code.offset
-			b = append(b, '{')
-			u64 := ptrToUint64(p)
-			v := u64 & code.mask
-			if v == 0 {
-				code = code.nextField
 			} else {
+				b = append(b, '{')
 				b = append(b, code.key...)
-				b = appendInt(b, u64, code)
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringTagInt:
-			p := ptrToPtr(load(ctxptr, code.idx))
-			if p == 0 {
+		case opStructFieldPtrHeadOmitEmptyInt:
+			ptr := load(ctxptr, code.idx)
+			if ptr != 0 {
+				store(ctxptr, code.idx, ptrToPtr(ptr))
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyInt:
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-				break
+			} else {
+				b = append(b, '{')
+				u64 := ptrToUint64(ptr + code.offset)
+				v := u64 & code.mask
+				if v == 0 {
+					code = code.nextField
+				} else {
+					b = append(b, code.key...)
+					b = appendInt(b, u64, code)
+					b = encodeComma(b)
+					code = code.next
+				}
 			}
-			store(ctxptr, code.idx, p)
+		case opStructFieldPtrHeadStringTagInt:
+			ptr := load(ctxptr, code.idx)
+			if ptr != 0 {
+				store(ctxptr, code.idx, ptrToPtr(ptr))
+			}
 			fallthrough
 		case opStructFieldHeadStringTagInt:
-			p := load(ctxptr, code.idx) + code.offset
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(p), code)
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
+			ptr := load(ctxptr, code.idx)
+			if ptr == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+			} else {
+				b = append(b, '{')
+				b = append(b, code.key...)
+				b = append(b, '"')
+				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
+				b = append(b, '"')
+				b = encodeComma(b)
+				code = code.next
+			}
 		case opStructFieldPtrHeadIntOnly, opStructFieldHeadIntOnly:
 			p := load(ctxptr, code.idx)
 			b = append(b, '{')

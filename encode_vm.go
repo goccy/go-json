@@ -509,7 +509,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHead:
 			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			if ptr == 0 && code.indirect {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -530,7 +530,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadOmitEmpty:
 			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			if ptr == 0 && code.indirect {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -545,27 +545,24 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					store(ctxptr, code.idx, p)
 				}
 			}
-		case opStructFieldHeadOnly, opStructFieldHeadStringTagOnly:
+		case opStructFieldPtrHeadStringTag:
 			ptr := load(ctxptr, code.idx)
-			b = append(b, '{')
-			if !code.anonymousKey {
-				b = append(b, code.key...)
+			if ptr != 0 {
+				store(ctxptr, code.idx, ptrToPtr(ptr))
 			}
-			p := ptr + code.offset
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldHeadOmitEmptyOnly:
+			fallthrough
+		case opStructFieldHeadStringTag:
 			ptr := load(ctxptr, code.idx)
-			b = append(b, '{')
-			if !code.anonymousKey {
-				if ptr != 0 {
-					b = append(b, code.key...)
-					p := ptr + code.offset
-					code = code.next
-					store(ctxptr, code.idx, p)
-				} else {
-					code = code.nextField
-				}
+			if ptr == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+			} else {
+				b = append(b, '{')
+				p := ptr + code.offset
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldAnonymousHead:
 			ptr := load(ctxptr, code.idx)
@@ -596,7 +593,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				}
 			}
 		case opStructFieldPtrHeadInt:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
 			fallthrough
 		case opStructFieldHeadInt:
 			ptr := load(ctxptr, code.idx)
@@ -612,9 +611,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 			}
 		case opStructFieldPtrHeadOmitEmptyInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
 		case opStructFieldHeadOmitEmptyInt:
@@ -637,9 +635,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				}
 			}
 		case opStructFieldPtrHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
 		case opStructFieldHeadStringTagInt:
@@ -657,39 +654,19 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadIntOnly, opStructFieldHeadIntOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = appendInt(b, ptrToUint64(p), code)
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyIntOnly, opStructFieldHeadOmitEmptyIntOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			u64 := ptrToUint64(p)
-			v := u64 & code.mask
-			if v != 0 {
-				b = append(b, code.key...)
-				b = appendInt(b, u64, code)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagIntOnly, opStructFieldHeadStringTagIntOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(p), code)
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
 			fallthrough
 		case opStructFieldHeadIntPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -697,7 +674,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			} else {
 				b = append(b, '{')
 				b = append(b, code.key...)
-				p = ptrToPtr(p + code.offset)
+				if code.indirect {
+					p = ptrToPtr(p + code.offset)
+				}
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
@@ -707,17 +686,26 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldHeadOmitEmptyIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadOmitEmptyIntPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
 			} else {
 				b = append(b, '{')
-				p = ptrToPtr(p + code.offset)
+				if code.indirect {
+					p = ptrToPtr(p + code.offset)
+				}
 				if p != 0 {
 					b = append(b, code.key...)
 					b = appendInt(b, ptrToUint64(p), code)
@@ -726,11 +714,18 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 			}
 		case opStructFieldPtrHeadStringTagIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
 			fallthrough
 		case opStructFieldHeadStringTagIntPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -738,7 +733,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			} else {
 				b = append(b, '{')
 				b = append(b, code.key...)
-				p = ptrToPtr(p + code.offset)
+				if code.indirect {
+					p = ptrToPtr(p + code.offset)
+				}
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
@@ -746,69 +743,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = appendInt(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToUint64(p+code.offset), code)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyIntPtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				b = appendInt(b, ptrToUint64(p), code)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
-				b = append(b, '"')
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -834,30 +768,31 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrAnonymousHeadInt:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
 			fallthrough
 		case opStructFieldAnonymousHeadInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				code = code.end.next
 			} else {
 				b = append(b, code.key...)
-				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = encodeComma(b)
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadOmitEmptyInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
 		case opStructFieldAnonymousHeadOmitEmptyInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				code = code.end.next
 			} else {
-				u64 := ptrToUint64(ptr + code.offset)
+				u64 := ptrToUint64(p + code.offset)
 				v := u64 & code.mask
 				if v == 0 {
 					code = code.nextField
@@ -869,72 +804,40 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				}
 			}
 		case opStructFieldPtrAnonymousHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
 		case opStructFieldAnonymousHeadStringTagInt:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				code = code.end.next
 			} else {
 				b = append(b, code.key...)
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadIntOnly, opStructFieldAnonymousHeadIntOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyIntOnly, opStructFieldAnonymousHeadOmitEmptyIntOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				u64 := ptrToUint64(ptr + code.offset)
-				v := u64 & code.mask
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					b = appendInt(b, u64, code)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagIntOnly, opStructFieldAnonymousHeadStringTagIntOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(ptr+code.offset), code)
+				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 				b = encodeComma(b)
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
 				break
 			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadIntPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
 			b = append(b, code.key...)
-			p = ptrToPtr(p + code.offset)
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -943,15 +846,22 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrAnonymousHeadOmitEmptyIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
 				break
 			}
-			p = ptrToPtr(p + code.offset)
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyIntPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
 			if p == 0 {
 				code = code.nextField
 			} else {
@@ -961,77 +871,28 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 			}
 		case opStructFieldPtrAnonymousHeadStringTagIntPtr:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagIntPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
 				break
 			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadStringTagIntPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
 			b = append(b, code.key...)
-			p = ptrToPtr(p + code.offset)
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
 				b = append(b, '"')
 				b = appendInt(b, ptrToUint64(p), code)
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToUint64(p+code.offset), code)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				b = appendInt(b, ptrToUint64(p+code.offset), code)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagIntPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1098,33 +959,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadUintOnly, opStructFieldHeadUintOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = appendUint(b, ptrToUint64(p), code)
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUintOnly, opStructFieldHeadOmitEmptyUintOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			u64 := ptrToUint64(p)
-			v := u64 & code.mask
-			if v != 0 {
-				b = append(b, code.key...)
-				b = appendUint(b, u64, code)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUintOnly, opStructFieldHeadStringTagUintOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p), code)
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadUintPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -1187,69 +1021,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = appendUint(b, ptrToUint64(p), code)
 					b = append(b, '"')
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyUintPtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
-				b = append(b, '"')
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1327,44 +1098,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadUintOnly, opStructFieldAnonymousHeadUintOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyUintOnly, opStructFieldAnonymousHeadOmitEmptyUintOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				u64 := ptrToUint64(ptr + code.offset)
-				v := u64 & code.mask
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					b = appendUint(b, u64, code)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUintOnly, opStructFieldAnonymousHeadStringTagUintOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(ptr+code.offset), code)
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
 		case opStructFieldPtrAnonymousHeadUintPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -1417,62 +1150,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			} else {
 				b = append(b, '"')
 				b = appendUint(b, ptrToUint64(p), code)
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagUintPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p+code.offset), code)
 				b = append(b, '"')
 			}
 			b = encodeComma(b)
@@ -1538,32 +1215,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadFloat32Only, opStructFieldHeadFloat32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = encodeFloat32(b, ptrToFloat32(p))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyFloat32Only, opStructFieldHeadOmitEmptyFloat32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToFloat32(p)
-			if v != 0 {
-				b = append(b, code.key...)
-				b = encodeFloat32(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagFloat32Only, opStructFieldHeadStringTagFloat32Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = encodeFloat32(b, ptrToFloat32(p))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadFloat32Ptr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -1626,69 +1277,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = encodeFloat32(b, ptrToFloat32(p+code.offset))
 					b = append(b, '"')
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyFloat32PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-				b = append(b, '"')
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -1765,43 +1353,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat32Only, opStructFieldAnonymousHeadFloat32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = encodeFloat32(b, ptrToFloat32(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyFloat32Only, opStructFieldAnonymousHeadOmitEmptyFloat32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToFloat32(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					b = encodeFloat32(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat32Only, opStructFieldAnonymousHeadStringTagFloat32Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = append(b, '"')
-				b = encodeFloat32(b, ptrToFloat32(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
 		case opStructFieldPtrAnonymousHeadFloat32Ptr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -1849,62 +1400,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, code.key...)
 			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				b = encodeFloat32(b, ptrToFloat32(p+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagFloat32PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -1986,43 +1481,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadFloat64Only, opStructFieldHeadFloat64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			v := ptrToFloat64(p)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = encodeFloat64(b, v)
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyFloat64Only, opStructFieldHeadOmitEmptyFloat64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToFloat64(p)
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = append(b, code.key...)
-				b = encodeFloat64(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagFloat64Only, opStructFieldHeadStringTagFloat64Only:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			v := ptrToFloat64(p)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = encodeFloat64(b, v)
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadFloat64Ptr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -2097,81 +1555,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = encodeFloat64(b, v)
 					b = append(b, '"')
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				v := ptrToFloat64(p + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyFloat64PtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = append(b, '"')
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -2264,55 +1647,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadFloat64Only, opStructFieldAnonymousHeadFloat64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				v := ptrToFloat64(ptr + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyFloat64Only, opStructFieldAnonymousHeadOmitEmptyFloat64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToFloat64(ptr + code.offset)
-				if v == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					v := ptrToFloat64(ptr + code.offset)
-					if math.IsInf(v, 0) || math.IsNaN(v) {
-						return nil, errUnsupportedFloat(v)
-					}
-					b = encodeFloat64(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat64Only, opStructFieldAnonymousHeadStringTagFloat64Only:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = append(b, '"')
-				v := ptrToFloat64(ptr + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
 		case opStructFieldPtrAnonymousHeadFloat64Ptr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -2368,74 +1702,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, code.key...)
 			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				v := ptrToFloat64(p + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				v := ptrToFloat64(p + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				v := ptrToFloat64(p + code.offset)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = encodeFloat64(b, v)
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagFloat64PtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -2509,30 +1775,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadStringOnly, opStructFieldHeadStringOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = encodeNoEscapedString(b, ptrToString(p))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyStringOnly, opStructFieldHeadOmitEmptyStringOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToString(p)
-			if v != "" {
-				b = append(b, code.key...)
-				b = encodeNoEscapedString(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagStringOnly, opStructFieldHeadStringTagStringOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(p))))
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadStringPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -2593,67 +1835,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				} else {
 					b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(p))))
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeNoEscapedString(b, ptrToString(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyStringPtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				b = encodeNoEscapedString(b, ptrToString(p+code.offset))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(p))))
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -2728,41 +1909,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadStringOnly, opStructFieldAnonymousHeadStringOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = encodeNoEscapedString(b, ptrToString(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyStringOnly, opStructFieldAnonymousHeadOmitEmptyStringOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToString(ptr + code.offset)
-				if v == "" {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					b = encodeNoEscapedString(b, v)
-					b = encodeComma(b)
-					code = code.next
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagStringOnly, opStructFieldAnonymousHeadStringTagStringOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(ptr))))
-				b = encodeComma(b)
-				code = code.next
-			}
 		case opStructFieldPtrAnonymousHeadStringPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -2810,60 +1956,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, code.key...)
 			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(p))))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeNoEscapedString(b, ptrToString(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				b = encodeNoEscapedString(b, ptrToString(p+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagStringPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -2932,32 +2024,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrHeadBoolOnly, opStructFieldHeadBoolOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = encodeBool(b, ptrToBool(p))
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyBoolOnly, opStructFieldHeadOmitEmptyBoolOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			v := ptrToBool(p)
-			if v {
-				b = append(b, code.key...)
-				b = encodeBool(b, v)
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagBoolOnly, opStructFieldHeadStringTagBoolOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			b = append(b, '"')
-			b = encodeBool(b, ptrToBool(p))
-			b = append(b, '"')
-			b = encodeComma(b)
-			code = code.next
 		case opStructFieldPtrHeadBoolPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -2971,7 +2037,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			} else {
 				b = append(b, '{')
 				b = append(b, code.key...)
-				p = ptrToPtr(p)
+				if code.indirect {
+					p = ptrToPtr(p)
+				}
 				if p == 0 {
 					b = encodeNull(b)
 				} else {
@@ -3020,69 +2088,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = encodeBool(b, ptrToBool(p+code.offset))
 					b = append(b, '"')
 				}
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeBool(b, ptrToBool(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrHeadOmitEmptyBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadOmitEmptyBoolPtrOnly:
-			b = append(b, '{')
-			p := load(ctxptr, code.idx)
-			if p != 0 {
-				b = append(b, code.key...)
-				b = encodeBool(b, ptrToBool(p+code.offset))
-				b = encodeComma(b)
-			}
-			code = code.next
-		case opStructFieldPtrHeadStringTagBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldHeadStringTagBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, '{')
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = encodeBool(b, ptrToBool(p+code.offset))
-				b = append(b, '"')
 			}
 			b = encodeComma(b)
 			code = code.next
@@ -3159,43 +2164,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadBoolOnly, opStructFieldAnonymousHeadBoolOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = encodeBool(b, ptrToBool(ptr+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyBoolOnly, opStructFieldAnonymousHeadOmitEmptyBoolOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				v := ptrToBool(ptr + code.offset)
-				if v {
-					b = append(b, code.key...)
-					b = encodeBool(b, v)
-					b = encodeComma(b)
-					code = code.next
-				} else {
-					code = code.nextField
-				}
-			}
-		case opStructFieldPtrAnonymousHeadStringTagBoolOnly, opStructFieldAnonymousHeadStringTagBoolOnly:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				b = append(b, code.key...)
-				b = append(b, '"')
-				b = encodeBool(b, ptrToBool(ptr+code.offset))
-				b = append(b, '"')
-				b = encodeComma(b)
-				code = code.next
-			}
 		case opStructFieldPtrAnonymousHeadBoolPtr:
 			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			fallthrough
@@ -3243,62 +2211,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, code.key...)
 			p = ptrToPtr(p)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = append(b, '"')
-				b = encodeBool(b, ptrToBool(p+code.offset))
-				b = append(b, '"')
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeBool(b, ptrToBool(p+code.offset))
-			}
-			b = encodeComma(b)
-			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.nextField
-			} else {
-				b = append(b, code.key...)
-				b = encodeBool(b, ptrToBool(p+code.offset))
-				b = encodeComma(b)
-				code = code.next
-			}
-		case opStructFieldPtrAnonymousHeadStringTagBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				code = code.end.next
-				break
-			}
-			store(ctxptr, code.idx, ptrToPtr(p))
-			fallthrough
-		case opStructFieldAnonymousHeadStringTagBoolPtrOnly:
-			p := load(ctxptr, code.idx)
-			b = append(b, code.key...)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -3778,25 +2690,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					b = encodeComma(b)
 					code = code.next
 				}
-			}
-		case opStructFieldPtrHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldHeadStringTag:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				b = append(b, '{')
-				p := ptr + code.offset
-				b = append(b, code.key...)
-				code = code.next
-				store(ctxptr, code.idx, p)
 			}
 		case opStructFieldPtrAnonymousHeadStringTag:
 			ptr := load(ctxptr, code.idx)

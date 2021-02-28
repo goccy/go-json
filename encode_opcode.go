@@ -19,11 +19,10 @@ type opcode struct {
 	isTaggedKey  bool   // whether tagged key
 	anonymousKey bool   // whether anonymous key
 	root         bool   // whether root
+	indirect     bool   // whether indirect or not
 	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
 	mask         uint64 // mask for number
 	indent       int    // indent number
-	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
-	mask         uint64 // mask for number
 
 	idx     uintptr // offset to access ptr
 	headIdx uintptr // offset to access slice/struct head
@@ -93,6 +92,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		isTaggedKey:  c.isTaggedKey,
 		anonymousKey: c.anonymousKey,
 		root:         c.root,
+		indirect:     c.indirect,
 		indent:       c.indent,
 		idx:          c.idx,
 		headIdx:      c.headIdx,

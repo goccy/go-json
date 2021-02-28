@@ -1722,7 +1722,7 @@ func (t opType) headToPtrHead() opType {
 	}
 	suffix := "Ptr" + t.String()[idx+len("Field"):]
 
-	const toPtrOffset = 12
+	const toPtrOffset = 6
 	if strings.Contains(opType(int(t)+toPtrOffset).String(), suffix) {
 		return opType(int(t) + toPtrOffset)
 	}
@@ -1743,7 +1743,7 @@ func (t opType) headToNPtrHead() opType {
 	}
 	suffix := "NPtr" + t.String()[idx+len("Field"):]
 
-	const toPtrOffset = 24
+	const toPtrOffset = 12
 	if strings.Contains(opType(int(t)+toPtrOffset).String(), suffix) {
 		return opType(int(t) + toPtrOffset)
 	}
@@ -1751,7 +1751,7 @@ func (t opType) headToNPtrHead() opType {
 }
 
 func (t opType) headToAnonymousHead() opType {
-	const toAnonymousOffset = 6
+	const toAnonymousOffset = 3
 	if strings.Contains(opType(int(t)+toAnonymousOffset).String(), "Anonymous") {
 		return opType(int(t) + toAnonymousOffset)
 	}
@@ -1759,7 +1759,7 @@ func (t opType) headToAnonymousHead() opType {
 }
 
 func (t opType) headToOmitEmptyHead() opType {
-	const toOmitEmptyOffset = 2
+	const toOmitEmptyOffset = 1
 	if strings.Contains(opType(int(t)+toOmitEmptyOffset).String(), "OmitEmpty") {
 		return opType(int(t) + toOmitEmptyOffset)
 	}
@@ -1768,7 +1768,7 @@ func (t opType) headToOmitEmptyHead() opType {
 }
 
 func (t opType) headToStringTagHead() opType {
-	const toStringTagOffset = 4
+	const toStringTagOffset = 2
 	if strings.Contains(opType(int(t)+toStringTagOffset).String(), "StringTag") {
 		return opType(int(t) + toStringTagOffset)
 	}
@@ -1782,7 +1782,7 @@ func (t opType) ptrHeadToHead() opType {
 	}
 	suffix := t.String()[idx+len("Ptr"):]
 
-	const toPtrOffset = 12
+	const toPtrOffset = 6
 	if strings.Contains(opType(int(t)-toPtrOffset).String(), suffix) {
 		return opType(int(t) - toPtrOffset)
 	}

@@ -96,7 +96,9 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 		if err != nil {
 			return nil, err
 		}
-		encodeConvertHeadOnlyCode(code, isPtr)
+		if !code.indirect && isPtr {
+			code.indirect = true
+		}
 		encodeOptimizeStructEnd(code)
 		encodeLinkRecursiveCode(code)
 		return code, nil
@@ -105,11 +107,13 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 	} else if isPtr && typ.Implements(marshalJSONType) {
 		typ = orgType
 	}
-	code, err := encodeCompile(ctx.withType(typ))
+	code, err := encodeCompile(ctx.withType(typ), isPtr)
 	if err != nil {
 		return nil, err
 	}
-	encodeConvertHeadOnlyCode(code, isPtr)
+	if !code.indirect && isPtr {
+		code.indirect = true
+	}
 	encodeOptimizeStructEnd(code)
 	encodeLinkRecursiveCode(code)
 	return code, nil
@@ -200,55 +204,6 @@ func encodeOptimizeStructEnd(c *opcode) {
 	}
 }
 
-func encodeConvertHeadOnlyCode(c *opcode, isPtrHead bool) {
-	if c.nextField == nil {
-		return
-	}
-	if c.nextField.op.codeType() != codeStructEnd {
-		return
-	}
-	switch c.op {
-	case opStructFieldHead:
-		encodeConvertHeadOnlyCode(c.next, false)
-		if !strings.Contains(c.next.op.String(), "Only") {
-			return
-		}
-		c.op = opStructFieldHeadOnly
-	case opStructFieldHeadOmitEmpty:
-		encodeConvertHeadOnlyCode(c.next, false)
-		if !strings.Contains(c.next.op.String(), "Only") {
-			return
-		}
-		c.op = opStructFieldHeadOmitEmptyOnly
-	case opStructFieldHeadStringTag:
-		encodeConvertHeadOnlyCode(c.next, false)
-		if !strings.Contains(c.next.op.String(), "Only") {
-			return
-		}
-		c.op = opStructFieldHeadStringTagOnly
-	case opStructFieldPtrHead:
-	}
-
-	if strings.Contains(c.op.String(), "Marshal") {
-		return
-	}
-	if strings.Contains(c.op.String(), "Slice") {
-		return
-	}
-	if strings.Contains(c.op.String(), "Map") {
-		return
-	}
-
-	isPtrOp := strings.Contains(c.op.String(), "Ptr")
-	if isPtrOp && !isPtrHead {
-		c.op = c.op.headToOnlyHead()
-	} else if !isPtrOp && isPtrHead {
-		c.op = c.op.headToPtrHead().headToOnlyHead()
-	} else if isPtrOp && isPtrHead {
-		c.op = c.op.headToPtrHead().headToOnlyHead()
-	}
-}
-
 func encodeImplementsMarshaler(typ *rtype) bool {
 	switch {
 	case typ.Implements(marshalJSONType):
@@ -263,7 +218,7 @@ func encodeImplementsMarshaler(typ *rtype) bool {
 	return false
 }
 
-func encodeCompile(ctx *encodeCompileContext) (*opcode, error) {
+func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	typ := ctx.typ
 	switch {
 	case typ.Implements(marshalJSONType):
@@ -289,7 +244,7 @@ func encodeCompile(ctx *encodeCompileContext) (*opcode, error) {
 	case reflect.Map:
 		return encodeCompileMap(ctx, true)
 	case reflect.Struct:
-		return encodeCompileStruct(ctx, false)
+		return encodeCompileStruct(ctx, isPtr)
 	case reflect.Interface:
 		return encodeCompileInterface(ctx)
 	case reflect.Int:
@@ -371,7 +326,7 @@ func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
 	ptrOpcodeIndex := ctx.opcodeIndex
 	ptrIndex := ctx.ptrIndex
 	ctx.incIndex()
-	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()))
+	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()), true)
 	if err != nil {
 		return nil, err
 	}
@@ -642,7 +597,7 @@ func encodeCompileSlice(ctx *encodeCompileContext) (*opcode, error) {
 	header := newSliceHeaderCode(ctx)
 	ctx.incIndex()
 
-	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()).incIndent())
+	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()).incIndent(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +631,7 @@ func encodeCompileArray(ctx *encodeCompileContext) (*opcode, error) {
 	header := newArrayHeaderCode(ctx, alen)
 	ctx.incIndex()
 
-	code, err := encodeCompile(ctx.withType(elem).incIndent())
+	code, err := encodeCompile(ctx.withType(elem).incIndent(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -734,7 +689,7 @@ func encodeCompileMap(ctx *encodeCompileContext, withLoad bool) (*opcode, error)
 	ctx.incIndex()
 
 	valueType := typ.Elem()
-	valueCode, err := encodeCompile(ctx.withType(valueType))
+	valueCode, err := encodeCompile(ctx.withType(valueType), false)
 	if err != nil {
 		return nil, err
 	}
@@ -1227,6 +1182,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	//                        ^          |
 	//                        |__________|
 	fieldNum := typ.NumField()
+	indirect := ifaceIndir(typ)
 	fieldIdx := 0
 	var (
 		head      *opcode
@@ -1258,7 +1214,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
-		valueCode, err := encodeCompile(ctx.withType(fieldType))
+		valueCode, err := encodeCompile(ctx.withType(fieldType), false)
 		if err != nil {
 			return nil, err
 		}
@@ -1280,6 +1236,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
+		valueCode.indirect = indirect
 		fieldCode := &opcode{
 			typ:          valueCode.typ,
 			displayIdx:   fieldOpcodeIndex,
@@ -1292,6 +1249,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			isTaggedKey:  tag.isTaggedKey,
 			displayKey:   tag.key,
 			offset:       field.Offset,
+			indirect:     indirect,
 		}
 		if fieldIdx == 0 {
 			fieldCode.headIdx = fieldCode.idx

@@ -431,6 +431,29 @@ func TestCoverSlice(t *testing.T) {
 		{
 			name: "PtrHeadSliceNilMultiFields",
 			data: (*struct {
+				A []int `json:"a"`
+				B []int `json:"b"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadSliceNilMultiFieldsOmitEmpty",
+			data: (*struct {
+				A []int `json:"a,omitempty"`
+				B []int `json:"b,omitempty"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadSliceNilMultiFieldsString",
+			data: (*struct {
+				A []int `json:"a,string"`
+				B []int `json:"b,string"`
+			})(nil),
+		},
+
+		// PtrHeadSliceNilMultiFields
+		{
+			name: "PtrHeadSliceNilMultiFields",
+			data: (*struct {
 				A *[]int `json:"a"`
 				B *[]int `json:"b"`
 			})(nil),
@@ -485,7 +508,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A []int `json:"a"`
-			}{A: true}},
+			}{A: []int{-1}}},
 		},
 		{
 			name: "HeadSliceNotRootOmitEmpty",
@@ -495,7 +518,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A []int `json:"a,omitempty"`
-			}{A: true}},
+			}{A: []int{-1}}},
 		},
 		{
 			name: "HeadSliceNotRootString",
@@ -505,7 +528,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A []int `json:"a,string"`
-			}{A: true}},
+			}{A: []int{-1}}},
 		},
 
 		// HeadSlicePtrNotRoot
@@ -517,7 +540,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A *[]int `json:"a"`
-			}{sliceptr(-1)}},
+			}{sliceptr([]int{-1})}},
 		},
 		{
 			name: "HeadSlicePtrNotRootOmitEmpty",
@@ -527,7 +550,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A *[]int `json:"a,omitempty"`
-			}{sliceptr(-1)}},
+			}{sliceptr([]int{-1})}},
 		},
 		{
 			name: "HeadSlicePtrNotRootString",
@@ -537,7 +560,7 @@ func TestCoverSlice(t *testing.T) {
 				}
 			}{A: struct {
 				A *[]int `json:"a,string"`
-			}{sliceptr(-1)}},
+			}{sliceptr([]int{-1})}},
 		},
 
 		// HeadSlicePtrNilNotRoot
@@ -568,1221 +591,1252 @@ func TestCoverSlice(t *testing.T) {
 
 		// PtrHeadSliceZeroNotRoot
 		{
-			name: "PtrHeadBoolZeroNotRoot",
+			name: "PtrHeadSliceZeroNotRoot",
 			data: struct {
 				A *struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 			}{A: new(struct {
-				A bool `json:"a"`
+				A []int `json:"a"`
 			})},
 		},
 		{
-			name: "PtrHeadBoolZeroNotRootOmitEmpty",
+			name: "PtrHeadSliceZeroNotRootOmitEmpty",
 			data: struct {
 				A *struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 			}{A: new(struct {
-				A bool `json:"a,omitempty"`
+				A []int `json:"a,omitempty"`
 			})},
 		},
 		{
-			name: "PtrHeadBoolZeroNotRootString",
+			name: "PtrHeadSliceZeroNotRootString",
 			data: struct {
 				A *struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 			}{A: new(struct {
-				A bool `json:"a,string"`
+				A []int `json:"a,string"`
 			})},
 		},
 
-		// PtrHeadBoolNotRoot
+		// PtrHeadSliceNotRoot
 		{
-			name: "PtrHeadBoolNotRoot",
+			name: "PtrHeadSliceNotRoot",
 			data: struct {
 				A *struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 			}{A: &(struct {
-				A bool `json:"a"`
-			}{A: true})},
+				A []int `json:"a"`
+			}{A: []int{-1}})},
 		},
 		{
-			name: "PtrHeadBoolNotRootOmitEmpty",
+			name: "PtrHeadSliceNotRootOmitEmpty",
 			data: struct {
 				A *struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 			}{A: &(struct {
-				A bool `json:"a,omitempty"`
-			}{A: true})},
+				A []int `json:"a,omitempty"`
+			}{A: []int{-1}})},
 		},
 		{
-			name: "PtrHeadBoolNotRootString",
+			name: "PtrHeadSliceNotRootString",
 			data: struct {
 				A *struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 			}{A: &(struct {
-				A bool `json:"a,string"`
-			}{A: true})},
-		},
-
-		// PtrHeadBoolPtrNotRoot
-		{
-			name: "PtrHeadBoolPtrNotRoot",
-			data: struct {
-				A *struct {
-					A *bool `json:"a"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a"`
-			}{A: boolptr(true)})},
-		},
-		{
-			name: "PtrHeadBoolPtrNotRootOmitEmpty",
-			data: struct {
-				A *struct {
-					A *bool `json:"a,omitempty"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a,omitempty"`
-			}{A: boolptr(true)})},
-		},
-		{
-			name: "PtrHeadBoolPtrNotRootString",
-			data: struct {
-				A *struct {
-					A *bool `json:"a,string"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a,string"`
-			}{A: boolptr(true)})},
+				A []int `json:"a,string"`
+			}{A: []int{-1}})},
 		},
 
-		// PtrHeadBoolPtrNilNotRoot
+		// PtrHeadSlicePtrNotRoot
 		{
-			name: "PtrHeadBoolPtrNilNotRoot",
+			name: "PtrHeadSlicePtrNotRoot",
 			data: struct {
 				A *struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a"`
+				A *[]int `json:"a"`
+			}{A: sliceptr([]int{-1})})},
+		},
+		{
+			name: "PtrHeadSlicePtrNotRootOmitEmpty",
+			data: struct {
+				A *struct {
+					A *[]int `json:"a,omitempty"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a,omitempty"`
+			}{A: sliceptr([]int{-1})})},
+		},
+		{
+			name: "PtrHeadSlicePtrNotRootString",
+			data: struct {
+				A *struct {
+					A *[]int `json:"a,string"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a,string"`
+			}{A: sliceptr([]int{-1})})},
+		},
+
+		// PtrHeadSlicePtrNilNotRoot
+		{
+			name: "PtrHeadSlicePtrNilNotRoot",
+			data: struct {
+				A *struct {
+					A *[]int `json:"a"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a"`
 			}{A: nil})},
 		},
 		{
-			name: "PtrHeadBoolPtrNilNotRootOmitEmpty",
+			name: "PtrHeadSlicePtrNilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a,omitempty"`
+				A *[]int `json:"a,omitempty"`
 			}{A: nil})},
 		},
 		{
-			name: "PtrHeadBoolPtrNilNotRootString",
+			name: "PtrHeadSlicePtrNilNotRootString",
 			data: struct {
 				A *struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a,string"`
+				A *[]int `json:"a,string"`
 			}{A: nil})},
 		},
 
-		// PtrHeadBoolNilNotRoot
+		// PtrHeadSliceNilNotRoot
 		{
-			name: "PtrHeadBoolNilNotRoot",
+			name: "PtrHeadSliceNilNotRoot",
 			data: struct {
 				A *struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 			}{A: nil},
 		},
 		{
-			name: "PtrHeadBoolNilNotRootOmitEmpty",
+			name: "PtrHeadSliceNilNotRootOmitEmpty",
 			data: struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				} `json:",omitempty"`
 			}{A: nil},
 		},
 		{
-			name: "PtrHeadBoolNilNotRootString",
+			name: "PtrHeadSliceNilNotRootString",
 			data: struct {
 				A *struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				} `json:",string"`
 			}{A: nil},
 		},
 
-		// HeadBoolZeroMultiFieldsNotRoot
+		// HeadSliceZeroMultiFieldsNotRoot
 		{
-			name: "HeadBoolZeroMultiFieldsNotRoot",
+			name: "HeadSliceZeroMultiFieldsNotRoot",
 			data: struct {
 				A struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 				B struct {
-					B bool `json:"b"`
+					B []int `json:"b"`
 				}
 			}{},
 		},
 		{
-			name: "HeadBoolZeroMultiFieldsNotRootOmitEmpty",
+			name: "HeadSliceZeroMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 				B struct {
-					B bool `json:"b,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			}{},
 		},
 		{
-			name: "HeadBoolZeroMultiFieldsNotRootString",
+			name: "HeadSliceZeroMultiFieldsNotRootString",
 			data: struct {
 				A struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 				B struct {
-					B bool `json:"b,string"`
+					B []int `json:"b,string"`
 				}
 			}{},
 		},
 
-		// HeadBoolMultiFieldsNotRoot
+		// HeadSliceMultiFieldsNotRoot
 		{
-			name: "HeadBoolMultiFieldsNotRoot",
+			name: "HeadSliceMultiFieldsNotRoot",
 			data: struct {
 				A struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 				B struct {
-					B bool `json:"b"`
+					B []int `json:"b"`
 				}
 			}{A: struct {
-				A bool `json:"a"`
-			}{A: true}, B: struct {
-				B bool `json:"b"`
-			}{B: false}},
+				A []int `json:"a"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b"`
+			}{B: []int{0}}},
 		},
 		{
-			name: "HeadBoolMultiFieldsNotRootOmitEmpty",
+			name: "HeadSliceMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 				B struct {
-					B bool `json:"b,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			}{A: struct {
-				A bool `json:"a,omitempty"`
-			}{A: true}, B: struct {
-				B bool `json:"b,omitempty"`
-			}{B: false}},
+				A []int `json:"a,omitempty"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b,omitempty"`
+			}{B: []int{1}}},
 		},
 		{
-			name: "HeadBoolMultiFieldsNotRootString",
+			name: "HeadSliceMultiFieldsNotRootString",
 			data: struct {
 				A struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 				B struct {
-					B bool `json:"b,string"`
+					B []int `json:"b,string"`
 				}
 			}{A: struct {
-				A bool `json:"a,string"`
-			}{A: true}, B: struct {
-				B bool `json:"b,string"`
-			}{B: false}},
-		},
-
-		// HeadBoolPtrMultiFieldsNotRoot
-		{
-			name: "HeadBoolPtrMultiFieldsNotRoot",
-			data: struct {
-				A struct {
-					A *bool `json:"a"`
-				}
-				B struct {
-					B *bool `json:"b"`
-				}
-			}{A: struct {
-				A *bool `json:"a"`
-			}{A: boolptr(true)}, B: struct {
-				B *bool `json:"b"`
-			}{B: boolptr(false)}},
-		},
-		{
-			name: "HeadBoolPtrMultiFieldsNotRootOmitEmpty",
-			data: struct {
-				A struct {
-					A *bool `json:"a,omitempty"`
-				}
-				B struct {
-					B *bool `json:"b,omitempty"`
-				}
-			}{A: struct {
-				A *bool `json:"a,omitempty"`
-			}{A: boolptr(true)}, B: struct {
-				B *bool `json:"b,omitempty"`
-			}{B: boolptr(false)}},
-		},
-		{
-			name: "HeadBoolPtrMultiFieldsNotRootString",
-			data: struct {
-				A struct {
-					A *bool `json:"a,string"`
-				}
-				B struct {
-					B *bool `json:"b,string"`
-				}
-			}{A: struct {
-				A *bool `json:"a,string"`
-			}{A: boolptr(true)}, B: struct {
-				B *bool `json:"b,string"`
-			}{B: boolptr(false)}},
+				A []int `json:"a,string"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b,string"`
+			}{B: []int{1}}},
 		},
 
-		// HeadBoolPtrNilMultiFieldsNotRoot
+		// HeadSlicePtrMultiFieldsNotRoot
 		{
-			name: "HeadBoolPtrNilMultiFieldsNotRoot",
+			name: "HeadSlicePtrMultiFieldsNotRoot",
 			data: struct {
 				A struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 				B struct {
-					B *bool `json:"b"`
+					B *[]int `json:"b"`
 				}
 			}{A: struct {
-				A *bool `json:"a"`
+				A *[]int `json:"a"`
+			}{A: sliceptr([]int{-1})}, B: struct {
+				B *[]int `json:"b"`
+			}{B: sliceptr([]int{1})}},
+		},
+		{
+			name: "HeadSlicePtrMultiFieldsNotRootOmitEmpty",
+			data: struct {
+				A struct {
+					A *[]int `json:"a,omitempty"`
+				}
+				B struct {
+					B *[]int `json:"b,omitempty"`
+				}
+			}{A: struct {
+				A *[]int `json:"a,omitempty"`
+			}{A: sliceptr([]int{-1})}, B: struct {
+				B *[]int `json:"b,omitempty"`
+			}{B: sliceptr([]int{1})}},
+		},
+		{
+			name: "HeadSlicePtrMultiFieldsNotRootString",
+			data: struct {
+				A struct {
+					A *[]int `json:"a,string"`
+				}
+				B struct {
+					B *[]int `json:"b,string"`
+				}
+			}{A: struct {
+				A *[]int `json:"a,string"`
+			}{A: sliceptr([]int{-1})}, B: struct {
+				B *[]int `json:"b,string"`
+			}{B: sliceptr([]int{1})}},
+		},
+
+		// HeadSlicePtrNilMultiFieldsNotRoot
+		{
+			name: "HeadSlicePtrNilMultiFieldsNotRoot",
+			data: struct {
+				A struct {
+					A *[]int `json:"a"`
+				}
+				B struct {
+					B *[]int `json:"b"`
+				}
+			}{A: struct {
+				A *[]int `json:"a"`
 			}{A: nil}, B: struct {
-				B *bool `json:"b"`
+				B *[]int `json:"b"`
 			}{B: nil}},
 		},
 		{
-			name: "HeadBoolPtrNilMultiFieldsNotRootOmitEmpty",
+			name: "HeadSlicePtrNilMultiFieldsNotRootOmitEmpty",
 			data: struct {
 				A struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				}
 				B struct {
-					B *bool `json:"b,omitempty"`
+					B *[]int `json:"b,omitempty"`
 				}
 			}{A: struct {
-				A *bool `json:"a,omitempty"`
+				A *[]int `json:"a,omitempty"`
 			}{A: nil}, B: struct {
-				B *bool `json:"b,omitempty"`
+				B *[]int `json:"b,omitempty"`
 			}{B: nil}},
 		},
 		{
-			name: "HeadBoolPtrNilMultiFieldsNotRootString",
+			name: "HeadSlicePtrNilMultiFieldsNotRootString",
 			data: struct {
 				A struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				}
 				B struct {
-					B *bool `json:"b,string"`
+					B *[]int `json:"b,string"`
 				}
 			}{A: struct {
-				A *bool `json:"a,string"`
+				A *[]int `json:"a,string"`
 			}{A: nil}, B: struct {
-				B *bool `json:"b,string"`
+				B *[]int `json:"b,string"`
 			}{B: nil}},
 		},
 
-		// PtrHeadBoolZeroMultiFieldsNotRoot
+		// PtrHeadSliceZeroMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolZeroMultiFieldsNotRoot",
+			name: "PtrHeadSliceZeroMultiFieldsNotRoot",
 			data: &struct {
 				A struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 				B struct {
-					B bool `json:"b"`
+					B []int `json:"b"`
 				}
 			}{},
 		},
 		{
-			name: "PtrHeadBoolZeroMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceZeroMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 				B struct {
-					B bool `json:"b,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			}{},
 		},
 		{
-			name: "PtrHeadBoolZeroMultiFieldsNotRootString",
+			name: "PtrHeadSliceZeroMultiFieldsNotRootString",
 			data: &struct {
 				A struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 				B struct {
-					B bool `json:"b,string"`
+					B []int `json:"b,string"`
 				}
 			}{},
 		},
 
-		// PtrHeadBoolMultiFieldsNotRoot
+		// PtrHeadSliceMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolMultiFieldsNotRoot",
+			name: "PtrHeadSliceMultiFieldsNotRoot",
 			data: &struct {
 				A struct {
-					A bool `json:"a"`
+					A []int `json:"a"`
 				}
 				B struct {
-					B bool `json:"b"`
+					B []int `json:"b"`
 				}
 			}{A: struct {
-				A bool `json:"a"`
-			}{A: true}, B: struct {
-				B bool `json:"b"`
-			}{B: false}},
+				A []int `json:"a"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b"`
+			}{B: []int{1}}},
 		},
 		{
-			name: "PtrHeadBoolMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A struct {
-					A bool `json:"a,omitempty"`
+					A []int `json:"a,omitempty"`
 				}
 				B struct {
-					B bool `json:"b,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			}{A: struct {
-				A bool `json:"a,omitempty"`
-			}{A: true}, B: struct {
-				B bool `json:"b,omitempty"`
-			}{B: false}},
+				A []int `json:"a,omitempty"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b,omitempty"`
+			}{B: []int{1}}},
 		},
 		{
-			name: "PtrHeadBoolMultiFieldsNotRootString",
+			name: "PtrHeadSliceMultiFieldsNotRootString",
 			data: &struct {
 				A struct {
-					A bool `json:"a,string"`
+					A []int `json:"a,string"`
 				}
 				B struct {
-					B bool `json:"b,string"`
+					B []int `json:"b,string"`
 				}
 			}{A: struct {
-				A bool `json:"a,string"`
-			}{A: true}, B: struct {
-				B bool `json:"b,string"`
-			}{B: false}},
+				A []int `json:"a,string"`
+			}{A: []int{-1}}, B: struct {
+				B []int `json:"b,string"`
+			}{B: []int{1}}},
 		},
 
-		// PtrHeadBoolPtrMultiFieldsNotRoot
+		// PtrHeadSlicePtrMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolPtrMultiFieldsNotRoot",
+			name: "PtrHeadSlicePtrMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 				B *struct {
-					B *bool `json:"b"`
+					B *[]int `json:"b"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a"`
-			}{A: boolptr(true)}), B: &(struct {
-				B *bool `json:"b"`
-			}{B: boolptr(false)})},
+				A *[]int `json:"a"`
+			}{A: sliceptr([]int{-1})}), B: &(struct {
+				B *[]int `json:"b"`
+			}{B: sliceptr([]int{1})})},
 		},
 		{
-			name: "PtrHeadBoolPtrMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSlicePtrMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				}
 				B *struct {
-					B *bool `json:"b,omitempty"`
+					B *[]int `json:"b,omitempty"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a,omitempty"`
-			}{A: boolptr(true)}), B: &(struct {
-				B *bool `json:"b,omitempty"`
-			}{B: boolptr(false)})},
+				A *[]int `json:"a,omitempty"`
+			}{A: sliceptr([]int{-1})}), B: &(struct {
+				B *[]int `json:"b,omitempty"`
+			}{B: sliceptr([]int{1})})},
 		},
 		{
-			name: "PtrHeadBoolPtrMultiFieldsNotRootString",
+			name: "PtrHeadSlicePtrMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				}
 				B *struct {
-					B *bool `json:"b,string"`
+					B *[]int `json:"b,string"`
 				}
 			}{A: &(struct {
-				A *bool `json:"a,string"`
-			}{A: boolptr(true)}), B: &(struct {
-				B *bool `json:"b,string"`
-			}{B: boolptr(false)})},
+				A *[]int `json:"a,string"`
+			}{A: sliceptr([]int{-1})}), B: &(struct {
+				B *[]int `json:"b,string"`
+			}{B: sliceptr([]int{1})})},
 		},
 
-		// PtrHeadBoolPtrNilMultiFieldsNotRoot
+		// PtrHeadSlicePtrNilMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolPtrNilMultiFieldsNotRoot",
+			name: "PtrHeadSlicePtrNilMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 				B *struct {
-					B *bool `json:"b"`
+					B *[]int `json:"b"`
 				}
 			}{A: nil, B: nil},
 		},
 		{
-			name: "PtrHeadBoolPtrNilMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSlicePtrNilMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				} `json:",omitempty"`
 				B *struct {
-					B *bool `json:"b,omitempty"`
+					B *[]int `json:"b,omitempty"`
 				} `json:",omitempty"`
 			}{A: nil, B: nil},
 		},
 		{
-			name: "PtrHeadBoolPtrNilMultiFieldsNotRootString",
+			name: "PtrHeadSlicePtrNilMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				} `json:",string"`
 				B *struct {
-					B *bool `json:"b,string"`
+					B *[]int `json:"b,string"`
 				} `json:",string"`
 			}{A: nil, B: nil},
 		},
 
-		// PtrHeadBoolNilMultiFieldsNotRoot
+		// PtrHeadSliceNilMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolNilMultiFieldsNotRoot",
+			name: "PtrHeadSliceNilMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a"`
+					A *[]int `json:"a"`
 				}
 				B *struct {
-					B *bool `json:"b"`
+					B *[]int `json:"b"`
 				}
 			})(nil),
 		},
 		{
-			name: "PtrHeadBoolNilMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceNilMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
+					A *[]int `json:"a,omitempty"`
 				}
 				B *struct {
-					B *bool `json:"b,omitempty"`
+					B *[]int `json:"b,omitempty"`
 				}
 			})(nil),
 		},
 		{
-			name: "PtrHeadBoolNilMultiFieldsNotRootString",
+			name: "PtrHeadSliceNilMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a,string"`
+					A *[]int `json:"a,string"`
 				}
 				B *struct {
-					B *bool `json:"b,string"`
+					B *[]int `json:"b,string"`
 				}
 			})(nil),
 		},
 
-		// PtrHeadBoolDoubleMultiFieldsNotRoot
+		// PtrHeadSliceDoubleMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolDoubleMultiFieldsNotRoot",
+			name: "PtrHeadSliceDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 				B *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 			}{A: &(struct {
-				A bool `json:"a"`
-				B bool `json:"b"`
-			}{A: true, B: false}), B: &(struct {
-				A bool `json:"a"`
-				B bool `json:"b"`
-			}{A: true, B: false})},
+				A []int `json:"a"`
+				B []int `json:"b"`
+			}{A: []int{-1}, B: []int{1}}), B: &(struct {
+				A []int `json:"a"`
+				B []int `json:"b"`
+			}{A: []int{-1}, B: nil})},
 		},
 		{
-			name: "PtrHeadBoolDoubleMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 				B *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			}{A: &(struct {
-				A bool `json:"a,omitempty"`
-				B bool `json:"b,omitempty"`
-			}{A: true, B: false}), B: &(struct {
-				A bool `json:"a,omitempty"`
-				B bool `json:"b,omitempty"`
-			}{A: true, B: false})},
+				A []int `json:"a,omitempty"`
+				B []int `json:"b,omitempty"`
+			}{A: []int{-1}, B: []int{1}}), B: &(struct {
+				A []int `json:"a,omitempty"`
+				B []int `json:"b,omitempty"`
+			}{A: []int{-1}, B: nil})},
 		},
 		{
-			name: "PtrHeadBoolDoubleMultiFieldsNotRootString",
+			name: "PtrHeadSliceDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 				B *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 			}{A: &(struct {
-				A bool `json:"a,string"`
-				B bool `json:"b,string"`
-			}{A: true, B: false}), B: &(struct {
-				A bool `json:"a,string"`
-				B bool `json:"b,string"`
-			}{A: true, B: false})},
+				A []int `json:"a,string"`
+				B []int `json:"b,string"`
+			}{A: []int{-1}, B: []int{1}}), B: &(struct {
+				A []int `json:"a,string"`
+				B []int `json:"b,string"`
+			}{A: []int{-1}, B: nil})},
 		},
 
-		// PtrHeadBoolNilDoubleMultiFieldsNotRoot
+		// PtrHeadSliceNilDoubleMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRoot",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRoot",
 			data: &struct {
 				A *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 				B *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 			}{A: nil, B: nil},
 		},
 		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: &struct {
 				A *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				} `json:",omitempty"`
 				B *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
-				} `json:",omitempty"`
-			}{A: nil, B: nil},
-		},
-		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootString",
-			data: &struct {
-				A *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
-				}
-				B *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
-				}
-			}{A: nil, B: nil},
-		},
-
-		// PtrHeadBoolNilDoubleMultiFieldsNotRoot
-		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRoot",
-			data: (*struct {
-				A *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
-				}
-				B *struct {
-					A bool `json:"a"`
-					B bool `json:"b"`
-				}
-			})(nil),
-		},
-		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootOmitEmpty",
-			data: (*struct {
-				A *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
-				}
-				B *struct {
-					A bool `json:"a,omitempty"`
-					B bool `json:"b,omitempty"`
-				}
-			})(nil),
-		},
-		{
-			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootString",
-			data: (*struct {
-				A *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
-				}
-				B *struct {
-					A bool `json:"a,string"`
-					B bool `json:"b,string"`
-				}
-			})(nil),
-		},
-
-		// PtrHeadBoolPtrDoubleMultiFieldsNotRoot
-		{
-			name: "PtrHeadBoolPtrDoubleMultiFieldsNotRoot",
-			data: &struct {
-				A *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
-				}
-				B *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a"`
-				B *bool `json:"b"`
-			}{A: boolptr(true), B: boolptr(false)}), B: &(struct {
-				A *bool `json:"a"`
-				B *bool `json:"b"`
-			}{A: boolptr(true), B: boolptr(false)})},
-		},
-		{
-			name: "PtrHeadBoolPtrDoubleMultiFieldsNotRootOmitEmpty",
-			data: &struct {
-				A *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
-				}
-				B *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a,omitempty"`
-				B *bool `json:"b,omitempty"`
-			}{A: boolptr(true), B: boolptr(false)}), B: &(struct {
-				A *bool `json:"a,omitempty"`
-				B *bool `json:"b,omitempty"`
-			}{A: boolptr(true), B: boolptr(false)})},
-		},
-		{
-			name: "PtrHeadBoolPtrDoubleMultiFieldsNotRootString",
-			data: &struct {
-				A *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
-				}
-				B *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
-				}
-			}{A: &(struct {
-				A *bool `json:"a,string"`
-				B *bool `json:"b,string"`
-			}{A: boolptr(true), B: boolptr(false)}), B: &(struct {
-				A *bool `json:"a,string"`
-				B *bool `json:"b,string"`
-			}{A: boolptr(true), B: boolptr(false)})},
-		},
-
-		// PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot
-		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot",
-			data: &struct {
-				A *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
-				}
-				B *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
-				}
-			}{A: nil, B: nil},
-		},
-		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootOmitEmpty",
-			data: &struct {
-				A *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
-				} `json:",omitempty"`
-				B *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				} `json:",omitempty"`
 			}{A: nil, B: nil},
 		},
 		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootString",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRootString",
 			data: &struct {
 				A *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 				B *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 			}{A: nil, B: nil},
 		},
 
-		// PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot
+		// PtrHeadSliceNilDoubleMultiFieldsNotRoot
 		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRoot",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 				B *struct {
-					A *bool `json:"a"`
-					B *bool `json:"b"`
+					A []int `json:"a"`
+					B []int `json:"b"`
 				}
 			})(nil),
 		},
 		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootOmitEmpty",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRootOmitEmpty",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 				B *struct {
-					A *bool `json:"a,omitempty"`
-					B *bool `json:"b,omitempty"`
+					A []int `json:"a,omitempty"`
+					B []int `json:"b,omitempty"`
 				}
 			})(nil),
 		},
 		{
-			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootString",
+			name: "PtrHeadSliceNilDoubleMultiFieldsNotRootString",
 			data: (*struct {
 				A *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 				B *struct {
-					A *bool `json:"a,string"`
-					B *bool `json:"b,string"`
+					A []int `json:"a,string"`
+					B []int `json:"b,string"`
 				}
 			})(nil),
 		},
-		/*
-			// AnonymousHeadBool
-			{
-				name: "AnonymousHeadBool",
-				data: struct {
-					structBool
-					B bool `json:"b"`
-				}{
-					structBool: structBool{A: true},
-					B:          false,
-				},
-			},
-			{
-				name: "AnonymousHeadBoolOmitEmpty",
-				data: struct {
-					structBoolOmitEmpty
-					B bool `json:"b,omitempty"`
-				}{
-					structBoolOmitEmpty: structBoolOmitEmpty{A: true},
-					B:                   false,
-				},
-			},
-			{
-				name: "AnonymousHeadBoolString",
-				data: struct {
-					structBoolString
-					B bool `json:"b,string"`
-				}{
-					structBoolString: structBoolString{A: true},
-					B:                false,
-				},
-			},
 
-			// PtrAnonymousHeadBool
-			{
-				name: "PtrAnonymousHeadBool",
-				data: struct {
-					*structBool
-					B bool `json:"b"`
-				}{
-					structBool: &structBool{A: true},
-					B:          false,
-				},
-			},
-			{
-				name: "PtrAnonymousHeadBoolOmitEmpty",
-				data: struct {
-					*structBoolOmitEmpty
-					B bool `json:"b,omitempty"`
-				}{
-					structBoolOmitEmpty: &structBoolOmitEmpty{A: true},
-					B:                   false,
-				},
-			},
-			{
-				name: "PtrAnonymousHeadBoolString",
-				data: struct {
-					*structBoolString
-					B bool `json:"b,string"`
-				}{
-					structBoolString: &structBoolString{A: true},
-					B:                false,
-				},
-			},
+		// PtrHeadSlicePtrDoubleMultiFieldsNotRoot
+		{
+			name: "PtrHeadSlicePtrDoubleMultiFieldsNotRoot",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+				B *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a"`
+				B *[]int `json:"b"`
+			}{A: sliceptr([]int{-1}), B: sliceptr([]int{1})}), B: &(struct {
+				A *[]int `json:"a"`
+				B *[]int `json:"b"`
+			}{A: nil, B: nil})},
+		},
+		{
+			name: "PtrHeadSlicePtrDoubleMultiFieldsNotRootOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				}
+				B *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a,omitempty"`
+				B *[]int `json:"b,omitempty"`
+			}{A: sliceptr([]int{-1}), B: sliceptr([]int{1})}), B: &(struct {
+				A *[]int `json:"a,omitempty"`
+				B *[]int `json:"b,omitempty"`
+			}{A: nil, B: nil})},
+		},
+		{
+			name: "PtrHeadSlicePtrDoubleMultiFieldsNotRootString",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+				B *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+			}{A: &(struct {
+				A *[]int `json:"a,string"`
+				B *[]int `json:"b,string"`
+			}{A: sliceptr([]int{-1}), B: sliceptr([]int{1})}), B: &(struct {
+				A *[]int `json:"a,string"`
+				B *[]int `json:"b,string"`
+			}{A: nil, B: nil})},
+		},
 
-			// NilPtrAnonymousHeadBool
-			{
-				name: "NilPtrAnonymousHeadBool",
-				data: struct {
-					*structBool
-					B bool `json:"b"`
-				}{
-					structBool: nil,
-					B:          true,
-				},
-			},
-			{
-				name: "NilPtrAnonymousHeadBoolOmitEmpty",
-				data: struct {
-					*structBoolOmitEmpty
-					B bool `json:"b,omitempty"`
-				}{
-					structBoolOmitEmpty: nil,
-					B:                   true,
-				},
-			},
-			{
-				name: "NilPtrAnonymousHeadBoolString",
-				data: struct {
-					*structBoolString
-					B bool `json:"b,string"`
-				}{
-					structBoolString: nil,
-					B:                true,
-				},
-			},
+		// PtrHeadSlicePtrNilDoubleMultiFieldsNotRoot
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRoot",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+				B *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRootOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				} `json:",omitempty"`
+				B *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				} `json:",omitempty"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRootString",
+			data: &struct {
+				A *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+				B *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+			}{A: nil, B: nil},
+		},
 
-			// AnonymousHeadBoolPtr
-			{
-				name: "AnonymousHeadBoolPtr",
-				data: struct {
-					structBoolPtr
-					B *bool `json:"b"`
-				}{
-					structBoolPtr: structBoolPtr{A: boolptr(true)},
-					B:             boolptr(false),
-				},
-			},
-			{
-				name: "AnonymousHeadBoolPtrOmitEmpty",
-				data: struct {
-					structBoolPtrOmitEmpty
-					B *bool `json:"b,omitempty"`
-				}{
-					structBoolPtrOmitEmpty: structBoolPtrOmitEmpty{A: boolptr(true)},
-					B:                      boolptr(false),
-				},
-			},
-			{
-				name: "AnonymousHeadBoolPtrString",
-				data: struct {
-					structBoolPtrString
-					B *bool `json:"b,string"`
-				}{
-					structBoolPtrString: structBoolPtrString{A: boolptr(true)},
-					B:                   boolptr(false),
-				},
-			},
+		// PtrHeadSlicePtrNilDoubleMultiFieldsNotRoot
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRoot",
+			data: (*struct {
+				A *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+				B *struct {
+					A *[]int `json:"a"`
+					B *[]int `json:"b"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRootOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				}
+				B *struct {
+					A *[]int `json:"a,omitempty"`
+					B *[]int `json:"b,omitempty"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadSlicePtrNilDoubleMultiFieldsNotRootString",
+			data: (*struct {
+				A *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+				B *struct {
+					A *[]int `json:"a,string"`
+					B *[]int `json:"b,string"`
+				}
+			})(nil),
+		},
 
-			// AnonymousHeadBoolPtrNil
-			{
-				name: "AnonymousHeadBoolPtrNil",
-				data: struct {
-					structBoolPtr
-					B *bool `json:"b"`
-				}{
-					structBoolPtr: structBoolPtr{A: nil},
-					B:             boolptr(true),
-				},
+		// AnonymousHeadSlice
+		{
+			name: "AnonymousHeadSlice",
+			data: struct {
+				structSlice
+				B []int `json:"b"`
+			}{
+				structSlice: structSlice{A: []int{-1}},
+				B:           nil,
 			},
-			{
-				name: "AnonymousHeadBoolPtrNilOmitEmpty",
-				data: struct {
-					structBoolPtrOmitEmpty
-					B *bool `json:"b,omitempty"`
-				}{
-					structBoolPtrOmitEmpty: structBoolPtrOmitEmpty{A: nil},
-					B:                      boolptr(true),
-				},
+		},
+		{
+			name: "AnonymousHeadSliceOmitEmpty",
+			data: struct {
+				structSliceOmitEmpty
+				B []int `json:"b,omitempty"`
+			}{
+				structSliceOmitEmpty: structSliceOmitEmpty{A: []int{-1}},
+				B:                    nil,
 			},
-			{
-				name: "AnonymousHeadBoolPtrNilString",
-				data: struct {
-					structBoolPtrString
-					B *bool `json:"b,string"`
-				}{
-					structBoolPtrString: structBoolPtrString{A: nil},
-					B:                   boolptr(true),
-				},
+		},
+		{
+			name: "AnonymousHeadSliceString",
+			data: struct {
+				structSliceString
+				B []int `json:"b,string"`
+			}{
+				structSliceString: structSliceString{A: []int{-1}},
+				B:                 nil,
 			},
+		},
 
-			// PtrAnonymousHeadBoolPtr
-			{
-				name: "PtrAnonymousHeadBoolPtr",
-				data: struct {
-					*structBoolPtr
-					B *bool `json:"b"`
-				}{
-					structBoolPtr: &structBoolPtr{A: boolptr(true)},
-					B:             boolptr(false),
-				},
+		// PtrAnonymousHeadSlice
+		{
+			name: "PtrAnonymousHeadSlice",
+			data: struct {
+				*structSlice
+				B []int `json:"b"`
+			}{
+				structSlice: &structSlice{A: []int{-1}},
+				B:           nil,
 			},
-			{
-				name: "PtrAnonymousHeadBoolPtrOmitEmpty",
-				data: struct {
-					*structBoolPtrOmitEmpty
-					B *bool `json:"b,omitempty"`
-				}{
-					structBoolPtrOmitEmpty: &structBoolPtrOmitEmpty{A: boolptr(true)},
-					B:                      boolptr(false),
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceOmitEmpty",
+			data: struct {
+				*structSliceOmitEmpty
+				B []int `json:"b,omitempty"`
+			}{
+				structSliceOmitEmpty: &structSliceOmitEmpty{A: []int{-1}},
+				B:                    nil,
 			},
-			{
-				name: "PtrAnonymousHeadBoolPtrString",
-				data: struct {
-					*structBoolPtrString
-					B *bool `json:"b,string"`
-				}{
-					structBoolPtrString: &structBoolPtrString{A: boolptr(true)},
-					B:                   boolptr(false),
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceString",
+			data: struct {
+				*structSliceString
+				B []int `json:"b,string"`
+			}{
+				structSliceString: &structSliceString{A: []int{-1}},
+				B:                 nil,
 			},
+		},
 
-			// NilPtrAnonymousHeadBoolPtr
-			{
-				name: "NilPtrAnonymousHeadBoolPtr",
-				data: struct {
-					*structBoolPtr
-					B *bool `json:"b"`
-				}{
-					structBoolPtr: nil,
-					B:             boolptr(true),
-				},
+		// PtrAnonymousHeadSliceNil
+		{
+			name: "PtrAnonymousHeadSliceNil",
+			data: struct {
+				*structSlice
+				B []int `json:"b"`
+			}{
+				structSlice: &structSlice{A: nil},
+				B:           nil,
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolPtrOmitEmpty",
-				data: struct {
-					*structBoolPtrOmitEmpty
-					B *bool `json:"b,omitempty"`
-				}{
-					structBoolPtrOmitEmpty: nil,
-					B:                      boolptr(true),
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceNilOmitEmpty",
+			data: struct {
+				*structSliceOmitEmpty
+				B []int `json:"b,omitempty"`
+			}{
+				structSliceOmitEmpty: &structSliceOmitEmpty{A: nil},
+				B:                    nil,
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolPtrString",
-				data: struct {
-					*structBoolPtrString
-					B *bool `json:"b,string"`
-				}{
-					structBoolPtrString: nil,
-					B:                   boolptr(true),
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceNilString",
+			data: struct {
+				*structSliceString
+				B []int `json:"b,string"`
+			}{
+				structSliceString: &structSliceString{A: nil},
+				B:                 nil,
 			},
+		},
 
-			// AnonymousHeadBoolOnly
-			{
-				name: "AnonymousHeadBoolOnly",
-				data: struct {
-					structBool
-				}{
-					structBool: structBool{A: true},
-				},
+		// NilPtrAnonymousHeadSlice
+		{
+			name: "NilPtrAnonymousHeadSlice",
+			data: struct {
+				*structSlice
+				B []int `json:"b"`
+			}{
+				structSlice: nil,
+				B:           []int{-1},
 			},
-			{
-				name: "AnonymousHeadBoolOnlyOmitEmpty",
-				data: struct {
-					structBoolOmitEmpty
-				}{
-					structBoolOmitEmpty: structBoolOmitEmpty{A: true},
-				},
+		},
+		{
+			name: "NilPtrAnonymousHeadSliceOmitEmpty",
+			data: struct {
+				*structSliceOmitEmpty
+				B []int `json:"b,omitempty"`
+			}{
+				structSliceOmitEmpty: nil,
+				B:                    []int{-1},
 			},
-			{
-				name: "AnonymousHeadBoolOnlyString",
-				data: struct {
-					structBoolString
-				}{
-					structBoolString: structBoolString{A: true},
-				},
+		},
+		{
+			name: "NilPtrAnonymousHeadSliceString",
+			data: struct {
+				*structSliceString
+				B []int `json:"b,string"`
+			}{
+				structSliceString: nil,
+				B:                 []int{-1},
 			},
+		},
 
-			// PtrAnonymousHeadBoolOnly
-			{
-				name: "PtrAnonymousHeadBoolOnly",
-				data: struct {
-					*structBool
-				}{
-					structBool: &structBool{A: true},
-				},
+		// AnonymousHeadSlicePtr
+		{
+			name: "AnonymousHeadSlicePtr",
+			data: struct {
+				structSlicePtr
+				B *[]int `json:"b"`
+			}{
+				structSlicePtr: structSlicePtr{A: sliceptr([]int{-1})},
+				B:              nil,
 			},
-			{
-				name: "PtrAnonymousHeadBoolOnlyOmitEmpty",
-				data: struct {
-					*structBoolOmitEmpty
-				}{
-					structBoolOmitEmpty: &structBoolOmitEmpty{A: true},
-				},
+		},
+		{
+			name: "AnonymousHeadSlicePtrOmitEmpty",
+			data: struct {
+				structSlicePtrOmitEmpty
+				B *[]int `json:"b,omitempty"`
+			}{
+				structSlicePtrOmitEmpty: structSlicePtrOmitEmpty{A: sliceptr([]int{-1})},
+				B:                       nil,
 			},
-			{
-				name: "PtrAnonymousHeadBoolOnlyString",
-				data: struct {
-					*structBoolString
-				}{
-					structBoolString: &structBoolString{A: true},
-				},
+		},
+		{
+			name: "AnonymousHeadSlicePtrString",
+			data: struct {
+				structSlicePtrString
+				B *[]int `json:"b,string"`
+			}{
+				structSlicePtrString: structSlicePtrString{A: sliceptr([]int{-1})},
+				B:                    nil,
 			},
+		},
 
-			// NilPtrAnonymousHeadBoolOnly
-			{
-				name: "NilPtrAnonymousHeadBoolOnly",
-				data: struct {
-					*structBool
-				}{
-					structBool: nil,
-				},
+		// AnonymousHeadSlicePtrNil
+		{
+			name: "AnonymousHeadSlicePtrNil",
+			data: struct {
+				structSlicePtr
+				B *[]int `json:"b"`
+			}{
+				structSlicePtr: structSlicePtr{A: nil},
+				B:              sliceptr([]int{-1}),
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolOnlyOmitEmpty",
-				data: struct {
-					*structBoolOmitEmpty
-				}{
-					structBoolOmitEmpty: nil,
-				},
+		},
+		{
+			name: "AnonymousHeadSlicePtrNilOmitEmpty",
+			data: struct {
+				structSlicePtrOmitEmpty
+				B *[]int `json:"b,omitempty"`
+			}{
+				structSlicePtrOmitEmpty: structSlicePtrOmitEmpty{A: nil},
+				B:                       sliceptr([]int{-1}),
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolOnlyString",
-				data: struct {
-					*structBoolString
-				}{
-					structBoolString: nil,
-				},
+		},
+		{
+			name: "AnonymousHeadSlicePtrNilString",
+			data: struct {
+				structSlicePtrString
+				B *[]int `json:"b,string"`
+			}{
+				structSlicePtrString: structSlicePtrString{A: nil},
+				B:                    sliceptr([]int{-1}),
 			},
+		},
 
-			// AnonymousHeadBoolPtrOnly
-			{
-				name: "AnonymousHeadBoolPtrOnly",
-				data: struct {
-					structBoolPtr
-				}{
-					structBoolPtr: structBoolPtr{A: boolptr(true)},
-				},
+		// PtrAnonymousHeadSlicePtr
+		{
+			name: "PtrAnonymousHeadSlicePtr",
+			data: struct {
+				*structSlicePtr
+				B *[]int `json:"b"`
+			}{
+				structSlicePtr: &structSlicePtr{A: sliceptr([]int{-1})},
+				B:              nil,
 			},
-			{
-				name: "AnonymousHeadBoolPtrOnlyOmitEmpty",
-				data: struct {
-					structBoolPtrOmitEmpty
-				}{
-					structBoolPtrOmitEmpty: structBoolPtrOmitEmpty{A: boolptr(true)},
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSlicePtrOmitEmpty",
+			data: struct {
+				*structSlicePtrOmitEmpty
+				B *[]int `json:"b,omitempty"`
+			}{
+				structSlicePtrOmitEmpty: &structSlicePtrOmitEmpty{A: sliceptr([]int{-1})},
+				B:                       nil,
 			},
-			{
-				name: "AnonymousHeadBoolPtrOnlyString",
-				data: struct {
-					structBoolPtrString
-				}{
-					structBoolPtrString: structBoolPtrString{A: boolptr(true)},
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSlicePtrString",
+			data: struct {
+				*structSlicePtrString
+				B *[]int `json:"b,string"`
+			}{
+				structSlicePtrString: &structSlicePtrString{A: sliceptr([]int{-1})},
+				B:                    nil,
 			},
+		},
 
-			// AnonymousHeadBoolPtrNilOnly
-			{
-				name: "AnonymousHeadBoolPtrNilOnly",
-				data: struct {
-					structBoolPtr
-				}{
-					structBoolPtr: structBoolPtr{A: nil},
-				},
+		// NilPtrAnonymousHeadSlicePtr
+		{
+			name: "NilPtrAnonymousHeadSlicePtr",
+			data: struct {
+				*structSlicePtr
+				B *[]int `json:"b"`
+			}{
+				structSlicePtr: nil,
+				B:              sliceptr([]int{-1}),
 			},
-			{
-				name: "AnonymousHeadBoolPtrNilOnlyOmitEmpty",
-				data: struct {
-					structBoolPtrOmitEmpty
-				}{
-					structBoolPtrOmitEmpty: structBoolPtrOmitEmpty{A: nil},
-				},
+		},
+		{
+			name: "NilPtrAnonymousHeadSlicePtrOmitEmpty",
+			data: struct {
+				*structSlicePtrOmitEmpty
+				B *[]int `json:"b,omitempty"`
+			}{
+				structSlicePtrOmitEmpty: nil,
+				B:                       sliceptr([]int{-1}),
 			},
-			{
-				name: "AnonymousHeadBoolPtrNilOnlyString",
-				data: struct {
-					structBoolPtrString
-				}{
-					structBoolPtrString: structBoolPtrString{A: nil},
-				},
+		},
+		{
+			name: "NilPtrAnonymousHeadSlicePtrString",
+			data: struct {
+				*structSlicePtrString
+				B *[]int `json:"b,string"`
+			}{
+				structSlicePtrString: nil,
+				B:                    sliceptr([]int{-1}),
 			},
+		},
 
-			// PtrAnonymousHeadBoolPtrOnly
-			{
-				name: "PtrAnonymousHeadBoolPtrOnly",
-				data: struct {
-					*structBoolPtr
-				}{
-					structBoolPtr: &structBoolPtr{A: boolptr(true)},
-				},
+		// AnonymousHeadSliceOnly
+		{
+			name: "AnonymousHeadSliceOnly",
+			data: struct {
+				structSlice
+			}{
+				structSlice: structSlice{A: []int{-1}},
 			},
-			{
-				name: "PtrAnonymousHeadBoolPtrOnlyOmitEmpty",
-				data: struct {
-					*structBoolPtrOmitEmpty
-				}{
-					structBoolPtrOmitEmpty: &structBoolPtrOmitEmpty{A: boolptr(true)},
-				},
+		},
+		{
+			name: "AnonymousHeadSliceOnlyOmitEmpty",
+			data: struct {
+				structSliceOmitEmpty
+			}{
+				structSliceOmitEmpty: structSliceOmitEmpty{A: []int{-1}},
 			},
-			{
-				name: "PtrAnonymousHeadBoolPtrOnlyString",
-				data: struct {
-					*structBoolPtrString
-				}{
-					structBoolPtrString: &structBoolPtrString{A: boolptr(true)},
-				},
+		},
+		{
+			name: "AnonymousHeadSliceOnlyString",
+			data: struct {
+				structSliceString
+			}{
+				structSliceString: structSliceString{A: []int{-1}},
 			},
+		},
 
-			// NilPtrAnonymousHeadBoolPtrOnly
-			{
-				name: "NilPtrAnonymousHeadBoolPtrOnly",
-				data: struct {
-					*structBoolPtr
-				}{
-					structBoolPtr: nil,
-				},
+		// PtrAnonymousHeadSliceOnly
+		{
+			name: "PtrAnonymousHeadSliceOnly",
+			data: struct {
+				*structSlice
+			}{
+				structSlice: &structSlice{A: []int{-1}},
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolPtrOnlyOmitEmpty",
-				data: struct {
-					*structBoolPtrOmitEmpty
-				}{
-					structBoolPtrOmitEmpty: nil,
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceOnlyOmitEmpty",
+			data: struct {
+				*structSliceOmitEmpty
+			}{
+				structSliceOmitEmpty: &structSliceOmitEmpty{A: []int{-1}},
 			},
-			{
-				name: "NilPtrAnonymousHeadBoolPtrOnlyString",
-				data: struct {
-					*structBoolPtrString
-				}{
-					structBoolPtrString: nil,
-				},
+		},
+		{
+			name: "PtrAnonymousHeadSliceOnlyString",
+			data: struct {
+				*structSliceString
+			}{
+				structSliceString: &structSliceString{A: []int{-1}},
 			},
-		*/
+		},
+
+		// NilPtrAnonymousHeadSliceOnly
+		{
+			name: "NilPtrAnonymousHeadSliceOnly",
+			data: struct {
+				*structSlice
+			}{
+				structSlice: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadSliceOnlyOmitEmpty",
+			data: struct {
+				*structSliceOmitEmpty
+			}{
+				structSliceOmitEmpty: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadSliceOnlyString",
+			data: struct {
+				*structSliceString
+			}{
+				structSliceString: nil,
+			},
+		},
+
+		// AnonymousHeadSlicePtrOnly
+		{
+			name: "AnonymousHeadSlicePtrOnly",
+			data: struct {
+				structSlicePtr
+			}{
+				structSlicePtr: structSlicePtr{A: sliceptr([]int{-1})},
+			},
+		},
+		{
+			name: "AnonymousHeadSlicePtrOnlyOmitEmpty",
+			data: struct {
+				structSlicePtrOmitEmpty
+			}{
+				structSlicePtrOmitEmpty: structSlicePtrOmitEmpty{A: sliceptr([]int{-1})},
+			},
+		},
+		{
+			name: "AnonymousHeadSlicePtrOnlyString",
+			data: struct {
+				structSlicePtrString
+			}{
+				structSlicePtrString: structSlicePtrString{A: sliceptr([]int{-1})},
+			},
+		},
+
+		// AnonymousHeadSlicePtrNilOnly
+		{
+			name: "AnonymousHeadSlicePtrNilOnly",
+			data: struct {
+				structSlicePtr
+			}{
+				structSlicePtr: structSlicePtr{A: nil},
+			},
+		},
+		{
+			name: "AnonymousHeadSlicePtrNilOnlyOmitEmpty",
+			data: struct {
+				structSlicePtrOmitEmpty
+			}{
+				structSlicePtrOmitEmpty: structSlicePtrOmitEmpty{A: nil},
+			},
+		},
+		{
+			name: "AnonymousHeadSlicePtrNilOnlyString",
+			data: struct {
+				structSlicePtrString
+			}{
+				structSlicePtrString: structSlicePtrString{A: nil},
+			},
+		},
+
+		// PtrAnonymousHeadSlicePtrOnly
+		{
+			name: "PtrAnonymousHeadSlicePtrOnly",
+			data: struct {
+				*structSlicePtr
+			}{
+				structSlicePtr: &structSlicePtr{A: sliceptr([]int{-1})},
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSlicePtrOnlyOmitEmpty",
+			data: struct {
+				*structSlicePtrOmitEmpty
+			}{
+				structSlicePtrOmitEmpty: &structSlicePtrOmitEmpty{A: sliceptr([]int{-1})},
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSlicePtrOnlyString",
+			data: struct {
+				*structSlicePtrString
+			}{
+				structSlicePtrString: &structSlicePtrString{A: sliceptr([]int{-1})},
+			},
+		},
+
+		// NilPtrAnonymousHeadSlicePtrOnly
+		{
+			name: "NilPtrAnonymousHeadSlicePtrOnly",
+			data: struct {
+				*structSlicePtr
+			}{
+				structSlicePtr: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadSlicePtrOnlyOmitEmpty",
+			data: struct {
+				*structSlicePtrOmitEmpty
+			}{
+				structSlicePtrOmitEmpty: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadSlicePtrOnlyString",
+			data: struct {
+				*structSlicePtrString
+			}{
+				structSlicePtrString: nil,
+			},
+		},
 	}
 	for _, test := range tests {
 		for _, indent := range []bool{false} {

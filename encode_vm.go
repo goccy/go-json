@@ -2869,20 +2869,23 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldPtrAnonymousHeadArray, opStructFieldPtrAnonymousHeadSlice:
+		case opStructFieldPtrAnonymousHeadArray, opStructFieldPtrAnonymousHeadStringTagArray,
+			opStructFieldPtrAnonymousHeadSlice, opStructFieldPtrAnonymousHeadStringTagSlice:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
-		case opStructFieldAnonymousHeadArray, opStructFieldAnonymousHeadSlice:
+		case opStructFieldAnonymousHeadArray, opStructFieldAnonymousHeadStringTagArray,
+			opStructFieldAnonymousHeadSlice, opStructFieldAnonymousHeadStringTagSlice:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
 				break
 			}
 			b = append(b, code.key...)
-			store(ctxptr, code.idx, p+code.offset)
+			p += code.offset
 			code = code.next
+			store(ctxptr, code.idx, p)
 		case opStructFieldPtrAnonymousHeadOmitEmptyArray, opStructFieldPtrAnonymousHeadOmitEmptySlice:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
@@ -2894,7 +2897,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.end.next
 				break
 			}
-			array := ptrToSlice(p)
+			array := ptrToSlice(p + code.offset)
 			if array.data == nil {
 				code = code.nextField
 			} else {
@@ -2902,7 +2905,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldPtrAnonymousHeadArrayPtr, opStructFieldPtrAnonymousHeadSlicePtr:
+		case opStructFieldPtrAnonymousHeadArrayPtr, opStructFieldPtrAnonymousHeadStringTagArrayPtr,
+			opStructFieldPtrAnonymousHeadSlicePtr, opStructFieldPtrAnonymousHeadStringTagSlicePtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2910,7 +2914,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			store(ctxptr, code.idx, ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadArrayPtr, opStructFieldAnonymousHeadSlicePtr:
+		case opStructFieldAnonymousHeadArrayPtr, opStructFieldAnonymousHeadStringTagArrayPtr,
+			opStructFieldAnonymousHeadSlicePtr, opStructFieldAnonymousHeadStringTagSlicePtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
 				code = code.end.next

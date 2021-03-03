@@ -2,9 +2,12 @@ package json
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
 	"sync"
 	"unsafe"
@@ -361,4 +364,33 @@ func encodeByteSlice(b []byte, src []byte) []byte {
 func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 	b = append(b, ctx.prefix...)
 	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
+}
+
+func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
+	rv := reflect.ValueOf(v)
+	bb, err := rv.Interface().(Marshaler).MarshalJSON()
+	if err != nil {
+		return nil, &MarshalerError{Type: rv.Type(), Err: err}
+	}
+	if len(bb) == 0 {
+		return nil, errUnexpectedEndOfJSON(
+			fmt.Sprintf("error calling MarshalJSON for type %s", rv.Type()),
+			0,
+		)
+	}
+	buf := bytes.NewBuffer(b)
+	//TODO: we should validate buffer with `compact`
+	if err := compact(buf, bb, false); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
+	rv := reflect.ValueOf(v)
+	bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
+	if err != nil {
+		return nil, &MarshalerError{Type: rv.Type(), Err: err}
+	}
+	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

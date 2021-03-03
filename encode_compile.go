@@ -167,7 +167,11 @@ func encodeOptimizeStructEnd(c *opcode) {
 			switch code.op {
 			case opStructEnd:
 				prev := code.prevField
-				if strings.Contains(prev.op.String(), "Head") {
+				prevOp := prev.op.String()
+				if strings.Contains(prevOp, "Head") ||
+					strings.Contains(prevOp, "Slice") ||
+					strings.Contains(prevOp, "Array") ||
+					strings.Contains(prevOp, "Map") {
 					// not exists field
 					code = code.next
 					break
@@ -751,6 +755,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldHeadStringPtr
 			case opBool:
 				return opStructFieldHeadBoolPtr
+			case opSliceHead:
+				return opStructFieldHeadSlicePtr
 			}
 		}
 	case opInt:
@@ -834,6 +840,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldStringPtr
 			case opBool:
 				return opStructFieldBoolPtr
+			case opSliceHead:
+				return opStructFieldSlicePtr
 			}
 		}
 	case opInt:
@@ -919,11 +927,17 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadStruct,
 		opStructFieldHeadOmitEmpty,
 		opStructFieldHeadOmitEmptySlice,
+		opStructFieldHeadStringTagSlice,
 		opStructFieldHeadOmitEmptyArray,
 		opStructFieldHeadOmitEmptyMap,
 		opStructFieldHeadOmitEmptyMapLoad,
 		opStructFieldHeadOmitEmptyStruct,
 		opStructFieldHeadStringTag:
+		return valueCode.beforeLastCode()
+	case opStructFieldHeadSlicePtr,
+		opStructFieldHeadOmitEmptySlicePtr,
+		opStructFieldHeadStringTagSlicePtr:
+		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	}
 	ctx.decOpcodeIndex()
@@ -946,11 +960,18 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldStruct,
 		opStructFieldOmitEmpty,
 		opStructFieldOmitEmptySlice,
+		opStructFieldStringTagSlice,
 		opStructFieldOmitEmptyArray,
+		opStructFieldStringTagArray,
 		opStructFieldOmitEmptyMap,
 		opStructFieldOmitEmptyMapLoad,
 		opStructFieldOmitEmptyStruct,
 		opStructFieldStringTag:
+		return valueCode.beforeLastCode()
+	case opStructFieldSlicePtr,
+		opStructFieldOmitEmptySlicePtr,
+		opStructFieldStringTagSlicePtr:
+		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	}
 	ctx.decIndex()

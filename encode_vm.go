@@ -2993,7 +2993,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 		case opStructFieldPtrHeadMap, opStructFieldPtrHeadStringTagMap:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -3018,7 +3018,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			store(ctxptr, code.idx, p)
 		case opStructFieldPtrHeadOmitEmptyMap:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -4231,17 +4231,11 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opStructFieldMap, opStructFieldStringTagMap:
 			b = append(b, code.key...)
 			p := load(ctxptr, code.headIdx)
-			if p != 0 {
-				p = ptrToPtr(p + code.offset)
-			}
+			p = ptrToPtr(p + code.offset)
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.headIdx)
-			if p == 0 {
-				code = code.nextField
-				break
-			}
 			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				code = code.nextField
@@ -4253,9 +4247,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opStructFieldMapPtr, opStructFieldStringTagMapPtr:
 			b = append(b, code.key...)
 			p := load(ctxptr, code.headIdx)
-			if p != 0 {
-				p = ptrToPtr(p + code.offset)
-			}
+			p = ptrToPtr(p + code.offset)
 			if p != 0 {
 				p = ptrToPtr(p)
 			}

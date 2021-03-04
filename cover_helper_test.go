@@ -20,6 +20,7 @@ func float64ptr(v float64) *float64 { return &v }
 func stringptr(v string) *string    { return &v }
 func boolptr(v bool) *bool          { return &v }
 func sliceptr(v []int) *[]int       { return &v }
+func arrayptr(v [2]int) *[2]int     { return &v }
 
 func encodeByEncodingJSON(data interface{}, indent, escape bool) string {
 	var buf bytes.Buffer

@@ -2784,12 +2784,12 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			p += code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
-		case opStructFieldPtrHeadOmitEmptyArray, opStructFieldPtrHeadOmitEmptySlice:
+		case opStructFieldPtrHeadOmitEmptyArray:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
-		case opStructFieldHeadOmitEmptyArray, opStructFieldHeadOmitEmptySlice:
+		case opStructFieldHeadOmitEmptyArray:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -2799,8 +2799,26 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, '{')
 			p += code.offset
-			array := ptrToSlice(p)
-			if array.data == nil {
+			b = append(b, code.key...)
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldPtrHeadOmitEmptySlice:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptySlice:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			p += code.offset
+			slice := ptrToSlice(p)
+			if slice.data == nil {
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
@@ -2886,19 +2904,33 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			p += code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
-		case opStructFieldPtrAnonymousHeadOmitEmptyArray, opStructFieldPtrAnonymousHeadOmitEmptySlice:
+		case opStructFieldPtrAnonymousHeadOmitEmptyArray:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
 			}
 			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyArray, opStructFieldAnonymousHeadOmitEmptySlice:
+		case opStructFieldAnonymousHeadOmitEmptyArray:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
 				break
 			}
-			array := ptrToSlice(p + code.offset)
-			if array.data == nil {
+			b = append(b, code.key...)
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldPtrAnonymousHeadOmitEmptySlice:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptySlice:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			slice := ptrToSlice(p + code.offset)
+			if slice.data == nil {
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
@@ -3911,22 +3943,33 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 			}
 			code = code.next
-		case opStructFieldArray:
+		case opStructFieldArray, opStructFieldStringTagArray:
 			b = append(b, code.key...)
 			ptr := load(ctxptr, code.headIdx)
 			p := ptr + code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldOmitEmptyArray:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			array := ptrToSlice(p)
-			if p == 0 || uintptr(array.data) == 0 {
-				code = code.nextField
-			} else {
+			p := load(ctxptr, code.headIdx)
+			p += code.offset
+			b = append(b, code.key...)
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldArrayPtr, opStructFieldStringTagArrayPtr:
+			b = append(b, code.key...)
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldOmitEmptyArrayPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
 				b = append(b, code.key...)
 				code = code.next
 				store(ctxptr, code.idx, p)
+			} else {
+				code = code.nextField
 			}
 		case opStructFieldSlice, opStructFieldStringTagSlice:
 			b = append(b, code.key...)

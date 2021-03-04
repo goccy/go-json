@@ -2965,7 +2965,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldPtrAnonymousHeadOmitEmptyArrayPtr, opStructFieldPtrAnonymousHeadOmitEmptySlicePtr:
+		case opStructFieldPtrAnonymousHeadOmitEmptyArrayPtr,
+			opStructFieldPtrAnonymousHeadOmitEmptySlicePtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -2973,7 +2974,8 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			store(ctxptr, code.idx, ptrToPtr(p))
 			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyArrayPtr, opStructFieldAnonymousHeadOmitEmptySlicePtr:
+		case opStructFieldAnonymousHeadOmitEmptyArrayPtr,
+			opStructFieldAnonymousHeadOmitEmptySlicePtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
 				code = code.end.next
@@ -2985,6 +2987,228 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 {
 				code = code.nextField
 			} else {
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldPtrHeadMap, opStructFieldPtrHeadStringTagMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadMap, opStructFieldHeadStringTagMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			b = append(b, code.key...)
+			if p != 0 && code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldPtrHeadOmitEmptyMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadOmitEmptyMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			if p != 0 && code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if maplen(ptrToUnsafePtr(p)) == 0 {
+				code = code.nextField
+			} else {
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldPtrHeadMapPtr, opStructFieldPtrHeadStringTagMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadMapPtr, opStructFieldHeadStringTagMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			b = append(b, code.key...)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.nextField
+				break
+			}
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.nextField
+			} else {
+				if code.indirect {
+					p = ptrToPtr(p)
+				}
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldPtrHeadOmitEmptyMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadOmitEmptyMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			if p == 0 {
+				code = code.nextField
+				break
+			}
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				code = code.nextField
+			} else {
+				if code.indirect {
+					p = ptrToPtr(p)
+				}
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldPtrAnonymousHeadMap, opStructFieldPtrAnonymousHeadStringTagMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadMap, opStructFieldAnonymousHeadStringTagMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			b = append(b, code.key...)
+			if p != 0 && code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldPtrAnonymousHeadOmitEmptyMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			if p != 0 && code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if maplen(ptrToUnsafePtr(p)) == 0 {
+				code = code.nextField
+			} else {
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldPtrAnonymousHeadMapPtr, opStructFieldPtrAnonymousHeadStringTagMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadMapPtr, opStructFieldAnonymousHeadStringTagMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			b = append(b, code.key...)
+			if p != 0 {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p != 0 && code.indirect {
+				p = ptrToPtr(p)
+			}
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldPtrAnonymousHeadOmitEmptyMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				code = code.nextField
+			} else {
+				if code.indirect {
+					p = ptrToPtr(p)
+				}
 				b = append(b, code.key...)
 				code = code.next
 				store(ctxptr, code.idx, p)
@@ -4004,26 +4228,51 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			} else {
 				code = code.nextField
 			}
-		case opStructFieldMap:
+		case opStructFieldMap, opStructFieldStringTagMap:
 			b = append(b, code.key...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
+			p := load(ctxptr, code.headIdx)
+			if p != 0 {
+				p = ptrToPtr(p + code.offset)
+			}
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldOmitEmptyMap:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
+			p := load(ctxptr, code.headIdx)
+			if p == 0 {
+				code = code.nextField
+				break
+			}
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				code = code.nextField
 			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					code = code.next
-					store(ctxptr, code.idx, p)
-				}
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			}
+		case opStructFieldMapPtr, opStructFieldStringTagMapPtr:
+			b = append(b, code.key...)
+			p := load(ctxptr, code.headIdx)
+			if p != 0 {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p != 0 {
+				p = ptrToPtr(p)
+			}
+			code = code.next
+			store(ctxptr, code.idx, p)
+		case opStructFieldOmitEmptyMapPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
+				p = ptrToPtr(p)
+			}
+			if p != 0 {
+				b = append(b, code.key...)
+				code = code.next
+				store(ctxptr, code.idx, p)
+			} else {
+				code = code.nextField
 			}
 		case opStructFieldMapLoad:
 			b = append(b, code.key...)

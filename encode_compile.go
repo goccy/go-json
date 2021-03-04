@@ -228,7 +228,7 @@ func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	case reflect.Array:
 		return encodeCompileArray(ctx)
 	case reflect.Map:
-		return encodeCompileMap(ctx, true)
+		return encodeCompileMap(ctx, isPtr)
 	case reflect.Struct:
 		return encodeCompileStruct(ctx, isPtr)
 	case reflect.Interface:
@@ -661,7 +661,7 @@ func encodeCompileMap(ctx *encodeCompileContext, withLoad bool) (*opcode, error)
 	//                                     ^                       |
 	//                                     |_______________________|
 	ctx = ctx.incIndent()
-	header := newMapHeaderCode(ctx, withLoad)
+	header := newMapHeaderCode(ctx, false) //withLoad)
 	ctx.incIndex()
 
 	typ := ctx.typ
@@ -759,6 +759,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldHeadSlicePtr
 			case opArrayHead:
 				return opStructFieldHeadArrayPtr
+			case opMapHead:
+				return opStructFieldHeadMapPtr
 			}
 		}
 	case opInt:
@@ -844,6 +846,10 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 				return opStructFieldBoolPtr
 			case opSliceHead:
 				return opStructFieldSlicePtr
+			case opArrayHead:
+				return opStructFieldArrayPtr
+			case opMapHead:
+				return opStructFieldMapPtr
 			}
 		}
 	case opInt:
@@ -934,6 +940,8 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadStringTagArray,
 		opStructFieldHeadOmitEmptyMap,
 		opStructFieldHeadOmitEmptyMapLoad,
+		opStructFieldHeadStringTagMap,
+		opStructFieldHeadStringTagMapLoad,
 		opStructFieldHeadOmitEmptyStruct,
 		opStructFieldHeadStringTag:
 		return valueCode.beforeLastCode()
@@ -942,7 +950,10 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadStringTagSlicePtr,
 		opStructFieldHeadArrayPtr,
 		opStructFieldHeadOmitEmptyArrayPtr,
-		opStructFieldHeadStringTagArrayPtr:
+		opStructFieldHeadStringTagArrayPtr,
+		opStructFieldHeadMapPtr,
+		opStructFieldHeadOmitEmptyMapPtr,
+		opStructFieldHeadStringTagMapPtr:
 		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	}
@@ -971,6 +982,8 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldStringTagArray,
 		opStructFieldOmitEmptyMap,
 		opStructFieldOmitEmptyMapLoad,
+		opStructFieldStringTagMap,
+		opStructFieldStringTagMapLoad,
 		opStructFieldOmitEmptyStruct,
 		opStructFieldStringTag:
 		return valueCode.beforeLastCode()
@@ -979,7 +992,10 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldStringTagSlicePtr,
 		opStructFieldArrayPtr,
 		opStructFieldOmitEmptyArrayPtr,
-		opStructFieldStringTagArrayPtr:
+		opStructFieldStringTagArrayPtr,
+		opStructFieldMapPtr,
+		opStructFieldOmitEmptyMapPtr,
+		opStructFieldStringTagMapPtr:
 		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	}

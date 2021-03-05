@@ -206,9 +206,9 @@ func encodeImplementsMarshaler(typ *rtype) bool {
 func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	case isPtr && typ.Kind() == reflect.Ptr && typ.Implements(marshalJSONType) && !typ.Elem().Implements(marshalJSONType):
-		// *struct{ field *implementedMarshalJSONType }
-		return encodeCompileMarshalJSONPtr(ctx)
+	//case isPtr && typ.Kind() == reflect.Ptr && typ.Implements(marshalJSONType) && !typ.Elem().Implements(marshalJSONType):
+	// *struct{ field *implementedMarshalJSONType }
+	//	return encodeCompileMarshalJSONPtr(ctx)
 	case typ.Implements(marshalJSONType) && (typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalJSONType)):
 		return encodeCompileMarshalJSON(ctx)
 		//	case rtype_ptrTo(typ).Implements(marshalJSONType):
@@ -1230,6 +1230,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	//                        |__________|
 	fieldNum := typ.NumField()
 	indirect := ifaceIndir(typ)
+	//fmt.Println("indirect = ", indirect, "type = ", typ, "isPtr = ", isPtr)
 	fieldIdx := 0
 	disableIndirectConversion := false
 	var (
@@ -1264,9 +1265,10 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
-		nilcheck := indirect //fieldType.Kind() == reflect.Ptr || isPtr && !indirect
+		nilcheck := true //isPtr || indirect //fieldType.Kind() == reflect.Ptr || isPtr && !indirect
+		fmt.Println("default nilcheck = ", nilcheck, "opcodeIndex = ", ctx.opcodeIndex)
 		var valueCode *opcode
-		if i == 0 && fieldNum == 1 && isPtr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
+		if i == 0 && fieldNum == 1 && isPtr && fieldType.Kind() != reflect.Ptr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field implementedMarshalJSONType } => struct { field *implementedMarshalJSONType }
 			// move pointer position from head to first field
 			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
@@ -1277,7 +1279,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-			fmt.Println("nilcheck false")
 		} else if isPtr && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
 			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
@@ -1290,10 +1291,16 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			if err != nil {
 				return nil, err
 			}
-			nilcheck = false
+			//nilcheck = false
+			valueCode = code
+		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() == reflect.Ptr && !fieldType.Elem().Implements(marshalJSONType) {
+			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
+			if err != nil {
+				return nil, err
+			}
 			valueCode = code
 		} else {
-			code, err := encodeCompile(ctx.withType(fieldType), i == 0 && isPtr)
+			code, err := encodeCompile(ctx.withType(fieldType), isPtr)
 			if err != nil {
 				return nil, err
 			}
@@ -1318,7 +1325,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
 		valueCode.indirect = indirect
-		valueCode.nilcheck = nilcheck
 		fieldCode := &opcode{
 			typ:          valueCode.typ,
 			displayIdx:   fieldOpcodeIndex,

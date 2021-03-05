@@ -790,8 +790,8 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldHeadArray
 	case opSliceHead:
 		return opStructFieldHeadSlice
-	case opStructFieldHead:
-		return opStructFieldHeadStruct
+		//	case opStructFieldHead:
+		//		return opStructFieldHeadStruct
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
 	case opMarshalJSONPtr:
@@ -1264,13 +1264,12 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
-		nilcheck := indirect
+		nilcheck := indirect //fieldType.Kind() == reflect.Ptr || isPtr && !indirect
 		var valueCode *opcode
 		if i == 0 && fieldNum == 1 && isPtr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field implementedMarshalJSONType } => struct { field *implementedMarshalJSONType }
 			// move pointer position from head to first field
-			ctx.typ = rtype_ptrTo(fieldType)
-			code, err := encodeCompileMarshalJSON(ctx)
+			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
 				return nil, err
 			}
@@ -1278,9 +1277,16 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if isPtr && fieldNum > 1 && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
-			ctx.typ = rtype_ptrTo(fieldType)
-			code, err := encodeCompileMarshalJSON(ctx)
+			fmt.Println("nilcheck false")
+		} else if isPtr && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
+			if err != nil {
+				return nil, err
+			}
+			nilcheck = false
+			valueCode = code
+		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() != reflect.Ptr {
+			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
 			if err != nil {
 				return nil, err
 			}

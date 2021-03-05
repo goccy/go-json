@@ -3222,7 +3222,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.end.next
 				break
 			}
-			store(ctxptr, code.idx, ptrToPtr(p))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
 			fallthrough
 		case opStructFieldHeadMarshalJSON, opStructFieldHeadStringTagMarshalJSON:
 			p := load(ctxptr, code.idx)
@@ -3234,6 +3236,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, '{')
 			b = append(b, code.key...)
+			fmt.Println("p = ", p, "nilcheck = ", code.nilcheck)
 			if p == 0 || code.nilcheck && code.typ.Kind() == reflect.Ptr && ptrToPtr(p) == 0 {
 				b = encodeNull(b)
 			} else {
@@ -3253,7 +3256,9 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.end.next
 				break
 			}
-			store(ctxptr, code.idx, ptrToPtr(p))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
 			fallthrough
 		case opStructFieldHeadOmitEmptyMarshalJSON:
 			p := load(ctxptr, code.idx)
@@ -3306,6 +3311,16 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					}
 				*/
 			}
+		case opStructFieldPtrHeadMarshalJSONPtr, opStructFieldPtrHeadStringTagMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opStructFieldHeadMarshalJSONPtr, opStructFieldHeadStringTagMarshalJSONPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
@@ -3330,6 +3345,16 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldPtrHeadOmitEmptyMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opStructFieldHeadOmitEmptyMarshalJSONPtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
@@ -3357,12 +3382,12 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opStructFieldPtrAnonymousHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
 				code = code.end.next
 				break
 			}
-			store(ctxptr, code.idx, ptrToPtr(p))
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
 			fallthrough
 		case opStructFieldAnonymousHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
@@ -3371,13 +3396,103 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				break
 			}
 			b = append(b, code.key...)
-			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
-			if err != nil {
-				return nil, err
+			if p == 0 || code.nilcheck && code.typ.Kind() == reflect.Ptr && ptrToPtr(p) == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
 			}
-			b = bb
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldPtrAnonymousHeadMarshalJSONPtr, opStructFieldPtrAnonymousHeadStringTagMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadMarshalJSONPtr, opStructFieldAnonymousHeadStringTagMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			b = append(b, code.key...)
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			if p == 0 || code.nilcheck && code.typ.Kind() == reflect.Ptr && ptrToPtr(p) == 0 {
+				code = code.nextField
+			} else {
+				b = append(b, code.key...)
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				b = encodeComma(b)
+				code = code.next
+			}
+		case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldAnonymousHeadOmitEmptyMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				code = code.nextField
+			} else {
+				b = append(b, code.key...)
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				b = encodeComma(b)
+				code = code.next
+			}
 		case opStructFieldPtrHeadMarshalText:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
@@ -3429,52 +3544,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = bb
 			b = encodeComma(b)
 			code = code.next
-		case opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr != 0 {
-				store(ctxptr, code.idx, ptrToPtr(ptr))
-			}
-			fallthrough
-		case opStructFieldAnonymousHeadOmitEmptyMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				code = code.end.next
-			} else {
-				ptr += code.offset
-				p := ptrToUnsafePtr(ptr)
-				isPtr := code.typ.Kind() == reflect.Ptr
-				if p == nil || (!isPtr && *(*unsafe.Pointer)(p) == nil) {
-					code = code.nextField
-				} else {
-					v := *(*interface{})(unsafe.Pointer(&interfaceHeader{typ: code.typ, ptr: p}))
-					bb, err := v.(Marshaler).MarshalJSON()
-					if err != nil {
-						return nil, &MarshalerError{
-							Type: rtype2type(code.typ),
-							Err:  err,
-						}
-					}
-					if len(bb) == 0 {
-						if isPtr {
-							return nil, errUnexpectedEndOfJSON(
-								fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-								0,
-							)
-						}
-						code = code.nextField
-					} else {
-						b = append(b, code.key...)
-						buf := bytes.NewBuffer(b)
-						//TODO: we should validate buffer with `compact`
-						if err := compact(buf, bb, false); err != nil {
-							return nil, err
-						}
-						b = buf.Bytes()
-						b = encodeComma(b)
-						code = code.next
-					}
-				}
-			}
 		case opStructFieldPtrHeadOmitEmptyMarshalText:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

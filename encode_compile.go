@@ -58,11 +58,8 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 	switch {
 	case typ.Implements(marshalJSONType):
 		if typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalJSONType) {
-			fmt.Println("typ = ", typ)
 			return encodeCompileMarshalJSON(ctx)
 		}
-		//	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		//		return encodeCompileMarshalJSONPtr(ctx)
 	case typ.Implements(marshalTextType):
 		return encodeCompileMarshalText(ctx)
 	case rtype_ptrTo(typ).Implements(marshalTextType):
@@ -86,8 +83,6 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 		return code, nil
 	} else if isPtr && typ.Implements(marshalTextType) {
 		typ = orgType
-		//	} else if isPtr && typ.Implements(marshalJSONType) {
-		//		typ = orgType
 	}
 	code, err := encodeCompile(ctx.withType(typ), isPtr)
 	if err != nil {
@@ -191,10 +186,7 @@ func encodeOptimizeStructEnd(c *opcode) {
 func encodeImplementsMarshaler(typ *rtype) bool {
 	switch {
 	case typ.Implements(marshalJSONType):
-		fmt.Println("MarshalJSON", typ)
 		return true
-		//	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		//		return true
 	case typ.Implements(marshalTextType):
 		return true
 	case rtype_ptrTo(typ).Implements(marshalTextType):
@@ -206,13 +198,8 @@ func encodeImplementsMarshaler(typ *rtype) bool {
 func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	//case isPtr && typ.Kind() == reflect.Ptr && typ.Implements(marshalJSONType) && !typ.Elem().Implements(marshalJSONType):
-	// *struct{ field *implementedMarshalJSONType }
-	//	return encodeCompileMarshalJSONPtr(ctx)
 	case typ.Implements(marshalJSONType) && (typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalJSONType)):
 		return encodeCompileMarshalJSON(ctx)
-		//	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		//		return encodeCompileMarshalJSONPtr(ctx)
 	case typ.Implements(marshalTextType):
 		return encodeCompileMarshalText(ctx)
 	case rtype_ptrTo(typ).Implements(marshalTextType):
@@ -333,14 +320,12 @@ func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func encodeCompileMarshalJSON(ctx *encodeCompileContext) (*opcode, error) {
-	fmt.Println("encodeCompileMarshalJSON", ctx.typ)
 	code := newOpCode(ctx, opMarshalJSON)
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileMarshalJSONPtr(ctx *encodeCompileContext) (*opcode, error) {
-	fmt.Println("encodeCompileMarshalJSONPtr")
 	code := newOpCode(ctx.withType(rtype_ptrTo(ctx.typ)), opMarshalJSONPtr)
 	ctx.incIndex()
 	return code, nil
@@ -790,8 +775,6 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldHeadArray
 	case opSliceHead:
 		return opStructFieldHeadSlice
-		//	case opStructFieldHead:
-		//		return opStructFieldHeadStruct
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
 	case opMarshalJSONPtr:
@@ -1251,22 +1234,10 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	for i, tag := range tags {
 		field := tag.field
 		fieldType := type2rtype(field.Type)
-		/*
-			if isPtr && i == 0 {
-				// head field of pointer structure at top level
-				// if field type is pointer and implements MarshalJSON or MarshalText,
-				// it need to operation of dereference of pointer.
-				if field.Type.Kind() == reflect.Ptr &&
-					(field.Type.Implements(marshalJSONType) || field.Type.Implements(marshalTextType)) {
-					fieldType = rtype_ptrTo(fieldType)
-				}
-			}
-		*/
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
-		nilcheck := true //isPtr || indirect //fieldType.Kind() == reflect.Ptr || isPtr && !indirect
-		fmt.Println("default nilcheck = ", nilcheck, "opcodeIndex = ", ctx.opcodeIndex)
+		nilcheck := true
 		var valueCode *opcode
 		if i == 0 && fieldNum == 1 && isPtr && fieldType.Kind() != reflect.Ptr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field implementedMarshalJSONType } => struct { field *implementedMarshalJSONType }
@@ -1291,7 +1262,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			if err != nil {
 				return nil, err
 			}
-			//nilcheck = false
 			valueCode = code
 		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() == reflect.Ptr && !fieldType.Elem().Implements(marshalJSONType) {
 			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))

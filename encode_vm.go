@@ -75,7 +75,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	fmt.Println(code.dump())
+	//fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -3242,10 +3242,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					p = ptrToPtr(p + code.offset)
 				}
 			}
-			fmt.Println("p = ", p, "nilcheck = ", code.nilcheck, "indirect = ", code.indirect)
-			//fmt.Println("type = ", code.typ, "isNilPointer = ", code.typ.Kind() == reflect.Ptr && reflect.ValueOf(iface).IsNil())
-			//fmt.Println("iface = ", iface, "isNil = ", iface == nil)
-			if code.nilcheck && p == 0 /* || code.nilcheck && code.typ.Kind() == reflect.Ptr && ptrToPtr(p) == 0*/ {
+			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
 				iface := ptrToInterface(code, p)
@@ -3278,12 +3275,12 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				break
 			}
 			b = append(b, '{')
-			if code.typ.Kind() == reflect.Ptr && code.indirect {
-				p = ptrToPtr(p + code.offset)
-			} else if code.op == opStructFieldPtrHeadOmitEmptyMarshalJSON && code.typ.Kind() == reflect.Ptr {
-				p = ptrToPtr(p + code.offset)
+			if code.typ.Kind() == reflect.Ptr {
+				if code.indirect || code.op == opStructFieldPtrHeadOmitEmptyMarshalJSON {
+					p = ptrToPtr(p + code.offset)
+				}
 			}
-			if code.nilcheck && p == 0 {
+			if p == 0 && code.nilcheck {
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
@@ -3330,7 +3327,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldPtrHeadOmitEmptyMarshalJSONPtr:
-			fmt.Println("type = ", code.typ)
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -3351,7 +3347,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if code.indirect {
 				p = ptrToPtr(p + code.offset)
 			}
-			fmt.Println("p = ", p)
 			b = append(b, '{')
 			if p == 0 {
 				code = code.nextField
@@ -3387,7 +3382,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					p = ptrToPtr(p + code.offset)
 				}
 			}
-			if code.nilcheck && p == 0 {
+			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
 				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
@@ -4114,7 +4109,10 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			p := load(ctxptr, code.headIdx)
 			b = append(b, code.key...)
 			p += code.offset
-			if code.nilcheck && code.typ.Kind() == reflect.Ptr && p != 0 && ptrToPtr(p) == 0 {
+			if code.typ.Kind() == reflect.Ptr {
+				p = ptrToPtr(p)
+			}
+			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
 				v := ptrToInterface(code, p)
@@ -4127,19 +4125,17 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = encodeComma(b)
 			code = code.next
 		case opStructFieldOmitEmptyMarshalJSON:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if code.nilcheck && code.typ.Kind() == reflect.Ptr && p != 0 && ptrToPtr(p) == 0 {
-				code = code.nextField
-				break
+			p := load(ctxptr, code.headIdx)
+			p += code.offset
+			if code.typ.Kind() == reflect.Ptr {
+				p = ptrToPtr(p)
 			}
-			v := ptrToInterface(code, p)
-			if v == nil {
+			if p == 0 && code.nilcheck {
 				code = code.nextField
 				break
 			}
 			b = append(b, code.key...)
-			bb, err := encodeMarshalJSON(b, v)
+			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
 			if err != nil {
 				return nil, err
 			}
@@ -4148,10 +4144,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opStructFieldMarshalJSONPtr, opStructFieldStringTagMarshalJSONPtr:
 			p := load(ctxptr, code.headIdx)
 			b = append(b, code.key...)
-			p += code.offset
-			if p != 0 {
-				p = ptrToPtr(p)
-			}
+			p = ptrToPtr(p + code.offset)
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
@@ -4165,24 +4158,14 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			code = code.next
 		case opStructFieldOmitEmptyMarshalJSONPtr:
 			p := load(ctxptr, code.headIdx)
-			p += code.offset
+			p = ptrToPtr(p + code.offset)
 			if p != 0 {
-				p = ptrToPtr(p)
-			}
-			v := ptrToInterface(code, p)
-			if v != nil && p != 0 {
-				bb, err := v.(Marshaler).MarshalJSON()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
 				b = append(b, code.key...)
-				buf := bytes.NewBuffer(b)
-				//TODO: we should validate buffer with `compact`
-				if err := compact(buf, bb, false); err != nil {
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				if err != nil {
 					return nil, err
 				}
-				b = buf.Bytes()
-				b = encodeComma(b)
+				b = encodeComma(bb)
 			}
 			code = code.next
 		case opStructFieldMarshalText:

@@ -609,122 +609,227 @@ func TestCoverMarshalJSON(t *testing.T) {
 			}{A: nil, B: nil, C: nil},
 		},
 
+		// PtrHeadMarshalJSONZeroMultiFields
+		{
+			name: "PtrHeadMarshalJSONZeroMultiFields",
+			data: &struct {
+				A coverMarshalJSON `json:"a"`
+				B coverMarshalJSON `json:"b"`
+			}{},
+		},
+		{
+			name: "PtrHeadMarshalJSONZeroMultiFieldsOmitEmpty",
+			data: &struct {
+				A coverMarshalJSON `json:"a,omitempty"`
+				B coverMarshalJSON `json:"b,omitempty"`
+			}{},
+		},
+		{
+			name: "PtrHeadMarshalJSONZeroMultiFieldsString",
+			data: &struct {
+				A coverMarshalJSON `json:"a,string"`
+				B coverMarshalJSON `json:"b,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONZeroMultiFields",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a"`
+				B coverPtrMarshalJSON `json:"b"`
+			}{},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONZeroMultiFieldsOmitEmpty",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a,omitempty"`
+				B coverPtrMarshalJSON `json:"b,omitempty"`
+			}{},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONZeroMultiFieldsString",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a,string"`
+				B coverPtrMarshalJSON `json:"b,string"`
+			}{},
+		},
+
+		// PtrHeadMarshalJSONMultiFields
+		{
+			name: "PtrHeadMarshalJSONMultiFields",
+			data: &struct {
+				A coverMarshalJSON `json:"a"`
+				B coverMarshalJSON `json:"b"`
+			}{A: coverMarshalJSON{}, B: coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadMarshalJSONMultiFieldsOmitEmpty",
+			data: &struct {
+				A coverMarshalJSON `json:"a,omitempty"`
+				B coverMarshalJSON `json:"b,omitempty"`
+			}{A: coverMarshalJSON{}, B: coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadMarshalJSONMultiFieldsString",
+			data: &struct {
+				A coverMarshalJSON `json:"a,string"`
+				B coverMarshalJSON `json:"b,string"`
+			}{A: coverMarshalJSON{}, B: coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONMultiFields",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a"`
+				B coverPtrMarshalJSON `json:"b"`
+			}{A: coverPtrMarshalJSON{}, B: coverPtrMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONMultiFieldsOmitEmpty",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a,omitempty"`
+				B coverPtrMarshalJSON `json:"b,omitempty"`
+			}{A: coverPtrMarshalJSON{}, B: coverPtrMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONMultiFieldsString",
+			data: &struct {
+				A coverPtrMarshalJSON `json:"a,string"`
+				B coverPtrMarshalJSON `json:"b,string"`
+			}{A: coverPtrMarshalJSON{}, B: coverPtrMarshalJSON{}},
+		},
+
+		// PtrHeadMarshalJSONPtrMultiFields
+		{
+			name: "PtrHeadMarshalJSONPtrMultiFields",
+			data: &struct {
+				A *coverMarshalJSON `json:"a"`
+				B *coverMarshalJSON `json:"b"`
+			}{A: &coverMarshalJSON{}, B: &coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadMarshalJSONPtrMultiFieldsOmitEmpty",
+			data: &struct {
+				A *coverMarshalJSON `json:"a,omitempty"`
+				B *coverMarshalJSON `json:"b,omitempty"`
+			}{A: &coverMarshalJSON{}, B: &coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadMarshalJSONPtrMultiFieldsString",
+			data: &struct {
+				A *coverMarshalJSON `json:"a,string"`
+				B *coverMarshalJSON `json:"b,string"`
+			}{A: &coverMarshalJSON{}, B: &coverMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrMultiFields",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a"`
+				B *coverPtrMarshalJSON `json:"b"`
+			}{A: &coverPtrMarshalJSON{}, B: &coverPtrMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrMultiFieldsOmitEmpty",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a,omitempty"`
+				B *coverPtrMarshalJSON `json:"b,omitempty"`
+			}{A: &coverPtrMarshalJSON{}, B: &coverPtrMarshalJSON{}},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrMultiFieldsString",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a,string"`
+				B *coverPtrMarshalJSON `json:"b,string"`
+			}{A: &coverPtrMarshalJSON{}, B: &coverPtrMarshalJSON{}},
+		},
+
+		// PtrHeadMarshalJSONPtrNilMultiFields
+		{
+			name: "PtrHeadMarshalJSONPtrNilMultiFields",
+			data: &struct {
+				A *coverMarshalJSON `json:"a"`
+				B *coverMarshalJSON `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadMarshalJSONPtrNilMultiFieldsOmitEmpty",
+			data: &struct {
+				A *coverMarshalJSON `json:"a,omitempty"`
+				B *coverMarshalJSON `json:"b,omitempty"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadMarshalJSONPtrNilMultiFieldsString",
+			data: &struct {
+				A *coverMarshalJSON `json:"a,string"`
+				B *coverMarshalJSON `json:"b,string"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrNilMultiFields",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a"`
+				B *coverPtrMarshalJSON `json:"b"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrNilMultiFieldsOmitEmpty",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a,omitempty"`
+				B *coverPtrMarshalJSON `json:"b,omitempty"`
+			}{A: nil, B: nil},
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONPtrNilMultiFieldsString",
+			data: &struct {
+				A *coverPtrMarshalJSON `json:"a,string"`
+				B *coverPtrMarshalJSON `json:"b,string"`
+			}{A: nil, B: nil},
+		},
+
+		// PtrHeadMarshalJSONNilMultiFields
+		{
+			name: "PtrHeadMarshalJSONNilMultiFields",
+			data: (*struct {
+				A coverMarshalJSON `json:"a"`
+				B coverMarshalJSON `json:"b"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadMarshalJSONNilMultiFieldsOmitEmpty",
+			data: (*struct {
+				A coverMarshalJSON `json:"a,omitempty"`
+				B coverMarshalJSON `json:"b,omitempty"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadMarshalJSONNilMultiFieldsString",
+			data: (*struct {
+				A coverMarshalJSON `json:"a,string"`
+				B coverMarshalJSON `json:"b,string"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONNilMultiFields",
+			data: (*struct {
+				A coverPtrMarshalJSON `json:"a"`
+				B coverPtrMarshalJSON `json:"b"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONNilMultiFieldsOmitEmpty",
+			data: (*struct {
+				A coverPtrMarshalJSON `json:"a,omitempty"`
+				B coverPtrMarshalJSON `json:"b,omitempty"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadPtrMarshalJSONNilMultiFieldsString",
+			data: (*struct {
+				A coverPtrMarshalJSON `json:"a,string"`
+				B coverPtrMarshalJSON `json:"b,string"`
+			})(nil),
+		},
+
 		/*
-
-			// PtrHeadMarshalJSONZeroMultiFields
-			{
-				name: "PtrHeadMarshalJSONZeroMultiFields",
-				data: &struct {
-					A [2]int `json:"a"`
-					B [2]int `json:"b"`
-				}{},
-			},
-			{
-				name: "PtrHeadMarshalJSONZeroMultiFieldsOmitEmpty",
-				data: &struct {
-					A [2]int `json:"a,omitempty"`
-					B [2]int `json:"b,omitempty"`
-				}{},
-			},
-			{
-				name: "PtrHeadMarshalJSONZeroMultiFieldsString",
-				data: &struct {
-					A [2]int `json:"a,string"`
-					B [2]int `json:"b,string"`
-				}{},
-			},
-
-			// PtrHeadMarshalJSONMultiFields
-			{
-				name: "PtrHeadMarshalJSONMultiFields",
-				data: &struct {
-					A [2]int `json:"a"`
-					B [2]int `json:"b"`
-				}{A: [2]int{-1}, B: [2]int{1}},
-			},
-			{
-				name: "PtrHeadMarshalJSONMultiFieldsOmitEmpty",
-				data: &struct {
-					A [2]int `json:"a,omitempty"`
-					B [2]int `json:"b,omitempty"`
-				}{A: [2]int{-1}, B: [2]int{1}},
-			},
-			{
-				name: "PtrHeadMarshalJSONMultiFieldsString",
-				data: &struct {
-					A [2]int `json:"a,string"`
-					B [2]int `json:"b,string"`
-				}{A: [2]int{-1}, B: [2]int{1}},
-			},
-
-			// PtrHeadMarshalJSONPtrMultiFields
-			{
-				name: "PtrHeadMarshalJSONPtrMultiFields",
-				data: &struct {
-					A *[2]int `json:"a"`
-					B *[2]int `json:"b"`
-				}{A: arrayptr([2]int{-1}), B: arrayptr([2]int{-2})},
-			},
-			{
-				name: "PtrHeadMarshalJSONPtrMultiFieldsOmitEmpty",
-				data: &struct {
-					A *[2]int `json:"a,omitempty"`
-					B *[2]int `json:"b,omitempty"`
-				}{A: arrayptr([2]int{-1}), B: arrayptr([2]int{-2})},
-			},
-			{
-				name: "PtrHeadMarshalJSONPtrMultiFieldsString",
-				data: &struct {
-					A *[2]int `json:"a,string"`
-					B *[2]int `json:"b,string"`
-				}{A: arrayptr([2]int{-1}), B: arrayptr([2]int{-2})},
-			},
-
-			// PtrHeadMarshalJSONPtrNilMultiFields
-			{
-				name: "PtrHeadMarshalJSONPtrNilMultiFields",
-				data: &struct {
-					A *[2]int `json:"a"`
-					B *[2]int `json:"b"`
-				}{A: nil, B: nil},
-			},
-			{
-				name: "PtrHeadMarshalJSONPtrNilMultiFieldsOmitEmpty",
-				data: &struct {
-					A *[2]int `json:"a,omitempty"`
-					B *[2]int `json:"b,omitempty"`
-				}{A: nil, B: nil},
-			},
-			{
-				name: "PtrHeadMarshalJSONPtrNilMultiFieldsString",
-				data: &struct {
-					A *[2]int `json:"a,string"`
-					B *[2]int `json:"b,string"`
-				}{A: nil, B: nil},
-			},
-
-			// PtrHeadMarshalJSONNilMultiFields
-			{
-				name: "PtrHeadMarshalJSONNilMultiFields",
-				data: (*struct {
-					A [2]int `json:"a"`
-					B [2]int `json:"b"`
-				})(nil),
-			},
-			{
-				name: "PtrHeadMarshalJSONNilMultiFieldsOmitEmpty",
-				data: (*struct {
-					A [2]int `json:"a,omitempty"`
-					B [2]int `json:"b,omitempty"`
-				})(nil),
-			},
-			{
-				name: "PtrHeadMarshalJSONNilMultiFieldsString",
-				data: (*struct {
-					A [2]int `json:"a,string"`
-					B [2]int `json:"b,string"`
-				})(nil),
-			},
 
 			// PtrHeadMarshalJSONNilMultiFields
 			{

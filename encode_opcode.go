@@ -20,6 +20,7 @@ type opcode struct {
 	anonymousKey bool   // whether anonymous key
 	root         bool   // whether root
 	indirect     bool   // whether indirect or not
+	nilcheck     bool   // whether needs to nilcheck or not
 	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
 	mask         uint64 // mask for number
 	indent       int    // indent number
@@ -93,6 +94,7 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		anonymousKey: c.anonymousKey,
 		root:         c.root,
 		indirect:     c.indirect,
+		nilcheck:     c.nilcheck,
 		indent:       c.indent,
 		idx:          c.idx,
 		headIdx:      c.headIdx,

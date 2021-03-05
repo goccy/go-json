@@ -1231,6 +1231,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	fieldNum := typ.NumField()
 	indirect := ifaceIndir(typ)
 	fieldIdx := 0
+	disableIndirectConversion := false
 	var (
 		head      *opcode
 		code      *opcode
@@ -1263,6 +1264,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
+		nilcheck := indirect
 		var valueCode *opcode
 		if i == 0 && fieldNum == 1 && isPtr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field implementedMarshalJSONType } => struct { field *implementedMarshalJSONType }
@@ -1273,8 +1275,17 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 				return nil, err
 			}
 			valueCode = code
+			nilcheck = false
 			indirect = false
-			isPtr = false
+			disableIndirectConversion = true
+		} else if isPtr && fieldNum > 1 && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+			ctx.typ = rtype_ptrTo(fieldType)
+			code, err := encodeCompileMarshalJSON(ctx)
+			if err != nil {
+				return nil, err
+			}
+			nilcheck = false
+			valueCode = code
 		} else {
 			code, err := encodeCompile(ctx.withType(fieldType), i == 0 && isPtr)
 			if err != nil {
@@ -1301,6 +1312,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
 		valueCode.indirect = indirect
+		valueCode.nilcheck = nilcheck
 		fieldCode := &opcode{
 			typ:          valueCode.typ,
 			displayIdx:   fieldOpcodeIndex,
@@ -1314,6 +1326,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			displayKey:   tag.key,
 			offset:       field.Offset,
 			indirect:     indirect,
+			nilcheck:     nilcheck,
 		}
 		if fieldIdx == 0 {
 			fieldCode.headIdx = fieldCode.idx
@@ -1373,8 +1386,8 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 
 	delete(ctx.structTypeToCompiledCode, typeptr)
 
-	if !code.indirect && isPtr {
-		code.indirect = true
+	if !disableIndirectConversion && !head.indirect && isPtr {
+		head.indirect = true
 	}
 
 	return ret, nil

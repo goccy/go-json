@@ -3215,7 +3215,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.next
 				store(ctxptr, code.idx, p)
 			}
-		case opStructFieldPtrHeadMarshalJSON, opStructFieldPtrHeadStringTagMarshalJSON:
+		case opStructFieldPtrHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -3227,7 +3227,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				store(ctxptr, code.idx, ptrToPtr(p))
 			}
 			fallthrough
-		case opStructFieldHeadMarshalJSON, opStructFieldHeadStringTagMarshalJSON:
+		case opStructFieldHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
 				b = encodeNull(b)
@@ -3238,7 +3238,46 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = append(b, '{')
 			b = append(b, code.key...)
 			if code.typ.Kind() == reflect.Ptr {
-				if code.indirect || (code.op == opStructFieldPtrHeadMarshalJSON || code.op == opStructFieldPtrHeadStringTagMarshalJSON) {
+				if code.indirect || code.op == opStructFieldPtrHeadMarshalJSON {
+					p = ptrToPtr(p + code.offset)
+				}
+			}
+			if code.nilcheck && p == 0 {
+				b = encodeNull(b)
+			} else {
+				iface := ptrToInterface(code, p)
+				bb, err := encodeMarshalJSON(b, iface)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrHeadStringTagMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
+			fallthrough
+		case opStructFieldHeadStringTagMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			b = append(b, '{')
+			b = append(b, code.key...)
+			if code.typ.Kind() == reflect.Ptr {
+				if code.indirect || code.op == opStructFieldPtrHeadStringTagMarshalJSON {
 					p = ptrToPtr(p + code.offset)
 				}
 			}
@@ -3360,7 +3399,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.next
 			}
-		case opStructFieldPtrAnonymousHeadMarshalJSON, opStructFieldPtrAnonymousHeadStringTagMarshalJSON:
+		case opStructFieldPtrAnonymousHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				code = code.end.next
@@ -3370,7 +3409,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				store(ctxptr, code.idx, ptrToPtr(p))
 			}
 			fallthrough
-		case opStructFieldAnonymousHeadMarshalJSON, opStructFieldAnonymousHeadStringTagMarshalJSON:
+		case opStructFieldAnonymousHeadMarshalJSON:
 			p := load(ctxptr, code.idx)
 			if p == 0 && code.indirect {
 				code = code.end.next
@@ -3378,7 +3417,40 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 			b = append(b, code.key...)
 			if code.typ.Kind() == reflect.Ptr {
-				if code.indirect || (code.op != opStructFieldAnonymousHeadMarshalJSON && code.op != opStructFieldAnonymousHeadStringTagMarshalJSON) {
+				if code.indirect || code.op == opStructFieldPtrAnonymousHeadMarshalJSON {
+					p = ptrToPtr(p + code.offset)
+				}
+			}
+			if p == 0 && code.nilcheck {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p+code.offset))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrAnonymousHeadStringTagMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.end.next
+				break
+			}
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(p))
+			}
+			fallthrough
+		case opStructFieldAnonymousHeadStringTagMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				code = code.end.next
+				break
+			}
+			b = append(b, code.key...)
+			if code.typ.Kind() == reflect.Ptr {
+				if code.indirect || code.op == opStructFieldPtrAnonymousHeadStringTagMarshalJSON {
 					p = ptrToPtr(p + code.offset)
 				}
 			}
@@ -3439,7 +3511,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				break
 			}
 			if code.typ.Kind() == reflect.Ptr {
-				if code.indirect || code.op != opStructFieldAnonymousHeadOmitEmptyMarshalJSON {
+				if code.indirect || code.op == opStructFieldPtrAnonymousHeadOmitEmptyMarshalJSON {
 					p = ptrToPtr(p + code.offset)
 				}
 			}

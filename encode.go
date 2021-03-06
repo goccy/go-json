@@ -367,14 +367,13 @@ func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 }
 
 func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
-	rv := reflect.ValueOf(v)
-	bb, err := rv.Interface().(Marshaler).MarshalJSON()
+	bb, err := v.(Marshaler).MarshalJSON()
 	if err != nil {
-		return nil, &MarshalerError{Type: rv.Type(), Err: err}
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	if len(bb) == 0 {
 		return nil, errUnexpectedEndOfJSON(
-			fmt.Sprintf("error calling MarshalJSON for type %s", rv.Type()),
+			fmt.Sprintf("error calling MarshalJSON for type %s", reflect.TypeOf(v)),
 			0,
 		)
 	}

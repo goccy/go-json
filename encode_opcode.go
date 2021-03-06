@@ -9,21 +9,22 @@ import (
 const uintptrSize = 4 << (^uintptr(0) >> 63) // unsafe.Sizeof(uintptr(0)) but an ideal const
 
 type opcode struct {
-	op           opType // operation type
-	typ          *rtype // go type
-	displayIdx   int    // opcode index
-	key          []byte // struct field key
-	escapedKey   []byte // struct field key ( HTML escaped )
-	ptrNum       int    // pointer number: e.g. double pointer is 2.
-	displayKey   string // key text to display
-	isTaggedKey  bool   // whether tagged key
-	anonymousKey bool   // whether anonymous key
-	root         bool   // whether root
-	indirect     bool   // whether indirect or not
-	nilcheck     bool   // whether needs to nilcheck or not
-	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
-	mask         uint64 // mask for number
-	indent       int    // indent number
+	op            opType // operation type
+	typ           *rtype // go type
+	displayIdx    int    // opcode index
+	key           []byte // struct field key
+	escapedKey    []byte // struct field key ( HTML escaped )
+	ptrNum        int    // pointer number: e.g. double pointer is 2.
+	displayKey    string // key text to display
+	isTaggedKey   bool   // whether tagged key
+	anonymousKey  bool   // whether anonymous key
+	anonymousHead bool   // whether anonymous head or not
+	root          bool   // whether root
+	indirect      bool   // whether indirect or not
+	nilcheck      bool   // whether needs to nilcheck or not
+	rshiftNum     uint8  // use to take bit for judging whether negative integer or not
+	mask          uint64 // mask for number
+	indent        int    // indent number
 
 	idx     uintptr // offset to access ptr
 	headIdx uintptr // offset to access slice/struct head
@@ -81,29 +82,30 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		return code
 	}
 	copied := &opcode{
-		op:           c.op,
-		typ:          c.typ,
-		displayIdx:   c.displayIdx,
-		key:          c.key,
-		escapedKey:   c.escapedKey,
-		displayKey:   c.displayKey,
-		ptrNum:       c.ptrNum,
-		mask:         c.mask,
-		rshiftNum:    c.rshiftNum,
-		isTaggedKey:  c.isTaggedKey,
-		anonymousKey: c.anonymousKey,
-		root:         c.root,
-		indirect:     c.indirect,
-		nilcheck:     c.nilcheck,
-		indent:       c.indent,
-		idx:          c.idx,
-		headIdx:      c.headIdx,
-		elemIdx:      c.elemIdx,
-		length:       c.length,
-		mapIter:      c.mapIter,
-		mapPos:       c.mapPos,
-		offset:       c.offset,
-		size:         c.size,
+		op:            c.op,
+		typ:           c.typ,
+		displayIdx:    c.displayIdx,
+		key:           c.key,
+		escapedKey:    c.escapedKey,
+		displayKey:    c.displayKey,
+		ptrNum:        c.ptrNum,
+		mask:          c.mask,
+		rshiftNum:     c.rshiftNum,
+		isTaggedKey:   c.isTaggedKey,
+		anonymousKey:  c.anonymousKey,
+		anonymousHead: c.anonymousHead,
+		root:          c.root,
+		indirect:      c.indirect,
+		nilcheck:      c.nilcheck,
+		indent:        c.indent,
+		idx:           c.idx,
+		headIdx:       c.headIdx,
+		elemIdx:       c.elemIdx,
+		length:        c.length,
+		mapIter:       c.mapIter,
+		mapPos:        c.mapPos,
+		offset:        c.offset,
+		size:          c.size,
 	}
 	codeMap[addr] = copied
 	copied.mapKey = c.mapKey.copy(codeMap)

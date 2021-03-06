@@ -1083,7 +1083,7 @@ func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode 
 			if existsKey {
 				f.op = opStructFieldAnonymousHead
 			} else if named == "" {
-				f.op = op
+				//f.op = op
 			}
 		} else if named == "" && f.op == opStructEnd {
 			f.op = opStructAnonymousEnd
@@ -1324,6 +1324,9 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			for k, v := range encodeAnonymousStructFieldPairMap(tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
+		}
+		if field.Anonymous {
+			valueCode.anonymousHead = true
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))

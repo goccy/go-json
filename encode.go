@@ -386,10 +386,9 @@ func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
 }
 
 func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
-	rv := reflect.ValueOf(v)
-	bytes, err := rv.Interface().(encoding.TextMarshaler).MarshalText()
+	bytes, err := v.(encoding.TextMarshaler).MarshalText()
 	if err != nil {
-		return nil, &MarshalerError{Type: rv.Type(), Err: err}
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

@@ -2,7 +2,6 @@ package json_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -1841,7 +1840,6 @@ func TestCoverSlice(t *testing.T) {
 	for _, test := range tests {
 		for _, indent := range []bool{false} {
 			for _, htmlEscape := range []bool{false} {
-				fmt.Println(test.name)
 				var buf bytes.Buffer
 				enc := json.NewEncoder(&buf)
 				enc.SetEscapeHTML(htmlEscape)

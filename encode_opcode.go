@@ -178,6 +178,18 @@ func (c *opcode) decOpcodeIndex() {
 	}
 }
 
+func (c *opcode) decIndent() {
+	for code := c; code.op != opEnd; {
+		code.indent--
+		switch code.op.codeType() {
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
+		default:
+			code = code.next
+		}
+	}
+}
+
 func (c *opcode) dumpHead(code *opcode) string {
 	var length uintptr
 	if code.op.codeType() == codeArrayHead {
@@ -412,6 +424,7 @@ func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size 
 		elemIdx:    head.elemIdx,
 		headIdx:    head.headIdx,
 		length:     uintptr(length),
+		indent:     ctx.indent,
 		size:       size,
 	}
 }

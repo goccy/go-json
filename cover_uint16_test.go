@@ -1774,11 +1774,11 @@ func TestCoverUint16(t *testing.T) {
 					enc.SetIndent("", "  ")
 				}
 				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%T): %+v: %s", test.name, htmlEscape, test.data, err)
+					t.Fatalf("%s(htmlEscape:%v,indent:%v): %+v: %s", test.name, htmlEscape, indent, test.data, err)
 				}
 				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
 				if buf.String() != stdresult {
-					t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
+					t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
 				}
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -385,7 +386,42 @@ func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{}, indent int) ([]byte, error) {
+	bb, err := v.(Marshaler).MarshalJSON()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if len(bb) == 0 {
+		return nil, errUnexpectedEndOfJSON(
+			fmt.Sprintf("error calling MarshalJSON for type %s", reflect.TypeOf(v)),
+			0,
+		)
+	}
+	var compactBuf bytes.Buffer
+	if err := compact(&compactBuf, bb, false); err != nil {
+		return nil, err
+	}
+	var indentBuf bytes.Buffer
+	if err := encodeWithIndent(
+		&indentBuf,
+		compactBuf.Bytes(),
+		string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+indent),
+		string(ctx.indentStr),
+	); err != nil {
+		return nil, err
+	}
+	return append(b, indentBuf.Bytes()...), nil
+}
+
 func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
+	bytes, err := v.(encoding.TextMarshaler).MarshalText()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+func encodeMarshalTextIndent(b []byte, v interface{}) ([]byte, error) {
 	bytes, err := v.(encoding.TextMarshaler).MarshalText()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}

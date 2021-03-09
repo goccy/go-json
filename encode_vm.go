@@ -240,7 +240,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opSliceHead:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
+			if p == 0 || slice.data == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -1723,7 +1723,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -1759,7 +1759,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadOmitEmptyBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -1793,7 +1793,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadStringTagBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -3349,15 +3349,15 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			}
 		case opStructFieldSlice, opStructFieldStringTagSlice:
 			b = append(b, code.key...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
+			p := load(ctxptr, code.headIdx)
+			p += code.offset
 			code = code.next
 			store(ctxptr, code.idx, p)
 		case opStructFieldOmitEmptySlice:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
+			p := load(ctxptr, code.headIdx)
+			p += code.offset
 			slice := ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
+			if p == 0 || slice.data == nil {
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)

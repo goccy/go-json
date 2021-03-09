@@ -1327,6 +1327,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		}
 		if field.Anonymous {
 			valueCode.anonymousHead = true
+			valueCode.decIndent()
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))

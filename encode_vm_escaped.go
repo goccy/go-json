@@ -1665,7 +1665,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			fallthrough
 		case opStructFieldHeadBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -1701,7 +1701,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			fallthrough
 		case opStructFieldHeadOmitEmptyBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -1735,7 +1735,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			fallthrough
 		case opStructFieldHeadStringTagBoolPtr:
 			p := load(ctxptr, code.idx)
-			if p == 0 {
+			if p == 0 && code.indirect {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)

@@ -1838,7 +1838,7 @@ func TestCoverArray(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, indent := range []bool{false} {
+		for _, indent := range []bool{true, false} {
 			for _, htmlEscape := range []bool{true, false} {
 				var buf bytes.Buffer
 				enc := json.NewEncoder(&buf)

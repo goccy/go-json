@@ -335,44 +335,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 					code = code.end.next
 				}
 			}
-		case opMapHeadLoad:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				// load pointer
-				ptr = ptrToPtr(ptr)
-				uptr := ptrToUnsafePtr(ptr)
-				if ptr == 0 {
-					b = encodeNull(b)
-					b = encodeComma(b)
-					code = code.end.next
-					break
-				}
-				mlen := maplen(uptr)
-				if mlen > 0 {
-					b = append(b, '{')
-					iter := mapiterinit(code.typ, uptr)
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-					if (opt & EncodeOptionUnorderedMap) == 0 {
-						mapCtx := newMapContext(mlen)
-						mapCtx.pos = append(mapCtx.pos, len(b))
-						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
-						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
-					}
-					code = code.next
-				} else {
-					b = append(b, '{', '}', ',')
-					code = code.end.next
-				}
-			}
 		case opMapKey:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
@@ -3258,27 +3220,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				store(ctxptr, code.idx, p)
 			} else {
 				code = code.nextField
-			}
-		case opStructFieldMapLoad:
-			b = append(b, code.key...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldOmitEmptyMapLoad:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.key...)
-					code = code.next
-					store(ctxptr, code.idx, p)
-				}
 			}
 		case opStructFieldStruct:
 			b = append(b, code.key...)

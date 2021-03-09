@@ -72,7 +72,10 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 		isPtr = true
 	}
 	if typ.Kind() == reflect.Map {
-		return encodeCompileMap(ctx.withType(typ), isPtr)
+		if isPtr {
+			return encodeCompilePtr(ctx.withType(rtype_ptrTo(typ)))
+		}
+		return encodeCompileMap(ctx.withType(typ))
 	} else if typ.Kind() == reflect.Struct {
 		code, err := encodeCompileStruct(ctx.withType(typ), isPtr)
 		if err != nil {
@@ -212,7 +215,7 @@ func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	case reflect.Array:
 		return encodeCompileArray(ctx)
 	case reflect.Map:
-		return encodeCompileMap(ctx, isPtr)
+		return encodeCompileMap(ctx)
 	case reflect.Struct:
 		return encodeCompileStruct(ctx, isPtr)
 	case reflect.Interface:
@@ -665,12 +668,12 @@ func mapiternext(it unsafe.Pointer)
 //go:noescape
 func maplen(m unsafe.Pointer) int
 
-func encodeCompileMap(ctx *encodeCompileContext, withLoad bool) (*opcode, error) {
+func encodeCompileMap(ctx *encodeCompileContext) (*opcode, error) {
 	// header => code => value => code => key => code => value => code => end
 	//                                     ^                       |
 	//                                     |_______________________|
 	ctx = ctx.incIndent()
-	header := newMapHeaderCode(ctx, false) //withLoad)
+	header := newMapHeaderCode(ctx)
 	ctx.incIndex()
 
 	typ := ctx.typ
@@ -744,8 +747,6 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 	case opMapPtr:
 		code.op = opMap
 		return opStructFieldHeadMapPtr
-	case opMapHeadLoad:
-		return opStructFieldHeadMapLoad
 	case opArray:
 		return opStructFieldHeadArray
 	case opArrayPtr:
@@ -799,8 +800,6 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	case opMapPtr:
 		code.op = opMap
 		return opStructFieldMapPtr
-	case opMapHeadLoad:
-		return opStructFieldMapLoad
 	case opArray:
 		return opStructFieldArray
 	case opArrayPtr:
@@ -874,7 +873,6 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadSlice,
 		opStructFieldHeadArray,
 		opStructFieldHeadMap,
-		opStructFieldHeadMapLoad,
 		opStructFieldHeadStruct,
 		opStructFieldHeadOmitEmpty,
 		opStructFieldHeadOmitEmptySlice,
@@ -882,9 +880,7 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadOmitEmptyArray,
 		opStructFieldHeadStringTagArray,
 		opStructFieldHeadOmitEmptyMap,
-		opStructFieldHeadOmitEmptyMapLoad,
 		opStructFieldHeadStringTagMap,
-		opStructFieldHeadStringTagMapLoad,
 		opStructFieldHeadOmitEmptyStruct,
 		opStructFieldHeadStringTag:
 		return valueCode.beforeLastCode()
@@ -923,7 +919,6 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldSlice,
 		opStructFieldArray,
 		opStructFieldMap,
-		opStructFieldMapLoad,
 		opStructFieldStruct,
 		opStructFieldOmitEmpty,
 		opStructFieldOmitEmptySlice,
@@ -931,9 +926,7 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldOmitEmptyArray,
 		opStructFieldStringTagArray,
 		opStructFieldOmitEmptyMap,
-		opStructFieldOmitEmptyMapLoad,
 		opStructFieldStringTagMap,
-		opStructFieldStringTagMapLoad,
 		opStructFieldOmitEmptyStruct,
 		opStructFieldStringTag:
 		return valueCode.beforeLastCode()
@@ -1176,8 +1169,11 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		ctx.incIndex()
 		nilcheck := true
 		var valueCode *opcode
-		if i == 0 && fieldNum == 1 && isPtr && fieldType.Kind() != reflect.Ptr && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
-			// *struct{ field implementedMarshalJSONType } => struct { field *implementedMarshalJSONType }
+		fmt.Println("fieldType.Kind() = ", fieldType.Kind())
+		isNilValue := fieldType.Kind() == reflect.Ptr || fieldType.Kind() == reflect.Interface
+		if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
+			// *struct{ field T } => struct { field *T }
+			// func (*T) MarshalJSON() ([]byte, error)
 			// move pointer position from head to first field
 			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
@@ -1187,7 +1183,10 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if i == 0 && fieldNum == 1 && isPtr && fieldType.Kind() != reflect.Ptr && rtype_ptrTo(fieldType).Implements(marshalTextType) && !fieldType.Implements(marshalTextType) {
+		} else if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalTextType) && !fieldType.Implements(marshalTextType) {
+			// *struct{ field T } => struct { field *T }
+			// func (*T) MarshalText() ([]byte, error)
+			// move pointer position from head to first field
 			code, err := encodeCompileMarshalText(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
 				return nil, err
@@ -1196,14 +1195,18 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if isPtr && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+		} else if isPtr && !isNilValue && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+			// *struct{ field T }
+			// func (*T) MarshalJSON() ([]byte, error)
 			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
 				return nil, err
 			}
 			nilcheck = false
 			valueCode = code
-		} else if isPtr && fieldType.Kind() != reflect.Ptr && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
+		} else if isPtr && !isNilValue && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
+			// *struct{ field T }
+			// func (*T) MarshalText() ([]byte, error)
 			code, err := encodeCompileMarshalText(ctx.withType(rtype_ptrTo(fieldType)))
 			if err != nil {
 				return nil, err

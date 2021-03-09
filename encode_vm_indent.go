@@ -344,50 +344,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 					code = code.end.next
 				}
 			}
-		case opMapHeadLoad:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = appendIndent(ctx, b, code.indent)
-				b = encodeNull(b)
-				code = code.end.next
-			} else {
-				// load pointer
-				ptr = ptrToPtr(ptr)
-				uptr := ptrToUnsafePtr(ptr)
-				if uintptr(uptr) == 0 {
-					b = appendIndent(ctx, b, code.indent)
-					b = encodeNull(b)
-					b = encodeIndentComma(b)
-					code = code.end.next
-					break
-				}
-				mlen := maplen(uptr)
-				if mlen > 0 {
-					b = append(b, '{', '\n')
-					iter := mapiterinit(code.typ, uptr)
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-
-					if (opt & EncodeOptionUnorderedMap) == 0 {
-						mapCtx := newMapContext(mlen)
-						mapCtx.pos = append(mapCtx.pos, len(b))
-						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
-						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
-					} else {
-						b = appendIndent(ctx, b, code.next.indent)
-					}
-
-					code = code.next
-				} else {
-					b = appendIndent(ctx, b, code.indent)
-					b = append(b, '{', '}', ',', '\n')
-					code = code.end.next
-				}
-			}
 		case opMapKey:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
@@ -3524,41 +3480,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				store(ctxptr, code.idx, p)
 			} else {
 				code = code.nextField
-			}
-		case opStructFieldMapLoad:
-			b = appendIndent(ctx, b, code.indent)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				b = encodeNull(b)
-				code = code.nextField
-			} else {
-				p = ptrToPtr(p)
-				mlen := maplen(ptrToUnsafePtr(p))
-				if mlen == 0 {
-					b = append(b, '{', '}', ',', '\n')
-					code = code.nextField
-				} else {
-					code = code.next
-				}
-			}
-		case opStructFieldOmitEmptyMapLoad:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = appendIndent(ctx, b, code.indent)
-					b = append(b, code.key...)
-					b = append(b, ' ')
-					code = code.next
-				}
 			}
 		case opStructFieldStruct:
 			ptr := load(ctxptr, code.headIdx)

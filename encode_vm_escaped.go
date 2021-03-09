@@ -1,12 +1,9 @@
 package json
 
 import (
-	"bytes"
-	"encoding"
 	"fmt"
 	"math"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"unsafe"
@@ -17,7 +14,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	//fmt.Println(code.dump())
+	fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -142,57 +139,57 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 
 			b = bb
 			code = code.next
-		case opMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+		case opMarshalJSONPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.next
 				break
 			}
-			v := ptrToInterface(code, ptr)
-			bb, err := v.(Marshaler).MarshalJSON()
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opMarshalJSON:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.next
+				break
+			}
+			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
 			if err != nil {
-				return nil, errMarshaler(code, err)
-			}
-			runtime.KeepAlive(v)
-			if len(bb) == 0 {
-				return nil, errUnexpectedEndOfJSON(
-					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-					0,
-				)
-			}
-			buf := bytes.NewBuffer(b)
-			//TODO: we should validate buffer with `compact`
-			if err := compact(buf, bb, false); err != nil {
 				return nil, err
 			}
-			b = buf.Bytes()
-			b = encodeComma(b)
+			b = encodeComma(bb)
 			code = code.next
-		case opMarshalText:
-			ptr := load(ctxptr, code.idx)
-			isPtr := code.typ.Kind() == reflect.Ptr
-			p := ptrToUnsafePtr(ptr)
-			if p == nil || isPtr && *(*unsafe.Pointer)(p) == nil {
-				b = append(b, '"', '"', ',')
-			} else {
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-					typ: code.typ,
-					ptr: p,
-				}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
-				b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+		case opMarshalTextPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
 				b = encodeComma(b)
+				break
 			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opMarshalText:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = append(b, `""`...)
+				b = encodeComma(b)
+				code = code.next
+				break
+			}
+			bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeComma(bb)
 			code = code.next
 		case opSlice:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
-			if p == 0 || uintptr(slice.data) == 0 {
+			if p == 0 || slice.data == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
@@ -281,44 +278,6 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					}
 					key := mapiterkey(iter)
 					store(ctxptr, code.next.idx, uintptr(key))
-					code = code.next
-				} else {
-					b = append(b, '{', '}', ',')
-					code = code.end.next
-				}
-			}
-		case opMapHeadLoad:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
-				b = encodeNull(b)
-				b = encodeComma(b)
-				code = code.end.next
-			} else {
-				// load pointer
-				ptr = ptrToPtr(ptr)
-				uptr := ptrToUnsafePtr(ptr)
-				if ptr == 0 {
-					b = encodeNull(b)
-					b = encodeComma(b)
-					code = code.end.next
-					break
-				}
-				mlen := maplen(uptr)
-				if mlen > 0 {
-					b = append(b, '{')
-					iter := mapiterinit(code.typ, uptr)
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-					if (opt & EncodeOptionUnorderedMap) == 0 {
-						mapCtx := newMapContext(mlen)
-						mapCtx.pos = append(mapCtx.pos, len(b))
-						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
-						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
-					}
 					code = code.next
 				} else {
 					b = append(b, '{', '}', ',')
@@ -3224,27 +3183,6 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				store(ctxptr, code.idx, p)
 			} else {
 				code = code.nextField
-			}
-		case opStructFieldMapLoad:
-			b = append(b, code.escapedKey...)
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			code = code.next
-			store(ctxptr, code.idx, p)
-		case opStructFieldOmitEmptyMapLoad:
-			ptr := load(ctxptr, code.headIdx)
-			p := ptr + code.offset
-			if p == 0 {
-				code = code.nextField
-			} else {
-				mlen := maplen(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-				if mlen == 0 {
-					code = code.nextField
-				} else {
-					b = append(b, code.escapedKey...)
-					code = code.next
-					store(ctxptr, code.idx, p)
-				}
 			}
 		case opStructFieldStruct:
 			b = append(b, code.escapedKey...)

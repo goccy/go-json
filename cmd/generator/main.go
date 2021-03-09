@@ -234,7 +234,7 @@ func (t opType) fieldToStringTagField() opType {
 	}
 	primitiveTypes := []string{
 		"int", "uint", "float32", "float64", "bool", "string", "bytes",
-		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
+		"array", "map", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
 		"intString", "uintString",
 		"intPtr", "uintPtr", "float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr",
 		"arrayPtr", "slicePtr", "mapPtr", "marshalJSONPtr", "marshalTextPtr", "interfacePtr",
@@ -253,7 +253,6 @@ func (t opType) fieldToStringTagField() opType {
 		createOpType("SliceEnd", "Op"),
 		createOpType("ArrayElem", "ArrayElem"),
 		createOpType("ArrayEnd", "Op"),
-		createOpType("MapHeadLoad", "MapHead"),
 		createOpType("MapKey", "MapKey"),
 		createOpType("MapValue", "MapValue"),
 		createOpType("MapEnd", "Op"),
@@ -334,7 +333,7 @@ func (t opType) fieldToStringTagField() opType {
 				PtrHeadToHead:       func() string { return op },
 				FieldToEnd: func() string {
 					switch typ {
-					case "", "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+					case "", "Array", "Map", "Slice", "Struct", "Recursive":
 						return op
 					}
 					return fmt.Sprintf(

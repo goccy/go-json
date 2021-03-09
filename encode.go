@@ -368,7 +368,12 @@ func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 }
 
 func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
-	bb, err := v.(Marshaler).MarshalJSON()
+	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+	marshaler, ok := v.(Marshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
@@ -387,7 +392,12 @@ func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
 }
 
 func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{}, indent int) ([]byte, error) {
-	bb, err := v.(Marshaler).MarshalJSON()
+	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+	marshaler, ok := v.(Marshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
@@ -414,7 +424,12 @@ func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{},
 }
 
 func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
-	bytes, err := v.(encoding.TextMarshaler).MarshalText()
+	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
@@ -422,7 +437,12 @@ func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
 }
 
 func encodeMarshalTextIndent(b []byte, v interface{}) ([]byte, error) {
-	bytes, err := v.(encoding.TextMarshaler).MarshalText()
+	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}

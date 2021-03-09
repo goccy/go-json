@@ -429,13 +429,7 @@ func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size 
 	}
 }
 
-func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
-	var op opType
-	if withLoad {
-		op = opMapHeadLoad
-	} else {
-		op = opMap
-	}
+func newMapHeaderCode(ctx *encodeCompileContext) *opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -444,7 +438,7 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	ctx.incPtrIndex()
 	mapIter := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         op,
+		op:         opMap,
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,

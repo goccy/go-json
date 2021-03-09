@@ -378,7 +378,7 @@ func newSliceHeaderCode(ctx *encodeCompileContext) *opcode {
 	ctx.incPtrIndex()
 	length := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         opSliceHead,
+		op:         opSlice,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		headIdx:    idx,
@@ -406,7 +406,7 @@ func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *opcode {
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         opArrayHead,
+		op:         opArray,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		headIdx:    idx,
@@ -434,7 +434,7 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	if withLoad {
 		op = opMapHeadLoad
 	} else {
-		op = opMapHead
+		op = opMap
 	}
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()

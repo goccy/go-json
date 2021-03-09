@@ -195,7 +195,7 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = encodeIndentComma(b)
 			}
 			code = code.next
-		case opSliceHead:
+		case opSlice:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
 			if p == 0 || slice.data == nil {
@@ -273,7 +273,7 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = append(b, ']')
 				code = code.end.next
 			}
-		case opArrayHead:
+		case opArray:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
 				b = encodeNull(b)
@@ -309,7 +309,7 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
-		case opMapHead:
+		case opMap:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {
 				b = encodeNull(b)
@@ -812,33 +812,7 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadIntNPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.next
-				break
-			}
-			if !code.anonymousHead {
-				b = append(b, '{', '\n')
-			}
-			b = appendIndent(ctx, b, code.indent+1)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			for i := 0; i < code.ptrNum; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendInt(b, ptrToUint64(p), code)
-			}
-			b = encodeIndentComma(b)
-			code = code.next
+
 		case opStructFieldPtrHeadUint:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
@@ -1032,33 +1006,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadUintNPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.next
-				break
-			}
-			if !code.anonymousHead {
-				b = append(b, '{', '\n')
-			}
-			b = appendIndent(ctx, b, code.indent+1)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			for i := 0; i < code.ptrNum; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = appendUint(b, ptrToUint64(p), code)
-			}
-			b = encodeIndentComma(b)
-			code = code.next
 		case opStructFieldPtrHeadFloat32:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
@@ -1248,33 +1195,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = append(b, '"')
 				b = encodeFloat32(b, ptrToFloat32(p))
 				b = append(b, '"')
-			}
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldHeadFloat32NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.next
-				break
-			}
-			if !code.anonymousHead {
-				b = append(b, '{', '\n')
-			}
-			b = appendIndent(ctx, b, code.indent+1)
-			b = append(b, code.key...)
-			b = append(b, ' ')
-			for i := 0; i < code.ptrNum; i++ {
-				if p == 0 {
-					break
-				}
-				p = ptrToPtr(p)
-			}
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				b = encodeFloat32(b, ptrToFloat32(p))
 			}
 			b = encodeIndentComma(b)
 			code = code.next
@@ -1493,35 +1413,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 			}
 			b = encodeIndentComma(b)
 			code = code.next
-		case opStructFieldHeadFloat64NPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				if !code.anonymousHead {
-					b = append(b, '{', '\n')
-				}
-				b = appendIndent(ctx, b, code.indent+1)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					v := ptrToFloat64(p)
-					if math.IsInf(v, 0) || math.IsNaN(v) {
-						return nil, errUnsupportedFloat(v)
-					}
-					b = encodeFloat64(b, v)
-				}
-			}
-			b = encodeIndentComma(b)
-			code = code.next
 		case opStructFieldPtrHeadString:
 			if code.indirect {
 				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
@@ -1709,31 +1600,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = encodeNull(b)
 			} else {
 				b = encodeNoEscapedString(b, string(encodeNoEscapedString([]byte{}, ptrToString(p))))
-			}
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldHeadStringNPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				if !code.anonymousHead {
-					b = append(b, '{', '\n')
-				}
-				b = appendIndent(ctx, b, code.indent+1)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = encodeNoEscapedString(b, ptrToString(p+code.offset))
-				}
 			}
 			b = encodeIndentComma(b)
 			code = code.next
@@ -1926,31 +1792,6 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = append(b, '"')
 				b = encodeBool(b, ptrToBool(p))
 				b = append(b, '"')
-			}
-			b = encodeIndentComma(b)
-			code = code.next
-		case opStructFieldHeadBoolNPtr:
-			p := load(ctxptr, code.idx)
-			if p == 0 {
-				b = encodeNull(b)
-			} else {
-				if !code.anonymousHead {
-					b = append(b, '{', '\n')
-				}
-				b = appendIndent(ctx, b, code.indent+1)
-				b = append(b, code.key...)
-				b = append(b, ' ')
-				for i := 0; i < code.ptrNum; i++ {
-					if p == 0 {
-						break
-					}
-					p = ptrToPtr(p)
-				}
-				if p == 0 {
-					b = encodeNull(b)
-				} else {
-					b = encodeBool(b, ptrToBool(p+code.offset))
-				}
 			}
 			b = encodeIndentComma(b)
 			code = code.next

@@ -96,9 +96,7 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 func encodeLinkRecursiveCode(c *opcode) {
 	for code := c; code.op != opEnd && code.op != opStructFieldRecursiveEnd; {
 		switch code.op {
-		case opStructFieldRecursive,
-			opStructFieldPtrAnonymousHeadRecursive,
-			opStructFieldAnonymousHeadRecursive:
+		case opStructFieldRecursive, opStructFieldPtrHeadRecursive:
 			if code.jmp.linked {
 				code = code.next
 				continue
@@ -253,11 +251,46 @@ func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	return nil, &UnsupportedTypeError{Type: rtype2type(typ)}
 }
 
+func encodeConvertPtrOp(code *opcode) opType {
+	ptrHeadOp := code.op.headToPtrHead()
+	if code.op != ptrHeadOp {
+		return ptrHeadOp
+	}
+	switch code.op {
+	case opInt:
+		return opIntPtr
+	case opUint:
+		return opUintPtr
+	case opFloat32:
+		return opFloat32Ptr
+	case opFloat64:
+		return opFloat64Ptr
+	case opString:
+		return opStringPtr
+	case opBool:
+		return opBoolPtr
+	case opBytes:
+		return opBytesPtr
+	case opArray:
+		return opArrayPtr
+	case opSlice:
+		return opSlicePtr
+	case opMap:
+		return opMapPtr
+	case opMarshalJSON:
+		return opMarshalJSONPtr
+	case opMarshalText:
+		return opMarshalTextPtr
+	case opInterface:
+		return opInterfacePtr
+	}
+	return code.op
+}
+
 func encodeCompileKey(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
 	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		fmt.Println("key MarshalJSON", typ)
 		return encodeCompileMarshalJSONPtr(ctx)
 	case rtype_ptrTo(typ).Implements(marshalTextType):
 		return encodeCompileMarshalTextPtr(ctx)
@@ -296,24 +329,13 @@ func encodeCompileKey(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
-	ptrOpcodeIndex := ctx.opcodeIndex
-	ptrIndex := ctx.ptrIndex
-	ctx.incIndex()
 	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()), true)
 	if err != nil {
 		return nil, err
 	}
-	ptrHeadOp := code.op.headToPtrHead()
-	if code.op != ptrHeadOp {
-		code.op = ptrHeadOp
-		code.decOpcodeIndex()
-		ctx.decIndex()
-		return code, nil
-	}
-	c := ctx.context()
-	c.opcodeIndex = ptrOpcodeIndex
-	c.ptrIndex = ptrIndex
-	return newOpCodeWithNext(c, opPtr, code), nil
+	code.op = encodeConvertPtrOp(code)
+	code.ptrNum++
+	return code, nil
 }
 
 func encodeCompileMarshalJSON(ctx *encodeCompileContext) (*opcode, error) {
@@ -693,181 +715,102 @@ func encodeCompileMap(ctx *encodeCompileContext, withLoad bool) (*opcode, error)
 
 func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 	switch code.op {
-	case opPtr:
-		ptrNum := 1
-		c := code
-		ctx.decIndex()
-		for {
-			if code.next.op == opPtr {
-				ptrNum++
-				code = code.next
-				ctx.decIndex()
-				continue
-			}
-			break
-		}
-		c.ptrNum = ptrNum
-		if ptrNum > 1 {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldHeadIntNPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldHeadUintNPtr
-			case opFloat32:
-				return opStructFieldHeadFloat32NPtr
-			case opFloat64:
-				return opStructFieldHeadFloat64NPtr
-			case opString:
-				return opStructFieldHeadStringNPtr
-			case opBool:
-				return opStructFieldHeadBoolNPtr
-			}
-		} else {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldHeadIntPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldHeadUintPtr
-			case opFloat32:
-				return opStructFieldHeadFloat32Ptr
-			case opFloat64:
-				return opStructFieldHeadFloat64Ptr
-			case opString:
-				return opStructFieldHeadStringPtr
-			case opBool:
-				return opStructFieldHeadBoolPtr
-			case opSliceHead:
-				return opStructFieldHeadSlicePtr
-			case opArrayHead:
-				return opStructFieldHeadArrayPtr
-			case opMapHead:
-				return opStructFieldHeadMapPtr
-			case opMarshalJSON:
-				return opStructFieldHeadMarshalJSONPtr
-			case opMarshalText:
-				return opStructFieldHeadMarshalTextPtr
-
-			}
-		}
 	case opInt:
 		return opStructFieldHeadInt
+	case opIntPtr:
+		return opStructFieldHeadIntPtr
 	case opUint:
 		return opStructFieldHeadUint
+	case opUintPtr:
+		return opStructFieldHeadUintPtr
 	case opFloat32:
 		return opStructFieldHeadFloat32
+	case opFloat32Ptr:
+		return opStructFieldHeadFloat32Ptr
 	case opFloat64:
 		return opStructFieldHeadFloat64
+	case opFloat64Ptr:
+		return opStructFieldHeadFloat64Ptr
 	case opString:
 		return opStructFieldHeadString
+	case opStringPtr:
+		return opStructFieldHeadStringPtr
 	case opBool:
 		return opStructFieldHeadBool
-	case opMapHead:
+	case opBoolPtr:
+		return opStructFieldHeadBoolPtr
+	case opMap:
 		return opStructFieldHeadMap
+	case opMapPtr:
+		code.op = opMap
+		return opStructFieldHeadMapPtr
 	case opMapHeadLoad:
 		return opStructFieldHeadMapLoad
-	case opArrayHead:
+	case opArray:
 		return opStructFieldHeadArray
-	case opSliceHead:
+	case opArrayPtr:
+		code.op = opArray
+		return opStructFieldHeadArrayPtr
+	case opSlice:
 		return opStructFieldHeadSlice
+	case opSlicePtr:
+		code.op = opSlice
+		return opStructFieldHeadSlicePtr
 	case opMarshalJSON:
 		return opStructFieldHeadMarshalJSON
 	case opMarshalJSONPtr:
 		return opStructFieldHeadMarshalJSONPtr
 	case opMarshalText:
 		return opStructFieldHeadMarshalText
+	case opMarshalTextPtr:
+		return opStructFieldHeadMarshalTextPtr
 	}
 	return opStructFieldHead
 }
 
 func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	switch code.op {
-	case opPtr:
-		ptrNum := 1
-		ctx.decIndex()
-		c := code
-		for {
-			if code.next.op == opPtr {
-				ptrNum++
-				code = code.next
-				ctx.decIndex()
-				continue
-			}
-			break
-		}
-		c.ptrNum = ptrNum
-		if ptrNum > 1 {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldIntNPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldUintNPtr
-			case opFloat32:
-				return opStructFieldFloat32NPtr
-			case opFloat64:
-				return opStructFieldFloat64NPtr
-			case opString:
-				return opStructFieldStringNPtr
-			case opBool:
-				return opStructFieldBoolNPtr
-			}
-		} else {
-			switch code.next.op {
-			case opInt:
-				c.mask = code.next.mask
-				c.rshiftNum = code.next.rshiftNum
-				return opStructFieldIntPtr
-			case opUint:
-				c.mask = code.next.mask
-				return opStructFieldUintPtr
-			case opFloat32:
-				return opStructFieldFloat32Ptr
-			case opFloat64:
-				return opStructFieldFloat64Ptr
-			case opString:
-				return opStructFieldStringPtr
-			case opBool:
-				return opStructFieldBoolPtr
-			case opSliceHead:
-				return opStructFieldSlicePtr
-			case opArrayHead:
-				return opStructFieldArrayPtr
-			case opMapHead:
-				return opStructFieldMapPtr
-			case opMarshalJSON:
-				return opStructFieldMarshalJSONPtr
-			case opMarshalText:
-				return opStructFieldMarshalTextPtr
-			}
-		}
 	case opInt:
 		return opStructFieldInt
+	case opIntPtr:
+		return opStructFieldIntPtr
 	case opUint:
 		return opStructFieldUint
+	case opUintPtr:
+		return opStructFieldUintPtr
 	case opFloat32:
 		return opStructFieldFloat32
+	case opFloat32Ptr:
+		return opStructFieldFloat32Ptr
 	case opFloat64:
 		return opStructFieldFloat64
+	case opFloat64Ptr:
+		return opStructFieldFloat64Ptr
 	case opString:
 		return opStructFieldString
+	case opStringPtr:
+		return opStructFieldStringPtr
 	case opBool:
 		return opStructFieldBool
-	case opMapHead:
+	case opBoolPtr:
+		return opStructFieldBoolPtr
+	case opMap:
 		return opStructFieldMap
+	case opMapPtr:
+		code.op = opMap
+		return opStructFieldMapPtr
 	case opMapHeadLoad:
 		return opStructFieldMapLoad
-	case opArrayHead:
+	case opArray:
 		return opStructFieldArray
-	case opSliceHead:
+	case opArrayPtr:
+		code.op = opArray
+		return opStructFieldArrayPtr
+	case opSlice:
 		return opStructFieldSlice
+	case opSlicePtr:
+		code.op = opSlice
+		return opStructFieldSlicePtr
 	case opStructFieldHead:
 		return opStructFieldStruct
 	case opMarshalJSON:
@@ -876,6 +819,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldMarshalJSONPtr
 	case opMarshalText:
 		return opStructFieldMarshalText
+	case opMarshalTextPtr:
+		return opStructFieldMarshalTextPtr
 	}
 	return opStructField
 }
@@ -952,7 +897,6 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadMapPtr,
 		opStructFieldHeadOmitEmptyMapPtr,
 		opStructFieldHeadStringTagMapPtr:
-		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	case opStructFieldHeadMarshalJSONPtr,
 		opStructFieldHeadOmitEmptyMarshalJSONPtr,
@@ -961,7 +905,6 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 		opStructFieldHeadOmitEmptyMarshalTextPtr,
 		opStructFieldHeadStringTagMarshalTextPtr:
 		ctx.decOpcodeIndex()
-		fieldCode.typ = fieldCode.typ.Elem()
 		return (*opcode)(unsafe.Pointer(fieldCode))
 	}
 	ctx.decOpcodeIndex()
@@ -1003,7 +946,6 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 		opStructFieldMapPtr,
 		opStructFieldOmitEmptyMapPtr,
 		opStructFieldStringTagMapPtr:
-		*valueCode = *valueCode.next
 		return valueCode.beforeLastCode()
 	}
 	ctx.decIndex()
@@ -1012,9 +954,6 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 
 func encodeIsNotExistsField(head *opcode) bool {
 	if head == nil {
-		return false
-	}
-	if head.op != opStructFieldAnonymousHead {
 		return false
 	}
 	if head.next == nil {
@@ -1076,15 +1015,8 @@ func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode 
 	removedFields := map[*opcode]struct{}{}
 	for {
 		existsKey := tags.existsKey(f.displayKey)
-		op := f.op.headToAnonymousHead()
-		if existsKey && (f.next.op == opStructFieldPtrAnonymousHeadRecursive || f.next.op == opStructFieldAnonymousHeadRecursive) {
+		if existsKey && (f.next.op == opStructFieldPtrHeadRecursive || f.next.op == opStructFieldHeadRecursive) {
 			// through
-		} else if op != f.op {
-			if existsKey {
-				f.op = opStructFieldAnonymousHead
-			} else if named == "" {
-				//f.op = op
-			}
 		} else if named == "" && f.op == opStructEnd {
 			f.op = opStructAnonymousEnd
 		} else if existsKey {
@@ -1166,7 +1098,7 @@ func encodeOptimizeConflictAnonymousFields(anonymousFields map[string][]structFi
 				if !fieldPair.linked {
 					if fieldPair.prevField == nil {
 						// head operation
-						fieldPair.curField.op = opStructFieldAnonymousHead
+						fieldPair.curField.op = opStructFieldHead
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
@@ -1184,7 +1116,7 @@ func encodeOptimizeConflictAnonymousFields(anonymousFields map[string][]structFi
 				if !fieldPair.linked {
 					if fieldPair.prevField == nil {
 						// head operation
-						fieldPair.curField.op = opStructFieldAnonymousHead
+						fieldPair.curField.op = opStructFieldHead
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						removedFields[fieldPair.curField] = struct{}{}

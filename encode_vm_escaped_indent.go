@@ -17,7 +17,6 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -2295,7 +2294,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2341,7 +2340,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2387,7 +2386,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2429,7 +2428,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2471,7 +2470,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2517,7 +2516,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2563,7 +2562,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2609,7 +2608,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2651,7 +2650,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2693,7 +2692,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3230,7 +3229,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3251,7 +3250,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
-			bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+			bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 			if err != nil {
 				return nil, err
 			}
@@ -3266,7 +3265,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3281,7 +3280,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalJSONIndent(ctx, b, ptrToInterface(code, p), code.indent)
+				bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3300,7 +3299,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3321,7 +3320,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
-			bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 			if err != nil {
 				return nil, err
 			}
@@ -3336,7 +3335,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3351,7 +3350,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = appendIndent(ctx, b, code.indent)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
-				bb, err := encodeMarshalTextIndent(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}

@@ -1,12 +1,9 @@
 package json
 
 import (
-	"bytes"
-	"encoding"
 	"fmt"
 	"math"
 	"reflect"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -75,7 +72,6 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	//fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -191,52 +187,43 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			b = bb
 			code = code.next
 		case opMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.next
 				break
 			}
-			v := ptrToInterface(code, ptr)
-			bb, err := v.(Marshaler).MarshalJSON()
+			bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 			if err != nil {
-				return nil, errMarshaler(code, err)
-			}
-			runtime.KeepAlive(v)
-			if len(bb) == 0 {
-				return nil, errUnexpectedEndOfJSON(
-					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-					0,
-				)
-			}
-			buf := bytes.NewBuffer(b)
-			//TODO: we should validate buffer with `compact`
-			if err := compact(buf, bb, false); err != nil {
 				return nil, err
 			}
-			b = buf.Bytes()
-			b = encodeComma(b)
+			b = encodeComma(bb)
 			code = code.next
 		case opMarshalText:
-			ptr := load(ctxptr, code.idx)
-			isPtr := code.typ.Kind() == reflect.Ptr
-			p := ptrToUnsafePtr(ptr)
-			if p == nil || isPtr && *(*unsafe.Pointer)(p) == nil {
-				b = append(b, '"', '"', ',')
-			} else {
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-					typ: code.typ,
-					ptr: p,
-				}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
-				b = encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = append(b, `""`...)
 				b = encodeComma(b)
+				code = code.next
+				break
 			}
+			bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
+			if err != nil {
+				return nil, err
+			}
+			b = encodeComma(bb)
 			code = code.next
+		case opSlicePtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opSlice:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
@@ -244,18 +231,18 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-			} else {
-				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(slice.len))
+				break
+			}
+			store(ctxptr, code.elemIdx, 0)
+			store(ctxptr, code.length, uintptr(slice.len))
+			store(ctxptr, code.idx, uintptr(slice.data))
+			if slice.len > 0 {
+				b = append(b, '[')
+				code = code.next
 				store(ctxptr, code.idx, uintptr(slice.data))
-				if slice.len > 0 {
-					b = append(b, '[')
-					code = code.next
-					store(ctxptr, code.idx, uintptr(slice.data))
-				} else {
-					b = append(b, '[', ']', ',')
-					code = code.end.next
-				}
+			} else {
+				b = append(b, '[', ']', ',')
+				code = code.end.next
 			}
 		case opSliceElem:
 			idx := load(ctxptr, code.elemIdx)
@@ -305,35 +292,45 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				b = encodeComma(b)
 				code = code.end.next
 			}
-		case opMap:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+		case opMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-			} else {
-				uptr := ptrToUnsafePtr(ptr)
-				mlen := maplen(uptr)
-				if mlen > 0 {
-					b = append(b, '{')
-					iter := mapiterinit(code.typ, uptr)
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					if (opt & EncodeOptionUnorderedMap) == 0 {
-						mapCtx := newMapContext(mlen)
-						mapCtx.pos = append(mapCtx.pos, len(b))
-						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
-						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
-					}
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-					code = code.next
-				} else {
-					b = append(b, '{', '}', ',')
-					code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			uptr := ptrToUnsafePtr(p)
+			mlen := maplen(uptr)
+			if mlen > 0 {
+				b = append(b, '{')
+				iter := mapiterinit(code.typ, uptr)
+				ctx.keepRefs = append(ctx.keepRefs, iter)
+				store(ctxptr, code.elemIdx, 0)
+				store(ctxptr, code.length, uintptr(mlen))
+				store(ctxptr, code.mapIter, uintptr(iter))
+				if (opt & EncodeOptionUnorderedMap) == 0 {
+					mapCtx := newMapContext(mlen)
+					mapCtx.pos = append(mapCtx.pos, len(b))
+					ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+					store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 				}
+				key := mapiterkey(iter)
+				store(ctxptr, code.next.idx, uintptr(key))
+				code = code.next
+			} else {
+				b = append(b, '{', '}', ',')
+				code = code.end.next
 			}
 		case opMapKey:
 			idx := load(ctxptr, code.elemIdx)
@@ -2174,7 +2171,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2218,7 +2215,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2262,7 +2259,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2302,7 +2299,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2342,7 +2339,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2386,7 +2383,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2430,7 +2427,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2474,7 +2471,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2514,7 +2511,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -2554,7 +2551,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3008,7 +3005,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3027,7 +3024,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				break
 			}
 			b = append(b, code.key...)
-			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 			if err != nil {
 				return nil, err
 			}
@@ -3040,7 +3037,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3053,7 +3050,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			p = ptrToPtr(p + code.offset)
 			if p != 0 {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3070,7 +3067,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3089,7 +3086,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				break
 			}
 			b = append(b, code.key...)
-			bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 			if err != nil {
 				return nil, err
 			}
@@ -3102,7 +3099,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}
@@ -3115,7 +3112,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			p = ptrToPtr(p + code.offset)
 			if p != 0 {
 				b = append(b, code.key...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), false)
 				if err != nil {
 					return nil, err
 				}

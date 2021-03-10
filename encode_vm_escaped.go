@@ -14,7 +14,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	fmt.Println(code.dump())
+	//fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -157,7 +157,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.next
 				break
 			}
-			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 			if err != nil {
 				return nil, err
 			}
@@ -180,12 +180,22 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.next
 				break
 			}
-			bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 			if err != nil {
 				return nil, err
 			}
 			b = encodeComma(bb)
 			code = code.next
+		case opSlicePtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opSlice:
 			p := load(ctxptr, code.idx)
 			slice := ptrToSlice(p)
@@ -193,18 +203,18 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-			} else {
-				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(slice.len))
+				break
+			}
+			store(ctxptr, code.elemIdx, 0)
+			store(ctxptr, code.length, uintptr(slice.len))
+			store(ctxptr, code.idx, uintptr(slice.data))
+			if slice.len > 0 {
+				b = append(b, '[')
+				code = code.next
 				store(ctxptr, code.idx, uintptr(slice.data))
-				if slice.len > 0 {
-					b = append(b, '[')
-					code = code.next
-					store(ctxptr, code.idx, uintptr(slice.data))
-				} else {
-					b = append(b, '[', ']', ',')
-					code = code.end.next
-				}
+			} else {
+				b = append(b, '[', ']', ',')
+				code = code.end.next
 			}
 		case opSliceElem:
 			idx := load(ctxptr, code.elemIdx)
@@ -254,35 +264,45 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				b = encodeComma(b)
 				code = code.end.next
 			}
-		case opMap:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+		case opMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeComma(b)
 				code = code.end.next
-			} else {
-				uptr := ptrToUnsafePtr(ptr)
-				mlen := maplen(uptr)
-				if mlen > 0 {
-					b = append(b, '{')
-					iter := mapiterinit(code.typ, uptr)
-					ctx.keepRefs = append(ctx.keepRefs, iter)
-					store(ctxptr, code.elemIdx, 0)
-					store(ctxptr, code.length, uintptr(mlen))
-					store(ctxptr, code.mapIter, uintptr(iter))
-					if (opt & EncodeOptionUnorderedMap) == 0 {
-						mapCtx := newMapContext(mlen)
-						mapCtx.pos = append(mapCtx.pos, len(b))
-						ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
-						store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
-					}
-					key := mapiterkey(iter)
-					store(ctxptr, code.next.idx, uintptr(key))
-					code = code.next
-				} else {
-					b = append(b, '{', '}', ',')
-					code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opMap:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			uptr := ptrToUnsafePtr(p)
+			mlen := maplen(uptr)
+			if mlen > 0 {
+				b = append(b, '{')
+				iter := mapiterinit(code.typ, uptr)
+				ctx.keepRefs = append(ctx.keepRefs, iter)
+				store(ctxptr, code.elemIdx, 0)
+				store(ctxptr, code.length, uintptr(mlen))
+				store(ctxptr, code.mapIter, uintptr(iter))
+				if (opt & EncodeOptionUnorderedMap) == 0 {
+					mapCtx := newMapContext(mlen)
+					mapCtx.pos = append(mapCtx.pos, len(b))
+					ctx.keepRefs = append(ctx.keepRefs, unsafe.Pointer(mapCtx))
+					store(ctxptr, code.end.mapPos, uintptr(unsafe.Pointer(mapCtx)))
 				}
+				key := mapiterkey(iter)
+				store(ctxptr, code.next.idx, uintptr(key))
+				code = code.next
+			} else {
+				b = append(b, '{', '}', ',')
+				code = code.end.next
 			}
 		case opMapKey:
 			idx := load(ctxptr, code.elemIdx)
@@ -2137,7 +2157,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2181,7 +2201,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2225,7 +2245,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2265,7 +2285,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2305,7 +2325,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2349,7 +2369,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2393,7 +2413,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if code.nilcheck && p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2437,7 +2457,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2477,7 +2497,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2517,7 +2537,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2971,7 +2991,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -2990,7 +3010,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 			if err != nil {
 				return nil, err
 			}
@@ -3003,7 +3023,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3016,7 +3036,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p = ptrToPtr(p + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalJSON(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3033,7 +3053,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 && code.nilcheck {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3052,7 +3072,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 				break
 			}
 			b = append(b, code.escapedKey...)
-			bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+			bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 			if err != nil {
 				return nil, err
 			}
@@ -3065,7 +3085,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			if p == 0 {
 				b = encodeNull(b)
 			} else {
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}
@@ -3078,7 +3098,7 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			p = ptrToPtr(p + code.offset)
 			if p != 0 {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalText(b, ptrToInterface(code, p))
+				bb, err := encodeMarshalText(code, b, ptrToInterface(code, p), true)
 				if err != nil {
 					return nil, err
 				}

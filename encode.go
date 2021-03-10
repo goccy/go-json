@@ -367,8 +367,18 @@ func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
 }
 
-func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
-	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+func encodeMarshalJSON(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
 	marshaler, ok := v.(Marshaler)
 	if !ok {
 		return encodeNull(b), nil
@@ -385,14 +395,24 @@ func encodeMarshalJSON(b []byte, v interface{}) ([]byte, error) {
 	}
 	buf := bytes.NewBuffer(b)
 	//TODO: we should validate buffer with `compact`
-	if err := compact(buf, bb, false); err != nil {
+	if err := compact(buf, bb, escape); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{}, indent int) ([]byte, error) {
-	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, code *opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
 	marshaler, ok := v.(Marshaler)
 	if !ok {
 		return encodeNull(b), nil
@@ -408,7 +428,7 @@ func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{},
 		)
 	}
 	var compactBuf bytes.Buffer
-	if err := compact(&compactBuf, bb, false); err != nil {
+	if err := compact(&compactBuf, bb, escape); err != nil {
 		return nil, err
 	}
 	var indentBuf bytes.Buffer
@@ -423,8 +443,18 @@ func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, b []byte, v interface{},
 	return append(b, indentBuf.Bytes()...), nil
 }
 
-func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
-	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+func encodeMarshalText(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
 		return encodeNull(b), nil
@@ -432,12 +462,25 @@ func encodeMarshalText(b []byte, v interface{}) ([]byte, error) {
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 	}
 	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func encodeMarshalTextIndent(b []byte, v interface{}) ([]byte, error) {
-	v = reflect.ValueOf(v).Interface() // convert by dynamic interface type
+func encodeMarshalTextIndent(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
 		return encodeNull(b), nil
@@ -445,6 +488,9 @@ func encodeMarshalTextIndent(b []byte, v interface{}) ([]byte, error) {
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 	}
 	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

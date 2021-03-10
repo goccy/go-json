@@ -810,8 +810,6 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	case opSlicePtr:
 		code.op = opSlice
 		return opStructFieldSlicePtr
-	case opStructFieldHead:
-		return opStructFieldStruct
 	case opMarshalJSON:
 		return opStructFieldMarshalJSON
 	case opMarshalJSONPtr:
@@ -820,6 +818,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldMarshalText
 	case opMarshalTextPtr:
 		return opStructFieldMarshalTextPtr
+	case opStructFieldRecursive:
+		return opStructFieldRecursive
 	}
 	return opStructField
 }
@@ -914,6 +914,7 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 	fieldCode.ptrNum = valueCode.ptrNum
 	fieldCode.mask = valueCode.mask
 	fieldCode.rshiftNum = valueCode.rshiftNum
+	fieldCode.jmp = valueCode.jmp
 	switch op {
 	case opStructField,
 		opStructFieldSlice,
@@ -947,6 +948,12 @@ func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *
 
 func encodeIsNotExistsField(head *opcode) bool {
 	if head == nil {
+		return false
+	}
+	if head.op != opStructFieldHead {
+		return false
+	}
+	if !head.anonymousHead {
 		return false
 	}
 	if head.next == nil {
@@ -1008,8 +1015,18 @@ func encodeAnonymousStructFieldPairMap(tags structTags, named string, valueCode 
 	removedFields := map[*opcode]struct{}{}
 	for {
 		existsKey := tags.existsKey(f.displayKey)
-		if existsKey && (f.next.op == opStructFieldPtrHeadRecursive || f.next.op == opStructFieldHeadRecursive) {
+		isHeadOp := strings.Contains(f.op.String(), "Head")
+		if existsKey && strings.Contains(f.op.String(), "Recursive") {
 			// through
+		} else if isHeadOp && !f.anonymousHead {
+			if existsKey {
+				// TODO: need to remove this head
+				f.op = opStructFieldHead
+				f.anonymousKey = true
+				f.anonymousHead = true
+			} else if named == "" {
+				f.anonymousHead = true
+			}
 		} else if named == "" && f.op == opStructEnd {
 			f.op = opStructAnonymousEnd
 		} else if existsKey {
@@ -1054,7 +1071,7 @@ func encodeAnonymousFieldPairRecursively(named string, valueCode *opcode) map[st
 	f := valueCode
 	var prevAnonymousField *opcode
 	for {
-		if f.displayKey != "" && strings.Contains(f.op.String(), "Anonymous") {
+		if f.displayKey != "" && f.anonymousHead {
 			key := fmt.Sprintf("%s.%s", named, f.displayKey)
 			anonymousFields[key] = append(anonymousFields[key], structFieldPair{
 				prevField:   prevAnonymousField,
@@ -1092,6 +1109,8 @@ func encodeOptimizeConflictAnonymousFields(anonymousFields map[string][]structFi
 					if fieldPair.prevField == nil {
 						// head operation
 						fieldPair.curField.op = opStructFieldHead
+						fieldPair.curField.anonymousHead = true
+						fieldPair.curField.anonymousKey = true
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						for i := 0; i < diff; i++ {
@@ -1110,6 +1129,8 @@ func encodeOptimizeConflictAnonymousFields(anonymousFields map[string][]structFi
 					if fieldPair.prevField == nil {
 						// head operation
 						fieldPair.curField.op = opStructFieldHead
+						fieldPair.curField.anonymousHead = true
+						fieldPair.curField.anonymousKey = true
 					} else {
 						diff := fieldPair.curField.nextField.displayIdx - fieldPair.curField.displayIdx
 						removedFields[fieldPair.curField] = struct{}{}
@@ -1169,8 +1190,8 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		ctx.incIndex()
 		nilcheck := true
 		var valueCode *opcode
-		fmt.Println("fieldType.Kind() = ", fieldType.Kind())
 		isNilValue := fieldType.Kind() == reflect.Ptr || fieldType.Kind() == reflect.Interface
+		addrForMarshaler := false
 		if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field T } => struct { field *T }
 			// func (*T) MarshalJSON() ([]byte, error)
@@ -1198,19 +1219,21 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		} else if isPtr && !isNilValue && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
 			// *struct{ field T }
 			// func (*T) MarshalJSON() ([]byte, error)
-			code, err := encodeCompileMarshalJSON(ctx.withType(rtype_ptrTo(fieldType)))
+			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
 			if err != nil {
 				return nil, err
 			}
+			addrForMarshaler = true
 			nilcheck = false
 			valueCode = code
 		} else if isPtr && !isNilValue && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
 			// *struct{ field T }
 			// func (*T) MarshalText() ([]byte, error)
-			code, err := encodeCompileMarshalText(ctx.withType(rtype_ptrTo(fieldType)))
+			code, err := encodeCompileMarshalText(ctx.withType(fieldType))
 			if err != nil {
 				return nil, err
 			}
+			addrForMarshaler = true
 			nilcheck = false
 			valueCode = code
 		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() != reflect.Ptr {
@@ -1259,28 +1282,26 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			for k, v := range encodeAnonymousStructFieldPairMap(tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
-		}
-		if field.Anonymous {
-			valueCode.anonymousHead = true
 			valueCode.decIndent()
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
 		valueCode.indirect = indirect
 		fieldCode := &opcode{
-			typ:          valueCode.typ,
-			displayIdx:   fieldOpcodeIndex,
-			idx:          opcodeOffset(fieldPtrIndex),
-			next:         valueCode,
-			indent:       ctx.indent,
-			anonymousKey: field.Anonymous,
-			key:          []byte(key),
-			escapedKey:   []byte(escapedKey),
-			isTaggedKey:  tag.isTaggedKey,
-			displayKey:   tag.key,
-			offset:       field.Offset,
-			indirect:     indirect,
-			nilcheck:     nilcheck,
+			typ:              valueCode.typ,
+			displayIdx:       fieldOpcodeIndex,
+			idx:              opcodeOffset(fieldPtrIndex),
+			next:             valueCode,
+			indent:           ctx.indent,
+			anonymousKey:     field.Anonymous,
+			key:              []byte(key),
+			escapedKey:       []byte(escapedKey),
+			isTaggedKey:      tag.isTaggedKey,
+			displayKey:       tag.key,
+			offset:           field.Offset,
+			indirect:         indirect,
+			nilcheck:         nilcheck,
+			addrForMarshaler: addrForMarshaler,
 		}
 		if fieldIdx == 0 {
 			fieldCode.headIdx = fieldCode.idx

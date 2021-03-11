@@ -1199,6 +1199,21 @@ func encodeOptimizeConflictAnonymousFields(anonymousFields map[string][]structFi
 	}
 }
 
+func encodeIsNilableType(typ *rtype) bool {
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return true
+	case reflect.Interface:
+		return true
+	case reflect.Slice:
+		return true
+	case reflect.Map:
+		return true
+	default:
+		return false
+	}
+}
+
 func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	ctx.root = false
 	if code := encodeCompiledCode(ctx); code != nil {
@@ -1213,7 +1228,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	//                        |__________|
 	fieldNum := typ.NumField()
 	indirect := ifaceIndir(typ)
-	//fmt.Println("indirect = ", indirect, "type = ", typ, "isPtr = ", isPtr)
 	fieldIdx := 0
 	disableIndirectConversion := false
 	var (
@@ -1237,11 +1251,15 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		fieldOpcodeIndex := ctx.opcodeIndex
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
+
 		nilcheck := true
-		var valueCode *opcode
-		isNilValue := fieldType.Kind() == reflect.Ptr || fieldType.Kind() == reflect.Interface || fieldType.Kind() == reflect.Slice || fieldType.Kind() == reflect.Map
 		addrForMarshaler := false
-		if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
+		isIndirectSpecialCase := isPtr && i == 0 && fieldNum == 1
+		isNilableType := encodeIsNilableType(fieldType)
+
+		var valueCode *opcode
+		switch {
+		case isIndirectSpecialCase && !isNilableType && encodeIsPtrMarshalJSONType(fieldType):
 			// *struct{ field T } => struct { field *T }
 			// func (*T) MarshalJSON() ([]byte, error)
 			// move pointer position from head to first field
@@ -1253,7 +1271,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalTextType) && !fieldType.Implements(marshalTextType) {
+		case isIndirectSpecialCase && !isNilableType && encodeIsPtrMarshalTextType(fieldType):
 			// *struct{ field T } => struct { field *T }
 			// func (*T) MarshalText() ([]byte, error)
 			// move pointer position from head to first field
@@ -1265,7 +1283,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if isPtr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+		case isPtr && encodeIsPtrMarshalJSONType(fieldType):
 			// *struct{ field T }
 			// func (*T) MarshalJSON() ([]byte, error)
 			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
@@ -1275,7 +1293,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			addrForMarshaler = true
 			nilcheck = false
 			valueCode = code
-		} else if isPtr && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
+		case isPtr && encodeIsPtrMarshalTextType(fieldType):
 			// *struct{ field T }
 			// func (*T) MarshalText() ([]byte, error)
 			code, err := encodeCompileMarshalText(ctx.withType(fieldType))
@@ -1285,7 +1303,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			addrForMarshaler = true
 			nilcheck = false
 			valueCode = code
-		} else {
+		default:
 			code, err := encodeCompile(ctx.withType(fieldType), isPtr)
 			if err != nil {
 				return nil, err
@@ -1391,4 +1409,12 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 	}
 
 	return ret, nil
+}
+
+func encodeIsPtrMarshalJSONType(typ *rtype) bool {
+	return !typ.Implements(marshalJSONType) && rtype_ptrTo(typ).Implements(marshalJSONType)
+}
+
+func encodeIsPtrMarshalTextType(typ *rtype) bool {
+	return !typ.Implements(marshalTextType) && rtype_ptrTo(typ).Implements(marshalTextType)
 }

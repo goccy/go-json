@@ -1836,7 +1836,6 @@ func TestUnmarshal(t *testing.T) {
 
 		// Check round trip also decodes correctly.
 		if tt.err == nil {
-			//fmt.Println("iface = ", v.Interface(), v.Type())
 			enc, err := json.Marshal(v.Interface())
 			if err != nil {
 				t.Errorf("#%d: error re-marshaling: %v", i, err)

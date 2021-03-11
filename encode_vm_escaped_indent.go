@@ -224,28 +224,6 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					code = code.end.next
 				}
 			}
-		case opRootSliceHead:
-			p := load(ctxptr, code.idx)
-			slice := ptrToSlice(p)
-			if p == 0 || slice.data == nil {
-				b = encodeNull(b)
-				b = encodeIndentComma(b)
-				code = code.end.next
-			} else {
-				store(ctxptr, code.elemIdx, 0)
-				store(ctxptr, code.length, uintptr(slice.len))
-				store(ctxptr, code.idx, uintptr(slice.data))
-				if slice.len > 0 {
-					b = append(b, '[', '\n')
-					b = appendIndent(ctx, b, code.indent+1)
-					code = code.next
-					store(ctxptr, code.idx, uintptr(slice.data))
-				} else {
-					b = appendIndent(ctx, b, code.indent)
-					b = append(b, '[', ']', ',', '\n')
-					code = code.end.next
-				}
-			}
 		case opSliceElem:
 			idx := load(ctxptr, code.elemIdx)
 			length := load(ctxptr, code.length)
@@ -262,22 +240,6 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				b = append(b, '\n')
 				b = appendIndent(ctx, b, code.indent)
 				b = append(b, ']', ',', '\n')
-				code = code.end.next
-			}
-		case opRootSliceElem:
-			idx := load(ctxptr, code.elemIdx)
-			length := load(ctxptr, code.length)
-			idx++
-			if idx < length {
-				b = appendIndent(ctx, b, code.indent+1)
-				store(ctxptr, code.elemIdx, idx)
-				code = code.next
-				data := load(ctxptr, code.headIdx)
-				store(ctxptr, code.idx, data+idx*code.size)
-			} else {
-				b = append(b, '\n')
-				b = appendIndent(ctx, b, code.indent)
-				b = append(b, ']')
 				code = code.end.next
 			}
 		case opArray:

@@ -1,6 +1,14 @@
 name: Go
 on: [push, pull_request]
 jobs:
+  build:
+    name: Build on limited environment
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: build
+      run: docker-compose run go-json
   test:
     name: Test
     strategy:

@@ -412,6 +412,29 @@ func TestCoverInt16(t *testing.T) {
 		{
 			name: "PtrHeadInt16NilMultiFields",
 			data: (*struct {
+				A int16 `json:"a"`
+				B int16 `json:"b"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadInt16NilMultiFieldsOmitEmpty",
+			data: (*struct {
+				A int16 `json:"a,omitempty"`
+				B int16 `json:"b,omitempty"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadInt16NilMultiFieldsString",
+			data: (*struct {
+				A int16 `json:"a,string"`
+				B int16 `json:"b,string"`
+			})(nil),
+		},
+
+		// PtrHeadInt16NilMultiFields
+		{
+			name: "PtrHeadInt16NilMultiFields",
+			data: (*struct {
 				A *int16 `json:"a"`
 				B *int16 `json:"b"`
 			})(nil),

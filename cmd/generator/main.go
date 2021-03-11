@@ -15,11 +15,8 @@ type opType struct {
 	Op                    string
 	Code                  string
 	HeadToPtrHead         func() string
-	HeadToNPtrHead        func() string
-	HeadToAnonymousHead   func() string
 	HeadToOmitEmptyHead   func() string
 	HeadToStringTagHead   func() string
-	HeadToOnlyHead        func() string
 	PtrHeadToHead         func() string
 	FieldToEnd            func() string
 	FieldToOmitEmptyField func() string
@@ -28,14 +25,6 @@ type opType struct {
 
 func (t opType) IsHeadToPtrHead() bool {
 	return t.Op != t.HeadToPtrHead()
-}
-
-func (t opType) IsHeadToNPtrHead() bool {
-	return t.Op != t.HeadToNPtrHead()
-}
-
-func (t opType) IsHeadToAnonymousHead() bool {
-	return t.Op != t.HeadToAnonymousHead()
 }
 
 func (t opType) IsHeadToOmitEmptyHead() bool {
@@ -48,10 +37,6 @@ func (t opType) IsHeadToStringTagHead() bool {
 
 func (t opType) IsPtrHeadToHead() bool {
 	return t.Op != t.PtrHeadToHead()
-}
-
-func (t opType) IsHeadToOnlyHead() bool {
-	return t.Op != t.HeadToOnlyHead()
 }
 
 func (t opType) IsFieldToEnd() bool {
@@ -71,11 +56,8 @@ func createOpType(op, code string) opType {
 		Op:                    op,
 		Code:                  code,
 		HeadToPtrHead:         func() string { return op },
-		HeadToNPtrHead:        func() string { return op },
-		HeadToAnonymousHead:   func() string { return op },
 		HeadToOmitEmptyHead:   func() string { return op },
 		HeadToStringTagHead:   func() string { return op },
-		HeadToOnlyHead:        func() string { return op },
 		PtrHeadToHead:         func() string { return op },
 		FieldToEnd:            func() string { return op },
 		FieldToOmitEmptyField: func() string { return op },
@@ -127,19 +109,19 @@ func (t opType) codeType() codeType {
     }
     return codeStructField
   }
-  if strings.Contains(t.String(), "ArrayHead") {
+  if t.String() == "Array" || t.String() == "ArrayPtr" {
     return codeArrayHead
   }
   if strings.Contains(t.String(), "ArrayElem") {
     return codeArrayElem
   }
-  if strings.Contains(t.String(), "SliceHead") {
+  if t.String() == "Slice" || t.String() == "SlicePtr" {
     return codeSliceHead
   }
   if strings.Contains(t.String(), "SliceElem") {
     return codeSliceElem
   }
-  if strings.Contains(t.String(), "MapHead") {
+  if t.String() == "Map" || t.String() == "MapPtr" {
     return codeMapHead
   }
   if strings.Contains(t.String(), "MapKey") {
@@ -159,9 +141,6 @@ func (t opType) headToPtrHead() opType {
   if strings.Index(t.String(), "PtrHead") > 0 {
     return t
   }
-  if strings.Index(t.String(), "PtrAnonymousHead") > 0 {
-    return t
-  }
 
   idx := strings.Index(t.String(), "Field")
   if idx == -1 {
@@ -169,44 +148,15 @@ func (t opType) headToPtrHead() opType {
   }
   suffix := "Ptr"+t.String()[idx+len("Field"):]
 
-  const toPtrOffset = 12
+  const toPtrOffset = 3
   if strings.Contains(opType(int(t) + toPtrOffset).String(), suffix) {
     return opType(int(t) + toPtrOffset)
-  }
-  return t
-}
-
-func (t opType) headToNPtrHead() opType {
-  if strings.Index(t.String(), "PtrHead") > 0 {
-    return t
-  }
-  if strings.Index(t.String(), "PtrAnonymousHead") > 0 {
-    return t
-  }
-
-  idx := strings.Index(t.String(), "Field")
-  if idx == -1 {
-    return t
-  }
-  suffix := "NPtr"+t.String()[idx+len("Field"):]
-
-  const toPtrOffset = 24
-  if strings.Contains(opType(int(t) + toPtrOffset).String(), suffix) {
-    return opType(int(t) + toPtrOffset)
-  }
-  return t
-}
-
-func (t opType) headToAnonymousHead() opType {
-  const toAnonymousOffset = 6
-  if strings.Contains(opType(int(t) + toAnonymousOffset).String(), "Anonymous") {
-    return opType(int(t) + toAnonymousOffset)
   }
   return t
 }
 
 func (t opType) headToOmitEmptyHead() opType {
-  const toOmitEmptyOffset = 2
+  const toOmitEmptyOffset = 1
   if strings.Contains(opType(int(t) + toOmitEmptyOffset).String(), "OmitEmpty") {
     return opType(int(t) + toOmitEmptyOffset)
   }
@@ -215,21 +165,9 @@ func (t opType) headToOmitEmptyHead() opType {
 }
 
 func (t opType) headToStringTagHead() opType {
-  const toStringTagOffset = 4
+  const toStringTagOffset = 2
   if strings.Contains(opType(int(t) + toStringTagOffset).String(), "StringTag") {
     return opType(int(t) + toStringTagOffset)
-  }
-  return t
-}
-
-func (t opType) headToOnlyHead() opType {
-  if strings.HasSuffix(t.String(), "Head") || strings.HasSuffix(t.String(), "HeadOmitEmpty") || strings.HasSuffix(t.String(), "HeadStringTag") {
-    return t
-  }
-
-  const toOnlyOffset = 1
-  if opType(int(t) + toOnlyOffset).String() == t.String() + "Only" {
-    return opType(int(t) + toOnlyOffset)
   }
   return t
 }
@@ -241,7 +179,7 @@ func (t opType) ptrHeadToHead() opType {
   }
   suffix := t.String()[idx+len("Ptr"):]
 
-  const toPtrOffset = 12
+  const toPtrOffset = 3
   if strings.Contains(opType(int(t) - toPtrOffset).String(), suffix) {
     return opType(int(t) - toPtrOffset)
   }
@@ -295,11 +233,11 @@ func (t opType) fieldToStringTagField() opType {
 		"StructEnd",
 	}
 	primitiveTypes := []string{
-		"int", "uint", "float32", "float64", "bool", "string", "bytes",
-		"array", "map", "mapLoad", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
+		"int", "uint", "float32", "float64", "bool", "string", "bytes", "number",
+		"array", "map", "slice", "struct", "MarshalJSON", "MarshalText", "recursive",
 		"intString", "uintString",
-		"intPtr", "uintPtr", "float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr",
-		"intNPtr", "uintNPtr", "float32NPtr", "float64NPtr", "boolNPtr", "stringNPtr", "bytesNPtr",
+		"intPtr", "uintPtr", "float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr", "numberPtr",
+		"arrayPtr", "mapPtr", "slicePtr", "marshalJSONPtr", "marshalTextPtr", "interfacePtr", "recursivePtr",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
@@ -309,17 +247,10 @@ func (t opType) fieldToStringTagField() opType {
 		createOpType("End", "Op"),
 		createOpType("Interface", "Op"),
 		createOpType("Ptr", "Op"),
-		createOpType("NPtr", "Op"),
-		createOpType("SliceHead", "SliceHead"),
-		createOpType("RootSliceHead", "SliceHead"),
 		createOpType("SliceElem", "SliceElem"),
-		createOpType("RootSliceElem", "SliceElem"),
 		createOpType("SliceEnd", "Op"),
-		createOpType("ArrayHead", "ArrayHead"),
 		createOpType("ArrayElem", "ArrayElem"),
 		createOpType("ArrayEnd", "Op"),
-		createOpType("MapHead", "MapHead"),
-		createOpType("MapHeadLoad", "MapHead"),
 		createOpType("MapKey", "MapKey"),
 		createOpType("MapValue", "MapValue"),
 		createOpType("MapEnd", "Op"),
@@ -331,102 +262,53 @@ func (t opType) fieldToStringTagField() opType {
 		opTypes = append(opTypes, createOpType(typ, "Op"))
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
-		for _, ptrOrNot := range []string{"", "Ptr", "NPtr"} {
-			for _, headType := range []string{"", "Anonymous"} {
-				for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
-					for _, onlyOrNot := range []string{"", "Only"} {
-						ptrOrNot := ptrOrNot
-						headType := headType
-						opt := opt
-						typ := typ
-						onlyOrNot := onlyOrNot
+		for _, ptrOrNot := range []string{"", "Ptr"} {
+			for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+				ptrOrNot := ptrOrNot
+				opt := opt
+				typ := typ
 
-						op := fmt.Sprintf(
-							"StructField%s%sHead%s%s%s",
-							ptrOrNot,
-							headType,
+				op := fmt.Sprintf(
+					"StructField%sHead%s%s",
+					ptrOrNot,
+					opt,
+					typ,
+				)
+				opTypes = append(opTypes, opType{
+					Op:   op,
+					Code: "StructField",
+					HeadToPtrHead: func() string {
+						return fmt.Sprintf(
+							"StructFieldPtrHead%s%s",
 							opt,
 							typ,
-							onlyOrNot,
 						)
-						opTypes = append(opTypes, opType{
-							Op:   op,
-							Code: "StructField",
-							HeadToPtrHead: func() string {
-								return fmt.Sprintf(
-									"StructFieldPtr%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToNPtrHead: func() string {
-								return fmt.Sprintf(
-									"StructFieldNPtr%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToAnonymousHead: func() string {
-								return fmt.Sprintf(
-									"StructField%sAnonymousHead%s%s%s",
-									ptrOrNot,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToOmitEmptyHead: func() string {
-								return fmt.Sprintf(
-									"StructField%s%sHeadOmitEmpty%s%s",
-									ptrOrNot,
-									headType,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToStringTagHead: func() string {
-								return fmt.Sprintf(
-									"StructField%s%sHeadStringTag%s%s",
-									ptrOrNot,
-									headType,
-									typ,
-									onlyOrNot,
-								)
-							},
-							HeadToOnlyHead: func() string {
-								switch typ {
-								case "", "Array", "Map", "MapLoad", "Slice",
-									"Struct", "Recursive", "MarshalJSON", "MarshalText",
-									"IntString", "UintString":
-									return op
-								}
-								return fmt.Sprintf(
-									"StructField%s%sHead%s%sOnly",
-									ptrOrNot,
-									headType,
-									opt,
-									typ,
-								)
-							},
-							PtrHeadToHead: func() string {
-								return fmt.Sprintf(
-									"StructField%sHead%s%s%s",
-									headType,
-									opt,
-									typ,
-									onlyOrNot,
-								)
-							},
-							FieldToEnd:            func() string { return op },
-							FieldToOmitEmptyField: func() string { return op },
-							FieldToStringTagField: func() string { return op },
-						})
-					}
-				}
+					},
+					HeadToOmitEmptyHead: func() string {
+						return fmt.Sprintf(
+							"StructField%sHeadOmitEmpty%s",
+							ptrOrNot,
+							typ,
+						)
+					},
+					HeadToStringTagHead: func() string {
+						return fmt.Sprintf(
+							"StructField%sHeadStringTag%s",
+							ptrOrNot,
+							typ,
+						)
+					},
+					PtrHeadToHead: func() string {
+						return fmt.Sprintf(
+							"StructFieldHead%s%s",
+							opt,
+							typ,
+						)
+					},
+					FieldToEnd:            func() string { return op },
+					FieldToOmitEmptyField: func() string { return op },
+					FieldToStringTagField: func() string { return op },
+				})
 			}
 		}
 	}
@@ -444,15 +326,12 @@ func (t opType) fieldToStringTagField() opType {
 				Op:                  op,
 				Code:                "StructField",
 				HeadToPtrHead:       func() string { return op },
-				HeadToNPtrHead:      func() string { return op },
-				HeadToAnonymousHead: func() string { return op },
 				HeadToOmitEmptyHead: func() string { return op },
 				HeadToStringTagHead: func() string { return op },
-				HeadToOnlyHead:      func() string { return op },
 				PtrHeadToHead:       func() string { return op },
 				FieldToEnd: func() string {
 					switch typ {
-					case "", "Array", "Map", "MapLoad", "Slice", "Struct", "Recursive":
+					case "", "Array", "Map", "Slice", "Struct", "Recursive":
 						return op
 					}
 					return fmt.Sprintf(
@@ -490,11 +369,8 @@ func (t opType) fieldToStringTagField() opType {
 				Op:                    op,
 				Code:                  "StructEnd",
 				HeadToPtrHead:         func() string { return op },
-				HeadToNPtrHead:        func() string { return op },
-				HeadToAnonymousHead:   func() string { return op },
 				HeadToOmitEmptyHead:   func() string { return op },
 				HeadToStringTagHead:   func() string { return op },
-				HeadToOnlyHead:        func() string { return op },
 				PtrHeadToHead:         func() string { return op },
 				FieldToEnd:            func() string { return op },
 				FieldToOmitEmptyField: func() string { return op },

@@ -9,19 +9,22 @@ import (
 const uintptrSize = 4 << (^uintptr(0) >> 63) // unsafe.Sizeof(uintptr(0)) but an ideal const
 
 type opcode struct {
-	op           opType // operation type
-	typ          *rtype // go type
-	displayIdx   int    // opcode index
-	key          []byte // struct field key
-	escapedKey   []byte // struct field key ( HTML escaped )
-	ptrNum       int    // pointer number: e.g. double pointer is 2.
-	displayKey   string // key text to display
-	isTaggedKey  bool   // whether tagged key
-	anonymousKey bool   // whether anonymous key
-	root         bool   // whether root
-	rshiftNum    uint8  // use to take bit for judging whether negative integer or not
-	mask         uint64 // mask for number
-	indent       int    // indent number
+	op               opType // operation type
+	typ              *rtype // go type
+	displayIdx       int    // opcode index
+	key              []byte // struct field key
+	escapedKey       []byte // struct field key ( HTML escaped )
+	ptrNum           int    // pointer number: e.g. double pointer is 2.
+	displayKey       string // key text to display
+	isTaggedKey      bool   // whether tagged key
+	anonymousKey     bool   // whether anonymous key
+	anonymousHead    bool   // whether anonymous head or not
+	indirect         bool   // whether indirect or not
+	nilcheck         bool   // whether needs to nilcheck or not
+	addrForMarshaler bool   // whether needs to addr for marshaler or not
+	rshiftNum        uint8  // use to take bit for judging whether negative integer or not
+	mask             uint64 // mask for number
+	indent           int    // indent number
 
 	idx     uintptr // offset to access ptr
 	headIdx uintptr // offset to access slice/struct head
@@ -79,27 +82,30 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		return code
 	}
 	copied := &opcode{
-		op:           c.op,
-		typ:          c.typ,
-		displayIdx:   c.displayIdx,
-		key:          c.key,
-		escapedKey:   c.escapedKey,
-		displayKey:   c.displayKey,
-		ptrNum:       c.ptrNum,
-		mask:         c.mask,
-		rshiftNum:    c.rshiftNum,
-		isTaggedKey:  c.isTaggedKey,
-		anonymousKey: c.anonymousKey,
-		root:         c.root,
-		indent:       c.indent,
-		idx:          c.idx,
-		headIdx:      c.headIdx,
-		elemIdx:      c.elemIdx,
-		length:       c.length,
-		mapIter:      c.mapIter,
-		mapPos:       c.mapPos,
-		offset:       c.offset,
-		size:         c.size,
+		op:               c.op,
+		typ:              c.typ,
+		displayIdx:       c.displayIdx,
+		key:              c.key,
+		escapedKey:       c.escapedKey,
+		displayKey:       c.displayKey,
+		ptrNum:           c.ptrNum,
+		mask:             c.mask,
+		rshiftNum:        c.rshiftNum,
+		isTaggedKey:      c.isTaggedKey,
+		anonymousKey:     c.anonymousKey,
+		anonymousHead:    c.anonymousHead,
+		indirect:         c.indirect,
+		nilcheck:         c.nilcheck,
+		addrForMarshaler: c.addrForMarshaler,
+		indent:           c.indent,
+		idx:              c.idx,
+		headIdx:          c.headIdx,
+		elemIdx:          c.elemIdx,
+		length:           c.length,
+		mapIter:          c.mapIter,
+		mapPos:           c.mapPos,
+		offset:           c.offset,
+		size:             c.size,
 	}
 	codeMap[addr] = copied
 	copied.mapKey = c.mapKey.copy(codeMap)
@@ -163,6 +169,18 @@ func (c *opcode) decOpcodeIndex() {
 		if code.length > 0 && code.op.codeType() != codeArrayHead && code.op.codeType() != codeArrayElem {
 			code.length -= uintptrSize
 		}
+		switch code.op.codeType() {
+		case codeArrayElem, codeSliceElem, codeMapKey:
+			code = code.end
+		default:
+			code = code.next
+		}
+	}
+}
+
+func (c *opcode) decIndent() {
+	for code := c; code.op != opEnd; {
+		code.indent--
 		switch code.op.codeType() {
 		case codeArrayElem, codeSliceElem, codeMapKey:
 			code = code.end
@@ -360,7 +378,7 @@ func newSliceHeaderCode(ctx *encodeCompileContext) *opcode {
 	ctx.incPtrIndex()
 	length := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         opSliceHead,
+		op:         opSlice,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		headIdx:    idx,
@@ -388,7 +406,7 @@ func newArrayHeaderCode(ctx *encodeCompileContext, alen int) *opcode {
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         opArrayHead,
+		op:         opArray,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
 		headIdx:    idx,
@@ -406,17 +424,12 @@ func newArrayElemCode(ctx *encodeCompileContext, head *opcode, length int, size 
 		elemIdx:    head.elemIdx,
 		headIdx:    head.headIdx,
 		length:     uintptr(length),
+		indent:     ctx.indent,
 		size:       size,
 	}
 }
 
-func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
-	var op opType
-	if withLoad {
-		op = opMapHeadLoad
-	} else {
-		op = opMapHead
-	}
+func newMapHeaderCode(ctx *encodeCompileContext) *opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -425,7 +438,7 @@ func newMapHeaderCode(ctx *encodeCompileContext, withLoad bool) *opcode {
 	ctx.incPtrIndex()
 	mapIter := opcodeOffset(ctx.ptrIndex)
 	return &opcode{
-		op:         op,
+		op:         opMap,
 		typ:        ctx.typ,
 		displayIdx: ctx.opcodeIndex,
 		idx:        idx,
@@ -482,7 +495,6 @@ func newInterfaceCode(ctx *encodeCompileContext) *opcode {
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		indent:     ctx.indent,
-		root:       ctx.root,
 		next:       newEndOp(ctx),
 	}
 }

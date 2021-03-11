@@ -2,10 +2,14 @@ package json
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 )
@@ -358,7 +362,147 @@ func encodeByteSlice(b []byte, src []byte) []byte {
 	return append(append(b, buf...), '"')
 }
 
+func encodeNumber(b []byte, n Number) ([]byte, error) {
+	if len(n) == 0 {
+		return append(b, '0'), nil
+	}
+	for i := 0; i < len(n); i++ {
+		if !floatTable[n[i]] {
+			return nil, fmt.Errorf("json: invalid number literal %q", n)
+		}
+	}
+	b = append(b, n...)
+	return b, nil
+}
+
 func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 	b = append(b, ctx.prefix...)
 	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
+}
+
+func encodeIsNilForMarshaler(v interface{}) bool {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Map, reflect.Ptr:
+		return rv.IsNil()
+	case reflect.Slice:
+		return rv.IsNil() || rv.Len() == 0
+	}
+	return false
+}
+
+func encodeMarshalJSON(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(Marshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	buf := bytes.NewBuffer(b)
+	//TODO: we should validate buffer with `compact`
+	if err := compact(buf, bb, escape); err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return buf.Bytes(), nil
+}
+
+func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, code *opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(Marshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	var compactBuf bytes.Buffer
+	if err := compact(&compactBuf, bb, escape); err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	var indentBuf bytes.Buffer
+	if err := encodeWithIndent(
+		&indentBuf,
+		compactBuf.Bytes(),
+		string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+indent+1),
+		string(ctx.indentStr),
+	); err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return append(b, indentBuf.Bytes()...), nil
+}
+
+func encodeMarshalText(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	}
+	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+func encodeMarshalTextIndent(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.addrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return encodeNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
+	if err != nil {
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	}
+	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

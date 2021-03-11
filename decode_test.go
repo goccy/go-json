@@ -1251,31 +1251,31 @@ var unmarshalTests = []unmarshalTest{
 		in:  `invalid`, // 143
 		ptr: new(json.Number),
 		err: json.NewSyntaxError(
-			`json: invalid character v as null`,
+			`json: json.Number unexpected end of JSON input`,
 			1,
 		),
 	},
 	{
 		in:  `"invalid"`, // 144
 		ptr: new(json.Number),
-		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "invalid": invalid syntax`),
 	},
 	{
 		in:  `{"A":"invalid"}`, // 145
 		ptr: new(struct{ A json.Number }),
-		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "invalid": invalid syntax`),
 	},
 	{
 		in: `{"A":"invalid"}`, // 146
 		ptr: new(struct {
 			A json.Number `json:",string"`
 		}),
-		err: fmt.Errorf(`json: null unexpected end of JSON input`),
+		err: fmt.Errorf(`json: json.Number unexpected end of JSON input`),
 	},
 	{
 		in:  `{"A":"invalid"}`, // 147
 		ptr: new(map[string]json.Number),
-		err: fmt.Errorf(`strconv.ParseFloat: parsing "\"invalid\"": invalid syntax`),
+		err: fmt.Errorf(`strconv.ParseFloat: parsing "invalid": invalid syntax`),
 	},
 	/*
 		// invalid UTF-8 is coerced to valid UTF-8.

@@ -63,7 +63,6 @@ func releaseMapContext(c *encodeMapContext) {
 
 type encodeCompileContext struct {
 	typ                      *rtype
-	root                     bool
 	opcodeIndex              int
 	ptrIndex                 int
 	indent                   int
@@ -75,7 +74,6 @@ type encodeCompileContext struct {
 func (c *encodeCompileContext) context() *encodeCompileContext {
 	return &encodeCompileContext{
 		typ:                      c.typ,
-		root:                     c.root,
 		opcodeIndex:              c.opcodeIndex,
 		ptrIndex:                 c.ptrIndex,
 		indent:                   c.indent,

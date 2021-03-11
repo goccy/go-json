@@ -5,6 +5,9 @@ import (
 )
 
 func compact(dst *bytes.Buffer, src []byte, escape bool) error {
+	if len(src) == 0 {
+		return errUnexpectedEndOfJSON("", 0)
+	}
 	length := len(src)
 	for cursor := 0; cursor < length; cursor++ {
 		c := src[cursor]

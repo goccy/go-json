@@ -14,7 +14,6 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.ptr()
 	code := codeSet.code
-	//fmt.Println(code.dump())
 
 	for {
 		switch code.op {
@@ -393,8 +392,14 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			mapCtx.buf = buf
 			releaseMapContext(mapCtx)
 			code = code.next
-		case opStructFieldPtrHeadRecursive:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+		case opStructFieldRecursivePtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opStructFieldRecursive:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

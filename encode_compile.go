@@ -103,7 +103,7 @@ func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 func encodeLinkRecursiveCode(c *opcode) {
 	for code := c; code.op != opEnd && code.op != opStructFieldRecursiveEnd; {
 		switch code.op {
-		case opStructFieldRecursive, opStructFieldPtrHeadRecursive:
+		case opStructFieldRecursive, opStructFieldRecursivePtr:
 			if code.jmp.linked {
 				code = code.next
 				continue
@@ -144,7 +144,7 @@ func encodeLinkRecursiveCode(c *opcode) {
 
 func encodeOptimizeStructEnd(c *opcode) {
 	for code := c; code.op != opEnd; {
-		if code.op == opStructFieldRecursive {
+		if code.op == opStructFieldRecursive || code.op == opStructFieldRecursivePtr {
 			// ignore if exists recursive operation
 			return
 		}
@@ -313,6 +313,8 @@ func encodeConvertPtrOp(code *opcode) opType {
 		return opMarshalTextPtr
 	case opInterface:
 		return opInterfacePtr
+	case opStructFieldRecursive:
+		return opStructFieldRecursivePtr
 	}
 	return code.op
 }
@@ -867,8 +869,6 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldMarshalText
 	case opMarshalTextPtr:
 		return opStructFieldMarshalTextPtr
-	case opStructFieldRecursive:
-		return opStructFieldRecursive
 	}
 	return opStructField
 }
@@ -1294,12 +1294,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		}
 
 		if field.Anonymous {
-			if valueCode.op == opPtr && valueCode.next.op == opStructFieldRecursive {
-				valueCode = valueCode.next
-				valueCode.decOpcodeIndex()
-				ctx.decIndex()
-				valueCode.op = opStructFieldPtrHeadRecursive
-			}
 			tagKey := ""
 			if tag.isTaggedKey {
 				tagKey = tag.key

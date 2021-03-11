@@ -432,8 +432,14 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			mapCtx.buf = buf
 			releaseMapContext(mapCtx)
 			code = code.next
-		case opStructFieldPtrHeadRecursive:
-			store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+		case opStructFieldRecursivePtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				code = code.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opStructFieldRecursive:
 			ptr := load(ctxptr, code.idx)
 			if ptr != 0 {

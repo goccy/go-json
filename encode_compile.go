@@ -759,7 +759,7 @@ func encodeCompileMap(ctx *encodeCompileContext) (*opcode, error) {
 	return (*opcode)(unsafe.Pointer(header)), nil
 }
 
-func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
+func encodeTypeToHeaderType(code *opcode) opType {
 	switch code.op {
 	case opInt:
 		return opStructFieldHeadInt
@@ -816,7 +816,7 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 	return opStructFieldHead
 }
 
-func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
+func encodeTypeToFieldType(code *opcode) opType {
 	switch code.op {
 	case opInt:
 		return opStructFieldInt
@@ -873,8 +873,8 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 	return opStructField
 }
 
-func encodeOptimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *structTag) opType {
-	headType := encodeTypeToHeaderType(ctx, code)
+func encodeOptimizeStructHeader(code *opcode, tag *structTag) opType {
+	headType := encodeTypeToHeaderType(code)
 	switch {
 	case tag.isOmitEmpty:
 		headType = headType.headToOmitEmptyHead()
@@ -884,8 +884,8 @@ func encodeOptimizeStructHeader(ctx *encodeCompileContext, code *opcode, tag *st
 	return headType
 }
 
-func encodeOptimizeStructField(ctx *encodeCompileContext, code *opcode, tag *structTag) opType {
-	fieldType := encodeTypeToFieldType(ctx, code)
+func encodeOptimizeStructField(code *opcode, tag *structTag) opType {
+	fieldType := encodeTypeToFieldType(code)
 	switch {
 	case tag.isOmitEmpty:
 		fieldType = fieldType.fieldToOmitEmptyField()
@@ -912,7 +912,7 @@ func encodeCompiledCode(ctx *encodeCompileContext) *opcode {
 
 func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	fieldCode.indent--
-	op := encodeOptimizeStructHeader(ctx, valueCode, tag)
+	op := encodeOptimizeStructHeader(valueCode, tag)
 	fieldCode.op = op
 	fieldCode.mask = valueCode.mask
 	fieldCode.rshiftNum = valueCode.rshiftNum
@@ -958,7 +958,7 @@ func encodeStructHeader(ctx *encodeCompileContext, fieldCode *opcode, valueCode 
 
 func encodeStructField(ctx *encodeCompileContext, fieldCode *opcode, valueCode *opcode, tag *structTag) *opcode {
 	code := (*opcode)(unsafe.Pointer(fieldCode))
-	op := encodeOptimizeStructField(ctx, valueCode, tag)
+	op := encodeOptimizeStructField(valueCode, tag)
 	fieldCode.op = op
 	fieldCode.ptrNum = valueCode.ptrNum
 	fieldCode.mask = valueCode.mask

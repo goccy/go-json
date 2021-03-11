@@ -1302,10 +1302,16 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 			valueCode.decIndent()
+
+			// fix issue144
+			if !(isPtr && strings.Contains(valueCode.op.String(), "Marshal")) {
+				valueCode.indirect = indirect
+			}
+		} else {
+			valueCode.indirect = indirect
 		}
 		key := fmt.Sprintf(`"%s":`, tag.key)
 		escapedKey := fmt.Sprintf(`%s:`, string(encodeEscapedString([]byte{}, tag.key)))
-		valueCode.indirect = indirect
 		fieldCode := &opcode{
 			typ:              valueCode.typ,
 			displayIdx:       fieldOpcodeIndex,

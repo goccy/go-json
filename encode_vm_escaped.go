@@ -2241,11 +2241,12 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 					p = ptrToPtr(p + code.offset)
 				}
 			}
-			if p == 0 && code.nilcheck {
+			iface := ptrToInterface(code, p)
+			if code.nilcheck && encodeIsNilForMarshaler(iface) {
 				code = code.nextField
 			} else {
 				b = append(b, code.escapedKey...)
-				bb, err := encodeMarshalJSON(code, b, ptrToInterface(code, p), true)
+				bb, err := encodeMarshalJSON(code, b, iface, true)
 				if err != nil {
 					return nil, err
 				}

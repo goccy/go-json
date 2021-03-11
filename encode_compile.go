@@ -56,20 +56,23 @@ func encodeCompileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {
 func encodeCompileHead(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	case typ.Implements(marshalJSONType):
-		if typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalJSONType) {
-			return encodeCompileMarshalJSON(ctx)
-		}
-	case typ.Implements(marshalTextType):
-		if typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalTextType) {
-			return encodeCompileMarshalText(ctx)
-		}
+	case encodeImplementsMarshalJSON(typ):
+		return encodeCompileMarshalJSON(ctx)
+	case encodeImplementsMarshalText(typ):
+		return encodeCompileMarshalText(ctx)
 	}
+
 	isPtr := false
 	orgType := typ
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 		isPtr = true
+	}
+	switch {
+	case encodeImplementsMarshalJSON(typ):
+		return encodeCompileMarshalJSON(ctx)
+	case encodeImplementsMarshalText(typ):
+		return encodeCompileMarshalText(ctx)
 	}
 	if typ.Kind() == reflect.Map {
 		if isPtr {
@@ -185,22 +188,42 @@ func encodeOptimizeStructEnd(c *opcode) {
 	}
 }
 
-func encodeImplementsMarshaler(typ *rtype) bool {
-	switch {
-	case typ.Implements(marshalJSONType):
-		return true
-	case typ.Implements(marshalTextType):
+func encodeImplementsMarshalJSON(typ *rtype) bool {
+	if !typ.Implements(marshalJSONType) {
+		return false
+	}
+	if typ.Kind() != reflect.Ptr {
 		return true
 	}
+	// type kind is reflect.Ptr
+	if !typ.Elem().Implements(marshalJSONType) {
+		return true
+	}
+	// needs to dereference
+	return false
+}
+
+func encodeImplementsMarshalText(typ *rtype) bool {
+	if !typ.Implements(marshalTextType) {
+		return false
+	}
+	if typ.Kind() != reflect.Ptr {
+		return true
+	}
+	// type kind is reflect.Ptr
+	if !typ.Elem().Implements(marshalTextType) {
+		return true
+	}
+	// needs to dereference
 	return false
 }
 
 func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	case typ.Implements(marshalJSONType) && (typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalJSONType)):
+	case encodeImplementsMarshalJSON(typ):
 		return encodeCompileMarshalJSON(ctx)
-	case typ.Implements(marshalTextType) && (typ.Kind() != reflect.Ptr || !typ.Elem().Implements(marshalTextType)):
+	case encodeImplementsMarshalText(typ):
 		return encodeCompileMarshalText(ctx)
 	}
 	switch typ.Kind() {
@@ -208,8 +231,11 @@ func encodeCompile(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
 		return encodeCompilePtr(ctx)
 	case reflect.Slice:
 		elem := typ.Elem()
-		if !encodeImplementsMarshaler(elem) && elem.Kind() == reflect.Uint8 {
-			return encodeCompileBytes(ctx)
+		if elem.Kind() == reflect.Uint8 {
+			p := rtype_ptrTo(elem)
+			if !p.Implements(marshalJSONType) && !p.Implements(marshalTextType) {
+				return encodeCompileBytes(ctx)
+			}
 		}
 		return encodeCompileSlice(ctx)
 	case reflect.Array:
@@ -293,10 +319,10 @@ func encodeConvertPtrOp(code *opcode) opType {
 func encodeCompileKey(ctx *encodeCompileContext) (*opcode, error) {
 	typ := ctx.typ
 	switch {
-	case rtype_ptrTo(typ).Implements(marshalJSONType):
-		return encodeCompileMarshalJSONPtr(ctx)
-	case rtype_ptrTo(typ).Implements(marshalTextType):
-		return encodeCompileMarshalTextPtr(ctx)
+	case encodeImplementsMarshalJSON(typ):
+		return encodeCompileMarshalJSON(ctx)
+	case encodeImplementsMarshalText(typ):
+		return encodeCompileMarshalText(ctx)
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
@@ -343,24 +369,20 @@ func encodeCompilePtr(ctx *encodeCompileContext) (*opcode, error) {
 
 func encodeCompileMarshalJSON(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opMarshalJSON)
-	ctx.incIndex()
-	return code, nil
-}
-
-func encodeCompileMarshalJSONPtr(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx.withType(rtype_ptrTo(ctx.typ)), opMarshalJSONPtr)
+	typ := ctx.typ
+	if !typ.Implements(marshalJSONType) && rtype_ptrTo(typ).Implements(marshalJSONType) {
+		code.addrForMarshaler = true
+	}
 	ctx.incIndex()
 	return code, nil
 }
 
 func encodeCompileMarshalText(ctx *encodeCompileContext) (*opcode, error) {
 	code := newOpCode(ctx, opMarshalText)
-	ctx.incIndex()
-	return code, nil
-}
-
-func encodeCompileMarshalTextPtr(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx.withType(rtype_ptrTo(ctx.typ)), opMarshalText)
+	typ := ctx.typ
+	if !typ.Implements(marshalTextType) && rtype_ptrTo(typ).Implements(marshalTextType) {
+		code.addrForMarshaler = true
+	}
 	ctx.incIndex()
 	return code, nil
 }
@@ -595,7 +617,7 @@ func encodeCompileSlice(ctx *encodeCompileContext) (*opcode, error) {
 	header := newSliceHeaderCode(ctx)
 	ctx.incIndex()
 
-	code, err := encodeCompile(ctx.withType(ctx.typ.Elem()).incIndent(), false)
+	code, err := encodeCompileSliceElem(ctx.withType(elem).incIndent())
 	if err != nil {
 		return nil, err
 	}
@@ -617,6 +639,18 @@ func encodeCompileSlice(ctx *encodeCompileContext) (*opcode, error) {
 	elemCode.next = code
 	elemCode.end = end
 	return (*opcode)(unsafe.Pointer(header)), nil
+}
+
+func encodeCompileSliceElem(ctx *encodeCompileContext) (*opcode, error) {
+	typ := ctx.typ
+	switch {
+	case !typ.Implements(marshalJSONType) && rtype_ptrTo(typ).Implements(marshalJSONType):
+		return encodeCompileMarshalJSON(ctx)
+	case !typ.Implements(marshalTextType) && rtype_ptrTo(typ).Implements(marshalTextType):
+		return encodeCompileMarshalText(ctx)
+	default:
+		return encodeCompile(ctx, false)
+	}
 }
 
 func encodeCompileArray(ctx *encodeCompileContext) (*opcode, error) {
@@ -1190,7 +1224,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 		ctx.incIndex()
 		nilcheck := true
 		var valueCode *opcode
-		isNilValue := fieldType.Kind() == reflect.Ptr || fieldType.Kind() == reflect.Interface
+		isNilValue := fieldType.Kind() == reflect.Ptr || fieldType.Kind() == reflect.Interface || fieldType.Kind() == reflect.Slice || fieldType.Kind() == reflect.Map
 		addrForMarshaler := false
 		if i == 0 && fieldNum == 1 && isPtr && !isNilValue && rtype_ptrTo(fieldType).Implements(marshalJSONType) && !fieldType.Implements(marshalJSONType) {
 			// *struct{ field T } => struct { field *T }
@@ -1216,7 +1250,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			nilcheck = false
 			indirect = false
 			disableIndirectConversion = true
-		} else if isPtr && !isNilValue && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
+		} else if isPtr && !fieldType.Implements(marshalJSONType) && rtype_ptrTo(fieldType).Implements(marshalJSONType) {
 			// *struct{ field T }
 			// func (*T) MarshalJSON() ([]byte, error)
 			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
@@ -1226,7 +1260,7 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			addrForMarshaler = true
 			nilcheck = false
 			valueCode = code
-		} else if isPtr && !isNilValue && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
+		} else if isPtr && !fieldType.Implements(marshalTextType) && rtype_ptrTo(fieldType).Implements(marshalTextType) {
 			// *struct{ field T }
 			// func (*T) MarshalText() ([]byte, error)
 			code, err := encodeCompileMarshalText(ctx.withType(fieldType))
@@ -1235,30 +1269,6 @@ func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error)
 			}
 			addrForMarshaler = true
 			nilcheck = false
-			valueCode = code
-		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() != reflect.Ptr {
-			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
-			if err != nil {
-				return nil, err
-			}
-			valueCode = code
-		} else if fieldType.Implements(marshalTextType) && fieldType.Kind() != reflect.Ptr {
-			code, err := encodeCompileMarshalText(ctx.withType(fieldType))
-			if err != nil {
-				return nil, err
-			}
-			valueCode = code
-		} else if fieldType.Implements(marshalJSONType) && fieldType.Kind() == reflect.Ptr && !fieldType.Elem().Implements(marshalJSONType) {
-			code, err := encodeCompileMarshalJSON(ctx.withType(fieldType))
-			if err != nil {
-				return nil, err
-			}
-			valueCode = code
-		} else if fieldType.Implements(marshalTextType) && fieldType.Kind() == reflect.Ptr && !fieldType.Elem().Implements(marshalTextType) {
-			code, err := encodeCompileMarshalText(ctx.withType(fieldType))
-			if err != nil {
-				return nil, err
-			}
 			valueCode = code
 		} else {
 			code, err := encodeCompile(ctx.withType(fieldType), isPtr)

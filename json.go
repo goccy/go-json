@@ -296,16 +296,6 @@ func (n Number) Int64() (int64, error) {
 	return strconv.ParseInt(string(n), 10, 64)
 }
 
-func (n Number) MarshalJSON() ([]byte, error) {
-	if n == "" {
-		return []byte("0"), nil
-	}
-	if _, err := n.Float64(); err != nil {
-		return nil, err
-	}
-	return []byte(n), nil
-}
-
 func (n *Number) UnmarshalJSON(b []byte) error {
 	s := string(b)
 	if _, err := strconv.ParseFloat(s, 64); err != nil {

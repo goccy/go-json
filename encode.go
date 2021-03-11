@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -367,6 +366,17 @@ func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
 	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
 }
 
+func encodeIsNilForMarshaler(v interface{}) bool {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Map, reflect.Ptr:
+		return rv.IsNil()
+	case reflect.Slice:
+		return rv.IsNil() || rv.Len() == 0
+	}
+	return false
+}
+
 func encodeMarshalJSON(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if code.addrForMarshaler {
@@ -387,16 +397,10 @@ func encodeMarshalJSON(code *opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	if len(bb) == 0 {
-		return nil, errUnexpectedEndOfJSON(
-			fmt.Sprintf("error calling MarshalJSON for type %s", reflect.TypeOf(v)),
-			0,
-		)
-	}
 	buf := bytes.NewBuffer(b)
 	//TODO: we should validate buffer with `compact`
 	if err := compact(buf, bb, escape); err != nil {
-		return nil, err
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	return buf.Bytes(), nil
 }
@@ -421,24 +425,18 @@ func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, code *opcode, b []byte, 
 	if err != nil {
 		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	if len(bb) == 0 {
-		return nil, errUnexpectedEndOfJSON(
-			fmt.Sprintf("error calling MarshalJSON for type %s", reflect.TypeOf(v)),
-			0,
-		)
-	}
 	var compactBuf bytes.Buffer
 	if err := compact(&compactBuf, bb, escape); err != nil {
-		return nil, err
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	var indentBuf bytes.Buffer
 	if err := encodeWithIndent(
 		&indentBuf,
 		compactBuf.Bytes(),
-		string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+indent),
+		string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+indent+1),
 		string(ctx.indentStr),
 	); err != nil {
-		return nil, err
+		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	return append(b, indentBuf.Bytes()...), nil
 }

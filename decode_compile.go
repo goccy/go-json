@@ -80,7 +80,7 @@ func decodeCompile(typ *rtype, structName, fieldName string, structTypeToDecoder
 	case reflect.Uint64:
 		return decodeCompileUint64(typ, structName, fieldName)
 	case reflect.String:
-		return decodeCompileString(structName, fieldName)
+		return decodeCompileString(typ, structName, fieldName)
 	case reflect.Bool:
 		return decodeCompileBool(structName, fieldName)
 	case reflect.Float32:
@@ -203,7 +203,12 @@ func decodeCompileFloat64(structName, fieldName string) (decoder, error) {
 	}), nil
 }
 
-func decodeCompileString(structName, fieldName string) (decoder, error) {
+func decodeCompileString(typ *rtype, structName, fieldName string) (decoder, error) {
+	if typ == type2rtype(jsonNumberType) {
+		return newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v Number) {
+			*(*Number)(p) = v
+		}), nil
+	}
 	return newStringDecoder(structName, fieldName), nil
 }
 

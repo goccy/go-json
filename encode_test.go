@@ -3,6 +3,7 @@ package json_test
 import (
 	"bytes"
 	"encoding"
+	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -1672,5 +1673,119 @@ func TestOmitEmpty(t *testing.T) {
 	}
 	if got := string(got); got != optionalsExpected {
 		t.Errorf(" got: %s\nwant: %s\n", got, optionalsExpected)
+	}
+}
+
+type testNullStr string
+
+func (v *testNullStr) MarshalJSON() ([]byte, error) {
+	if *v == "" {
+		return []byte("null"), nil
+	}
+
+	return []byte(*v), nil
+}
+
+func TestIssue147(t *testing.T) {
+	type T struct {
+		Field1 string      `json:"field1"`
+		Field2 testNullStr `json:"field2,omitempty"`
+	}
+	got, err := json.Marshal(T{
+		Field1: "a",
+		Field2: "b",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect, _ := stdjson.Marshal(T{
+		Field1: "a",
+		Field2: "b",
+	})
+	if !bytes.Equal(expect, got) {
+		t.Fatalf("expect %q but got %q", string(expect), string(got))
+	}
+}
+
+type testIssue144 struct {
+	name   string
+	number int64
+}
+
+func (v *testIssue144) MarshalJSON() ([]byte, error) {
+	if v.name != "" {
+		return json.Marshal(v.name)
+	}
+	return json.Marshal(v.number)
+}
+
+func TestIssue144(t *testing.T) {
+	type Embeded struct {
+		Field *testIssue144 `json:"field,omitempty"`
+	}
+	type T struct {
+		Embeded
+	}
+	{
+		v := T{
+			Embeded: Embeded{Field: &testIssue144{name: "hoge"}},
+		}
+		got, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expect, _ := stdjson.Marshal(v)
+		if !bytes.Equal(expect, got) {
+			t.Fatalf("expect %q but got %q", string(expect), string(got))
+		}
+	}
+	{
+		v := &T{
+			Embeded: Embeded{Field: &testIssue144{name: "hoge"}},
+		}
+		got, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expect, _ := stdjson.Marshal(v)
+		if !bytes.Equal(expect, got) {
+			t.Fatalf("expect %q but got %q", string(expect), string(got))
+		}
+	}
+}
+
+func TestIssue118(t *testing.T) {
+	type data struct {
+		Columns []string   `json:"columns"`
+		Rows1   [][]string `json:"rows1"`
+		Rows2   [][]string `json:"rows2"`
+	}
+	v := data{Columns: []string{"1", "2", "3"}}
+	got, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect, _ := stdjson.MarshalIndent(v, "", "  ")
+	if !bytes.Equal(expect, got) {
+		t.Fatalf("expect %q but got %q", string(expect), string(got))
+	}
+}
+
+func TestIssue104(t *testing.T) {
+	type A struct {
+		Field1 string
+		Field2 int
+		Field3 float64
+	}
+	type T struct {
+		Field A
+	}
+	got, err := json.Marshal(T{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect, _ := stdjson.Marshal(T{})
+	if !bytes.Equal(expect, got) {
+		t.Fatalf("expect %q but got %q", string(expect), string(got))
 	}
 }

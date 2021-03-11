@@ -2,8 +2,8 @@ package json
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
-	"strconv"
 )
 
 // Marshaler is the interface implemented by types that
@@ -281,39 +281,7 @@ func UnmarshalNoEscape(data []byte, v interface{}) error {
 type Token interface{}
 
 // A Number represents a JSON number literal.
-type Number string
-
-// String returns the literal text of the number.
-func (n Number) String() string { return string(n) }
-
-// Float64 returns the number as a float64.
-func (n Number) Float64() (float64, error) {
-	return strconv.ParseFloat(string(n), 64)
-}
-
-// Int64 returns the number as an int64.
-func (n Number) Int64() (int64, error) {
-	return strconv.ParseInt(string(n), 10, 64)
-}
-
-func (n Number) MarshalJSON() ([]byte, error) {
-	if n == "" {
-		return []byte("0"), nil
-	}
-	if _, err := n.Float64(); err != nil {
-		return nil, err
-	}
-	return []byte(n), nil
-}
-
-func (n *Number) UnmarshalJSON(b []byte) error {
-	s := string(b)
-	if _, err := strconv.ParseFloat(s, 64); err != nil {
-		return &SyntaxError{msg: err.Error()}
-	}
-	*n = Number(s)
-	return nil
-}
+type Number = json.Number
 
 // RawMessage is a raw encoded JSON value.
 // It implements Marshaler and Unmarshaler and can

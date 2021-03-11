@@ -26,7 +26,6 @@ func encodeCompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
 
 	code, err := encodeCompileHead(&encodeCompileContext{
 		typ:                      copiedType,
-		root:                     true,
 		structTypeToCompiledCode: map[uintptr]*compiledCode{},
 	})
 	if err != nil {

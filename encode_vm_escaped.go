@@ -74,6 +74,13 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opNumber:
+			bb, err := encodeNumber(b, ptrToNumber(load(ctxptr, code.idx)))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeComma(bb)
+			code = code.next
 		case opInterfacePtr:
 			p := load(ctxptr, code.idx)
 			if p == 0 {
@@ -1824,6 +1831,201 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldHeadNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			b = append(b, code.escapedKey...)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeComma(bb)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyNumber:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			v := ptrToNumber(p + code.offset)
+			if v == "" {
+				code = code.nextField
+			} else {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = encodeComma(bb)
+				code = code.next
+			}
+		case opStructFieldPtrHeadStringTagNumber:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldHeadStringTagNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrHeadNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			b = append(b, code.escapedKey...)
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadOmitEmptyNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p != 0 {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = encodeComma(bb)
+			}
+			code = code.next
+		case opStructFieldPtrHeadStringTagNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadStringTagNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{')
+			}
+			b = append(b, code.escapedKey...)
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opStructFieldPtrHeadArray, opStructFieldPtrHeadStringTagArray,
 			opStructFieldPtrHeadSlice, opStructFieldPtrHeadStringTagSlice:
 			if code.indirect {
@@ -2982,6 +3184,81 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			}
 			b = encodeComma(b)
 			code = code.next
+		case opStructFieldNumber:
+			p := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeComma(bb)
+			code = code.next
+		case opStructFieldOmitEmptyNumber:
+			p := load(ctxptr, code.headIdx)
+			v := ptrToNumber(p + code.offset)
+			if v != "" {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = encodeComma(bb)
+			}
+			code = code.next
+		case opStructFieldStringTagNumber:
+			p := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldNumberPtr:
+			b = append(b, code.escapedKey...)
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyNumberPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = encodeComma(bb)
+			}
+			code = code.next
+		case opStructFieldStringTagNumberPtr:
+			b = append(b, code.escapedKey...)
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
+			b = encodeComma(b)
+			code = code.next
 		case opStructFieldMarshalJSON, opStructFieldStringTagMarshalJSON:
 			p := load(ctxptr, code.headIdx)
 			b = append(b, code.escapedKey...)
@@ -3707,6 +3984,97 @@ func encodeRunEscaped(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, o
 			v := ptrToBytes(ptr + code.offset)
 			b = append(b, code.escapedKey...)
 			b = encodeByteSlice(b, v)
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndNumber:
+			p := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = appendStructEnd(bb)
+			code = code.next
+		case opStructEndOmitEmptyNumber:
+			p := load(ctxptr, code.headIdx)
+			v := ptrToNumber(p + code.offset)
+			if v != "" {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = appendStructEnd(bb)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
+			}
+			code = code.next
+		case opStructEndStringTagNumber:
+			p := load(ctxptr, code.headIdx)
+			b = append(b, code.escapedKey...)
+			b = append(b, '"')
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndNumberPtr:
+			b = append(b, code.escapedKey...)
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = appendStructEnd(b)
+			code = code.next
+		case opStructEndOmitEmptyNumberPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = appendStructEnd(bb)
+			} else {
+				last := len(b) - 1
+				if b[last] == ',' {
+					b[last] = '}'
+					b = encodeComma(b)
+				} else {
+					b = appendStructEnd(b)
+				}
+			}
+			code = code.next
+		case opStructEndStringTagNumberPtr:
+			b = append(b, code.escapedKey...)
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
 			b = appendStructEnd(b)
 			code = code.next
 		case opEnd:

@@ -24,6 +24,7 @@ type opcodeSet struct {
 var (
 	marshalJSONType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	jsonNumberType  = reflect.TypeOf(Number(""))
 )
 
 func encodeCompileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {
@@ -586,7 +587,13 @@ func encodeCompileFloat64(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func encodeCompileString(ctx *encodeCompileContext) (*opcode, error) {
-	code := newOpCode(ctx, opString)
+	var op opType
+	if ctx.typ == type2rtype(jsonNumberType) {
+		op = opNumber
+	} else {
+		op = opString
+	}
+	code := newOpCode(ctx, op)
 	ctx.incIndex()
 	return code, nil
 }
@@ -772,6 +779,10 @@ func encodeTypeToHeaderType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldHeadString
 	case opStringPtr:
 		return opStructFieldHeadStringPtr
+	case opNumber:
+		return opStructFieldHeadNumber
+	case opNumberPtr:
+		return opStructFieldHeadNumberPtr
 	case opBool:
 		return opStructFieldHeadBool
 	case opBoolPtr:
@@ -825,6 +836,10 @@ func encodeTypeToFieldType(ctx *encodeCompileContext, code *opcode) opType {
 		return opStructFieldString
 	case opStringPtr:
 		return opStructFieldStringPtr
+	case opNumber:
+		return opStructFieldNumber
+	case opNumberPtr:
+		return opStructFieldNumberPtr
 	case opBool:
 		return opStructFieldBool
 	case opBoolPtr:

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -359,6 +360,19 @@ func encodeByteSlice(b []byte, src []byte) []byte {
 	}
 	base64.StdEncoding.Encode(buf, src)
 	return append(append(b, buf...), '"')
+}
+
+func encodeNumber(b []byte, n Number) ([]byte, error) {
+	if len(n) == 0 {
+		return append(b, '0'), nil
+	}
+	for i := 0; i < len(n); i++ {
+		if !floatTable[n[i]] {
+			return nil, fmt.Errorf("json: invalid number literal %q", n)
+		}
+	}
+	b = append(b, n...)
+	return b, nil
 }
 
 func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {

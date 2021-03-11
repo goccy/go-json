@@ -67,14 +67,21 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = encodeIndentComma(b)
 			code = code.next
 		case opBytes:
-			ptr := load(ctxptr, code.idx)
-			slice := ptrToSlice(ptr)
-			if ptr == 0 || uintptr(slice.data) == 0 {
+			p := load(ctxptr, code.idx)
+			slice := ptrToSlice(p)
+			if p == 0 || slice.data == nil {
 				b = encodeNull(b)
 			} else {
-				b = encodeByteSlice(b, ptrToBytes(ptr))
+				b = encodeByteSlice(b, ptrToBytes(p))
 			}
 			b = encodeIndentComma(b)
+			code = code.next
+		case opNumber:
+			bb, err := encodeNumber(b, ptrToNumber(load(ctxptr, code.idx)))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeIndentComma(bb)
 			code = code.next
 		case opInterface:
 			ptr := load(ctxptr, code.idx)
@@ -1941,6 +1948,211 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			}
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldHeadNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			b = appendIndent(ctx, b, code.indent+1)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeIndentComma(bb)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyNumber:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldHeadOmitEmptyNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			v := ptrToNumber(p + code.offset)
+			if v == "" {
+				code = code.nextField
+			} else {
+				b = appendIndent(ctx, b, code.indent+1)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = encodeIndentComma(bb)
+				code = code.next
+			}
+		case opStructFieldPtrHeadStringTagNumber:
+			if code.indirect {
+				store(ctxptr, code.idx, ptrToPtr(load(ctxptr, code.idx)))
+			}
+			fallthrough
+		case opStructFieldHeadStringTagNumber:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			b = appendIndent(ctx, b, code.indent+1)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			b = append(b, '"')
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldPtrHeadNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			b = appendIndent(ctx, b, code.indent+1)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldPtrHeadOmitEmptyNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadOmitEmptyNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p != 0 {
+				b = append(b, code.escapedKey...)
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = encodeIndentComma(bb)
+			}
+			code = code.next
+		case opStructFieldPtrHeadStringTagNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
+		case opStructFieldHeadStringTagNumberPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 && code.indirect {
+				if !code.anonymousHead {
+					b = encodeNull(b)
+					b = encodeIndentComma(b)
+				}
+				code = code.end.next
+				break
+			}
+			if !code.anonymousHead {
+				b = append(b, '{', '\n')
+			}
+			b = appendIndent(ctx, b, code.indent+1)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			if code.indirect {
+				p = ptrToPtr(p + code.offset)
+			}
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldPtrHeadArray, opStructFieldPtrHeadStringTagArray,
 			opStructFieldPtrHeadSlice, opStructFieldPtrHeadStringTagSlice:
 			if code.indirect {
@@ -3217,6 +3429,93 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			}
 			b = encodeIndentComma(b)
 			code = code.next
+		case opStructFieldNumber:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = encodeIndentComma(bb)
+			code = code.next
+		case opStructFieldOmitEmptyNumber:
+			p := load(ctxptr, code.headIdx)
+			v := ptrToNumber(p + code.offset)
+			if v != "" {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = encodeIndentComma(bb)
+			}
+			code = code.next
+		case opStructFieldStringTagNumber:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			b = append(b, '"')
+			p := load(ctxptr, code.headIdx)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldNumberPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = encodeIndentComma(b)
+			code = code.next
+		case opStructFieldOmitEmptyNumberPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = encodeIndentComma(bb)
+			}
+			code = code.next
+		case opStructFieldStringTagNumberPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
+			b = encodeIndentComma(b)
+			code = code.next
 		case opStructFieldMarshalJSON, opStructFieldStringTagMarshalJSON:
 			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
@@ -4165,11 +4464,126 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			}
 			code = code.next
 		case opStructEndStringTagBytes:
-			ptr := load(ctxptr, code.headIdx)
 			b = appendIndent(ctx, b, code.indent)
 			b = append(b, code.escapedKey...)
 			b = append(b, ' ')
-			b = encodeByteSlice(b, ptrToBytes(ptr+code.offset))
+			p := load(ctxptr, code.headIdx)
+			b = encodeByteSlice(b, ptrToBytes(p+code.offset))
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndNumber:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = appendStructEndIndent(ctx, bb, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyNumber:
+			p := load(ctxptr, code.headIdx)
+			v := ptrToNumber(p + code.offset)
+			if v != "" {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				bb, err := encodeNumber(b, v)
+				if err != nil {
+					return nil, err
+				}
+				b = appendStructEndIndent(ctx, bb, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					b[last] = '}'
+				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = appendIndent(ctx, b, code.indent-1)
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructEndStringTagNumber:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			b = append(b, '"')
+			p := load(ctxptr, code.headIdx)
+			bb, err := encodeNumber(b, ptrToNumber(p+code.offset))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndNumberPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			}
+			b = appendStructEndIndent(ctx, b, code.indent-1)
+			code = code.next
+		case opStructEndOmitEmptyNumberPtr:
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p != 0 {
+				b = appendIndent(ctx, b, code.indent)
+				b = append(b, code.escapedKey...)
+				b = append(b, ' ')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = appendStructEndIndent(ctx, bb, code.indent-1)
+			} else {
+				last := len(b) - 1
+				if b[last-1] == '{' {
+					b[last] = '}'
+				} else {
+					if b[last] == '\n' {
+						// to remove ',' and '\n' characters
+						b = b[:len(b)-2]
+					}
+					b = append(b, '\n')
+					b = appendIndent(ctx, b, code.indent-1)
+					b = append(b, '}')
+				}
+				b = encodeIndentComma(b)
+			}
+			code = code.next
+		case opStructEndStringTagNumberPtr:
+			b = appendIndent(ctx, b, code.indent)
+			b = append(b, code.escapedKey...)
+			b = append(b, ' ')
+			p := load(ctxptr, code.headIdx)
+			p = ptrToPtr(p + code.offset)
+			if p == 0 {
+				b = encodeNull(b)
+			} else {
+				b = append(b, '"')
+				bb, err := encodeNumber(b, ptrToNumber(p))
+				if err != nil {
+					return nil, err
+				}
+				b = append(bb, '"')
+			}
 			b = appendStructEndIndent(ctx, b, code.indent-1)
 			code = code.next
 		case opEnd:

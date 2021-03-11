@@ -38,7 +38,6 @@ func encodeCompileToGetCodeSetSlowPath(typeptr uintptr) (*opcodeSet, error) {
 
 	code, err := encodeCompileHead(&encodeCompileContext{
 		typ:                      copiedType,
-		root:                     true,
 		structTypeToCompiledCode: map[uintptr]*compiledCode{},
 	})
 	if err != nil {
@@ -619,7 +618,6 @@ func encodeCompileInterface(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func encodeCompileSlice(ctx *encodeCompileContext) (*opcode, error) {
-	ctx.root = false
 	elem := ctx.typ.Elem()
 	size := elem.Size()
 
@@ -663,7 +661,6 @@ func encodeCompileSliceElem(ctx *encodeCompileContext) (*opcode, error) {
 }
 
 func encodeCompileArray(ctx *encodeCompileContext) (*opcode, error) {
-	ctx.root = false
 	typ := ctx.typ
 	elem := typ.Elem()
 	alen := typ.Len()
@@ -1215,7 +1212,6 @@ func encodeIsNilableType(typ *rtype) bool {
 }
 
 func encodeCompileStruct(ctx *encodeCompileContext, isPtr bool) (*opcode, error) {
-	ctx.root = false
 	if code := encodeCompiledCode(ctx); code != nil {
 		return code, nil
 	}

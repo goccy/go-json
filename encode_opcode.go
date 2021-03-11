@@ -19,7 +19,6 @@ type opcode struct {
 	isTaggedKey      bool   // whether tagged key
 	anonymousKey     bool   // whether anonymous key
 	anonymousHead    bool   // whether anonymous head or not
-	root             bool   // whether root
 	indirect         bool   // whether indirect or not
 	nilcheck         bool   // whether needs to nilcheck or not
 	addrForMarshaler bool   // whether needs to addr for marshaler or not
@@ -95,7 +94,6 @@ func (c *opcode) copy(codeMap map[uintptr]*opcode) *opcode {
 		isTaggedKey:      c.isTaggedKey,
 		anonymousKey:     c.anonymousKey,
 		anonymousHead:    c.anonymousHead,
-		root:             c.root,
 		indirect:         c.indirect,
 		nilcheck:         c.nilcheck,
 		addrForMarshaler: c.addrForMarshaler,
@@ -497,7 +495,6 @@ func newInterfaceCode(ctx *encodeCompileContext) *opcode {
 		displayIdx: ctx.opcodeIndex,
 		idx:        opcodeOffset(ctx.ptrIndex),
 		indent:     ctx.indent,
-		root:       ctx.root,
 		next:       newEndOp(ctx),
 	}
 }

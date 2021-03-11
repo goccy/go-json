@@ -488,7 +488,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHead:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -519,7 +519,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadOmitEmpty:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -552,7 +552,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 			fallthrough
 		case opStructFieldHeadStringTag:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeComma(b)
@@ -3477,7 +3477,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 		case opStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.headIdx)
 			p = ptrToPtr(p + code.offset)
-			if p == 0 {
+			if p == 0 || maplen(ptrToUnsafePtr(p)) == 0 {
 				code = code.nextField
 			} else {
 				b = append(b, code.key...)

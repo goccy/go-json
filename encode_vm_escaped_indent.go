@@ -346,7 +346,6 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 					store(ctxptr, code.next.idx, uintptr(key))
 					code = code.next
 				} else {
-					b = appendIndent(ctx, b, code.indent)
 					b = append(b, '{', '}', ',', '\n')
 					code = code.end.next
 				}
@@ -497,7 +496,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldHead:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeIndentComma(b)
@@ -508,7 +507,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			if !code.anonymousHead {
 				b = append(b, '{', '\n')
 			}
-			if !code.anonymousKey {
+			if !code.anonymousKey && len(code.escapedKey) > 0 {
 				b = appendIndent(ctx, b, code.indent+1)
 				b = append(b, code.escapedKey...)
 				b = append(b, ' ')
@@ -530,7 +529,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldHeadOmitEmpty:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeIndentComma(b)
@@ -565,7 +564,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			fallthrough
 		case opStructFieldHeadStringTag:
 			p := load(ctxptr, code.idx)
-			if p == 0 && code.indirect {
+			if p == 0 && (code.indirect || code.next.op == opStructEnd) {
 				if !code.anonymousHead {
 					b = encodeNull(b)
 					b = encodeIndentComma(b)
@@ -3744,7 +3743,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 		case opStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.headIdx)
 			p = ptrToPtr(p + code.offset)
-			if p == 0 {
+			if p == 0 || maplen(ptrToUnsafePtr(p)) == 0 {
 				code = code.nextField
 			} else {
 				b = appendIndent(ctx, b, code.indent)

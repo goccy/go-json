@@ -61,7 +61,7 @@ func errUnsupportedFloat(v float64) *UnsupportedValueError {
 	}
 }
 
-func errMarshaler(code *opcode, err error) *MarshalerError {
+func errMarshalerWithCode(code *opcode, err error) *MarshalerError {
 	return &MarshalerError{
 		Type: rtype2type(code.typ),
 		Err:  err,

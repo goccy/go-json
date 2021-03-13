@@ -27,7 +27,7 @@ func (d *numberDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) e
 		return err
 	}
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
-		return &SyntaxError{msg: err.Error(), Offset: s.totalOffset()}
+		return errSyntax(err.Error(), s.totalOffset())
 	}
 	d.op(p, Number(string(bytes)))
 	s.reset()
@@ -40,7 +40,7 @@ func (d *numberDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer
 		return 0, err
 	}
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
-		return 0, &SyntaxError{msg: err.Error(), Offset: c}
+		return 0, errSyntax(err.Error(), c)
 	}
 	cursor = c
 	s := *(*string)(unsafe.Pointer(&bytes))

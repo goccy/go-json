@@ -2,11 +2,9 @@ package json
 
 import (
 	"bytes"
-	"encoding"
 	"fmt"
 	"math"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"unsafe"
@@ -142,65 +140,32 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 			b = bb
 			code = code.next
 		case opMarshalJSON:
-			ptr := load(ctxptr, code.idx)
-			if ptr == 0 {
+			p := load(ctxptr, code.idx)
+			if p == 0 {
 				b = encodeNull(b)
 				b = encodeIndentComma(b)
 				code = code.next
 				break
 			}
-			v := ptrToInterface(code, ptr)
-			bb, err := v.(Marshaler).MarshalJSON()
+			bb, err := encodeMarshalJSONIndent(ctx, code, b, ptrToInterface(code, p), code.indent, true)
 			if err != nil {
-				return nil, errMarshaler(code, err)
-			}
-			runtime.KeepAlive(v)
-			if len(bb) == 0 {
-				return nil, errUnexpectedEndOfJSON(
-					fmt.Sprintf("error calling MarshalJSON for type %s", code.typ),
-					0,
-				)
-			}
-			var compactBuf bytes.Buffer
-			if err := compact(&compactBuf, bb, true); err != nil {
 				return nil, err
 			}
-			var indentBuf bytes.Buffer
-			if err := encodeWithIndent(
-				&indentBuf,
-				compactBuf.Bytes(),
-				string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+code.indent),
-				string(ctx.indentStr),
-			); err != nil {
-				return nil, err
-			}
-			b = append(b, indentBuf.Bytes()...)
-			b = encodeIndentComma(b)
+			b = encodeIndentComma(bb)
 			code = code.next
 		case opMarshalText:
-			ptr := load(ctxptr, code.idx)
-			isPtr := code.typ.Kind() == reflect.Ptr
-			p := ptrToUnsafePtr(ptr)
-			if p == nil {
-				b = encodeNull(b)
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = append(b, `""`...)
 				b = encodeIndentComma(b)
-			} else if isPtr && *(*unsafe.Pointer)(p) == nil {
-				b = append(b, '"', '"', ',', '\n')
-			} else {
-				if isPtr && code.typ.Elem().Implements(marshalTextType) {
-					p = *(*unsafe.Pointer)(p)
-				}
-				v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
-					typ: code.typ,
-					ptr: p,
-				}))
-				bytes, err := v.(encoding.TextMarshaler).MarshalText()
-				if err != nil {
-					return nil, errMarshaler(code, err)
-				}
-				b = encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes)))
-				b = encodeIndentComma(b)
+				code = code.next
+				break
 			}
+			bb, err := encodeMarshalTextIndent(code, b, ptrToInterface(code, p), true)
+			if err != nil {
+				return nil, err
+			}
+			b = encodeIndentComma(bb)
 			code = code.next
 		case opSlice:
 			p := load(ctxptr, code.idx)

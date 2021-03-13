@@ -37,14 +37,14 @@ func ptrToUnsafePtr(p uintptr) unsafe.Pointer {
 	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
 }
 func ptrToInterface(code *opcode, p uintptr) interface{} {
-	return *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	return *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: code.typ,
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 }
 
 func errUnsupportedValue(code *opcode, ptr uintptr) *UnsupportedValueError {
-	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: code.typ,
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 	}))
@@ -163,7 +163,7 @@ func encodeRun(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt Enco
 				}
 			}
 			ctx.seenPtr = append(ctx.seenPtr, ptr)
-			iface := (*interfaceHeader)(ptrToUnsafePtr(ptr))
+			iface := (*emptyInterface)(ptrToUnsafePtr(ptr))
 			if iface == nil || iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeComma(b)

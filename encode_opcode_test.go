@@ -7,7 +7,7 @@ import (
 
 func TestDumpOpcode(t *testing.T) {
 	var v interface{} = 1
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 	typeptr := uintptr(unsafe.Pointer(typ))
 	codeSet, err := encodeCompileToGetCodeSet(typeptr)

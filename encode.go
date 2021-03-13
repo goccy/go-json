@@ -195,7 +195,7 @@ func encode(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte,
 		b = encodeComma(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
@@ -225,7 +225,7 @@ func encodeNoEscape(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) 
 		b = encodeComma(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
@@ -252,7 +252,7 @@ func encodeIndent(ctx *encodeRuntimeContext, v interface{}, prefix, indent strin
 		b = encodeIndentComma(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))

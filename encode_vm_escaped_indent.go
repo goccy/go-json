@@ -95,7 +95,7 @@ func encodeRunEscapedIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcode
 				}
 			}
 			ctx.seenPtr = append(ctx.seenPtr, ptr)
-			iface := (*interfaceHeader)(ptrToUnsafePtr(ptr))
+			iface := (*emptyInterface)(ptrToUnsafePtr(ptr))
 			if iface == nil || iface.ptr == nil {
 				b = encodeNull(b)
 				b = encodeIndentComma(b)

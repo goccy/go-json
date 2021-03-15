@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+
+	_ "github.com/goccy/go-json/internal/encoder/vm"
 )
 
 // An Encoder writes JSON values to an output stream.

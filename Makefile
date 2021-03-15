@@ -26,3 +26,7 @@ golangci-lint: | $(BIN_DIR)
 		GOBIN=$(BIN_DIR) go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.36.0; \
 		rm -rf $$GOLANGCI_LINT_TMP_DIR; \
 	}
+
+.PHONY: generate
+generate:
+	go generate ./internal/...

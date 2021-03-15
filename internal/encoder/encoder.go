@@ -1,0 +1,407 @@
+package encoder
+
+import (
+	"bytes"
+	"encoding"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"math"
+	"reflect"
+	"strconv"
+	"sync"
+	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
+)
+
+type Option int
+
+const (
+	HTMLEscapeOption Option = 1 << iota
+	IndentOption
+	UnorderedMapOption
+)
+
+type Opcode struct {
+	Op               OpType        // operation type
+	Type             *runtime.Type // go type
+	DisplayIdx       int           // opcode index
+	Key              []byte        // struct field key
+	EscapedKey       []byte        // struct field key ( HTML escaped )
+	PtrNum           int           // pointer number: e.g. double pointer is 2.
+	DisplayKey       string        // key text to display
+	IsTaggedKey      bool          // whether tagged key
+	AnonymousKey     bool          // whether anonymous key
+	AnonymousHead    bool          // whether anonymous head or not
+	Indirect         bool          // whether indirect or not
+	Nilcheck         bool          // whether needs to nilcheck or not
+	AddrForMarshaler bool          // whether needs to addr for marshaler or not
+	RshiftNum        uint8         // use to take bit for judging whether negative integer or not
+	Mask             uint64        // mask for number
+	Indent           int           // indent number
+
+	Idx     uintptr // offset to access ptr
+	HeadIdx uintptr // offset to access slice/struct head
+	ElemIdx uintptr // offset to access array/slice/map elem
+	Length  uintptr // offset to access slice/map length or array length
+	MapIter uintptr // offset to access map iterator
+	MapPos  uintptr // offset to access position list for sorted map
+	Offset  uintptr // offset size from struct header
+	Size    uintptr // array/slice elem size
+
+	MapKey    *Opcode       // map key
+	MapValue  *Opcode       // map value
+	Elem      *Opcode       // array/slice elem
+	End       *Opcode       // array/slice/struct/map end
+	PrevField *Opcode       // prev struct field
+	NextField *Opcode       // next struct field
+	Next      *Opcode       // next opcode
+	Jmp       *CompiledCode // for recursive call
+}
+
+type OpcodeSet struct {
+	Code       *Opcode
+	CodeLength int
+}
+
+type CompiledCode struct {
+	Code    *Opcode
+	Linked  bool // whether recursive code already have linked
+	CurLen  uintptr
+	NextLen uintptr
+}
+
+const StartDetectingCyclesAfter = 1000
+
+func Load(base uintptr, idx uintptr) uintptr {
+	addr := base + idx
+	return **(**uintptr)(unsafe.Pointer(&addr))
+}
+
+func Store(base uintptr, idx uintptr, p uintptr) {
+	addr := base + idx
+	**(**uintptr)(unsafe.Pointer(&addr)) = p
+}
+
+func LoadAndStoreNPtr(base uintptr, idx uintptr, ptrNum int) {
+	addr := base + idx
+	p := **(**uintptr)(unsafe.Pointer(&addr))
+	for i := 0; i < ptrNum; i++ {
+		if p == 0 {
+			**(**uintptr)(unsafe.Pointer(&addr)) = 0
+			return
+		}
+		p = PtrToPtr(p)
+	}
+	**(**uintptr)(unsafe.Pointer(&addr)) = p
+}
+
+func PtrToUint64(p uintptr) uint64              { return **(**uint64)(unsafe.Pointer(&p)) }
+func PtrToFloat32(p uintptr) float32            { return **(**float32)(unsafe.Pointer(&p)) }
+func PtrToFloat64(p uintptr) float64            { return **(**float64)(unsafe.Pointer(&p)) }
+func PtrToBool(p uintptr) bool                  { return **(**bool)(unsafe.Pointer(&p)) }
+func PtrToBytes(p uintptr) []byte               { return **(**[]byte)(unsafe.Pointer(&p)) }
+func PtrToNumber(p uintptr) json.Number         { return **(**json.Number)(unsafe.Pointer(&p)) }
+func PtrToString(p uintptr) string              { return **(**string)(unsafe.Pointer(&p)) }
+func PtrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader)(unsafe.Pointer(&p)) }
+func PtrToPtr(p uintptr) uintptr {
+	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
+}
+func PtrToNPtr(p uintptr, ptrNum int) uintptr {
+	for i := 0; i < ptrNum; i++ {
+		if p == 0 {
+			return 0
+		}
+		p = PtrToPtr(p)
+	}
+	return p
+}
+
+func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
+}
+func PtrToInterface(code *Opcode, p uintptr) interface{} {
+	return *(*interface{})(unsafe.Pointer(&emptyInterface{
+		typ: code.Type,
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
+	}))
+}
+
+func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
+	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
+		typ: code.Type,
+		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
+	}))
+	return &errors.UnsupportedValueError{
+		Value: reflect.ValueOf(v),
+		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),
+	}
+}
+
+func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
+	return &errors.UnsupportedValueError{
+		Value: reflect.ValueOf(v),
+		Str:   strconv.FormatFloat(v, 'g', -1, 64),
+	}
+}
+
+func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
+	return &errors.MarshalerError{
+		Type: runtime.RType2Type(code.Type),
+		Err:  err,
+	}
+}
+
+type emptyInterface struct {
+	typ *runtime.Type
+	ptr unsafe.Pointer
+}
+
+type MapItem struct {
+	Key   []byte
+	Value []byte
+}
+
+type Mapslice struct {
+	Items []MapItem
+}
+
+func (m *Mapslice) Len() int {
+	return len(m.Items)
+}
+
+func (m *Mapslice) Less(i, j int) bool {
+	return bytes.Compare(m.Items[i].Key, m.Items[j].Key) < 0
+}
+
+func (m *Mapslice) Swap(i, j int) {
+	m.Items[i], m.Items[j] = m.Items[j], m.Items[i]
+}
+
+type MapContext struct {
+	Pos   []int
+	Slice *Mapslice
+	Buf   []byte
+}
+
+var mapContextPool = sync.Pool{
+	New: func() interface{} {
+		return &MapContext{}
+	},
+}
+
+func NewMapContext(mapLen int) *MapContext {
+	ctx := mapContextPool.Get().(*MapContext)
+	if ctx.Slice == nil {
+		ctx.Slice = &Mapslice{
+			Items: make([]MapItem, 0, mapLen),
+		}
+	}
+	if cap(ctx.Pos) < (mapLen*2 + 1) {
+		ctx.Pos = make([]int, 0, mapLen*2+1)
+		ctx.Slice.Items = make([]MapItem, 0, mapLen)
+	} else {
+		ctx.Pos = ctx.Pos[:0]
+		ctx.Slice.Items = ctx.Slice.Items[:0]
+	}
+	ctx.Buf = ctx.Buf[:0]
+	return ctx
+}
+
+func ReleaseMapContext(c *MapContext) {
+	mapContextPool.Put(c)
+}
+
+//go:linkname MapIterInit reflect.mapiterinit
+//go:noescape
+func MapIterInit(mapType *runtime.Type, m unsafe.Pointer) unsafe.Pointer
+
+//go:linkname MapIterKey reflect.mapiterkey
+//go:noescape
+func MapIterKey(it unsafe.Pointer) unsafe.Pointer
+
+//go:linkname MapIterNext reflect.mapiternext
+//go:noescape
+func MapIterNext(it unsafe.Pointer)
+
+//go:linkname MapLen reflect.maplen
+//go:noescape
+func MapLen(m unsafe.Pointer) int
+
+type RuntimeContext struct {
+	Buf        []byte
+	Ptrs       []uintptr
+	KeepRefs   []unsafe.Pointer
+	SeenPtr    []uintptr
+	BaseIndent int
+	Prefix     []byte
+	IndentStr  []byte
+}
+
+func (c *RuntimeContext) Init(p uintptr, codelen int) {
+	if len(c.Ptrs) < codelen {
+		c.Ptrs = make([]uintptr, codelen)
+	}
+	c.Ptrs[0] = p
+	c.KeepRefs = c.KeepRefs[:0]
+	c.SeenPtr = c.SeenPtr[:0]
+	c.BaseIndent = 0
+}
+
+func (c *RuntimeContext) Ptr() uintptr {
+	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
+	return uintptr(header.Data)
+}
+
+func AppendByteSlice(b []byte, src []byte) []byte {
+	if src == nil {
+		return append(b, `null`...)
+	}
+	encodedLen := base64.StdEncoding.EncodedLen(len(src))
+	b = append(b, '"')
+	pos := len(b)
+	remainLen := cap(b[pos:])
+	var buf []byte
+	if remainLen > encodedLen {
+		buf = b[pos : pos+encodedLen]
+	} else {
+		buf = make([]byte, encodedLen)
+	}
+	base64.StdEncoding.Encode(buf, src)
+	return append(append(b, buf...), '"')
+}
+
+func AppendFloat32(b []byte, v float32) []byte {
+	f64 := float64(v)
+	abs := math.Abs(f64)
+	fmt := byte('f')
+	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
+	if abs != 0 {
+		f32 := float32(abs)
+		if f32 < 1e-6 || f32 >= 1e21 {
+			fmt = 'e'
+		}
+	}
+	return strconv.AppendFloat(b, f64, fmt, -1, 32)
+}
+
+func AppendFloat64(b []byte, v float64) []byte {
+	abs := math.Abs(v)
+	fmt := byte('f')
+	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
+	if abs != 0 {
+		if abs < 1e-6 || abs >= 1e21 {
+			fmt = 'e'
+		}
+	}
+	return strconv.AppendFloat(b, v, fmt, -1, 64)
+}
+
+func AppendBool(b []byte, v bool) []byte {
+	if v {
+		return append(b, "true"...)
+	}
+	return append(b, "false"...)
+}
+
+var (
+	floatTable = [256]bool{
+		'0': true,
+		'1': true,
+		'2': true,
+		'3': true,
+		'4': true,
+		'5': true,
+		'6': true,
+		'7': true,
+		'8': true,
+		'9': true,
+		'.': true,
+		'e': true,
+		'E': true,
+		'+': true,
+		'-': true,
+	}
+)
+
+func AppendNumber(b []byte, n json.Number) ([]byte, error) {
+	if len(n) == 0 {
+		return append(b, '0'), nil
+	}
+	for i := 0; i < len(n); i++ {
+		if !floatTable[n[i]] {
+			return nil, fmt.Errorf("json: invalid number literal %q", n)
+		}
+	}
+	b = append(b, n...)
+	return b, nil
+}
+
+func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.AddrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(json.Marshaler)
+	if !ok {
+		return AppendNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return bb, nil
+	//buf := bytes.NewBuffer(b)
+	//TODO: we should validate buffer with `compact`
+	//	if err := compact(buf, bb, escape); err != nil {
+	//		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	//	}
+	//return buf.Bytes(), nil
+}
+
+func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.AddrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return AppendNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return AppendEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	}
+	return AppendString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+func AppendNull(b []byte) []byte {
+	return append(b, "null"...)
+}
+
+func AppendComma(b []byte) []byte {
+	return append(b, ',')
+}
+
+func AppendStructEnd(b []byte) []byte {
+	return append(b, '}', ',')
+}

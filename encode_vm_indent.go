@@ -278,6 +278,16 @@ func encodeRunIndent(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, op
 				b = append(b, ']', ',', '\n')
 				code = code.end.next
 			}
+		case opMapPtr:
+			p := load(ctxptr, code.idx)
+			if p == 0 {
+				b = encodeNull(b)
+				b = encodeComma(b)
+				code = code.end.next
+				break
+			}
+			store(ctxptr, code.idx, ptrToPtr(p))
+			fallthrough
 		case opMap:
 			ptr := load(ctxptr, code.idx)
 			if ptr == 0 {

@@ -726,8 +726,7 @@ func encodeCompileMap(ctx *encodeCompileContext) (*opcode, error) {
 	value := newMapValueCode(ctx, header)
 	ctx.incIndex()
 
-	valueType := typ.Elem()
-	valueCode, err := encodeCompile(ctx.withType(valueType), false)
+	valueCode, err := encodeCompileMapValue(ctx.withType(typ.Elem()))
 	if err != nil {
 		return nil, err
 	}
@@ -754,6 +753,15 @@ func encodeCompileMap(ctx *encodeCompileContext) (*opcode, error) {
 	value.end = end
 
 	return (*opcode)(unsafe.Pointer(header)), nil
+}
+
+func encodeCompileMapValue(ctx *encodeCompileContext) (*opcode, error) {
+	switch ctx.typ.Kind() {
+	case reflect.Map:
+		return encodeCompilePtr(ctx.withType(rtype_ptrTo(ctx.typ)))
+	default:
+		return encodeCompile(ctx, false)
+	}
 }
 
 func encodeTypeToHeaderType(code *opcode) opType {

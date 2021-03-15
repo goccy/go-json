@@ -50,6 +50,10 @@ func TestCoverMap(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "NestedMap",
+			data: map[string]map[string]int{"a": {"b": 1}},
+		},
 		// HeadMapZero
 		{
 			name: "HeadMapZero",

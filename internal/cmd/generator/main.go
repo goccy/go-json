@@ -140,7 +140,7 @@ func (t OpType) HeadToPtrHead() OpType {
   if idx == -1 {
     return t
   }
-  suffix := "Ptr"+t.String()[idx+len("Head"):]
+  suffix := "PtrHead"+t.String()[idx+len("Head"):]
 
   const toPtrOffset = 3
   if strings.Contains(OpType(int(t) + toPtrOffset).String(), suffix) {
@@ -186,6 +186,9 @@ func (t OpType) FieldToEnd() OpType {
     return t
   }
   suffix := t.String()[idx+len("Field"):]
+  if suffix == "" || suffix == "OmitEmpty" || suffix == "StringTag" {
+    return t
+  }
   const toEndOffset = 3
   if strings.Contains(OpType(int(t) + toEndOffset).String(), "End"+suffix) {
     return OpType(int(t) + toEndOffset)

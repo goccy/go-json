@@ -1,4 +1,4 @@
-package json
+package vm
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ const uintptrSize = 4 << (^uintptr(0) >> 63)
 var (
 	load                 = encoder.Load
 	store                = encoder.Store
-	loadAndStoreNPtr     = encoder.LoadAndStoreNPtr
+	loadNPtr             = encoder.LoadNPtr
 	ptrToPtr             = encoder.PtrToPtr
 	ptrToNPtr            = encoder.PtrToNPtr
 	ptrToUnsafePtr       = encoder.PtrToUnsafePtr
@@ -73,14 +73,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 			store(ctxptr, code.Idx, ptrToPtr(p))
 		case encoder.OpIntPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpInt:
 			b = appendInt(b, ptrToUint64(load(ctxptr, code.Idx)), code)
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpUintPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpUint:
 			b = appendUint(b, ptrToUint64(load(ctxptr, code.Idx)), code)
@@ -99,14 +113,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpFloat32Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpFloat32:
 			b = appendFloat32(b, ptrToFloat32(load(ctxptr, code.Idx)))
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpFloat64Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpFloat64:
 			v := ptrToFloat64(load(ctxptr, code.Idx))
@@ -117,28 +145,56 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStringPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpString:
 			b = appendString(b, ptrToString(load(ctxptr, code.Idx)))
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpBoolPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpBool:
 			b = appendBool(b, ptrToBool(load(ctxptr, code.Idx)))
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpBytesPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpBytes:
 			b = appendByteSlice(b, ptrToBytes(load(ctxptr, code.Idx)))
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpNumberPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpNumber:
 			bb, err := appendNumber(b, ptrToNumber(load(ctxptr, code.Idx)))
@@ -148,7 +204,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(bb)
 			code = code.Next
 		case encoder.OpInterfacePtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpInterface:
 			p := load(ctxptr, code.Idx)
@@ -206,7 +269,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = bb
 			code = code.Next
 		case encoder.OpMarshalJSONPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpMarshalJSON:
 			p := load(ctxptr, code.Idx)
@@ -223,7 +293,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(bb)
 			code = code.Next
 		case encoder.OpMarshalTextPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpMarshalText:
 			p := load(ctxptr, code.Idx)
@@ -240,7 +317,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(bb)
 			code = code.Next
 		case encoder.OpSlicePtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpSlice:
 			p := load(ctxptr, code.Idx)
@@ -278,7 +362,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.End.Next
 			}
 		case encoder.OpArrayPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpArray:
 			p := load(ctxptr, code.Idx)
@@ -313,7 +404,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.End.Next
 			}
 		case encoder.OpMapPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			if p == 0 {
+				b = appendNull(b)
+				b = appendComma(b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpMap:
 			p := load(ctxptr, code.Idx)
@@ -476,7 +574,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			ctxptr = ctx.Ptr() + offset
 			ptrOffset = offset
 		case encoder.OpStructPtrHead:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHead:
 			p := load(ctxptr, code.Idx)
@@ -498,7 +605,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructPtrHeadOmitEmpty:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmpty:
 			p := load(ctxptr, code.Idx)
@@ -522,7 +638,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadStringTag:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTag:
 			p := load(ctxptr, code.Idx)
@@ -543,7 +668,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructPtrHeadInt:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadInt:
@@ -565,7 +699,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyInt:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyInt:
@@ -593,7 +736,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagInt:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagInt:
@@ -616,7 +768,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadIntPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadIntPtr:
 			p := load(ctxptr, code.Idx)
@@ -643,7 +804,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyIntPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyIntPtr:
 			p := load(ctxptr, code.Idx)
@@ -668,7 +838,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagIntPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagIntPtr:
 			p := load(ctxptr, code.Idx)
@@ -698,7 +877,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadUint:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadUint:
@@ -720,7 +908,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyUint:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyUint:
@@ -748,7 +945,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagUint:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagUint:
@@ -771,7 +977,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadUintPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadUintPtr:
 			p := load(ctxptr, code.Idx)
@@ -798,7 +1013,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyUintPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyUintPtr:
 			p := load(ctxptr, code.Idx)
@@ -823,7 +1047,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagUintPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagUintPtr:
 			p := load(ctxptr, code.Idx)
@@ -853,7 +1086,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadFloat32:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadFloat32:
@@ -875,7 +1117,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyFloat32:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyFloat32:
@@ -902,7 +1153,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagFloat32:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagFloat32:
@@ -925,7 +1185,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadFloat32Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadFloat32Ptr:
 			p := load(ctxptr, code.Idx)
@@ -952,7 +1221,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyFloat32Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyFloat32Ptr:
 			p := load(ctxptr, code.Idx)
@@ -977,7 +1255,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagFloat32Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagFloat32Ptr:
 			p := load(ctxptr, code.Idx)
@@ -1007,7 +1294,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadFloat64:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadFloat64:
@@ -1033,7 +1329,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyFloat64:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyFloat64:
@@ -1063,7 +1368,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagFloat64:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagFloat64:
@@ -1090,7 +1404,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadFloat64Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadFloat64Ptr:
 			p := load(ctxptr, code.Idx)
@@ -1121,7 +1444,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyFloat64Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyFloat64Ptr:
 			p := load(ctxptr, code.Idx)
@@ -1150,7 +1482,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagFloat64Ptr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagFloat64Ptr:
 			p := load(ctxptr, code.Idx)
@@ -1184,7 +1525,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadString:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadString:
@@ -1206,7 +1556,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyString:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyString:
@@ -1233,7 +1592,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagString:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagString:
@@ -1255,7 +1623,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadStringPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringPtr:
 			p := load(ctxptr, code.Idx)
@@ -1282,7 +1659,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyStringPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyStringPtr:
 			p := load(ctxptr, code.Idx)
@@ -1307,7 +1693,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagStringPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagStringPtr:
 			p := load(ctxptr, code.Idx)
@@ -1335,7 +1730,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadBool:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadBool:
@@ -1357,7 +1761,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyBool:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyBool:
@@ -1384,7 +1797,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagBool:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagBool:
@@ -1407,7 +1829,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadBoolPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadBoolPtr:
 			p := load(ctxptr, code.Idx)
@@ -1434,7 +1865,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyBoolPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyBoolPtr:
 			p := load(ctxptr, code.Idx)
@@ -1459,7 +1899,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagBoolPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagBoolPtr:
 			p := load(ctxptr, code.Idx)
@@ -1489,7 +1938,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadBytes:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadBytes:
@@ -1511,7 +1969,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyBytes:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyBytes:
@@ -1538,7 +2005,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagBytes:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagBytes:
@@ -1561,7 +2037,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadBytesPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadBytesPtr:
 			p := load(ctxptr, code.Idx)
@@ -1588,7 +2073,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyBytesPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyBytesPtr:
 			p := load(ctxptr, code.Idx)
@@ -1613,7 +2107,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagBytesPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagBytesPtr:
 			p := load(ctxptr, code.Idx)
@@ -1643,7 +2146,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadNumber:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadNumber:
@@ -1668,7 +2180,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyNumber:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyNumber:
@@ -1698,7 +2219,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadStringTagNumber:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadStringTagNumber:
@@ -1724,7 +2254,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadNumberPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadNumberPtr:
 			p := load(ctxptr, code.Idx)
@@ -1755,7 +2294,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyNumberPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyNumberPtr:
 			p := load(ctxptr, code.Idx)
@@ -1783,7 +2331,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagNumberPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadStringTagNumberPtr:
 			p := load(ctxptr, code.Idx)
@@ -1817,7 +2374,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 		case encoder.OpStructPtrHeadArray, encoder.OpStructPtrHeadStringTagArray,
 			encoder.OpStructPtrHeadSlice, encoder.OpStructPtrHeadStringTagSlice:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadArray, encoder.OpStructHeadStringTagArray,
@@ -1840,7 +2406,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructPtrHeadOmitEmptyArray:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyArray:
@@ -1862,7 +2437,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructPtrHeadOmitEmptySlice:
 			if code.Indirect {
-				loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+				p := load(ctxptr, code.Idx)
+				if p == 0 {
+					if !code.AnonymousHead {
+						b = appendNull(b)
+						b = appendComma(b)
+					}
+					code = code.End.Next
+					break
+				}
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptySlice:
@@ -1889,7 +2473,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 		case encoder.OpStructPtrHeadArrayPtr, encoder.OpStructPtrHeadStringTagArrayPtr,
 			encoder.OpStructPtrHeadSlicePtr, encoder.OpStructPtrHeadStringTagSlicePtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadArrayPtr, encoder.OpStructHeadStringTagArrayPtr,
 			encoder.OpStructHeadSlicePtr, encoder.OpStructHeadStringTagSlicePtr:
@@ -1918,7 +2511,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadOmitEmptyArrayPtr, encoder.OpStructPtrHeadOmitEmptySlicePtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyArrayPtr, encoder.OpStructHeadOmitEmptySlicePtr:
 			p := load(ctxptr, code.Idx)
@@ -1944,7 +2546,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadMap, encoder.OpStructPtrHeadStringTagMap:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadMap, encoder.OpStructHeadStringTagMap:
 			p := load(ctxptr, code.Idx)
@@ -1966,7 +2577,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			code = code.Next
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructPtrHeadOmitEmptyMap:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMap:
 			p := load(ctxptr, code.Idx)
@@ -1992,7 +2612,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadMapPtr, encoder.OpStructPtrHeadStringTagMapPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadMapPtr, encoder.OpStructHeadStringTagMapPtr:
 			p := load(ctxptr, code.Idx)
@@ -2027,7 +2656,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadOmitEmptyMapPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMapPtr:
 			p := load(ctxptr, code.Idx)
@@ -2058,7 +2696,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				store(ctxptr, code.Idx, p)
 			}
 		case encoder.OpStructPtrHeadMarshalJSON:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadMarshalJSON:
 			p := load(ctxptr, code.Idx)
@@ -2091,7 +2740,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagMarshalJSON:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadStringTagMarshalJSON:
 			p := load(ctxptr, code.Idx)
@@ -2124,7 +2784,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyMarshalJSON:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMarshalJSON:
 			p := load(ctxptr, code.Idx)
@@ -2157,7 +2828,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.Next
 			}
 		case encoder.OpStructPtrHeadMarshalJSONPtr, encoder.OpStructPtrHeadStringTagMarshalJSONPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadMarshalJSONPtr, encoder.OpStructHeadStringTagMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
@@ -2188,7 +2868,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyMarshalJSONPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
@@ -2219,7 +2908,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.Next
 			}
 		case encoder.OpStructPtrHeadMarshalText:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadMarshalText:
 			p := load(ctxptr, code.Idx)
@@ -2252,7 +2952,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadStringTagMarshalText:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadStringTagMarshalText:
 			p := load(ctxptr, code.Idx)
@@ -2285,7 +2996,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyMarshalText:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			if code.Indirect {
+				store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+			}
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMarshalText:
 			p := load(ctxptr, code.Idx)
@@ -2318,7 +3040,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.Next
 			}
 		case encoder.OpStructPtrHeadMarshalTextPtr, encoder.OpStructPtrHeadStringTagMarshalTextPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadMarshalTextPtr, encoder.OpStructHeadStringTagMarshalTextPtr:
 			p := load(ctxptr, code.Idx)
@@ -2349,7 +3080,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyMarshalTextPtr:
-			loadAndStoreNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := load(ctxptr, code.Idx)
+			if p == 0 {
+				if !code.AnonymousHead {
+					b = appendNull(b)
+					b = appendComma(b)
+				}
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpStructHeadOmitEmptyMarshalTextPtr:
 			p := load(ctxptr, code.Idx)
@@ -3078,12 +3818,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 		case encoder.OpStructFieldMap, encoder.OpStructFieldStringTagMap:
 			b = append(b, code.Key...)
 			p := load(ctxptr, code.HeadIdx)
-			p = ptrToNPtr(p+code.Offset, code.PtrNum)
+			p = ptrToNPtr(p+code.Offset, code.PtrNum+1)
 			code = code.Next
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.HeadIdx)
-			p = ptrToNPtr(p+code.Offset, code.PtrNum)
+			p = ptrToNPtr(p+code.Offset, code.PtrNum+1)
 			if p == 0 || maplen(ptrToUnsafePtr(p)) == 0 {
 				code = code.NextField
 			} else {

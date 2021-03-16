@@ -427,7 +427,7 @@ func (c *Opcode) dumpValue(code *Opcode) string {
 	)
 }
 
-func (c *Opcode) dump() string {
+func (c *Opcode) Dump() string {
 	codes := []string{}
 	for code := c; code.Op != OpEnd; {
 		switch code.Op.CodeType() {

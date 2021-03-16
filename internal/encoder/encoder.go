@@ -152,17 +152,22 @@ func Store(base uintptr, idx uintptr, p uintptr) {
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func LoadAndStoreNPtr(base uintptr, idx uintptr, ptrNum int) {
+func LoadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
 	addr := base + idx
 	p := **(**uintptr)(unsafe.Pointer(&addr))
-	for i := 0; i < ptrNum; i++ {
-		if p == 0 {
-			**(**uintptr)(unsafe.Pointer(&addr)) = 0
-			return
-		}
-		p = PtrToPtr(p)
+	if p == 0 {
+		return 0
 	}
-	**(**uintptr)(unsafe.Pointer(&addr)) = p
+	return PtrToPtr(p)
+	/*
+		for i := 0; i < ptrNum; i++ {
+			if p == 0 {
+				return p
+			}
+			p = PtrToPtr(p)
+		}
+		return p
+	*/
 }
 
 func PtrToUint64(p uintptr) uint64              { return **(**uint64)(unsafe.Pointer(&p)) }
@@ -426,13 +431,12 @@ func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	return bb, nil
-	//buf := bytes.NewBuffer(b)
-	//TODO: we should validate buffer with `compact`
-	//	if err := compact(buf, bb, escape); err != nil {
-	//		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	//	}
-	//return buf.Bytes(), nil
+	buf := bytes.NewBuffer(b)
+	// TODO: we should validate buffer with `compact`
+	if err := compact(buf, bb, escape); err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return buf.Bytes(), nil
 }
 
 func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {

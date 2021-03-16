@@ -299,6 +299,10 @@ func compile(ctx *compileContext, isPtr bool) (*Opcode, error) {
 func convertPtrOp(code *Opcode) OpType {
 	ptrHeadOp := code.Op.HeadToPtrHead()
 	if code.Op != ptrHeadOp {
+		if code.PtrNum > 0 {
+			// ptr field and ptr head
+			code.PtrNum--
+		}
 		return ptrHeadOp
 	}
 	switch code.Op {

@@ -13,7 +13,8 @@ import (
 	"sync"
 	"unsafe"
 
-	_ "github.com/goccy/go-json/internal/encoder/vm"
+	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/encoder/vm"
 )
 
 // An Encoder writes JSON values to an output stream.
@@ -208,16 +209,29 @@ func encode(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte,
 
 	p := uintptr(header.ptr)
 	ctx.init(p, codeSet.codeLength)
-	buf, err := encodeRunCode(ctx, b, codeSet, opt)
-
 	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
 
-	if err != nil {
-		return nil, err
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		buf, err := encodeRunCode(ctx, b, codeSet, opt)
+		if err != nil {
+			return nil, err
+		}
+		ctx.buf = buf
+		return buf, nil
+	} else {
+		codeSet, err := encoder.CompileToGetCodeSet(typeptr)
+		if err != nil {
+			return nil, err
+		}
+		ctx := &encoder.RuntimeContext{}
+		ctx.Init(p, codeSet.CodeLength)
+		buf, err := vm.Run(ctx, b, codeSet, encoder.Option(opt))
+		if err != nil {
+			return nil, err
+		}
+		ctx.Buf = buf
+		return buf, nil
 	}
-
-	ctx.buf = buf
-	return buf, nil
 }
 
 func encodeNoEscape(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {

@@ -24,41 +24,108 @@ const (
 	UnorderedMapOption
 )
 
-type Opcode struct {
-	Op               OpType        // operation type
-	Type             *runtime.Type // go type
-	DisplayIdx       int           // opcode index
-	Key              []byte        // struct field key
-	EscapedKey       []byte        // struct field key ( HTML escaped )
-	PtrNum           int           // pointer number: e.g. double pointer is 2.
-	DisplayKey       string        // key text to display
-	IsTaggedKey      bool          // whether tagged key
-	AnonymousKey     bool          // whether anonymous key
-	AnonymousHead    bool          // whether anonymous head or not
-	Indirect         bool          // whether indirect or not
-	Nilcheck         bool          // whether needs to nilcheck or not
-	AddrForMarshaler bool          // whether needs to addr for marshaler or not
-	RshiftNum        uint8         // use to take bit for judging whether negative integer or not
-	Mask             uint64        // mask for number
-	Indent           int           // indent number
+func (t OpType) IsMultipleOpHead() bool {
+	switch t {
+	case OpStructHead:
+		return true
+	case OpStructHeadSlice:
+		return true
+	case OpStructHeadArray:
+		return true
+	case OpStructHeadMap:
+		return true
+	case OpStructHeadStruct:
+		return true
+	case OpStructHeadOmitEmpty:
+		return true
+	case OpStructHeadOmitEmptySlice:
+		return true
+	case OpStructHeadStringTagSlice:
+		return true
+	case OpStructHeadOmitEmptyArray:
+		return true
+	case OpStructHeadStringTagArray:
+		return true
+	case OpStructHeadOmitEmptyMap:
+		return true
+	case OpStructHeadStringTagMap:
+		return true
+	case OpStructHeadOmitEmptyStruct:
+		return true
+	case OpStructHeadStringTag:
+		return true
+	case OpStructHeadSlicePtr:
+		return true
+	case OpStructHeadOmitEmptySlicePtr:
+		return true
+	case OpStructHeadStringTagSlicePtr:
+		return true
+	case OpStructHeadArrayPtr:
+		return true
+	case OpStructHeadOmitEmptyArrayPtr:
+		return true
+	case OpStructHeadStringTagArrayPtr:
+		return true
+	case OpStructHeadMapPtr:
+		return true
+	case OpStructHeadOmitEmptyMapPtr:
+		return true
+	case OpStructHeadStringTagMapPtr:
+		return true
+	}
+	return false
+}
 
-	Idx     uintptr // offset to access ptr
-	HeadIdx uintptr // offset to access slice/struct head
-	ElemIdx uintptr // offset to access array/slice/map elem
-	Length  uintptr // offset to access slice/map length or array length
-	MapIter uintptr // offset to access map iterator
-	MapPos  uintptr // offset to access position list for sorted map
-	Offset  uintptr // offset size from struct header
-	Size    uintptr // array/slice elem size
-
-	MapKey    *Opcode       // map key
-	MapValue  *Opcode       // map value
-	Elem      *Opcode       // array/slice elem
-	End       *Opcode       // array/slice/struct/map end
-	PrevField *Opcode       // prev struct field
-	NextField *Opcode       // next struct field
-	Next      *Opcode       // next opcode
-	Jmp       *CompiledCode // for recursive call
+func (t OpType) IsMultipleOpField() bool {
+	switch t {
+	case OpStructField:
+		return true
+	case OpStructFieldSlice:
+		return true
+	case OpStructFieldArray:
+		return true
+	case OpStructFieldMap:
+		return true
+	case OpStructFieldStruct:
+		return true
+	case OpStructFieldOmitEmpty:
+		return true
+	case OpStructFieldOmitEmptySlice:
+		return true
+	case OpStructFieldStringTagSlice:
+		return true
+	case OpStructFieldOmitEmptyArray:
+		return true
+	case OpStructFieldStringTagArray:
+		return true
+	case OpStructFieldOmitEmptyMap:
+		return true
+	case OpStructFieldStringTagMap:
+		return true
+	case OpStructFieldOmitEmptyStruct:
+		return true
+	case OpStructFieldStringTag:
+		return true
+	case OpStructFieldSlicePtr:
+		return true
+	case OpStructFieldOmitEmptySlicePtr:
+		return true
+	case OpStructFieldStringTagSlicePtr:
+		return true
+	case OpStructFieldArrayPtr:
+		return true
+	case OpStructFieldOmitEmptyArrayPtr:
+		return true
+	case OpStructFieldStringTagArrayPtr:
+		return true
+	case OpStructFieldMapPtr:
+		return true
+	case OpStructFieldOmitEmptyMapPtr:
+		return true
+	case OpStructFieldStringTagMapPtr:
+		return true
+	}
+	return false
 }
 
 type OpcodeSet struct {

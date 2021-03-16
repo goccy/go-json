@@ -9,11 +9,10 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
-	"github.com/goccy/go-json/internal/encoder/compiler"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-const uintptrSize = 4 << (^uintptr(0) >> 63) // unsafe.Sizeof(uintptr(0)) but an ideal const
+const uintptrSize = 4 << (^uintptr(0) >> 63)
 
 var (
 	load                 = encoder.Load
@@ -173,7 +172,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				break
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
-			ifaceCodeSet, err := compiler.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
+			ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 			if err != nil {
 				return nil, err
 			}

@@ -476,3 +476,14 @@ func AppendComma(b []byte) []byte {
 func AppendStructEnd(b []byte) []byte {
 	return append(b, '}', ',')
 }
+
+func IsNilForMarshaler(v interface{}) bool {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Interface, reflect.Map, reflect.Ptr:
+		return rv.IsNil()
+	case reflect.Slice:
+		return rv.IsNil() || rv.Len() == 0
+	}
+	return false
+}

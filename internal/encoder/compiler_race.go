@@ -11,7 +11,7 @@ import (
 
 var setsMu sync.RWMutex
 
-func CompileToGetCodeSet(typeptr uintptr) (*opcodeSet, error) {
+func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 	if typeptr > typeAddr.MaxTypeAddr {
 		return compileToGetCodeSetSlowPath(typeptr)
 	}

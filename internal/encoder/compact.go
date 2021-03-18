@@ -6,7 +6,7 @@ import (
 	"github.com/goccy/go-json/internal/errors"
 )
 
-func compact(dst *bytes.Buffer, src []byte, escape bool) error {
+func Compact(dst *bytes.Buffer, src []byte, escape bool) error {
 	if len(src) == 0 {
 		return errors.ErrUnexpectedEndOfJSON("", 0)
 	}

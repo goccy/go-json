@@ -6,7 +6,7 @@ import (
 	"github.com/goccy/go-json/internal/errors"
 )
 
-func encodeIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) error {
+func Indent(dst *bytes.Buffer, src []byte, prefix, indentStr string) error {
 	length := int64(len(src))
 	indentNum := 0
 	indentBytes := []byte(indentStr)

@@ -1,4 +1,4 @@
-package json
+package encoder
 
 import (
 	"testing"
@@ -10,9 +10,9 @@ func TestDumpOpcode(t *testing.T) {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encodeCompileToGetCodeSet(typeptr)
+	codeSet, err := CompileToGetCodeSet(typeptr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	codeSet.code.dump()
+	codeSet.Code.Dump()
 }

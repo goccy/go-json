@@ -1,11 +1,16 @@
 package json
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"unicode"
 	"unsafe"
+)
+
+var (
+	jsonNumberType = reflect.TypeOf(json.Number(""))
 )
 
 func decodeCompileToGetDecoderSlowPath(typeptr uintptr, typ *rtype) (decoder, error) {

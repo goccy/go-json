@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+
+	"github.com/goccy/go-json/internal/encoder"
 )
 
 // Marshaler is the interface implemented by types that
@@ -308,7 +310,7 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 // Compact appends to dst the JSON-encoded src with
 // insignificant space characters elided.
 func Compact(dst *bytes.Buffer, src []byte) error {
-	return compact(dst, src, false)
+	return encoder.Compact(dst, src, false)
 }
 
 // Indent appends to dst an indented form of the JSON-encoded src.
@@ -323,7 +325,7 @@ func Compact(dst *bytes.Buffer, src []byte) error {
 // For example, if src has no trailing spaces, neither will dst;
 // if src ends in a trailing newline, so will dst.
 func Indent(dst *bytes.Buffer, src []byte, prefix, indent string) error {
-	return encodeWithIndent(dst, src, prefix, indent)
+	return encoder.Indent(dst, src, prefix, indent)
 }
 
 // HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029

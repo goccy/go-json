@@ -7,7 +7,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1200M
+          memory: 600M
     working_dir: /go/src/go-json
     command: |
       sh -c "go test -c . && ls go-json.test"

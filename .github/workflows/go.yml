@@ -42,7 +42,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
       - name: measure coverage
-        run: go test -v -coverprofile=coverage.out ./ -count=1
+        run: make cover
       - name: report coverage
         run: |
           bash <(curl -s https://codecov.io/bash)

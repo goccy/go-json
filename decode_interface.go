@@ -202,7 +202,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, depth int64, p 
 }
 
 func (d *interfaceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
-	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: d.typ,
 		ptr: p,
 	}))
@@ -217,7 +217,7 @@ func (d *interfaceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer
 		return d.errUnmarshalType(rv.Type(), s.totalOffset())
 	}
 	iface := rv.Interface()
-	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
+	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
 	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
@@ -252,7 +252,7 @@ func (d *interfaceDecoder) errUnmarshalType(typ reflect.Type, offset int64) *Unm
 }
 
 func (d *interfaceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: d.typ,
 		ptr: p,
 	}))
@@ -268,7 +268,7 @@ func (d *interfaceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Poin
 	}
 
 	iface := rv.Interface()
-	ifaceHeader := (*interfaceHeader)(unsafe.Pointer(&iface))
+	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
 	typ := ifaceHeader.typ
 	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface

@@ -1,4 +1,4 @@
-package json
+package runtime
 
 import (
 	"reflect"
@@ -10,7 +10,7 @@ func getTag(field reflect.StructField) string {
 	return field.Tag.Get("json")
 }
 
-func isIgnoredStructField(field reflect.StructField) bool {
+func IsIgnoredStructField(field reflect.StructField) bool {
 	if field.PkgPath != "" {
 		if field.Anonymous {
 			if !(field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct) && field.Type.Kind() != reflect.Struct {
@@ -25,19 +25,19 @@ func isIgnoredStructField(field reflect.StructField) bool {
 	return tag == "-"
 }
 
-type structTag struct {
-	key         string
-	isTaggedKey bool
-	isOmitEmpty bool
-	isString    bool
-	field       reflect.StructField
+type StructTag struct {
+	Key         string
+	IsTaggedKey bool
+	IsOmitEmpty bool
+	IsString    bool
+	Field       reflect.StructField
 }
 
-type structTags []*structTag
+type StructTags []*StructTag
 
-func (t structTags) existsKey(key string) bool {
+func (t StructTags) ExistsKey(key string) bool {
 	for _, tt := range t {
-		if tt.key == key {
+		if tt.Key == key {
 			return true
 		}
 	}
@@ -61,21 +61,21 @@ func isValidTag(s string) bool {
 	return true
 }
 
-func structTagFromField(field reflect.StructField) *structTag {
+func StructTagFromField(field reflect.StructField) *StructTag {
 	keyName := field.Name
 	tag := getTag(field)
-	st := &structTag{field: field}
+	st := &StructTag{Field: field}
 	opts := strings.Split(tag, ",")
 	if len(opts) > 0 {
 		if opts[0] != "" && isValidTag(opts[0]) {
 			keyName = opts[0]
-			st.isTaggedKey = true
+			st.IsTaggedKey = true
 		}
 	}
-	st.key = keyName
+	st.Key = keyName
 	if len(opts) > 1 {
-		st.isOmitEmpty = opts[1] == "omitempty"
-		st.isString = opts[1] == "string"
+		st.IsOmitEmpty = opts[1] == "omitempty"
+		st.IsString = opts[1] == "string"
 	}
 	return st
 }

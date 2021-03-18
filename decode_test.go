@@ -1786,80 +1786,82 @@ func equalError(a, b error) bool {
 
 func TestUnmarshal(t *testing.T) {
 	for i, tt := range unmarshalTests {
-		in := []byte(tt.in)
-		if tt.ptr == nil {
-			continue
-		}
-
-		typ := reflect.TypeOf(tt.ptr)
-		if typ.Kind() != reflect.Ptr {
-			t.Errorf("#%d: unmarshalTest.ptr %T is not a pointer type", i, tt.ptr)
-			continue
-		}
-		typ = typ.Elem()
-
-		// v = new(right-type)
-		v := reflect.New(typ)
-
-		if !reflect.DeepEqual(tt.ptr, v.Interface()) {
-			// There's no reason for ptr to point to non-zero data,
-			// as we decode into new(right-type), so the data is
-			// discarded.
-			// This can easily mean tests that silently don't test
-			// what they should. To test decoding into existing
-			// data, see TestPrefilled.
-			t.Errorf("#%d: unmarshalTest.ptr %#v is not a pointer to a zero value", i, tt.ptr)
-			continue
-		}
-
-		dec := json.NewDecoder(bytes.NewReader(in))
-		if tt.useNumber {
-			dec.UseNumber()
-		}
-		if tt.disallowUnknownFields {
-			dec.DisallowUnknownFields()
-		}
-		if err := dec.Decode(v.Interface()); !equalError(err, tt.err) {
-			t.Errorf("#%d: %v, want %v", i, err, tt.err)
-			continue
-		} else if err != nil {
-			continue
-		}
-		if !reflect.DeepEqual(v.Elem().Interface(), tt.out) {
-			t.Errorf("#%d: mismatch\nhave: %#+v\nwant: %#+v", i, v.Elem().Interface(), tt.out)
-			data, _ := json.Marshal(v.Elem().Interface())
-			println(string(data))
-			data, _ = json.Marshal(tt.out)
-			println(string(data))
-			continue
-		}
-
-		// Check round trip also decodes correctly.
-		if tt.err == nil {
-			enc, err := json.Marshal(v.Interface())
-			if err != nil {
-				t.Errorf("#%d: error re-marshaling: %v", i, err)
-				continue
+		t.Run(fmt.Sprintf("%d_%q", i, tt.in), func(t *testing.T) {
+			in := []byte(tt.in)
+			if tt.ptr == nil {
+				return
 			}
-			if tt.golden && !bytes.Equal(enc, in) {
-				t.Errorf("#%d: remarshal mismatch:\nhave: %s\nwant: %s", i, enc, in)
+
+			typ := reflect.TypeOf(tt.ptr)
+			if typ.Kind() != reflect.Ptr {
+				t.Errorf("#%d: unmarshalTest.ptr %T is not a pointer type", i, tt.ptr)
+				return
 			}
-			vv := reflect.New(reflect.TypeOf(tt.ptr).Elem())
-			dec = json.NewDecoder(bytes.NewReader(enc))
+			typ = typ.Elem()
+
+			// v = new(right-type)
+			v := reflect.New(typ)
+
+			if !reflect.DeepEqual(tt.ptr, v.Interface()) {
+				// There's no reason for ptr to point to non-zero data,
+				// as we decode into new(right-type), so the data is
+				// discarded.
+				// This can easily mean tests that silently don't test
+				// what they should. To test decoding into existing
+				// data, see TestPrefilled.
+				t.Errorf("#%d: unmarshalTest.ptr %#v is not a pointer to a zero value", i, tt.ptr)
+				return
+			}
+
+			dec := json.NewDecoder(bytes.NewReader(in))
 			if tt.useNumber {
 				dec.UseNumber()
 			}
-			if err := dec.Decode(vv.Interface()); err != nil {
-				t.Errorf("#%d: error re-unmarshaling %#q: %v", i, enc, err)
-				continue
+			if tt.disallowUnknownFields {
+				dec.DisallowUnknownFields()
 			}
-			if !reflect.DeepEqual(v.Elem().Interface(), vv.Elem().Interface()) {
-				t.Errorf("#%d: mismatch\nhave: %#+v\nwant: %#+v", i, v.Elem().Interface(), vv.Elem().Interface())
-				t.Errorf("     In: %q", strings.Map(noSpace, string(in)))
-				t.Errorf("Marshal: %q", strings.Map(noSpace, string(enc)))
-				continue
+			if err := dec.Decode(v.Interface()); !equalError(err, tt.err) {
+				t.Errorf("#%d: %v, want %v", i, err, tt.err)
+				return
+			} else if err != nil {
+				return
 			}
-		}
+			if !reflect.DeepEqual(v.Elem().Interface(), tt.out) {
+				t.Errorf("#%d: mismatch\nhave: %#+v\nwant: %#+v", i, v.Elem().Interface(), tt.out)
+				data, _ := json.Marshal(v.Elem().Interface())
+				println(string(data))
+				data, _ = json.Marshal(tt.out)
+				println(string(data))
+				return
+			}
+
+			// Check round trip also decodes correctly.
+			if tt.err == nil {
+				enc, err := json.Marshal(v.Interface())
+				if err != nil {
+					t.Errorf("#%d: error re-marshaling: %v", i, err)
+					return
+				}
+				if tt.golden && !bytes.Equal(enc, in) {
+					t.Errorf("#%d: remarshal mismatch:\nhave: %s\nwant: %s", i, enc, in)
+				}
+				vv := reflect.New(reflect.TypeOf(tt.ptr).Elem())
+				dec = json.NewDecoder(bytes.NewReader(enc))
+				if tt.useNumber {
+					dec.UseNumber()
+				}
+				if err := dec.Decode(vv.Interface()); err != nil {
+					t.Errorf("#%d: error re-unmarshaling %#q: %v", i, enc, err)
+					return
+				}
+				if !reflect.DeepEqual(v.Elem().Interface(), vv.Elem().Interface()) {
+					t.Errorf("#%d: mismatch\nhave: %#+v\nwant: %#+v", i, v.Elem().Interface(), vv.Elem().Interface())
+					t.Errorf("     In: %q", strings.Map(noSpace, string(in)))
+					t.Errorf("Marshal: %q", strings.Map(noSpace, string(enc)))
+					return
+				}
+			}
+		})
 	}
 }
 

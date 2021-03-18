@@ -1,4 +1,4 @@
-package json
+package encoder
 
 import (
 	"math/bits"
@@ -405,7 +405,7 @@ func stringToUint64Slice(s string) []uint64 {
 	}))
 }
 
-func encodeEscapedString(buf []byte, s string) []byte {
+func AppendEscapedString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)
@@ -531,7 +531,7 @@ ESCAPE_END:
 	return append(append(buf, s[i:]...), '"')
 }
 
-func encodeNoEscapedString(buf []byte, s string) []byte {
+func AppendString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)

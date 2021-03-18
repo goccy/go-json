@@ -1,12 +1,14 @@
-package json
+package encoder
 
 import (
 	"bytes"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
-func compact(dst *bytes.Buffer, src []byte, escape bool) error {
+func Compact(dst *bytes.Buffer, src []byte, escape bool) error {
 	if len(src) == 0 {
-		return errUnexpectedEndOfJSON("", 0)
+		return errors.ErrUnexpectedEndOfJSON("", 0)
 	}
 	length := len(src)
 	for cursor := 0; cursor < length; cursor++ {
@@ -39,8 +41,8 @@ func compact(dst *bytes.Buffer, src []byte, escape bool) error {
 					}
 				case '"':
 					goto LOOP_END
-				case nul:
-					return errUnexpectedEndOfJSON("string", int64(length))
+				case '\000':
+					return errors.ErrUnexpectedEndOfJSON("string", int64(length))
 				}
 			}
 		default:

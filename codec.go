@@ -12,8 +12,6 @@ const (
 )
 
 var (
-	cachedOpcodeSets []*opcodeSet
-	cachedOpcodeMap  unsafe.Pointer // map[uintptr]*opcodeSet
 	cachedDecoder    []decoder
 	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
 	baseTypeAddr     uintptr
@@ -66,7 +64,6 @@ func setupCodec() error {
 	if addrRange > maxAcceptableTypeAddrRange {
 		return fmt.Errorf("too big address range %d", addrRange)
 	}
-	cachedOpcodeSets = make([]*opcodeSet, addrRange)
 	cachedDecoder = make([]decoder, addrRange)
 	baseTypeAddr = min
 	maxTypeAddr = max
@@ -75,22 +72,6 @@ func setupCodec() error {
 
 func init() {
 	_ = setupCodec()
-}
-
-func loadOpcodeMap() map[uintptr]*opcodeSet {
-	p := atomic.LoadPointer(&cachedOpcodeMap)
-	return *(*map[uintptr]*opcodeSet)(unsafe.Pointer(&p))
-}
-
-func storeOpcodeSet(typ uintptr, set *opcodeSet, m map[uintptr]*opcodeSet) {
-	newOpcodeMap := make(map[uintptr]*opcodeSet, len(m)+1)
-	newOpcodeMap[typ] = set
-
-	for k, v := range m {
-		newOpcodeMap[k] = v
-	}
-
-	atomic.StorePointer(&cachedOpcodeMap, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
 }
 
 func loadDecoderMap() map[uintptr]decoder {

@@ -1,4 +1,4 @@
-package json
+package encoder
 
 import (
 	"unsafe"
@@ -49,9 +49,9 @@ var intBELookup = [100]uint16{
 
 var intLookup = [2]*[100]uint16{&intLELookup, &intBELookup}
 
-func appendInt(out []byte, u64 uint64, code *opcode) []byte {
-	n := u64 & code.mask
-	negative := (u64>>code.rshiftNum)&1 == 1
+func AppendInt(out []byte, u64 uint64, code *Opcode) []byte {
+	n := u64 & code.Mask
+	negative := (u64>>code.RshiftNum)&1 == 1
 	if !negative {
 		if n < 10 {
 			return append(out, byte(n+'0'))
@@ -60,7 +60,7 @@ func appendInt(out []byte, u64 uint64, code *opcode) []byte {
 			return append(out, byte(u), byte(u>>8))
 		}
 	} else {
-		n = -n & code.mask
+		n = -n & code.Mask
 	}
 
 	lookup := intLookup[endianness]
@@ -91,8 +91,8 @@ func appendInt(out []byte, u64 uint64, code *opcode) []byte {
 	return append(out, b[i:]...)
 }
 
-func appendUint(out []byte, u64 uint64, code *opcode) []byte {
-	n := u64 & code.mask
+func AppendUint(out []byte, u64 uint64, code *Opcode) []byte {
+	n := u64 & code.Mask
 	if n < 10 {
 		return append(out, byte(n+'0'))
 	} else if n < 100 {

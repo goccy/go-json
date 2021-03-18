@@ -38,7 +38,7 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, depth int64, p unsafe.Poi
 	dst := make([]byte, len(src))
 	copy(dst, src)
 
-	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: d.typ,
 		ptr: p,
 	}))
@@ -60,7 +60,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor, depth int64, p unsafe.
 	dst := make([]byte, len(src))
 	copy(dst, src)
 
-	v := *(*interface{})(unsafe.Pointer(&interfaceHeader{
+	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: d.typ,
 		ptr: p,
 	}))

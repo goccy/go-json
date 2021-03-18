@@ -1,8 +1,12 @@
-package json
+package encoder
 
-import "bytes"
+import (
+	"bytes"
 
-func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) error {
+	"github.com/goccy/go-json/internal/errors"
+)
+
+func Indent(dst *bytes.Buffer, src []byte, prefix, indentStr string) error {
 	length := int64(len(src))
 	indentNum := 0
 	indentBytes := []byte(indentStr)
@@ -28,8 +32,8 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 					}
 				case '"':
 					goto LOOP_END
-				case nul:
-					return errUnexpectedEndOfJSON("string", length)
+				case '\000':
+					return errors.ErrUnexpectedEndOfJSON("string", length)
 				}
 			}
 		case '{':
@@ -50,7 +54,7 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 		case '}':
 			indentNum--
 			if indentNum < 0 {
-				return errInvalidCharacter('}', "}", cursor)
+				return errors.ErrInvalidCharacter('}', "}", cursor)
 			}
 			b := []byte{'\n'}
 			b = append(b, prefix...)
@@ -77,7 +81,7 @@ func encodeWithIndent(dst *bytes.Buffer, src []byte, prefix, indentStr string) e
 		case ']':
 			indentNum--
 			if indentNum < 0 {
-				return errInvalidCharacter(']', "]", cursor)
+				return errors.ErrInvalidCharacter(']', "]", cursor)
 			}
 			b := []byte{'\n'}
 			b = append(b, prefix...)

@@ -1,17 +1,15 @@
 package json
 
 import (
-	"bytes"
-	"encoding"
-	"encoding/base64"
-	"fmt"
 	"io"
-	"math"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/encoder/vm"
+	"github.com/goccy/go-json/internal/encoder/vm_escaped"
+	"github.com/goccy/go-json/internal/encoder/vm_escaped_indent"
+	"github.com/goccy/go-json/internal/encoder/vm_indent"
 )
 
 // An Encoder writes JSON values to an output stream.
@@ -38,20 +36,20 @@ const (
 var (
 	encRuntimeContextPool = sync.Pool{
 		New: func() interface{} {
-			return &encodeRuntimeContext{
-				buf:      make([]byte, 0, bufSize),
-				ptrs:     make([]uintptr, 128),
-				keepRefs: make([]unsafe.Pointer, 0, 8),
+			return &encoder.RuntimeContext{
+				Buf:      make([]byte, 0, bufSize),
+				Ptrs:     make([]uintptr, 128),
+				KeepRefs: make([]unsafe.Pointer, 0, 8),
 			}
 		},
 	}
 )
 
-func takeEncodeRuntimeContext() *encodeRuntimeContext {
-	return encRuntimeContextPool.Get().(*encodeRuntimeContext)
+func takeEncodeRuntimeContext() *encoder.RuntimeContext {
+	return encRuntimeContextPool.Get().(*encoder.RuntimeContext)
 }
 
-func releaseEncodeRuntimeContext(ctx *encodeRuntimeContext) {
+func releaseEncodeRuntimeContext(ctx *encoder.RuntimeContext) {
 	encRuntimeContextPool.Put(ctx)
 }
 
@@ -77,7 +75,7 @@ func (e *Encoder) EncodeWithOption(v interface{}, optFuncs ...EncodeOptionFunc) 
 	return err
 }
 
-func (e *Encoder) encodeWithOption(ctx *encodeRuntimeContext, v interface{}, optFuncs ...EncodeOptionFunc) error {
+func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v interface{}, optFuncs ...EncodeOptionFunc) error {
 	var opt EncodeOption
 	if e.enabledHTMLEscape {
 		opt |= EncodeOptionHTMLEscape
@@ -188,321 +186,103 @@ func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]by
 	return copied, nil
 }
 
-func encode(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
-	b := ctx.buf[:0]
+func encode(ctx *encoder.RuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
+	b := ctx.Buf[:0]
 	if v == nil {
-		b = encodeNull(b)
-		b = encodeComma(b)
+		b = encoder.AppendNull(b)
+		b = encoder.AppendComma(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encodeCompileToGetCodeSet(typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(typeptr)
 	if err != nil {
 		return nil, err
 	}
 
 	p := uintptr(header.ptr)
-	ctx.init(p, codeSet.codeLength)
+	ctx.Init(p, codeSet.CodeLength)
+	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
+
 	buf, err := encodeRunCode(ctx, b, codeSet, opt)
-
-	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
-
 	if err != nil {
 		return nil, err
 	}
-
-	ctx.buf = buf
+	ctx.Buf = buf
 	return buf, nil
 }
 
-func encodeNoEscape(ctx *encodeRuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
-	b := ctx.buf[:0]
+func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}, opt EncodeOption) ([]byte, error) {
+	b := ctx.Buf[:0]
 	if v == nil {
-		b = encodeNull(b)
-		b = encodeComma(b)
+		b = encoder.AppendNull(b)
+		b = encoder.AppendComma(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encodeCompileToGetCodeSet(typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(typeptr)
 	if err != nil {
 		return nil, err
 	}
 
 	p := uintptr(header.ptr)
-	ctx.init(p, codeSet.codeLength)
+	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet, opt)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx.buf = buf
+	ctx.Buf = buf
 	return buf, nil
 }
 
-func encodeIndent(ctx *encodeRuntimeContext, v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
-	b := ctx.buf[:0]
+func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
+	b := ctx.Buf[:0]
 	if v == nil {
-		b = encodeNull(b)
-		b = encodeIndentComma(b)
+		b = encoder.AppendNull(b)
+		b = encoder.AppendCommaIndent(b)
 		return b, nil
 	}
-	header := (*interfaceHeader)(unsafe.Pointer(&v))
+	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encodeCompileToGetCodeSet(typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(typeptr)
 	if err != nil {
 		return nil, err
 	}
 
 	p := uintptr(header.ptr)
-	ctx.init(p, codeSet.codeLength)
+	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent, opt)
 
-	ctx.keepRefs = append(ctx.keepRefs, header.ptr)
+	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ctx.buf = buf
+	ctx.Buf = buf
 	return buf, nil
 }
 
-func encodeRunCode(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, opt EncodeOption) ([]byte, error) {
+func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt EncodeOption) ([]byte, error) {
 	if (opt & EncodeOptionHTMLEscape) != 0 {
-		return encodeRunEscaped(ctx, b, codeSet, opt)
+		return vm_escaped.Run(ctx, b, codeSet, encoder.Option(opt))
 	}
-	return encodeRun(ctx, b, codeSet, opt)
+	return vm.Run(ctx, b, codeSet, encoder.Option(opt))
 }
 
-func encodeRunIndentCode(ctx *encodeRuntimeContext, b []byte, codeSet *opcodeSet, prefix, indent string, opt EncodeOption) ([]byte, error) {
-	ctx.prefix = []byte(prefix)
-	ctx.indentStr = []byte(indent)
+func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string, opt EncodeOption) ([]byte, error) {
+	ctx.Prefix = []byte(prefix)
+	ctx.IndentStr = []byte(indent)
 	if (opt & EncodeOptionHTMLEscape) != 0 {
-		return encodeRunEscapedIndent(ctx, b, codeSet, opt)
+		return vm_escaped_indent.Run(ctx, b, codeSet, encoder.Option(opt))
 	}
-	return encodeRunIndent(ctx, b, codeSet, opt)
-}
-
-func encodeFloat32(b []byte, v float32) []byte {
-	f64 := float64(v)
-	abs := math.Abs(f64)
-	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
-	if abs != 0 {
-		f32 := float32(abs)
-		if f32 < 1e-6 || f32 >= 1e21 {
-			fmt = 'e'
-		}
-	}
-	return strconv.AppendFloat(b, f64, fmt, -1, 32)
-}
-
-func encodeFloat64(b []byte, v float64) []byte {
-	abs := math.Abs(v)
-	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
-	if abs != 0 {
-		if abs < 1e-6 || abs >= 1e21 {
-			fmt = 'e'
-		}
-	}
-	return strconv.AppendFloat(b, v, fmt, -1, 64)
-}
-
-func encodeBool(b []byte, v bool) []byte {
-	if v {
-		return append(b, "true"...)
-	}
-	return append(b, "false"...)
-}
-
-func encodeNull(b []byte) []byte {
-	return append(b, "null"...)
-}
-
-func encodeComma(b []byte) []byte {
-	return append(b, ',')
-}
-
-func encodeIndentComma(b []byte) []byte {
-	return append(b, ',', '\n')
-}
-
-func appendStructEnd(b []byte) []byte {
-	return append(b, '}', ',')
-}
-
-func appendStructEndIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
-	b = append(b, '\n')
-	b = append(b, ctx.prefix...)
-	b = append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
-	return append(b, '}', ',', '\n')
-}
-
-func encodeByteSlice(b []byte, src []byte) []byte {
-	encodedLen := base64.StdEncoding.EncodedLen(len(src))
-	b = append(b, '"')
-	pos := len(b)
-	remainLen := cap(b[pos:])
-	var buf []byte
-	if remainLen > encodedLen {
-		buf = b[pos : pos+encodedLen]
-	} else {
-		buf = make([]byte, encodedLen)
-	}
-	base64.StdEncoding.Encode(buf, src)
-	return append(append(b, buf...), '"')
-}
-
-func encodeNumber(b []byte, n Number) ([]byte, error) {
-	if len(n) == 0 {
-		return append(b, '0'), nil
-	}
-	for i := 0; i < len(n); i++ {
-		if !floatTable[n[i]] {
-			return nil, fmt.Errorf("json: invalid number literal %q", n)
-		}
-	}
-	b = append(b, n...)
-	return b, nil
-}
-
-func appendIndent(ctx *encodeRuntimeContext, b []byte, indent int) []byte {
-	b = append(b, ctx.prefix...)
-	return append(b, bytes.Repeat(ctx.indentStr, ctx.baseIndent+indent)...)
-}
-
-func encodeIsNilForMarshaler(v interface{}) bool {
-	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
-	case reflect.Interface, reflect.Map, reflect.Ptr:
-		return rv.IsNil()
-	case reflect.Slice:
-		return rv.IsNil() || rv.Len() == 0
-	}
-	return false
-}
-
-func encodeMarshalJSON(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
-	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.addrForMarshaler {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
-	}
-	v = rv.Interface()
-	marshaler, ok := v.(Marshaler)
-	if !ok {
-		return encodeNull(b), nil
-	}
-	bb, err := marshaler.MarshalJSON()
-	if err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	buf := bytes.NewBuffer(b)
-	//TODO: we should validate buffer with `compact`
-	if err := compact(buf, bb, escape); err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	return buf.Bytes(), nil
-}
-
-func encodeMarshalJSONIndent(ctx *encodeRuntimeContext, code *opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
-	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.addrForMarshaler {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
-	}
-	v = rv.Interface()
-	marshaler, ok := v.(Marshaler)
-	if !ok {
-		return encodeNull(b), nil
-	}
-	bb, err := marshaler.MarshalJSON()
-	if err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	var compactBuf bytes.Buffer
-	if err := compact(&compactBuf, bb, escape); err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	var indentBuf bytes.Buffer
-	if err := encodeWithIndent(
-		&indentBuf,
-		compactBuf.Bytes(),
-		string(ctx.prefix)+strings.Repeat(string(ctx.indentStr), ctx.baseIndent+indent+1),
-		string(ctx.indentStr),
-	); err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	return append(b, indentBuf.Bytes()...), nil
-}
-
-func encodeMarshalText(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
-	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.addrForMarshaler {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
-	}
-	v = rv.Interface()
-	marshaler, ok := v.(encoding.TextMarshaler)
-	if !ok {
-		return encodeNull(b), nil
-	}
-	bytes, err := marshaler.MarshalText()
-	if err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	if escape {
-		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
-	}
-	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
-}
-
-func encodeMarshalTextIndent(code *opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
-	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.addrForMarshaler {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
-	}
-	v = rv.Interface()
-	marshaler, ok := v.(encoding.TextMarshaler)
-	if !ok {
-		return encodeNull(b), nil
-	}
-	bytes, err := marshaler.MarshalText()
-	if err != nil {
-		return nil, &MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	if escape {
-		return encodeEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
-	}
-	return encodeNoEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	return vm_indent.Run(ctx, b, codeSet, encoder.Option(opt))
 }

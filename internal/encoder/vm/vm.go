@@ -409,7 +409,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 				b = appendComma(b)
-				code = code.Next
+				code = code.End.Next
 				break
 			}
 			store(ctxptr, code.Idx, p)
@@ -3794,7 +3794,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			p := load(ctxptr, code.HeadIdx)
 			p += code.Offset
 			slice := ptrToSlice(p)
-			if p == 0 || slice.Data == nil {
+			if slice.Data == nil {
 				code = code.NextField
 			} else {
 				b = append(b, code.Key...)
@@ -3820,12 +3820,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 		case encoder.OpStructFieldMap, encoder.OpStructFieldStringTagMap:
 			b = append(b, code.Key...)
 			p := load(ctxptr, code.HeadIdx)
-			p = ptrToNPtr(p+code.Offset, code.PtrNum+1)
+			p = ptrToPtr(p + code.Offset)
 			code = code.Next
 			store(ctxptr, code.Idx, p)
 		case encoder.OpStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.HeadIdx)
-			p = ptrToNPtr(p+code.Offset, code.PtrNum+1)
+			p = ptrToPtr(p + code.Offset)
 			if p == 0 || maplen(ptrToUnsafePtr(p)) == 0 {
 				code = code.NextField
 			} else {

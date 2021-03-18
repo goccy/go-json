@@ -9,6 +9,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -439,7 +440,69 @@ func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	return buf.Bytes(), nil
 }
 
+func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.AddrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(json.Marshaler)
+	if !ok {
+		return AppendNull(b), nil
+	}
+	bb, err := marshaler.MarshalJSON()
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	var compactBuf bytes.Buffer
+	if err := compact(&compactBuf, bb, escape); err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	var indentBuf bytes.Buffer
+	if err := encodeIndent(
+		&indentBuf,
+		compactBuf.Bytes(),
+		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent+1),
+		string(ctx.IndentStr),
+	); err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	return append(b, indentBuf.Bytes()...), nil
+}
+
 func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+	rv := reflect.ValueOf(v) // convert by dynamic interface type
+	if code.AddrForMarshaler {
+		if rv.CanAddr() {
+			rv = rv.Addr()
+		} else {
+			newV := reflect.New(rv.Type())
+			newV.Elem().Set(rv)
+			rv = newV
+		}
+	}
+	v = rv.Interface()
+	marshaler, ok := v.(encoding.TextMarshaler)
+	if !ok {
+		return AppendNull(b), nil
+	}
+	bytes, err := marshaler.MarshalText()
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+	}
+	if escape {
+		return AppendEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	}
+	return AppendString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+func AppendMarshalTextIndent(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if code.AddrForMarshaler {
 		if rv.CanAddr() {
@@ -473,8 +536,24 @@ func AppendComma(b []byte) []byte {
 	return append(b, ',')
 }
 
+func AppendCommaIndent(b []byte) []byte {
+	return append(b, ',', '\n')
+}
+
 func AppendStructEnd(b []byte) []byte {
 	return append(b, '}', ',')
+}
+
+func AppendStructEndIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
+	b = append(b, '\n')
+	b = append(b, ctx.Prefix...)
+	b = append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
+	return append(b, '}', ',', '\n')
+}
+
+func AppendIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
+	b = append(b, ctx.Prefix...)
+	return append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
 }
 
 func IsNilForMarshaler(v interface{}) bool {

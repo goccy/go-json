@@ -50,6 +50,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 	ctxptr := ctx.Ptr()
 	code := codeSet.Code
 
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("error occurred", err)
+			fmt.Println(codeSet.Code.Dump())
+			fmt.Printf("code = %+v\n", code)
+			fmt.Println("code.op = ", code.Op, "idx = ", code.DisplayIdx, "p = ", load(ctxptr, code.Idx))
+			panic(err)
+		}
+	}()
+
 	for {
 		switch code.Op {
 		default:

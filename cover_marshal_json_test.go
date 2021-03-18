@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -12,7 +13,7 @@ type coverMarshalJSON struct {
 }
 
 func (c coverMarshalJSON) MarshalJSON() ([]byte, error) {
-	return []byte(`"hello"`), nil
+	return []byte(fmt.Sprint(c.A)), nil
 }
 
 type coverPtrMarshalJSON struct {
@@ -20,7 +21,22 @@ type coverPtrMarshalJSON struct {
 }
 
 func (c *coverPtrMarshalJSON) MarshalJSON() ([]byte, error) {
-	return []byte(`"hello"`), nil
+	if c == nil {
+		return []byte(`"NULL"`), nil
+	}
+	return []byte(fmt.Sprint(c.B)), nil
+}
+
+type coverPtrMarshalJSONString struct {
+	dummy int
+	C     string
+}
+
+func (c *coverPtrMarshalJSONString) MarshalJSON() ([]byte, error) {
+	if c == nil {
+		return []byte(`"NULL"`), nil
+	}
+	return []byte(c.C), nil
 }
 
 func TestCoverMarshalJSON(t *testing.T) {
@@ -66,6 +82,117 @@ func TestCoverMarshalJSON(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "MarshalJSON",
+			data: coverMarshalJSON{A: 1},
+		},
+		{
+			name: "PtrMarshalJSON",
+			data: &coverMarshalJSON{A: 1},
+		},
+		{
+			name: "PtrMarshalJSON",
+			data: coverPtrMarshalJSON{B: 1},
+		},
+		{
+			name: "PtrPtrMarshalJSON",
+			data: &coverPtrMarshalJSON{B: 1},
+		},
+		{
+			name: "SliceMarshalJSON",
+			data: []coverMarshalJSON{{A: 1}, {A: 2}},
+		},
+		{
+			name: "SliceAddrMarshalJSON",
+			data: []*coverMarshalJSON{{A: 1}, {A: 2}},
+		},
+		{
+			name: "SlicePtrMarshalJSON",
+			data: []coverPtrMarshalJSON{{B: 1}, {B: 2}},
+		},
+		{
+			name: "SliceAddrPtrMarshalJSON",
+			data: []*coverPtrMarshalJSON{{B: 1}, {B: 2}},
+		},
+		{
+			name: "StructSliceMarshalJSON",
+			data: struct {
+				A []coverMarshalJSON
+			}{A: []coverMarshalJSON{{A: 1}, {A: 2}}},
+		},
+		{
+			name: "StructSliceAddrMarshalJSON",
+			data: struct {
+				A []*coverMarshalJSON
+			}{A: []*coverMarshalJSON{{A: 1}, {A: 2}}},
+		},
+		{
+			name: "StructSlicePtrMarshalJSON",
+			data: struct {
+				A []coverPtrMarshalJSON
+			}{A: []coverPtrMarshalJSON{{B: 1}, {B: 2}}},
+		},
+		{
+			name: "StructSliceAddrPtrMarshalJSON",
+			data: struct {
+				A []*coverPtrMarshalJSON
+			}{A: []*coverPtrMarshalJSON{{B: 1}, {B: 2}}},
+		},
+		{
+			name: "PtrStructSliceMarshalJSON",
+			data: &struct {
+				A []coverMarshalJSON
+			}{A: []coverMarshalJSON{{A: 1}, {A: 2}}},
+		},
+		{
+			name: "PtrStructSliceAddrMarshalJSON",
+			data: &struct {
+				A []*coverMarshalJSON
+			}{A: []*coverMarshalJSON{{A: 1}, {A: 2}}},
+		},
+		{
+			name: "PtrStructSlicePtrMarshalJSON",
+			data: &struct {
+				A []coverPtrMarshalJSON
+			}{A: []coverPtrMarshalJSON{{B: 1}, {B: 2}}},
+		},
+		{
+			name: "PtrStructSlicePtrMarshalJSONString",
+			data: &struct {
+				A []coverPtrMarshalJSONString
+			}{A: []coverPtrMarshalJSONString{{C: "1"}, {C: "2"}}},
+		},
+		{
+			name: "PtrStructSliceAddrPtrMarshalJSONString",
+			data: &struct {
+				A []*coverPtrMarshalJSONString
+			}{A: []*coverPtrMarshalJSONString{{C: "1"}, {C: "2"}}},
+		},
+		{
+			name: "PtrStructArrayPtrMarshalJSONString",
+			data: &struct {
+				A [2]coverPtrMarshalJSONString
+			}{A: [2]coverPtrMarshalJSONString{{C: "1"}, {C: "2"}}},
+		},
+		{
+			name: "PtrStructArrayAddrPtrMarshalJSONString",
+			data: &struct {
+				A [2]*coverPtrMarshalJSONString
+			}{A: [2]*coverPtrMarshalJSONString{{C: "1"}, {C: "2"}}},
+		},
+		{
+			name: "PtrStructMapPtrMarshalJSONString",
+			data: &struct {
+				A map[string]coverPtrMarshalJSONString
+			}{A: map[string]coverPtrMarshalJSONString{"a": {C: "1"}, "b": {C: "2"}}},
+		},
+		{
+			name: "PtrStructMapAddrPtrMarshalJSONString",
+			data: &struct {
+				A map[string]*coverPtrMarshalJSONString
+			}{A: map[string]*coverPtrMarshalJSONString{"a": {C: "1"}, "b": {C: "2"}}},
+		},
+
 		// HeadMarshalJSONZero
 		{
 			name: "HeadMarshalJSONZero",

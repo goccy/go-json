@@ -21,34 +21,15 @@ import (
 const uintptrSize = 4 << (^uintptr(0) >> 63)
 
 var (
-	load                = encoder.Load
-	store               = encoder.Store
-	loadNPtr            = encoder.LoadNPtr
-	ptrToPtr            = encoder.PtrToPtr
-	ptrToNPtr           = encoder.PtrToNPtr
-	ptrToUnsafePtr      = encoder.PtrToUnsafePtr
-	ptrToInterface      = encoder.PtrToInterface
-	ptrToUint64         = encoder.PtrToUint64
-	ptrToFloat32        = encoder.PtrToFloat32
-	ptrToFloat64        = encoder.PtrToFloat64
-	ptrToString         = encoder.PtrToString
-	ptrToBool           = encoder.PtrToBool
-	ptrToBytes          = encoder.PtrToBytes
-	ptrToNumber         = encoder.PtrToNumber
-	ptrToSlice          = encoder.PtrToSlice
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
 	appendFloat32       = encoder.AppendFloat32
 	appendFloat64       = encoder.AppendFloat64
 	appendString        = encoder.AppendString
-	appendBool          = encoder.AppendBool
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
 	appendMarshalJSON   = encoder.AppendMarshalJSON
 	appendMarshalText   = encoder.AppendMarshalText
-	appendNull          = encoder.AppendNull
-	appendComma         = encoder.AppendComma
-	appendStructEnd     = encoder.AppendStructEnd
 	errUnsupportedValue = encoder.ErrUnsupportedValue
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit

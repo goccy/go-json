@@ -272,6 +272,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.Next
 				break
 			}
+			if code.Type.Kind() == reflect.Ptr && code.Indirect {
+				p = ptrToPtr(p)
+			}
 			bb, err := appendMarshalJSON(code, b, ptrToInterface(code, p), false)
 			if err != nil {
 				return nil, err
@@ -295,6 +298,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = appendComma(b)
 				code = code.Next
 				break
+			}
+			if code.Type.Kind() == reflect.Ptr && code.Indirect {
+				p = ptrToPtr(p)
 			}
 			bb, err := appendMarshalText(code, b, ptrToInterface(code, p), false)
 			if err != nil {

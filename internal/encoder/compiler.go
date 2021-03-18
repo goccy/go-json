@@ -600,10 +600,11 @@ func compileSlice(ctx *compileContext) (*Opcode, error) {
 	header := newSliceHeaderCode(ctx)
 	ctx.incIndex()
 
-	code, err := compileSliceElem(ctx.withType(elem).incIndent())
+	code, err := compileListElem(ctx.withType(elem).incIndent())
 	if err != nil {
 		return nil, err
 	}
+	code.Indirect = true
 
 	// header => opcode => elem => end
 	//             ^        |
@@ -624,7 +625,7 @@ func compileSlice(ctx *compileContext) (*Opcode, error) {
 	return (*Opcode)(unsafe.Pointer(header)), nil
 }
 
-func compileSliceElem(ctx *compileContext) (*Opcode, error) {
+func compileListElem(ctx *compileContext) (*Opcode, error) {
 	typ := ctx.typ
 	switch {
 	case !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType):
@@ -645,10 +646,11 @@ func compileArray(ctx *compileContext) (*Opcode, error) {
 	header := newArrayHeaderCode(ctx, alen)
 	ctx.incIndex()
 
-	code, err := compile(ctx.withType(elem).incIndent(), false)
+	code, err := compileListElem(ctx.withType(elem).incIndent())
 	if err != nil {
 		return nil, err
 	}
+	code.Indirect = true
 	// header => opcode => elem => end
 	//             ^        |
 	//             |________|
@@ -690,6 +692,7 @@ func compileMap(ctx *compileContext) (*Opcode, error) {
 	if err != nil {
 		return nil, err
 	}
+	valueCode.Indirect = true
 
 	key := newMapKeyCode(ctx, header)
 	ctx.incIndex()
@@ -1057,10 +1060,11 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			// *struct{ field T } => struct { field *T }
 			// func (*T) MarshalJSON() ([]byte, error)
 			// move pointer position from head to first field
-			code, err := compileMarshalJSON(ctx.withType(runtime.PtrTo(fieldType)))
+			code, err := compileMarshalJSON(ctx.withType(fieldType))
 			if err != nil {
 				return nil, err
 			}
+			addrForMarshaler = true
 			valueCode = code
 			nilcheck = false
 			indirect = false
@@ -1069,10 +1073,11 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			// *struct{ field T } => struct { field *T }
 			// func (*T) MarshalText() ([]byte, error)
 			// move pointer position from head to first field
-			code, err := compileMarshalText(ctx.withType(runtime.PtrTo(fieldType)))
+			code, err := compileMarshalText(ctx.withType(fieldType))
 			if err != nil {
 				return nil, err
 			}
+			addrForMarshaler = true
 			valueCode = code
 			nilcheck = false
 			indirect = false

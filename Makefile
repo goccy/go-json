@@ -1,13 +1,20 @@
+PKG := github.com/goccy/go-json
+
 BIN_DIR := $(CURDIR)/bin
+PKGS := $(shell go list ./... | grep -v internal/cmd)
+COVER_PKGS := $(foreach pkg,$(PKGS),$(subst $(PKG),.,$(pkg)))
+
+COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COVERPKG_OPT := $(subst $(SPACE),$(COMMA),$(COVER_PKGS))
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
 .PHONY: cover
 cover:
-	@ go test -coverprofile=cover.tmp.out . ; \
-	cat cover.tmp.out | grep -v "encode_optype.go" > cover.out; \
-	rm cover.tmp.out
+	go test -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out .
 
 .PHONY: cover-html
 cover-html: cover

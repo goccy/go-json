@@ -18,10 +18,6 @@ func rtype_ptrTo(t *rtype) *rtype {
 	return runtime.PtrTo(t)
 }
 
-func ifaceIndir(t *rtype) bool {
-	return runtime.IfaceIndir(t)
-}
-
 func rtype2type(t *rtype) reflect.Type {
 	return runtime.RType2Type(t)
 }

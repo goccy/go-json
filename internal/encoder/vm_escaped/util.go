@@ -18,7 +18,7 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func loadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
+func loadNPtr(base uintptr, idx uintptr, _ int) uintptr {
 	addr := base + idx
 	p := **(**uintptr)(unsafe.Pointer(&addr))
 	if p == 0 {

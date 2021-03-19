@@ -55,6 +55,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			fmt.Println("error occurred", err)
 			fmt.Println(codeSet.Code.Dump())
 			fmt.Printf("code = %+v\n", code)
+			fmt.Printf("ctx = %+v\n", ctx)
+			fmt.Println("b = ", string(b))
 			fmt.Println("code.op = ", code.Op, "idx = ", code.DisplayIdx, "p = ", load(ctxptr, code.Idx))
 			panic(err)
 		}

@@ -116,9 +116,9 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 }
 
 func linkRecursiveCode(c *Opcode) {
-	for code := c; code.Op != OpEnd && code.Op != OpStructFieldRecursiveEnd; {
+	for code := c; code.Op != OpEnd && code.Op != OpRecursiveEnd; {
 		switch code.Op {
-		case OpStructFieldRecursive, OpStructFieldRecursivePtr:
+		case OpRecursive, OpRecursivePtr:
 			if code.Jmp.Linked {
 				code = code.Next
 				continue
@@ -138,7 +138,7 @@ func linkRecursiveCode(c *Opcode) {
 			totalLength := uintptr(code.TotalLength() + 1)
 			nextTotalLength := uintptr(c.TotalLength() + 1)
 
-			c.End.Next.Op = OpStructFieldRecursiveEnd
+			c.End.Next.Op = OpRecursiveEnd
 
 			code.Jmp.CurLen = totalLength
 			code.Jmp.NextLen = nextTotalLength
@@ -159,7 +159,7 @@ func linkRecursiveCode(c *Opcode) {
 
 func optimizeStructEnd(c *Opcode) {
 	for code := c; code.Op != OpEnd; {
-		if code.Op == OpStructFieldRecursive || code.Op == OpStructFieldRecursivePtr {
+		if code.Op == OpRecursive || code.Op == OpRecursivePtr {
 			// ignore if exists recursive operation
 			return
 		}
@@ -332,8 +332,8 @@ func convertPtrOp(code *Opcode) OpType {
 		return OpMarshalTextPtr
 	case OpInterface:
 		return OpInterfacePtr
-	case OpStructFieldRecursive:
-		return OpStructFieldRecursivePtr
+	case OpRecursive:
+		return OpRecursivePtr
 	}
 	return code.Op
 }
@@ -775,22 +775,20 @@ func structHeader(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag
 		return valueCode.BeforeLastCode()
 	}
 	ctx.decOpcodeIndex()
-	return (*Opcode)(unsafe.Pointer(fieldCode))
+	return fieldCode
 }
 
 func structField(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag *runtime.StructTag) *Opcode {
-	code := (*Opcode)(unsafe.Pointer(fieldCode))
 	op := optimizeStructField(valueCode, tag)
 	fieldCode.Op = op
 	fieldCode.PtrNum = valueCode.PtrNum
 	fieldCode.Mask = valueCode.Mask
 	fieldCode.RshiftNum = valueCode.RshiftNum
-	fieldCode.Jmp = valueCode.Jmp
 	if op.IsMultipleOpField() {
 		return valueCode.BeforeLastCode()
 	}
 	ctx.decIndex()
-	return code
+	return fieldCode
 }
 
 func isNotExistsField(head *Opcode) bool {
@@ -863,7 +861,7 @@ func anonymousStructFieldPairMap(tags runtime.StructTags, named string, valueCod
 	for {
 		existsKey := tags.ExistsKey(f.DisplayKey)
 		isHeadOp := strings.Contains(f.Op.String(), "Head")
-		if existsKey && strings.Contains(f.Op.String(), "Recursive") {
+		if existsKey && f.Next != nil && strings.Contains(f.Next.Op.String(), "Recursive") {
 			// through
 		} else if isHeadOp && !f.AnonymousHead {
 			if existsKey {

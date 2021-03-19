@@ -518,7 +518,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(mapCtx)
 			code = code.Next
-		case encoder.OpStructFieldRecursivePtr:
+		case encoder.OpRecursivePtr:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				code = code.Next
@@ -526,7 +526,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
-		case encoder.OpStructFieldRecursive:
+		case encoder.OpRecursive:
 			ptr := load(ctxptr, code.Idx)
 			if ptr != 0 {
 				if recursiveLevel > encoder.StartDetectingCyclesAfter {
@@ -555,7 +555,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, c.End.Next.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
 			code = c
 			recursiveLevel++
-		case encoder.OpStructFieldRecursiveEnd:
+		case encoder.OpRecursiveEnd:
 			recursiveLevel--
 
 			// restore ctxptr

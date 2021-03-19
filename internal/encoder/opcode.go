@@ -275,7 +275,7 @@ func (c *Opcode) TotalLength() int {
 	var idx int
 	for code := c; code.Op != OpEnd; {
 		idx = int(code.Idx / uintptrSize)
-		if code.Op == OpStructFieldRecursiveEnd {
+		if code.Op == OpRecursiveEnd {
 			break
 		}
 		switch code.Op.CodeType() {
@@ -636,7 +636,7 @@ func newInterfaceCode(ctx *compileContext) *Opcode {
 
 func newRecursiveCode(ctx *compileContext, jmp *CompiledCode) *Opcode {
 	return &Opcode{
-		Op:         OpStructFieldRecursive,
+		Op:         OpRecursive,
 		Type:       ctx.typ,
 		DisplayIdx: ctx.opcodeIndex,
 		Idx:        opcodeOffset(ctx.ptrIndex),

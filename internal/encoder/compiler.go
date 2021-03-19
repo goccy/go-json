@@ -201,6 +201,12 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 			return compileBoolPtr(ctx)
 		}
 		return compileBool(ctx)
+	case reflect.Interface:
+		ctx := ctx.withType(typ)
+		if isPtr {
+			return compileInterfacePtr(ctx)
+		}
+		return compileInterface(ctx)
 	default:
 		if isPtr && typ.Implements(marshalTextType) {
 			typ = orgType

@@ -775,22 +775,20 @@ func structHeader(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag
 		return valueCode.BeforeLastCode()
 	}
 	ctx.decOpcodeIndex()
-	return (*Opcode)(unsafe.Pointer(fieldCode))
+	return fieldCode
 }
 
 func structField(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag *runtime.StructTag) *Opcode {
-	code := (*Opcode)(unsafe.Pointer(fieldCode))
 	op := optimizeStructField(valueCode, tag)
 	fieldCode.Op = op
 	fieldCode.PtrNum = valueCode.PtrNum
 	fieldCode.Mask = valueCode.Mask
 	fieldCode.RshiftNum = valueCode.RshiftNum
-	fieldCode.Jmp = valueCode.Jmp
 	if op.IsMultipleOpField() {
 		return valueCode.BeforeLastCode()
 	}
 	ctx.decIndex()
-	return code
+	return fieldCode
 }
 
 func isNotExistsField(head *Opcode) bool {
@@ -863,7 +861,7 @@ func anonymousStructFieldPairMap(tags runtime.StructTags, named string, valueCod
 	for {
 		existsKey := tags.ExistsKey(f.DisplayKey)
 		isHeadOp := strings.Contains(f.Op.String(), "Head")
-		if existsKey && strings.Contains(f.Op.String(), "Recursive") {
+		if existsKey && f.Next != nil && strings.Contains(f.Next.Op.String(), "Recursive") {
 			// through
 		} else if isHeadOp && !f.AnonymousHead {
 			if existsKey {

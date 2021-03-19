@@ -32,6 +32,27 @@ func TestCoverInt8(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Int8",
+			data: int8(10),
+		},
+		{
+			name: "Int8Ptr",
+			data: int8ptr(10),
+		},
+		{
+			name: "Int8Ptr3",
+			data: int8ptr3(10),
+		},
+		{
+			name: "Int8PtrNil",
+			data: (*int8)(nil),
+		},
+		{
+			name: "Int8Ptr3Nil",
+			data: (***int8)(nil),
+		},
+
 		// HeadInt8Zero
 		{
 			name: "HeadInt8Zero",

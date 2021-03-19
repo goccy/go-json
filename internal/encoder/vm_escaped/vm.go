@@ -2024,9 +2024,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = append(b, '{')
 			}
 			b = append(b, code.EscapedKey...)
-			b = append(b, '"')
 			b = appendByteSlice(b, ptrToBytes(p+code.Offset))
-			b = append(b, '"')
 			b = appendComma(b)
 			code = code.Next
 		case encoder.OpStructPtrHeadBytesPtr:
@@ -2131,9 +2129,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				b = append(b, '"')
 				b = appendByteSlice(b, ptrToBytes(p))
-				b = append(b, '"')
 			}
 			b = appendComma(b)
 			code = code.Next
@@ -4386,9 +4382,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				b = append(b, '"')
 				b = appendByteSlice(b, ptrToBytes(p))
-				b = append(b, '"')
 			}
 			b = appendStructEnd(b)
 			code = code.Next

@@ -32,6 +32,27 @@ func TestCoverInt32(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Int32",
+			data: int32(10),
+		},
+		{
+			name: "Int32Ptr",
+			data: int32ptr(10),
+		},
+		{
+			name: "Int32Ptr3",
+			data: int32ptr3(10),
+		},
+		{
+			name: "Int32PtrNil",
+			data: (*int32)(nil),
+		},
+		{
+			name: "Int32Ptr3Nil",
+			data: (***int32)(nil),
+		},
+
 		// HeadInt32Zero
 		{
 			name: "HeadInt32Zero",

@@ -19,13 +19,16 @@ func store(base uintptr, idx uintptr, p uintptr) {
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func loadNPtr(base uintptr, idx uintptr, _ int) uintptr {
+func loadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
 	addr := base + idx
 	p := **(**uintptr)(unsafe.Pointer(&addr))
-	if p == 0 {
-		return 0
+	for i := 0; i < ptrNum; i++ {
+		if p == 0 {
+			return 0
+		}
+		p = ptrToPtr(p)
 	}
-	return ptrToPtr(p)
+	return p
 }
 
 func ptrToUint64(p uintptr) uint64              { return **(**uint64)(unsafe.Pointer(&p)) }

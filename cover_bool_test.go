@@ -32,6 +32,27 @@ func TestCoverBool(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Bool",
+			data: bool(true),
+		},
+		{
+			name: "BoolPtr",
+			data: boolptr(true),
+		},
+		{
+			name: "BoolPtr3",
+			data: boolptr3(true),
+		},
+		{
+			name: "BoolPtrNil",
+			data: (*bool)(nil),
+		},
+		{
+			name: "BoolPtr3Nil",
+			data: (***bool)(nil),
+		},
+
 		// HeadBoolZero
 		{
 			name: "HeadBoolZero",

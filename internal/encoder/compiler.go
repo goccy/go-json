@@ -90,12 +90,25 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 	case implementsMarshalText(typ):
 		return compileMarshalText(ctx)
 	}
-	if typ.Kind() == reflect.Map {
+	switch typ.Kind() {
+	case reflect.Slice:
+		elem := typ.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			p := runtime.PtrTo(elem)
+			if !p.Implements(marshalJSONType) && !p.Implements(marshalTextType) {
+				if isPtr {
+					return compileBytesPtr(ctx)
+				}
+				return compileBytes(ctx)
+			}
+		}
+		return compileSlice(ctx)
+	case reflect.Map:
 		if isPtr {
 			return compilePtr(ctx.withType(runtime.PtrTo(typ)))
 		}
 		return compileMap(ctx.withType(typ))
-	} else if typ.Kind() == reflect.Struct {
+	case reflect.Struct:
 		code, err := compileStruct(ctx.withType(typ), isPtr)
 		if err != nil {
 			return nil, err
@@ -103,16 +116,88 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 		optimizeStructEnd(code)
 		linkRecursiveCode(code)
 		return code, nil
-	} else if isPtr && typ.Implements(marshalTextType) {
-		typ = orgType
+	case reflect.Int:
+		if isPtr {
+			return compileIntPtr(ctx)
+		}
+		return compileInt(ctx)
+	case reflect.Int8:
+		if isPtr {
+			return compileInt8Ptr(ctx)
+		}
+		return compileInt8(ctx)
+	case reflect.Int16:
+		if isPtr {
+			return compileInt16Ptr(ctx)
+		}
+		return compileInt16(ctx)
+	case reflect.Int32:
+		if isPtr {
+			return compileInt32Ptr(ctx)
+		}
+		return compileInt32(ctx)
+	case reflect.Int64:
+		if isPtr {
+			return compileInt64Ptr(ctx)
+		}
+		return compileInt64(ctx)
+	case reflect.Uint, reflect.Uintptr:
+		if isPtr {
+			return compileUintPtr(ctx)
+		}
+		return compileUint(ctx)
+	case reflect.Uint8:
+		if isPtr {
+			return compileUint8Ptr(ctx)
+		}
+		return compileUint8(ctx)
+	case reflect.Uint16:
+		if isPtr {
+			return compileUint16Ptr(ctx)
+		}
+		return compileUint16(ctx)
+	case reflect.Uint32:
+		if isPtr {
+			return compileUint32Ptr(ctx)
+		}
+		return compileUint32(ctx)
+	case reflect.Uint64:
+		if isPtr {
+			return compileUint64Ptr(ctx)
+		}
+		return compileUint64(ctx)
+	case reflect.Float32:
+		if isPtr {
+			return compileFloat32Ptr(ctx)
+		}
+		return compileFloat32(ctx)
+	case reflect.Float64:
+		if isPtr {
+			return compileFloat64Ptr(ctx)
+		}
+		return compileFloat64(ctx)
+	case reflect.String:
+		if isPtr {
+			return compileStringPtr(ctx)
+		}
+		return compileString(ctx)
+	case reflect.Bool:
+		if isPtr {
+			return compileBoolPtr(ctx)
+		}
+		return compileBool(ctx)
+	default:
+		if isPtr && typ.Implements(marshalTextType) {
+			typ = orgType
+		}
+		code, err := compile(ctx.withType(typ), isPtr)
+		if err != nil {
+			return nil, err
+		}
+		optimizeStructEnd(code)
+		linkRecursiveCode(code)
+		return code, nil
 	}
-	code, err := compile(ctx.withType(typ), isPtr)
-	if err != nil {
-		return nil, err
-	}
-	optimizeStructEnd(code)
-	linkRecursiveCode(code)
-	return code, nil
 }
 
 func linkRecursiveCode(c *Opcode) {
@@ -418,10 +503,28 @@ func compileInt(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileIntPtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInt(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpIntPtr
+	return code, nil
+}
+
 func compileInt8(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
 	code.setMaskAndRshiftNum(8)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileInt8Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInt8(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpIntPtr
 	return code, nil
 }
 
@@ -432,10 +535,28 @@ func compileInt16(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileInt16Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInt16(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpIntPtr
+	return code, nil
+}
+
 func compileInt32(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
 	code.setMaskAndRshiftNum(32)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileInt32Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInt32(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpIntPtr
 	return code, nil
 }
 
@@ -446,10 +567,28 @@ func compileInt64(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileInt64Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInt64(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpIntPtr
+	return code, nil
+}
+
 func compileUint(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
 	code.setMaskAndRshiftNum(intSize)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileUintPtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileUint(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpUintPtr
 	return code, nil
 }
 
@@ -460,10 +599,28 @@ func compileUint8(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileUint8Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileUint8(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpUintPtr
+	return code, nil
+}
+
 func compileUint16(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
 	code.setMaskAndRshiftNum(16)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileUint16Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileUint16(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpUintPtr
 	return code, nil
 }
 
@@ -474,10 +631,28 @@ func compileUint32(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileUint32Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileUint32(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpUintPtr
+	return code, nil
+}
+
 func compileUint64(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
 	code.setMaskAndRshiftNum(64)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileUint64Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileUint64(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpUintPtr
 	return code, nil
 }
 
@@ -557,9 +732,27 @@ func compileFloat32(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileFloat32Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileFloat32(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpFloat32Ptr
+	return code, nil
+}
+
 func compileFloat64(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpFloat64)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileFloat64Ptr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileFloat64(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpFloat64Ptr
 	return code, nil
 }
 
@@ -575,9 +768,31 @@ func compileString(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileStringPtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileString(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if code.Op == OpNumber {
+		code.Op = OpNumberPtr
+	} else {
+		code.Op = OpStringPtr
+	}
+	return code, nil
+}
+
 func compileBool(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpBool)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileBoolPtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileBool(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpBoolPtr
 	return code, nil
 }
 
@@ -587,9 +802,27 @@ func compileBytes(ctx *compileContext) (*Opcode, error) {
 	return code, nil
 }
 
+func compileBytesPtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileBytes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpBytesPtr
+	return code, nil
+}
+
 func compileInterface(ctx *compileContext) (*Opcode, error) {
 	code := newInterfaceCode(ctx)
 	ctx.incIndex()
+	return code, nil
+}
+
+func compileInterfacePtr(ctx *compileContext) (*Opcode, error) {
+	code, err := compileInterface(ctx)
+	if err != nil {
+		return nil, err
+	}
+	code.Op = OpInterfacePtr
 	return code, nil
 }
 

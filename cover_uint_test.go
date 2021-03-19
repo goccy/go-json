@@ -32,6 +32,27 @@ func TestCoverUint(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Uint",
+			data: uint(10),
+		},
+		{
+			name: "UintPtr",
+			data: uptr(10),
+		},
+		{
+			name: "UintPtr3",
+			data: uintptr3(10),
+		},
+		{
+			name: "UintPtrNil",
+			data: (*uint)(nil),
+		},
+		{
+			name: "UintPtr3Nil",
+			data: (***uint)(nil),
+		},
+
 		// HeadUintZero
 		{
 			name: "HeadUintZero",

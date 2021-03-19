@@ -32,6 +32,27 @@ func TestCoverString(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "String",
+			data: string("a"),
+		},
+		{
+			name: "StringPtr",
+			data: stringptr("a"),
+		},
+		{
+			name: "StringPtr3",
+			data: stringptr3("a"),
+		},
+		{
+			name: "StringPtrNil",
+			data: (*string)(nil),
+		},
+		{
+			name: "StringPtr3Nil",
+			data: (***string)(nil),
+		},
+
 		// HeadStringZero
 		{
 			name: "HeadStringZero",

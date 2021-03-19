@@ -8,21 +8,21 @@ import (
 type CodeType int
 
 const (
-	CodeOp                   CodeType = 0
-	CodeArrayHead            CodeType = 1
-	CodeArrayElem            CodeType = 2
-	CodeSliceHead            CodeType = 3
-	CodeSliceElem            CodeType = 4
-	CodeMapHead              CodeType = 5
-	CodeMapKey               CodeType = 6
-	CodeMapValue             CodeType = 7
-	CodeMapEnd               CodeType = 8
-	CodeStructFieldRecursive CodeType = 9
-	CodeStructField          CodeType = 10
-	CodeStructEnd            CodeType = 11
+	CodeOp          CodeType = 0
+	CodeArrayHead   CodeType = 1
+	CodeArrayElem   CodeType = 2
+	CodeSliceHead   CodeType = 3
+	CodeSliceElem   CodeType = 4
+	CodeMapHead     CodeType = 5
+	CodeMapKey      CodeType = 6
+	CodeMapValue    CodeType = 7
+	CodeMapEnd      CodeType = 8
+	CodeRecursive   CodeType = 9
+	CodeStructField CodeType = 10
+	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [440]string{
+var opTypeStrings = [416]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -33,7 +33,9 @@ var opTypeStrings = [440]string{
 	"MapKey",
 	"MapValue",
 	"MapEnd",
-	"StructFieldRecursiveEnd",
+	"Recursive",
+	"RecursivePtr",
+	"RecursiveEnd",
 	"StructAnonymousEnd",
 	"Int",
 	"Uint",
@@ -49,7 +51,6 @@ var opTypeStrings = [440]string{
 	"Struct",
 	"MarshalJSON",
 	"MarshalText",
-	"Recursive",
 	"IntString",
 	"UintString",
 	"IntPtr",
@@ -66,7 +67,6 @@ var opTypeStrings = [440]string{
 	"MarshalJSONPtr",
 	"MarshalTextPtr",
 	"InterfacePtr",
-	"RecursivePtr",
 	"StructHeadInt",
 	"StructHeadOmitEmptyInt",
 	"StructHeadStringTagInt",
@@ -151,12 +151,6 @@ var opTypeStrings = [440]string{
 	"StructPtrHeadMarshalText",
 	"StructPtrHeadOmitEmptyMarshalText",
 	"StructPtrHeadStringTagMarshalText",
-	"StructHeadRecursive",
-	"StructHeadOmitEmptyRecursive",
-	"StructHeadStringTagRecursive",
-	"StructPtrHeadRecursive",
-	"StructPtrHeadOmitEmptyRecursive",
-	"StructPtrHeadStringTagRecursive",
 	"StructHeadIntString",
 	"StructHeadOmitEmptyIntString",
 	"StructHeadStringTagIntString",
@@ -253,12 +247,6 @@ var opTypeStrings = [440]string{
 	"StructPtrHeadInterfacePtr",
 	"StructPtrHeadOmitEmptyInterfacePtr",
 	"StructPtrHeadStringTagInterfacePtr",
-	"StructHeadRecursivePtr",
-	"StructHeadOmitEmptyRecursivePtr",
-	"StructHeadStringTagRecursivePtr",
-	"StructPtrHeadRecursivePtr",
-	"StructPtrHeadOmitEmptyRecursivePtr",
-	"StructPtrHeadStringTagRecursivePtr",
 	"StructHead",
 	"StructHeadOmitEmpty",
 	"StructHeadStringTag",
@@ -349,12 +337,6 @@ var opTypeStrings = [440]string{
 	"StructEndMarshalText",
 	"StructEndOmitEmptyMarshalText",
 	"StructEndStringTagMarshalText",
-	"StructFieldRecursive",
-	"StructFieldOmitEmptyRecursive",
-	"StructFieldStringTagRecursive",
-	"StructEndRecursive",
-	"StructEndOmitEmptyRecursive",
-	"StructEndStringTagRecursive",
 	"StructFieldIntString",
 	"StructFieldOmitEmptyIntString",
 	"StructFieldStringTagIntString",
@@ -451,12 +433,6 @@ var opTypeStrings = [440]string{
 	"StructEndInterfacePtr",
 	"StructEndOmitEmptyInterfacePtr",
 	"StructEndStringTagInterfacePtr",
-	"StructFieldRecursivePtr",
-	"StructFieldOmitEmptyRecursivePtr",
-	"StructFieldStringTagRecursivePtr",
-	"StructEndRecursivePtr",
-	"StructEndOmitEmptyRecursivePtr",
-	"StructEndStringTagRecursivePtr",
 	"StructField",
 	"StructFieldOmitEmpty",
 	"StructFieldStringTag",
@@ -478,40 +454,40 @@ const (
 	OpMapKey                               OpType = 7
 	OpMapValue                             OpType = 8
 	OpMapEnd                               OpType = 9
-	OpStructFieldRecursiveEnd              OpType = 10
-	OpStructAnonymousEnd                   OpType = 11
-	OpInt                                  OpType = 12
-	OpUint                                 OpType = 13
-	OpFloat32                              OpType = 14
-	OpFloat64                              OpType = 15
-	OpBool                                 OpType = 16
-	OpString                               OpType = 17
-	OpBytes                                OpType = 18
-	OpNumber                               OpType = 19
-	OpArray                                OpType = 20
-	OpMap                                  OpType = 21
-	OpSlice                                OpType = 22
-	OpStruct                               OpType = 23
-	OpMarshalJSON                          OpType = 24
-	OpMarshalText                          OpType = 25
-	OpRecursive                            OpType = 26
-	OpIntString                            OpType = 27
-	OpUintString                           OpType = 28
-	OpIntPtr                               OpType = 29
-	OpUintPtr                              OpType = 30
-	OpFloat32Ptr                           OpType = 31
-	OpFloat64Ptr                           OpType = 32
-	OpBoolPtr                              OpType = 33
-	OpStringPtr                            OpType = 34
-	OpBytesPtr                             OpType = 35
-	OpNumberPtr                            OpType = 36
-	OpArrayPtr                             OpType = 37
-	OpMapPtr                               OpType = 38
-	OpSlicePtr                             OpType = 39
-	OpMarshalJSONPtr                       OpType = 40
-	OpMarshalTextPtr                       OpType = 41
-	OpInterfacePtr                         OpType = 42
-	OpRecursivePtr                         OpType = 43
+	OpRecursive                            OpType = 10
+	OpRecursivePtr                         OpType = 11
+	OpRecursiveEnd                         OpType = 12
+	OpStructAnonymousEnd                   OpType = 13
+	OpInt                                  OpType = 14
+	OpUint                                 OpType = 15
+	OpFloat32                              OpType = 16
+	OpFloat64                              OpType = 17
+	OpBool                                 OpType = 18
+	OpString                               OpType = 19
+	OpBytes                                OpType = 20
+	OpNumber                               OpType = 21
+	OpArray                                OpType = 22
+	OpMap                                  OpType = 23
+	OpSlice                                OpType = 24
+	OpStruct                               OpType = 25
+	OpMarshalJSON                          OpType = 26
+	OpMarshalText                          OpType = 27
+	OpIntString                            OpType = 28
+	OpUintString                           OpType = 29
+	OpIntPtr                               OpType = 30
+	OpUintPtr                              OpType = 31
+	OpFloat32Ptr                           OpType = 32
+	OpFloat64Ptr                           OpType = 33
+	OpBoolPtr                              OpType = 34
+	OpStringPtr                            OpType = 35
+	OpBytesPtr                             OpType = 36
+	OpNumberPtr                            OpType = 37
+	OpArrayPtr                             OpType = 38
+	OpMapPtr                               OpType = 39
+	OpSlicePtr                             OpType = 40
+	OpMarshalJSONPtr                       OpType = 41
+	OpMarshalTextPtr                       OpType = 42
+	OpInterfacePtr                         OpType = 43
 	OpStructHeadInt                        OpType = 44
 	OpStructHeadOmitEmptyInt               OpType = 45
 	OpStructHeadStringTagInt               OpType = 46
@@ -596,322 +572,298 @@ const (
 	OpStructPtrHeadMarshalText             OpType = 125
 	OpStructPtrHeadOmitEmptyMarshalText    OpType = 126
 	OpStructPtrHeadStringTagMarshalText    OpType = 127
-	OpStructHeadRecursive                  OpType = 128
-	OpStructHeadOmitEmptyRecursive         OpType = 129
-	OpStructHeadStringTagRecursive         OpType = 130
-	OpStructPtrHeadRecursive               OpType = 131
-	OpStructPtrHeadOmitEmptyRecursive      OpType = 132
-	OpStructPtrHeadStringTagRecursive      OpType = 133
-	OpStructHeadIntString                  OpType = 134
-	OpStructHeadOmitEmptyIntString         OpType = 135
-	OpStructHeadStringTagIntString         OpType = 136
-	OpStructPtrHeadIntString               OpType = 137
-	OpStructPtrHeadOmitEmptyIntString      OpType = 138
-	OpStructPtrHeadStringTagIntString      OpType = 139
-	OpStructHeadUintString                 OpType = 140
-	OpStructHeadOmitEmptyUintString        OpType = 141
-	OpStructHeadStringTagUintString        OpType = 142
-	OpStructPtrHeadUintString              OpType = 143
-	OpStructPtrHeadOmitEmptyUintString     OpType = 144
-	OpStructPtrHeadStringTagUintString     OpType = 145
-	OpStructHeadIntPtr                     OpType = 146
-	OpStructHeadOmitEmptyIntPtr            OpType = 147
-	OpStructHeadStringTagIntPtr            OpType = 148
-	OpStructPtrHeadIntPtr                  OpType = 149
-	OpStructPtrHeadOmitEmptyIntPtr         OpType = 150
-	OpStructPtrHeadStringTagIntPtr         OpType = 151
-	OpStructHeadUintPtr                    OpType = 152
-	OpStructHeadOmitEmptyUintPtr           OpType = 153
-	OpStructHeadStringTagUintPtr           OpType = 154
-	OpStructPtrHeadUintPtr                 OpType = 155
-	OpStructPtrHeadOmitEmptyUintPtr        OpType = 156
-	OpStructPtrHeadStringTagUintPtr        OpType = 157
-	OpStructHeadFloat32Ptr                 OpType = 158
-	OpStructHeadOmitEmptyFloat32Ptr        OpType = 159
-	OpStructHeadStringTagFloat32Ptr        OpType = 160
-	OpStructPtrHeadFloat32Ptr              OpType = 161
-	OpStructPtrHeadOmitEmptyFloat32Ptr     OpType = 162
-	OpStructPtrHeadStringTagFloat32Ptr     OpType = 163
-	OpStructHeadFloat64Ptr                 OpType = 164
-	OpStructHeadOmitEmptyFloat64Ptr        OpType = 165
-	OpStructHeadStringTagFloat64Ptr        OpType = 166
-	OpStructPtrHeadFloat64Ptr              OpType = 167
-	OpStructPtrHeadOmitEmptyFloat64Ptr     OpType = 168
-	OpStructPtrHeadStringTagFloat64Ptr     OpType = 169
-	OpStructHeadBoolPtr                    OpType = 170
-	OpStructHeadOmitEmptyBoolPtr           OpType = 171
-	OpStructHeadStringTagBoolPtr           OpType = 172
-	OpStructPtrHeadBoolPtr                 OpType = 173
-	OpStructPtrHeadOmitEmptyBoolPtr        OpType = 174
-	OpStructPtrHeadStringTagBoolPtr        OpType = 175
-	OpStructHeadStringPtr                  OpType = 176
-	OpStructHeadOmitEmptyStringPtr         OpType = 177
-	OpStructHeadStringTagStringPtr         OpType = 178
-	OpStructPtrHeadStringPtr               OpType = 179
-	OpStructPtrHeadOmitEmptyStringPtr      OpType = 180
-	OpStructPtrHeadStringTagStringPtr      OpType = 181
-	OpStructHeadBytesPtr                   OpType = 182
-	OpStructHeadOmitEmptyBytesPtr          OpType = 183
-	OpStructHeadStringTagBytesPtr          OpType = 184
-	OpStructPtrHeadBytesPtr                OpType = 185
-	OpStructPtrHeadOmitEmptyBytesPtr       OpType = 186
-	OpStructPtrHeadStringTagBytesPtr       OpType = 187
-	OpStructHeadNumberPtr                  OpType = 188
-	OpStructHeadOmitEmptyNumberPtr         OpType = 189
-	OpStructHeadStringTagNumberPtr         OpType = 190
-	OpStructPtrHeadNumberPtr               OpType = 191
-	OpStructPtrHeadOmitEmptyNumberPtr      OpType = 192
-	OpStructPtrHeadStringTagNumberPtr      OpType = 193
-	OpStructHeadArrayPtr                   OpType = 194
-	OpStructHeadOmitEmptyArrayPtr          OpType = 195
-	OpStructHeadStringTagArrayPtr          OpType = 196
-	OpStructPtrHeadArrayPtr                OpType = 197
-	OpStructPtrHeadOmitEmptyArrayPtr       OpType = 198
-	OpStructPtrHeadStringTagArrayPtr       OpType = 199
-	OpStructHeadMapPtr                     OpType = 200
-	OpStructHeadOmitEmptyMapPtr            OpType = 201
-	OpStructHeadStringTagMapPtr            OpType = 202
-	OpStructPtrHeadMapPtr                  OpType = 203
-	OpStructPtrHeadOmitEmptyMapPtr         OpType = 204
-	OpStructPtrHeadStringTagMapPtr         OpType = 205
-	OpStructHeadSlicePtr                   OpType = 206
-	OpStructHeadOmitEmptySlicePtr          OpType = 207
-	OpStructHeadStringTagSlicePtr          OpType = 208
-	OpStructPtrHeadSlicePtr                OpType = 209
-	OpStructPtrHeadOmitEmptySlicePtr       OpType = 210
-	OpStructPtrHeadStringTagSlicePtr       OpType = 211
-	OpStructHeadMarshalJSONPtr             OpType = 212
-	OpStructHeadOmitEmptyMarshalJSONPtr    OpType = 213
-	OpStructHeadStringTagMarshalJSONPtr    OpType = 214
-	OpStructPtrHeadMarshalJSONPtr          OpType = 215
-	OpStructPtrHeadOmitEmptyMarshalJSONPtr OpType = 216
-	OpStructPtrHeadStringTagMarshalJSONPtr OpType = 217
-	OpStructHeadMarshalTextPtr             OpType = 218
-	OpStructHeadOmitEmptyMarshalTextPtr    OpType = 219
-	OpStructHeadStringTagMarshalTextPtr    OpType = 220
-	OpStructPtrHeadMarshalTextPtr          OpType = 221
-	OpStructPtrHeadOmitEmptyMarshalTextPtr OpType = 222
-	OpStructPtrHeadStringTagMarshalTextPtr OpType = 223
-	OpStructHeadInterfacePtr               OpType = 224
-	OpStructHeadOmitEmptyInterfacePtr      OpType = 225
-	OpStructHeadStringTagInterfacePtr      OpType = 226
-	OpStructPtrHeadInterfacePtr            OpType = 227
-	OpStructPtrHeadOmitEmptyInterfacePtr   OpType = 228
-	OpStructPtrHeadStringTagInterfacePtr   OpType = 229
-	OpStructHeadRecursivePtr               OpType = 230
-	OpStructHeadOmitEmptyRecursivePtr      OpType = 231
-	OpStructHeadStringTagRecursivePtr      OpType = 232
-	OpStructPtrHeadRecursivePtr            OpType = 233
-	OpStructPtrHeadOmitEmptyRecursivePtr   OpType = 234
-	OpStructPtrHeadStringTagRecursivePtr   OpType = 235
-	OpStructHead                           OpType = 236
-	OpStructHeadOmitEmpty                  OpType = 237
-	OpStructHeadStringTag                  OpType = 238
-	OpStructPtrHead                        OpType = 239
-	OpStructPtrHeadOmitEmpty               OpType = 240
-	OpStructPtrHeadStringTag               OpType = 241
-	OpStructFieldInt                       OpType = 242
-	OpStructFieldOmitEmptyInt              OpType = 243
-	OpStructFieldStringTagInt              OpType = 244
-	OpStructEndInt                         OpType = 245
-	OpStructEndOmitEmptyInt                OpType = 246
-	OpStructEndStringTagInt                OpType = 247
-	OpStructFieldUint                      OpType = 248
-	OpStructFieldOmitEmptyUint             OpType = 249
-	OpStructFieldStringTagUint             OpType = 250
-	OpStructEndUint                        OpType = 251
-	OpStructEndOmitEmptyUint               OpType = 252
-	OpStructEndStringTagUint               OpType = 253
-	OpStructFieldFloat32                   OpType = 254
-	OpStructFieldOmitEmptyFloat32          OpType = 255
-	OpStructFieldStringTagFloat32          OpType = 256
-	OpStructEndFloat32                     OpType = 257
-	OpStructEndOmitEmptyFloat32            OpType = 258
-	OpStructEndStringTagFloat32            OpType = 259
-	OpStructFieldFloat64                   OpType = 260
-	OpStructFieldOmitEmptyFloat64          OpType = 261
-	OpStructFieldStringTagFloat64          OpType = 262
-	OpStructEndFloat64                     OpType = 263
-	OpStructEndOmitEmptyFloat64            OpType = 264
-	OpStructEndStringTagFloat64            OpType = 265
-	OpStructFieldBool                      OpType = 266
-	OpStructFieldOmitEmptyBool             OpType = 267
-	OpStructFieldStringTagBool             OpType = 268
-	OpStructEndBool                        OpType = 269
-	OpStructEndOmitEmptyBool               OpType = 270
-	OpStructEndStringTagBool               OpType = 271
-	OpStructFieldString                    OpType = 272
-	OpStructFieldOmitEmptyString           OpType = 273
-	OpStructFieldStringTagString           OpType = 274
-	OpStructEndString                      OpType = 275
-	OpStructEndOmitEmptyString             OpType = 276
-	OpStructEndStringTagString             OpType = 277
-	OpStructFieldBytes                     OpType = 278
-	OpStructFieldOmitEmptyBytes            OpType = 279
-	OpStructFieldStringTagBytes            OpType = 280
-	OpStructEndBytes                       OpType = 281
-	OpStructEndOmitEmptyBytes              OpType = 282
-	OpStructEndStringTagBytes              OpType = 283
-	OpStructFieldNumber                    OpType = 284
-	OpStructFieldOmitEmptyNumber           OpType = 285
-	OpStructFieldStringTagNumber           OpType = 286
-	OpStructEndNumber                      OpType = 287
-	OpStructEndOmitEmptyNumber             OpType = 288
-	OpStructEndStringTagNumber             OpType = 289
-	OpStructFieldArray                     OpType = 290
-	OpStructFieldOmitEmptyArray            OpType = 291
-	OpStructFieldStringTagArray            OpType = 292
-	OpStructEndArray                       OpType = 293
-	OpStructEndOmitEmptyArray              OpType = 294
-	OpStructEndStringTagArray              OpType = 295
-	OpStructFieldMap                       OpType = 296
-	OpStructFieldOmitEmptyMap              OpType = 297
-	OpStructFieldStringTagMap              OpType = 298
-	OpStructEndMap                         OpType = 299
-	OpStructEndOmitEmptyMap                OpType = 300
-	OpStructEndStringTagMap                OpType = 301
-	OpStructFieldSlice                     OpType = 302
-	OpStructFieldOmitEmptySlice            OpType = 303
-	OpStructFieldStringTagSlice            OpType = 304
-	OpStructEndSlice                       OpType = 305
-	OpStructEndOmitEmptySlice              OpType = 306
-	OpStructEndStringTagSlice              OpType = 307
-	OpStructFieldStruct                    OpType = 308
-	OpStructFieldOmitEmptyStruct           OpType = 309
-	OpStructFieldStringTagStruct           OpType = 310
-	OpStructEndStruct                      OpType = 311
-	OpStructEndOmitEmptyStruct             OpType = 312
-	OpStructEndStringTagStruct             OpType = 313
-	OpStructFieldMarshalJSON               OpType = 314
-	OpStructFieldOmitEmptyMarshalJSON      OpType = 315
-	OpStructFieldStringTagMarshalJSON      OpType = 316
-	OpStructEndMarshalJSON                 OpType = 317
-	OpStructEndOmitEmptyMarshalJSON        OpType = 318
-	OpStructEndStringTagMarshalJSON        OpType = 319
-	OpStructFieldMarshalText               OpType = 320
-	OpStructFieldOmitEmptyMarshalText      OpType = 321
-	OpStructFieldStringTagMarshalText      OpType = 322
-	OpStructEndMarshalText                 OpType = 323
-	OpStructEndOmitEmptyMarshalText        OpType = 324
-	OpStructEndStringTagMarshalText        OpType = 325
-	OpStructFieldRecursive                 OpType = 326
-	OpStructFieldOmitEmptyRecursive        OpType = 327
-	OpStructFieldStringTagRecursive        OpType = 328
-	OpStructEndRecursive                   OpType = 329
-	OpStructEndOmitEmptyRecursive          OpType = 330
-	OpStructEndStringTagRecursive          OpType = 331
-	OpStructFieldIntString                 OpType = 332
-	OpStructFieldOmitEmptyIntString        OpType = 333
-	OpStructFieldStringTagIntString        OpType = 334
-	OpStructEndIntString                   OpType = 335
-	OpStructEndOmitEmptyIntString          OpType = 336
-	OpStructEndStringTagIntString          OpType = 337
-	OpStructFieldUintString                OpType = 338
-	OpStructFieldOmitEmptyUintString       OpType = 339
-	OpStructFieldStringTagUintString       OpType = 340
-	OpStructEndUintString                  OpType = 341
-	OpStructEndOmitEmptyUintString         OpType = 342
-	OpStructEndStringTagUintString         OpType = 343
-	OpStructFieldIntPtr                    OpType = 344
-	OpStructFieldOmitEmptyIntPtr           OpType = 345
-	OpStructFieldStringTagIntPtr           OpType = 346
-	OpStructEndIntPtr                      OpType = 347
-	OpStructEndOmitEmptyIntPtr             OpType = 348
-	OpStructEndStringTagIntPtr             OpType = 349
-	OpStructFieldUintPtr                   OpType = 350
-	OpStructFieldOmitEmptyUintPtr          OpType = 351
-	OpStructFieldStringTagUintPtr          OpType = 352
-	OpStructEndUintPtr                     OpType = 353
-	OpStructEndOmitEmptyUintPtr            OpType = 354
-	OpStructEndStringTagUintPtr            OpType = 355
-	OpStructFieldFloat32Ptr                OpType = 356
-	OpStructFieldOmitEmptyFloat32Ptr       OpType = 357
-	OpStructFieldStringTagFloat32Ptr       OpType = 358
-	OpStructEndFloat32Ptr                  OpType = 359
-	OpStructEndOmitEmptyFloat32Ptr         OpType = 360
-	OpStructEndStringTagFloat32Ptr         OpType = 361
-	OpStructFieldFloat64Ptr                OpType = 362
-	OpStructFieldOmitEmptyFloat64Ptr       OpType = 363
-	OpStructFieldStringTagFloat64Ptr       OpType = 364
-	OpStructEndFloat64Ptr                  OpType = 365
-	OpStructEndOmitEmptyFloat64Ptr         OpType = 366
-	OpStructEndStringTagFloat64Ptr         OpType = 367
-	OpStructFieldBoolPtr                   OpType = 368
-	OpStructFieldOmitEmptyBoolPtr          OpType = 369
-	OpStructFieldStringTagBoolPtr          OpType = 370
-	OpStructEndBoolPtr                     OpType = 371
-	OpStructEndOmitEmptyBoolPtr            OpType = 372
-	OpStructEndStringTagBoolPtr            OpType = 373
-	OpStructFieldStringPtr                 OpType = 374
-	OpStructFieldOmitEmptyStringPtr        OpType = 375
-	OpStructFieldStringTagStringPtr        OpType = 376
-	OpStructEndStringPtr                   OpType = 377
-	OpStructEndOmitEmptyStringPtr          OpType = 378
-	OpStructEndStringTagStringPtr          OpType = 379
-	OpStructFieldBytesPtr                  OpType = 380
-	OpStructFieldOmitEmptyBytesPtr         OpType = 381
-	OpStructFieldStringTagBytesPtr         OpType = 382
-	OpStructEndBytesPtr                    OpType = 383
-	OpStructEndOmitEmptyBytesPtr           OpType = 384
-	OpStructEndStringTagBytesPtr           OpType = 385
-	OpStructFieldNumberPtr                 OpType = 386
-	OpStructFieldOmitEmptyNumberPtr        OpType = 387
-	OpStructFieldStringTagNumberPtr        OpType = 388
-	OpStructEndNumberPtr                   OpType = 389
-	OpStructEndOmitEmptyNumberPtr          OpType = 390
-	OpStructEndStringTagNumberPtr          OpType = 391
-	OpStructFieldArrayPtr                  OpType = 392
-	OpStructFieldOmitEmptyArrayPtr         OpType = 393
-	OpStructFieldStringTagArrayPtr         OpType = 394
-	OpStructEndArrayPtr                    OpType = 395
-	OpStructEndOmitEmptyArrayPtr           OpType = 396
-	OpStructEndStringTagArrayPtr           OpType = 397
-	OpStructFieldMapPtr                    OpType = 398
-	OpStructFieldOmitEmptyMapPtr           OpType = 399
-	OpStructFieldStringTagMapPtr           OpType = 400
-	OpStructEndMapPtr                      OpType = 401
-	OpStructEndOmitEmptyMapPtr             OpType = 402
-	OpStructEndStringTagMapPtr             OpType = 403
-	OpStructFieldSlicePtr                  OpType = 404
-	OpStructFieldOmitEmptySlicePtr         OpType = 405
-	OpStructFieldStringTagSlicePtr         OpType = 406
-	OpStructEndSlicePtr                    OpType = 407
-	OpStructEndOmitEmptySlicePtr           OpType = 408
-	OpStructEndStringTagSlicePtr           OpType = 409
-	OpStructFieldMarshalJSONPtr            OpType = 410
-	OpStructFieldOmitEmptyMarshalJSONPtr   OpType = 411
-	OpStructFieldStringTagMarshalJSONPtr   OpType = 412
-	OpStructEndMarshalJSONPtr              OpType = 413
-	OpStructEndOmitEmptyMarshalJSONPtr     OpType = 414
-	OpStructEndStringTagMarshalJSONPtr     OpType = 415
-	OpStructFieldMarshalTextPtr            OpType = 416
-	OpStructFieldOmitEmptyMarshalTextPtr   OpType = 417
-	OpStructFieldStringTagMarshalTextPtr   OpType = 418
-	OpStructEndMarshalTextPtr              OpType = 419
-	OpStructEndOmitEmptyMarshalTextPtr     OpType = 420
-	OpStructEndStringTagMarshalTextPtr     OpType = 421
-	OpStructFieldInterfacePtr              OpType = 422
-	OpStructFieldOmitEmptyInterfacePtr     OpType = 423
-	OpStructFieldStringTagInterfacePtr     OpType = 424
-	OpStructEndInterfacePtr                OpType = 425
-	OpStructEndOmitEmptyInterfacePtr       OpType = 426
-	OpStructEndStringTagInterfacePtr       OpType = 427
-	OpStructFieldRecursivePtr              OpType = 428
-	OpStructFieldOmitEmptyRecursivePtr     OpType = 429
-	OpStructFieldStringTagRecursivePtr     OpType = 430
-	OpStructEndRecursivePtr                OpType = 431
-	OpStructEndOmitEmptyRecursivePtr       OpType = 432
-	OpStructEndStringTagRecursivePtr       OpType = 433
-	OpStructField                          OpType = 434
-	OpStructFieldOmitEmpty                 OpType = 435
-	OpStructFieldStringTag                 OpType = 436
-	OpStructEnd                            OpType = 437
-	OpStructEndOmitEmpty                   OpType = 438
-	OpStructEndStringTag                   OpType = 439
+	OpStructHeadIntString                  OpType = 128
+	OpStructHeadOmitEmptyIntString         OpType = 129
+	OpStructHeadStringTagIntString         OpType = 130
+	OpStructPtrHeadIntString               OpType = 131
+	OpStructPtrHeadOmitEmptyIntString      OpType = 132
+	OpStructPtrHeadStringTagIntString      OpType = 133
+	OpStructHeadUintString                 OpType = 134
+	OpStructHeadOmitEmptyUintString        OpType = 135
+	OpStructHeadStringTagUintString        OpType = 136
+	OpStructPtrHeadUintString              OpType = 137
+	OpStructPtrHeadOmitEmptyUintString     OpType = 138
+	OpStructPtrHeadStringTagUintString     OpType = 139
+	OpStructHeadIntPtr                     OpType = 140
+	OpStructHeadOmitEmptyIntPtr            OpType = 141
+	OpStructHeadStringTagIntPtr            OpType = 142
+	OpStructPtrHeadIntPtr                  OpType = 143
+	OpStructPtrHeadOmitEmptyIntPtr         OpType = 144
+	OpStructPtrHeadStringTagIntPtr         OpType = 145
+	OpStructHeadUintPtr                    OpType = 146
+	OpStructHeadOmitEmptyUintPtr           OpType = 147
+	OpStructHeadStringTagUintPtr           OpType = 148
+	OpStructPtrHeadUintPtr                 OpType = 149
+	OpStructPtrHeadOmitEmptyUintPtr        OpType = 150
+	OpStructPtrHeadStringTagUintPtr        OpType = 151
+	OpStructHeadFloat32Ptr                 OpType = 152
+	OpStructHeadOmitEmptyFloat32Ptr        OpType = 153
+	OpStructHeadStringTagFloat32Ptr        OpType = 154
+	OpStructPtrHeadFloat32Ptr              OpType = 155
+	OpStructPtrHeadOmitEmptyFloat32Ptr     OpType = 156
+	OpStructPtrHeadStringTagFloat32Ptr     OpType = 157
+	OpStructHeadFloat64Ptr                 OpType = 158
+	OpStructHeadOmitEmptyFloat64Ptr        OpType = 159
+	OpStructHeadStringTagFloat64Ptr        OpType = 160
+	OpStructPtrHeadFloat64Ptr              OpType = 161
+	OpStructPtrHeadOmitEmptyFloat64Ptr     OpType = 162
+	OpStructPtrHeadStringTagFloat64Ptr     OpType = 163
+	OpStructHeadBoolPtr                    OpType = 164
+	OpStructHeadOmitEmptyBoolPtr           OpType = 165
+	OpStructHeadStringTagBoolPtr           OpType = 166
+	OpStructPtrHeadBoolPtr                 OpType = 167
+	OpStructPtrHeadOmitEmptyBoolPtr        OpType = 168
+	OpStructPtrHeadStringTagBoolPtr        OpType = 169
+	OpStructHeadStringPtr                  OpType = 170
+	OpStructHeadOmitEmptyStringPtr         OpType = 171
+	OpStructHeadStringTagStringPtr         OpType = 172
+	OpStructPtrHeadStringPtr               OpType = 173
+	OpStructPtrHeadOmitEmptyStringPtr      OpType = 174
+	OpStructPtrHeadStringTagStringPtr      OpType = 175
+	OpStructHeadBytesPtr                   OpType = 176
+	OpStructHeadOmitEmptyBytesPtr          OpType = 177
+	OpStructHeadStringTagBytesPtr          OpType = 178
+	OpStructPtrHeadBytesPtr                OpType = 179
+	OpStructPtrHeadOmitEmptyBytesPtr       OpType = 180
+	OpStructPtrHeadStringTagBytesPtr       OpType = 181
+	OpStructHeadNumberPtr                  OpType = 182
+	OpStructHeadOmitEmptyNumberPtr         OpType = 183
+	OpStructHeadStringTagNumberPtr         OpType = 184
+	OpStructPtrHeadNumberPtr               OpType = 185
+	OpStructPtrHeadOmitEmptyNumberPtr      OpType = 186
+	OpStructPtrHeadStringTagNumberPtr      OpType = 187
+	OpStructHeadArrayPtr                   OpType = 188
+	OpStructHeadOmitEmptyArrayPtr          OpType = 189
+	OpStructHeadStringTagArrayPtr          OpType = 190
+	OpStructPtrHeadArrayPtr                OpType = 191
+	OpStructPtrHeadOmitEmptyArrayPtr       OpType = 192
+	OpStructPtrHeadStringTagArrayPtr       OpType = 193
+	OpStructHeadMapPtr                     OpType = 194
+	OpStructHeadOmitEmptyMapPtr            OpType = 195
+	OpStructHeadStringTagMapPtr            OpType = 196
+	OpStructPtrHeadMapPtr                  OpType = 197
+	OpStructPtrHeadOmitEmptyMapPtr         OpType = 198
+	OpStructPtrHeadStringTagMapPtr         OpType = 199
+	OpStructHeadSlicePtr                   OpType = 200
+	OpStructHeadOmitEmptySlicePtr          OpType = 201
+	OpStructHeadStringTagSlicePtr          OpType = 202
+	OpStructPtrHeadSlicePtr                OpType = 203
+	OpStructPtrHeadOmitEmptySlicePtr       OpType = 204
+	OpStructPtrHeadStringTagSlicePtr       OpType = 205
+	OpStructHeadMarshalJSONPtr             OpType = 206
+	OpStructHeadOmitEmptyMarshalJSONPtr    OpType = 207
+	OpStructHeadStringTagMarshalJSONPtr    OpType = 208
+	OpStructPtrHeadMarshalJSONPtr          OpType = 209
+	OpStructPtrHeadOmitEmptyMarshalJSONPtr OpType = 210
+	OpStructPtrHeadStringTagMarshalJSONPtr OpType = 211
+	OpStructHeadMarshalTextPtr             OpType = 212
+	OpStructHeadOmitEmptyMarshalTextPtr    OpType = 213
+	OpStructHeadStringTagMarshalTextPtr    OpType = 214
+	OpStructPtrHeadMarshalTextPtr          OpType = 215
+	OpStructPtrHeadOmitEmptyMarshalTextPtr OpType = 216
+	OpStructPtrHeadStringTagMarshalTextPtr OpType = 217
+	OpStructHeadInterfacePtr               OpType = 218
+	OpStructHeadOmitEmptyInterfacePtr      OpType = 219
+	OpStructHeadStringTagInterfacePtr      OpType = 220
+	OpStructPtrHeadInterfacePtr            OpType = 221
+	OpStructPtrHeadOmitEmptyInterfacePtr   OpType = 222
+	OpStructPtrHeadStringTagInterfacePtr   OpType = 223
+	OpStructHead                           OpType = 224
+	OpStructHeadOmitEmpty                  OpType = 225
+	OpStructHeadStringTag                  OpType = 226
+	OpStructPtrHead                        OpType = 227
+	OpStructPtrHeadOmitEmpty               OpType = 228
+	OpStructPtrHeadStringTag               OpType = 229
+	OpStructFieldInt                       OpType = 230
+	OpStructFieldOmitEmptyInt              OpType = 231
+	OpStructFieldStringTagInt              OpType = 232
+	OpStructEndInt                         OpType = 233
+	OpStructEndOmitEmptyInt                OpType = 234
+	OpStructEndStringTagInt                OpType = 235
+	OpStructFieldUint                      OpType = 236
+	OpStructFieldOmitEmptyUint             OpType = 237
+	OpStructFieldStringTagUint             OpType = 238
+	OpStructEndUint                        OpType = 239
+	OpStructEndOmitEmptyUint               OpType = 240
+	OpStructEndStringTagUint               OpType = 241
+	OpStructFieldFloat32                   OpType = 242
+	OpStructFieldOmitEmptyFloat32          OpType = 243
+	OpStructFieldStringTagFloat32          OpType = 244
+	OpStructEndFloat32                     OpType = 245
+	OpStructEndOmitEmptyFloat32            OpType = 246
+	OpStructEndStringTagFloat32            OpType = 247
+	OpStructFieldFloat64                   OpType = 248
+	OpStructFieldOmitEmptyFloat64          OpType = 249
+	OpStructFieldStringTagFloat64          OpType = 250
+	OpStructEndFloat64                     OpType = 251
+	OpStructEndOmitEmptyFloat64            OpType = 252
+	OpStructEndStringTagFloat64            OpType = 253
+	OpStructFieldBool                      OpType = 254
+	OpStructFieldOmitEmptyBool             OpType = 255
+	OpStructFieldStringTagBool             OpType = 256
+	OpStructEndBool                        OpType = 257
+	OpStructEndOmitEmptyBool               OpType = 258
+	OpStructEndStringTagBool               OpType = 259
+	OpStructFieldString                    OpType = 260
+	OpStructFieldOmitEmptyString           OpType = 261
+	OpStructFieldStringTagString           OpType = 262
+	OpStructEndString                      OpType = 263
+	OpStructEndOmitEmptyString             OpType = 264
+	OpStructEndStringTagString             OpType = 265
+	OpStructFieldBytes                     OpType = 266
+	OpStructFieldOmitEmptyBytes            OpType = 267
+	OpStructFieldStringTagBytes            OpType = 268
+	OpStructEndBytes                       OpType = 269
+	OpStructEndOmitEmptyBytes              OpType = 270
+	OpStructEndStringTagBytes              OpType = 271
+	OpStructFieldNumber                    OpType = 272
+	OpStructFieldOmitEmptyNumber           OpType = 273
+	OpStructFieldStringTagNumber           OpType = 274
+	OpStructEndNumber                      OpType = 275
+	OpStructEndOmitEmptyNumber             OpType = 276
+	OpStructEndStringTagNumber             OpType = 277
+	OpStructFieldArray                     OpType = 278
+	OpStructFieldOmitEmptyArray            OpType = 279
+	OpStructFieldStringTagArray            OpType = 280
+	OpStructEndArray                       OpType = 281
+	OpStructEndOmitEmptyArray              OpType = 282
+	OpStructEndStringTagArray              OpType = 283
+	OpStructFieldMap                       OpType = 284
+	OpStructFieldOmitEmptyMap              OpType = 285
+	OpStructFieldStringTagMap              OpType = 286
+	OpStructEndMap                         OpType = 287
+	OpStructEndOmitEmptyMap                OpType = 288
+	OpStructEndStringTagMap                OpType = 289
+	OpStructFieldSlice                     OpType = 290
+	OpStructFieldOmitEmptySlice            OpType = 291
+	OpStructFieldStringTagSlice            OpType = 292
+	OpStructEndSlice                       OpType = 293
+	OpStructEndOmitEmptySlice              OpType = 294
+	OpStructEndStringTagSlice              OpType = 295
+	OpStructFieldStruct                    OpType = 296
+	OpStructFieldOmitEmptyStruct           OpType = 297
+	OpStructFieldStringTagStruct           OpType = 298
+	OpStructEndStruct                      OpType = 299
+	OpStructEndOmitEmptyStruct             OpType = 300
+	OpStructEndStringTagStruct             OpType = 301
+	OpStructFieldMarshalJSON               OpType = 302
+	OpStructFieldOmitEmptyMarshalJSON      OpType = 303
+	OpStructFieldStringTagMarshalJSON      OpType = 304
+	OpStructEndMarshalJSON                 OpType = 305
+	OpStructEndOmitEmptyMarshalJSON        OpType = 306
+	OpStructEndStringTagMarshalJSON        OpType = 307
+	OpStructFieldMarshalText               OpType = 308
+	OpStructFieldOmitEmptyMarshalText      OpType = 309
+	OpStructFieldStringTagMarshalText      OpType = 310
+	OpStructEndMarshalText                 OpType = 311
+	OpStructEndOmitEmptyMarshalText        OpType = 312
+	OpStructEndStringTagMarshalText        OpType = 313
+	OpStructFieldIntString                 OpType = 314
+	OpStructFieldOmitEmptyIntString        OpType = 315
+	OpStructFieldStringTagIntString        OpType = 316
+	OpStructEndIntString                   OpType = 317
+	OpStructEndOmitEmptyIntString          OpType = 318
+	OpStructEndStringTagIntString          OpType = 319
+	OpStructFieldUintString                OpType = 320
+	OpStructFieldOmitEmptyUintString       OpType = 321
+	OpStructFieldStringTagUintString       OpType = 322
+	OpStructEndUintString                  OpType = 323
+	OpStructEndOmitEmptyUintString         OpType = 324
+	OpStructEndStringTagUintString         OpType = 325
+	OpStructFieldIntPtr                    OpType = 326
+	OpStructFieldOmitEmptyIntPtr           OpType = 327
+	OpStructFieldStringTagIntPtr           OpType = 328
+	OpStructEndIntPtr                      OpType = 329
+	OpStructEndOmitEmptyIntPtr             OpType = 330
+	OpStructEndStringTagIntPtr             OpType = 331
+	OpStructFieldUintPtr                   OpType = 332
+	OpStructFieldOmitEmptyUintPtr          OpType = 333
+	OpStructFieldStringTagUintPtr          OpType = 334
+	OpStructEndUintPtr                     OpType = 335
+	OpStructEndOmitEmptyUintPtr            OpType = 336
+	OpStructEndStringTagUintPtr            OpType = 337
+	OpStructFieldFloat32Ptr                OpType = 338
+	OpStructFieldOmitEmptyFloat32Ptr       OpType = 339
+	OpStructFieldStringTagFloat32Ptr       OpType = 340
+	OpStructEndFloat32Ptr                  OpType = 341
+	OpStructEndOmitEmptyFloat32Ptr         OpType = 342
+	OpStructEndStringTagFloat32Ptr         OpType = 343
+	OpStructFieldFloat64Ptr                OpType = 344
+	OpStructFieldOmitEmptyFloat64Ptr       OpType = 345
+	OpStructFieldStringTagFloat64Ptr       OpType = 346
+	OpStructEndFloat64Ptr                  OpType = 347
+	OpStructEndOmitEmptyFloat64Ptr         OpType = 348
+	OpStructEndStringTagFloat64Ptr         OpType = 349
+	OpStructFieldBoolPtr                   OpType = 350
+	OpStructFieldOmitEmptyBoolPtr          OpType = 351
+	OpStructFieldStringTagBoolPtr          OpType = 352
+	OpStructEndBoolPtr                     OpType = 353
+	OpStructEndOmitEmptyBoolPtr            OpType = 354
+	OpStructEndStringTagBoolPtr            OpType = 355
+	OpStructFieldStringPtr                 OpType = 356
+	OpStructFieldOmitEmptyStringPtr        OpType = 357
+	OpStructFieldStringTagStringPtr        OpType = 358
+	OpStructEndStringPtr                   OpType = 359
+	OpStructEndOmitEmptyStringPtr          OpType = 360
+	OpStructEndStringTagStringPtr          OpType = 361
+	OpStructFieldBytesPtr                  OpType = 362
+	OpStructFieldOmitEmptyBytesPtr         OpType = 363
+	OpStructFieldStringTagBytesPtr         OpType = 364
+	OpStructEndBytesPtr                    OpType = 365
+	OpStructEndOmitEmptyBytesPtr           OpType = 366
+	OpStructEndStringTagBytesPtr           OpType = 367
+	OpStructFieldNumberPtr                 OpType = 368
+	OpStructFieldOmitEmptyNumberPtr        OpType = 369
+	OpStructFieldStringTagNumberPtr        OpType = 370
+	OpStructEndNumberPtr                   OpType = 371
+	OpStructEndOmitEmptyNumberPtr          OpType = 372
+	OpStructEndStringTagNumberPtr          OpType = 373
+	OpStructFieldArrayPtr                  OpType = 374
+	OpStructFieldOmitEmptyArrayPtr         OpType = 375
+	OpStructFieldStringTagArrayPtr         OpType = 376
+	OpStructEndArrayPtr                    OpType = 377
+	OpStructEndOmitEmptyArrayPtr           OpType = 378
+	OpStructEndStringTagArrayPtr           OpType = 379
+	OpStructFieldMapPtr                    OpType = 380
+	OpStructFieldOmitEmptyMapPtr           OpType = 381
+	OpStructFieldStringTagMapPtr           OpType = 382
+	OpStructEndMapPtr                      OpType = 383
+	OpStructEndOmitEmptyMapPtr             OpType = 384
+	OpStructEndStringTagMapPtr             OpType = 385
+	OpStructFieldSlicePtr                  OpType = 386
+	OpStructFieldOmitEmptySlicePtr         OpType = 387
+	OpStructFieldStringTagSlicePtr         OpType = 388
+	OpStructEndSlicePtr                    OpType = 389
+	OpStructEndOmitEmptySlicePtr           OpType = 390
+	OpStructEndStringTagSlicePtr           OpType = 391
+	OpStructFieldMarshalJSONPtr            OpType = 392
+	OpStructFieldOmitEmptyMarshalJSONPtr   OpType = 393
+	OpStructFieldStringTagMarshalJSONPtr   OpType = 394
+	OpStructEndMarshalJSONPtr              OpType = 395
+	OpStructEndOmitEmptyMarshalJSONPtr     OpType = 396
+	OpStructEndStringTagMarshalJSONPtr     OpType = 397
+	OpStructFieldMarshalTextPtr            OpType = 398
+	OpStructFieldOmitEmptyMarshalTextPtr   OpType = 399
+	OpStructFieldStringTagMarshalTextPtr   OpType = 400
+	OpStructEndMarshalTextPtr              OpType = 401
+	OpStructEndOmitEmptyMarshalTextPtr     OpType = 402
+	OpStructEndStringTagMarshalTextPtr     OpType = 403
+	OpStructFieldInterfacePtr              OpType = 404
+	OpStructFieldOmitEmptyInterfacePtr     OpType = 405
+	OpStructFieldStringTagInterfacePtr     OpType = 406
+	OpStructEndInterfacePtr                OpType = 407
+	OpStructEndOmitEmptyInterfacePtr       OpType = 408
+	OpStructEndStringTagInterfacePtr       OpType = 409
+	OpStructField                          OpType = 410
+	OpStructFieldOmitEmpty                 OpType = 411
+	OpStructFieldStringTag                 OpType = 412
+	OpStructEnd                            OpType = 413
+	OpStructEndOmitEmpty                   OpType = 414
+	OpStructEndStringTag                   OpType = 415
 )
 
 func (t OpType) String() string {
-	if int(t) >= 440 {
+	if int(t) >= 416 {
 		return ""
 	}
 	return opTypeStrings[int(t)]

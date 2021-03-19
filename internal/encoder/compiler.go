@@ -116,9 +116,9 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 }
 
 func linkRecursiveCode(c *Opcode) {
-	for code := c; code.Op != OpEnd && code.Op != OpStructFieldRecursiveEnd; {
+	for code := c; code.Op != OpEnd && code.Op != OpRecursiveEnd; {
 		switch code.Op {
-		case OpStructFieldRecursive, OpStructFieldRecursivePtr:
+		case OpRecursive, OpRecursivePtr:
 			if code.Jmp.Linked {
 				code = code.Next
 				continue
@@ -138,7 +138,7 @@ func linkRecursiveCode(c *Opcode) {
 			totalLength := uintptr(code.TotalLength() + 1)
 			nextTotalLength := uintptr(c.TotalLength() + 1)
 
-			c.End.Next.Op = OpStructFieldRecursiveEnd
+			c.End.Next.Op = OpRecursiveEnd
 
 			code.Jmp.CurLen = totalLength
 			code.Jmp.NextLen = nextTotalLength
@@ -159,7 +159,7 @@ func linkRecursiveCode(c *Opcode) {
 
 func optimizeStructEnd(c *Opcode) {
 	for code := c; code.Op != OpEnd; {
-		if code.Op == OpStructFieldRecursive || code.Op == OpStructFieldRecursivePtr {
+		if code.Op == OpRecursive || code.Op == OpRecursivePtr {
 			// ignore if exists recursive operation
 			return
 		}
@@ -332,8 +332,8 @@ func convertPtrOp(code *Opcode) OpType {
 		return OpMarshalTextPtr
 	case OpInterface:
 		return OpInterfacePtr
-	case OpStructFieldRecursive:
-		return OpStructFieldRecursivePtr
+	case OpRecursive:
+		return OpRecursivePtr
 	}
 	return code.Op
 }

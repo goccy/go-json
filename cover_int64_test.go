@@ -32,6 +32,27 @@ func TestCoverInt64(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Int64",
+			data: int64(10),
+		},
+		{
+			name: "Int64Ptr",
+			data: int64ptr(10),
+		},
+		{
+			name: "Int64Ptr3",
+			data: int64ptr3(10),
+		},
+		{
+			name: "Int64PtrNil",
+			data: (*int64)(nil),
+		},
+		{
+			name: "Int64Ptr3Nil",
+			data: (***int64)(nil),
+		},
+
 		// HeadInt64Zero
 		{
 			name: "HeadInt64Zero",

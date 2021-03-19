@@ -96,6 +96,10 @@ func (c *Opcode) ToHeaderType() OpType {
 		return OpStructHeadBool
 	case OpBoolPtr:
 		return OpStructHeadBoolPtr
+	case OpBytes:
+		return OpStructHeadBytes
+	case OpBytesPtr:
+		return OpStructHeadBytesPtr
 	case OpMap:
 		return OpStructHeadMap
 	case OpMapPtr:
@@ -153,6 +157,10 @@ func (c *Opcode) ToFieldType() OpType {
 		return OpStructFieldBool
 	case OpBoolPtr:
 		return OpStructFieldBoolPtr
+	case OpBytes:
+		return OpStructFieldBytes
+	case OpBytesPtr:
+		return OpStructFieldBytesPtr
 	case OpMap:
 		return OpStructFieldMap
 	case OpMapPtr:

@@ -2230,9 +2230,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				b = append(b, '"')
 				b = appendByteSlice(b, ptrToBytes(p))
-				b = append(b, '"')
 			}
 			b = appendComma(b)
 			code = code.Next
@@ -4848,9 +4846,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				b = append(b, '"')
 				b = appendByteSlice(b, ptrToBytes(p))
-				b = append(b, '"')
 			}
 			b = appendStructEnd(ctx, b, code.Indent-1)
 			code = code.Next

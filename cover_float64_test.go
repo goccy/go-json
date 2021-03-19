@@ -32,6 +32,27 @@ func TestCoverFloat64(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Float64",
+			data: float64(10),
+		},
+		{
+			name: "Float64Ptr",
+			data: float64ptr(10),
+		},
+		{
+			name: "Float64Ptr3",
+			data: float64ptr3(10),
+		},
+		{
+			name: "Float64PtrNil",
+			data: (*float64)(nil),
+		},
+		{
+			name: "Float64Ptr3Nil",
+			data: (***float64)(nil),
+		},
+
 		// HeadFloat64Zero
 		{
 			name: "HeadFloat64Zero",

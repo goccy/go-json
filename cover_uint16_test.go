@@ -32,6 +32,27 @@ func TestCoverUint16(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Uint16",
+			data: uint16(10),
+		},
+		{
+			name: "Uint16Ptr",
+			data: uint16ptr(10),
+		},
+		{
+			name: "Uint16Ptr3",
+			data: uint16ptr3(10),
+		},
+		{
+			name: "Uint16PtrNil",
+			data: (*uint16)(nil),
+		},
+		{
+			name: "Uint16Ptr3Nil",
+			data: (***uint16)(nil),
+		},
+
 		// HeadUint16Zero
 		{
 			name: "HeadUint16Zero",

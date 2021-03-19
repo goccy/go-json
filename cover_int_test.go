@@ -32,6 +32,27 @@ func TestCoverInt(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Int",
+			data: 10,
+		},
+		{
+			name: "IntPtr",
+			data: intptr(10),
+		},
+		{
+			name: "IntPtr3",
+			data: intptr3(10),
+		},
+		{
+			name: "IntPtrNil",
+			data: (*int)(nil),
+		},
+		{
+			name: "IntPtr3Nil",
+			data: (***int)(nil),
+		},
+
 		// HeadIntZero
 		{
 			name: "HeadIntZero",

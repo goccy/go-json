@@ -32,6 +32,27 @@ func TestCoverFloat32(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "Float32",
+			data: float32(10),
+		},
+		{
+			name: "Float32Ptr",
+			data: float32ptr(10),
+		},
+		{
+			name: "Float32Ptr3",
+			data: float32ptr3(10),
+		},
+		{
+			name: "Float32PtrNil",
+			data: (*float32)(nil),
+		},
+		{
+			name: "Float32Ptr3Nil",
+			data: (***float32)(nil),
+		},
+
 		// HeadFloat32Zero
 		{
 			name: "HeadFloat32Zero",

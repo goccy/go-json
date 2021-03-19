@@ -2,7 +2,6 @@ package json_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -1806,7 +1805,6 @@ func TestCoverBytes(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		fmt.Println("name = ", test.name)
 		for _, indent := range []bool{true, false} {
 			for _, htmlEscape := range []bool{true, false} {
 				var buf bytes.Buffer

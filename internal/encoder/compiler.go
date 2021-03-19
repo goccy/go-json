@@ -92,6 +92,7 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 	}
 	switch typ.Kind() {
 	case reflect.Slice:
+		ctx := ctx.withType(typ)
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
 			p := runtime.PtrTo(elem)
@@ -117,71 +118,85 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 		linkRecursiveCode(code)
 		return code, nil
 	case reflect.Int:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileIntPtr(ctx)
 		}
 		return compileInt(ctx)
 	case reflect.Int8:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileInt8Ptr(ctx)
 		}
 		return compileInt8(ctx)
 	case reflect.Int16:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileInt16Ptr(ctx)
 		}
 		return compileInt16(ctx)
 	case reflect.Int32:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileInt32Ptr(ctx)
 		}
 		return compileInt32(ctx)
 	case reflect.Int64:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileInt64Ptr(ctx)
 		}
 		return compileInt64(ctx)
 	case reflect.Uint, reflect.Uintptr:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileUintPtr(ctx)
 		}
 		return compileUint(ctx)
 	case reflect.Uint8:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileUint8Ptr(ctx)
 		}
 		return compileUint8(ctx)
 	case reflect.Uint16:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileUint16Ptr(ctx)
 		}
 		return compileUint16(ctx)
 	case reflect.Uint32:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileUint32Ptr(ctx)
 		}
 		return compileUint32(ctx)
 	case reflect.Uint64:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileUint64Ptr(ctx)
 		}
 		return compileUint64(ctx)
 	case reflect.Float32:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileFloat32Ptr(ctx)
 		}
 		return compileFloat32(ctx)
 	case reflect.Float64:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileFloat64Ptr(ctx)
 		}
 		return compileFloat64(ctx)
 	case reflect.String:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileStringPtr(ctx)
 		}
 		return compileString(ctx)
 	case reflect.Bool:
+		ctx := ctx.withType(typ)
 		if isPtr {
 			return compileBoolPtr(ctx)
 		}

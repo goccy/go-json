@@ -2853,7 +2853,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 && code.Nilcheck {
 				b = appendNull(b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2899,7 +2899,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 && code.Nilcheck {
 				b = appendNull(b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2946,7 +2946,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = appendIndent(ctx, b, code.Indent+1)
 				b = append(b, code.EscapedKey...)
 				b = append(b, ' ')
-				bb, err := appendMarshalJSON(ctx, code, b, iface, code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, iface, code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -2988,7 +2988,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3030,7 +3030,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = appendIndent(ctx, b, code.Indent+1)
 				b = append(b, code.EscapedKey...)
 				b = append(b, ' ')
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3877,7 +3877,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 && code.Nilcheck {
 				b = appendNull(b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3898,7 +3898,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			b = appendIndent(ctx, b, code.Indent)
 			b = append(b, code.EscapedKey...)
 			b = append(b, ' ')
-			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 			if err != nil {
 				return nil, err
 			}
@@ -3913,7 +3913,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}
@@ -3928,7 +3928,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = appendIndent(ctx, b, code.Indent)
 				b = append(b, code.EscapedKey...)
 				b = append(b, ' ')
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent, true)
+				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p), code.Indent+1, true)
 				if err != nil {
 					return nil, err
 				}

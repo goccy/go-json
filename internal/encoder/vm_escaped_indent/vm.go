@@ -6,7 +6,6 @@ import (
 	"math"
 	"reflect"
 	"sort"
-	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -641,7 +640,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				b = append(b, '{', '\n')
 			}
 			p += code.Offset
-			if p == 0 || (ptrToPtr(p) == 0 && strings.Contains(code.Next.Op.String(), "Ptr")) {
+			if p == 0 || (ptrToPtr(p) == 0 && code.IsNextOpPtrType) {
 				code = code.NextField
 			} else {
 				b = appendIndent(ctx, b, code.Indent+1)
@@ -3272,7 +3271,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 		case encoder.OpStructFieldOmitEmpty:
 			p := load(ctxptr, code.HeadIdx)
 			p += code.Offset
-			if ptrToPtr(p) == 0 && strings.Contains(code.Next.Op.String(), "Ptr") {
+			if ptrToPtr(p) == 0 && code.IsNextOpPtrType {
 				code = code.NextField
 			} else {
 				b = appendIndent(ctx, b, code.Indent)
@@ -4139,7 +4138,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 		case encoder.OpStructFieldOmitEmptyStruct:
 			p := load(ctxptr, code.HeadIdx)
 			p += code.Offset
-			if ptrToPtr(p) == 0 && strings.Contains(code.Next.Op.String(), "Ptr") {
+			if ptrToPtr(p) == 0 && code.IsNextOpPtrType {
 				code = code.NextField
 			} else {
 				b = appendIndent(ctx, b, code.Indent)

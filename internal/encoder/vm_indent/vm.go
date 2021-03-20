@@ -2426,7 +2426,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				p = ptrToNPtr(p+code.Offset, code.PtrNum)
 			}
 			if p != 0 {
+				b = appendIndent(ctx, b, code.Indent+1)
 				b = append(b, code.Key...)
+				b = append(b, ' ')
 				bb, err := appendNumber(b, ptrToNumber(p))
 				if err != nil {
 					return nil, err

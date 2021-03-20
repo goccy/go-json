@@ -891,8 +891,17 @@ func compileListElem(ctx *compileContext) (*Opcode, error) {
 		return compileMarshalJSON(ctx)
 	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
 		return compileMarshalText(ctx)
+	case typ.Kind() == reflect.Map:
+		return compilePtr(ctx.withType(runtime.PtrTo(typ)))
 	default:
-		return compile(ctx, false)
+		code, err := compile(ctx, false)
+		if err != nil {
+			return nil, err
+		}
+		if code.Op == OpMapPtr {
+			code.PtrNum++
+		}
+		return code, nil
 	}
 }
 
@@ -982,7 +991,14 @@ func compileMapValue(ctx *compileContext) (*Opcode, error) {
 	case reflect.Map:
 		return compilePtr(ctx.withType(runtime.PtrTo(ctx.typ)))
 	default:
-		return compile(ctx, false)
+		code, err := compile(ctx, false)
+		if err != nil {
+			return nil, err
+		}
+		if code.Op == OpMapPtr {
+			code.PtrNum++
+		}
+		return code, nil
 	}
 }
 

@@ -7,6 +7,22 @@ import (
 	"github.com/goccy/go-json"
 )
 
+type coverSliceMarshalJSON struct {
+	A int
+}
+
+func (coverSliceMarshalJSON) MarshalJSON() ([]byte, error) {
+	return []byte(`"hello"`), nil
+}
+
+type coverSliceMarshalText struct {
+	A int
+}
+
+func (coverSliceMarshalText) MarshalText() ([]byte, error) {
+	return []byte(`"hello"`), nil
+}
+
 func TestCoverSlice(t *testing.T) {
 	type structSlice struct {
 		A []int `json:"a"`
@@ -50,6 +66,167 @@ func TestCoverSlice(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "SliceInt",
+			data: []int{1, 2, 3},
+		},
+		{
+			name: "SliceInt8",
+			data: []int8{1, 2, 3},
+		},
+		{
+			name: "SliceInt16",
+			data: []int16{1, 2, 3},
+		},
+		{
+			name: "SliceInt32",
+			data: []int32{1, 2, 3},
+		},
+		{
+			name: "SliceInt64",
+			data: []int64{1, 2, 3},
+		},
+		{
+			name: "SliceUint",
+			data: []uint{1, 2, 3},
+		},
+		{
+			name: "SliceUint8",
+			data: []uint8{1, 2, 3},
+		},
+		{
+			name: "SliceUint16",
+			data: []uint16{1, 2, 3},
+		},
+		{
+			name: "SliceUint32",
+			data: []uint32{1, 2, 3},
+		},
+		{
+			name: "SliceUint64",
+			data: []uint64{1, 2, 3},
+		},
+		{
+			name: "SliceFloat32",
+			data: []float32{1, 2, 3},
+		},
+		{
+			name: "SliceFloat64",
+			data: []float64{1, 2, 3},
+		},
+		{
+			name: "SliceString",
+			data: []string{"a", "b"},
+		},
+		{
+			name: "SliceBool",
+			data: []bool{false, true, false},
+		},
+		{
+			name: "SliceBytes",
+			data: [][]byte{[]byte("a"), []byte("b"), nil, []byte("c")},
+		},
+		{
+			name: "SliceSlice",
+			data: [][]int{[]int{1, 2, 3}, nil, []int{4, 5, 6}},
+		},
+		{
+			name: "SliceArray",
+			data: [][3]int{[3]int{1, 2, 3}, [3]int{4, 5, 6}},
+		},
+		{
+			name: "SliceMap",
+			data: []map[string]int{map[string]int{"a": 1}, nil, map[string]int{"b": 2}},
+		},
+		{
+			name: "SliceStruct",
+			data: []struct{ A int }{struct{ A int }{A: 1}, struct{ A int }{A: 2}},
+		},
+		{
+			name: "SliceMarshalJSON",
+			data: []coverSliceMarshalJSON{{A: 1}, {A: 2}},
+		},
+		{
+			name: "SliceMarshalText",
+			data: []coverSliceMarshalText{{A: 1}, {A: 2}},
+		},
+		{
+			name: "SliceIntPtr",
+			data: []*int{intptr(1), intptr(2), nil, intptr(3)},
+		},
+		{
+			name: "SliceInt8Ptr",
+			data: []*int8{int8ptr(1), int8ptr(2), nil, int8ptr(3)},
+		},
+		{
+			name: "SliceInt16Ptr",
+			data: []*int16{int16ptr(1), int16ptr(2), nil, int16ptr(3)},
+		},
+		{
+			name: "SliceInt32Ptr",
+			data: []*int32{int32ptr(1), int32ptr(2), nil, int32ptr(3)},
+		},
+		{
+			name: "SliceInt64Ptr",
+			data: []*int64{int64ptr(1), int64ptr(2), nil, int64ptr(3)},
+		},
+		{
+			name: "SliceUintPtr",
+			data: []*uint{uptr(1), uptr(2), nil, uptr(3)},
+		},
+		{
+			name: "SliceUint8Ptr",
+			data: []*uint8{uint8ptr(1), uint8ptr(2), nil, uint8ptr(3)},
+		},
+		{
+			name: "SliceUint16Ptr",
+			data: []*uint16{uint16ptr(1), uint16ptr(2), nil, uint16ptr(3)},
+		},
+		{
+			name: "SliceUint32Ptr",
+			data: []*uint32{uint32ptr(1), uint32ptr(2), nil, uint32ptr(3)},
+		},
+		{
+			name: "SliceUint64Ptr",
+			data: []*uint64{uint64ptr(1), uint64ptr(2), nil, uint64ptr(3)},
+		},
+		{
+			name: "SliceFloat32Ptr",
+			data: []*float32{float32ptr(1), float32ptr(2), nil, float32ptr(3)},
+		},
+		{
+			name: "SliceFloat64Ptr",
+			data: []*float64{float64ptr(1), float64ptr(2), nil, float64ptr(3)},
+		},
+		{
+			name: "SliceStringPtr",
+			data: []*string{stringptr("a"), nil, stringptr("b")},
+		},
+		{
+			name: "SliceBoolPtr",
+			data: []*bool{boolptr(false), boolptr(true), nil, boolptr(false)},
+		},
+		{
+			name: "SliceBytesPtr",
+			data: []*[]byte{bytesptr([]byte("a")), bytesptr([]byte("b")), nil, bytesptr([]byte("c"))},
+		},
+		{
+			name: "SliceSlicePtr",
+			data: []*[]int{sliceptr([]int{1, 2, 3}), nil, sliceptr([]int{4, 5, 6})},
+		},
+		{
+			name: "SliceArrayPtr",
+			data: []*[2]int{arrayptr([2]int{1, 2}), nil, arrayptr([2]int{4, 5})},
+		},
+		{
+			name: "SliceMapPtr",
+			data: []*map[string]int{mapptr(map[string]int{"a": 1}), nil, mapptr(map[string]int{"b": 2})},
+		},
+		{
+			name: "SliceStructPtr",
+			data: []*struct{ A int }{&struct{ A int }{A: 1}, &struct{ A int }{A: 2}},
+		},
+
 		// HeadSliceZero
 		{
 			name: "HeadSliceZero",
@@ -1838,22 +2015,24 @@ func TestCoverSlice(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, indent := range []bool{true, false} {
-			for _, htmlEscape := range []bool{true, false} {
-				var buf bytes.Buffer
-				enc := json.NewEncoder(&buf)
-				enc.SetEscapeHTML(htmlEscape)
-				if indent {
-					enc.SetIndent("", "  ")
-				}
-				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%v,indent:%v): %+v: %s", test.name, htmlEscape, indent, test.data, err)
-				}
-				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
-				if buf.String() != stdresult {
-					t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
+		t.Run(test.name, func(t *testing.T) {
+			for _, indent := range []bool{true, false} {
+				for _, htmlEscape := range []bool{true, false} {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.SetEscapeHTML(htmlEscape)
+					if indent {
+						enc.SetIndent("", "  ")
+					}
+					if err := enc.Encode(test.data); err != nil {
+						t.Fatalf("%s(htmlEscape:%v,indent:%v): %+v: %s", test.name, htmlEscape, indent, test.data, err)
+					}
+					stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
+					if buf.String() != stdresult {
+						t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
+					}
 				}
 			}
-		}
+		})
 	}
 }

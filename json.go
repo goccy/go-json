@@ -3,7 +3,6 @@ package json
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 
 	"github.com/goccy/go-json/internal/encoder"
 )
@@ -280,7 +279,7 @@ func UnmarshalNoEscape(data []byte, v interface{}) error {
 //	string, for JSON string literals
 //	nil, for JSON null
 //
-type Token interface{}
+type Token = json.Token
 
 // A Number represents a JSON number literal.
 type Number = json.Number
@@ -288,24 +287,10 @@ type Number = json.Number
 // RawMessage is a raw encoded JSON value.
 // It implements Marshaler and Unmarshaler and can
 // be used to delay JSON decoding or precompute a JSON encoding.
-type RawMessage []byte
+type RawMessage = json.RawMessage
 
-// MarshalJSON returns m as the JSON encoding of m.
-func (m RawMessage) MarshalJSON() ([]byte, error) {
-	if m == nil {
-		return []byte("null"), nil
-	}
-	return m, nil
-}
-
-// UnmarshalJSON sets *m to a copy of data.
-func (m *RawMessage) UnmarshalJSON(data []byte) error {
-	if m == nil {
-		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
-	}
-	*m = data
-	return nil
-}
+// A Delim is a JSON array or object delimiter, one of [ ] { or }.
+type Delim = json.Delim
 
 // Compact appends to dst the JSON-encoded src with
 // insignificant space characters elided.

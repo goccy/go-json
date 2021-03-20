@@ -312,7 +312,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 				b = appendComma(b)
-				code = code.Next
+				code = code.End.Next
 				break
 			}
 			store(ctxptr, code.Idx, p)
@@ -358,7 +358,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p == 0 {
 				b = appendNull(b)
 				b = appendComma(b)
-				code = code.Next
+				code = code.End.Next
 				break
 			}
 			store(ctxptr, code.Idx, p)

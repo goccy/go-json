@@ -19,11 +19,14 @@ var (
 	jsonNumberType   = reflect.TypeOf(json.Number(""))
 	cachedOpcodeSets []*OpcodeSet
 	cachedOpcodeMap  unsafe.Pointer // map[uintptr]*OpcodeSet
-	typeAddr         = &runtime.TypeAddr{}
+	typeAddr         *runtime.TypeAddr
 )
 
 func init() {
 	typeAddr = runtime.AnalyzeTypeAddr()
+	if typeAddr == nil {
+		typeAddr = &runtime.TypeAddr{}
+	}
 	cachedOpcodeSets = make([]*OpcodeSet, typeAddr.AddrRange)
 }
 

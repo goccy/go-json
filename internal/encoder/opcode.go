@@ -25,6 +25,7 @@ type Opcode struct {
 	Indirect         bool          // whether indirect or not
 	Nilcheck         bool          // whether needs to nilcheck or not
 	AddrForMarshaler bool          // whether needs to addr for marshaler or not
+	IsNextOpPtrType  bool          // whether next operation is ptr type or not
 	RshiftNum        uint8         // use to take bit for judging whether negative integer or not
 	Mask             uint64        // mask for number
 	Indent           int           // indent number
@@ -240,6 +241,7 @@ func (c *Opcode) copy(codeMap map[uintptr]*Opcode) *Opcode {
 		Indirect:         c.Indirect,
 		Nilcheck:         c.Nilcheck,
 		AddrForMarshaler: c.AddrForMarshaler,
+		IsNextOpPtrType:  c.IsNextOpPtrType,
 		Indent:           c.Indent,
 		Idx:              c.Idx,
 		HeadIdx:          c.HeadIdx,

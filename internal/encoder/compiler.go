@@ -1401,6 +1401,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			Indirect:         indirect,
 			Nilcheck:         nilcheck,
 			AddrForMarshaler: addrForMarshaler,
+			IsNextOpPtrType:  strings.Contains(valueCode.Op.String(), "Ptr"),
 		}
 		if fieldIdx == 0 {
 			fieldCode.HeadIdx = fieldCode.Idx

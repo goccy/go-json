@@ -468,7 +468,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	if err := Indent(
 		&indentBuf,
 		compactBuf.Bytes(),
-		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent+1),
+		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent),
 		string(ctx.IndentStr),
 	); err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}

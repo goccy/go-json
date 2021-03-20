@@ -8,12 +8,6 @@ import (
 	"unsafe"
 )
 
-type Delim rune
-
-func (d Delim) String() string {
-	return string(d)
-}
-
 type decoder interface {
 	decode([]byte, int64, int64, unsafe.Pointer) (int64, error)
 	decodeStream(*stream, int64, unsafe.Pointer) error

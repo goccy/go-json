@@ -3,6 +3,8 @@ package json_test
 import (
 	"bytes"
 	stdjson "encoding/json"
+
+	"github.com/goccy/go-json"
 )
 
 func intptr(v int) *int                       { return &v }
@@ -35,6 +37,8 @@ func boolptr(v bool) *bool                    { return &v }
 func boolptr3(v bool) ***bool                 { vv := &v; vvv := &vv; return &vvv }
 func bytesptr(v []byte) *[]byte               { return &v }
 func bytesptr3(v []byte) ***[]byte            { vv := &v; vvv := &vv; return &vvv }
+func numberptr(v json.Number) *json.Number    { return &v }
+func numberptr3(v json.Number) ***json.Number { vv := &v; vvv := &vv; return &vvv }
 func sliceptr(v []int) *[]int                 { return &v }
 func arrayptr(v [2]int) *[2]int               { return &v }
 func mapptr(v map[string]int) *map[string]int { return &v }

@@ -429,6 +429,8 @@ func convertPtrOp(code *Opcode) OpType {
 		return OpBoolPtr
 	case OpBytes:
 		return OpBytesPtr
+	case OpNumber:
+		return OpNumberPtr
 	case OpArray:
 		return OpArrayPtr
 	case OpSlice:

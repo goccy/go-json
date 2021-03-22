@@ -506,6 +506,7 @@ func compileMarshalJSON(ctx *compileContext) (*Opcode, error) {
 	if !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType) {
 		code.AddrForMarshaler = true
 	}
+	code.IsNilableType = isNilableType(typ)
 	ctx.incIndex()
 	return code, nil
 }
@@ -516,6 +517,7 @@ func compileMarshalText(ctx *compileContext) (*Opcode, error) {
 	if !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType) {
 		code.AddrForMarshaler = true
 	}
+	code.IsNilableType = isNilableType(typ)
 	ctx.incIndex()
 	return code, nil
 }
@@ -1274,11 +1276,9 @@ func isNilableType(typ *runtime.Type) bool {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return true
-	case reflect.Interface:
-		return true
-	case reflect.Slice:
-		return true
 	case reflect.Map:
+		return true
+	case reflect.Func:
 		return true
 	default:
 		return false
@@ -1418,6 +1418,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			Nilcheck:         nilcheck,
 			AddrForMarshaler: addrForMarshaler,
 			IsNextOpPtrType:  strings.Contains(valueCode.Op.String(), "Ptr"),
+			IsNilableType:    isNilableType,
 		}
 		if fieldIdx == 0 {
 			fieldCode.HeadIdx = fieldCode.Idx

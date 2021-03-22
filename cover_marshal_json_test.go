@@ -39,6 +39,16 @@ func (c *coverPtrMarshalJSONString) MarshalJSON() ([]byte, error) {
 	return []byte(c.C), nil
 }
 
+type coverFuncMarshalJSON func()
+
+func (f coverFuncMarshalJSON) MarshalJSON() ([]byte, error) {
+	if f == nil {
+		return []byte(`null`), nil
+	}
+	f()
+	return []byte(`"func"`), nil
+}
+
 func TestCoverMarshalJSON(t *testing.T) {
 	type structMarshalJSON struct {
 		A coverMarshalJSON `json:"a"`
@@ -82,6 +92,31 @@ func TestCoverMarshalJSON(t *testing.T) {
 		name string
 		data interface{}
 	}{
+		{
+			name: "FuncMarshalJSON",
+			data: coverFuncMarshalJSON(func() {}),
+		},
+		{
+			name: "StructFuncMarshalJSON",
+			data: struct {
+				A coverFuncMarshalJSON
+			}{A: func() {}},
+		},
+		{
+			name: "StructFuncMarshalJSONMultiFields",
+			data: struct {
+				A coverFuncMarshalJSON
+				B coverFuncMarshalJSON
+			}{A: func() {}, B: func() {}},
+		},
+		{
+			name: "PtrStructFuncMarshalJSONMultiFields",
+			data: &struct {
+				A coverFuncMarshalJSON
+				B coverFuncMarshalJSON
+				C coverFuncMarshalJSON
+			}{A: func() {}, B: nil, C: func() {}},
+		},
 		{
 			name: "MarshalJSON",
 			data: coverMarshalJSON{A: 1},
@@ -3652,22 +3687,24 @@ func TestCoverMarshalJSON(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		for _, indent := range []bool{true, false} {
-			for _, htmlEscape := range []bool{true, false} {
-				var buf bytes.Buffer
-				enc := json.NewEncoder(&buf)
-				enc.SetEscapeHTML(htmlEscape)
-				if indent {
-					enc.SetIndent("", "  ")
-				}
-				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%v,indent:%v): %+v: %s", test.name, htmlEscape, indent, test.data, err)
-				}
-				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
-				if buf.String() != stdresult {
-					t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
+		t.Run(test.name, func(t *testing.T) {
+			for _, indent := range []bool{true, false} {
+				for _, htmlEscape := range []bool{true, false} {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.SetEscapeHTML(htmlEscape)
+					if indent {
+						enc.SetIndent("", "  ")
+					}
+					if err := enc.Encode(test.data); err != nil {
+						t.Fatalf("%s(htmlEscape:%v,indent:%v): %+v: %s", test.name, htmlEscape, indent, test.data, err)
+					}
+					stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
+					if buf.String() != stdresult {
+						t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
+					}
 				}
 			}
-		}
+		})
 	}
 }

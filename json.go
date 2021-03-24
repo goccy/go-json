@@ -13,6 +13,10 @@ type Marshaler interface {
 	MarshalJSON() ([]byte, error)
 }
 
+type QueryResolver interface {
+	ResolveQueryJSON(*Query) (interface{}, error)
+}
+
 // Unmarshaler is the interface implemented by types
 // that can unmarshal a JSON description of themselves.
 // The input can be assumed to be a valid encoding of
@@ -170,6 +174,10 @@ func MarshalWithOption(v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, err
 		opt = optFunc(opt)
 	}
 	return marshal(v, opt)
+}
+
+func MarshalWithQuery(v interface{}, q *Query) ([]byte, error) {
+	return marshalQuery(v, q)
 }
 
 // MarshalIndent is like Marshal but applies Indent to format the output.

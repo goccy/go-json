@@ -148,6 +148,27 @@ func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 	return copied, nil
 }
 
+func marshalQuery(v interface{}, q *Query) ([]byte, error) {
+	ctx := takeEncodeRuntimeContext()
+
+	buf, err := encode(ctx, v, EncodeOptionHTMLEscape)
+	if err != nil {
+		releaseEncodeRuntimeContext(ctx)
+		return nil, err
+	}
+
+	// this line exists to escape call of `runtime.makeslicecopy` .
+	// if use `make([]byte, len(buf)-1)` and `copy(copied, buf)`,
+	// dst buffer size and src buffer size are differrent.
+	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
+	buf = buf[:len(buf)-1]
+	copied := make([]byte, len(buf))
+	copy(copied, buf)
+
+	releaseEncodeRuntimeContext(ctx)
+	return copied, nil
+}
+
 func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
 	ctx := takeEncodeRuntimeContext()
 

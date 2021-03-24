@@ -102,6 +102,28 @@ func decodeCompile(typ *rtype, structName, fieldName string, structTypeToDecoder
 	}
 }
 
+func isStringTagSupportedType(typ *rtype) bool {
+	switch {
+	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
+		return false
+	case rtype_ptrTo(typ).Implements(unmarshalTextType):
+		return false
+	}
+	switch typ.Kind() {
+	case reflect.Map:
+		return false
+	case reflect.Slice:
+		return false
+	case reflect.Array:
+		return false
+	case reflect.Struct:
+		return false
+	case reflect.Interface:
+		return false
+	}
+	return true
+}
+
 func decodeCompileMapKey(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
 	if rtype_ptrTo(typ).Implements(unmarshalTextType) {
 		return newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName), nil
@@ -416,7 +438,7 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 				}
 			}
 		} else {
-			if tag.IsString {
+			if tag.IsString && isStringTagSupportedType(type2rtype(field.Type)) {
 				dec = newWrappedStringDecoder(type2rtype(field.Type), dec, structName, field.Name)
 			}
 			var key string

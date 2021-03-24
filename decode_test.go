@@ -2514,7 +2514,6 @@ func TestInvalidUnmarshalText(t *testing.T) {
 	}
 }
 
-/*
 // Test that string option is ignored for invalid types.
 // Issue 9812.
 func TestInvalidStringOption(t *testing.T) {
@@ -2532,13 +2531,11 @@ func TestInvalidStringOption(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-
 	err = json.Unmarshal(data, &item)
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 }
-*/
 
 // Test unmarshal behavior with regards to embedded unexported structs.
 //

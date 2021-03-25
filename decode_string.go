@@ -157,21 +157,26 @@ RETRY:
 }
 
 var (
-	runeErrBytes = []byte(string(utf8.RuneError))
+	runeErrBytes    = []byte(string(utf8.RuneError))
+	runeErrBytesLen = int64(len(runeErrBytes))
 )
 
 func stringBytes(s *stream) ([]byte, error) {
-	s.cursor++ // skip double quote char
-	start := s.cursor
+	_, cursor, p := s.stat()
+	cursor++ // skip double quote char
+	start := cursor
 	for {
-		switch s.buf[s.cursor] {
+		switch char(p, cursor) {
 		case '\\':
+			s.cursor = cursor
 			if err := decodeEscapeString(s); err != nil {
 				return nil, err
 			}
+			cursor = s.cursor
 		case '"':
-			literal := s.buf[start:s.cursor]
-			s.cursor++
+			literal := s.buf[start:cursor]
+			cursor++
+			s.cursor = cursor
 			return literal, nil
 		case
 			// 0x00 is nul, 0x5c is '\\', 0x22 is '"' .
@@ -192,32 +197,37 @@ func stringBytes(s *stream) ([]byte, error) {
 			0xC0, 0xC1, // 0xC0-0xC1
 			0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF: // 0xF5-0xFE
 			// character is invalid
-			s.buf = append(append(append([]byte{}, s.buf[:s.cursor]...), runeErrBytes...), s.buf[s.cursor+1:]...)
-			s.cursor += int64(len(runeErrBytes))
+			s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
+			_, _, p = s.stat()
+			cursor += runeErrBytesLen
 			continue
 		case nul:
+			s.cursor = cursor
 			if s.read() {
+				_, cursor, p = s.stat()
 				continue
 			}
 			goto ERROR
 		case 0xEF:
 			// RuneError is {0xEF, 0xBF, 0xBD}
-			if s.buf[s.cursor+1] == 0xBF && s.buf[s.cursor+2] == 0xBD {
+			if s.buf[cursor+1] == 0xBF && s.buf[cursor+2] == 0xBD {
 				// found RuneError: skip
-				s.cursor += 2
+				cursor += 2
 				break
 			}
 			fallthrough
 		default:
-			r, _ := utf8.DecodeRune(s.buf[s.cursor:])
+			// multi bytes character
+			r, _ := utf8.DecodeRune(s.buf[cursor:])
 			b := []byte(string(r))
 			if r == utf8.RuneError {
-				s.buf = append(append(append([]byte{}, s.buf[:s.cursor]...), b...), s.buf[s.cursor+1:]...)
+				s.buf = append(append(append([]byte{}, s.buf[:cursor]...), b...), s.buf[cursor+1:]...)
+				_, _, p = s.stat()
 			}
-			s.cursor += int64(len(b))
+			cursor += int64(len(b))
 			continue
 		}
-		s.cursor++
+		cursor++
 	}
 ERROR:
 	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())

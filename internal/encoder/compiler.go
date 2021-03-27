@@ -65,6 +65,7 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	code = copyOpcode(code)
 	codeLength := code.TotalLength()
 	codeSet := &OpcodeSet{
+		Type:       copiedType,
 		Code:       code,
 		CodeLength: codeLength,
 	}

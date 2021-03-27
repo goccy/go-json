@@ -130,6 +130,7 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
+	Type       *runtime.Type
 	Code       *Opcode
 	CodeLength int
 }

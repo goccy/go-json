@@ -45,6 +45,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("=============[DEBUG]===============")
+			fmt.Println("* [TYPE]")
+			fmt.Println(codeSet.Type)
+			fmt.Printf("\n")
 			fmt.Println("* [ALL OPCODE]")
 			fmt.Println(codeSet.Code.Dump())
 			fmt.Printf("\n")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/goccy/go-json"
@@ -21,69 +22,66 @@ type UserAddress struct {
 	Address2 string
 }
 
-type UserAddressResolver func() (*UserAddress, error)
-
-func (resolver UserAddressResolver) MarshalJSON() ([]byte, error) {
-	address, err := resolver()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(address)
+type UserRepository struct {
+	uaRepo *UserAddressRepository
 }
 
-func (resolver UserAddressResolver) ResolveQueryJSON(q *json.Query) (interface{}, error) {
-	// validate or rewrite json.Query
-	//
-	address, err := resolver()
-	if err != nil {
-		return nil, err
+func NewUserRepository() *UserRepository {
+	return &UserRepository{
+		uaRepo: NewUserAddressRepository(),
 	}
-	return address, nil
-}
-
-type UserRepository struct{}
-
-func (r UserRepository) FindByID(id int64) (*User, error) {
-	v := User{ID: id, Name: "Ken", Age: 20}
-	// resolve relation from User to UserAddress
-	uaRepo := new(UserAddressRepository)
-	v.Address = func() (*UserAddress, error) {
-		return uaRepo.FindByUserID(v.ID)
-	}
-	return v, nil
 }
 
 type UserAddressRepository struct{}
 
-func (r UserAddressRepository) FindByUserID(id int64) (*UserAddress, error) {
-	return &UserAddress{UserID: id, City: "A", Address1: "hoge", Address2: "fuga"}, nil
+func NewUserAddressRepository() *UserAddressRepository {
+	return &UserAddressRepository{}
+}
+
+type UserAddressResolver func(context.Context) (*UserAddress, error)
+
+func (resolver UserAddressResolver) MarshalJSON(ctx context.Context) ([]byte, error) {
+	address, err := resolver(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalWithQuery(address, json.QueryFromContext(ctx))
+}
+
+func (r *UserRepository) FindByID(ctx context.Context, id int64) (*User, error) {
+	v := User{ID: id, Name: "Ken", Age: 20}
+	// resolve relation from User to UserAddress
+	v.Address = func(ctx context.Context) (*UserAddress, error) {
+		return r.uaRepo.FindByUserID(ctx, v.ID)
+	}
+	return v, nil
+}
+
+func (*UserAddressRepository) FindByUserID(ctx context.Context, id int64) (*UserAddress, error) {
+	return &UserAddress{
+		UserID:   id,
+		City:     "A",
+		Address1: "hoge",
+		Address2: "fuga",
+	}, nil
 }
 
 func main() {
-	user, err := new(UserRepository).FindByID(1)
+	userRepo := NewUserRepository()
+	user, err := userRepo.FindByID(context.Background(), 1)
 	if err != nil {
 		panic(err)
 	}
-	{
-		b, err := json.Marshal(user)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(string(b))
+	q := json.NewQuery().Fields(
+		"Name",
+		"Age",
+		json.NewQuery("Address").Fields(
+			"City",
+		),
+	)
+	b, err := json.MarshalWithQuery(user, q)
+	if err != nil {
+		panic(err)
 	}
-	{
-		//json.QueryFromJSON(`["Name", "Age", { "Address": [ "City" ] }]`)
-		q := json.NewQuery().Fields(
-			"Name",
-			"Age",
-			json.NewQuery("Address").Fields(
-				"City",
-			),
-		)
-		b, err := json.MarshalWithQuery(user, q)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(string(b))
-	}
+	fmt.Println(string(b))
 }

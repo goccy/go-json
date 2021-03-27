@@ -1,20 +1,26 @@
 package json
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type Query struct {
-	query *subQuery
-	err   error
+	name   string
+	fields []*Query
+	err    error
 }
+
+type queryKey struct{}
 
 func (q *Query) String() string {
 	if q.err != nil {
 		return ""
 	}
-	if q.query == nil {
+	if q.fields == nil {
 		return ""
 	}
-	b, err := Marshal(q.query.dump())
+	b, err := Marshal(q.dump())
 	if err != nil {
 		return ""
 	}
@@ -29,9 +35,9 @@ func (q *Query) Fields(fieldNameOrQueryList ...interface{}) *Query {
 	for _, fieldNameOrQuery := range fieldNameOrQueryList {
 		switch v := fieldNameOrQuery.(type) {
 		case string:
-			q.fields = append(q.fields, &subQuery{name: v})
+			q.fields = append(q.fields, &Query{name: v})
 		case *Query:
-			q.fields = append(q.fields, v.query)
+			q.fields = append(q.fields, v)
 			q.err = v.err
 		default:
 			q.err = fmt.Errorf("children types must be string or *Query but found %T", fieldNameOrQuery)
@@ -43,21 +49,7 @@ func (q *Query) Fields(fieldNameOrQueryList ...interface{}) *Query {
 	return q
 }
 
-func NewQuery(name ...string) *Query {
-	if len(name) > 1 {
-		return &Query{err: fmt.Errorf(
-			"NewQuery's argument allow empty or single name only, but passed %v", name,
-		)}
-	}
-	return &Query{query: &subQuery{name: name}}
-}
-
-type subQuery struct {
-	name   string
-	fields []*subQuery
-}
-
-func (q *subQuery) dump() interface{} {
+func (q *Query) dump() interface{} {
 	fields := []interface{}{}
 	for _, field := range q.fields {
 		fields = append(fields, field.dump())
@@ -68,4 +60,25 @@ func (q *subQuery) dump() interface{} {
 		}
 	}
 	return interface{}(fields)
+}
+
+func NewQuery(name ...string) *Query {
+	if len(name) > 1 {
+		return &Query{err: fmt.Errorf(
+			"NewQuery's argument allow empty or single name only, but passed %v", name,
+		)}
+	}
+	return &Query{name: name}
+}
+
+func QueryFromContext(ctx context.Context) *Query {
+	query := ctx.Value(queryKey{})
+	if query == nil {
+		return nil
+	}
+	q, ok := query.(*Query)
+	if !ok {
+		return nil
+	}
+	return q
 }

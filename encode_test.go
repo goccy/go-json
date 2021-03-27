@@ -410,6 +410,22 @@ func Test_Marshal(t *testing.T) {
 	})
 }
 
+type mustErrTypeForDebug struct{}
+
+func (mustErrTypeForDebug) MarshalJSON() ([]byte, error) {
+	panic("panic")
+	return nil, fmt.Errorf("panic")
+}
+
+func TestDebugMode(t *testing.T) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Fatal("expected error")
+		}
+	}()
+	json.MarshalWithOption(mustErrTypeForDebug{}, json.Debug())
+}
+
 func TestIssue116(t *testing.T) {
 	t.Run("first", func(t *testing.T) {
 		type Boo struct{ B string }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/encoder/vm"
+	"github.com/goccy/go-json/internal/encoder/vm_debug"
 	"github.com/goccy/go-json/internal/encoder/vm_escaped"
 	"github.com/goccy/go-json/internal/encoder/vm_escaped_indent"
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
@@ -31,6 +32,7 @@ const (
 	EncodeOptionHTMLEscape EncodeOption = 1 << iota
 	EncodeOptionIndent
 	EncodeOptionUnorderedMap
+	EncodeOptionDebug
 )
 
 var (
@@ -272,6 +274,9 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 }
 
 func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt EncodeOption) ([]byte, error) {
+	if (opt & EncodeOptionDebug) != 0 {
+		return vm_debug.Run(ctx, b, codeSet, encoder.Option(opt))
+	}
 	if (opt & EncodeOptionHTMLEscape) != 0 {
 		return vm_escaped.Run(ctx, b, codeSet, encoder.Option(opt))
 	}

@@ -1,2 +1,2 @@
 ignore:
-  - encode_optype.go
+  - internal/encoder/vm_debug

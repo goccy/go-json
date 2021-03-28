@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/goccy/go-json"
 )
@@ -2901,5 +2902,30 @@ func TestUnmarshalMaxDepth(t *testing.T) {
 				})
 			})
 		}
+	}
+}
+
+func TestDecodeSlice(t *testing.T) {
+	type B struct{ Int int32 }
+	type A struct{ B *B }
+	type X struct{ A []*A }
+
+	w1 := &X{}
+	w2 := &X{}
+
+	if err := json.Unmarshal([]byte(`{"a": [ {"b":{"int": 42} } ] }`), w1); err != nil {
+		t.Fatal(err)
+	}
+	w1addr := uintptr(unsafe.Pointer(w1.A[0].B))
+
+	if err := json.Unmarshal([]byte(`{"a": [ {"b":{"int": 112} } ] }`), w2); err != nil {
+		t.Fatal(err)
+	}
+	if uintptr(unsafe.Pointer(w1.A[0].B)) != w1addr {
+		t.Fatal("wrong addr")
+	}
+	w2addr := uintptr(unsafe.Pointer(w2.A[0].B))
+	if w1addr == w2addr {
+		t.Fatal("invaid address")
 	}
 }

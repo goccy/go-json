@@ -33,7 +33,7 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fie
 	return &sliceDecoder{
 		valueDecoder:      dec,
 		elemType:          elemType,
-		isElemPointerType: elemType.Kind() == reflect.Ptr,
+		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
 		size:              size,
 		arrayPool: sync.Pool{
 			New: func() interface{} {

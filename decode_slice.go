@@ -7,12 +7,13 @@ import (
 )
 
 type sliceDecoder struct {
-	elemType     *rtype
-	valueDecoder decoder
-	size         uintptr
-	arrayPool    sync.Pool
-	structName   string
-	fieldName    string
+	elemType          *rtype
+	isElemPointerType bool
+	valueDecoder      decoder
+	size              uintptr
+	arrayPool         sync.Pool
+	structName        string
+	fieldName         string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -30,9 +31,10 @@ const (
 
 func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
-		valueDecoder: dec,
-		elemType:     elemType,
-		size:         size,
+		valueDecoder:      dec,
+		elemType:          elemType,
+		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
+		size:              size,
 		arrayPool: sync.Pool{
 			New: func() interface{} {
 				return &sliceHeader{
@@ -114,7 +116,11 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
-				if err := d.valueDecoder.decodeStream(s, depth, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size)); err != nil {
+				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
+				if d.isElemPointerType {
+					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				}
+				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
 					return err
 				}
 				s.skipWhiteSpace()
@@ -224,7 +230,11 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(d.elemType, dst, src)
 				}
-				c, err := d.valueDecoder.decode(buf, cursor, depth, unsafe.Pointer(uintptr(data)+uintptr(idx)*d.size))
+				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
+				if d.isElemPointerType {
+					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				}
+				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
 				if err != nil {
 					return 0, err
 				}

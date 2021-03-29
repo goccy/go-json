@@ -1,3 +1,21 @@
+# v0.4.9 - 2021/3/29
+
+### Add debug mode
+
+If you use `json.MarshalWithOption(v, json.Debug())` and `panic` occurred in `go-json`, produces debug information to console.
+
+### Support a new feature to compatible with encoding/json
+
+- invalid UTF-8 is coerced to valid UTF-8 ( without performance down )
+
+### Fix encoder
+
+- Fixed handling of MarshalJSON of function type
+
+### Fix decoding of slice of pointer type
+
+If there is a pointer value, go-json will use it. (This behavior is necessary to achieve the ability to prioritize pre-filled values). However, since slices are reused internally, there was a bug that referred to the previous pointer value. Therefore, it is not necessary to refer to the pointer value in advance for the slice element, so we explicitly initialize slice element by `nil`.
+
 # v0.4.8 - 2021/3/21
 
 ### Reduce memory usage at compile time

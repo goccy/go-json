@@ -1399,7 +1399,15 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 				valueCode.Indirect = indirect
 			}
 		} else {
-			valueCode.Indirect = indirect
+			if indirect {
+				// if parent is indirect type, set child indirect property to true
+				valueCode.Indirect = indirect
+			} else {
+				// if parent is not indirect type and child have only one field, set child indirect property to false
+				if i == 0 && valueCode.NextField != nil && valueCode.NextField.Op == OpStructEnd {
+					valueCode.Indirect = indirect
+				}
+			}
 		}
 		key := fmt.Sprintf(`"%s":`, tag.Key)
 		escapedKey := fmt.Sprintf(`%s:`, string(AppendEscapedString([]byte{}, tag.Key)))

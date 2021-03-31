@@ -33,6 +33,18 @@ func TestCoverString(t *testing.T) {
 		data interface{}
 	}{
 		{
+			name: "PtrHeadStringComplicated",
+			data: &struct {
+				X *struct {
+					A string
+					B []string
+				}
+			}{X: &struct {
+				A string
+				B []string
+			}{A: "hello", B: []string{"a", "b"}}},
+		},
+		{
 			name: "String",
 			data: string("a"),
 		},

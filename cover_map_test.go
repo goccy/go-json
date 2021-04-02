@@ -7,6 +7,11 @@ import (
 	"github.com/goccy/go-json"
 )
 
+type recursiveMap struct {
+	A int
+	B map[string]*recursiveMap
+}
+
 func TestCoverMap(t *testing.T) {
 	type structMap struct {
 		A map[string]int `json:"a"`
@@ -54,6 +59,38 @@ func TestCoverMap(t *testing.T) {
 			name: "NestedMap",
 			data: map[string]map[string]int{"a": {"b": 1}},
 		},
+		{
+			name: "RecursiveMap",
+			data: map[string]*recursiveMap{
+				"keyA": {
+					A: 1,
+					B: map[string]*recursiveMap{
+						"keyB": {
+							A: 2,
+							B: map[string]*recursiveMap{
+								"keyC": {
+									A: 3,
+								},
+							},
+						},
+					},
+				},
+				"keyD": {
+					A: 4,
+					B: map[string]*recursiveMap{
+						"keyE": {
+							A: 5,
+							B: map[string]*recursiveMap{
+								"keyF": {
+									A: 6,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+
 		// HeadMapZero
 		{
 			name: "HeadMapZero",

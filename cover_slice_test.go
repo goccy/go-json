@@ -23,6 +23,11 @@ func (coverSliceMarshalText) MarshalText() ([]byte, error) {
 	return []byte(`"hello"`), nil
 }
 
+type recursiveSlice struct {
+	A int
+	B []*recursiveSlice
+}
+
 func TestCoverSlice(t *testing.T) {
 	type structSlice struct {
 		A []int `json:"a"`
@@ -225,6 +230,33 @@ func TestCoverSlice(t *testing.T) {
 		{
 			name: "SliceStructPtr",
 			data: []*struct{ A int }{&struct{ A int }{A: 1}, &struct{ A int }{A: 2}},
+		},
+		{
+			name: "RecursiveSlice",
+			data: []*recursiveSlice{
+				{
+					A: 1, B: []*recursiveSlice{
+						{
+							A: 2, B: []*recursiveSlice{
+								{
+									A: 3,
+								},
+							},
+						},
+					},
+				},
+				{
+					A: 4, B: []*recursiveSlice{
+						{
+							A: 5, B: []*recursiveSlice{
+								{
+									A: 6,
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 
 		// HeadSliceZero

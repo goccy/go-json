@@ -563,6 +563,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			offsetNum := ptrOffset / uintptrSize
 			oldOffset := ptrOffset
 			ptrOffset += code.Jmp.CurLen * uintptrSize
+			oldBaseIndent := ctx.BaseIndent
+			ctx.BaseIndent += code.Indent - 1
 
 			newLen := offsetNum + code.Jmp.CurLen + code.Jmp.NextLen
 			if curlen < newLen {
@@ -573,12 +575,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, c.Idx, ptr)
 			store(ctxptr, c.End.Next.Idx, oldOffset)
 			store(ctxptr, c.End.Next.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
+			store(ctxptr, c.End.Next.Length, uintptr(oldBaseIndent))
 			code = c
 			recursiveLevel++
 		case encoder.OpRecursiveEnd:
 			recursiveLevel--
 
 			// restore ctxptr
+			ctx.BaseIndent = int(load(ctxptr, code.Length))
 			offset := load(ctxptr, code.Idx)
 			ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
 

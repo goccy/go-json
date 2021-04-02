@@ -8,28 +8,84 @@ import (
 )
 
 type interfaceDecoder struct {
-	typ        *rtype
-	structName string
-	fieldName  string
+	typ           *rtype
+	structName    string
+	fieldName     string
+	sliceDecoder  *sliceDecoder
+	mapDecoder    *mapDecoder
+	floatDecoder  *floatDecoder
+	numberDecoder *numberDecoder
+	stringDecoder *stringDecoder
+}
+
+func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
+	ifaceDecoder := &interfaceDecoder{
+		typ:        emptyInterfaceType,
+		structName: structName,
+		fieldName:  fieldName,
+		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+			*(*interface{})(p) = v
+		}),
+		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v Number) {
+			*(*interface{})(p) = v
+		}),
+		stringDecoder: newStringDecoder(structName, fieldName),
+	}
+	ifaceDecoder.sliceDecoder = newSliceDecoder(
+		ifaceDecoder,
+		emptyInterfaceType,
+		emptyInterfaceType.Size(),
+		structName, fieldName,
+	)
+	ifaceDecoder.mapDecoder = newMapDecoder(
+		interfaceMapType,
+		stringType,
+		ifaceDecoder.stringDecoder,
+		interfaceMapType.Elem(),
+		ifaceDecoder,
+		structName,
+		fieldName,
+	)
+	return ifaceDecoder
 }
 
 func newInterfaceDecoder(typ *rtype, structName, fieldName string) *interfaceDecoder {
+	emptyIfaceDecoder := newEmptyInterfaceDecoder(structName, fieldName)
+	stringDecoder := newStringDecoder(structName, fieldName)
 	return &interfaceDecoder{
 		typ:        typ,
 		structName: structName,
 		fieldName:  fieldName,
+		sliceDecoder: newSliceDecoder(
+			emptyIfaceDecoder,
+			emptyInterfaceType,
+			emptyInterfaceType.Size(),
+			structName, fieldName,
+		),
+		mapDecoder: newMapDecoder(
+			interfaceMapType,
+			stringType,
+			stringDecoder,
+			interfaceMapType.Elem(),
+			emptyIfaceDecoder,
+			structName,
+			fieldName,
+		),
+		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+			*(*interface{})(p) = v
+		}),
+		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v Number) {
+			*(*interface{})(p) = v
+		}),
+		stringDecoder: stringDecoder,
 	}
 }
 
 func (d *interfaceDecoder) numDecoder(s *stream) decoder {
 	if s.useNumber {
-		return newNumberDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v Number) {
-			*(*interface{})(p) = v
-		})
+		return d.numberDecoder
 	}
-	return newFloatDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v float64) {
-		*(*interface{})(p) = v
-	})
+	return d.floatDecoder
 }
 
 var (
@@ -122,15 +178,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, depth int64, p 
 		case '{':
 			var v map[string]interface{}
 			ptr := unsafe.Pointer(&v)
-			if err := newMapDecoder(
-				interfaceMapType,
-				stringType,
-				newStringDecoder(d.structName, d.fieldName),
-				interfaceMapType.Elem(),
-				newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
-				d.structName,
-				d.fieldName,
-			).decodeStream(s, depth, ptr); err != nil {
+			if err := d.mapDecoder.decodeStream(s, depth, ptr); err != nil {
 				return err
 			}
 			*(*interface{})(p) = v
@@ -138,13 +186,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *stream, depth int64, p 
 		case '[':
 			var v []interface{}
 			ptr := unsafe.Pointer(&v)
-			if err := newSliceDecoder(
-				newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
-				emptyInterfaceType,
-				emptyInterfaceType.Size(),
-				d.structName,
-				d.fieldName,
-			).decodeStream(s, depth, ptr); err != nil {
+			if err := d.sliceDecoder.decodeStream(s, depth, ptr); err != nil {
 				return err
 			}
 			*(*interface{})(p) = v
@@ -308,15 +350,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor, depth int64,
 	case '{':
 		var v map[string]interface{}
 		ptr := unsafe.Pointer(&v)
-		dec := newMapDecoder(
-			interfaceMapType,
-			stringType,
-			newStringDecoder(d.structName, d.fieldName),
-			interfaceMapType.Elem(),
-			newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
-			d.structName, d.fieldName,
-		)
-		cursor, err := dec.decode(buf, cursor, depth, ptr)
+		cursor, err := d.mapDecoder.decode(buf, cursor, depth, ptr)
 		if err != nil {
 			return 0, err
 		}
@@ -325,27 +359,18 @@ func (d *interfaceDecoder) decodeEmptyInterface(buf []byte, cursor, depth int64,
 	case '[':
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
-		dec := newSliceDecoder(
-			newInterfaceDecoder(emptyInterfaceType, d.structName, d.fieldName),
-			emptyInterfaceType,
-			emptyInterfaceType.Size(),
-			d.structName, d.fieldName,
-		)
-		cursor, err := dec.decode(buf, cursor, depth, ptr)
+		cursor, err := d.sliceDecoder.decode(buf, cursor, depth, ptr)
 		if err != nil {
 			return 0, err
 		}
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return newFloatDecoder(d.structName, d.fieldName, func(p unsafe.Pointer, v float64) {
-			*(*interface{})(p) = v
-		}).decode(buf, cursor, depth, p)
+		return d.floatDecoder.decode(buf, cursor, depth, p)
 	case '"':
 		var v string
 		ptr := unsafe.Pointer(&v)
-		dec := newStringDecoder(d.structName, d.fieldName)
-		cursor, err := dec.decode(buf, cursor, depth, ptr)
+		cursor, err := d.stringDecoder.decode(buf, cursor, depth, ptr)
 		if err != nil {
 			return 0, err
 		}

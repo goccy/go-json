@@ -1,3 +1,7 @@
+# v0.4.11 - 2021/4/3
+
+* Improve decoder performance for interface type
+
 # v0.4.10 - 2021/4/2
 
 ### Fix encoder

@@ -53,6 +53,35 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	return validateEndBuf(src, cursor)
 }
 
+func unmarshalNoCopy(src []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	header := (*emptyInterface)(unsafe.Pointer(&v))
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decoder.CompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	rctx := decoder.TakeRuntimeContext()
+	rctx.Buf = src
+	rctx.Option.Flags = 0
+	for _, optFunc := range optFuncs {
+		optFunc(rctx.Option)
+	}
+	cursor, err := dec.Decode(rctx, 0, 0, header.ptr)
+	if err != nil {
+		decoder.ReleaseRuntimeContext(rctx)
+		return err
+	}
+	decoder.ReleaseRuntimeContext(rctx)
+	return validateEndBuf(src, cursor)
+}
+
 func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)

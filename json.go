@@ -291,6 +291,10 @@ func UnmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc)
 	return unmarshalNoEscape(data, v, optFuncs...)
 }
 
+func UnmarshalNoCopy(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	return unmarshalNoCopy(data, v, optFuncs...)
+}
+
 // A Token holds a value of one of these types:
 //
 //	Delim, for the four JSON delimiters [ ] { }

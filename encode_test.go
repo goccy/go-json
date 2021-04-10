@@ -1805,3 +1805,45 @@ func TestIssue104(t *testing.T) {
 		t.Fatalf("expect %q but got %q", string(expect), string(got))
 	}
 }
+
+func TestIssue180(t *testing.T) {
+	v := struct {
+		T struct {
+			T1 bool        `json:"t1"`
+			T2 float64     `json:"t2"`
+			T3 string      `json:"t3"`
+			T4 []string    `json:"t4"`
+			T5 *struct{}   `json:"t5"`
+			T6 interface{} `json:"t6"`
+			T7 [][]string  `json:"t7"`
+		} `json:"t"`
+	}{
+		T: struct {
+			T1 bool        `json:"t1"`
+			T2 float64     `json:"t2"`
+			T3 string      `json:"t3"`
+			T4 []string    `json:"t4"`
+			T5 *struct{}   `json:"t5"`
+			T6 interface{} `json:"t6"`
+			T7 [][]string  `json:"t7"`
+		}{
+			T4: []string{},
+			T7: [][]string{
+				[]string{""},
+				[]string{"hello", "world"},
+				[]string{},
+			},
+		},
+	}
+	b1, err := stdjson.MarshalIndent(v, "", "\t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2, err := json.MarshalIndent(v, "", "\t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(b1, b2) {
+		t.Fatalf("failed to equal encoded result: expected %s but got %s", string(b1), string(b2))
+	}
+}

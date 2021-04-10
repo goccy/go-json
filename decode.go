@@ -2,6 +2,7 @@ package json
 
 import (
 	"encoding"
+	"fmt"
 	"io"
 	"reflect"
 	"strconv"
@@ -40,10 +41,11 @@ func unmarshal(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if _, err := dec.decode(src, 0, 0, header.ptr); err != nil {
+	cursor, err := dec.decode(src, 0, 0, header.ptr)
+	if err != nil {
 		return err
 	}
-	return nil
+	return validateEndBuf(src, cursor)
 }
 
 func unmarshalNoEscape(data []byte, v interface{}) error {
@@ -59,10 +61,27 @@ func unmarshalNoEscape(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	if _, err := dec.decode(src, 0, 0, noescape(header.ptr)); err != nil {
+	cursor, err := dec.decode(src, 0, 0, noescape(header.ptr))
+	if err != nil {
 		return err
 	}
-	return nil
+	return validateEndBuf(src, cursor)
+}
+
+func validateEndBuf(src []byte, cursor int64) error {
+	for {
+		switch src[cursor] {
+		case ' ', '\t', '\n', '\r':
+			cursor++
+			continue
+		case nul:
+			return nil
+		}
+		return errSyntax(
+			fmt.Sprintf("invalid character '%c' after top-level value", src[cursor]),
+			cursor+1,
+		)
+	}
 }
 
 //nolint:staticcheck

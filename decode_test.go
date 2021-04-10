@@ -3,6 +3,7 @@ package json_test
 import (
 	"bytes"
 	"encoding"
+	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -2928,4 +2929,25 @@ func TestDecodeSlice(t *testing.T) {
 	if w1addr == w2addr {
 		t.Fatal("invaid address")
 	}
+}
+
+func TestInvalidTopLevelValue(t *testing.T) {
+	t.Run("invalid end of buffer", func(t *testing.T) {
+		var v struct{}
+		if err := stdjson.Unmarshal([]byte(`{}0`), &v); err == nil {
+			t.Fatal("expected error")
+		}
+		if err := json.Unmarshal([]byte(`{}0`), &v); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	t.Run("invalid object", func(t *testing.T) {
+		var v interface{}
+		if err := stdjson.Unmarshal([]byte(`{"a":4}{"a"5}`), &v); err == nil {
+			t.Fatal("expected error")
+		}
+		if err := json.Unmarshal([]byte(`{"a":4}{"a"5}`), &v); err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }

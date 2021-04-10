@@ -28,8 +28,7 @@ const (
 )
 
 func unmarshal(data []byte, v interface{}) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := append(data, nul) // append nul byte to the end
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -47,8 +46,7 @@ func unmarshal(data []byte, v interface{}) error {
 }
 
 func unmarshalNoEscape(data []byte, v interface{}) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := append(data, nul) // append nul byte to the end
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 

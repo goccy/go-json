@@ -82,7 +82,6 @@ func validateEndBuf(src []byte, cursor int64) error {
 			cursor+1,
 		)
 	}
-	return nil
 }
 
 //nolint:staticcheck

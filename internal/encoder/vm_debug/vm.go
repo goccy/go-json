@@ -2464,7 +2464,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			p += code.Offset
 			slice := ptrToSlice(p)
-			if slice.Data == nil {
+			if slice.Len == 0 {
 				code = code.NextField
 			} else {
 				b = append(b, code.Key...)
@@ -3793,7 +3793,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			p := load(ctxptr, code.HeadIdx)
 			p += code.Offset
 			slice := ptrToSlice(p)
-			if slice.Data == nil {
+			if slice.Len == 0 {
 				code = code.NextField
 			} else {
 				b = append(b, code.Key...)

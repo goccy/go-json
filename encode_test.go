@@ -1806,6 +1806,52 @@ func TestIssue104(t *testing.T) {
 	}
 }
 
+func TestIssue179(t *testing.T) {
+	data := `
+{
+  "t": {
+    "t1": false,
+    "t2": 0,
+    "t3": "",
+    "t4": [],
+    "t5": null,
+    "t6": null
+  }
+}`
+	type T struct {
+		X struct {
+			T1 bool        `json:"t1,omitempty"`
+			T2 float64     `json:"t2,omitempty"`
+			T3 string      `json:"t3,omitempty"`
+			T4 []string    `json:"t4,omitempty"`
+			T5 *struct{}   `json:"t5,omitempty"`
+			T6 interface{} `json:"t6,omitempty"`
+		} `json:"x"`
+	}
+	var v T
+	if err := stdjson.Unmarshal([]byte(data), &v); err != nil {
+		t.Fatal(err)
+	}
+	var v2 T
+	if err := json.Unmarshal([]byte(data), &v2); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(v, v2) {
+		t.Fatalf("failed to decode: expected %v got %v", v, v2)
+	}
+	b1, err := stdjson.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2, err := json.Marshal(v2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(b1, b2) {
+		t.Fatalf("failed to equal encoded result: expected %q but got %q", b1, b2)
+	}
+}
+
 func TestIssue180(t *testing.T) {
 	v := struct {
 		T struct {

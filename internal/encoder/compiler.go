@@ -1439,7 +1439,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			Indirect:         indirect,
 			Nilcheck:         nilcheck,
 			AddrForMarshaler: addrForMarshaler,
-			IsNextOpPtrType:  strings.Contains(valueCode.Op.String(), "Ptr"),
+			IsNextOpPtrType:  strings.Contains(valueCode.Op.String(), "Ptr") || valueCode.Op == OpInterface,
 			IsNilableType:    isNilableType,
 		}
 		if fieldIdx == 0 {

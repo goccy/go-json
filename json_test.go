@@ -20,6 +20,7 @@ var validTests = []struct {
 	{`{}`, true},
 	{`{"foo":"bar"}`, true},
 	{`{"foo":"bar","bar":{"baz":["qux"]}}`, true},
+	{`[""],`, false},
 }
 
 func TestValid(t *testing.T) {

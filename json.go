@@ -333,8 +333,13 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 // Valid reports whether data is a valid JSON encoding.
 func Valid(data []byte) bool {
 	var v interface{}
-	if err := Unmarshal(data, &v); err != nil {
+	decoder := NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&v)
+	if err != nil {
 		return false
 	}
-	return true
+	if !decoder.More() {
+		return true
+	}
+	return decoder.InputOffset() >= int64(len(data))
 }

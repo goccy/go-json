@@ -32,20 +32,26 @@ func (d *uintDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
 	}
 }
 
-var pow10u64 = [...]uint64{
-	1e00, 1e01, 1e02, 1e03, 1e04, 1e05, 1e06, 1e07, 1e08, 1e09,
-	1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
-}
+var (
+	pow10u64 = [...]uint64{
+		1e00, 1e01, 1e02, 1e03, 1e04, 1e05, 1e06, 1e07, 1e08, 1e09,
+		1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
+	}
+	pow10u64Len = len(pow10u64)
+)
 
-func (d *uintDecoder) parseUint(b []byte) uint64 {
+func (d *uintDecoder) parseUint(b []byte) (uint64, error) {
 	maxDigit := len(b)
+	if maxDigit > pow10u64Len {
+		return 0, fmt.Errorf("invalid length of number")
+	}
 	sum := uint64(0)
 	for i := 0; i < maxDigit; i++ {
 		c := uint64(b[i]) - 48
 		digitValue := pow10u64[maxDigit-i-1]
 		sum += c * digitValue
 	}
-	return sum
+	return sum, nil
 }
 
 func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
@@ -54,7 +60,10 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		case ' ', '\n', '\t', '\r':
 			s.cursor++
 			continue
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0':
+			s.cursor++
+			return []byte{'0'}, nil
+		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
 			for {
 				s.cursor++
@@ -93,7 +102,10 @@ func (d *uintDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
 			continue
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0':
+			cursor++
+			return []byte{'0'}, cursor, nil
+		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
 			for ; cursor < buflen; cursor++ {
@@ -135,7 +147,10 @@ func (d *uintDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) err
 	if bytes == nil {
 		return nil
 	}
-	u64 := d.parseUint(bytes)
+	u64, err := d.parseUint(bytes)
+	if err != nil {
+		return d.typeError(bytes, s.totalOffset())
+	}
 	switch d.kind {
 	case reflect.Uint8:
 		if (1 << 8) <= u64 {
@@ -163,7 +178,10 @@ func (d *uintDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) 
 		return c, nil
 	}
 	cursor = c
-	u64 := d.parseUint(bytes)
+	u64, err := d.parseUint(bytes)
+	if err != nil {
+		return 0, d.typeError(bytes, cursor)
+	}
 	switch d.kind {
 	case reflect.Uint8:
 		if (1 << 8) <= u64 {

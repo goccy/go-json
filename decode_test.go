@@ -2951,3 +2951,141 @@ func TestInvalidTopLevelValue(t *testing.T) {
 		}
 	})
 }
+
+func TestInvalidNumber(t *testing.T) {
+	t.Run("invalid length of number", func(t *testing.T) {
+		invalidNum := strings.Repeat("1", 30)
+		t.Run("int", func(t *testing.T) {
+			var v int64
+			stdErr := stdjson.Unmarshal([]byte(invalidNum), &v)
+			if stdErr == nil {
+				t.Fatal("expected error")
+			}
+			err := json.Unmarshal([]byte(invalidNum), &v)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if stdErr.Error() != err.Error() {
+				t.Fatalf("unexpected error message. expected: %q but got %q", stdErr.Error(), err.Error())
+			}
+		})
+		t.Run("uint", func(t *testing.T) {
+			var v uint64
+			stdErr := stdjson.Unmarshal([]byte(invalidNum), &v)
+			if stdErr == nil {
+				t.Fatal("expected error")
+			}
+			err := json.Unmarshal([]byte(invalidNum), &v)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if stdErr.Error() != err.Error() {
+				t.Fatalf("unexpected error message. expected: %q but got %q", stdErr.Error(), err.Error())
+			}
+		})
+
+	})
+	t.Run("invalid number of zero", func(t *testing.T) {
+		t.Run("int", func(t *testing.T) {
+			invalidNum := strings.Repeat("0", 10)
+			var v int64
+			stdErr := stdjson.Unmarshal([]byte(invalidNum), &v)
+			if stdErr == nil {
+				t.Fatal("expected error")
+			}
+			err := json.Unmarshal([]byte(invalidNum), &v)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if stdErr.Error() != err.Error() {
+				t.Fatalf("unexpected error message. expected: %q but got %q", stdErr.Error(), err.Error())
+			}
+		})
+		t.Run("uint", func(t *testing.T) {
+			invalidNum := strings.Repeat("0", 10)
+			var v uint64
+			stdErr := stdjson.Unmarshal([]byte(invalidNum), &v)
+			if stdErr == nil {
+				t.Fatal("expected error")
+			}
+			err := json.Unmarshal([]byte(invalidNum), &v)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if stdErr.Error() != err.Error() {
+				t.Fatalf("unexpected error message. expected: %q but got %q", stdErr.Error(), err.Error())
+			}
+		})
+	})
+	t.Run("invalid number", func(t *testing.T) {
+		t.Run("int", func(t *testing.T) {
+			t.Run("-0", func(t *testing.T) {
+				var v int64
+				if err := stdjson.Unmarshal([]byte(`-0`), &v); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal([]byte(`-0`), &v); err != nil {
+					t.Fatal(err)
+				}
+			})
+			t.Run("+0", func(t *testing.T) {
+				var v int64
+				if err := stdjson.Unmarshal([]byte(`+0`), &v); err == nil {
+					t.Error("expected error")
+				}
+				if err := json.Unmarshal([]byte(`+0`), &v); err == nil {
+					t.Error("expected error")
+				}
+			})
+		})
+		t.Run("uint", func(t *testing.T) {
+			t.Run("-0", func(t *testing.T) {
+				var v uint64
+				if err := stdjson.Unmarshal([]byte(`-0`), &v); err == nil {
+					t.Error("expected error")
+				}
+				if err := json.Unmarshal([]byte(`-0`), &v); err == nil {
+					t.Error("expected error")
+				}
+			})
+			t.Run("+0", func(t *testing.T) {
+				var v uint64
+				if err := stdjson.Unmarshal([]byte(`+0`), &v); err == nil {
+					t.Error("expected error")
+				}
+				if err := json.Unmarshal([]byte(`+0`), &v); err == nil {
+					t.Error("expected error")
+				}
+			})
+		})
+		t.Run("float", func(t *testing.T) {
+			t.Run("0.0", func(t *testing.T) {
+				var f float64
+				if err := stdjson.Unmarshal([]byte(`0.0`), &f); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal([]byte(`0.0`), &f); err != nil {
+					t.Fatal(err)
+				}
+			})
+			t.Run("0.000000000", func(t *testing.T) {
+				var f float64
+				if err := stdjson.Unmarshal([]byte(`0.000000000`), &f); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal([]byte(`0.000000000`), &f); err != nil {
+					t.Fatal(err)
+				}
+			})
+			t.Run("repeat zero a lot with float value", func(t *testing.T) {
+				var f float64
+				if err := stdjson.Unmarshal([]byte("0."+strings.Repeat("0", 30)), &f); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal([]byte("0."+strings.Repeat("0", 30)), &f); err != nil {
+					t.Fatal(err)
+				}
+			})
+		})
+	})
+}

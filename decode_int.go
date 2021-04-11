@@ -39,15 +39,19 @@ var (
 		1e00, 1e01, 1e02, 1e03, 1e04, 1e05, 1e06, 1e07, 1e08, 1e09,
 		1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18,
 	}
+	pow10i64Len = len(pow10i64)
 )
 
-func (d *intDecoder) parseInt(b []byte) int64 {
+func (d *intDecoder) parseInt(b []byte) (int64, error) {
 	isNegative := false
 	if b[0] == '-' {
 		b = b[1:]
 		isNegative = true
 	}
 	maxDigit := len(b)
+	if maxDigit > pow10i64Len {
+		return 0, fmt.Errorf("invalid length of number")
+	}
 	sum := int64(0)
 	for i := 0; i < maxDigit; i++ {
 		c := int64(b[i]) - 48
@@ -55,9 +59,9 @@ func (d *intDecoder) parseInt(b []byte) int64 {
 		sum += c * digitValue
 	}
 	if isNegative {
-		return -1 * sum
+		return -1 * sum, nil
 	}
-	return sum
+	return sum, nil
 }
 
 var (
@@ -100,7 +104,10 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 				goto ERROR
 			}
 			return num, nil
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0':
+			s.cursor++
+			return []byte{'0'}, nil
+		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
 			for {
 				s.cursor++
@@ -141,7 +148,10 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 		case ' ', '\n', '\t', '\r':
 			cursor++
 			continue
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		case '0':
+			cursor++
+			return []byte{'0'}, cursor, nil
+		case '-', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
 		LOOP:
@@ -181,7 +191,10 @@ func (d *intDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) erro
 	if bytes == nil {
 		return nil
 	}
-	i64 := d.parseInt(bytes)
+	i64, err := d.parseInt(bytes)
+	if err != nil {
+		return d.typeError(bytes, s.totalOffset())
+	}
 	switch d.kind {
 	case reflect.Int8:
 		if i64 <= -1*(1<<7) || (1<<7) <= i64 {
@@ -210,7 +223,11 @@ func (d *intDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (
 		return c, nil
 	}
 	cursor = c
-	i64 := d.parseInt(bytes)
+
+	i64, err := d.parseInt(bytes)
+	if err != nil {
+		return 0, d.typeError(bytes, cursor)
+	}
 	switch d.kind {
 	case reflect.Int8:
 		if i64 <= -1*(1<<7) || (1<<7) <= i64 {

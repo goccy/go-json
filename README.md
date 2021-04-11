@@ -85,6 +85,12 @@ $ go test -bench .
 <img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979931-b989e680-7002-11eb-87a0-66fc22d90dd4.png">
 <img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979940-bc84d700-7002-11eb-9647-869bbc25c9d9.png">
 
+
+# Fuzzing
+
+[go-json-fuzz](https://github.com/goccy/go-json-fuzz) is the repository for fuzzing tests.
+If you run the test in this repository and find a bug, please commit to corpus to go-json-fuzz and report the issue to [go-json](https://github.com/goccy/go-json/issues).
+
 # How it works
 
 `go-json` is very fast in both encoding and decoding compared to other libraries.

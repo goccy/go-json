@@ -568,9 +568,6 @@ func IsNilForMarshaler(v interface{}) bool {
 		return rv.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return math.Float64bits(rv.Float()) == 0
-	case reflect.Complex64, reflect.Complex128:
-		c := rv.Complex()
-		return math.Float64bits(real(c)) == 0 && math.Float64bits(imag(c)) == 0
 	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Func:
 		return rv.IsNil()
 	case reflect.Slice:

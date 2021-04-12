@@ -41,7 +41,17 @@ func TestCoverBool(t *testing.T) {
 		A customBool `json:"a,omitempty"`
 	}
 
+	type structSecondFieldCustomBoolOmitEmpty struct {
+		C bool       `json:"c"`
+		A customBool `json:"a,omitempty"`
+	}
+
 	type structCustomBoolWithMarshalerOmitEmpty struct {
+		A customBoolWithMarshaler `json:"a,omitempty"`
+	}
+
+	type structSecondFieldCustomBoolWithMarshalerOmitEmpty struct {
+		C bool                    `json:"c"`
 		A customBoolWithMarshaler `json:"a,omitempty"`
 	}
 
@@ -1438,6 +1448,26 @@ func TestCoverBool(t *testing.T) {
 			},
 		},
 		{
+			name: "AnonymousHeadSecondFieldCustomBoolOmitEmpty",
+			data: struct {
+				structSecondFieldCustomBoolOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolOmitEmpty: structSecondFieldCustomBoolOmitEmpty{A: true},
+				B:                                    false,
+			},
+		},
+		{
+			name: "AnonymousHeadSecondFieldCustomBoolOmitEmptyFalse",
+			data: struct {
+				structSecondFieldCustomBoolOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolOmitEmpty: structSecondFieldCustomBoolOmitEmpty{},
+				B:                                    false,
+			},
+		},
+		{
 			name: "AnonymousHeadCustomBoolWithMarshalerOmitEmpty",
 			data: struct {
 				structCustomBoolWithMarshalerOmitEmpty
@@ -1455,6 +1485,26 @@ func TestCoverBool(t *testing.T) {
 			}{
 				structCustomBoolWithMarshalerOmitEmpty: structCustomBoolWithMarshalerOmitEmpty{},
 				B:                                      false,
+			},
+		},
+		{
+			name: "AnonymousHeadSecondFieldCustomBoolWithMarshalerOmitEmpty",
+			data: struct {
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: structSecondFieldCustomBoolWithMarshalerOmitEmpty{A: true},
+				B: false,
+			},
+		},
+		{
+			name: "AnonymousHeadSecondFieldCustomBoolWithMarshalerOmitEmptyFalse",
+			data: struct {
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: structSecondFieldCustomBoolWithMarshalerOmitEmpty{},
+				B: false,
 			},
 		},
 		{
@@ -1510,6 +1560,26 @@ func TestCoverBool(t *testing.T) {
 			},
 		},
 		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolOmitEmpty",
+			data: struct {
+				*structSecondFieldCustomBoolOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolOmitEmpty: &structSecondFieldCustomBoolOmitEmpty{A: true},
+				B:                                    false,
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolOmitEmptyFalse",
+			data: struct {
+				*structSecondFieldCustomBoolOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolOmitEmpty: &structSecondFieldCustomBoolOmitEmpty{},
+				B:                                    false,
+			},
+		},
+		{
 			name: "PtrAnonymousHeadCustomBoolWithMarshalerOmitEmpty",
 			data: struct {
 				*structCustomBoolWithMarshalerOmitEmpty
@@ -1527,6 +1597,26 @@ func TestCoverBool(t *testing.T) {
 			}{
 				structCustomBoolWithMarshalerOmitEmpty: &structCustomBoolWithMarshalerOmitEmpty{},
 				B:                                      false,
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolWithMarshalerOmitEmpty",
+			data: struct {
+				*structSecondFieldCustomBoolWithMarshalerOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: &structSecondFieldCustomBoolWithMarshalerOmitEmpty{A: true},
+				B: false,
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolWithMarshalerOmitEmptyFalse",
+			data: struct {
+				*structSecondFieldCustomBoolWithMarshalerOmitEmpty
+				B bool `json:"b,omitempty"`
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: &structSecondFieldCustomBoolWithMarshalerOmitEmpty{},
+				B: false,
 			},
 		},
 		{
@@ -1746,6 +1836,14 @@ func TestCoverBool(t *testing.T) {
 			},
 		},
 		{
+			name: "AnonymousHeadSecondFieldCustomBoolOnlyOmitEmpty",
+			data: struct {
+				structSecondFieldCustomBoolOmitEmpty
+			}{
+				structSecondFieldCustomBoolOmitEmpty: structSecondFieldCustomBoolOmitEmpty{A: true},
+			},
+		},
+		{
 			name: "AnonymousHeadCustomBoolWithMarshalerOnlyOmitEmpty",
 			data: struct {
 				structCustomBoolWithMarshalerOmitEmpty
@@ -1759,6 +1857,22 @@ func TestCoverBool(t *testing.T) {
 				structCustomBoolWithMarshalerOmitEmpty
 			}{
 				structCustomBoolWithMarshalerOmitEmpty: structCustomBoolWithMarshalerOmitEmpty{},
+			},
+		},
+		{
+			name: "AnonymousHeadSecondFieldCustomBoolWithMarshalerOnlyOmitEmpty",
+			data: struct {
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: structSecondFieldCustomBoolWithMarshalerOmitEmpty{A: true},
+			},
+		},
+		{
+			name: "AnonymousHeadSecondFieldCustomBoolWithMarshalerOnlyOmitEmptyFalse",
+			data: struct {
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: structSecondFieldCustomBoolWithMarshalerOmitEmpty{},
 			},
 		},
 		{
@@ -1796,6 +1910,14 @@ func TestCoverBool(t *testing.T) {
 			},
 		},
 		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolOnlyOmitEmpty",
+			data: struct {
+				*structSecondFieldCustomBoolOmitEmpty
+			}{
+				structSecondFieldCustomBoolOmitEmpty: &structSecondFieldCustomBoolOmitEmpty{A: true},
+			},
+		},
+		{
 			name: "PtrAnonymousHeadCustomBoolWithMarshalerOnlyOmitEmpty",
 			data: struct {
 				*structCustomBoolWithMarshalerOmitEmpty
@@ -1809,6 +1931,22 @@ func TestCoverBool(t *testing.T) {
 				*structCustomBoolWithMarshalerOmitEmpty
 			}{
 				structCustomBoolWithMarshalerOmitEmpty: &structCustomBoolWithMarshalerOmitEmpty{},
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolWithMarshalerOnlyOmitEmpty",
+			data: struct {
+				*structSecondFieldCustomBoolWithMarshalerOmitEmpty
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: &structSecondFieldCustomBoolWithMarshalerOmitEmpty{A: true},
+			},
+		},
+		{
+			name: "PtrAnonymousHeadSecondFieldCustomBoolWithMarshalerOnlyOmitEmptyFalse",
+			data: struct {
+				*structSecondFieldCustomBoolWithMarshalerOmitEmpty
+			}{
+				structSecondFieldCustomBoolWithMarshalerOmitEmpty: &structSecondFieldCustomBoolWithMarshalerOmitEmpty{},
 			},
 		},
 		{

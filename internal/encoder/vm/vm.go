@@ -3646,8 +3646,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.NextField
 				break
 			}
+			iface := ptrToInterface(code, p)
+			if code.Nilcheck && encoder.IsNilForMarshaler(iface) {
+				code = code.NextField
+				break
+			}
 			b = append(b, code.Key...)
-			bb, err := appendMarshalJSON(code, b, ptrToInterface(code, p), false)
+			bb, err := appendMarshalJSON(code, b, iface, false)
 			if err != nil {
 				return nil, err
 			}

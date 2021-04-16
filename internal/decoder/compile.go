@@ -59,22 +59,22 @@ func compileToGetDecoderSlowPath(typeptr uintptr, typ *runtime.Type) (Decoder, e
 }
 
 func compileHead(typ *runtime.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
-	switch {
-	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
-		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), "", ""), nil
-	case runtime.PtrTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(runtime.PtrTo(typ), "", ""), nil
-	}
+	// switch {
+	// case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
+	// 	return newUnmarshalJSONDecoder(runtime.PtrTo(typ), "", ""), nil
+	// case runtime.PtrTo(typ).Implements(unmarshalTextType):
+	// 	return newUnmarshalTextDecoder(runtime.PtrTo(typ), "", ""), nil
+	// }
 	return compile(typ.Elem(), "", "", structTypeToDecoder)
 }
 
 func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
-	switch {
-	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
-		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName), nil
-	case runtime.PtrTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
-	}
+	// switch {
+	// case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
+	// 	return newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName), nil
+	// case runtime.PtrTo(typ).Implements(unmarshalTextType):
+	// 	return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
+	// }
 
 	switch typ.Kind() {
 	case reflect.Ptr:
@@ -136,12 +136,12 @@ func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecode
 }
 
 func isStringTagSupportedType(typ *runtime.Type) bool {
-	switch {
-	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
-		return false
-	case runtime.PtrTo(typ).Implements(unmarshalTextType):
-		return false
-	}
+	// switch {
+	// case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
+	// 	return false
+	// case runtime.PtrTo(typ).Implements(unmarshalTextType):
+	// 	return false
+	// }
 	switch typ.Kind() {
 	case reflect.Map:
 		return false

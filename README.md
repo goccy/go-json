@@ -67,6 +67,18 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 
 - `json-iterator/go` isn't compatible with `encoding/json` in many ways, but it hasn't been supported for a long time.
 
+## Other libraries
+
+- [jingo](https://github.com/bet365/jingo)
+
+I tried the benchmark but it didn't work.
+Also, it seems to panic when it receives an unexpected value because there is no error handling...
+
+- [ffjson](https://github.com/pquerna/ffjson)
+
+Benchmarking gave very slow results.
+It seems that it is assumed that the user will use the buffa pool properly.
+Also, development seems to have already stopped
 
 # Benchmarks
 

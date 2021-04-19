@@ -306,6 +306,7 @@ func MapLen(m unsafe.Pointer) int
 
 type RuntimeContext struct {
 	Buf        []byte
+	MarshalBuf []byte
 	Ptrs       []uintptr
 	KeepRefs   []unsafe.Pointer
 	SeenPtr    []uintptr
@@ -413,7 +414,7 @@ func AppendNumber(b []byte, n json.Number) ([]byte, error) {
 	return b, nil
 }
 
-func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if code.AddrForMarshaler {
 		if rv.CanAddr() {
@@ -433,12 +434,14 @@ func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	buf := bytes.NewBuffer(b)
-	// TODO: we should validate buffer with `compact`
-	if err := Compact(buf, bb, escape); err != nil {
+	marshalBuf := ctx.MarshalBuf[:0]
+	marshalBuf = append(append(marshalBuf, bb...), nul)
+	compactedBuf, err := compact(b, marshalBuf, escape)
+	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	return buf.Bytes(), nil
+	ctx.MarshalBuf = marshalBuf
+	return compactedBuf, nil
 }
 
 func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
@@ -461,20 +464,20 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	var compactBuf bytes.Buffer
-	if err := Compact(&compactBuf, bb, escape); err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	var indentBuf bytes.Buffer
-	if err := Indent(
-		&indentBuf,
-		compactBuf.Bytes(),
+	marshalBuf := ctx.MarshalBuf[:0]
+	marshalBuf = append(append(marshalBuf, bb...), nul)
+	indentedBuf, err := doIndent(
+		b,
+		marshalBuf,
 		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent),
 		string(ctx.IndentStr),
-	); err != nil {
+		escape,
+	)
+	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	return append(b, indentBuf.Bytes()...), nil
+	ctx.MarshalBuf = marshalBuf
+	return indentedBuf, nil
 }
 
 func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {

@@ -581,3 +581,63 @@ func BenchmarkUnmapped(b *testing.B) {
 		}
 	})
 }
+
+func Benchmark_Compact_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		if err := stdjson.Compact(&buf, codeJSON); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Compact_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, codeJSON); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Indent_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		if err := stdjson.Indent(&buf, codeJSON, "-", " "); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Indent_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	if codeJSON == nil {
+		b.StopTimer()
+		codeInit()
+		b.StartTimer()
+	}
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		if err := json.Indent(&buf, codeJSON, "-", " "); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

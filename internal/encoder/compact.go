@@ -43,11 +43,30 @@ func Compact(buf *bytes.Buffer, src []byte, escape bool) error {
 }
 
 func compact(dst, src []byte, escape bool) ([]byte, error) {
-	buf, _, err := compactValue(dst, src, 0, escape)
+	buf, cursor, err := compactValue(dst, src, 0, escape)
 	if err != nil {
 		return nil, err
 	}
+	if err := validateEndBuf(src, cursor); err != nil {
+		return nil, err
+	}
 	return buf, nil
+}
+
+func validateEndBuf(src []byte, cursor int64) error {
+	for {
+		switch src[cursor] {
+		case ' ', '\t', '\n', '\r':
+			cursor++
+			continue
+		case nul:
+			return nil
+		}
+		return errors.ErrSyntax(
+			fmt.Sprintf("invalid character '%c' after top-level value", src[cursor]),
+			cursor+1,
+		)
+	}
 }
 
 func skipWhiteSpace(buf []byte, cursor int64) int64 {
@@ -90,12 +109,9 @@ func compactValue(dst, src []byte, cursor int64, escape bool) ([]byte, int64, er
 }
 
 func compactObject(dst, src []byte, cursor int64, escape bool) ([]byte, int64, error) {
-	switch src[cursor] {
-	case 'n':
-		return compactNull(dst, src, cursor)
-	case '{':
+	if src[cursor] == '{' {
 		dst = append(dst, '{')
-	default:
+	} else {
 		return nil, 0, errors.ErrExpected("expected { character for object value", cursor)
 	}
 	cursor = skipWhiteSpace(src, cursor+1)
@@ -135,12 +151,9 @@ func compactObject(dst, src []byte, cursor int64, escape bool) ([]byte, int64, e
 }
 
 func compactArray(dst, src []byte, cursor int64, escape bool) ([]byte, int64, error) {
-	switch src[cursor] {
-	case 'n':
-		return compactNull(dst, src, cursor)
-	case '[':
+	if src[cursor] == '[' {
 		dst = append(dst, '[')
-	default:
+	} else {
 		return nil, 0, errors.ErrExpected("expected [ character for array value", cursor)
 	}
 	cursor = skipWhiteSpace(src, cursor+1)

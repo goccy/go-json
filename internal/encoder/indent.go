@@ -26,8 +26,11 @@ func Indent(buf *bytes.Buffer, src []byte, prefix, indentStr string) error {
 }
 
 func doIndent(dst, src []byte, prefix, indentStr string, escape bool) ([]byte, error) {
-	buf, _, err := indentValue(dst, src, 0, 0, []byte(prefix), []byte(indentStr), escape)
+	buf, cursor, err := indentValue(dst, src, 0, 0, []byte(prefix), []byte(indentStr), escape)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateEndBuf(src, cursor); err != nil {
 		return nil, err
 	}
 	return buf, nil
@@ -78,12 +81,9 @@ func indentObject(
 	prefix []byte,
 	indentBytes []byte,
 	escape bool) ([]byte, int64, error) {
-	switch src[cursor] {
-	case 'n':
-		return compactNull(dst, src, cursor)
-	case '{':
+	if src[cursor] == '{' {
 		dst = append(dst, '{')
-	default:
+	} else {
 		return nil, 0, errors.ErrExpected("expected { character for object value", cursor)
 	}
 	cursor = skipWhiteSpace(src, cursor+1)
@@ -139,12 +139,9 @@ func indentArray(
 	prefix []byte,
 	indentBytes []byte,
 	escape bool) ([]byte, int64, error) {
-	switch src[cursor] {
-	case 'n':
-		return compactNull(dst, src, cursor)
-	case '[':
+	if src[cursor] == '[' {
 		dst = append(dst, '[')
-	default:
+	} else {
 		return nil, 0, errors.ErrExpected("expected [ character for array value", cursor)
 	}
 	cursor = skipWhiteSpace(src, cursor+1)

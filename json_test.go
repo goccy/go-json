@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	stdjson "encoding/json"
 	"math"
 	"math/rand"
 	"reflect"
@@ -81,9 +82,34 @@ func TestCompact(t *testing.T) {
 		}
 	}
 	t.Run("invalid", func(t *testing.T) {
-		buf.Reset()
-		if err := json.Compact(&buf, []byte(`invalid`)); err == nil {
-			t.Fatal(err)
+		for _, src := range []string{
+			`invalid`,
+			`}`,
+			`]`,
+			`{"a":1}}`,
+			`{"a" 1}`,
+			`{"a": 1 "b": 2}`,
+			`["a" "b"]`,
+			`"\`,
+			`{"a":"\\""}`,
+			`tr`,
+			`{"a": tru, "b": 1}`,
+			`fal`,
+			`{"a": fals, "b": 1}`,
+			`nu`,
+			`{"a": nul, "b": 1}`,
+			`1.234.567`,
+			`[nul]`,
+			`{}   1`,
+		} {
+			buf.Reset()
+			if err := stdjson.Compact(&buf, []byte(src)); err == nil {
+				t.Fatal("invalid test case")
+			}
+			buf.Reset()
+			if err := json.Compact(&buf, []byte(src)); err == nil {
+				t.Fatalf("%q: expected error", src)
+			}
 		}
 	})
 }
@@ -125,6 +151,37 @@ func TestIndent(t *testing.T) {
 			t.Errorf("Indent(%#q) = %#q, want %#q", tt.compact, s, tt.indent)
 		}
 	}
+	t.Run("invalid", func(t *testing.T) {
+		for _, src := range []string{
+			`invalid`,
+			`}`,
+			`]`,
+			`{"a":1}}`,
+			`{"a" 1}`,
+			`{"a": 1 "b": 2}`,
+			`["a" "b"]`,
+			`"\`,
+			`{"a":"\\""}`,
+			`tr`,
+			`{"a": tru, "b": 1}`,
+			`fal`,
+			`{"a": fals, "b": 1}`,
+			`nu`,
+			`{"a": nul, "b": 1}`,
+			`1.234.567`,
+			`[nul]`,
+			`{}   1`,
+		} {
+			buf.Reset()
+			if err := stdjson.Indent(&buf, []byte(src), "", " "); err == nil {
+				t.Fatal("invalid test case")
+			}
+			buf.Reset()
+			if err := json.Indent(&buf, []byte(src), "", " "); err == nil {
+				t.Fatalf("%q: expected error", src)
+			}
+		}
+	})
 }
 
 // Tests of a large random structure.

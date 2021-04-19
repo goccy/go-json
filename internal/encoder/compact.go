@@ -84,7 +84,7 @@ func compactValue(dst, src []byte, cursor int64, escape bool) ([]byte, int64, er
 		case 'n':
 			return compactNull(dst, src, cursor)
 		default:
-			return nil, 0, errors.ErrSyntax(fmt.Sprintf("unexpected character '%s'", src[cursor]), cursor)
+			return nil, 0, errors.ErrSyntax(fmt.Sprintf("unexpected character '%c'", src[cursor]), cursor)
 		}
 	}
 }

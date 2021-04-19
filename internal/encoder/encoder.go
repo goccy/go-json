@@ -306,6 +306,7 @@ func MapLen(m unsafe.Pointer) int
 
 type RuntimeContext struct {
 	Buf        []byte
+	MarshalBuf []byte
 	Ptrs       []uintptr
 	KeepRefs   []unsafe.Pointer
 	SeenPtr    []uintptr
@@ -413,7 +414,7 @@ func AppendNumber(b []byte, n json.Number) ([]byte, error) {
 	return b, nil
 }
 
-func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if code.AddrForMarshaler {
 		if rv.CanAddr() {
@@ -433,10 +434,13 @@ func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	compactedBuf, err := compact(b, bb, escape)
+	marshalBuf := ctx.MarshalBuf[:0]
+	marshalBuf = append(append(marshalBuf, bb...), nul)
+	compactedBuf, err := compact(b, marshalBuf, escape)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
+	ctx.MarshalBuf = marshalBuf
 	return compactedBuf, nil
 }
 

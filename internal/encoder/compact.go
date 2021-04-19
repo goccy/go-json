@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 var (
@@ -29,8 +28,11 @@ func Compact(buf *bytes.Buffer, src []byte, escape bool) error {
 	if len(src) == 0 {
 		return errors.ErrUnexpectedEndOfJSON("", 0)
 	}
-	dst := make([]byte, 0, len(src))
-	dst, err := compact(dst, src, escape)
+	buf.Grow(len(src))
+	dst := buf.Bytes()
+	newSrc := make([]byte, len(src)+1) // append nul byte to the end
+	copy(newSrc, src)
+	dst, err := compact(dst, newSrc, escape)
 	if err != nil {
 		return err
 	}
@@ -41,12 +43,10 @@ func Compact(buf *bytes.Buffer, src []byte, escape bool) error {
 }
 
 func compact(dst, src []byte, escape bool) ([]byte, error) {
-	src = append(src, nul)
 	buf, _, err := compactValue(dst, src, 0, escape)
 	if err != nil {
 		return nil, err
 	}
-	(*runtime.SliceHeader)(unsafe.Pointer(&src)).Len--
 	return buf, nil
 }
 

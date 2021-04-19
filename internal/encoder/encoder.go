@@ -433,12 +433,11 @@ func AppendMarshalJSON(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	buf := bytes.NewBuffer(b)
-	// TODO: we should validate buffer with `compact`
-	if err := Compact(buf, bb, escape); err != nil {
+	compactedBuf, err := compact(b, bb, escape)
+	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	return buf.Bytes(), nil
+	return compactedBuf, nil
 }
 
 func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {

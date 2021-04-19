@@ -80,6 +80,12 @@ func TestCompact(t *testing.T) {
 			t.Errorf("Compact(%#q) = %#q, want %#q", tt.indent, s, tt.compact)
 		}
 	}
+	t.Run("invalid", func(t *testing.T) {
+		buf.Reset()
+		if err := json.Compact(&buf, []byte(`invalid`)); err == nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestCompactSeparators(t *testing.T) {

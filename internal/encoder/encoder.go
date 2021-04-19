@@ -464,20 +464,20 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	var compactBuf bytes.Buffer
-	if err := Compact(&compactBuf, bb, escape); err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	var indentBuf bytes.Buffer
-	if err := Indent(
-		&indentBuf,
-		compactBuf.Bytes(),
+	marshalBuf := ctx.MarshalBuf[:0]
+	marshalBuf = append(append(marshalBuf, bb...), nul)
+	indentedBuf, err := doIndent(
+		b,
+		marshalBuf,
 		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent),
 		string(ctx.IndentStr),
-	); err != nil {
+		escape,
+	)
+	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	return append(b, indentBuf.Bytes()...), nil
+	ctx.MarshalBuf = marshalBuf
+	return indentedBuf, nil
 }
 
 func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {

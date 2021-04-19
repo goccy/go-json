@@ -197,7 +197,7 @@ func TestIndentErrors(t *testing.T) {
 		buf := bytes.NewBuffer(slice)
 		if err := json.Indent(buf, []uint8(tt.in), "", ""); err != nil {
 			if !reflect.DeepEqual(err, tt.err) {
-				t.Errorf("#%d: Indent: %#v", i, err)
+				t.Errorf("#%d: Indent: expected %#v but got %#v", i, tt.err, err)
 				continue
 			}
 		}

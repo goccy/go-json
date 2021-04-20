@@ -2,7 +2,6 @@ package json
 
 import (
 	"io"
-	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -22,10 +21,6 @@ type Encoder struct {
 	indentStr         string
 }
 
-const (
-	bufSize = 1024
-)
-
 type EncodeOption int
 
 const (
@@ -34,26 +29,6 @@ const (
 	EncodeOptionUnorderedMap
 	EncodeOptionDebug
 )
-
-var (
-	encRuntimeContextPool = sync.Pool{
-		New: func() interface{} {
-			return &encoder.RuntimeContext{
-				Buf:      make([]byte, 0, bufSize),
-				Ptrs:     make([]uintptr, 128),
-				KeepRefs: make([]unsafe.Pointer, 0, 8),
-			}
-		},
-	}
-)
-
-func takeEncodeRuntimeContext() *encoder.RuntimeContext {
-	return encRuntimeContextPool.Get().(*encoder.RuntimeContext)
-}
-
-func releaseEncodeRuntimeContext(ctx *encoder.RuntimeContext) {
-	encRuntimeContextPool.Put(ctx)
-}
 
 // NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
@@ -69,11 +44,11 @@ func (e *Encoder) Encode(v interface{}) error {
 
 // EncodeWithOption call Encode with EncodeOption.
 func (e *Encoder) EncodeWithOption(v interface{}, optFuncs ...EncodeOptionFunc) error {
-	ctx := takeEncodeRuntimeContext()
+	ctx := encoder.TakeRuntimeContext()
 
 	err := e.encodeWithOption(ctx, v, optFuncs...)
 
-	releaseEncodeRuntimeContext(ctx)
+	encoder.ReleaseRuntimeContext(ctx)
 	return err
 }
 
@@ -130,11 +105,11 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 }
 
 func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+	ctx := encoder.TakeRuntimeContext()
 
 	buf, err := encode(ctx, v, opt|EncodeOptionHTMLEscape)
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
+		encoder.ReleaseRuntimeContext(ctx)
 		return nil, err
 	}
 
@@ -146,16 +121,16 @@ func marshal(v interface{}, opt EncodeOption) ([]byte, error) {
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
 
-	releaseEncodeRuntimeContext(ctx)
+	encoder.ReleaseRuntimeContext(ctx)
 	return copied, nil
 }
 
 func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+	ctx := encoder.TakeRuntimeContext()
 
 	buf, err := encodeNoEscape(ctx, v, opt|EncodeOptionHTMLEscape)
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
+		encoder.ReleaseRuntimeContext(ctx)
 		return nil, err
 	}
 
@@ -167,16 +142,16 @@ func marshalNoEscape(v interface{}, opt EncodeOption) ([]byte, error) {
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
 
-	releaseEncodeRuntimeContext(ctx)
+	encoder.ReleaseRuntimeContext(ctx)
 	return copied, nil
 }
 
 func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]byte, error) {
-	ctx := takeEncodeRuntimeContext()
+	ctx := encoder.TakeRuntimeContext()
 
 	buf, err := encodeIndent(ctx, v, prefix, indent, opt|EncodeOptionHTMLEscape)
 	if err != nil {
-		releaseEncodeRuntimeContext(ctx)
+		encoder.ReleaseRuntimeContext(ctx)
 		return nil, err
 	}
 
@@ -184,7 +159,7 @@ func marshalIndent(v interface{}, prefix, indent string, opt EncodeOption) ([]by
 	copied := make([]byte, len(buf))
 	copy(copied, buf)
 
-	releaseEncodeRuntimeContext(ctx)
+	encoder.ReleaseRuntimeContext(ctx)
 	return copied, nil
 }
 

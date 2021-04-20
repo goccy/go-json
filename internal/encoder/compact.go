@@ -30,9 +30,22 @@ func Compact(buf *bytes.Buffer, src []byte, escape bool) error {
 	}
 	buf.Grow(len(src))
 	dst := buf.Bytes()
-	newSrc := make([]byte, len(src)+1) // append nul byte to the end
-	copy(newSrc, src)
-	dst, err := compact(dst, newSrc, escape)
+
+	ctx := TakeRuntimeContext()
+	ctxBuf := ctx.Buf[:0]
+	ctxBuf = append(append(ctxBuf, src...), nul)
+	ctx.Buf = ctxBuf
+
+	if err := compactAndWrite(buf, dst, ctxBuf, escape); err != nil {
+		ReleaseRuntimeContext(ctx)
+		return err
+	}
+	ReleaseRuntimeContext(ctx)
+	return nil
+}
+
+func compactAndWrite(buf *bytes.Buffer, dst []byte, src []byte, escape bool) error {
+	dst, err := compact(dst, src, escape)
 	if err != nil {
 		return err
 	}

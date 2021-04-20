@@ -1,7 +1,6 @@
 package vm_indent
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"sort"
@@ -29,6 +28,8 @@ var (
 	appendNumber        = encoder.AppendNumber
 	appendMarshalJSON   = encoder.AppendMarshalJSONIndent
 	appendMarshalText   = encoder.AppendMarshalTextIndent
+	appendStructEnd     = encoder.AppendStructEndIndent
+	appendIndent        = encoder.AppendIndent
 	errUnsupportedValue = encoder.ErrUnsupportedValue
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit
@@ -518,8 +519,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			sort.Sort(mapCtx.Slice)
 			buf := mapCtx.Buf
 			for _, item := range mapCtx.Slice.Items {
-				buf = append(buf, ctx.Prefix...)
-				buf = append(buf, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+code.Indent+1)...)
+				buf = appendIndent(ctx, buf, code.Indent+1)
 				buf = append(buf, item.Key...)
 				buf[len(buf)-2] = ':'
 				buf[len(buf)-1] = ' '
@@ -527,8 +527,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			}
 			buf = buf[:len(buf)-2]
 			buf = append(buf, '\n')
-			buf = append(buf, ctx.Prefix...)
-			buf = append(buf, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+code.Indent)...)
+			buf = appendIndent(ctx, buf, code.Indent)
 			buf = append(buf, '}', ',', '\n')
 
 			b = b[:pos[0]]

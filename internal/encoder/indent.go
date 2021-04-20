@@ -7,22 +7,44 @@ import (
 	"github.com/goccy/go-json/internal/errors"
 )
 
+func takeIndentSrcRuntimeContext(src []byte) (*RuntimeContext, []byte) {
+	ctx := TakeRuntimeContext()
+	buf := ctx.Buf[:0]
+	buf = append(append(buf, src...), nul)
+	ctx.Buf = buf
+	return ctx, buf
+}
+
 func Indent(buf *bytes.Buffer, src []byte, prefix, indentStr string) error {
 	if len(src) == 0 {
 		return errors.ErrUnexpectedEndOfJSON("", 0)
 	}
-	buf.Grow(len(src))
-	dst := buf.Bytes()
-	newSrc := make([]byte, len(src)+1) // append nul byte to the end
-	copy(newSrc, src)
-	dst, err := doIndent(dst, newSrc, prefix, indentStr, false)
+
+	srcCtx, srcBuf := takeIndentSrcRuntimeContext(src)
+	dstCtx := TakeRuntimeContext()
+	dst := dstCtx.Buf[:0]
+
+	dst, err := indentAndWrite(buf, dst, srcBuf, prefix, indentStr)
 	if err != nil {
+		ReleaseRuntimeContext(srcCtx)
+		ReleaseRuntimeContext(dstCtx)
 		return err
+	}
+	dstCtx.Buf = dst
+	ReleaseRuntimeContext(srcCtx)
+	ReleaseRuntimeContext(dstCtx)
+	return nil
+}
+
+func indentAndWrite(buf *bytes.Buffer, dst []byte, src []byte, prefix, indentStr string) ([]byte, error) {
+	dst, err := doIndent(dst, src, prefix, indentStr, false)
+	if err != nil {
+		return nil, err
 	}
 	if _, err := buf.Write(dst); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return dst, nil
 }
 
 func doIndent(dst, src []byte, prefix, indentStr string, escape bool) ([]byte, error) {
@@ -94,7 +116,10 @@ func indentObject(
 	indentNum++
 	var err error
 	for {
-		dst = append(append(append(dst, '\n'), prefix...), bytes.Repeat(indentBytes, indentNum)...)
+		dst = append(append(dst, '\n'), prefix...)
+		for i := 0; i < indentNum; i++ {
+			dst = append(dst, indentBytes...)
+		}
 		cursor = skipWhiteSpace(src, cursor)
 		dst, cursor, err = compactString(dst, src, cursor, escape)
 		if err != nil {
@@ -115,7 +140,10 @@ func indentObject(
 		cursor = skipWhiteSpace(src, cursor)
 		switch src[cursor] {
 		case '}':
-			dst = append(append(append(dst, '\n'), prefix...), bytes.Repeat(indentBytes, indentNum-1)...)
+			dst = append(append(dst, '\n'), prefix...)
+			for i := 0; i < indentNum-1; i++ {
+				dst = append(dst, indentBytes...)
+			}
 			dst = append(dst, '}')
 			cursor++
 			return dst, cursor, nil
@@ -152,7 +180,10 @@ func indentArray(
 	indentNum++
 	var err error
 	for {
-		dst = append(append(append(dst, '\n'), prefix...), bytes.Repeat(indentBytes, indentNum)...)
+		dst = append(append(dst, '\n'), prefix...)
+		for i := 0; i < indentNum; i++ {
+			dst = append(dst, indentBytes...)
+		}
 		dst, cursor, err = indentValue(dst, src, indentNum, cursor, prefix, indentBytes, escape)
 		if err != nil {
 			return nil, 0, err
@@ -160,7 +191,10 @@ func indentArray(
 		cursor = skipWhiteSpace(src, cursor)
 		switch src[cursor] {
 		case ']':
-			dst = append(append(append(dst, '\n'), prefix...), bytes.Repeat(indentBytes, indentNum-1)...)
+			dst = append(append(dst, '\n'), prefix...)
+			for i := 0; i < indentNum-1; i++ {
+				dst = append(dst, indentBytes...)
+			}
 			dst = append(dst, ']')
 			cursor++
 			return dst, cursor, nil

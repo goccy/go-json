@@ -1,7 +1,6 @@
 package vm_escaped_indent
 
 import (
-	"bytes"
 	"encoding/json"
 	"unsafe"
 
@@ -75,16 +74,4 @@ func appendNull(b []byte) []byte {
 
 func appendComma(b []byte) []byte {
 	return append(b, ',', '\n')
-}
-
-func appendStructEnd(ctx *encoder.RuntimeContext, b []byte, indent int) []byte {
-	b = append(b, '\n')
-	b = append(b, ctx.Prefix...)
-	b = append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
-	return append(b, '}', ',', '\n')
-}
-
-func appendIndent(ctx *encoder.RuntimeContext, b []byte, indent int) []byte {
-	b = append(b, ctx.Prefix...)
-	return append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
 }

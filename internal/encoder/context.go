@@ -1,6 +1,9 @@
 package encoder
 
 import (
+	"sync"
+	"unsafe"
+
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -79,4 +82,54 @@ func (c *compileContext) decPtrIndex() {
 	if c.parent != nil {
 		c.parent.decPtrIndex()
 	}
+}
+
+const (
+	bufSize = 1024
+)
+
+var (
+	runtimeContextPool = sync.Pool{
+		New: func() interface{} {
+			return &RuntimeContext{
+				Buf:      make([]byte, 0, bufSize),
+				Ptrs:     make([]uintptr, 128),
+				KeepRefs: make([]unsafe.Pointer, 0, 8),
+			}
+		},
+	}
+)
+
+type RuntimeContext struct {
+	Buf        []byte
+	MarshalBuf []byte
+	Ptrs       []uintptr
+	KeepRefs   []unsafe.Pointer
+	SeenPtr    []uintptr
+	BaseIndent int
+	Prefix     []byte
+	IndentStr  []byte
+}
+
+func (c *RuntimeContext) Init(p uintptr, codelen int) {
+	if len(c.Ptrs) < codelen {
+		c.Ptrs = make([]uintptr, codelen)
+	}
+	c.Ptrs[0] = p
+	c.KeepRefs = c.KeepRefs[:0]
+	c.SeenPtr = c.SeenPtr[:0]
+	c.BaseIndent = 0
+}
+
+func (c *RuntimeContext) Ptr() uintptr {
+	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
+	return uintptr(header.Data)
+}
+
+func TakeRuntimeContext() *RuntimeContext {
+	return runtimeContextPool.Get().(*RuntimeContext)
+}
+
+func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	runtimeContextPool.Put(ctx)
 }

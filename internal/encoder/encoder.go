@@ -304,32 +304,6 @@ func MapIterNext(it unsafe.Pointer)
 //go:noescape
 func MapLen(m unsafe.Pointer) int
 
-type RuntimeContext struct {
-	Buf        []byte
-	MarshalBuf []byte
-	Ptrs       []uintptr
-	KeepRefs   []unsafe.Pointer
-	SeenPtr    []uintptr
-	BaseIndent int
-	Prefix     []byte
-	IndentStr  []byte
-}
-
-func (c *RuntimeContext) Init(p uintptr, codelen int) {
-	if len(c.Ptrs) < codelen {
-		c.Ptrs = make([]uintptr, codelen)
-	}
-	c.Ptrs[0] = p
-	c.KeepRefs = c.KeepRefs[:0]
-	c.SeenPtr = c.SeenPtr[:0]
-	c.BaseIndent = 0
-}
-
-func (c *RuntimeContext) Ptr() uintptr {
-	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
-	return uintptr(header.Data)
-}
-
 func AppendByteSlice(b []byte, src []byte) []byte {
 	if src == nil {
 		return append(b, `null`...)
@@ -551,13 +525,20 @@ func AppendStructEnd(b []byte) []byte {
 func AppendStructEndIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
 	b = append(b, '\n')
 	b = append(b, ctx.Prefix...)
-	b = append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
+	indentNum := ctx.BaseIndent + indent
+	for i := 0; i < indentNum; i++ {
+		b = append(b, ctx.IndentStr...)
+	}
 	return append(b, '}', ',', '\n')
 }
 
 func AppendIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
 	b = append(b, ctx.Prefix...)
-	return append(b, bytes.Repeat(ctx.IndentStr, ctx.BaseIndent+indent)...)
+	indentNum := ctx.BaseIndent + indent
+	for i := 0; i < indentNum; i++ {
+		b = append(b, ctx.IndentStr...)
+	}
+	return b
 }
 
 func IsNilForMarshaler(v interface{}) bool {

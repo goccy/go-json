@@ -9,6 +9,7 @@ import (
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	segmentiojson "github.com/segmentio/encoding/json"
+	fastjson "github.com/valyala/fastjson"
 )
 
 func Benchmark_Decode_SmallStruct_Unmarshal_EncodingJson(b *testing.B) {
@@ -16,6 +17,17 @@ func Benchmark_Decode_SmallStruct_Unmarshal_EncodingJson(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		result := SmallPayload{}
 		if err := json.Unmarshal(SmallFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_SmallStruct_Unmarshal_FastJson(b *testing.B) {
+	smallFixture := string(SmallFixture)
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		var p fastjson.Parser
+		if _, err := p.Parse(smallFixture); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -151,6 +163,17 @@ func Benchmark_Decode_MediumStruct_Unmarshal_EncodingJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Decode_MediumStruct_Unmarshal_FastJson(b *testing.B) {
+	mediumFixture := string(MediumFixture)
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		var p fastjson.Parser
+		if _, err := p.Parse(mediumFixture); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Decode_MediumStruct_Unmarshal_JsonIter(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
@@ -276,6 +299,17 @@ func Benchmark_Decode_LargeStruct_Unmarshal_EncodingJson(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		result := LargePayload{}
 		if err := json.Unmarshal(LargeFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_FastJson(b *testing.B) {
+	largeFixture := string(LargeFixture)
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		var p fastjson.Parser
+		if _, err := p.Parse(largeFixture); err != nil {
 			b.Fatal(err)
 		}
 	}

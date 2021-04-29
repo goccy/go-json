@@ -121,6 +121,12 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
 				if d.isElemPointerType {
 					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				} else if d.isElemSliceType {
+					*(*sliceHeader)(ep) = sliceHeader{
+						data: newArray(d.elemType, 0),
+						len:  0,
+						cap:  0,
+					}
 				}
 				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
 					return err

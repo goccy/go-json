@@ -9,6 +9,7 @@ import (
 type sliceDecoder struct {
 	elemType          *rtype
 	isElemPointerType bool
+	isElemSliceType   bool
 	valueDecoder      decoder
 	size              uintptr
 	arrayPool         sync.Pool
@@ -34,6 +35,7 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fie
 		valueDecoder:      dec,
 		elemType:          elemType,
 		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
+		isElemSliceType:   elemType.Kind() == reflect.Slice,
 		size:              size,
 		arrayPool: sync.Pool{
 			New: func() interface{} {
@@ -233,6 +235,12 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
 				if d.isElemPointerType {
 					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				} else if d.isElemSliceType {
+					*(*sliceHeader)(ep) = sliceHeader{
+						data: newArray(d.elemType, 0),
+						len:  0,
+						cap:  0,
+					}
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
 				if err != nil {

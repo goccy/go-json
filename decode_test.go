@@ -2931,6 +2931,71 @@ func TestDecodeSlice(t *testing.T) {
 	}
 }
 
+func TestDecodeMultipleUnmarshal(t *testing.T) {
+	data := []byte(`[{"AA":{"X":[{"a": "A"},{"b": "B"}],"Y":"y","Z":"z"},"BB":"bb"},{"AA":{"X":[],"Y":"y","Z":"z"},"BB":"bb"}]`)
+	var a []json.RawMessage
+	if err := json.Unmarshal(data, &a); err != nil {
+		t.Fatal(err)
+	}
+	if len(a) != 2 {
+		t.Fatalf("failed to decode: got %v", a)
+	}
+	t.Run("first", func(t *testing.T) {
+		data := a[0]
+		var v map[string]json.RawMessage
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if string(v["AA"]) != `{"X":[{"a": "A"},{"b": "B"}],"Y":"y","Z":"z"}` {
+			t.Fatalf("failed to decode. got %q", v["AA"])
+		}
+		var aa map[string]json.RawMessage
+		if err := json.Unmarshal(v["AA"], &aa); err != nil {
+			t.Fatal(err)
+		}
+		if string(aa["X"]) != `[{"a": "A"},{"b": "B"}]` {
+			t.Fatalf("failed to decode. got %q", v["X"])
+		}
+		var x []json.RawMessage
+		if err := json.Unmarshal(aa["X"], &x); err != nil {
+			t.Fatal(err)
+		}
+		if len(x) != 2 {
+			t.Fatalf("failed to decode: %v", x)
+		}
+		if string(x[0]) != `{"a": "A"}` {
+			t.Fatal("failed to decode")
+		}
+		if string(x[1]) != `{"b": "B"}` {
+			t.Fatal("failed to decode")
+		}
+	})
+	t.Run("second", func(t *testing.T) {
+		data := a[1]
+		var v map[string]json.RawMessage
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if string(v["AA"]) != `{"X":[],"Y":"y","Z":"z"}` {
+			t.Fatalf("failed to decode. got %q", v["AA"])
+		}
+		var aa map[string]json.RawMessage
+		if err := json.Unmarshal(v["AA"], &aa); err != nil {
+			t.Fatal(err)
+		}
+		if string(aa["X"]) != `[]` {
+			t.Fatalf("failed to decode. got %q", v["X"])
+		}
+		var x []json.RawMessage
+		if err := json.Unmarshal(aa["X"], &x); err != nil {
+			t.Fatal(err)
+		}
+		if len(x) != 0 {
+			t.Fatalf("failed to decode: %v", x)
+		}
+	})
+}
+
 func TestInvalidTopLevelValue(t *testing.T) {
 	t.Run("invalid end of buffer", func(t *testing.T) {
 		var v struct{}

@@ -103,6 +103,12 @@ func Test_Decoder(t *testing.T) {
 		assertErr(t, json.Unmarshal([]byte(` [ 1 , 2 , 3 , 4 ] `), &v))
 		assertEq(t, "slice", fmt.Sprint([]int{1, 2, 3, 4}), fmt.Sprint(v))
 	})
+	t.Run("slice_reuse_data", func(t *testing.T) {
+		v := make([]int, 0, 10)
+		assertErr(t, json.Unmarshal([]byte(` [ 1 , 2 , 3 , 4 ] `), &v))
+		assertEq(t, "slice", fmt.Sprint([]int{1, 2, 3, 4}), fmt.Sprint(v))
+		assertEq(t, "cap", 10, cap(v))
+	})
 	t.Run("array", func(t *testing.T) {
 		var v [4]int
 		assertErr(t, json.Unmarshal([]byte(` [ 1 , 2 , 3 , 4 ] `), &v))
@@ -121,10 +127,10 @@ func Test_Decoder(t *testing.T) {
 {
   "a": {
     "nestedA": "value of nested a"
-  },  
+  },
   "b": {
     "nestedB": "value of nested b"
-  },  
+  },
   "c": {
     "nestedC": "value of nested c"
   }

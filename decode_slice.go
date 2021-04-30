@@ -96,10 +96,11 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 			s.cursor++
 			s.skipWhiteSpace()
 			if s.char() == ']' {
-				*(*sliceHeader)(p) = sliceHeader{
-					data: newArray(d.elemType, 0),
-					len:  0,
-					cap:  0,
+				dst := (*sliceHeader)(p)
+				if dst.data == nil {
+					dst.data = newArray(d.elemType, 0)
+				} else {
+					dst.len = 0
 				}
 				s.cursor++
 				return nil
@@ -130,11 +131,12 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					slice.cap = capacity
 					slice.len = idx + 1
 					slice.data = data
+					dst := *(*sliceHeader)(p)
+					dst.len = idx + 1
 					dstCap := idx + 1
-					dst := sliceHeader{
-						data: newArray(d.elemType, dstCap),
-						len:  idx + 1,
-						cap:  dstCap,
+					if dstCap > dst.cap {
+						dst.data = newArray(d.elemType, dstCap)
+						dst.cap = dstCap
 					}
 					copySlice(d.elemType, dst, sliceHeader{
 						data: slice.data,
@@ -210,10 +212,11 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {
-				**(**sliceHeader)(unsafe.Pointer(&p)) = sliceHeader{
-					data: newArray(d.elemType, 0),
-					len:  0,
-					cap:  0,
+				dst := (*sliceHeader)(p)
+				if dst.data == nil {
+					dst.data = newArray(d.elemType, 0)
+				} else {
+					dst.len = 0
 				}
 				cursor++
 				return cursor, nil
@@ -245,11 +248,12 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					slice.cap = capacity
 					slice.len = idx + 1
 					slice.data = data
+					dst := *(*sliceHeader)(p)
+					dst.len = idx + 1
 					dstCap := idx + 1
-					dst := sliceHeader{
-						data: newArray(d.elemType, dstCap),
-						len:  idx + 1,
-						cap:  dstCap,
+					if dstCap > dst.cap {
+						dst.data = newArray(d.elemType, dstCap)
+						dst.cap = dstCap
 					}
 					copySlice(d.elemType, dst, sliceHeader{
 						data: slice.data,

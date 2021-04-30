@@ -133,10 +133,9 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					slice.data = data
 					dst := *(*sliceHeader)(p)
 					dst.len = idx + 1
-					dstCap := idx + 1
-					if dstCap > dst.cap {
-						dst.data = newArray(d.elemType, dstCap)
-						dst.cap = dstCap
+					if dst.len > dst.cap {
+						dst.data = newArray(d.elemType, dst.len)
+						dst.cap = dst.len
 					}
 					copySlice(d.elemType, dst, sliceHeader{
 						data: slice.data,
@@ -250,10 +249,9 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					slice.data = data
 					dst := *(*sliceHeader)(p)
 					dst.len = idx + 1
-					dstCap := idx + 1
-					if dstCap > dst.cap {
-						dst.data = newArray(d.elemType, dstCap)
-						dst.cap = dstCap
+					if dst.len > dst.cap {
+						dst.data = newArray(d.elemType, dst.len)
+						dst.cap = dst.len
 					}
 					copySlice(d.elemType, dst, sliceHeader{
 						data: slice.data,

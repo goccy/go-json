@@ -121,17 +121,16 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
 				if d.isElemUnmarshalJSONType {
 					receiver := unsafe_New(d.elemType)
-					if err := d.valueDecoder.decodeStream(s, depth, receiver); err != nil {
-						return err
+					if d.elemType.Kind() == reflect.Slice {
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = receiver
+					} else {
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = **(**unsafe.Pointer)(unsafe.Pointer(&receiver))
 					}
-					*(*unsafe.Pointer)(ep) = **(**unsafe.Pointer)(unsafe.Pointer(&receiver))
-				} else {
-					if d.isElemPointerType {
-						*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
-					}
-					if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
-						return err
-					}
+				} else if d.isElemPointerType {
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
+				}
+				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
+					return err
 				}
 				s.skipWhiteSpace()
 			RETRY:
@@ -244,25 +243,18 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 				if d.isElemUnmarshalJSONType {
 					receiver := unsafe_New(d.elemType)
 					if d.elemType.Kind() == reflect.Slice {
-						*(*unsafe.Pointer)(ep) = receiver
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = receiver
 					} else {
-						*(*unsafe.Pointer)(ep) = *(*unsafe.Pointer)(receiver)
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = **(**unsafe.Pointer)(unsafe.Pointer(&receiver))
 					}
-					c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
-					if err != nil {
-						return 0, err
-					}
-					cursor = c
-				} else {
-					if d.isElemPointerType {
-						*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
-					}
-					c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
-					if err != nil {
-						return 0, err
-					}
-					cursor = c
+				} else if d.isElemPointerType {
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 				}
+				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':

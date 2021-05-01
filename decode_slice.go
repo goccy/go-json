@@ -7,13 +7,14 @@ import (
 )
 
 type sliceDecoder struct {
-	elemType          *rtype
-	isElemPointerType bool
-	valueDecoder      decoder
-	size              uintptr
-	arrayPool         sync.Pool
-	structName        string
-	fieldName         string
+	elemType                *rtype
+	isElemPointerType       bool
+	isElemUnmarshalJSONType bool
+	valueDecoder            decoder
+	size                    uintptr
+	arrayPool               sync.Pool
+	structName              string
+	fieldName               string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -31,10 +32,11 @@ const (
 
 func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
-		valueDecoder:      dec,
-		elemType:          elemType,
-		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
-		size:              size,
+		valueDecoder:            dec,
+		elemType:                elemType,
+		isElemPointerType:       elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
+		isElemUnmarshalJSONType: rtype_ptrTo(elemType).Implements(unmarshalJSONType),
+		size:                    size,
 		arrayPool: sync.Pool{
 			New: func() interface{} {
 				return &sliceHeader{
@@ -64,6 +66,9 @@ func copySlice(elemType *rtype, dst, src sliceHeader) int
 
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
+
+//go:linkname typedmemmove reflect.typedmemmove
+func typedmemmove(t *rtype, dst, src unsafe.Pointer)
 
 func (d *sliceDecoder) errNumber(offset int64) *UnmarshalTypeError {
 	return &UnmarshalTypeError{
@@ -117,8 +122,11 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					copySlice(d.elemType, dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
-				if d.isElemPointerType {
-					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				if d.isElemUnmarshalJSONType {
+					// assign new element to the slice
+					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+				} else if d.isElemPointerType {
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 				}
 				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
 					return err
@@ -231,8 +239,11 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					copySlice(d.elemType, dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
-				if d.isElemPointerType {
-					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+				if d.isElemUnmarshalJSONType {
+					// assign new element to the slice
+					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+				} else if d.isElemPointerType {
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
 				if err != nil {

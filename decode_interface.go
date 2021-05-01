@@ -256,6 +256,14 @@ func (d *interfaceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 			return decodeStreamTextUnmarshaler(s, depth, u, p)
 		}
+		s.skipWhiteSpace()
+		if s.char() == 'n' {
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			*(*interface{})(p) = nil
+			return nil
+		}
 		return d.errUnmarshalType(rv.Type(), s.totalOffset())
 	}
 	iface := rv.Interface()
@@ -306,6 +314,15 @@ func (d *interfaceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Poin
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 			return decodeTextUnmarshaler(buf, cursor, depth, u, p)
 		}
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] == 'n' {
+			if err := validateNull(buf, cursor); err != nil {
+				return 0, err
+			}
+			cursor += 4
+			**(**interface{})(unsafe.Pointer(&p)) = nil
+			return cursor, nil
+		}
 		return 0, d.errUnmarshalType(rv.Type(), cursor)
 	}
 
@@ -321,17 +338,8 @@ func (d *interfaceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Poin
 	}
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == 'n' {
-		if cursor+3 >= int64(len(buf)) {
-			return 0, errUnexpectedEndOfJSON("null", cursor)
-		}
-		if buf[cursor+1] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-		}
-		if buf[cursor+3] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		if err := validateNull(buf, cursor); err != nil {
+			return 0, err
 		}
 		cursor += 4
 		**(**interface{})(unsafe.Pointer(&p)) = nil

@@ -3351,3 +3351,40 @@ func TestInvalidNumber(t *testing.T) {
 		})
 	})
 }
+
+type someInterface interface {
+	DoesNotMatter()
+}
+
+func TestDecodeUnknownInterface(t *testing.T) {
+	t.Run("unmarshal", func(t *testing.T) {
+		var v map[string]someInterface
+		if err := json.Unmarshal([]byte(`{"a":null,"b":null}`), &v); err != nil {
+			t.Fatal(err)
+		}
+		if len(v) != 2 {
+			t.Fatalf("failed to decode: %v", v)
+		}
+		if a, exists := v["a"]; a != nil || !exists {
+			t.Fatalf("failed to decode: %v", v)
+		}
+		if b, exists := v["b"]; b != nil || !exists {
+			t.Fatalf("failed to decode: %v", v)
+		}
+	})
+	t.Run("stream", func(t *testing.T) {
+		var v map[string]someInterface
+		if err := json.NewDecoder(strings.NewReader(`{"a":null,"b":null}`)).Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		if len(v) != 2 {
+			t.Fatalf("failed to decode: %v", v)
+		}
+		if a, exists := v["a"]; a != nil || !exists {
+			t.Fatalf("failed to decode: %v", v)
+		}
+		if b, exists := v["b"]; b != nil || !exists {
+			t.Fatalf("failed to decode: %v", v)
+		}
+	})
+}

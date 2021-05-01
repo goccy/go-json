@@ -204,3 +204,19 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 		}
 	}
 }
+
+func validateNull(buf []byte, cursor int64) error {
+	if cursor+3 >= int64(len(buf)) {
+		return errUnexpectedEndOfJSON("null", cursor)
+	}
+	if buf[cursor+1] != 'u' {
+		return errInvalidCharacter(buf[cursor+1], "null", cursor)
+	}
+	if buf[cursor+2] != 'l' {
+		return errInvalidCharacter(buf[cursor+2], "null", cursor)
+	}
+	if buf[cursor+3] != 'l' {
+		return errInvalidCharacter(buf[cursor+3], "null", cursor)
+	}
+	return nil
+}

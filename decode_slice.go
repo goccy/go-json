@@ -67,9 +67,6 @@ func copySlice(elemType *rtype, dst, src sliceHeader) int
 //go:linkname newArray reflect.unsafe_NewArray
 func newArray(*rtype, int) unsafe.Pointer
 
-//go:linkname typedmemmovepartial reflect.typedmemmovepartial
-func typedmemmovepartial(typ *rtype, dst, src unsafe.Pointer, off, size uintptr)
-
 //go:linkname typedmemmove reflect.typedmemmove
 func typedmemmove(t *rtype, dst, src unsafe.Pointer)
 

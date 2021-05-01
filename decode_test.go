@@ -2996,6 +2996,53 @@ func TestDecodeMultipleUnmarshal(t *testing.T) {
 	})
 }
 
+func TestMultipleDecodeWithRawMessage(t *testing.T) {
+	original := []byte(`{
+		"Body": {
+			"List": [
+				{
+					"Returns": [
+						{
+							"Value": "10",
+							"nodeType": "Literal"
+						}
+					],
+					"nodeKind": "Return",
+					"nodeType": "Statement"
+				}
+			],
+			"nodeKind": "Block",
+			"nodeType": "Statement"
+		},
+		"nodeType": "Function"
+	}`)
+
+	var a map[string]json.RawMessage
+	if err := json.Unmarshal(original, &a); err != nil {
+		t.Fatal(err)
+	}
+	var b map[string]json.RawMessage
+	if err := json.Unmarshal(a["Body"], &b); err != nil {
+		t.Fatal(err)
+	}
+	var c []json.RawMessage
+	if err := json.Unmarshal(b["List"], &c); err != nil {
+		t.Fatal(err)
+	}
+	var d map[string]json.RawMessage
+	if err := json.Unmarshal(c[0], &d); err != nil {
+		t.Fatal(err)
+	}
+	var e []json.RawMessage
+	if err := json.Unmarshal(d["Returns"], &e); err != nil {
+		t.Fatal(err)
+	}
+	var f map[string]json.RawMessage
+	if err := json.Unmarshal(e[0], &f); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type intUnmarshaler int
 
 func (u *intUnmarshaler) UnmarshalJSON(b []byte) error {

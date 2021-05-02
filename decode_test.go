@@ -3388,3 +3388,32 @@ func TestDecodeUnknownInterface(t *testing.T) {
 		}
 	})
 }
+
+func TestDecodeByteSliceNull(t *testing.T) {
+	t.Run("unmarshal", func(t *testing.T) {
+		var v1 []byte
+		if err := stdjson.Unmarshal([]byte(`null`), &v1); err != nil {
+			t.Fatal(err)
+		}
+		var v2 []byte
+		if err := json.Unmarshal([]byte(`null`), &v2); err != nil {
+			t.Fatal(err)
+		}
+		if v1 == nil && v2 != nil || len(v1) != len(v2) {
+			t.Fatalf("failed to decode null to []byte. expected:%#v but got %#v", v1, v2)
+		}
+	})
+	t.Run("stream", func(t *testing.T) {
+		var v1 []byte
+		if err := stdjson.NewDecoder(strings.NewReader(`null`)).Decode(&v1); err != nil {
+			t.Fatal(err)
+		}
+		var v2 []byte
+		if err := json.NewDecoder(strings.NewReader(`null`)).Decode(&v2); err != nil {
+			t.Fatal(err)
+		}
+		if v1 == nil && v2 != nil || len(v1) != len(v2) {
+			t.Fatalf("failed to decode null to []byte. expected:%#v but got %#v", v1, v2)
+		}
+	})
+}

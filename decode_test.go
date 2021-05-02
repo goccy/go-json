@@ -3417,3 +3417,88 @@ func TestDecodeByteSliceNull(t *testing.T) {
 		}
 	})
 }
+
+func TestDecodeBackSlash(t *testing.T) {
+	t.Run("unmarshal", func(t *testing.T) {
+		t.Run("string", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.Unmarshal([]byte(`{"c":"\\"}`), &v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(`{"c":"\\"}`), &v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+		t.Run("array", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.Unmarshal([]byte(`{"c":["\\"]}`), &v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(`{"c":["\\"]}`), &v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+		t.Run("object", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.Unmarshal([]byte(`{"c":{"\\":"\\"}}`), &v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(`{"c":{"\\":"\\"}}`), &v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+	})
+	t.Run("stream", func(t *testing.T) {
+		t.Run("string", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.NewDecoder(strings.NewReader(`{"c":"\\"}`)).Decode(&v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.NewDecoder(strings.NewReader(`{"c":"\\"}`)).Decode(&v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+		t.Run("array", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.NewDecoder(strings.NewReader(`{"c":["\\"]}`)).Decode(&v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.NewDecoder(strings.NewReader(`{"c":["\\"]}`)).Decode(&v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+		t.Run("object", func(t *testing.T) {
+			var v1 map[string]stdjson.RawMessage
+			if err := stdjson.NewDecoder(strings.NewReader(`{"c":{"\\":"\\"}}`)).Decode(&v1); err != nil {
+				t.Fatal(err)
+			}
+			var v2 map[string]json.RawMessage
+			if err := json.NewDecoder(strings.NewReader(`{"c":{"\\":"\\"}}`)).Decode(&v2); err != nil {
+				t.Fatal(err)
+			}
+			if len(v1) != len(v2) || !bytes.Equal(v1["c"], v2["c"]) {
+				t.Fatalf("failed to decode backslash: expected %#v but got %#v", v1, v2)
+			}
+		})
+	})
+}

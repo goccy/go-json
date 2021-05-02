@@ -35,7 +35,6 @@ We are accepting requests for features that will be implemented between v0.6.0 a
 If you have the API you need, please submit your issue [here](https://github.com/goccy/go-json/issues).
 For example, I'm thinking of supporting `context.Context` of `json.Marshaler` and decoding using JSON Path.
 
-
 # Installation
 
 ```
@@ -509,6 +508,10 @@ Regarding the story of go-json, there are the following articles in Japanese onl
 
 - https://speakerdeck.com/goccy/zui-su-falsejsonraiburariwoqiu-mete
 - https://engineering.mercari.com/blog/entry/1599563768-081104c850/
+
+# Looking for Sponsors
+
+I'm looking for sponsors this library. This library is being developed as a personal project in my spare time. If you want a quick response or problem resolution when using this library in your project, please register as a [sponsor](https://github.com/sponsors/goccy). I will cooperate as much as possible. Of course, this library is developed as an MIT license, so you can use it freely for free.
 
 # License
 

@@ -233,28 +233,6 @@ ERROR:
 	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())
 }
 
-func nullBytes(s *stream) error {
-	if s.cursor+3 >= s.length {
-		if !s.read() {
-			return errInvalidCharacter(s.char(), "null", s.totalOffset())
-		}
-	}
-	s.cursor++
-	if s.char() != 'u' {
-		return errInvalidCharacter(s.char(), "null", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'l' {
-		return errInvalidCharacter(s.char(), "null", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'l' {
-		return errInvalidCharacter(s.char(), "null", s.totalOffset())
-	}
-	s.cursor++
-	return nil
-}
-
 func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {

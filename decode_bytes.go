@@ -160,21 +160,11 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Po
 			}
 			return nil, c, nil
 		case 'n':
-			buflen := int64(len(buf))
-			if cursor+3 >= buflen {
-				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
-			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if err := validateNull(buf, cursor); err != nil {
+				return nil, 0, err
 			}
 			cursor += 4
-			return []byte{}, cursor, nil
+			return nil, cursor, nil
 		default:
 			goto ERROR
 		}

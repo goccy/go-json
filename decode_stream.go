@@ -313,3 +313,102 @@ func (s *stream) skipValue(depth int64) error {
 		cursor++
 	}
 }
+
+func nullBytes(s *stream) error {
+	// current cursor's character is 'n'
+	s.cursor++
+	if s.char() != 'u' {
+		if err := retryReadNull(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'l' {
+		if err := retryReadNull(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'l' {
+		if err := retryReadNull(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	return nil
+}
+
+func retryReadNull(s *stream) error {
+	if s.char() == nul && s.read() {
+		return nil
+	}
+	return errInvalidCharacter(s.char(), "null", s.totalOffset())
+}
+
+func trueBytes(s *stream) error {
+	// current cursor's character is 't'
+	s.cursor++
+	if s.char() != 'r' {
+		if err := retryReadTrue(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'u' {
+		if err := retryReadTrue(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'e' {
+		if err := retryReadTrue(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	return nil
+}
+
+func retryReadTrue(s *stream) error {
+	if s.char() == nul && s.read() {
+		return nil
+	}
+	return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
+}
+
+func falseBytes(s *stream) error {
+	// current cursor's character is 'f'
+	s.cursor++
+	if s.char() != 'a' {
+		if err := retryReadFalse(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'l' {
+		if err := retryReadFalse(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 's' {
+		if err := retryReadFalse(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	if s.char() != 'e' {
+		if err := retryReadFalse(s); err != nil {
+			return err
+		}
+	}
+	s.cursor++
+	return nil
+}
+
+func retryReadFalse(s *stream) error {
+	if s.char() == nul && s.read() {
+		return nil
+	}
+	return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
+}

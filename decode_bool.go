@@ -13,54 +13,6 @@ func newBoolDecoder(structName, fieldName string) *boolDecoder {
 	return &boolDecoder{structName: structName, fieldName: fieldName}
 }
 
-func trueBytes(s *stream) error {
-	if s.cursor+3 >= s.length {
-		if !s.read() {
-			return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-		}
-	}
-	s.cursor++
-	if s.char() != 'r' {
-		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'u' {
-		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'e' {
-		return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
-	}
-	s.cursor++
-	return nil
-}
-
-func falseBytes(s *stream) error {
-	if s.cursor+4 >= s.length {
-		if !s.read() {
-			return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-		}
-	}
-	s.cursor++
-	if s.char() != 'a' {
-		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'l' {
-		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 's' {
-		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-	}
-	s.cursor++
-	if s.char() != 'e' {
-		return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
-	}
-	s.cursor++
-	return nil
-}
-
 func (d *boolDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	for {

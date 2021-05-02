@@ -126,10 +126,18 @@ func (s *stream) skipObject(depth int64) error {
 			for {
 				cursor++
 				switch char(p, cursor) {
-				case '"':
-					if char(p, cursor-1) == '\\' {
-						continue
+				case '\\':
+					cursor++
+					if char(p, cursor) == nul {
+						s.cursor = cursor
+						if s.read() {
+							s.cursor-- // for retry current character
+							_, cursor, p = s.stat()
+							continue
+						}
+						return errUnexpectedEndOfJSON("string of object", cursor)
 					}
+				case '"':
 					goto SWITCH_OUT
 				case nul:
 					s.cursor = cursor
@@ -183,10 +191,18 @@ func (s *stream) skipArray(depth int64) error {
 			for {
 				cursor++
 				switch char(p, cursor) {
-				case '"':
-					if char(p, cursor-1) == '\\' {
-						continue
+				case '\\':
+					cursor++
+					if char(p, cursor) == nul {
+						s.cursor = cursor
+						if s.read() {
+							s.cursor-- // for retry current character
+							_, cursor, p = s.stat()
+							continue
+						}
+						return errUnexpectedEndOfJSON("string of object", cursor)
 					}
+				case '"':
 					goto SWITCH_OUT
 				case nul:
 					s.cursor = cursor
@@ -235,10 +251,18 @@ func (s *stream) skipValue(depth int64) error {
 			for {
 				cursor++
 				switch char(p, cursor) {
-				case '"':
-					if char(p, cursor-1) == '\\' {
-						continue
+				case '\\':
+					cursor++
+					if char(p, cursor) == nul {
+						s.cursor = cursor
+						if s.read() {
+							s.cursor-- // for retry current character
+							_, cursor, p = s.stat()
+							continue
+						}
+						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
 					}
+				case '"':
 					s.cursor = cursor + 1
 					return nil
 				case nul:

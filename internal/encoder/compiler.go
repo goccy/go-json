@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/iimap"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -18,7 +18,7 @@ var (
 	marshalTextType  = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType   = reflect.TypeOf(json.Number(""))
 	cachedOpcodeSets []*OpcodeSet
-	cachedOpcodeMap  unsafe.Pointer // map[uintptr]*OpcodeSet
+	cachedOpcodeMap  = iimap.NewTypeMap()
 	typeAddr         *runtime.TypeAddr
 )
 
@@ -30,26 +30,9 @@ func init() {
 	cachedOpcodeSets = make([]*OpcodeSet, typeAddr.AddrRange)
 }
 
-func loadOpcodeMap() map[uintptr]*OpcodeSet {
-	p := atomic.LoadPointer(&cachedOpcodeMap)
-	return *(*map[uintptr]*OpcodeSet)(unsafe.Pointer(&p))
-}
-
-func storeOpcodeSet(typ uintptr, set *OpcodeSet, m map[uintptr]*OpcodeSet) {
-	newOpcodeMap := make(map[uintptr]*OpcodeSet, len(m)+1)
-	newOpcodeMap[typ] = set
-
-	for k, v := range m {
-		newOpcodeMap[k] = v
-	}
-
-	atomic.StorePointer(&cachedOpcodeMap, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
-}
-
 func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
-	opcodeMap := loadOpcodeMap()
-	if codeSet, exists := opcodeMap[typeptr]; exists {
-		return codeSet, nil
+	if codeSet := cachedOpcodeMap.Get(typeptr); codeSet != nil {
+		return codeSet.(*OpcodeSet), nil
 	}
 
 	// noescape trick for header.typ ( reflect.*rtype )
@@ -69,7 +52,7 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 		Code:       code,
 		CodeLength: codeLength,
 	}
-	storeOpcodeSet(typeptr, codeSet, opcodeMap)
+	cachedOpcodeMap.Set(typeptr, codeSet)
 	return codeSet, nil
 }
 

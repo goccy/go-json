@@ -8,24 +8,25 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/iimap"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
 var (
 	jsonNumberType = reflect.TypeOf(json.Number(""))
+	decoderMap     = iimap.NewTypeMap()
 )
 
 func decodeCompileToGetDecoderSlowPath(typeptr uintptr, typ *rtype) (decoder, error) {
-	decoderMap := loadDecoderMap()
-	if dec, exists := decoderMap[typeptr]; exists {
-		return dec, nil
+	if dec := decoderMap.Get(typeptr); dec != nil {
+		return dec.(decoder), nil
 	}
 
 	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
 	if err != nil {
 		return nil, err
 	}
-	storeDecoder(typeptr, dec, decoderMap)
+	decoderMap.Set(typeptr, dec)
 	return dec, nil
 }
 

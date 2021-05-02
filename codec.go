@@ -3,7 +3,6 @@ package json
 import (
 	"fmt"
 	"reflect"
-	"sync/atomic"
 	"unsafe"
 )
 
@@ -12,10 +11,9 @@ const (
 )
 
 var (
-	cachedDecoder    []decoder
-	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
-	baseTypeAddr     uintptr
-	maxTypeAddr      uintptr
+	cachedDecoder []decoder
+	baseTypeAddr  uintptr
+	maxTypeAddr   uintptr
 )
 
 //go:linkname typelinks reflect.typelinks
@@ -72,20 +70,4 @@ func setupCodec() error {
 
 func init() {
 	_ = setupCodec()
-}
-
-func loadDecoderMap() map[uintptr]decoder {
-	p := atomic.LoadPointer(&cachedDecoderMap)
-	return *(*map[uintptr]decoder)(unsafe.Pointer(&p))
-}
-
-func storeDecoder(typ uintptr, dec decoder, m map[uintptr]decoder) {
-	newDecoderMap := make(map[uintptr]decoder, len(m)+1)
-	newDecoderMap[typ] = dec
-
-	for k, v := range m {
-		newDecoderMap[k] = v
-	}
-
-	atomic.StorePointer(&cachedDecoderMap, *(*unsafe.Pointer)(unsafe.Pointer(&newDecoderMap)))
 }

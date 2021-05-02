@@ -340,9 +340,9 @@ The fact that all type information can be acquired means that by constructing sl
 
 However, if there is too much type information, it will use a lot of memory, so by default we will only use this optimization if the slice size fits within **2Mib** .
 
-If this approach is not available, it will fall back to the `atomic` based process described above.
+If this approach is not available, it will fall back to a fast copy-on-write int map, which is slightly slower than the slice approach, but is much faster than the builtin map.
 
-If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/codec.go#L24-L76 )
+If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/codec.go#L19-L73 )
 
 ## Decoder
 

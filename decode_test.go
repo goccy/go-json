@@ -3508,3 +3508,46 @@ func TestDecodeBackSlash(t *testing.T) {
 		})
 	})
 }
+
+var (
+	isWhiteSpace = [256]bool{}
+)
+
+func init() {
+	isWhiteSpace[' '] = true
+	isWhiteSpace['\n'] = true
+	isWhiteSpace['\t'] = true
+	isWhiteSpace['\r'] = true
+}
+
+func skipWhiteSpace(buf []byte, cursor int64) int64 {
+LOOP:
+	if isWhiteSpace[buf[cursor]] {
+		cursor++
+		goto LOOP
+	}
+	return cursor
+}
+
+func skipWhiteSpaceLoop(buf []byte, cursor int64) int64 {
+	for isWhiteSpace[buf[cursor]] {
+		cursor++
+	}
+	return cursor
+}
+
+func BenchmarkSkipWhiteSpace(b *testing.B) {
+	data := []byte(" \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t \n\r\t}")
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.Run("gotoLabel", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			skipWhiteSpace(data, 0)
+		}
+	})
+	b.Run("loop", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			skipWhiteSpaceLoop(data, 0)
+		}
+	})
+}

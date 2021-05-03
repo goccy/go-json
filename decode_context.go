@@ -20,10 +20,8 @@ func char(ptr unsafe.Pointer, offset int64) byte {
 }
 
 func skipWhiteSpace(buf []byte, cursor int64) int64 {
-LOOP:
-	if isWhiteSpace[buf[cursor]] {
+	for isWhiteSpace[buf[cursor]] {
 		cursor++
-		goto LOOP
 	}
 	return cursor
 }

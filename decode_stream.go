@@ -17,6 +17,7 @@ type stream struct {
 	r                     io.Reader
 	offset                int64
 	cursor                int64
+	filledBuffer          bool
 	allRead               bool
 	useNumber             bool
 	disallowUnknownFields bool
@@ -52,6 +53,11 @@ func (s *stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
+func (s *stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
+	s.cursor-- // for retry ( because caller progress cursor position in each loop )
+	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
+}
+
 func (s *stream) reset() {
 	s.offset += s.cursor
 	s.buf = s.buf[s.cursor:]
@@ -60,10 +66,12 @@ func (s *stream) reset() {
 }
 
 func (s *stream) readBuf() []byte {
-	s.bufSize *= 2
-	remainBuf := s.buf
-	s.buf = make([]byte, s.bufSize)
-	copy(s.buf, remainBuf)
+	if s.filledBuffer {
+		s.bufSize *= 2
+		remainBuf := s.buf
+		s.buf = make([]byte, s.bufSize)
+		copy(s.buf, remainBuf)
+	}
 	return s.buf[s.cursor:]
 }
 
@@ -76,6 +84,11 @@ func (s *stream) read() bool {
 	buf[last] = nul
 	n, err := s.r.Read(buf[:last])
 	s.length = s.cursor + int64(n)
+	if n == last {
+		s.filledBuffer = true
+	} else {
+		s.filledBuffer = false
+	}
 	if err == io.EOF {
 		s.allRead = true
 	} else if err != nil {
@@ -131,8 +144,7 @@ func (s *stream) skipObject(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							s.cursor-- // for retry current character
-							_, cursor, p = s.stat()
+							_, cursor, p = s.statForRetry()
 							continue
 						}
 						return errUnexpectedEndOfJSON("string of object", cursor)
@@ -142,8 +154,7 @@ func (s *stream) skipObject(depth int64) error {
 				case nul:
 					s.cursor = cursor
 					if s.read() {
-						s.cursor-- // for retry current character
-						_, cursor, p = s.stat()
+						_, cursor, p = s.statForRetry()
 						continue
 					}
 					return errUnexpectedEndOfJSON("string of object", cursor)
@@ -196,8 +207,7 @@ func (s *stream) skipArray(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							s.cursor-- // for retry current character
-							_, cursor, p = s.stat()
+							_, cursor, p = s.statForRetry()
 							continue
 						}
 						return errUnexpectedEndOfJSON("string of object", cursor)
@@ -207,8 +217,7 @@ func (s *stream) skipArray(depth int64) error {
 				case nul:
 					s.cursor = cursor
 					if s.read() {
-						s.cursor-- // for retry current character
-						_, cursor, p = s.stat()
+						_, cursor, p = s.statForRetry()
 						continue
 					}
 					return errUnexpectedEndOfJSON("string of object", cursor)
@@ -256,8 +265,7 @@ func (s *stream) skipValue(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							s.cursor-- // for retry current character
-							_, cursor, p = s.stat()
+							_, cursor, p = s.statForRetry()
 							continue
 						}
 						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
@@ -268,8 +276,7 @@ func (s *stream) skipValue(depth int64) error {
 				case nul:
 					s.cursor = cursor
 					if s.read() {
-						s.cursor-- // for retry current character
-						_, cursor, p = s.stat()
+						_, cursor, p = s.statForRetry()
 						continue
 					}
 					return errUnexpectedEndOfJSON("value of string", s.totalOffset())

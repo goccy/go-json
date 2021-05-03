@@ -31,6 +31,18 @@ jobs:
         GOGC: 1
     - name: test with race detector
       run: go test -v -race ./ -count=1
+  bench:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: run benchmark
+        run: cd benchmarks && go test -bench .
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

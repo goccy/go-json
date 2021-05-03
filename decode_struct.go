@@ -360,14 +360,14 @@ func decodeKeyByBitmapUint8Stream(d *structDecoder, s *stream) (*structFieldSet,
 									if !s.read() {
 										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 									}
-									buf, cursor, p = s.stat()
+									buf, cursor, p = s.statForRetry()
 								}
 							case nul:
 								s.cursor = cursor
 								if !s.read() {
 									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 								}
-								buf, cursor, p = s.stat()
+								buf, cursor, p = s.statForRetry()
 							}
 						}
 					}
@@ -457,14 +457,14 @@ func decodeKeyByBitmapUint16Stream(d *structDecoder, s *stream) (*structFieldSet
 									if !s.read() {
 										return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 									}
-									buf, cursor, p = s.stat()
+									buf, cursor, p = s.statForRetry()
 								}
 							case nul:
 								s.cursor = cursor
 								if !s.read() {
 									return nil, "", errUnexpectedEndOfJSON("string", s.totalOffset())
 								}
-								buf, cursor, p = s.stat()
+								buf, cursor, p = s.statForRetry()
 							}
 						}
 					}

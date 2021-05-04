@@ -72,7 +72,11 @@ func (s *stream) readBuf() []byte {
 		s.buf = make([]byte, s.bufSize)
 		copy(s.buf, remainBuf)
 	}
-	return s.buf[s.cursor:]
+	remainLen := s.length - s.cursor
+	if remainLen > 0 {
+		remainLen-- // last char is nul
+	}
+	return s.buf[s.cursor+remainLen:]
 }
 
 func (s *stream) read() bool {

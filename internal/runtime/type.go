@@ -19,6 +19,7 @@ type TypeAddr struct {
 	BaseTypeAddr uintptr
 	MaxTypeAddr  uintptr
 	AddrRange    uintptr
+	AddrShift    uintptr
 }
 
 var (
@@ -49,8 +50,10 @@ func AnalyzeTypeAddr() *TypeAddr {
 	section := sections[0]
 	offset := offsets[0]
 	var (
-		min uintptr = uintptr(^uint(0))
-		max uintptr = 0
+		min         uintptr = uintptr(^uint(0))
+		max         uintptr = 0
+		isAligned64         = true
+		isAligned32         = true
 	)
 	for i := 0; i < len(offset); i++ {
 		typ := (*Type)(rtypeOff(section, offset[i]))
@@ -70,18 +73,28 @@ func AnalyzeTypeAddr() *TypeAddr {
 				max = addr
 			}
 		}
+		isAligned64 = isAligned64 && (addr-min)&63 == 0
+		isAligned32 = isAligned32 && (addr-min)&31 == 0
 	}
 	addrRange := max - min
 	if addrRange == 0 {
 		return nil
 	}
-	if addrRange > maxAcceptableTypeAddrRange {
+	var addrShift uintptr
+	if isAligned64 {
+		addrShift = 6
+	} else if isAligned32 {
+		addrShift = 5
+	}
+	cacheSize := addrRange >> addrShift
+	if cacheSize > maxAcceptableTypeAddrRange {
 		return nil
 	}
 	typeAddr = &TypeAddr{
 		BaseTypeAddr: min,
 		MaxTypeAddr:  max,
 		AddrRange:    addrRange,
+		AddrShift:    addrShift,
 	}
 	return typeAddr
 }

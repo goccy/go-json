@@ -27,7 +27,7 @@ func init() {
 	if typeAddr == nil {
 		typeAddr = &runtime.TypeAddr{}
 	}
-	cachedOpcodeSets = make([]*OpcodeSet, typeAddr.AddrRange)
+	cachedOpcodeSets = make([]*OpcodeSet, typeAddr.AddrRange>>typeAddr.AddrShift)
 }
 
 func loadOpcodeMap() map[uintptr]*OpcodeSet {

@@ -15,7 +15,7 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 	if typeptr > typeAddr.MaxTypeAddr {
 		return compileToGetCodeSetSlowPath(typeptr)
 	}
-	index := typeptr - typeAddr.BaseTypeAddr
+	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
 	setsMu.RLock()
 	if codeSet := cachedOpcodeSets[index]; codeSet != nil {
 		setsMu.RUnlock()

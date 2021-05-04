@@ -16,6 +16,7 @@ var (
 	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
 	baseTypeAddr     uintptr
 	maxTypeAddr      uintptr
+	typeAddrShift    uintptr
 )
 
 //go:linkname typelinks reflect.typelinks
@@ -35,8 +36,10 @@ func setupCodec() error {
 	section := sections[0]
 	offset := offsets[0]
 	var (
-		min uintptr = uintptr(^uint(0))
-		max uintptr = 0
+		min         uintptr = uintptr(^uint(0))
+		max         uintptr = 0
+		isAligned64         = true
+		isAligned32         = true
 	)
 	for i := 0; i < len(offset); i++ {
 		typ := (*rtype)(rtypeOff(section, offset[i]))
@@ -56,15 +59,25 @@ func setupCodec() error {
 				max = addr
 			}
 		}
+
+		// check every address is aligned from the base address
+		isAligned64 = isAligned64 && (addr-min)&63 == 0
+		isAligned32 = isAligned32 && (addr-min)&31 == 0
 	}
 	addrRange := max - min
 	if addrRange == 0 {
 		return fmt.Errorf("failed to get address range of types")
 	}
-	if addrRange > maxAcceptableTypeAddrRange {
+	if isAligned64 {
+		typeAddrShift = 6
+	} else if isAligned32 {
+		typeAddrShift = 5
+	}
+	cacheSize := addrRange >> typeAddrShift
+	if cacheSize > maxAcceptableTypeAddrRange {
 		return fmt.Errorf("too big address range %d", addrRange)
 	}
-	cachedDecoder = make([]decoder, addrRange)
+	cachedDecoder = make([]decoder, cacheSize)
 	baseTypeAddr = min
 	maxTypeAddr = max
 	return nil

@@ -61,8 +61,8 @@ func (s *stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
 func (s *stream) reset() {
 	s.offset += s.cursor
 	s.buf = s.buf[s.cursor:]
+	s.length -= s.cursor
 	s.cursor = 0
-	s.length = int64(len(s.buf))
 }
 
 func (s *stream) readBuf() []byte {
@@ -72,7 +72,11 @@ func (s *stream) readBuf() []byte {
 		s.buf = make([]byte, s.bufSize)
 		copy(s.buf, remainBuf)
 	}
-	return s.buf[s.cursor:]
+	remainLen := s.length - s.cursor
+	if remainLen > 0 {
+		remainLen-- // last char is nul
+	}
+	return s.buf[s.cursor+remainLen:]
 }
 
 func (s *stream) read() bool {

@@ -127,7 +127,7 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					// assign new element to the slice
 					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
 				} else if d.isElemPointerType {
-					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 				}
 				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
 					return err
@@ -240,7 +240,7 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					// assign new element to the slice
 					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
 				} else if d.isElemPointerType {
-					*(*unsafe.Pointer)(ep) = nil // initialize elem pointer
+					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
 				if err != nil {

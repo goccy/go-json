@@ -2754,8 +2754,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendComma(bb)
+				b = append(bb, '"')
+				b = appendComma(b)
 				code = code.Next
 			}
 		case encoder.OpStructPtrHeadNumberPtr:
@@ -2918,8 +2918,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendComma(bb)
+				b = append(bb, '"')
+				b = appendComma(b)
 			}
 			code = code.Next
 		case encoder.OpStructPtrHeadArray, encoder.OpStructPtrHeadSlice:
@@ -4302,8 +4302,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendComma(bb)
+				b = append(bb, '"')
+				b = appendComma(b)
 			}
 			code = code.Next
 		case encoder.OpStructFieldNumberPtr:
@@ -4366,8 +4366,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendComma(bb)
+				b = append(bb, '"')
+				b = appendComma(b)
 			}
 			code = code.Next
 		case encoder.OpStructFieldMarshalJSON:
@@ -5399,8 +5399,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendStructEnd(ctx, bb, code.Indent-1)
+				b = append(bb, '"')
+				b = appendStructEnd(ctx, b, code.Indent-1)
 			} else {
 				b = appendStructEndSkipLast(ctx, b, code)
 			}
@@ -5467,8 +5467,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				if err != nil {
 					return nil, err
 				}
-				b = append(b, '"')
-				b = appendStructEnd(ctx, bb, code.Indent-1)
+				b = append(bb, '"')
+				b = appendStructEnd(ctx, b, code.Indent-1)
 			} else {
 				b = appendStructEndSkipLast(ctx, b, code)
 			}

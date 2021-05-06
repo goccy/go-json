@@ -75,3 +75,19 @@ func appendNull(b []byte) []byte {
 func appendComma(b []byte) []byte {
 	return append(b, ',', '\n')
 }
+
+func appendStructEndSkipLast(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode) []byte {
+	last := len(b) - 1
+	if b[last-1] == '{' {
+		b[last] = '}'
+	} else {
+		if b[last] == '\n' {
+			// to remove ',' and '\n' characters
+			b = b[:len(b)-2]
+		}
+		b = append(b, '\n')
+		b = appendIndent(ctx, b, code.Indent-1)
+		b = append(b, '}')
+	}
+	return appendComma(b)
+}

@@ -41,37 +41,23 @@ func (t OpType) IsMultipleOpHead() bool {
 		return true
 	case OpStructHeadOmitEmptySlice:
 		return true
-	case OpStructHeadStringTagSlice:
-		return true
 	case OpStructHeadOmitEmptyArray:
-		return true
-	case OpStructHeadStringTagArray:
 		return true
 	case OpStructHeadOmitEmptyMap:
 		return true
-	case OpStructHeadStringTagMap:
-		return true
 	case OpStructHeadOmitEmptyStruct:
-		return true
-	case OpStructHeadStringTag:
 		return true
 	case OpStructHeadSlicePtr:
 		return true
 	case OpStructHeadOmitEmptySlicePtr:
 		return true
-	case OpStructHeadStringTagSlicePtr:
-		return true
 	case OpStructHeadArrayPtr:
 		return true
 	case OpStructHeadOmitEmptyArrayPtr:
 		return true
-	case OpStructHeadStringTagArrayPtr:
-		return true
 	case OpStructHeadMapPtr:
 		return true
 	case OpStructHeadOmitEmptyMapPtr:
-		return true
-	case OpStructHeadStringTagMapPtr:
 		return true
 	}
 	return false
@@ -93,37 +79,23 @@ func (t OpType) IsMultipleOpField() bool {
 		return true
 	case OpStructFieldOmitEmptySlice:
 		return true
-	case OpStructFieldStringTagSlice:
-		return true
 	case OpStructFieldOmitEmptyArray:
-		return true
-	case OpStructFieldStringTagArray:
 		return true
 	case OpStructFieldOmitEmptyMap:
 		return true
-	case OpStructFieldStringTagMap:
-		return true
 	case OpStructFieldOmitEmptyStruct:
-		return true
-	case OpStructFieldStringTag:
 		return true
 	case OpStructFieldSlicePtr:
 		return true
 	case OpStructFieldOmitEmptySlicePtr:
 		return true
-	case OpStructFieldStringTagSlicePtr:
-		return true
 	case OpStructFieldArrayPtr:
 		return true
 	case OpStructFieldOmitEmptyArrayPtr:
 		return true
-	case OpStructFieldStringTagArrayPtr:
-		return true
 	case OpStructFieldMapPtr:
 		return true
 	case OpStructFieldOmitEmptyMapPtr:
-		return true
-	case OpStructFieldStringTagMapPtr:
 		return true
 	}
 	return false

@@ -1019,23 +1019,17 @@ func compileMapValue(ctx *compileContext) (*Opcode, error) {
 }
 
 func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
-	headType := code.ToHeaderType()
-	switch {
-	case tag.IsOmitEmpty:
+	headType := code.ToHeaderType(tag.IsString)
+	if tag.IsOmitEmpty {
 		headType = headType.HeadToOmitEmptyHead()
-	case tag.IsString:
-		headType = headType.HeadToStringTagHead()
 	}
 	return headType
 }
 
 func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
-	fieldType := code.ToFieldType()
-	switch {
-	case tag.IsOmitEmpty:
+	fieldType := code.ToFieldType(tag.IsString)
+	if tag.IsOmitEmpty {
 		fieldType = fieldType.FieldToOmitEmptyField()
-	case tag.IsString:
-		fieldType = fieldType.FieldToStringTagField()
 	}
 	return fieldType
 }

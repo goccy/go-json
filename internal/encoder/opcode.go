@@ -68,35 +68,77 @@ func (c *Opcode) setMaskAndRshiftNum(bitSize uint8) {
 	c.RshiftNum = rshitNum(bitSize)
 }
 
-func (c *Opcode) ToHeaderType() OpType {
+func (c *Opcode) ToHeaderType(isString bool) OpType {
 	switch c.Op {
 	case OpInt:
+		if isString {
+			return OpStructHeadIntString
+		}
 		return OpStructHeadInt
 	case OpIntPtr:
+		if isString {
+			return OpStructHeadIntPtrString
+		}
 		return OpStructHeadIntPtr
 	case OpUint:
+		if isString {
+			return OpStructHeadUintString
+		}
 		return OpStructHeadUint
 	case OpUintPtr:
+		if isString {
+			return OpStructHeadUintPtrString
+		}
 		return OpStructHeadUintPtr
 	case OpFloat32:
+		if isString {
+			return OpStructHeadFloat32String
+		}
 		return OpStructHeadFloat32
 	case OpFloat32Ptr:
+		if isString {
+			return OpStructHeadFloat32PtrString
+		}
 		return OpStructHeadFloat32Ptr
 	case OpFloat64:
+		if isString {
+			return OpStructHeadFloat64String
+		}
 		return OpStructHeadFloat64
 	case OpFloat64Ptr:
+		if isString {
+			return OpStructHeadFloat64PtrString
+		}
 		return OpStructHeadFloat64Ptr
 	case OpString:
+		if isString {
+			return OpStructHeadStringString
+		}
 		return OpStructHeadString
 	case OpStringPtr:
+		if isString {
+			return OpStructHeadStringPtrString
+		}
 		return OpStructHeadStringPtr
 	case OpNumber:
+		if isString {
+			return OpStructHeadNumberString
+		}
 		return OpStructHeadNumber
 	case OpNumberPtr:
+		if isString {
+			return OpStructHeadNumberPtrString
+		}
 		return OpStructHeadNumberPtr
 	case OpBool:
+		if isString {
+			return OpStructHeadBoolString
+		}
 		return OpStructHeadBool
 	case OpBoolPtr:
+		if isString {
+			return OpStructHeadBoolPtrString
+		}
 		return OpStructHeadBoolPtr
 	case OpBytes:
 		return OpStructHeadBytes
@@ -129,35 +171,77 @@ func (c *Opcode) ToHeaderType() OpType {
 	return OpStructHead
 }
 
-func (c *Opcode) ToFieldType() OpType {
+func (c *Opcode) ToFieldType(isString bool) OpType {
 	switch c.Op {
 	case OpInt:
+		if isString {
+			return OpStructFieldIntString
+		}
 		return OpStructFieldInt
 	case OpIntPtr:
+		if isString {
+			return OpStructFieldIntPtrString
+		}
 		return OpStructFieldIntPtr
 	case OpUint:
+		if isString {
+			return OpStructFieldUintString
+		}
 		return OpStructFieldUint
 	case OpUintPtr:
+		if isString {
+			return OpStructFieldUintPtrString
+		}
 		return OpStructFieldUintPtr
 	case OpFloat32:
+		if isString {
+			return OpStructFieldFloat32String
+		}
 		return OpStructFieldFloat32
 	case OpFloat32Ptr:
+		if isString {
+			return OpStructFieldFloat32PtrString
+		}
 		return OpStructFieldFloat32Ptr
 	case OpFloat64:
+		if isString {
+			return OpStructFieldFloat64String
+		}
 		return OpStructFieldFloat64
 	case OpFloat64Ptr:
+		if isString {
+			return OpStructFieldFloat64PtrString
+		}
 		return OpStructFieldFloat64Ptr
 	case OpString:
+		if isString {
+			return OpStructFieldStringString
+		}
 		return OpStructFieldString
 	case OpStringPtr:
+		if isString {
+			return OpStructFieldStringPtrString
+		}
 		return OpStructFieldStringPtr
 	case OpNumber:
+		if isString {
+			return OpStructFieldNumberString
+		}
 		return OpStructFieldNumber
 	case OpNumberPtr:
+		if isString {
+			return OpStructFieldNumberPtrString
+		}
 		return OpStructFieldNumberPtr
 	case OpBool:
+		if isString {
+			return OpStructFieldBoolString
+		}
 		return OpStructFieldBool
 	case OpBoolPtr:
+		if isString {
+			return OpStructFieldBoolPtrString
+		}
 		return OpStructFieldBoolPtr
 	case OpBytes:
 		return OpStructFieldBytes

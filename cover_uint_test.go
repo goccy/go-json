@@ -17,6 +17,9 @@ func TestCoverUint(t *testing.T) {
 	type structUintString struct {
 		A uint `json:"a,string"`
 	}
+	type structUintStringOmitEmpty struct {
+		A uint `json:"a,string,omitempty"`
+	}
 
 	type structUintPtr struct {
 		A *uint `json:"a"`
@@ -26,6 +29,9 @@ func TestCoverUint(t *testing.T) {
 	}
 	type structUintPtrString struct {
 		A *uint `json:"a,string"`
+	}
+	type structUintPtrStringOmitEmpty struct {
+		A *uint `json:"a,string,omitempty"`
 	}
 
 	tests := []struct {
@@ -72,6 +78,12 @@ func TestCoverUint(t *testing.T) {
 				A uint `json:"a,string"`
 			}{},
 		},
+		{
+			name: "HeadUintZeroStringOmitEmpty",
+			data: struct {
+				A uint `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// HeadUint
 		{
@@ -90,6 +102,12 @@ func TestCoverUint(t *testing.T) {
 			name: "HeadUintString",
 			data: struct {
 				A uint `json:"a,string"`
+			}{A: 1},
+		},
+		{
+			name: "HeadUintStringOmitEmpty",
+			data: struct {
+				A uint `json:"a,string,omitempty"`
 			}{A: 1},
 		},
 
@@ -112,6 +130,12 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{A: uptr(1)},
 		},
+		{
+			name: "HeadUintPtrStringOmitEmpty",
+			data: struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: uptr(1)},
+		},
 
 		// HeadUintPtrNil
 		{
@@ -130,6 +154,12 @@ func TestCoverUint(t *testing.T) {
 			name: "HeadUintPtrNilString",
 			data: struct {
 				A *uint `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "HeadUintPtrNilStringOmitEmpty",
+			data: struct {
+				A *uint `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -152,6 +182,12 @@ func TestCoverUint(t *testing.T) {
 				A uint `json:"a,string"`
 			}{},
 		},
+		{
+			name: "PtrHeadUintZeroStringOmitEmpty",
+			data: &struct {
+				A uint `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// PtrHeadUint
 		{
@@ -170,6 +206,12 @@ func TestCoverUint(t *testing.T) {
 			name: "PtrHeadUintString",
 			data: &struct {
 				A uint `json:"a,string"`
+			}{A: 1},
+		},
+		{
+			name: "PtrHeadUintStringOmitEmpty",
+			data: &struct {
+				A uint `json:"a,string,omitempty"`
 			}{A: 1},
 		},
 
@@ -192,6 +234,12 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{A: uptr(1)},
 		},
+		{
+			name: "PtrHeadUintPtrStringOmitEmpty",
+			data: &struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: uptr(1)},
+		},
 
 		// PtrHeadUintPtrNil
 		{
@@ -210,6 +258,12 @@ func TestCoverUint(t *testing.T) {
 			name: "PtrHeadUintPtrNilString",
 			data: &struct {
 				A *uint `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadUintPtrNilStringOmitEmpty",
+			data: &struct {
+				A *uint `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -232,6 +286,12 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			})(nil),
 		},
+		{
+			name: "PtrHeadUintNilStringOmitEmpty",
+			data: (*struct {
+				A *uint `json:"a,string,omitempty"`
+			})(nil),
+		},
 
 		// HeadUintZeroMultiFields
 		{
@@ -251,11 +311,19 @@ func TestCoverUint(t *testing.T) {
 			}{},
 		},
 		{
-			name: "HeadUintZeroMultiFields",
+			name: "HeadUintZeroMultiFieldsString",
 			data: struct {
 				A uint `json:"a,string"`
 				B uint `json:"b,string"`
 				C uint `json:"c,string"`
+			}{},
+		},
+		{
+			name: "HeadUintZeroMultiFieldsStringOmitEmpty",
+			data: struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
+				C uint `json:"c,string,omitempty"`
 			}{},
 		},
 
@@ -284,6 +352,14 @@ func TestCoverUint(t *testing.T) {
 				C uint `json:"c,string"`
 			}{A: 1, B: 2, C: 3},
 		},
+		{
+			name: "HeadUintMultiFieldsStringOmitEmpty",
+			data: struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
+				C uint `json:"c,string,omitempty"`
+			}{A: 1, B: 2, C: 3},
+		},
 
 		// HeadUintPtrMultiFields
 		{
@@ -308,6 +384,14 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 				B *uint `json:"b,string"`
 				C *uint `json:"c,string"`
+			}{A: uptr(1), B: uptr(2), C: uptr(3)},
+		},
+		{
+			name: "HeadUintPtrMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
+				C *uint `json:"c,string,omitempty"`
 			}{A: uptr(1), B: uptr(2), C: uptr(3)},
 		},
 
@@ -336,6 +420,14 @@ func TestCoverUint(t *testing.T) {
 				C *uint `json:"c,string"`
 			}{A: nil, B: nil, C: nil},
 		},
+		{
+			name: "HeadUintPtrNilMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
+				C *uint `json:"c,string,omitempty"`
+			}{A: nil, B: nil, C: nil},
+		},
 
 		// PtrHeadUintZeroMultiFields
 		{
@@ -357,6 +449,13 @@ func TestCoverUint(t *testing.T) {
 			data: &struct {
 				A uint `json:"a,string"`
 				B uint `json:"b,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadUintZeroMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
 			}{},
 		},
 
@@ -382,6 +481,13 @@ func TestCoverUint(t *testing.T) {
 				B uint `json:"b,string"`
 			}{A: 1, B: 2},
 		},
+		{
+			name: "PtrHeadUintMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
+			}{A: 1, B: 2},
+		},
 
 		// PtrHeadUintPtrMultiFields
 		{
@@ -403,6 +509,13 @@ func TestCoverUint(t *testing.T) {
 			data: &struct {
 				A *uint `json:"a,string"`
 				B *uint `json:"b,string"`
+			}{A: uptr(1), B: uptr(2)},
+		},
+		{
+			name: "PtrHeadUintPtrMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
 			}{A: uptr(1), B: uptr(2)},
 		},
 
@@ -428,6 +541,13 @@ func TestCoverUint(t *testing.T) {
 				B *uint `json:"b,string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadUintPtrNilMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadUintNilMultiFields
 		{
@@ -449,6 +569,13 @@ func TestCoverUint(t *testing.T) {
 			data: (*struct {
 				A *uint `json:"a,string"`
 				B *uint `json:"b,string"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadUintNilMultiFieldsStringOmitEmpty",
+			data: (*struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
 			})(nil),
 		},
 
@@ -474,6 +601,14 @@ func TestCoverUint(t *testing.T) {
 			data: struct {
 				A struct {
 					A uint `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadUintZeroNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -509,6 +644,16 @@ func TestCoverUint(t *testing.T) {
 				A uint `json:"a,string"`
 			}{A: 1}},
 		},
+		{
+			name: "HeadUintNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A uint `json:"a,string,omitempty"`
+			}{A: 1}},
+		},
 
 		// HeadUintPtrNotRoot
 		{
@@ -541,6 +686,16 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{uptr(1)}},
 		},
+		{
+			name: "HeadUintPtrNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A *uint `json:"a,string,omitempty"`
+			}{uptr(1)}},
+		},
 
 		// HeadUintPtrNilNotRoot
 		{
@@ -564,6 +719,14 @@ func TestCoverUint(t *testing.T) {
 			data: struct {
 				A struct {
 					A *uint `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadUintPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *uint `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -599,6 +762,16 @@ func TestCoverUint(t *testing.T) {
 				A uint `json:"a,string"`
 			})},
 		},
+		{
+			name: "PtrHeadUintZeroNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A uint `json:"a,string,omitempty"`
+				}
+			}{A: new(struct {
+				A uint `json:"a,string,omitempty"`
+			})},
+		},
 
 		// PtrHeadUintNotRoot
 		{
@@ -629,6 +802,16 @@ func TestCoverUint(t *testing.T) {
 				}
 			}{A: &(struct {
 				A uint `json:"a,string"`
+			}{A: 1})},
+		},
+		{
+			name: "PtrHeadUintNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A uint `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A uint `json:"a,string,omitempty"`
 			}{A: 1})},
 		},
 
@@ -663,6 +846,16 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{A: uptr(1)})},
 		},
+		{
+			name: "PtrHeadUintPtrNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: uptr(1)})},
+		},
 
 		// PtrHeadUintPtrNilNotRoot
 		{
@@ -695,6 +888,16 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{A: nil})},
 		},
+		{
+			name: "PtrHeadUintPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: nil})},
+		},
 
 		// PtrHeadUintNilNotRoot
 		{
@@ -719,6 +922,14 @@ func TestCoverUint(t *testing.T) {
 				A *struct {
 					A *uint `json:"a,string"`
 				} `json:",string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadUintNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
 			}{A: nil},
 		},
 
@@ -753,6 +964,17 @@ func TestCoverUint(t *testing.T) {
 				}
 				B struct {
 					B uint `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadUintZeroMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B uint `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -803,6 +1025,21 @@ func TestCoverUint(t *testing.T) {
 				B uint `json:"b,string"`
 			}{B: 2}},
 		},
+		{
+			name: "HeadUintMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B uint `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A uint `json:"a,string,omitempty"`
+			}{A: 1}, B: struct {
+				B uint `json:"b,string,omitempty"`
+			}{B: 2}},
+		},
 
 		// HeadUintPtrMultiFieldsNotRoot
 		{
@@ -848,6 +1085,21 @@ func TestCoverUint(t *testing.T) {
 				A *uint `json:"a,string"`
 			}{A: uptr(1)}, B: struct {
 				B *uint `json:"b,string"`
+			}{B: uptr(2)}},
+		},
+		{
+			name: "HeadUintPtrMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *uint `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: uptr(1)}, B: struct {
+				B *uint `json:"b,string,omitempty"`
 			}{B: uptr(2)}},
 		},
 
@@ -897,6 +1149,21 @@ func TestCoverUint(t *testing.T) {
 				B *uint `json:"b,string"`
 			}{B: nil}},
 		},
+		{
+			name: "HeadUintPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *uint `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: nil}, B: struct {
+				B *uint `json:"b,string,omitempty"`
+			}{B: nil}},
+		},
 
 		// PtrHeadUintZeroMultiFieldsNotRoot
 		{
@@ -929,6 +1196,17 @@ func TestCoverUint(t *testing.T) {
 				}
 				B struct {
 					B uint `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "PtrHeadUintZeroMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B uint `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -979,6 +1257,21 @@ func TestCoverUint(t *testing.T) {
 				B uint `json:"b,string"`
 			}{B: 2}},
 		},
+		{
+			name: "PtrHeadUintMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A uint `json:"a,string,omitempty"`
+				}
+				B struct {
+					B uint `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A uint `json:"a,string,omitempty"`
+			}{A: 1}, B: struct {
+				B uint `json:"b,string,omitempty"`
+			}{B: 2}},
+		},
 
 		// PtrHeadUintPtrMultiFieldsNotRoot
 		{
@@ -1026,6 +1319,21 @@ func TestCoverUint(t *testing.T) {
 				B *uint `json:"b,string"`
 			}{B: uptr(2)})},
 		},
+		{
+			name: "PtrHeadUintPtrMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *uint `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *uint `json:"a,string,omitempty"`
+			}{A: uptr(1)}), B: &(struct {
+				B *uint `json:"b,string,omitempty"`
+			}{B: uptr(2)})},
+		},
 
 		// PtrHeadUintPtrNilMultiFieldsNotRoot
 		{
@@ -1061,6 +1369,17 @@ func TestCoverUint(t *testing.T) {
 				} `json:",string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadUintPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
+				B *struct {
+					B *uint `json:"b,string,omitempty"`
+				} `json:",string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadUintNilMultiFieldsNotRoot
 		{
@@ -1093,6 +1412,17 @@ func TestCoverUint(t *testing.T) {
 				}
 				B *struct {
 					B *uint `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadUintNilMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *uint `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1155,6 +1485,25 @@ func TestCoverUint(t *testing.T) {
 				B uint `json:"b,string"`
 			}{A: 3, B: 4})},
 		},
+		{
+			name: "PtrHeadUintDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
+			}{A: 1, B: 2}), B: &(struct {
+				A uint `json:"a,string,omitempty"`
+				B uint `json:"b,string,omitempty"`
+			}{A: 3, B: 4})},
+		},
 
 		// PtrHeadUintNilDoubleMultiFieldsNotRoot
 		{
@@ -1196,6 +1545,19 @@ func TestCoverUint(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadUintNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadUintNilDoubleMultiFieldsNotRoot
 		{
@@ -1234,6 +1596,19 @@ func TestCoverUint(t *testing.T) {
 				B *struct {
 					A uint `json:"a,string"`
 					B uint `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadUintNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A uint `json:"a,string,omitempty"`
+					B uint `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1296,6 +1671,25 @@ func TestCoverUint(t *testing.T) {
 				B *uint `json:"b,string"`
 			}{A: uptr(3), B: uptr(4)})},
 		},
+		{
+			name: "PtrHeadUintPtrDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
+			}{A: uptr(1), B: uptr(2)}), B: &(struct {
+				A *uint `json:"a,string,omitempty"`
+				B *uint `json:"b,string,omitempty"`
+			}{A: uptr(3), B: uptr(4)})},
+		},
 
 		// PtrHeadUintPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1337,6 +1731,19 @@ func TestCoverUint(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadUintPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadUintPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1375,6 +1782,19 @@ func TestCoverUint(t *testing.T) {
 				B *struct {
 					A *uint `json:"a,string"`
 					B *uint `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadUintPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *uint `json:"a,string,omitempty"`
+					B *uint `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1410,6 +1830,16 @@ func TestCoverUint(t *testing.T) {
 				B:                2,
 			},
 		},
+		{
+			name: "AnonymousHeadUintStringOmitEmpty",
+			data: struct {
+				structUintStringOmitEmpty
+				B uint `json:"b,string,omitempty"`
+			}{
+				structUintStringOmitEmpty: structUintStringOmitEmpty{A: 1},
+				B:                         2,
+			},
+		},
 
 		// PtrAnonymousHeadUint
 		{
@@ -1440,6 +1870,16 @@ func TestCoverUint(t *testing.T) {
 			}{
 				structUintString: &structUintString{A: 1},
 				B:                2,
+			},
+		},
+		{
+			name: "PtrAnonymousHeadUintStringOmitEmpty",
+			data: struct {
+				*structUintStringOmitEmpty
+				B uint `json:"b,string,omitempty"`
+			}{
+				structUintStringOmitEmpty: &structUintStringOmitEmpty{A: 1},
+				B:                         2,
 			},
 		},
 
@@ -1474,6 +1914,16 @@ func TestCoverUint(t *testing.T) {
 				B:                2,
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadUintStringOmitEmpty",
+			data: struct {
+				*structUintStringOmitEmpty
+				B uint `json:"b,string,omitempty"`
+			}{
+				structUintStringOmitEmpty: nil,
+				B:                         2,
+			},
+		},
 
 		// AnonymousHeadUintPtr
 		{
@@ -1504,6 +1954,16 @@ func TestCoverUint(t *testing.T) {
 			}{
 				structUintPtrString: structUintPtrString{A: uptr(1)},
 				B:                   uptr(2),
+			},
+		},
+		{
+			name: "AnonymousHeadUintPtrStringOmitEmpty",
+			data: struct {
+				structUintPtrStringOmitEmpty
+				B *uint `json:"b,string,omitempty"`
+			}{
+				structUintPtrStringOmitEmpty: structUintPtrStringOmitEmpty{A: uptr(1)},
+				B:                            uptr(2),
 			},
 		},
 
@@ -1538,6 +1998,16 @@ func TestCoverUint(t *testing.T) {
 				B:                   uptr(2),
 			},
 		},
+		{
+			name: "AnonymousHeadUintPtrNilStringOmitEmpty",
+			data: struct {
+				structUintPtrStringOmitEmpty
+				B *uint `json:"b,string,omitempty"`
+			}{
+				structUintPtrStringOmitEmpty: structUintPtrStringOmitEmpty{A: nil},
+				B:                            uptr(2),
+			},
+		},
 
 		// PtrAnonymousHeadUintPtr
 		{
@@ -1568,6 +2038,16 @@ func TestCoverUint(t *testing.T) {
 			}{
 				structUintPtrString: &structUintPtrString{A: uptr(1)},
 				B:                   uptr(2),
+			},
+		},
+		{
+			name: "PtrAnonymousHeadUintPtrStringOmitEmpty",
+			data: struct {
+				*structUintPtrStringOmitEmpty
+				B *uint `json:"b,string,omitempty"`
+			}{
+				structUintPtrStringOmitEmpty: &structUintPtrStringOmitEmpty{A: uptr(1)},
+				B:                            uptr(2),
 			},
 		},
 
@@ -1602,6 +2082,16 @@ func TestCoverUint(t *testing.T) {
 				B:                   uptr(2),
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadUintPtrStringOmitEmpty",
+			data: struct {
+				*structUintPtrStringOmitEmpty
+				B *uint `json:"b,string,omitempty"`
+			}{
+				structUintPtrStringOmitEmpty: nil,
+				B:                            uptr(2),
+			},
+		},
 
 		// AnonymousHeadUintOnly
 		{
@@ -1626,6 +2116,14 @@ func TestCoverUint(t *testing.T) {
 				structUintString
 			}{
 				structUintString: structUintString{A: 1},
+			},
+		},
+		{
+			name: "AnonymousHeadUintOnlyStringOmitEmpty",
+			data: struct {
+				structUintStringOmitEmpty
+			}{
+				structUintStringOmitEmpty: structUintStringOmitEmpty{A: 1},
 			},
 		},
 
@@ -1654,6 +2152,14 @@ func TestCoverUint(t *testing.T) {
 				structUintString: &structUintString{A: 1},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadUintOnlyStringOmitEmpty",
+			data: struct {
+				*structUintStringOmitEmpty
+			}{
+				structUintStringOmitEmpty: &structUintStringOmitEmpty{A: 1},
+			},
+		},
 
 		// NilPtrAnonymousHeadUintOnly
 		{
@@ -1678,6 +2184,14 @@ func TestCoverUint(t *testing.T) {
 				*structUintString
 			}{
 				structUintString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadUintOnlyStringOmitEmpty",
+			data: struct {
+				*structUintStringOmitEmpty
+			}{
+				structUintStringOmitEmpty: nil,
 			},
 		},
 
@@ -1706,6 +2220,14 @@ func TestCoverUint(t *testing.T) {
 				structUintPtrString: structUintPtrString{A: uptr(1)},
 			},
 		},
+		{
+			name: "AnonymousHeadUintPtrOnlyStringOmitEmpty",
+			data: struct {
+				structUintPtrStringOmitEmpty
+			}{
+				structUintPtrStringOmitEmpty: structUintPtrStringOmitEmpty{A: uptr(1)},
+			},
+		},
 
 		// AnonymousHeadUintPtrNilOnly
 		{
@@ -1730,6 +2252,14 @@ func TestCoverUint(t *testing.T) {
 				structUintPtrString
 			}{
 				structUintPtrString: structUintPtrString{A: nil},
+			},
+		},
+		{
+			name: "AnonymousHeadUintPtrNilOnlyStringOmitEmpty",
+			data: struct {
+				structUintPtrStringOmitEmpty
+			}{
+				structUintPtrStringOmitEmpty: structUintPtrStringOmitEmpty{A: nil},
 			},
 		},
 
@@ -1758,6 +2288,14 @@ func TestCoverUint(t *testing.T) {
 				structUintPtrString: &structUintPtrString{A: uptr(1)},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadUintPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structUintPtrStringOmitEmpty
+			}{
+				structUintPtrStringOmitEmpty: &structUintPtrStringOmitEmpty{A: uptr(1)},
+			},
+		},
 
 		// NilPtrAnonymousHeadUintPtrOnly
 		{
@@ -1782,6 +2320,14 @@ func TestCoverUint(t *testing.T) {
 				*structUintPtrString
 			}{
 				structUintPtrString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadUintPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structUintPtrStringOmitEmpty
+			}{
+				structUintPtrStringOmitEmpty: nil,
 			},
 		},
 	}

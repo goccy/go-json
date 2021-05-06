@@ -17,6 +17,9 @@ func TestCoverInt(t *testing.T) {
 	type structIntString struct {
 		A int `json:"a,string"`
 	}
+	type structIntStringOmitEmpty struct {
+		A int `json:"a,omitempty,string"`
+	}
 
 	type structIntPtr struct {
 		A *int `json:"a"`
@@ -26,6 +29,9 @@ func TestCoverInt(t *testing.T) {
 	}
 	type structIntPtrString struct {
 		A *int `json:"a,string"`
+	}
+	type structIntPtrStringOmitEmpty struct {
+		A *int `json:"a,omitempty,string"`
 	}
 
 	tests := []struct {
@@ -150,6 +156,12 @@ func TestCoverInt(t *testing.T) {
 			name: "PtrHeadIntZeroString",
 			data: &struct {
 				A int `json:"a,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadIntZeroStringOmitEmpty",
+			data: &struct {
+				A int `json:"a,string,omitempty"`
 			}{},
 		},
 

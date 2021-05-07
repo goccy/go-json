@@ -3508,3 +3508,64 @@ func TestDecodeBackSlash(t *testing.T) {
 		})
 	})
 }
+
+func TestIssue218(t *testing.T) {
+	type A struct {
+		X int
+	}
+	type B struct {
+		Y int
+	}
+	type S struct {
+		A *A `json:"a,omitempty"`
+		B *B `json:"b,omitempty"`
+	}
+	tests := []struct {
+		name     string
+		given    []S
+		expected []S
+	}{
+		{
+			name: "A should be correct",
+			given: []S{{
+				A: &A{
+					X: 1,
+				},
+			}},
+			expected: []S{{
+				A: &A{
+					X: 1,
+				},
+			}},
+		},
+		{
+			name: "B should be correct",
+			given: []S{{
+				B: &B{
+					Y: 2,
+				},
+			}},
+			expected: []S{{
+				B: &B{
+					Y: 2,
+				},
+			}},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := json.NewEncoder(&buf).Encode(test.given); err != nil {
+				t.Fatal(err)
+			}
+			var actual []S
+			if err := json.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&actual); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(test.expected, actual) {
+				t.Fatalf("mismatch value: expected %v but got %v", test.expected, actual)
+			}
+		})
+	}
+}

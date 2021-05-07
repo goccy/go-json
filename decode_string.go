@@ -213,6 +213,7 @@ func stringBytes(s *stream) ([]byte, error) {
 			s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
 			_, _, p = s.stat()
 			cursor += runeErrBytesLen
+			s.length += runeErrBytesLen
 			continue
 		case nul:
 			s.cursor = cursor
@@ -238,6 +239,7 @@ func stringBytes(s *stream) ([]byte, error) {
 				_, _, p = s.stat()
 			}
 			cursor += int64(len(b))
+			s.length += int64(len(b))
 			continue
 		}
 		cursor++

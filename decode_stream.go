@@ -82,7 +82,14 @@ func (s *stream) readBuf() []byte {
 		copy(s.buf, remainBuf)
 	}
 	remainLen := s.length - s.cursor
-	return s.buf[s.cursor+remainLen:]
+	remainNotNulCharNum := int64(0)
+	for i := int64(0); i < remainLen; i++ {
+		if s.buf[s.cursor+i] == nul {
+			break
+		}
+		remainNotNulCharNum++
+	}
+	return s.buf[s.cursor+remainNotNulCharNum:]
 }
 
 func (s *stream) read() bool {

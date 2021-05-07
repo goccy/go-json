@@ -49,6 +49,15 @@ func (s *stream) char() byte {
 	return s.buf[s.cursor]
 }
 
+func (s *stream) equalChar(c byte) bool {
+	cur := s.buf[s.cursor]
+	if cur == nul {
+		s.read()
+		cur = s.buf[s.cursor]
+	}
+	return cur == c
+}
+
 func (s *stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }

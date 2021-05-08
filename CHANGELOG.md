@@ -1,3 +1,17 @@
+# v0.5.0 - 2021/5/9
+
+### Supports using omitempty and string tags at the same time ( #216 )
+
+### Fix decoder
+
+* Fix stream decoder for unicode char ( #215 )
+* Fix decoding of slice element ( #219 )
+* Fix calculating of buffer length for stream decoder ( #220 )
+
+### Refactor
+
+* replace skipWhiteSpace goto by loop ( #212 )
+
 # v0.4.14 - 2021/5/4
 
 ### Benchmark

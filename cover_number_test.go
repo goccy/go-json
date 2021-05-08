@@ -17,6 +17,9 @@ func TestCoverNumber(t *testing.T) {
 	type structNumberString struct {
 		A json.Number `json:"a,string"`
 	}
+	type structNumberStringOmitEmpty struct {
+		A json.Number `json:"a,string,omitempty"`
+	}
 
 	type structNumberPtr struct {
 		A *json.Number `json:"a"`
@@ -26,6 +29,9 @@ func TestCoverNumber(t *testing.T) {
 	}
 	type structNumberPtrString struct {
 		A *json.Number `json:"a,string"`
+	}
+	type structNumberPtrStringOmitEmpty struct {
+		A *json.Number `json:"a,string,omitempty"`
 	}
 
 	tests := []struct {
@@ -72,6 +78,12 @@ func TestCoverNumber(t *testing.T) {
 				A json.Number `json:"a,string"`
 			}{},
 		},
+		{
+			name: "HeadNumberZeroStringOmitEmpty",
+			data: struct {
+				A json.Number `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// HeadNumber
 		{
@@ -90,6 +102,12 @@ func TestCoverNumber(t *testing.T) {
 			name: "HeadNumberString",
 			data: struct {
 				A json.Number `json:"a,string"`
+			}{A: "1"},
+		},
+		{
+			name: "HeadNumberStringOmitEmpty",
+			data: struct {
+				A json.Number `json:"a,string,omitempty"`
 			}{A: "1"},
 		},
 
@@ -112,6 +130,12 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{A: numberptr("1")},
 		},
+		{
+			name: "HeadNumberPtrStringOmitEmpty",
+			data: struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: numberptr("1")},
+		},
 
 		// HeadNumberPtrNil
 		{
@@ -130,6 +154,12 @@ func TestCoverNumber(t *testing.T) {
 			name: "HeadNumberPtrNilString",
 			data: struct {
 				A *json.Number `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "HeadNumberPtrNilStringOmitEmpty",
+			data: struct {
+				A *json.Number `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -152,6 +182,12 @@ func TestCoverNumber(t *testing.T) {
 				A json.Number `json:"a,string"`
 			}{},
 		},
+		{
+			name: "PtrHeadNumberZeroStringOmitEmpty",
+			data: &struct {
+				A json.Number `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// PtrHeadNumber
 		{
@@ -170,6 +206,12 @@ func TestCoverNumber(t *testing.T) {
 			name: "PtrHeadNumberString",
 			data: &struct {
 				A json.Number `json:"a,string"`
+			}{A: "1"},
+		},
+		{
+			name: "PtrHeadNumberStringOmitEmpty",
+			data: &struct {
+				A json.Number `json:"a,string,omitempty"`
 			}{A: "1"},
 		},
 
@@ -192,6 +234,12 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{A: numberptr("1")},
 		},
+		{
+			name: "PtrHeadNumberPtrStringOmitEmpty",
+			data: &struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: numberptr("1")},
+		},
 
 		// PtrHeadNumberPtrNil
 		{
@@ -210,6 +258,12 @@ func TestCoverNumber(t *testing.T) {
 			name: "PtrHeadNumberPtrNilString",
 			data: &struct {
 				A *json.Number `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadNumberPtrNilStringOmitEmpty",
+			data: &struct {
+				A *json.Number `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -232,6 +286,12 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			})(nil),
 		},
+		{
+			name: "PtrHeadNumberNilStringOmitEmpty",
+			data: (*struct {
+				A *json.Number `json:"a,string,omitempty"`
+			})(nil),
+		},
 
 		// HeadNumberZeroMultiFields
 		{
@@ -251,11 +311,19 @@ func TestCoverNumber(t *testing.T) {
 			}{},
 		},
 		{
-			name: "HeadNumberZeroMultiFields",
+			name: "HeadNumberZeroMultiFieldsString",
 			data: struct {
 				A json.Number `json:"a,string"`
 				B json.Number `json:"b,string"`
 				C json.Number `json:"c,string"`
+			}{},
+		},
+		{
+			name: "HeadNumberZeroMultiFieldsStringOmitEmpty",
+			data: struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
+				C json.Number `json:"c,string,omitempty"`
 			}{},
 		},
 
@@ -284,6 +352,14 @@ func TestCoverNumber(t *testing.T) {
 				C json.Number `json:"c,string"`
 			}{A: "1", B: "2", C: "3"},
 		},
+		{
+			name: "HeadNumberMultiFieldsStringOmitEmpty",
+			data: struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
+				C json.Number `json:"c,string,omitempty"`
+			}{A: "1", B: "2", C: "3"},
+		},
 
 		// HeadNumberPtrMultiFields
 		{
@@ -308,6 +384,14 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 				B *json.Number `json:"b,string"`
 				C *json.Number `json:"c,string"`
+			}{A: numberptr("1"), B: numberptr("2"), C: numberptr("3")},
+		},
+		{
+			name: "HeadNumberPtrMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
+				C *json.Number `json:"c,string,omitempty"`
 			}{A: numberptr("1"), B: numberptr("2"), C: numberptr("3")},
 		},
 
@@ -336,6 +420,14 @@ func TestCoverNumber(t *testing.T) {
 				C *json.Number `json:"c,string"`
 			}{A: nil, B: nil, C: nil},
 		},
+		{
+			name: "HeadNumberPtrNilMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
+				C *json.Number `json:"c,string,omitempty"`
+			}{A: nil, B: nil, C: nil},
+		},
 
 		// PtrHeadNumberZeroMultiFields
 		{
@@ -357,6 +449,13 @@ func TestCoverNumber(t *testing.T) {
 			data: &struct {
 				A json.Number `json:"a,string"`
 				B json.Number `json:"b,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadNumberZeroMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
 			}{},
 		},
 
@@ -382,6 +481,13 @@ func TestCoverNumber(t *testing.T) {
 				B json.Number `json:"b,string"`
 			}{A: "1", B: "2"},
 		},
+		{
+			name: "PtrHeadNumberMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
+			}{A: "1", B: "2"},
+		},
 
 		// PtrHeadNumberPtrMultiFields
 		{
@@ -403,6 +509,13 @@ func TestCoverNumber(t *testing.T) {
 			data: &struct {
 				A *json.Number `json:"a,string"`
 				B *json.Number `json:"b,string"`
+			}{A: numberptr("1"), B: numberptr("2")},
+		},
+		{
+			name: "PtrHeadNumberPtrMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
 			}{A: numberptr("1"), B: numberptr("2")},
 		},
 
@@ -428,6 +541,13 @@ func TestCoverNumber(t *testing.T) {
 				B *json.Number `json:"b,string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadNumberPtrNilMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadNumberNilMultiFields
 		{
@@ -449,6 +569,13 @@ func TestCoverNumber(t *testing.T) {
 			data: (*struct {
 				A *json.Number `json:"a,string"`
 				B *json.Number `json:"b,string"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadNumberNilMultiFieldsStringOmitEmpty",
+			data: (*struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
 			})(nil),
 		},
 
@@ -474,6 +601,14 @@ func TestCoverNumber(t *testing.T) {
 			data: struct {
 				A struct {
 					A json.Number `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadNumberZeroNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -509,6 +644,16 @@ func TestCoverNumber(t *testing.T) {
 				A json.Number `json:"a,string"`
 			}{A: "1"}},
 		},
+		{
+			name: "HeadNumberNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A json.Number `json:"a,string,omitempty"`
+			}{A: "1"}},
+		},
 
 		// HeadNumberPtrNotRoot
 		{
@@ -541,6 +686,16 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{numberptr("1")}},
 		},
+		{
+			name: "HeadNumberPtrNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{numberptr("1")}},
+		},
 
 		// HeadNumberPtrNilNotRoot
 		{
@@ -564,6 +719,14 @@ func TestCoverNumber(t *testing.T) {
 			data: struct {
 				A struct {
 					A *json.Number `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadNumberPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *json.Number `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -599,6 +762,16 @@ func TestCoverNumber(t *testing.T) {
 				A json.Number `json:"a,string"`
 			})},
 		},
+		{
+			name: "PtrHeadNumberZeroNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+			}{A: new(struct {
+				A json.Number `json:"a,string,omitempty"`
+			})},
+		},
 
 		// PtrHeadNumberNotRoot
 		{
@@ -629,6 +802,16 @@ func TestCoverNumber(t *testing.T) {
 				}
 			}{A: &(struct {
 				A json.Number `json:"a,string"`
+			}{A: "1"})},
+		},
+		{
+			name: "PtrHeadNumberNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A json.Number `json:"a,string,omitempty"`
 			}{A: "1"})},
 		},
 
@@ -663,6 +846,16 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{A: numberptr("1")})},
 		},
+		{
+			name: "PtrHeadNumberPtrNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: numberptr("1")})},
+		},
 
 		// PtrHeadNumberPtrNilNotRoot
 		{
@@ -695,6 +888,16 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{A: nil})},
 		},
+		{
+			name: "PtrHeadNumberPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: nil})},
+		},
 
 		// PtrHeadNumberNilNotRoot
 		{
@@ -719,6 +922,14 @@ func TestCoverNumber(t *testing.T) {
 				A *struct {
 					A *json.Number `json:"a,string"`
 				} `json:",string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadNumberNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
 			}{A: nil},
 		},
 
@@ -753,6 +964,17 @@ func TestCoverNumber(t *testing.T) {
 				}
 				B struct {
 					B json.Number `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadNumberZeroMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B json.Number `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -803,6 +1025,21 @@ func TestCoverNumber(t *testing.T) {
 				B json.Number `json:"b,string"`
 			}{B: "2"}},
 		},
+		{
+			name: "HeadNumberMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B json.Number `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A json.Number `json:"a,string,omitempty"`
+			}{A: "1"}, B: struct {
+				B json.Number `json:"b,string,omitempty"`
+			}{B: "2"}},
+		},
 
 		// HeadNumberPtrMultiFieldsNotRoot
 		{
@@ -848,6 +1085,21 @@ func TestCoverNumber(t *testing.T) {
 				A *json.Number `json:"a,string"`
 			}{A: numberptr("1")}, B: struct {
 				B *json.Number `json:"b,string"`
+			}{B: numberptr("2")}},
+		},
+		{
+			name: "HeadNumberPtrMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *json.Number `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: numberptr("1")}, B: struct {
+				B *json.Number `json:"b,string,omitempty"`
 			}{B: numberptr("2")}},
 		},
 
@@ -897,6 +1149,21 @@ func TestCoverNumber(t *testing.T) {
 				B *json.Number `json:"b,string"`
 			}{B: nil}},
 		},
+		{
+			name: "HeadNumberPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *json.Number `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: nil}, B: struct {
+				B *json.Number `json:"b,string,omitempty"`
+			}{B: nil}},
+		},
 
 		// PtrHeadNumberZeroMultiFieldsNotRoot
 		{
@@ -929,6 +1196,17 @@ func TestCoverNumber(t *testing.T) {
 				}
 				B struct {
 					B json.Number `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "PtrHeadNumberZeroMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B json.Number `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -979,6 +1257,21 @@ func TestCoverNumber(t *testing.T) {
 				B json.Number `json:"b,string"`
 			}{B: "2"}},
 		},
+		{
+			name: "PtrHeadNumberMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A json.Number `json:"a,string,omitempty"`
+				}
+				B struct {
+					B json.Number `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A json.Number `json:"a,string,omitempty"`
+			}{A: "1"}, B: struct {
+				B json.Number `json:"b,string,omitempty"`
+			}{B: "2"}},
+		},
 
 		// PtrHeadNumberPtrMultiFieldsNotRoot
 		{
@@ -1026,6 +1319,21 @@ func TestCoverNumber(t *testing.T) {
 				B *json.Number `json:"b,string"`
 			}{B: numberptr("2")})},
 		},
+		{
+			name: "PtrHeadNumberPtrMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *json.Number `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *json.Number `json:"a,string,omitempty"`
+			}{A: numberptr("1")}), B: &(struct {
+				B *json.Number `json:"b,string,omitempty"`
+			}{B: numberptr("2")})},
+		},
 
 		// PtrHeadNumberPtrNilMultiFieldsNotRoot
 		{
@@ -1061,6 +1369,17 @@ func TestCoverNumber(t *testing.T) {
 				} `json:",string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadNumberPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
+				B *struct {
+					B *json.Number `json:"b,string,omitempty"`
+				} `json:",string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadNumberNilMultiFieldsNotRoot
 		{
@@ -1093,6 +1412,17 @@ func TestCoverNumber(t *testing.T) {
 				}
 				B *struct {
 					B *json.Number `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadNumberNilMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *json.Number `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1155,6 +1485,25 @@ func TestCoverNumber(t *testing.T) {
 				B json.Number `json:"b,string"`
 			}{A: "3", B: "4"})},
 		},
+		{
+			name: "PtrHeadNumberDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
+			}{A: "1", B: "2"}), B: &(struct {
+				A json.Number `json:"a,string,omitempty"`
+				B json.Number `json:"b,string,omitempty"`
+			}{A: "3", B: "4"})},
+		},
 
 		// PtrHeadNumberNilDoubleMultiFieldsNotRoot
 		{
@@ -1196,6 +1545,19 @@ func TestCoverNumber(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadNumberNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadNumberNilDoubleMultiFieldsNotRoot
 		{
@@ -1234,6 +1596,19 @@ func TestCoverNumber(t *testing.T) {
 				B *struct {
 					A json.Number `json:"a,string"`
 					B json.Number `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadNumberNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A json.Number `json:"a,string,omitempty"`
+					B json.Number `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1296,6 +1671,25 @@ func TestCoverNumber(t *testing.T) {
 				B *json.Number `json:"b,string"`
 			}{A: numberptr("3"), B: numberptr("4")})},
 		},
+		{
+			name: "PtrHeadNumberPtrDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
+			}{A: numberptr("1"), B: numberptr("2")}), B: &(struct {
+				A *json.Number `json:"a,string,omitempty"`
+				B *json.Number `json:"b,string,omitempty"`
+			}{A: numberptr("3"), B: numberptr("4")})},
+		},
 
 		// PtrHeadNumberPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1337,6 +1731,19 @@ func TestCoverNumber(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadNumberPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadNumberPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1375,6 +1782,19 @@ func TestCoverNumber(t *testing.T) {
 				B *struct {
 					A *json.Number `json:"a,string"`
 					B *json.Number `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadNumberPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *json.Number `json:"a,string,omitempty"`
+					B *json.Number `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1410,6 +1830,16 @@ func TestCoverNumber(t *testing.T) {
 				B:                  "2",
 			},
 		},
+		{
+			name: "AnonymousHeadNumberStringOmitEmpty",
+			data: struct {
+				structNumberStringOmitEmpty
+				B json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberStringOmitEmpty: structNumberStringOmitEmpty{A: "1"},
+				B:                           "2",
+			},
+		},
 
 		// PtrAnonymousHeadNumber
 		{
@@ -1440,6 +1870,16 @@ func TestCoverNumber(t *testing.T) {
 			}{
 				structNumberString: &structNumberString{A: "1"},
 				B:                  "2",
+			},
+		},
+		{
+			name: "PtrAnonymousHeadNumberStringOmitEmpty",
+			data: struct {
+				*structNumberStringOmitEmpty
+				B json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberStringOmitEmpty: &structNumberStringOmitEmpty{A: "1"},
+				B:                           "2",
 			},
 		},
 
@@ -1474,6 +1914,16 @@ func TestCoverNumber(t *testing.T) {
 				B:                  "2",
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadNumberStringOmitEmpty",
+			data: struct {
+				*structNumberStringOmitEmpty
+				B json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberStringOmitEmpty: nil,
+				B:                           "2",
+			},
+		},
 
 		// AnonymousHeadNumberPtr
 		{
@@ -1504,6 +1954,16 @@ func TestCoverNumber(t *testing.T) {
 			}{
 				structNumberPtrString: structNumberPtrString{A: numberptr("1")},
 				B:                     numberptr("2"),
+			},
+		},
+		{
+			name: "AnonymousHeadNumberPtrStringOmitEmpty",
+			data: struct {
+				structNumberPtrStringOmitEmpty
+				B *json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberPtrStringOmitEmpty: structNumberPtrStringOmitEmpty{A: numberptr("1")},
+				B:                              numberptr("2"),
 			},
 		},
 
@@ -1538,6 +1998,16 @@ func TestCoverNumber(t *testing.T) {
 				B:                     numberptr("2"),
 			},
 		},
+		{
+			name: "AnonymousHeadNumberPtrNilStringOmitEmpty",
+			data: struct {
+				structNumberPtrStringOmitEmpty
+				B *json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberPtrStringOmitEmpty: structNumberPtrStringOmitEmpty{A: nil},
+				B:                              numberptr("2"),
+			},
+		},
 
 		// PtrAnonymousHeadNumberPtr
 		{
@@ -1568,6 +2038,16 @@ func TestCoverNumber(t *testing.T) {
 			}{
 				structNumberPtrString: &structNumberPtrString{A: numberptr("1")},
 				B:                     numberptr("2"),
+			},
+		},
+		{
+			name: "PtrAnonymousHeadNumberPtrStringOmitEmpty",
+			data: struct {
+				*structNumberPtrStringOmitEmpty
+				B *json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberPtrStringOmitEmpty: &structNumberPtrStringOmitEmpty{A: numberptr("1")},
+				B:                              numberptr("2"),
 			},
 		},
 
@@ -1602,6 +2082,16 @@ func TestCoverNumber(t *testing.T) {
 				B:                     numberptr("2"),
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadNumberPtrStringOmitEmpty",
+			data: struct {
+				*structNumberPtrStringOmitEmpty
+				B *json.Number `json:"b,string,omitempty"`
+			}{
+				structNumberPtrStringOmitEmpty: nil,
+				B:                              numberptr("2"),
+			},
+		},
 
 		// AnonymousHeadNumberOnly
 		{
@@ -1626,6 +2116,14 @@ func TestCoverNumber(t *testing.T) {
 				structNumberString
 			}{
 				structNumberString: structNumberString{A: "1"},
+			},
+		},
+		{
+			name: "AnonymousHeadNumberOnlyStringOmitEmpty",
+			data: struct {
+				structNumberStringOmitEmpty
+			}{
+				structNumberStringOmitEmpty: structNumberStringOmitEmpty{A: "1"},
 			},
 		},
 
@@ -1654,6 +2152,14 @@ func TestCoverNumber(t *testing.T) {
 				structNumberString: &structNumberString{A: "1"},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadNumberOnlyStringOmitEmpty",
+			data: struct {
+				*structNumberStringOmitEmpty
+			}{
+				structNumberStringOmitEmpty: &structNumberStringOmitEmpty{A: "1"},
+			},
+		},
 
 		// NilPtrAnonymousHeadNumberOnly
 		{
@@ -1678,6 +2184,14 @@ func TestCoverNumber(t *testing.T) {
 				*structNumberString
 			}{
 				structNumberString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadNumberOnlyStringOmitEmpty",
+			data: struct {
+				*structNumberStringOmitEmpty
+			}{
+				structNumberStringOmitEmpty: nil,
 			},
 		},
 
@@ -1706,6 +2220,14 @@ func TestCoverNumber(t *testing.T) {
 				structNumberPtrString: structNumberPtrString{A: numberptr("1")},
 			},
 		},
+		{
+			name: "AnonymousHeadNumberPtrOnlyStringOmitEmpty",
+			data: struct {
+				structNumberPtrStringOmitEmpty
+			}{
+				structNumberPtrStringOmitEmpty: structNumberPtrStringOmitEmpty{A: numberptr("1")},
+			},
+		},
 
 		// AnonymousHeadNumberPtrNilOnly
 		{
@@ -1730,6 +2252,14 @@ func TestCoverNumber(t *testing.T) {
 				structNumberPtrString
 			}{
 				structNumberPtrString: structNumberPtrString{A: nil},
+			},
+		},
+		{
+			name: "AnonymousHeadNumberPtrNilOnlyStringOmitEmpty",
+			data: struct {
+				structNumberPtrStringOmitEmpty
+			}{
+				structNumberPtrStringOmitEmpty: structNumberPtrStringOmitEmpty{A: nil},
 			},
 		},
 
@@ -1758,6 +2288,14 @@ func TestCoverNumber(t *testing.T) {
 				structNumberPtrString: &structNumberPtrString{A: numberptr("1")},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadNumberPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structNumberPtrStringOmitEmpty
+			}{
+				structNumberPtrStringOmitEmpty: &structNumberPtrStringOmitEmpty{A: numberptr("1")},
+			},
+		},
 
 		// NilPtrAnonymousHeadNumberPtrOnly
 		{
@@ -1782,6 +2320,14 @@ func TestCoverNumber(t *testing.T) {
 				*structNumberPtrString
 			}{
 				structNumberPtrString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadNumberPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structNumberPtrStringOmitEmpty
+			}{
+				structNumberPtrStringOmitEmpty: nil,
 			},
 		},
 	}

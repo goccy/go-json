@@ -2155,9 +2155,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			if p != 0 {
 				b = appendIndent(ctx, b, code.Indent+1)
 				b = append(b, code.EscapedKey...)
-				b = append(b, ' ', '"')
+				b = append(b, ' ')
 				b = appendString(b, string(appendString([]byte{}, ptrToString(p))))
-				b = append(b, '"')
 				b = appendComma(b)
 			}
 			code = code.Next

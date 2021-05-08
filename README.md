@@ -13,14 +13,9 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 ```
 * version ( expected release date )
 
-* v0.4.x
+* v0.5.0
  |
- | implement all features that exist in encoding/json and fix bugs and stabilize.
- |
- v
-* v0.5.0 ( 2021/04 Mid )
- |
- | refactor all sources for maintainability
+ | refactor all sources for maintainability and improve performance
  |
  v
 * v0.6.0 ( 2021/05 Mid )
@@ -460,7 +455,7 @@ You can think of this as a Bitmap with a height of `256` and a width of the maxi
 In other words, it can be represented by the following type .
 
 ```go
-[maxFieldKeyLength][256]int8`
+[maxFieldKeyLength][256]int8
 ```
 
 When decoding a field character, check whether the corresponding character exists by referring to the pre-built bitmap like the following.

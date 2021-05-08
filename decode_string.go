@@ -343,25 +343,13 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				cursor++
 			}
 		case 'n':
-			buflen := int64(len(buf))
-			if cursor+3 >= buflen {
-				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
-			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if err := validateNull(buf, cursor); err != nil {
+				return nil, 0, err
 			}
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			goto ERROR
+			return nil, 0, errNotAtBeginningOfValue(cursor)
 		}
 	}
-ERROR:
-	return nil, 0, errNotAtBeginningOfValue(cursor)
 }

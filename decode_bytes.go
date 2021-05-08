@@ -166,9 +166,7 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Po
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			goto ERROR
+			return nil, 0, errNotAtBeginningOfValue(cursor)
 		}
 	}
-ERROR:
-	return nil, 0, errNotAtBeginningOfValue(cursor)
 }

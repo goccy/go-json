@@ -154,26 +154,14 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 		case '-', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
-		LOOP:
-			if numTable[char(b, cursor)] {
+			for numTable[char(b, cursor)] {
 				cursor++
-				goto LOOP
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
 		case 'n':
-			buflen := int64(len(buf))
-			if cursor+3 >= buflen {
-				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
-			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if err := validateNull(buf, cursor); err != nil {
+				return nil, 0, err
 			}
 			cursor += 4
 			return nil, cursor, nil

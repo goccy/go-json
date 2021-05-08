@@ -1147,7 +1147,7 @@ var unmarshalTests = []unmarshalTest{
 	{in: `{"B":"true"}`, ptr: new(B), out: B{true}, golden: true},                                                               // 127
 	{in: `{"B":"false"}`, ptr: new(B), out: B{false}, golden: true},                                                             // 128
 	{in: `{"B": "maybe"}`, ptr: new(B), err: errors.New(`json: bool unexpected end of JSON input`)},                             // 129
-	{in: `{"B": "tru"}`, ptr: new(B), err: errors.New(`json: invalid character as bool(true)`)},                                 // 130
+	{in: `{"B": "tru"}`, ptr: new(B), err: errors.New(`json: invalid character as true`)},                                       // 130
 	{in: `{"B": "False"}`, ptr: new(B), err: errors.New(`json: bool unexpected end of JSON input`)},                             // 131
 	{in: `{"B": "null"}`, ptr: new(B), out: B{false}},                                                                           // 132
 	{in: `{"B": "nul"}`, ptr: new(B), err: errors.New(`json: invalid character as null`)},                                       // 133

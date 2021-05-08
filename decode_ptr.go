@@ -60,18 +60,8 @@ func (d *ptrDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) erro
 func (d *ptrDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == 'n' {
-		buflen := int64(len(buf))
-		if cursor+3 >= buflen {
-			return 0, errUnexpectedEndOfJSON("null", cursor)
-		}
-		if buf[cursor+1] != 'u' {
-			return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-		}
-		if buf[cursor+2] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-		}
-		if buf[cursor+3] != 'l' {
-			return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+		if err := validateNull(buf, cursor); err != nil {
+			return 0, err
 		}
 		if p != nil {
 			*(*unsafe.Pointer)(p) = nil

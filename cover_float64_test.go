@@ -17,6 +17,9 @@ func TestCoverFloat64(t *testing.T) {
 	type structFloat64String struct {
 		A float64 `json:"a,string"`
 	}
+	type structFloat64StringOmitEmpty struct {
+		A float64 `json:"a,string,omitempty"`
+	}
 
 	type structFloat64Ptr struct {
 		A *float64 `json:"a"`
@@ -26,6 +29,9 @@ func TestCoverFloat64(t *testing.T) {
 	}
 	type structFloat64PtrString struct {
 		A *float64 `json:"a,string"`
+	}
+	type structFloat64PtrStringOmitEmpty struct {
+		A *float64 `json:"a,string,omitempty"`
 	}
 
 	tests := []struct {
@@ -72,6 +78,12 @@ func TestCoverFloat64(t *testing.T) {
 				A float64 `json:"a,string"`
 			}{},
 		},
+		{
+			name: "HeadFloat64ZeroStringOmitEmpty",
+			data: struct {
+				A float64 `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// HeadFloat64
 		{
@@ -90,6 +102,12 @@ func TestCoverFloat64(t *testing.T) {
 			name: "HeadFloat64String",
 			data: struct {
 				A float64 `json:"a,string"`
+			}{A: 1},
+		},
+		{
+			name: "HeadFloat64StringOmitEmpty",
+			data: struct {
+				A float64 `json:"a,string,omitempty"`
 			}{A: 1},
 		},
 
@@ -112,6 +130,12 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{A: float64ptr(1)},
 		},
+		{
+			name: "HeadFloat64PtrStringOmitEmpty",
+			data: struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: float64ptr(1)},
+		},
 
 		// HeadFloat64PtrNil
 		{
@@ -130,6 +154,12 @@ func TestCoverFloat64(t *testing.T) {
 			name: "HeadFloat64PtrNilString",
 			data: struct {
 				A *float64 `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "HeadFloat64PtrNilStringOmitEmpty",
+			data: struct {
+				A *float64 `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -152,6 +182,12 @@ func TestCoverFloat64(t *testing.T) {
 				A float64 `json:"a,string"`
 			}{},
 		},
+		{
+			name: "PtrHeadFloat64ZeroStringOmitEmpty",
+			data: &struct {
+				A float64 `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// PtrHeadFloat64
 		{
@@ -170,6 +206,12 @@ func TestCoverFloat64(t *testing.T) {
 			name: "PtrHeadFloat64String",
 			data: &struct {
 				A float64 `json:"a,string"`
+			}{A: 1},
+		},
+		{
+			name: "PtrHeadFloat64StringOmitEmpty",
+			data: &struct {
+				A float64 `json:"a,string,omitempty"`
 			}{A: 1},
 		},
 
@@ -192,6 +234,12 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{A: float64ptr(1)},
 		},
+		{
+			name: "PtrHeadFloat64PtrStringOmitEmpty",
+			data: &struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: float64ptr(1)},
+		},
 
 		// PtrHeadFloat64PtrNil
 		{
@@ -210,6 +258,12 @@ func TestCoverFloat64(t *testing.T) {
 			name: "PtrHeadFloat64PtrNilString",
 			data: &struct {
 				A *float64 `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadFloat64PtrNilStringOmitEmpty",
+			data: &struct {
+				A *float64 `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -232,6 +286,12 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			})(nil),
 		},
+		{
+			name: "PtrHeadFloat64NilStringOmitEmpty",
+			data: (*struct {
+				A *float64 `json:"a,string,omitempty"`
+			})(nil),
+		},
 
 		// HeadFloat64ZeroMultiFields
 		{
@@ -251,11 +311,19 @@ func TestCoverFloat64(t *testing.T) {
 			}{},
 		},
 		{
-			name: "HeadFloat64ZeroMultiFields",
+			name: "HeadFloat64ZeroMultiFieldsString",
 			data: struct {
 				A float64 `json:"a,string"`
 				B float64 `json:"b,string"`
 				C float64 `json:"c,string"`
+			}{},
+		},
+		{
+			name: "HeadFloat64ZeroMultiFieldsStringOmitEmpty",
+			data: struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
+				C float64 `json:"c,string,omitempty"`
 			}{},
 		},
 
@@ -284,6 +352,14 @@ func TestCoverFloat64(t *testing.T) {
 				C float64 `json:"c,string"`
 			}{A: 1, B: 2, C: 3},
 		},
+		{
+			name: "HeadFloat64MultiFieldsStringOmitEmpty",
+			data: struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
+				C float64 `json:"c,string,omitempty"`
+			}{A: 1, B: 2, C: 3},
+		},
 
 		// HeadFloat64PtrMultiFields
 		{
@@ -308,6 +384,14 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 				B *float64 `json:"b,string"`
 				C *float64 `json:"c,string"`
+			}{A: float64ptr(1), B: float64ptr(2), C: float64ptr(3)},
+		},
+		{
+			name: "HeadFloat64PtrMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
+				C *float64 `json:"c,string,omitempty"`
 			}{A: float64ptr(1), B: float64ptr(2), C: float64ptr(3)},
 		},
 
@@ -336,6 +420,14 @@ func TestCoverFloat64(t *testing.T) {
 				C *float64 `json:"c,string"`
 			}{A: nil, B: nil, C: nil},
 		},
+		{
+			name: "HeadFloat64PtrNilMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
+				C *float64 `json:"c,string,omitempty"`
+			}{A: nil, B: nil, C: nil},
+		},
 
 		// PtrHeadFloat64ZeroMultiFields
 		{
@@ -357,6 +449,13 @@ func TestCoverFloat64(t *testing.T) {
 			data: &struct {
 				A float64 `json:"a,string"`
 				B float64 `json:"b,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadFloat64ZeroMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
 			}{},
 		},
 
@@ -382,6 +481,13 @@ func TestCoverFloat64(t *testing.T) {
 				B float64 `json:"b,string"`
 			}{A: 1, B: 2},
 		},
+		{
+			name: "PtrHeadFloat64MultiFieldsStringOmitEmpty",
+			data: &struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
+			}{A: 1, B: 2},
+		},
 
 		// PtrHeadFloat64PtrMultiFields
 		{
@@ -403,6 +509,13 @@ func TestCoverFloat64(t *testing.T) {
 			data: &struct {
 				A *float64 `json:"a,string"`
 				B *float64 `json:"b,string"`
+			}{A: float64ptr(1), B: float64ptr(2)},
+		},
+		{
+			name: "PtrHeadFloat64PtrMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
 			}{A: float64ptr(1), B: float64ptr(2)},
 		},
 
@@ -428,6 +541,13 @@ func TestCoverFloat64(t *testing.T) {
 				B *float64 `json:"b,string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadFloat64PtrNilMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadFloat64NilMultiFields
 		{
@@ -449,6 +569,13 @@ func TestCoverFloat64(t *testing.T) {
 			data: (*struct {
 				A *float64 `json:"a,string"`
 				B *float64 `json:"b,string"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadFloat64NilMultiFieldsStringOmitEmpty",
+			data: (*struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
 			})(nil),
 		},
 
@@ -474,6 +601,14 @@ func TestCoverFloat64(t *testing.T) {
 			data: struct {
 				A struct {
 					A float64 `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadFloat64ZeroNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -509,6 +644,16 @@ func TestCoverFloat64(t *testing.T) {
 				A float64 `json:"a,string"`
 			}{A: 1}},
 		},
+		{
+			name: "HeadFloat64NotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A float64 `json:"a,string,omitempty"`
+			}{A: 1}},
+		},
 
 		// HeadFloat64PtrNotRoot
 		{
@@ -541,6 +686,16 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{float64ptr(1)}},
 		},
+		{
+			name: "HeadFloat64PtrNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{float64ptr(1)}},
+		},
 
 		// HeadFloat64PtrNilNotRoot
 		{
@@ -564,6 +719,14 @@ func TestCoverFloat64(t *testing.T) {
 			data: struct {
 				A struct {
 					A *float64 `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadFloat64PtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *float64 `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -599,6 +762,16 @@ func TestCoverFloat64(t *testing.T) {
 				A float64 `json:"a,string"`
 			})},
 		},
+		{
+			name: "PtrHeadFloat64ZeroNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+			}{A: new(struct {
+				A float64 `json:"a,string,omitempty"`
+			})},
+		},
 
 		// PtrHeadFloat64NotRoot
 		{
@@ -629,6 +802,16 @@ func TestCoverFloat64(t *testing.T) {
 				}
 			}{A: &(struct {
 				A float64 `json:"a,string"`
+			}{A: 1})},
+		},
+		{
+			name: "PtrHeadFloat64NotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A float64 `json:"a,string,omitempty"`
 			}{A: 1})},
 		},
 
@@ -663,6 +846,16 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{A: float64ptr(1)})},
 		},
+		{
+			name: "PtrHeadFloat64PtrNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: float64ptr(1)})},
+		},
 
 		// PtrHeadFloat64PtrNilNotRoot
 		{
@@ -695,6 +888,16 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{A: nil})},
 		},
+		{
+			name: "PtrHeadFloat64PtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: nil})},
+		},
 
 		// PtrHeadFloat64NilNotRoot
 		{
@@ -719,6 +922,14 @@ func TestCoverFloat64(t *testing.T) {
 				A *struct {
 					A *float64 `json:"a,string"`
 				} `json:",string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadFloat64NilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
 			}{A: nil},
 		},
 
@@ -753,6 +964,17 @@ func TestCoverFloat64(t *testing.T) {
 				}
 				B struct {
 					B float64 `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadFloat64ZeroMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B float64 `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -803,6 +1025,21 @@ func TestCoverFloat64(t *testing.T) {
 				B float64 `json:"b,string"`
 			}{B: 2}},
 		},
+		{
+			name: "HeadFloat64MultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B float64 `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A float64 `json:"a,string,omitempty"`
+			}{A: 1}, B: struct {
+				B float64 `json:"b,string,omitempty"`
+			}{B: 2}},
+		},
 
 		// HeadFloat64PtrMultiFieldsNotRoot
 		{
@@ -848,6 +1085,21 @@ func TestCoverFloat64(t *testing.T) {
 				A *float64 `json:"a,string"`
 			}{A: float64ptr(1)}, B: struct {
 				B *float64 `json:"b,string"`
+			}{B: float64ptr(2)}},
+		},
+		{
+			name: "HeadFloat64PtrMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *float64 `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: float64ptr(1)}, B: struct {
+				B *float64 `json:"b,string,omitempty"`
 			}{B: float64ptr(2)}},
 		},
 
@@ -897,6 +1149,21 @@ func TestCoverFloat64(t *testing.T) {
 				B *float64 `json:"b,string"`
 			}{B: nil}},
 		},
+		{
+			name: "HeadFloat64PtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *float64 `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: nil}, B: struct {
+				B *float64 `json:"b,string,omitempty"`
+			}{B: nil}},
+		},
 
 		// PtrHeadFloat64ZeroMultiFieldsNotRoot
 		{
@@ -929,6 +1196,17 @@ func TestCoverFloat64(t *testing.T) {
 				}
 				B struct {
 					B float64 `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "PtrHeadFloat64ZeroMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B float64 `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -979,6 +1257,21 @@ func TestCoverFloat64(t *testing.T) {
 				B float64 `json:"b,string"`
 			}{B: 2}},
 		},
+		{
+			name: "PtrHeadFloat64MultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A float64 `json:"a,string,omitempty"`
+				}
+				B struct {
+					B float64 `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A float64 `json:"a,string,omitempty"`
+			}{A: 1}, B: struct {
+				B float64 `json:"b,string,omitempty"`
+			}{B: 2}},
+		},
 
 		// PtrHeadFloat64PtrMultiFieldsNotRoot
 		{
@@ -1026,6 +1319,21 @@ func TestCoverFloat64(t *testing.T) {
 				B *float64 `json:"b,string"`
 			}{B: float64ptr(2)})},
 		},
+		{
+			name: "PtrHeadFloat64PtrMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *float64 `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *float64 `json:"a,string,omitempty"`
+			}{A: float64ptr(1)}), B: &(struct {
+				B *float64 `json:"b,string,omitempty"`
+			}{B: float64ptr(2)})},
+		},
 
 		// PtrHeadFloat64PtrNilMultiFieldsNotRoot
 		{
@@ -1061,6 +1369,17 @@ func TestCoverFloat64(t *testing.T) {
 				} `json:",string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadFloat64PtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
+				B *struct {
+					B *float64 `json:"b,string,omitempty"`
+				} `json:",string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadFloat64NilMultiFieldsNotRoot
 		{
@@ -1093,6 +1412,17 @@ func TestCoverFloat64(t *testing.T) {
 				}
 				B *struct {
 					B *float64 `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadFloat64NilMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *float64 `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1155,6 +1485,25 @@ func TestCoverFloat64(t *testing.T) {
 				B float64 `json:"b,string"`
 			}{A: 3, B: 4})},
 		},
+		{
+			name: "PtrHeadFloat64DoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
+			}{A: 1, B: 2}), B: &(struct {
+				A float64 `json:"a,string,omitempty"`
+				B float64 `json:"b,string,omitempty"`
+			}{A: 3, B: 4})},
+		},
 
 		// PtrHeadFloat64NilDoubleMultiFieldsNotRoot
 		{
@@ -1196,6 +1545,19 @@ func TestCoverFloat64(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadFloat64NilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadFloat64NilDoubleMultiFieldsNotRoot
 		{
@@ -1234,6 +1596,19 @@ func TestCoverFloat64(t *testing.T) {
 				B *struct {
 					A float64 `json:"a,string"`
 					B float64 `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadFloat64NilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A float64 `json:"a,string,omitempty"`
+					B float64 `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1296,6 +1671,25 @@ func TestCoverFloat64(t *testing.T) {
 				B *float64 `json:"b,string"`
 			}{A: float64ptr(3), B: float64ptr(4)})},
 		},
+		{
+			name: "PtrHeadFloat64PtrDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
+			}{A: float64ptr(1), B: float64ptr(2)}), B: &(struct {
+				A *float64 `json:"a,string,omitempty"`
+				B *float64 `json:"b,string,omitempty"`
+			}{A: float64ptr(3), B: float64ptr(4)})},
+		},
 
 		// PtrHeadFloat64PtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1337,6 +1731,19 @@ func TestCoverFloat64(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadFloat64PtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadFloat64PtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1375,6 +1782,19 @@ func TestCoverFloat64(t *testing.T) {
 				B *struct {
 					A *float64 `json:"a,string"`
 					B *float64 `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadFloat64PtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *float64 `json:"a,string,omitempty"`
+					B *float64 `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1410,6 +1830,16 @@ func TestCoverFloat64(t *testing.T) {
 				B:                   2,
 			},
 		},
+		{
+			name: "AnonymousHeadFloat64StringOmitEmpty",
+			data: struct {
+				structFloat64StringOmitEmpty
+				B float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64StringOmitEmpty: structFloat64StringOmitEmpty{A: 1},
+				B:                            2,
+			},
+		},
 
 		// PtrAnonymousHeadFloat64
 		{
@@ -1440,6 +1870,16 @@ func TestCoverFloat64(t *testing.T) {
 			}{
 				structFloat64String: &structFloat64String{A: 1},
 				B:                   2,
+			},
+		},
+		{
+			name: "PtrAnonymousHeadFloat64StringOmitEmpty",
+			data: struct {
+				*structFloat64StringOmitEmpty
+				B float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64StringOmitEmpty: &structFloat64StringOmitEmpty{A: 1},
+				B:                            2,
 			},
 		},
 
@@ -1474,6 +1914,16 @@ func TestCoverFloat64(t *testing.T) {
 				B:                   2,
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadFloat64StringOmitEmpty",
+			data: struct {
+				*structFloat64StringOmitEmpty
+				B float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64StringOmitEmpty: nil,
+				B:                            2,
+			},
+		},
 
 		// AnonymousHeadFloat64Ptr
 		{
@@ -1504,6 +1954,16 @@ func TestCoverFloat64(t *testing.T) {
 			}{
 				structFloat64PtrString: structFloat64PtrString{A: float64ptr(1)},
 				B:                      float64ptr(2),
+			},
+		},
+		{
+			name: "AnonymousHeadFloat64PtrStringOmitEmpty",
+			data: struct {
+				structFloat64PtrStringOmitEmpty
+				B *float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64PtrStringOmitEmpty: structFloat64PtrStringOmitEmpty{A: float64ptr(1)},
+				B:                               float64ptr(2),
 			},
 		},
 
@@ -1538,6 +1998,16 @@ func TestCoverFloat64(t *testing.T) {
 				B:                      float64ptr(2),
 			},
 		},
+		{
+			name: "AnonymousHeadFloat64PtrNilStringOmitEmpty",
+			data: struct {
+				structFloat64PtrStringOmitEmpty
+				B *float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64PtrStringOmitEmpty: structFloat64PtrStringOmitEmpty{A: nil},
+				B:                               float64ptr(2),
+			},
+		},
 
 		// PtrAnonymousHeadFloat64Ptr
 		{
@@ -1568,6 +2038,16 @@ func TestCoverFloat64(t *testing.T) {
 			}{
 				structFloat64PtrString: &structFloat64PtrString{A: float64ptr(1)},
 				B:                      float64ptr(2),
+			},
+		},
+		{
+			name: "PtrAnonymousHeadFloat64PtrStringOmitEmpty",
+			data: struct {
+				*structFloat64PtrStringOmitEmpty
+				B *float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64PtrStringOmitEmpty: &structFloat64PtrStringOmitEmpty{A: float64ptr(1)},
+				B:                               float64ptr(2),
 			},
 		},
 
@@ -1602,6 +2082,16 @@ func TestCoverFloat64(t *testing.T) {
 				B:                      float64ptr(2),
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadFloat64PtrStringOmitEmpty",
+			data: struct {
+				*structFloat64PtrStringOmitEmpty
+				B *float64 `json:"b,string,omitempty"`
+			}{
+				structFloat64PtrStringOmitEmpty: nil,
+				B:                               float64ptr(2),
+			},
+		},
 
 		// AnonymousHeadFloat64Only
 		{
@@ -1626,6 +2116,14 @@ func TestCoverFloat64(t *testing.T) {
 				structFloat64String
 			}{
 				structFloat64String: structFloat64String{A: 1},
+			},
+		},
+		{
+			name: "AnonymousHeadFloat64OnlyStringOmitEmpty",
+			data: struct {
+				structFloat64StringOmitEmpty
+			}{
+				structFloat64StringOmitEmpty: structFloat64StringOmitEmpty{A: 1},
 			},
 		},
 
@@ -1654,6 +2152,14 @@ func TestCoverFloat64(t *testing.T) {
 				structFloat64String: &structFloat64String{A: 1},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadFloat64OnlyStringOmitEmpty",
+			data: struct {
+				*structFloat64StringOmitEmpty
+			}{
+				structFloat64StringOmitEmpty: &structFloat64StringOmitEmpty{A: 1},
+			},
+		},
 
 		// NilPtrAnonymousHeadFloat64Only
 		{
@@ -1678,6 +2184,14 @@ func TestCoverFloat64(t *testing.T) {
 				*structFloat64String
 			}{
 				structFloat64String: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadFloat64OnlyStringOmitEmpty",
+			data: struct {
+				*structFloat64StringOmitEmpty
+			}{
+				structFloat64StringOmitEmpty: nil,
 			},
 		},
 
@@ -1706,6 +2220,14 @@ func TestCoverFloat64(t *testing.T) {
 				structFloat64PtrString: structFloat64PtrString{A: float64ptr(1)},
 			},
 		},
+		{
+			name: "AnonymousHeadFloat64PtrOnlyStringOmitEmpty",
+			data: struct {
+				structFloat64PtrStringOmitEmpty
+			}{
+				structFloat64PtrStringOmitEmpty: structFloat64PtrStringOmitEmpty{A: float64ptr(1)},
+			},
+		},
 
 		// AnonymousHeadFloat64PtrNilOnly
 		{
@@ -1730,6 +2252,14 @@ func TestCoverFloat64(t *testing.T) {
 				structFloat64PtrString
 			}{
 				structFloat64PtrString: structFloat64PtrString{A: nil},
+			},
+		},
+		{
+			name: "AnonymousHeadFloat64PtrNilOnlyStringOmitEmpty",
+			data: struct {
+				structFloat64PtrStringOmitEmpty
+			}{
+				structFloat64PtrStringOmitEmpty: structFloat64PtrStringOmitEmpty{A: nil},
 			},
 		},
 
@@ -1758,6 +2288,14 @@ func TestCoverFloat64(t *testing.T) {
 				structFloat64PtrString: &structFloat64PtrString{A: float64ptr(1)},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadFloat64PtrOnlyStringOmitEmpty",
+			data: struct {
+				*structFloat64PtrStringOmitEmpty
+			}{
+				structFloat64PtrStringOmitEmpty: &structFloat64PtrStringOmitEmpty{A: float64ptr(1)},
+			},
+		},
 
 		// NilPtrAnonymousHeadFloat64PtrOnly
 		{
@@ -1782,6 +2320,14 @@ func TestCoverFloat64(t *testing.T) {
 				*structFloat64PtrString
 			}{
 				structFloat64PtrString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadFloat64PtrOnlyStringOmitEmpty",
+			data: struct {
+				*structFloat64PtrStringOmitEmpty
+			}{
+				structFloat64PtrStringOmitEmpty: nil,
 			},
 		},
 	}

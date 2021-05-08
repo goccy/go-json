@@ -79,3 +79,12 @@ func appendComma(b []byte) []byte {
 func appendStructEnd(b []byte) []byte {
 	return append(b, '}', ',')
 }
+
+func appendStructEndSkipLast(b []byte) []byte {
+	last := len(b) - 1
+	if b[last] == ',' {
+		b[last] = '}'
+		return appendComma(b)
+	}
+	return appendStructEnd(b)
+}

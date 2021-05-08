@@ -74,8 +74,14 @@ func StructTagFromField(field reflect.StructField) *StructTag {
 	}
 	st.Key = keyName
 	if len(opts) > 1 {
-		st.IsOmitEmpty = opts[1] == "omitempty"
-		st.IsString = opts[1] == "string"
+		for _, opt := range opts[1:] {
+			switch opt {
+			case "omitempty":
+				st.IsOmitEmpty = true
+			case "string":
+				st.IsString = true
+			}
+		}
 	}
 	return st
 }

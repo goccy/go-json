@@ -100,7 +100,7 @@ func (t OpType) HeadToPtrHead() OpType {
   }
   suffix := "PtrHead"+t.String()[idx+len("Head"):]
 
-  const toPtrOffset = 3
+  const toPtrOffset = 2
   if strings.Contains(OpType(int(t) + toPtrOffset).String(), suffix) {
     return OpType(int(t) + toPtrOffset)
   }
@@ -116,14 +116,6 @@ func (t OpType) HeadToOmitEmptyHead() OpType {
   return t
 }
 
-func (t OpType) HeadToStringTagHead() OpType {
-  const toStringTagOffset = 2
-  if strings.Contains(OpType(int(t) + toStringTagOffset).String(), "StringTag") {
-    return OpType(int(t) + toStringTagOffset)
-  }
-  return t
-}
-
 func (t OpType) PtrHeadToHead() OpType {
   idx := strings.Index(t.String(), "Ptr")
   if idx == -1 {
@@ -131,7 +123,7 @@ func (t OpType) PtrHeadToHead() OpType {
   }
   suffix := t.String()[idx+len("Ptr"):]
 
-  const toPtrOffset = 3
+  const toPtrOffset = 2
   if strings.Contains(OpType(int(t) - toPtrOffset).String(), suffix) {
     return OpType(int(t) - toPtrOffset)
   }
@@ -144,10 +136,10 @@ func (t OpType) FieldToEnd() OpType {
     return t
   }
   suffix := t.String()[idx+len("Field"):]
-  if suffix == "" || suffix == "OmitEmpty" || suffix == "StringTag" {
+  if suffix == "" || suffix == "OmitEmpty" {
     return t
   }
-  const toEndOffset = 3
+  const toEndOffset = 2
   if strings.Contains(OpType(int(t) + toEndOffset).String(), "End"+suffix) {
     return OpType(int(t) + toEndOffset)
   }
@@ -161,15 +153,6 @@ func (t OpType) FieldToOmitEmptyField() OpType {
   }
   return t
 }
-
-func (t OpType) FieldToStringTagField() OpType {
-  const toStringTagOffset = 2
-  if strings.Contains(OpType(int(t) + toStringTagOffset).String(), "StringTag") {
-    return OpType(int(t) + toStringTagOffset)
-  }
-  return t
-}
-
 `)
 	if err != nil {
 		return err
@@ -191,9 +174,10 @@ func (t OpType) FieldToStringTagField() OpType {
 	primitiveTypes := []string{
 		"int", "uint", "float32", "float64", "bool", "string", "bytes", "number",
 		"array", "map", "slice", "struct", "MarshalJSON", "MarshalText",
-		"intString", "uintString",
+		"intString", "uintString", "float32String", "float64String", "boolString", "stringString", "numberString",
 		"intPtr", "uintPtr", "float32Ptr", "float64Ptr", "boolPtr", "stringPtr", "bytesPtr", "numberPtr",
 		"arrayPtr", "mapPtr", "slicePtr", "marshalJSONPtr", "marshalTextPtr", "interfacePtr",
+		"intPtrString", "uintPtrString", "float32PtrString", "float64PtrString", "boolPtrString", "stringPtrString", "numberPtrString",
 	}
 	primitiveTypesUpper := []string{}
 	for _, typ := range primitiveTypes {
@@ -221,7 +205,7 @@ func (t OpType) FieldToStringTagField() OpType {
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
 		for _, ptrOrNot := range []string{"", "Ptr"} {
-			for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+			for _, opt := range []string{"", "OmitEmpty"} {
 				ptrOrNot := ptrOrNot
 				opt := opt
 				typ := typ
@@ -240,7 +224,7 @@ func (t OpType) FieldToStringTagField() OpType {
 		}
 	}
 	for _, typ := range append(primitiveTypesUpper, "") {
-		for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+		for _, opt := range []string{"", "OmitEmpty"} {
 			opt := opt
 			typ := typ
 
@@ -254,7 +238,7 @@ func (t OpType) FieldToStringTagField() OpType {
 				Code: "StructField",
 			})
 		}
-		for _, opt := range []string{"", "OmitEmpty", "StringTag"} {
+		for _, opt := range []string{"", "OmitEmpty"} {
 			opt := opt
 			typ := typ
 

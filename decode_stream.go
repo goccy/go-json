@@ -49,6 +49,15 @@ func (s *stream) char() byte {
 	return s.buf[s.cursor]
 }
 
+func (s *stream) equalChar(c byte) bool {
+	cur := s.buf[s.cursor]
+	if cur == nul {
+		s.read()
+		cur = s.buf[s.cursor]
+	}
+	return cur == c
+}
+
 func (s *stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
@@ -73,10 +82,14 @@ func (s *stream) readBuf() []byte {
 		copy(s.buf, remainBuf)
 	}
 	remainLen := s.length - s.cursor
-	if remainLen > 0 {
-		remainLen-- // last char is nul
+	remainNotNulCharNum := int64(0)
+	for i := int64(0); i < remainLen; i++ {
+		if s.buf[s.cursor+i] == nul {
+			break
+		}
+		remainNotNulCharNum++
 	}
-	return s.buf[s.cursor+remainLen:]
+	return s.buf[s.cursor+remainNotNulCharNum:]
 }
 
 func (s *stream) read() bool {

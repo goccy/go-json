@@ -127,7 +127,8 @@ func decodeUnicode(s *stream) error {
 	unicode := []byte(string(r))
 	unicodeLen := int64(len(unicode))
 	s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+offset:]...)
-	s.length = int64(len(s.buf))
+	unicodeOrgLen := offset - 1
+	s.length = s.length - (backSlashAndULen + (unicodeOrgLen - unicodeLen))
 	s.cursor = s.cursor - backSlashAndULen + unicodeLen
 	return nil
 }
@@ -163,6 +164,7 @@ RETRY:
 		return errUnexpectedEndOfJSON("string", s.totalOffset())
 	}
 	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
+	s.length--
 	s.cursor--
 	return nil
 }
@@ -211,6 +213,7 @@ func stringBytes(s *stream) ([]byte, error) {
 			s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
 			_, _, p = s.stat()
 			cursor += runeErrBytesLen
+			s.length += runeErrBytesLen
 			continue
 		case nul:
 			s.cursor = cursor
@@ -236,6 +239,7 @@ func stringBytes(s *stream) ([]byte, error) {
 				_, _, p = s.stat()
 			}
 			cursor += int64(len(b))
+			s.length += int64(len(b))
 			continue
 		}
 		cursor++

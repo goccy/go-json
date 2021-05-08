@@ -68,10 +68,7 @@ func (d *mapDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) erro
 			return err
 		}
 		s.skipWhiteSpace()
-		if s.char() == nul {
-			s.read()
-		}
-		if s.char() != ':' {
+		if !s.equalChar(':') {
 			return errExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
@@ -81,15 +78,12 @@ func (d *mapDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) erro
 		}
 		mapassign(d.mapType, mapValue, k, v)
 		s.skipWhiteSpace()
-		if s.char() == nul {
-			s.read()
-		}
-		if s.char() == '}' {
+		if s.equalChar('}') {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 			s.cursor++
 			return nil
 		}
-		if s.char() != ',' {
+		if !s.equalChar(',') {
 			return errExpected("comma after object value", s.totalOffset())
 		}
 	}

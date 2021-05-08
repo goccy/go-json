@@ -26,6 +26,9 @@ func TestCoverBool(t *testing.T) {
 	type structBoolString struct {
 		A bool `json:"a,string"`
 	}
+	type structBoolStringOmitEmpty struct {
+		A bool `json:"a,string,omitempty"`
+	}
 
 	type structBoolPtr struct {
 		A *bool `json:"a"`
@@ -35,6 +38,9 @@ func TestCoverBool(t *testing.T) {
 	}
 	type structBoolPtrString struct {
 		A *bool `json:"a,string"`
+	}
+	type structBoolPtrStringOmitEmpty struct {
+		A *bool `json:"a,string,omitempty"`
 	}
 
 	type structCustomBoolOmitEmpty struct {
@@ -99,6 +105,12 @@ func TestCoverBool(t *testing.T) {
 				A bool `json:"a,string"`
 			}{},
 		},
+		{
+			name: "HeadBoolZeroStringOmitEmpty",
+			data: struct {
+				A bool `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// HeadBool
 		{
@@ -117,6 +129,12 @@ func TestCoverBool(t *testing.T) {
 			name: "HeadBoolString",
 			data: struct {
 				A bool `json:"a,string"`
+			}{A: true},
+		},
+		{
+			name: "HeadBoolStringOmitEmpty",
+			data: struct {
+				A bool `json:"a,string,omitempty"`
 			}{A: true},
 		},
 
@@ -139,6 +157,12 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{A: boolptr(true)},
 		},
+		{
+			name: "HeadBoolPtrStringOmitEmpty",
+			data: struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: boolptr(true)},
+		},
 
 		// HeadBoolPtrNil
 		{
@@ -157,6 +181,12 @@ func TestCoverBool(t *testing.T) {
 			name: "HeadBoolPtrNilString",
 			data: struct {
 				A *bool `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "HeadBoolPtrNilStringOmitEmpty",
+			data: struct {
+				A *bool `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -179,6 +209,12 @@ func TestCoverBool(t *testing.T) {
 				A bool `json:"a,string"`
 			}{},
 		},
+		{
+			name: "PtrHeadBoolZeroStringOmitEmpty",
+			data: &struct {
+				A bool `json:"a,string,omitempty"`
+			}{},
+		},
 
 		// PtrHeadBool
 		{
@@ -197,6 +233,12 @@ func TestCoverBool(t *testing.T) {
 			name: "PtrHeadBoolString",
 			data: &struct {
 				A bool `json:"a,string"`
+			}{A: true},
+		},
+		{
+			name: "PtrHeadBoolStringOmitEmpty",
+			data: &struct {
+				A bool `json:"a,string,omitempty"`
 			}{A: true},
 		},
 
@@ -219,6 +261,12 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{A: boolptr(true)},
 		},
+		{
+			name: "PtrHeadBoolPtrStringOmitEmpty",
+			data: &struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: boolptr(true)},
+		},
 
 		// PtrHeadBoolPtrNil
 		{
@@ -237,6 +285,12 @@ func TestCoverBool(t *testing.T) {
 			name: "PtrHeadBoolPtrNilString",
 			data: &struct {
 				A *bool `json:"a,string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadBoolPtrNilStringOmitEmpty",
+			data: &struct {
+				A *bool `json:"a,string,omitempty"`
 			}{A: nil},
 		},
 
@@ -259,6 +313,12 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			})(nil),
 		},
+		{
+			name: "PtrHeadBoolNilStringOmitEmpty",
+			data: (*struct {
+				A *bool `json:"a,string,omitempty"`
+			})(nil),
+		},
 
 		// HeadBoolZeroMultiFields
 		{
@@ -278,11 +338,19 @@ func TestCoverBool(t *testing.T) {
 			}{},
 		},
 		{
-			name: "HeadBoolZeroMultiFields",
+			name: "HeadBoolZeroMultiFieldsString",
 			data: struct {
 				A bool `json:"a,string"`
 				B bool `json:"b,string"`
 				C bool `json:"c,string"`
+			}{},
+		},
+		{
+			name: "HeadBoolZeroMultiFieldsStringOmitEmpty",
+			data: struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
+				C bool `json:"c,string,omitempty"`
 			}{},
 		},
 
@@ -311,6 +379,14 @@ func TestCoverBool(t *testing.T) {
 				C bool `json:"c,string"`
 			}{A: true, B: false, C: true},
 		},
+		{
+			name: "HeadBoolMultiFieldsStringOmitEmpty",
+			data: struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
+				C bool `json:"c,string,omitempty"`
+			}{A: true, B: false, C: true},
+		},
 
 		// HeadBoolPtrMultiFields
 		{
@@ -335,6 +411,14 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 				B *bool `json:"b,string"`
 				C *bool `json:"c,string"`
+			}{A: boolptr(true), B: boolptr(false), C: boolptr(true)},
+		},
+		{
+			name: "HeadBoolPtrMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
+				C *bool `json:"c,string,omitempty"`
 			}{A: boolptr(true), B: boolptr(false), C: boolptr(true)},
 		},
 
@@ -363,6 +447,14 @@ func TestCoverBool(t *testing.T) {
 				C *bool `json:"c,string"`
 			}{A: nil, B: nil, C: nil},
 		},
+		{
+			name: "HeadBoolPtrNilMultiFieldsStringOmitEmpty",
+			data: struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
+				C *bool `json:"c,string,omitempty"`
+			}{A: nil, B: nil, C: nil},
+		},
 
 		// PtrHeadBoolZeroMultiFields
 		{
@@ -384,6 +476,13 @@ func TestCoverBool(t *testing.T) {
 			data: &struct {
 				A bool `json:"a,string"`
 				B bool `json:"b,string"`
+			}{},
+		},
+		{
+			name: "PtrHeadBoolZeroMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
 			}{},
 		},
 
@@ -409,6 +508,13 @@ func TestCoverBool(t *testing.T) {
 				B bool `json:"b,string"`
 			}{A: true, B: false},
 		},
+		{
+			name: "PtrHeadBoolMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
+			}{A: true, B: false},
+		},
 
 		// PtrHeadBoolPtrMultiFields
 		{
@@ -430,6 +536,13 @@ func TestCoverBool(t *testing.T) {
 			data: &struct {
 				A *bool `json:"a,string"`
 				B *bool `json:"b,string"`
+			}{A: boolptr(true), B: boolptr(false)},
+		},
+		{
+			name: "PtrHeadBoolPtrMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
 			}{A: boolptr(true), B: boolptr(false)},
 		},
 
@@ -455,6 +568,13 @@ func TestCoverBool(t *testing.T) {
 				B *bool `json:"b,string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadBoolPtrNilMultiFieldsStringOmitEmpty",
+			data: &struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadBoolNilMultiFields
 		{
@@ -476,6 +596,13 @@ func TestCoverBool(t *testing.T) {
 			data: (*struct {
 				A *bool `json:"a,string"`
 				B *bool `json:"b,string"`
+			})(nil),
+		},
+		{
+			name: "PtrHeadBoolNilMultiFieldsStringOmitEmpty",
+			data: (*struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
 			})(nil),
 		},
 
@@ -501,6 +628,14 @@ func TestCoverBool(t *testing.T) {
 			data: struct {
 				A struct {
 					A bool `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadBoolZeroNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -536,6 +671,16 @@ func TestCoverBool(t *testing.T) {
 				A bool `json:"a,string"`
 			}{A: true}},
 		},
+		{
+			name: "HeadBoolNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A bool `json:"a,string,omitempty"`
+			}{A: true}},
+		},
 
 		// HeadBoolPtrNotRoot
 		{
@@ -568,6 +713,16 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{boolptr(true)}},
 		},
+		{
+			name: "HeadBoolPtrNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+			}{A: struct {
+				A *bool `json:"a,string,omitempty"`
+			}{boolptr(true)}},
+		},
 
 		// HeadBoolPtrNilNotRoot
 		{
@@ -591,6 +746,14 @@ func TestCoverBool(t *testing.T) {
 			data: struct {
 				A struct {
 					A *bool `json:"a,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadBoolPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *bool `json:"a,string,omitempty"`
 				}
 			}{},
 		},
@@ -626,6 +789,16 @@ func TestCoverBool(t *testing.T) {
 				A bool `json:"a,string"`
 			})},
 		},
+		{
+			name: "PtrHeadBoolZeroNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A bool `json:"a,string,omitempty"`
+				}
+			}{A: new(struct {
+				A bool `json:"a,string,omitempty"`
+			})},
+		},
 
 		// PtrHeadBoolNotRoot
 		{
@@ -656,6 +829,16 @@ func TestCoverBool(t *testing.T) {
 				}
 			}{A: &(struct {
 				A bool `json:"a,string"`
+			}{A: true})},
+		},
+		{
+			name: "PtrHeadBoolNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A bool `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A bool `json:"a,string,omitempty"`
 			}{A: true})},
 		},
 
@@ -690,6 +873,16 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{A: boolptr(true)})},
 		},
+		{
+			name: "PtrHeadBoolPtrNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: boolptr(true)})},
+		},
 
 		// PtrHeadBoolPtrNilNotRoot
 		{
@@ -722,6 +915,16 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{A: nil})},
 		},
+		{
+			name: "PtrHeadBoolPtrNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: nil})},
+		},
 
 		// PtrHeadBoolNilNotRoot
 		{
@@ -746,6 +949,14 @@ func TestCoverBool(t *testing.T) {
 				A *struct {
 					A *bool `json:"a,string"`
 				} `json:",string"`
+			}{A: nil},
+		},
+		{
+			name: "PtrHeadBoolNilNotRootStringOmitEmpty",
+			data: struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				} `json:",string,omitempty"`
 			}{A: nil},
 		},
 
@@ -780,6 +991,17 @@ func TestCoverBool(t *testing.T) {
 				}
 				B struct {
 					B bool `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "HeadBoolZeroMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B bool `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -830,6 +1052,21 @@ func TestCoverBool(t *testing.T) {
 				B bool `json:"b,string"`
 			}{B: false}},
 		},
+		{
+			name: "HeadBoolMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B bool `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A bool `json:"a,string,omitempty"`
+			}{A: true}, B: struct {
+				B bool `json:"b,string,omitempty"`
+			}{B: false}},
+		},
 
 		// HeadBoolPtrMultiFieldsNotRoot
 		{
@@ -875,6 +1112,21 @@ func TestCoverBool(t *testing.T) {
 				A *bool `json:"a,string"`
 			}{A: boolptr(true)}, B: struct {
 				B *bool `json:"b,string"`
+			}{B: boolptr(false)}},
+		},
+		{
+			name: "HeadBoolPtrMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *bool `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: boolptr(true)}, B: struct {
+				B *bool `json:"b,string,omitempty"`
 			}{B: boolptr(false)}},
 		},
 
@@ -924,6 +1176,21 @@ func TestCoverBool(t *testing.T) {
 				B *bool `json:"b,string"`
 			}{B: nil}},
 		},
+		{
+			name: "HeadBoolPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: struct {
+				A struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B *bool `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: nil}, B: struct {
+				B *bool `json:"b,string,omitempty"`
+			}{B: nil}},
+		},
 
 		// PtrHeadBoolZeroMultiFieldsNotRoot
 		{
@@ -956,6 +1223,17 @@ func TestCoverBool(t *testing.T) {
 				}
 				B struct {
 					B bool `json:"b,string"`
+				}
+			}{},
+		},
+		{
+			name: "PtrHeadBoolZeroMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B bool `json:"b,string,omitempty"`
 				}
 			}{},
 		},
@@ -1006,6 +1284,21 @@ func TestCoverBool(t *testing.T) {
 				B bool `json:"b,string"`
 			}{B: false}},
 		},
+		{
+			name: "PtrHeadBoolMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A struct {
+					A bool `json:"a,string,omitempty"`
+				}
+				B struct {
+					B bool `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A bool `json:"a,string,omitempty"`
+			}{A: true}, B: struct {
+				B bool `json:"b,string,omitempty"`
+			}{B: false}},
+		},
 
 		// PtrHeadBoolPtrMultiFieldsNotRoot
 		{
@@ -1053,6 +1346,21 @@ func TestCoverBool(t *testing.T) {
 				B *bool `json:"b,string"`
 			}{B: boolptr(false)})},
 		},
+		{
+			name: "PtrHeadBoolPtrMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *bool `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *bool `json:"a,string,omitempty"`
+			}{A: boolptr(true)}), B: &(struct {
+				B *bool `json:"b,string,omitempty"`
+			}{B: boolptr(false)})},
+		},
 
 		// PtrHeadBoolPtrNilMultiFieldsNotRoot
 		{
@@ -1088,6 +1396,17 @@ func TestCoverBool(t *testing.T) {
 				} `json:",string"`
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadBoolPtrNilMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				} `json:",string"`
+				B *struct {
+					B *bool `json:"b,string,omitempty"`
+				} `json:",string"`
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadBoolNilMultiFieldsNotRoot
 		{
@@ -1120,6 +1439,17 @@ func TestCoverBool(t *testing.T) {
 				}
 				B *struct {
 					B *bool `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadBoolNilMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+				}
+				B *struct {
+					B *bool `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1182,6 +1512,25 @@ func TestCoverBool(t *testing.T) {
 				B bool `json:"b,string"`
 			}{A: true, B: false})},
 		},
+		{
+			name: "PtrHeadBoolDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
+			}{A: true, B: false}), B: &(struct {
+				A bool `json:"a,string,omitempty"`
+				B bool `json:"b,string,omitempty"`
+			}{A: true, B: false})},
+		},
 
 		// PtrHeadBoolNilDoubleMultiFieldsNotRoot
 		{
@@ -1223,6 +1572,19 @@ func TestCoverBool(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadBoolNilDoubleMultiFieldsNotRoot
 		{
@@ -1261,6 +1623,19 @@ func TestCoverBool(t *testing.T) {
 				B *struct {
 					A bool `json:"a,string"`
 					B bool `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadBoolNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A bool `json:"a,string,omitempty"`
+					B bool `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1323,6 +1698,25 @@ func TestCoverBool(t *testing.T) {
 				B *bool `json:"b,string"`
 			}{A: boolptr(true), B: boolptr(false)})},
 		},
+		{
+			name: "PtrHeadBoolPtrDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
+			}{A: boolptr(true), B: boolptr(false)}), B: &(struct {
+				A *bool `json:"a,string,omitempty"`
+				B *bool `json:"b,string,omitempty"`
+			}{A: boolptr(true), B: boolptr(false)})},
+		},
 
 		// PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1364,6 +1758,19 @@ func TestCoverBool(t *testing.T) {
 				}
 			}{A: nil, B: nil},
 		},
+		{
+			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: &struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
+				}
+			}{A: nil, B: nil},
+		},
 
 		// PtrHeadBoolPtrNilDoubleMultiFieldsNotRoot
 		{
@@ -1402,6 +1809,19 @@ func TestCoverBool(t *testing.T) {
 				B *struct {
 					A *bool `json:"a,string"`
 					B *bool `json:"b,string"`
+				}
+			})(nil),
+		},
+		{
+			name: "PtrHeadBoolPtrNilDoubleMultiFieldsNotRootStringOmitEmpty",
+			data: (*struct {
+				A *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
+				}
+				B *struct {
+					A *bool `json:"a,string,omitempty"`
+					B *bool `json:"b,string,omitempty"`
 				}
 			})(nil),
 		},
@@ -1517,6 +1937,16 @@ func TestCoverBool(t *testing.T) {
 				B:                false,
 			},
 		},
+		{
+			name: "AnonymousHeadBoolStringOmitEmpty",
+			data: struct {
+				structBoolStringOmitEmpty
+				B bool `json:"b,string,omitempty"`
+			}{
+				structBoolStringOmitEmpty: structBoolStringOmitEmpty{A: true},
+				B:                         false,
+			},
+		},
 
 		// PtrAnonymousHeadBool
 		{
@@ -1629,6 +2059,16 @@ func TestCoverBool(t *testing.T) {
 				B:                false,
 			},
 		},
+		{
+			name: "PtrAnonymousHeadBoolStringOmitEmpty",
+			data: struct {
+				*structBoolStringOmitEmpty
+				B bool `json:"b,string,omitempty"`
+			}{
+				structBoolStringOmitEmpty: &structBoolStringOmitEmpty{A: true},
+				B:                         false,
+			},
+		},
 
 		// NilPtrAnonymousHeadBool
 		{
@@ -1681,6 +2121,16 @@ func TestCoverBool(t *testing.T) {
 				B:                true,
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadBoolStringOmitEmpty",
+			data: struct {
+				*structBoolStringOmitEmpty
+				B bool `json:"b,string,omitempty"`
+			}{
+				structBoolStringOmitEmpty: nil,
+				B:                         true,
+			},
+		},
 
 		// AnonymousHeadBoolPtr
 		{
@@ -1711,6 +2161,16 @@ func TestCoverBool(t *testing.T) {
 			}{
 				structBoolPtrString: structBoolPtrString{A: boolptr(true)},
 				B:                   boolptr(false),
+			},
+		},
+		{
+			name: "AnonymousHeadBoolPtrStringOmitEmpty",
+			data: struct {
+				structBoolPtrStringOmitEmpty
+				B *bool `json:"b,string,omitempty"`
+			}{
+				structBoolPtrStringOmitEmpty: structBoolPtrStringOmitEmpty{A: boolptr(true)},
+				B:                            boolptr(false),
 			},
 		},
 
@@ -1745,6 +2205,16 @@ func TestCoverBool(t *testing.T) {
 				B:                   boolptr(true),
 			},
 		},
+		{
+			name: "AnonymousHeadBoolPtrNilStringOmitEmpty",
+			data: struct {
+				structBoolPtrStringOmitEmpty
+				B *bool `json:"b,string,omitempty"`
+			}{
+				structBoolPtrStringOmitEmpty: structBoolPtrStringOmitEmpty{A: nil},
+				B:                            boolptr(true),
+			},
+		},
 
 		// PtrAnonymousHeadBoolPtr
 		{
@@ -1777,6 +2247,16 @@ func TestCoverBool(t *testing.T) {
 				B:                   boolptr(false),
 			},
 		},
+		{
+			name: "PtrAnonymousHeadBoolPtrStringOmitEmpty",
+			data: struct {
+				*structBoolPtrStringOmitEmpty
+				B *bool `json:"b,string,omitempty"`
+			}{
+				structBoolPtrStringOmitEmpty: &structBoolPtrStringOmitEmpty{A: boolptr(true)},
+				B:                            boolptr(false),
+			},
+		},
 
 		// NilPtrAnonymousHeadBoolPtr
 		{
@@ -1807,6 +2287,16 @@ func TestCoverBool(t *testing.T) {
 			}{
 				structBoolPtrString: nil,
 				B:                   boolptr(true),
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadBoolPtrStringOmitEmpty",
+			data: struct {
+				*structBoolPtrStringOmitEmpty
+				B *bool `json:"b,string,omitempty"`
+			}{
+				structBoolPtrStringOmitEmpty: nil,
+				B:                            boolptr(true),
 			},
 		},
 
@@ -1883,6 +2373,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolString: structBoolString{A: true},
 			},
 		},
+		{
+			name: "AnonymousHeadBoolOnlyStringOmitEmpty",
+			data: struct {
+				structBoolStringOmitEmpty
+			}{
+				structBoolStringOmitEmpty: structBoolStringOmitEmpty{A: true},
+			},
+		},
 
 		// PtrAnonymousHeadBoolOnly
 		{
@@ -1957,6 +2455,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolString: &structBoolString{A: true},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadBoolOnlyStringOmitEmpty",
+			data: struct {
+				*structBoolStringOmitEmpty
+			}{
+				structBoolStringOmitEmpty: &structBoolStringOmitEmpty{A: true},
+			},
+		},
 
 		// NilPtrAnonymousHeadBoolOnly
 		{
@@ -1999,6 +2505,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolString: nil,
 			},
 		},
+		{
+			name: "NilPtrAnonymousHeadBoolOnlyStringOmitEmpty",
+			data: struct {
+				*structBoolStringOmitEmpty
+			}{
+				structBoolStringOmitEmpty: nil,
+			},
+		},
 
 		// AnonymousHeadBoolPtrOnly
 		{
@@ -2023,6 +2537,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolPtrString
 			}{
 				structBoolPtrString: structBoolPtrString{A: boolptr(true)},
+			},
+		},
+		{
+			name: "AnonymousHeadBoolPtrOnlyStringOmitEmpty",
+			data: struct {
+				structBoolPtrStringOmitEmpty
+			}{
+				structBoolPtrStringOmitEmpty: structBoolPtrStringOmitEmpty{A: boolptr(true)},
 			},
 		},
 
@@ -2051,6 +2573,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolPtrString: structBoolPtrString{A: nil},
 			},
 		},
+		{
+			name: "AnonymousHeadBoolPtrNilOnlyStringOmitEmpty",
+			data: struct {
+				structBoolPtrStringOmitEmpty
+			}{
+				structBoolPtrStringOmitEmpty: structBoolPtrStringOmitEmpty{A: nil},
+			},
+		},
 
 		// PtrAnonymousHeadBoolPtrOnly
 		{
@@ -2077,6 +2607,14 @@ func TestCoverBool(t *testing.T) {
 				structBoolPtrString: &structBoolPtrString{A: boolptr(true)},
 			},
 		},
+		{
+			name: "PtrAnonymousHeadBoolPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structBoolPtrStringOmitEmpty
+			}{
+				structBoolPtrStringOmitEmpty: &structBoolPtrStringOmitEmpty{A: boolptr(true)},
+			},
+		},
 
 		// NilPtrAnonymousHeadBoolPtrOnly
 		{
@@ -2101,6 +2639,14 @@ func TestCoverBool(t *testing.T) {
 				*structBoolPtrString
 			}{
 				structBoolPtrString: nil,
+			},
+		},
+		{
+			name: "NilPtrAnonymousHeadBoolPtrOnlyStringOmitEmpty",
+			data: struct {
+				*structBoolPtrStringOmitEmpty
+			}{
+				structBoolPtrStringOmitEmpty: nil,
 			},
 		},
 	}

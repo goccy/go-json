@@ -95,24 +95,14 @@ func (d *arrayDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 		return 0, errExceededMaxDepth(buf[cursor], cursor)
 	}
 
-	buflen := int64(len(buf))
-	for ; cursor < buflen; cursor++ {
+	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
+			cursor++
 			continue
 		case 'n':
-			buflen := int64(len(buf))
-			if cursor+3 >= buflen {
-				return 0, errUnexpectedEndOfJSON("null", cursor)
-			}
-			if buf[cursor+1] != 'u' {
-				return 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-			}
-			if buf[cursor+3] != 'l' {
-				return 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if err := validateNull(buf, cursor); err != nil {
+				return 0, err
 			}
 			cursor += 4
 			return cursor, nil
@@ -149,7 +139,8 @@ func (d *arrayDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					return 0, errInvalidCharacter(buf[cursor], "array", cursor)
 				}
 			}
+		default:
+			return 0, errUnexpectedEndOfJSON("array", cursor)
 		}
 	}
-	return 0, errUnexpectedEndOfJSON("array", cursor)
 }

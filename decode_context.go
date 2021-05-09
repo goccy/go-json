@@ -153,37 +153,14 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			}
 			return cursor, nil
 		case 't':
-			buflen := int64(len(buf))
-			if cursor+3 >= buflen {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+1] != 'r' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+2] != 'u' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+3] != 'e' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			if err := validateTrue(buf, cursor); err != nil {
+				return 0, err
 			}
 			cursor += 4
 			return cursor, nil
 		case 'f':
-			buflen := int64(len(buf))
-			if cursor+4 >= buflen {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+1] != 'a' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+3] != 's' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
-			}
-			if buf[cursor+4] != 'e' {
-				return 0, errUnexpectedEndOfJSON("bool of object", cursor)
+			if err := validateFalse(buf, cursor); err != nil {
+				return 0, err
 			}
 			cursor += 5
 			return cursor, nil
@@ -197,6 +174,41 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			return cursor, errUnexpectedEndOfJSON("null", cursor)
 		}
 	}
+}
+
+func validateTrue(buf []byte, cursor int64) error {
+	if cursor+3 >= int64(len(buf)) {
+		return errUnexpectedEndOfJSON("true", cursor)
+	}
+	if buf[cursor+1] != 'r' {
+		return errInvalidCharacter(buf[cursor+1], "true", cursor)
+	}
+	if buf[cursor+2] != 'u' {
+		return errInvalidCharacter(buf[cursor+2], "true", cursor)
+	}
+	if buf[cursor+3] != 'e' {
+		return errInvalidCharacter(buf[cursor+3], "true", cursor)
+	}
+	return nil
+}
+
+func validateFalse(buf []byte, cursor int64) error {
+	if cursor+4 >= int64(len(buf)) {
+		return errUnexpectedEndOfJSON("false", cursor)
+	}
+	if buf[cursor+1] != 'a' {
+		return errInvalidCharacter(buf[cursor+1], "false", cursor)
+	}
+	if buf[cursor+2] != 'l' {
+		return errInvalidCharacter(buf[cursor+2], "false", cursor)
+	}
+	if buf[cursor+3] != 's' {
+		return errInvalidCharacter(buf[cursor+3], "false", cursor)
+	}
+	if buf[cursor+4] != 'e' {
+		return errInvalidCharacter(buf[cursor+4], "false", cursor)
+	}
+	return nil
 }
 
 func validateNull(buf []byte, cursor int64) error {

@@ -91,34 +91,22 @@ ERROR:
 }
 
 func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
-	buflen := int64(len(buf))
-	for ; cursor < buflen; cursor++ {
+	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
+			cursor++
 			continue
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++
-			for ; cursor < buflen; cursor++ {
-				if floatTable[buf[cursor]] {
-					continue
-				}
-				break
+			for floatTable[buf[cursor]] {
+				cursor++
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil
 		case 'n':
-			if cursor+3 >= buflen {
-				return nil, 0, errUnexpectedEndOfJSON("null", cursor)
-			}
-			if buf[cursor+1] != 'u' {
-				return nil, 0, errInvalidCharacter(buf[cursor+1], "null", cursor)
-			}
-			if buf[cursor+2] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+2], "null", cursor)
-			}
-			if buf[cursor+3] != 'l' {
-				return nil, 0, errInvalidCharacter(buf[cursor+3], "null", cursor)
+			if err := validateNull(buf, cursor); err != nil {
+				return nil, 0, err
 			}
 			cursor += 4
 			return nil, cursor, nil
@@ -126,7 +114,6 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 			return nil, 0, errUnexpectedEndOfJSON("float", cursor)
 		}
 	}
-	return nil, 0, errUnexpectedEndOfJSON("float", cursor)
 }
 
 func (d *floatDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {

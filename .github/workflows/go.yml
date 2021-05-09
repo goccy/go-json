@@ -39,10 +39,20 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
-      - name: checkout
+      - name: checkout ( feature )
         uses: actions/checkout@v2
-      - name: run benchmark
-        run: cd benchmarks && go test -bench .
+      - name: run benchmark ( feature )
+        run: cd benchmarks && go test -bench GoJson | tee $HOME/new.txt
+      - name: install benchcmp
+        run: go get -u golang.org/x/tools/cmd/benchcmp
+      - name: checkout ( master )
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: run benchmark ( master )
+        run: cd benchmarks && go test -bench GoJson | tee $HOME/old.txt
+      - name: compare benchmark results
+        run: benchcmp $HOME/old.txt $HOME/new.txt
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

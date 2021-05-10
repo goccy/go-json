@@ -15,7 +15,7 @@ func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
 		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
 	}
 
-	index := typeptr - baseTypeAddr
+	index := (typeptr - baseTypeAddr) >> typeAddrShift
 	decMu.RLock()
 	if dec := cachedDecoder[index]; dec != nil {
 		decMu.RUnlock()

@@ -76,6 +76,14 @@ func appendComma(b []byte) []byte {
 	return append(b, ',')
 }
 
+func appendStructHead(b []byte) []byte {
+	return append(b, '{')
+}
+
+func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return append(b, code.EscapedKey...)
+}
+
 func appendStructEnd(b []byte) []byte {
 	return append(b, '}', ',')
 }

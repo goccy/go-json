@@ -1050,7 +1050,6 @@ func compiledCode(ctx *compileContext) *Opcode {
 }
 
 func structHeader(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag *runtime.StructTag) *Opcode {
-	fieldCode.Indent--
 	op := optimizeStructHeader(valueCode, tag)
 	fieldCode.Op = op
 	fieldCode.Mask = valueCode.Mask

@@ -80,13 +80,21 @@ func appendStructHead(b []byte) []byte {
 	return append(b, '{', '\n')
 }
 
+func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalJSONIndent(ctx, code, b, v, false)
+}
+
+func appendMarshalText(code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalTextIndent(code, b, v, false)
+}
+
 func appendStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	b = appendIndent(ctx, b, code.Indent)
 	b = append(b, code.Key...)
 	return append(b, ' ')
 }
 
-func appendStructEndSkipLast(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode) []byte {
+func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	if b[last-1] == '{' {
 		b[last] = '}'

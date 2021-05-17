@@ -390,7 +390,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	return compactedBuf, nil
 }
 
-func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, indent int, escape bool) ([]byte, error) {
+func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if code.AddrForMarshaler {
 		if rv.CanAddr() {
@@ -415,7 +415,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	indentedBuf, err := doIndent(
 		b,
 		marshalBuf,
-		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+indent),
+		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+code.Indent),
 		string(ctx.IndentStr),
 		escape,
 	)
@@ -494,10 +494,10 @@ func AppendStructEnd(b []byte) []byte {
 	return append(b, '}', ',')
 }
 
-func AppendStructEndIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
+func AppendStructEndIndent(ctx *RuntimeContext, code *Opcode, b []byte) []byte {
 	b = append(b, '\n')
 	b = append(b, ctx.Prefix...)
-	indentNum := ctx.BaseIndent + indent
+	indentNum := ctx.BaseIndent + code.Indent - 1
 	for i := 0; i < indentNum; i++ {
 		b = append(b, ctx.IndentStr...)
 	}

@@ -6,7 +6,6 @@ import (
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/encoder/vm"
-	"github.com/goccy/go-json/internal/encoder/vm_debug"
 	"github.com/goccy/go-json/internal/encoder/vm_escaped"
 	"github.com/goccy/go-json/internal/encoder/vm_escaped_indent"
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
@@ -250,7 +249,7 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 
 func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt EncodeOption) ([]byte, error) {
 	if (opt & EncodeOptionDebug) != 0 {
-		return vm_debug.Run(ctx, b, codeSet, encoder.Option(opt))
+		return encodeDebugRunCode(ctx, b, codeSet, opt)
 	}
 	if (opt & EncodeOptionHTMLEscape) != 0 {
 		return vm_escaped.Run(ctx, b, codeSet, encoder.Option(opt))
@@ -258,11 +257,28 @@ func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.Opcod
 	return vm.Run(ctx, b, codeSet, encoder.Option(opt))
 }
 
+func encodeDebugRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt EncodeOption) ([]byte, error) {
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		return vm_escaped.DebugRun(ctx, b, codeSet, encoder.Option(opt))
+	}
+	return vm.DebugRun(ctx, b, codeSet, encoder.Option(opt))
+}
+
 func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string, opt EncodeOption) ([]byte, error) {
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
+	if (opt & EncodeOptionDebug) != 0 {
+		return encodeDebugRunIndentCode(ctx, b, codeSet, opt)
+	}
 	if (opt & EncodeOptionHTMLEscape) != 0 {
 		return vm_escaped_indent.Run(ctx, b, codeSet, encoder.Option(opt))
 	}
 	return vm_indent.Run(ctx, b, codeSet, encoder.Option(opt))
+}
+
+func encodeDebugRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt EncodeOption) ([]byte, error) {
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		return vm_escaped_indent.DebugRun(ctx, b, codeSet, encoder.Option(opt))
+	}
+	return vm_indent.DebugRun(ctx, b, codeSet, encoder.Option(opt))
 }

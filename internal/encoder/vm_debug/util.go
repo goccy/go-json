@@ -111,19 +111,19 @@ func appendColon(b []byte) []byte {
 	return b
 }
 
-func appendMapKeyValue(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key, value []byte) []byte {
+func appendMapKeyValue(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
 	b = append(b, key...)
 	b[len(b)-1] = ':'
 	return append(b, value...)
 }
 
-func appendMapEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	b[len(b)-1] = '}'
 	b = append(b, ',')
 	return b
 }
 
-func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, opt encoder.Option, code *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
+func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, opt encoder.Option, _ *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
 	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
 	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 	if err != nil {
@@ -168,7 +168,7 @@ func appendArrayHead(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []b
 	return append(b, '[')
 }
 
-func appendArrayEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+func appendArrayEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	b[last] = ']'
 	return append(b, ',')
@@ -209,7 +209,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr uintptr)     {}
-func storeIndent(ctxptr uintptr, code *encoder.Opcode, indent uintptr)                    {}
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ uintptr)               {}
+func storeIndent(_ uintptr, _ *encoder.Opcode, _ uintptr)                                 {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

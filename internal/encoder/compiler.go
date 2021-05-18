@@ -1450,7 +1450,6 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		}
 		fieldIdx++
 	}
-	ctx = ctx.decIndent()
 
 	structEndCode := &Opcode{
 		Op:     OpStructEnd,
@@ -1458,6 +1457,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		Indent: ctx.indent,
 		Next:   newEndOp(ctx),
 	}
+
+	ctx = ctx.decIndent()
 
 	// no struct field
 	if head == nil {

@@ -2,11 +2,40 @@ package vm
 
 import (
 	"encoding/json"
+	"fmt"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/runtime"
 )
+
+const uintptrSize = 4 << (^uintptr(0) >> 63)
+
+var (
+	appendInt           = encoder.AppendInt
+	appendUint          = encoder.AppendUint
+	appendFloat32       = encoder.AppendFloat32
+	appendFloat64       = encoder.AppendFloat64
+	appendString        = encoder.AppendString
+	appendByteSlice     = encoder.AppendByteSlice
+	appendNumber        = encoder.AppendNumber
+	errUnsupportedValue = encoder.ErrUnsupportedValue
+	errUnsupportedFloat = encoder.ErrUnsupportedFloat
+	mapiterinit         = encoder.MapIterInit
+	mapiterkey          = encoder.MapIterKey
+	mapitervalue        = encoder.MapIterValue
+	mapiternext         = encoder.MapIterNext
+	maplen              = encoder.MapLen
+)
+
+type emptyInterface struct {
+	typ *runtime.Type
+	ptr unsafe.Pointer
+}
+
+func errUnimplementedOp(op encoder.OpType) error {
+	return fmt.Errorf("encoder: opcode %s has not been implemented", op)
+}
 
 func load(base uintptr, idx uintptr) uintptr {
 	addr := base + idx
@@ -76,23 +105,111 @@ func appendComma(b []byte) []byte {
 	return append(b, ',')
 }
 
-func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	return append(b, code.Key...)
+func appendColon(b []byte) []byte {
+	last := len(b) - 1
+	b[last] = ':'
+	return b
+}
+
+func appendMapKeyValue(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
+	b = append(b, key...)
+	b[len(b)-1] = ':'
+	return append(b, value...)
+}
+
+func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	b[len(b)-1] = '}'
+	b = append(b, ',')
+	return b
+}
+
+func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, opt encoder.Option, _ *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
+	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
+	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
+	if err != nil {
+		return nil, err
+	}
+
+	totalLength := uintptr(codeSet.CodeLength)
+	nextTotalLength := uintptr(ifaceCodeSet.CodeLength)
+
+	curlen := uintptr(len(ctx.Ptrs))
+	offsetNum := ptrOffset / uintptrSize
+
+	newLen := offsetNum + totalLength + nextTotalLength
+	if curlen < newLen {
+		ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
+	}
+	oldPtrs := ctx.Ptrs
+
+	newPtrs := ctx.Ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
+	newPtrs[0] = uintptr(iface.ptr)
+
+	ctx.Ptrs = newPtrs
+
+	bb, err := Run(ctx, b, ifaceCodeSet, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx.Ptrs = oldPtrs
+	return bb, nil
+}
+
+func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalJSON(ctx, code, b, v, false)
+}
+
+func appendMarshalText(code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalText(code, b, v, false)
+}
+
+func appendArrayHead(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	return append(b, '[')
+}
+
+func appendArrayEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	last := len(b) - 1
+	b[last] = ']'
+	return append(b, ',')
+}
+
+func appendEmptyArray(b []byte) []byte {
+	return append(b, '[', ']', ',')
+}
+
+func appendEmptyObject(b []byte) []byte {
+	return append(b, '{', '}', ',')
+}
+
+func appendObjectEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	last := len(b) - 1
+	b[last] = '}'
+	return append(b, ',')
 }
 
 func appendStructHead(b []byte) []byte {
 	return append(b, '{')
 }
 
-func appendStructEnd(b []byte) []byte {
+func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return append(b, code.Key...)
+}
+
+func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	return append(b, '}', ',')
 }
 
-func appendStructEndSkipLast(b []byte) []byte {
+func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	if b[last] == ',' {
 		b[last] = '}'
 		return appendComma(b)
 	}
-	return appendStructEnd(b)
+	return appendStructEnd(ctx, code, b)
 }
+
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ uintptr)               {}
+func storeIndent(_ uintptr, _ *encoder.Opcode, _ uintptr)                                 {}
+func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
+func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

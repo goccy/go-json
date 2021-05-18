@@ -2,11 +2,42 @@ package vm_escaped_indent
 
 import (
 	"encoding/json"
+	"fmt"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/runtime"
 )
+
+const uintptrSize = 4 << (^uintptr(0) >> 63)
+
+var (
+	appendInt           = encoder.AppendInt
+	appendUint          = encoder.AppendUint
+	appendFloat32       = encoder.AppendFloat32
+	appendFloat64       = encoder.AppendFloat64
+	appendString        = encoder.AppendString
+	appendByteSlice     = encoder.AppendByteSlice
+	appendNumber        = encoder.AppendNumber
+	appendStructEnd     = encoder.AppendStructEndIndent
+	appendIndent        = encoder.AppendIndent
+	errUnsupportedValue = encoder.ErrUnsupportedValue
+	errUnsupportedFloat = encoder.ErrUnsupportedFloat
+	mapiterinit         = encoder.MapIterInit
+	mapiterkey          = encoder.MapIterKey
+	mapitervalue        = encoder.MapIterValue
+	mapiternext         = encoder.MapIterNext
+	maplen              = encoder.MapLen
+)
+
+type emptyInterface struct {
+	typ *runtime.Type
+	ptr unsafe.Pointer
+}
+
+func errUnimplementedOp(op encoder.OpType) error {
+	return fmt.Errorf("encoder (indent+escaped): opcode %s has not been implemented", op)
+}
 
 func load(base uintptr, idx uintptr) uintptr {
 	addr := base + idx
@@ -76,6 +107,89 @@ func appendComma(b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
+func appendColon(b []byte) []byte {
+	return append(b, ':', ' ')
+}
+
+func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, opt encoder.Option, code *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
+	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
+	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
+	if err != nil {
+		return nil, err
+	}
+
+	totalLength := uintptr(codeSet.CodeLength)
+	nextTotalLength := uintptr(ifaceCodeSet.CodeLength)
+
+	curlen := uintptr(len(ctx.Ptrs))
+	offsetNum := ptrOffset / uintptrSize
+
+	newLen := offsetNum + totalLength + nextTotalLength
+	if curlen < newLen {
+		ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
+	}
+	oldPtrs := ctx.Ptrs
+
+	newPtrs := ctx.Ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
+	newPtrs[0] = uintptr(iface.ptr)
+
+	ctx.Ptrs = newPtrs
+
+	oldBaseIndent := ctx.BaseIndent
+	ctx.BaseIndent = code.Indent
+	bb, err := Run(ctx, b, ifaceCodeSet, opt)
+	if err != nil {
+		return nil, err
+	}
+	ctx.BaseIndent = oldBaseIndent
+
+	ctx.Ptrs = oldPtrs
+
+	return bb, nil
+}
+
+func appendMapKeyValue(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key, value []byte) []byte {
+	b = appendIndent(ctx, b, code.Indent+1)
+	b = append(b, key...)
+	b[len(b)-2] = ':'
+	b[len(b)-1] = ' '
+	return append(b, value...)
+}
+
+func appendMapEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	b = b[:len(b)-2]
+	b = append(b, '\n')
+	b = appendIndent(ctx, b, code.Indent)
+	return append(b, '}', ',', '\n')
+}
+
+func appendArrayHead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	b = append(b, '[', '\n')
+	return appendIndent(ctx, b, code.Indent+1)
+}
+
+func appendArrayEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	b = b[:len(b)-2]
+	b = append(b, '\n')
+	b = appendIndent(ctx, b, code.Indent)
+	return append(b, ']', ',', '\n')
+}
+
+func appendEmptyArray(b []byte) []byte {
+	return append(b, '[', ']', ',', '\n')
+}
+
+func appendEmptyObject(b []byte) []byte {
+	return append(b, '{', '}', ',', '\n')
+}
+
+func appendObjectEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	last := len(b) - 1
+	b[last] = '\n'
+	b = appendIndent(ctx, b, code.Indent-1)
+	return append(b, '}', ',', '\n')
+}
+
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
 	return encoder.AppendMarshalJSONIndent(ctx, code, b, v, true)
 }
@@ -108,4 +222,20 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 		b = append(b, '}')
 	}
 	return appendComma(b)
+}
+
+func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr uintptr) {
+	ctx.BaseIndent = int(load(ctxptr, code.Length))
+}
+
+func storeIndent(ctxptr uintptr, code *encoder.Opcode, indent uintptr) {
+	store(ctxptr, code.End.Next.Length, indent)
+}
+
+func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return appendIndent(ctx, b, code.Indent+1)
+}
+
+func appendMapKeyIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return appendIndent(ctx, b, code.Indent)
 }

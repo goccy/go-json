@@ -49,9 +49,20 @@ func newSliceDecoder(dec decoder, elemType *rtype, size uintptr, structName, fie
 	}
 }
 
-func (d *sliceDecoder) newSlice() *sliceHeader {
+func (d *sliceDecoder) newSlice(src *sliceHeader) *sliceHeader {
 	slice := d.arrayPool.Get().(*sliceHeader)
-	slice.len = 0
+	if src.len > 0 {
+		// copy original elem
+		if slice.cap < src.cap {
+			data := newArray(d.elemType, src.cap)
+			slice = &sliceHeader{data: data, len: src.len, cap: src.cap}
+		} else {
+			slice.len = src.len
+		}
+		copySlice(d.elemType, *slice, *src)
+	} else {
+		slice.len = 0
+	}
 	return slice
 }
 
@@ -109,7 +120,8 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 				return nil
 			}
 			idx := 0
-			slice := d.newSlice()
+			slice := d.newSlice((*sliceHeader)(p))
+			srcLen := slice.len
 			capacity := slice.cap
 			data := slice.data
 			for {
@@ -121,12 +133,17 @@ func (d *sliceDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 					copySlice(d.elemType, dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
-				if d.isElemPointerType {
-					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
-				} else {
-					// assign new element to the slice
-					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+
+				// if srcLen is greater than idx, keep the original reference
+				if srcLen <= idx {
+					if d.isElemPointerType {
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
+					} else {
+						// assign new element to the slice
+						typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+					}
 				}
+
 				if err := d.valueDecoder.decodeStream(s, depth, ep); err != nil {
 					return err
 				}
@@ -212,7 +229,8 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 				return cursor, nil
 			}
 			idx := 0
-			slice := d.newSlice()
+			slice := d.newSlice((*sliceHeader)(p))
+			srcLen := slice.len
 			capacity := slice.cap
 			data := slice.data
 			for {
@@ -224,11 +242,14 @@ func (d *sliceDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 					copySlice(d.elemType, dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
-				if d.isElemPointerType {
-					**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
-				} else {
-					// assign new element to the slice
-					typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+				// if srcLen is greater than idx, keep the original reference
+				if srcLen <= idx {
+					if d.isElemPointerType {
+						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
+					} else {
+						// assign new element to the slice
+						typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+					}
 				}
 				c, err := d.valueDecoder.decode(buf, cursor, depth, ep)
 				if err != nil {

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"go/parser"
+	"go/printer"
+	"go/token"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -273,6 +276,32 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	return ioutil.WriteFile(path, buf, 0644)
 }
 
+func generateVM() error {
+	file, err := ioutil.ReadFile("vm.go.tmpl")
+	if err != nil {
+		return err
+	}
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "", string(file), parser.ParseComments)
+	if err != nil {
+		return err
+	}
+	for _, pkg := range []string{"vm", "vm_indent", "vm_escaped", "vm_escaped_indent"} {
+		f.Name.Name = pkg
+		var buf bytes.Buffer
+		printer.Fprint(&buf, fset, f)
+		path := filepath.Join(repoRoot(), "internal", "encoder", pkg, "vm.go")
+		source, err := format.Source(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(path, source, 0644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	relativePathFromRepoRoot := filepath.Join("internal", "cmd", "generator")
@@ -281,6 +310,9 @@ func repoRoot() string {
 
 //go:generate go run main.go
 func main() {
+	if err := generateVM(); err != nil {
+		panic(err)
+	}
 	if err := _main(); err != nil {
 		panic(err)
 	}

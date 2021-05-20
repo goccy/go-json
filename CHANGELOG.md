@@ -1,3 +1,19 @@
+# v0.5.1 - 2021/5/20
+
+### Optimization
+
+* Add type addrShift to enable bigger encoder/decoder cache ( #213 )
+
+### Fix decoder
+
+* Keep original reference of slice element ( #229 )
+
+### Refactor
+
+* Refactor Debug mode for encoding ( #226 )
+* Generate VM sources for encoding ( #227 )
+* Refactor validator for null/true/false for decoding ( #221 )
+
 # v0.5.0 - 2021/5/9
 
 ### Supports using omitempty and string tags at the same time ( #216 )

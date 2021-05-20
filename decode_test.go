@@ -3052,7 +3052,7 @@ func TestMultipleDecodeWithRawMessage(t *testing.T) {
 type intUnmarshaler int
 
 func (u *intUnmarshaler) UnmarshalJSON(b []byte) error {
-	if *u != 0 {
+	if *u != 0 && *u != 10 {
 		return fmt.Errorf("failed to decode of slice with int unmarshaler")
 	}
 	*u = 10
@@ -3062,7 +3062,7 @@ func (u *intUnmarshaler) UnmarshalJSON(b []byte) error {
 type arrayUnmarshaler [5]int
 
 func (u *arrayUnmarshaler) UnmarshalJSON(b []byte) error {
-	if (*u)[0] != 0 {
+	if (*u)[0] != 0 && (*u)[0] != 10 {
 		return fmt.Errorf("failed to decode of slice with array unmarshaler")
 	}
 	(*u)[0] = 10
@@ -3072,7 +3072,7 @@ func (u *arrayUnmarshaler) UnmarshalJSON(b []byte) error {
 type mapUnmarshaler map[string]int
 
 func (u *mapUnmarshaler) UnmarshalJSON(b []byte) error {
-	if len(*u) != 0 {
+	if len(*u) != 0 && len(*u) != 1 {
 		return fmt.Errorf("failed to decode of slice with map unmarshaler")
 	}
 	*u = map[string]int{"a": 10}
@@ -3080,14 +3080,16 @@ func (u *mapUnmarshaler) UnmarshalJSON(b []byte) error {
 }
 
 type structUnmarshaler struct {
-	A int
+	A        int
+	notFirst bool
 }
 
 func (u *structUnmarshaler) UnmarshalJSON(b []byte) error {
-	if u.A != 0 {
+	if !u.notFirst && u.A != 0 {
 		return fmt.Errorf("failed to decode of slice with struct unmarshaler")
 	}
 	u.A = 10
+	u.notFirst = true
 	return nil
 }
 
@@ -3197,6 +3199,29 @@ func TestSliceElemUnmarshaler(t *testing.T) {
 			t.Fatalf("failed to decode of slice with struct unmarshaler: %v", v)
 		}
 	})
+}
+
+type keepRefTest struct {
+	A int
+	B string
+}
+
+func (t *keepRefTest) UnmarshalJSON(data []byte) error {
+	v := []interface{}{&t.A, &t.B}
+	return json.Unmarshal(data, &v)
+}
+
+func TestKeepReferenceSlice(t *testing.T) {
+	var v keepRefTest
+	if err := json.Unmarshal([]byte(`[54,"hello"]`), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.A != 54 {
+		t.Fatal("failed to keep reference for slice")
+	}
+	if v.B != "hello" {
+		t.Fatal("failed to keep reference for slice")
+	}
 }
 
 func TestInvalidTopLevelValue(t *testing.T) {

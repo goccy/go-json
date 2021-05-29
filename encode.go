@@ -179,7 +179,13 @@ func encode(ctx *encoder.RuntimeContext, v interface{}, opt EncodeOption) ([]byt
 	}
 
 	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
+	var code *encoder.Opcode
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		code = codeSet.EscapeKeyCode
+	} else {
+		code = codeSet.NoescapeKeyCode
+	}
+	ctx.Init(code, p, codeSet.CodeLength)
 	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	buf, err := encodeRunCode(ctx, b, codeSet, opt)
@@ -206,8 +212,14 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}, opt EncodeOption
 		return nil, err
 	}
 
+	var code *encoder.Opcode
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		code = codeSet.EscapeKeyCode
+	} else {
+		code = codeSet.NoescapeKeyCode
+	}
 	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
+	ctx.Init(code, p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet, opt)
 	if err != nil {
 		return nil, err
@@ -233,8 +245,14 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return nil, err
 	}
 
+	var code *encoder.Opcode
+	if (opt & EncodeOptionHTMLEscape) != 0 {
+		code = codeSet.EscapeKeyCode
+	} else {
+		code = codeSet.NoescapeKeyCode
+	}
 	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
+	ctx.Init(code, p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent, opt)
 
 	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)

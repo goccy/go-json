@@ -48,7 +48,7 @@ var opTypeStrings = [{{ .OpLen }}]string{
 {{- end }}
 }
 
-type OpType int
+type OpType uint16
 
 const (
 {{- range $index, $type := .OpTypes }}

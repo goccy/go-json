@@ -14,5 +14,5 @@ func TestDumpOpcode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	codeSet.Code.Dump()
+	codeSet.EscapeKeyCode.Dump()
 }

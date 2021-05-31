@@ -6,7 +6,7 @@ import (
 	"github.com/goccy/go-json/internal/encoder"
 )
 
-func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt encoder.Option) ([]byte, error) {
+func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("=============[DEBUG]===============")
@@ -23,5 +23,5 @@ func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet,
 		}
 	}()
 
-	return Run(ctx, b, codeSet, opt)
+	return Run(ctx, b, codeSet)
 }

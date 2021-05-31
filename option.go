@@ -1,15 +1,21 @@
 package json
 
-type EncodeOptionFunc func(EncodeOption) EncodeOption
+import (
+	"github.com/goccy/go-json/internal/encoder"
+)
 
-func UnorderedMap() func(EncodeOption) EncodeOption {
-	return func(opt EncodeOption) EncodeOption {
-		return opt | EncodeOptionUnorderedMap
+type EncodeOption = encoder.Option
+
+type EncodeOptionFunc func(*EncodeOption)
+
+func UnorderedMap() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.UnorderedMap = true
 	}
 }
 
-func Debug() func(EncodeOption) EncodeOption {
-	return func(opt EncodeOption) EncodeOption {
-		return opt | EncodeOptionDebug
+func Debug() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Debug = true
 	}
 }

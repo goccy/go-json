@@ -17,14 +17,6 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-type Option int
-
-const (
-	HTMLEscapeOption Option = 1 << iota
-	IndentOption
-	UnorderedMapOption
-)
-
 func (t OpType) IsMultipleOpHead() bool {
 	switch t {
 	case OpStructHead:

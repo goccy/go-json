@@ -9,7 +9,7 @@ import (
 	"github.com/goccy/go-json/internal/encoder"
 )
 
-func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt encoder.Option) ([]byte, error) {
+func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	recursiveLevel := 0
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.Ptr()
@@ -185,7 +185,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				code = code.Next
 				break
 			}
-			bb, err := appendInterface(ctx, codeSet, opt, code, b, iface, ptrOffset)
+			bb, err := appendInterface(ctx, codeSet, code, b, iface, ptrOffset)
 			if err != nil {
 				return nil, err
 			}
@@ -365,13 +365,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			store(ctxptr, code.ElemIdx, 0)
 			store(ctxptr, code.Length, uintptr(mlen))
 			store(ctxptr, code.MapIter, uintptr(iter))
-			if (opt & encoder.UnorderedMapOption) == 0 {
+			if ctx.Option.UnorderedMap {
+				b = appendMapKeyIndent(ctx, code.Next, b)
+			} else {
 				mapCtx := encoder.NewMapContext(mlen)
 				mapCtx.Pos = append(mapCtx.Pos, len(b))
 				ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(mapCtx))
 				store(ctxptr, code.End.MapPos, uintptr(unsafe.Pointer(mapCtx)))
-			} else {
-				b = appendMapKeyIndent(ctx, code.Next, b)
 			}
 			key := mapiterkey(iter)
 			store(ctxptr, code.Next.Idx, uintptr(key))
@@ -380,7 +380,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 			idx := load(ctxptr, code.ElemIdx)
 			length := load(ctxptr, code.Length)
 			idx++
-			if (opt & encoder.UnorderedMapOption) != 0 {
+			if ctx.Option.UnorderedMap {
 				if idx < length {
 					b = appendMapKeyIndent(ctx, code, b)
 					store(ctxptr, code.ElemIdx, idx)
@@ -409,7 +409,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, opt 
 				}
 			}
 		case encoder.OpMapValue:
-			if (opt & encoder.UnorderedMapOption) != 0 {
+			if ctx.Option.UnorderedMap {
 				b = appendColon(b)
 			} else {
 				ptr := load(ctxptr, code.End.MapPos)

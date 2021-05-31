@@ -112,11 +112,10 @@ type RuntimeContext struct {
 	BaseIndent uint32
 	Prefix     []byte
 	IndentStr  []byte
-	Code       *Opcode
 	Option     *Option
 }
 
-func (c *RuntimeContext) Init(code *Opcode, p uintptr, codelen int) {
+func (c *RuntimeContext) Init(p uintptr, codelen int) {
 	if len(c.Ptrs) < codelen {
 		c.Ptrs = make([]uintptr, codelen)
 	}
@@ -124,7 +123,6 @@ func (c *RuntimeContext) Init(code *Opcode, p uintptr, codelen int) {
 	c.KeepRefs = c.KeepRefs[:0]
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
-	c.Code = code
 }
 
 func (c *RuntimeContext) Ptr() uintptr {

@@ -286,7 +286,7 @@ func generateVM() error {
 	if err != nil {
 		return err
 	}
-	for _, pkg := range []string{"vm", "vm_indent", "vm_escaped", "vm_escaped_indent"} {
+	for _, pkg := range []string{"vm", "vm_indent"} {
 		f.Name.Name = pkg
 		var buf bytes.Buffer
 		printer.Fprint(&buf, fset, f)

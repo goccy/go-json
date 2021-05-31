@@ -90,22 +90,22 @@ func ptrToInterface(code *encoder.Opcode, p uintptr) interface{} {
 	}))
 }
 
-func appendBool(b []byte, v bool) []byte {
+func appendBool(_ *encoder.RuntimeContext, b []byte, v bool) []byte {
 	if v {
 		return append(b, "true"...)
 	}
 	return append(b, "false"...)
 }
 
-func appendNull(b []byte) []byte {
+func appendNull(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, "null"...)
 }
 
-func appendComma(b []byte) []byte {
+func appendComma(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ',')
 }
 
-func appendColon(b []byte) []byte {
+func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	last := len(b) - 1
 	b[last] = ':'
 	return b
@@ -146,7 +146,6 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ 
 	newPtrs[0] = uintptr(iface.ptr)
 
 	ctx.Ptrs = newPtrs
-	ctx.Code = ifaceCodeSet.NoescapeKeyCode
 
 	bb, err := Run(ctx, b, ifaceCodeSet)
 	if err != nil {
@@ -158,11 +157,11 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ 
 }
 
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalJSON(ctx, code, b, v, false)
+	return encoder.AppendMarshalJSON(ctx, code, b, v)
 }
 
-func appendMarshalText(code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalText(code, b, v, false)
+func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalText(ctx, code, b, v)
 }
 
 func appendArrayHead(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
@@ -175,11 +174,11 @@ func appendArrayEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []by
 	return append(b, ',')
 }
 
-func appendEmptyArray(b []byte) []byte {
+func appendEmptyArray(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '[', ']', ',')
 }
 
-func appendEmptyObject(b []byte) []byte {
+func appendEmptyObject(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{', '}', ',')
 }
 
@@ -189,7 +188,7 @@ func appendObjectEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []b
 	return append(b, ',')
 }
 
-func appendStructHead(b []byte) []byte {
+func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 
@@ -205,7 +204,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	last := len(b) - 1
 	if b[last] == ',' {
 		b[last] = '}'
-		return appendComma(b)
+		return appendComma(ctx, b)
 	}
 	return appendStructEnd(ctx, code, b)
 }

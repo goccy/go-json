@@ -353,7 +353,7 @@ func AppendNumber(b []byte, n json.Number) ([]byte, error) {
 	return b, nil
 }
 
-func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
@@ -375,7 +375,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	}
 	marshalBuf := ctx.MarshalBuf[:0]
 	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, escape)
+	compactedBuf, err := compact(b, marshalBuf, ctx.Option.HTMLEscape)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
@@ -383,7 +383,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	return compactedBuf, nil
 }
 
-func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
@@ -410,7 +410,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 		marshalBuf,
 		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), int(ctx.BaseIndent+code.Indent)),
 		string(ctx.IndentStr),
-		escape,
+		ctx.Option.HTMLEscape,
 	)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
@@ -419,7 +419,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	return indentedBuf, nil
 }
 
-func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
@@ -439,13 +439,10 @@ func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	if escape {
-		return AppendEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
-	}
-	return AppendString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func AppendMarshalTextIndent(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
+func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
@@ -465,10 +462,7 @@ func AppendMarshalTextIndent(code *Opcode, b []byte, v interface{}, escape bool)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	if escape {
-		return AppendEscapedString(b, *(*string)(unsafe.Pointer(&bytes))), nil
-	}
-	return AppendString(b, *(*string)(unsafe.Pointer(&bytes))), nil
+	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
 func AppendNull(b []byte) []byte {

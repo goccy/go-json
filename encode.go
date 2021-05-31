@@ -6,8 +6,6 @@ import (
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/encoder/vm"
-	"github.com/goccy/go-json/internal/encoder/vm_escaped"
-	"github.com/goccy/go-json/internal/encoder/vm_escaped_indent"
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
 )
 
@@ -186,13 +184,7 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	}
 
 	p := uintptr(header.ptr)
-	var code *encoder.Opcode
-	if ctx.Option.HTMLEscape {
-		code = codeSet.EscapeKeyCode
-	} else {
-		code = codeSet.NoescapeKeyCode
-	}
-	ctx.Init(code, p, codeSet.CodeLength)
+	ctx.Init(p, codeSet.CodeLength)
 	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	buf, err := encodeRunCode(ctx, b, codeSet)
@@ -219,14 +211,8 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 		return nil, err
 	}
 
-	var code *encoder.Opcode
-	if ctx.Option.HTMLEscape {
-		code = codeSet.EscapeKeyCode
-	} else {
-		code = codeSet.NoescapeKeyCode
-	}
 	p := uintptr(header.ptr)
-	ctx.Init(code, p, codeSet.CodeLength)
+	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
 		return nil, err
@@ -252,14 +238,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return nil, err
 	}
 
-	var code *encoder.Opcode
-	if ctx.Option.HTMLEscape {
-		code = codeSet.EscapeKeyCode
-	} else {
-		code = codeSet.NoescapeKeyCode
-	}
 	p := uintptr(header.ptr)
-	ctx.Init(code, p, codeSet.CodeLength)
+	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)
 
 	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
@@ -274,38 +254,18 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 
 func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	if ctx.Option.Debug {
-		return encodeDebugRunCode(ctx, b, codeSet)
-	}
-	if ctx.Option.HTMLEscape {
-		return vm_escaped.Run(ctx, b, codeSet)
+		return vm.DebugRun(ctx, b, codeSet)
 	}
 	return vm.Run(ctx, b, codeSet)
-}
-
-func encodeDebugRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
-	if ctx.Option.HTMLEscape {
-		return vm_escaped.DebugRun(ctx, b, codeSet)
-	}
-	return vm.DebugRun(ctx, b, codeSet)
 }
 
 func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string) ([]byte, error) {
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
 	if ctx.Option.Debug {
-		return encodeDebugRunIndentCode(ctx, b, codeSet)
-	}
-	if ctx.Option.HTMLEscape {
-		return vm_escaped_indent.Run(ctx, b, codeSet)
+		return vm_indent.DebugRun(ctx, b, codeSet)
 	}
 	return vm_indent.Run(ctx, b, codeSet)
-}
-
-func encodeDebugRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
-	if ctx.Option.HTMLEscape {
-		return vm_escaped_indent.DebugRun(ctx, b, codeSet)
-	}
-	return vm_indent.DebugRun(ctx, b, codeSet)
 }
 
 func initOption(opt *EncodeOption) {

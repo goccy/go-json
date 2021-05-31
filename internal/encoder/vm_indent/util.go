@@ -137,7 +137,6 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, co
 
 	oldBaseIndent := ctx.BaseIndent
 	ctx.BaseIndent = code.Indent
-	ctx.Code = ifaceCodeSet.NoescapeKeyCode
 	bb, err := Run(ctx, b, ifaceCodeSet)
 	if err != nil {
 		return nil, err
@@ -192,11 +191,11 @@ func appendObjectEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 }
 
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalJSONIndent(ctx, code, b, v, false)
+	return encoder.AppendMarshalJSONIndent(ctx, code, b, v)
 }
 
-func appendMarshalText(code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalTextIndent(code, b, v, false)
+func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalTextIndent(ctx, code, b, v)
 }
 
 func appendStructHead(b []byte) []byte {

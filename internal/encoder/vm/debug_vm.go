@@ -8,13 +8,20 @@ import (
 
 func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	defer func() {
+		var code *encoder.Opcode
+		if ctx.Option.HTMLEscape {
+			code = codeSet.EscapeKeyCode
+		} else {
+			code = codeSet.NoescapeKeyCode
+		}
+
 		if err := recover(); err != nil {
 			fmt.Println("=============[DEBUG]===============")
 			fmt.Println("* [TYPE]")
 			fmt.Println(codeSet.Type)
 			fmt.Printf("\n")
 			fmt.Println("* [ALL OPCODE]")
-			fmt.Println(ctx.Code.Dump())
+			fmt.Println(code.Dump())
 			fmt.Printf("\n")
 			fmt.Println("* [CONTEXT]")
 			fmt.Printf("%+v\n", ctx)

@@ -146,7 +146,6 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ 
 	newPtrs[0] = uintptr(iface.ptr)
 
 	ctx.Ptrs = newPtrs
-	ctx.Code = ifaceCodeSet.NoescapeKeyCode
 
 	bb, err := Run(ctx, b, ifaceCodeSet)
 	if err != nil {
@@ -158,11 +157,11 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ 
 }
 
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalJSON(ctx, code, b, v, false)
+	return encoder.AppendMarshalJSON(ctx, code, b, v)
 }
 
-func appendMarshalText(code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalText(code, b, v, false)
+func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+	return encoder.AppendMarshalText(ctx, code, b, v)
 }
 
 func appendArrayHead(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {

@@ -19,3 +19,10 @@ func Debug() EncodeOptionFunc {
 		opt.Debug = true
 	}
 }
+
+func Colorize(scheme *ColorScheme) EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Colorize = true
+		opt.ColorScheme = scheme
+	}
+}

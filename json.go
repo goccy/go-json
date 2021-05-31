@@ -160,16 +160,12 @@ func Marshal(v interface{}) ([]byte, error) {
 
 // MarshalNoEscape
 func MarshalNoEscape(v interface{}) ([]byte, error) {
-	return marshalNoEscape(v, EncodeOptionHTMLEscape)
+	return marshalNoEscape(v)
 }
 
 // MarshalWithOption returns the JSON encoding of v with EncodeOption.
 func MarshalWithOption(v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, error) {
-	opt := EncodeOptionHTMLEscape
-	for _, optFunc := range optFuncs {
-		opt = optFunc(opt)
-	}
-	return marshal(v, opt)
+	return marshal(v, optFuncs...)
 }
 
 // MarshalIndent is like Marshal but applies Indent to format the output.
@@ -181,11 +177,7 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 
 // MarshalIndentWithOption is like Marshal but applies Indent to format the output with EncodeOption.
 func MarshalIndentWithOption(v interface{}, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
-	opt := EncodeOptionHTMLEscape | EncodeOptionIndent
-	for _, optFunc := range optFuncs {
-		opt = optFunc(opt)
-	}
-	return marshalIndent(v, prefix, indent, opt)
+	return marshalIndent(v, prefix, indent, optFuncs...)
 }
 
 // Unmarshal parses the JSON-encoded data and stores the result
@@ -326,7 +318,7 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 	if err := dec.Decode(&v); err != nil {
 		return
 	}
-	buf, _ := marshal(v, EncodeOptionHTMLEscape)
+	buf, _ := marshal(v)
 	dst.Write(buf)
 }
 

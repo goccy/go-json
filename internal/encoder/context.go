@@ -97,6 +97,7 @@ var (
 				Buf:      make([]byte, 0, bufSize),
 				Ptrs:     make([]uintptr, 128),
 				KeepRefs: make([]unsafe.Pointer, 0, 8),
+				Option:   &Option{},
 			}
 		},
 	}
@@ -112,6 +113,7 @@ type RuntimeContext struct {
 	Prefix     []byte
 	IndentStr  []byte
 	Code       *Opcode
+	Option     *Option
 }
 
 func (c *RuntimeContext) Init(code *Opcode, p uintptr, codelen int) {

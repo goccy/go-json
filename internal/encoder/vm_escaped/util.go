@@ -123,7 +123,7 @@ func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte
 	return b
 }
 
-func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, opt encoder.Option, _ *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
+func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
 	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
 	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 	if err != nil {
@@ -148,7 +148,7 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, op
 	ctx.Ptrs = newPtrs
 	ctx.Code = ifaceCodeSet.EscapeKeyCode
 
-	bb, err := Run(ctx, b, ifaceCodeSet, opt)
+	bb, err := Run(ctx, b, ifaceCodeSet)
 	if err != nil {
 		return nil, err
 	}

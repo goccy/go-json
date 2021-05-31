@@ -287,4 +287,5 @@ func initOption(opt *EncodeOption) {
 	opt.Indent = false
 	opt.UnorderedMap = false
 	opt.Debug = false
+	opt.Colorize = false
 }

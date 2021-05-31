@@ -37,20 +37,20 @@ func errUnimplementedOp(op encoder.OpType) error {
 	return fmt.Errorf("encoder (escaped): opcode %s has not been implemented", op)
 }
 
-func load(base uintptr, idx uintptr) uintptr {
-	addr := base + idx
+func load(base uintptr, idx uint32) uintptr {
+	addr := base + uintptr(idx)
 	return **(**uintptr)(unsafe.Pointer(&addr))
 }
 
-func store(base uintptr, idx uintptr, p uintptr) {
-	addr := base + idx
+func store(base uintptr, idx uint32, p uintptr) {
+	addr := base + uintptr(idx)
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func loadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
-	addr := base + idx
+func loadNPtr(base uintptr, idx uint32, ptrNum uint8) uintptr {
+	addr := base + uintptr(idx)
 	p := **(**uintptr)(unsafe.Pointer(&addr))
-	for i := 0; i < ptrNum; i++ {
+	for i := uint8(0); i < ptrNum; i++ {
 		if p == 0 {
 			return 0
 		}
@@ -70,8 +70,8 @@ func ptrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader
 func ptrToPtr(p uintptr) uintptr {
 	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 }
-func ptrToNPtr(p uintptr, ptrNum int) uintptr {
-	for i := 0; i < ptrNum; i++ {
+func ptrToNPtr(p uintptr, ptrNum uint8) uintptr {
+	for i := uint8(0); i < ptrNum; i++ {
 		if p == 0 {
 			return 0
 		}
@@ -146,6 +146,7 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, op
 	newPtrs[0] = uintptr(iface.ptr)
 
 	ctx.Ptrs = newPtrs
+	ctx.Code = ifaceCodeSet.EscapeKeyCode
 
 	bb, err := Run(ctx, b, ifaceCodeSet, opt)
 	if err != nil {
@@ -193,7 +194,7 @@ func appendStructHead(b []byte) []byte {
 }
 
 func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	return append(b, code.EscapedKey...)
+	return append(b, code.Key...)
 }
 
 func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {

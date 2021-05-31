@@ -102,9 +102,10 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type       *runtime.Type
-	Code       *Opcode
-	CodeLength int
+	Type            *runtime.Type
+	NoescapeKeyCode *Opcode
+	EscapeKeyCode   *Opcode
+	CodeLength      int
 }
 
 type CompiledCode struct {
@@ -362,7 +363,7 @@ func AppendNumber(b []byte, n json.Number) ([]byte, error) {
 
 func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.AddrForMarshaler {
+	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
 			rv = rv.Addr()
 		} else {
@@ -392,7 +393,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 
 func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.AddrForMarshaler {
+	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
 			rv = rv.Addr()
 		} else {
@@ -415,7 +416,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	indentedBuf, err := doIndent(
 		b,
 		marshalBuf,
-		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), ctx.BaseIndent+code.Indent),
+		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), int(ctx.BaseIndent+code.Indent)),
 		string(ctx.IndentStr),
 		escape,
 	)
@@ -428,7 +429,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 
 func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.AddrForMarshaler {
+	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
 			rv = rv.Addr()
 		} else {
@@ -454,7 +455,7 @@ func AppendMarshalText(code *Opcode, b []byte, v interface{}, escape bool) ([]by
 
 func AppendMarshalTextIndent(code *Opcode, b []byte, v interface{}, escape bool) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if code.AddrForMarshaler {
+	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		if rv.CanAddr() {
 			rv = rv.Addr()
 		} else {
@@ -498,16 +499,16 @@ func AppendStructEndIndent(ctx *RuntimeContext, code *Opcode, b []byte) []byte {
 	b = append(b, '\n')
 	b = append(b, ctx.Prefix...)
 	indentNum := ctx.BaseIndent + code.Indent - 1
-	for i := 0; i < indentNum; i++ {
+	for i := uint32(0); i < indentNum; i++ {
 		b = append(b, ctx.IndentStr...)
 	}
 	return append(b, '}', ',', '\n')
 }
 
-func AppendIndent(ctx *RuntimeContext, b []byte, indent int) []byte {
+func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 	b = append(b, ctx.Prefix...)
 	indentNum := ctx.BaseIndent + indent
-	for i := 0; i < indentNum; i++ {
+	for i := uint32(0); i < indentNum; i++ {
 		b = append(b, ctx.IndentStr...)
 	}
 	return b

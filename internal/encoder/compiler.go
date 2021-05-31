@@ -55,19 +55,29 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	copiedType := *(**runtime.Type)(unsafe.Pointer(&typeptr))
 
-	code, err := compileHead(&compileContext{
+	noescapeKeyCode, err := compileHead(&compileContext{
 		typ:                      copiedType,
 		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
 	})
 	if err != nil {
 		return nil, err
 	}
-	code = copyOpcode(code)
-	codeLength := code.TotalLength()
+	escapeKeyCode, err := compileHead(&compileContext{
+		typ:                      copiedType,
+		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
+		escapeKey:                true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	noescapeKeyCode = copyOpcode(noescapeKeyCode)
+	escapeKeyCode = copyOpcode(escapeKeyCode)
+	codeLength := noescapeKeyCode.TotalLength()
 	codeSet := &OpcodeSet{
-		Type:       copiedType,
-		Code:       code,
-		CodeLength: codeLength,
+		Type:            copiedType,
+		NoescapeKeyCode: noescapeKeyCode,
+		EscapeKeyCode:   escapeKeyCode,
+		CodeLength:      codeLength,
 	}
 	storeOpcodeSet(typeptr, codeSet, opcodeMap)
 	return codeSet, nil
@@ -246,6 +256,7 @@ func linkRecursiveCode(c *Opcode) {
 				continue
 			}
 			code.Jmp.Code = copyOpcode(code.Jmp.Code)
+
 			c := code.Jmp.Code
 			c.End.Next = newEndOp(&compileContext{})
 			c.Op = c.Op.PtrHeadToHead()
@@ -268,6 +279,7 @@ func linkRecursiveCode(c *Opcode) {
 			code.Jmp.Linked = true
 
 			linkRecursiveCode(code.Jmp.Code)
+
 			code = code.Next
 			continue
 		}
@@ -518,9 +530,13 @@ func compileMarshalJSON(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpMarshalJSON)
 	typ := ctx.typ
 	if !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType) {
-		code.AddrForMarshaler = true
+		code.Flags |= AddrForMarshalerFlags
 	}
-	code.IsNilableType = isNilableType(typ)
+	if isNilableType(typ) {
+		code.Flags |= IsNilableTypeFlags
+	} else {
+		code.Flags &= ^IsNilableTypeFlags
+	}
 	ctx.incIndex()
 	return code, nil
 }
@@ -529,9 +545,13 @@ func compileMarshalText(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpMarshalText)
 	typ := ctx.typ
 	if !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType) {
-		code.AddrForMarshaler = true
+		code.Flags |= AddrForMarshalerFlags
 	}
-	code.IsNilableType = isNilableType(typ)
+	if isNilableType(typ) {
+		code.Flags |= IsNilableTypeFlags
+	} else {
+		code.Flags &= ^IsNilableTypeFlags
+	}
 	ctx.incIndex()
 	return code, nil
 }
@@ -540,7 +560,7 @@ const intSize = 32 << (^uint(0) >> 63)
 
 func compileInt(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
-	code.setMaskAndRshiftNum(intSize)
+	code.NumBitSize = intSize
 	ctx.incIndex()
 	return code, nil
 }
@@ -556,7 +576,7 @@ func compileIntPtr(ctx *compileContext) (*Opcode, error) {
 
 func compileInt8(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
-	code.setMaskAndRshiftNum(8)
+	code.NumBitSize = 8
 	ctx.incIndex()
 	return code, nil
 }
@@ -572,7 +592,7 @@ func compileInt8Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileInt16(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
-	code.setMaskAndRshiftNum(16)
+	code.NumBitSize = 16
 	ctx.incIndex()
 	return code, nil
 }
@@ -588,7 +608,7 @@ func compileInt16Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileInt32(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
-	code.setMaskAndRshiftNum(32)
+	code.NumBitSize = 32
 	ctx.incIndex()
 	return code, nil
 }
@@ -604,7 +624,7 @@ func compileInt32Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileInt64(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpInt)
-	code.setMaskAndRshiftNum(64)
+	code.NumBitSize = 64
 	ctx.incIndex()
 	return code, nil
 }
@@ -620,7 +640,7 @@ func compileInt64Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileUint(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
-	code.setMaskAndRshiftNum(intSize)
+	code.NumBitSize = intSize
 	ctx.incIndex()
 	return code, nil
 }
@@ -636,7 +656,7 @@ func compileUintPtr(ctx *compileContext) (*Opcode, error) {
 
 func compileUint8(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
-	code.setMaskAndRshiftNum(8)
+	code.NumBitSize = 8
 	ctx.incIndex()
 	return code, nil
 }
@@ -652,7 +672,7 @@ func compileUint8Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileUint16(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
-	code.setMaskAndRshiftNum(16)
+	code.NumBitSize = 16
 	ctx.incIndex()
 	return code, nil
 }
@@ -668,7 +688,7 @@ func compileUint16Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileUint32(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
-	code.setMaskAndRshiftNum(32)
+	code.NumBitSize = 32
 	ctx.incIndex()
 	return code, nil
 }
@@ -684,7 +704,7 @@ func compileUint32Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileUint64(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUint)
-	code.setMaskAndRshiftNum(64)
+	code.NumBitSize = 64
 	ctx.incIndex()
 	return code, nil
 }
@@ -700,70 +720,70 @@ func compileUint64Ptr(ctx *compileContext) (*Opcode, error) {
 
 func compileIntString(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpIntString)
-	code.setMaskAndRshiftNum(intSize)
+	code.NumBitSize = intSize
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileInt8String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpIntString)
-	code.setMaskAndRshiftNum(8)
+	code.NumBitSize = 8
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileInt16String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpIntString)
-	code.setMaskAndRshiftNum(16)
+	code.NumBitSize = 16
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileInt32String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpIntString)
-	code.setMaskAndRshiftNum(32)
+	code.NumBitSize = 32
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileInt64String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpIntString)
-	code.setMaskAndRshiftNum(64)
+	code.NumBitSize = 64
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileUintString(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUintString)
-	code.setMaskAndRshiftNum(intSize)
+	code.NumBitSize = intSize
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileUint8String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUintString)
-	code.setMaskAndRshiftNum(8)
+	code.NumBitSize = 8
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileUint16String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUintString)
-	code.setMaskAndRshiftNum(16)
+	code.NumBitSize = 16
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileUint32String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUintString)
-	code.setMaskAndRshiftNum(32)
+	code.NumBitSize = 32
 	ctx.incIndex()
 	return code, nil
 }
 
 func compileUint64String(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpUintString)
-	code.setMaskAndRshiftNum(64)
+	code.NumBitSize = 64
 	ctx.incIndex()
 	return code, nil
 }
@@ -879,7 +899,7 @@ func compileSlice(ctx *compileContext) (*Opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	code.Indirect = true
+	code.Flags |= IndirectFlags
 
 	// header => opcode => elem => end
 	//             ^        |
@@ -891,7 +911,6 @@ func compileSlice(ctx *compileContext) (*Opcode, error) {
 	end := newOpCode(ctx, OpSliceEnd)
 	ctx.incIndex()
 
-	header.Elem = elemCode
 	header.End = end
 	header.Next = code
 	code.BeforeLastCode().Next = (*Opcode)(unsafe.Pointer(elemCode))
@@ -934,7 +953,7 @@ func compileArray(ctx *compileContext) (*Opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	code.Indirect = true
+	code.Flags |= IndirectFlags
 	// header => opcode => elem => end
 	//             ^        |
 	//             |________|
@@ -945,7 +964,6 @@ func compileArray(ctx *compileContext) (*Opcode, error) {
 	end := newOpCode(ctx, OpArrayEnd)
 	ctx.incIndex()
 
-	header.Elem = elemCode
 	header.End = end
 	header.Next = code
 	code.BeforeLastCode().Next = (*Opcode)(unsafe.Pointer(elemCode))
@@ -976,15 +994,12 @@ func compileMap(ctx *compileContext) (*Opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	valueCode.Indirect = true
+	valueCode.Flags |= IndirectFlags
 
 	key := newMapKeyCode(ctx, header)
 	ctx.incIndex()
 
 	ctx = ctx.decIndent()
-
-	header.MapKey = key
-	header.MapValue = value
 
 	end := newMapEndCode(ctx, header)
 	ctx.incIndex()
@@ -1052,8 +1067,7 @@ func compiledCode(ctx *compileContext) *Opcode {
 func structHeader(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag *runtime.StructTag) *Opcode {
 	op := optimizeStructHeader(valueCode, tag)
 	fieldCode.Op = op
-	fieldCode.Mask = valueCode.Mask
-	fieldCode.RshiftNum = valueCode.RshiftNum
+	fieldCode.NumBitSize = valueCode.NumBitSize
 	fieldCode.PtrNum = valueCode.PtrNum
 	if op.IsMultipleOpHead() {
 		return valueCode.BeforeLastCode()
@@ -1065,9 +1079,8 @@ func structHeader(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag
 func structField(ctx *compileContext, fieldCode *Opcode, valueCode *Opcode, tag *runtime.StructTag) *Opcode {
 	op := optimizeStructField(valueCode, tag)
 	fieldCode.Op = op
+	fieldCode.NumBitSize = valueCode.NumBitSize
 	fieldCode.PtrNum = valueCode.PtrNum
-	fieldCode.Mask = valueCode.Mask
-	fieldCode.RshiftNum = valueCode.RshiftNum
 	if op.IsMultipleOpField() {
 		return valueCode.BeforeLastCode()
 	}
@@ -1082,7 +1095,7 @@ func isNotExistsField(head *Opcode) bool {
 	if head.Op != OpStructHead {
 		return false
 	}
-	if !head.AnonymousHead {
+	if (head.Flags & AnonymousHeadFlags) == 0 {
 		return false
 	}
 	if head.Next == nil {
@@ -1117,7 +1130,7 @@ func optimizeAnonymousFields(head *Opcode) {
 				if isNotExistsField(code.Next) {
 					code.Next = code.NextField
 					diff := code.Next.DisplayIdx - code.DisplayIdx
-					for i := 0; i < diff; i++ {
+					for i := uint32(0); i < diff; i++ {
 						code.Next.decOpcodeIndex()
 					}
 					linkPrevToNextField(code, removedFields)
@@ -1147,20 +1160,20 @@ func anonymousStructFieldPairMap(tags runtime.StructTags, named string, valueCod
 		isHeadOp := strings.Contains(f.Op.String(), "Head")
 		if existsKey && f.Next != nil && strings.Contains(f.Next.Op.String(), "Recursive") {
 			// through
-		} else if isHeadOp && !f.AnonymousHead {
+		} else if isHeadOp && (f.Flags&AnonymousHeadFlags) == 0 {
 			if existsKey {
 				// TODO: need to remove this head
 				f.Op = OpStructHead
-				f.AnonymousKey = true
-				f.AnonymousHead = true
+				f.Flags |= AnonymousKeyFlags
+				f.Flags |= AnonymousHeadFlags
 			} else if named == "" {
-				f.AnonymousHead = true
+				f.Flags |= AnonymousHeadFlags
 			}
 		} else if named == "" && f.Op == OpStructEnd {
 			f.Op = OpStructAnonymousEnd
 		} else if existsKey {
 			diff := f.NextField.DisplayIdx - f.DisplayIdx
-			for i := 0; i < diff; i++ {
+			for i := uint32(0); i < diff; i++ {
 				f.NextField.decOpcodeIndex()
 			}
 			linkPrevToNextField(f, removedFields)
@@ -1179,7 +1192,7 @@ func anonymousStructFieldPairMap(tags runtime.StructTags, named string, valueCod
 		anonymousFields[key] = append(anonymousFields[key], structFieldPair{
 			prevField:   prevAnonymousField,
 			curField:    f,
-			isTaggedKey: f.IsTaggedKey,
+			isTaggedKey: (f.Flags & IsTaggedKeyFlags) != 0,
 		})
 		if f.Next != nil && f.NextField != f.Next && f.Next.Op.CodeType() == CodeStructField {
 			for k, v := range anonymousFieldPairRecursively(named, f.Next) {
@@ -1200,12 +1213,12 @@ func anonymousFieldPairRecursively(named string, valueCode *Opcode) map[string][
 	f := valueCode
 	var prevAnonymousField *Opcode
 	for {
-		if f.DisplayKey != "" && f.AnonymousHead {
+		if f.DisplayKey != "" && (f.Flags&AnonymousHeadFlags) != 0 {
 			key := fmt.Sprintf("%s.%s", named, f.DisplayKey)
 			anonymousFields[key] = append(anonymousFields[key], structFieldPair{
 				prevField:   prevAnonymousField,
 				curField:    f,
-				isTaggedKey: f.IsTaggedKey,
+				isTaggedKey: (f.Flags & IsTaggedKeyFlags) != 0,
 			})
 			if f.Next != nil && f.NextField != f.Next && f.Next.Op.CodeType() == CodeStructField {
 				for k, v := range anonymousFieldPairRecursively(named, f.Next) {
@@ -1238,11 +1251,11 @@ func optimizeConflictAnonymousFields(anonymousFields map[string][]structFieldPai
 					if fieldPair.prevField == nil {
 						// head operation
 						fieldPair.curField.Op = OpStructHead
-						fieldPair.curField.AnonymousHead = true
-						fieldPair.curField.AnonymousKey = true
+						fieldPair.curField.Flags |= AnonymousHeadFlags
+						fieldPair.curField.Flags |= AnonymousKeyFlags
 					} else {
 						diff := fieldPair.curField.NextField.DisplayIdx - fieldPair.curField.DisplayIdx
-						for i := 0; i < diff; i++ {
+						for i := uint32(0); i < diff; i++ {
 							fieldPair.curField.NextField.decOpcodeIndex()
 						}
 						removedFields[fieldPair.curField] = struct{}{}
@@ -1258,12 +1271,12 @@ func optimizeConflictAnonymousFields(anonymousFields map[string][]structFieldPai
 					if fieldPair.prevField == nil {
 						// head operation
 						fieldPair.curField.Op = OpStructHead
-						fieldPair.curField.AnonymousHead = true
-						fieldPair.curField.AnonymousKey = true
+						fieldPair.curField.Flags |= AnonymousHeadFlags
+						fieldPair.curField.Flags |= AnonymousKeyFlags
 					} else {
 						diff := fieldPair.curField.NextField.DisplayIdx - fieldPair.curField.DisplayIdx
 						removedFields[fieldPair.curField] = struct{}{}
-						for i := 0; i < diff; i++ {
+						for i := uint32(0); i < diff; i++ {
 							fieldPair.curField.NextField.decOpcodeIndex()
 						}
 						linkPrevToNextField(fieldPair.curField, removedFields)
@@ -1273,7 +1286,7 @@ func optimizeConflictAnonymousFields(anonymousFields map[string][]structFieldPai
 			}
 		} else {
 			for _, fieldPair := range taggedPairs {
-				fieldPair.curField.IsTaggedKey = false
+				fieldPair.curField.Flags &= ^IsTaggedKeyFlags
 			}
 		}
 	}
@@ -1402,46 +1415,68 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 
 			// fix issue144
 			if !(isPtr && strings.Contains(valueCode.Op.String(), "Marshal")) {
-				valueCode.Indirect = indirect
+				if indirect {
+					valueCode.Flags |= IndirectFlags
+				} else {
+					valueCode.Flags &= ^IndirectFlags
+				}
 			}
 		} else {
 			if indirect {
 				// if parent is indirect type, set child indirect property to true
-				valueCode.Indirect = indirect
+				valueCode.Flags |= IndirectFlags
 			} else {
 				// if parent is not indirect type and child have only one field, set child indirect property to false
 				if i == 0 && valueCode.NextField != nil && valueCode.NextField.Op == OpStructEnd {
-					valueCode.Indirect = indirect
+					valueCode.Flags &= ^IndirectFlags
 				}
 			}
 		}
-		key := fmt.Sprintf(`"%s":`, tag.Key)
-		escapedKey := fmt.Sprintf(`%s:`, string(AppendEscapedString([]byte{}, tag.Key)))
+		var flags OpFlags
+		if indirect {
+			flags |= IndirectFlags
+		}
+		if field.Anonymous {
+			flags |= AnonymousKeyFlags
+		}
+		if tag.IsTaggedKey {
+			flags |= IsTaggedKeyFlags
+		}
+		if nilcheck {
+			flags |= NilCheckFlags
+		}
+		if addrForMarshaler {
+			flags |= AddrForMarshalerFlags
+		}
+		if strings.Contains(valueCode.Op.String(), "Ptr") || valueCode.Op == OpInterface {
+			flags |= IsNextOpPtrTypeFlags
+		}
+		if isNilableType {
+			flags |= IsNilableTypeFlags
+		}
+		var key string
+		if ctx.escapeKey {
+			key = fmt.Sprintf(`%s:`, string(AppendEscapedString([]byte{}, tag.Key)))
+		} else {
+			key = fmt.Sprintf(`"%s":`, tag.Key)
+		}
 		fieldCode := &Opcode{
-			Type:             valueCode.Type,
-			DisplayIdx:       fieldOpcodeIndex,
-			Idx:              opcodeOffset(fieldPtrIndex),
-			Next:             valueCode,
-			Indent:           ctx.indent,
-			AnonymousKey:     field.Anonymous,
-			Key:              []byte(key),
-			EscapedKey:       []byte(escapedKey),
-			IsTaggedKey:      tag.IsTaggedKey,
-			DisplayKey:       tag.Key,
-			Offset:           field.Offset,
-			Indirect:         indirect,
-			Nilcheck:         nilcheck,
-			AddrForMarshaler: addrForMarshaler,
-			IsNextOpPtrType:  strings.Contains(valueCode.Op.String(), "Ptr") || valueCode.Op == OpInterface,
-			IsNilableType:    isNilableType,
+			Idx:        opcodeOffset(fieldPtrIndex),
+			Next:       valueCode,
+			Flags:      flags,
+			Key:        key,
+			Offset:     uint32(field.Offset),
+			Type:       valueCode.Type,
+			DisplayIdx: fieldOpcodeIndex,
+			Indent:     ctx.indent,
+			DisplayKey: tag.Key,
 		}
 		if fieldIdx == 0 {
-			fieldCode.HeadIdx = fieldCode.Idx
 			code = structHeader(ctx, fieldCode, valueCode, tag)
 			head = fieldCode
 			prevField = fieldCode
 		} else {
-			fieldCode.HeadIdx = head.HeadIdx
+			fieldCode.Idx = head.Idx
 			code.Next = fieldCode
 			code = structField(ctx, fieldCode, valueCode, tag)
 			prevField.NextField = fieldCode
@@ -1453,9 +1488,9 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 
 	structEndCode := &Opcode{
 		Op:     OpStructEnd,
+		Next:   newEndOp(ctx),
 		Type:   nil,
 		Indent: ctx.indent,
-		Next:   newEndOp(ctx),
 	}
 
 	ctx = ctx.decIndent()
@@ -1464,12 +1499,11 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 	if head == nil {
 		head = &Opcode{
 			Op:         OpStructHead,
+			Idx:        opcodeOffset(ctx.ptrIndex),
+			NextField:  structEndCode,
 			Type:       typ,
 			DisplayIdx: ctx.opcodeIndex,
-			Idx:        opcodeOffset(ctx.ptrIndex),
-			HeadIdx:    opcodeOffset(ctx.ptrIndex),
 			Indent:     ctx.indent,
-			NextField:  structEndCode,
 		}
 		structEndCode.PrevField = head
 		ctx.incIndex()
@@ -1494,8 +1528,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 
 	delete(ctx.structTypeToCompiledCode, typeptr)
 
-	if !disableIndirectConversion && !head.Indirect && isPtr {
-		head.Indirect = true
+	if !disableIndirectConversion && (head.Flags&IndirectFlags == 0) && isPtr {
+		head.Flags |= IndirectFlags
 	}
 
 	return ret, nil

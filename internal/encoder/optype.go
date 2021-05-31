@@ -425,7 +425,7 @@ var opTypeStrings = [400]string{
 	"StructEndOmitEmpty",
 }
 
-type OpType int
+type OpType uint16
 
 const (
 	OpEnd                                    OpType = 0

@@ -14,7 +14,7 @@ func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet,
 			fmt.Println(codeSet.Type)
 			fmt.Printf("\n")
 			fmt.Println("* [ALL OPCODE]")
-			fmt.Println(codeSet.Code.Dump())
+			fmt.Println(ctx.Code.Dump())
 			fmt.Printf("\n")
 			fmt.Println("* [CONTEXT]")
 			fmt.Printf("%+v\n", ctx)

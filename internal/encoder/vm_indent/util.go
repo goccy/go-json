@@ -39,20 +39,20 @@ func errUnimplementedOp(op encoder.OpType) error {
 	return fmt.Errorf("encoder (indent): opcode %s has not been implemented", op)
 }
 
-func load(base uintptr, idx uintptr) uintptr {
-	addr := base + idx
+func load(base uintptr, idx uint32) uintptr {
+	addr := base + uintptr(idx)
 	return **(**uintptr)(unsafe.Pointer(&addr))
 }
 
-func store(base uintptr, idx uintptr, p uintptr) {
-	addr := base + idx
+func store(base uintptr, idx uint32, p uintptr) {
+	addr := base + uintptr(idx)
 	**(**uintptr)(unsafe.Pointer(&addr)) = p
 }
 
-func loadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
-	addr := base + idx
+func loadNPtr(base uintptr, idx uint32, ptrNum uint8) uintptr {
+	addr := base + uintptr(idx)
 	p := **(**uintptr)(unsafe.Pointer(&addr))
-	for i := 0; i < ptrNum; i++ {
+	for i := uint8(0); i < ptrNum; i++ {
 		if p == 0 {
 			return 0
 		}
@@ -72,8 +72,8 @@ func ptrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader
 func ptrToPtr(p uintptr) uintptr {
 	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
 }
-func ptrToNPtr(p uintptr, ptrNum int) uintptr {
-	for i := 0; i < ptrNum; i++ {
+func ptrToNPtr(p uintptr, ptrNum uint8) uintptr {
+	for i := uint8(0); i < ptrNum; i++ {
 		if p == 0 {
 			return 0
 		}
@@ -137,6 +137,7 @@ func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, op
 
 	oldBaseIndent := ctx.BaseIndent
 	ctx.BaseIndent = code.Indent
+	ctx.Code = ifaceCodeSet.NoescapeKeyCode
 	bb, err := Run(ctx, b, ifaceCodeSet, opt)
 	if err != nil {
 		return nil, err
@@ -225,7 +226,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 }
 
 func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr uintptr) {
-	ctx.BaseIndent = int(load(ctxptr, code.Length))
+	ctx.BaseIndent = uint32(load(ctxptr, code.Length))
 }
 
 func storeIndent(ctxptr uintptr, code *encoder.Opcode, indent uintptr) {

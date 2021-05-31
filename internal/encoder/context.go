@@ -9,9 +9,10 @@ import (
 
 type compileContext struct {
 	typ                      *runtime.Type
-	opcodeIndex              int
+	opcodeIndex              uint32
 	ptrIndex                 int
-	indent                   int
+	indent                   uint32
+	escapeKey                bool
 	structTypeToCompiledCode map[uintptr]*CompiledCode
 
 	parent *compileContext
@@ -23,6 +24,7 @@ func (c *compileContext) context() *compileContext {
 		opcodeIndex:              c.opcodeIndex,
 		ptrIndex:                 c.ptrIndex,
 		indent:                   c.indent,
+		escapeKey:                c.escapeKey,
 		structTypeToCompiledCode: c.structTypeToCompiledCode,
 		parent:                   c,
 	}
@@ -106,12 +108,13 @@ type RuntimeContext struct {
 	Ptrs       []uintptr
 	KeepRefs   []unsafe.Pointer
 	SeenPtr    []uintptr
-	BaseIndent int
+	BaseIndent uint32
 	Prefix     []byte
 	IndentStr  []byte
+	Code       *Opcode
 }
 
-func (c *RuntimeContext) Init(p uintptr, codelen int) {
+func (c *RuntimeContext) Init(code *Opcode, p uintptr, codelen int) {
 	if len(c.Ptrs) < codelen {
 		c.Ptrs = make([]uintptr, codelen)
 	}
@@ -119,6 +122,7 @@ func (c *RuntimeContext) Init(p uintptr, codelen int) {
 	c.KeepRefs = c.KeepRefs[:0]
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
+	c.Code = code
 }
 
 func (c *RuntimeContext) Ptr() uintptr {

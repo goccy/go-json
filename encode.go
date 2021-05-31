@@ -6,6 +6,8 @@ import (
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/encoder/vm"
+	"github.com/goccy/go-json/internal/encoder/vm_color"
+	"github.com/goccy/go-json/internal/encoder/vm_color_indent"
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
 )
 
@@ -254,7 +256,13 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 
 func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	if ctx.Option.Debug {
+		if ctx.Option.Colorize {
+			return vm_color.DebugRun(ctx, b, codeSet)
+		}
 		return vm.DebugRun(ctx, b, codeSet)
+	}
+	if ctx.Option.Colorize {
+		return vm_color.Run(ctx, b, codeSet)
 	}
 	return vm.Run(ctx, b, codeSet)
 }
@@ -263,7 +271,13 @@ func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
 	if ctx.Option.Debug {
+		if ctx.Option.Colorize {
+			return vm_color_indent.DebugRun(ctx, b, codeSet)
+		}
 		return vm_indent.DebugRun(ctx, b, codeSet)
+	}
+	if ctx.Option.Colorize {
+		return vm_color_indent.Run(ctx, b, codeSet)
 	}
 	return vm_indent.Run(ctx, b, codeSet)
 }

@@ -60,11 +60,12 @@ var (
 		Bool:        createColorFormat(fgHiYellowColor),
 		String:      createColorFormat(fgHiGreenColor),
 		Binary:      createColorFormat(fgHiRedColor),
-		ObjectStart: createColorFormat(fgHiCyanColor),
-		ObjectEnd:   createColorFormat(fgHiCyanColor),
-		ArrayStart:  createColorFormat(fgHiCyanColor),
-		ArrayEnd:    createColorFormat(fgHiCyanColor),
+		ObjectStart: createColorFormat(fgWhiteColor),
+		ObjectKey:   createColorFormat(fgHiCyanColor),
+		ObjectEnd:   createColorFormat(fgWhiteColor),
+		ArrayStart:  createColorFormat(fgWhiteColor),
+		ArrayEnd:    createColorFormat(fgWhiteColor),
 		Colon:       createColorFormat(fgWhiteColor),
-		Comma:       createColorFormat(fgWhiteColor),
+		Null:        createColorFormat(fgBlueColor),
 	}
 )

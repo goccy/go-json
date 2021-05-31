@@ -22,11 +22,13 @@ type EncodeFormatScheme struct {
 	String      EncodeFormat
 	Binary      EncodeFormat
 	ObjectStart EncodeFormat
+	ObjectKey   EncodeFormat
 	ObjectEnd   EncodeFormat
 	ArrayStart  EncodeFormat
 	ArrayEnd    EncodeFormat
 	Colon       EncodeFormat
 	Comma       EncodeFormat
+	Null        EncodeFormat
 }
 
 type (

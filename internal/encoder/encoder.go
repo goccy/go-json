@@ -269,7 +269,7 @@ func MapIterNext(it unsafe.Pointer)
 //go:noescape
 func MapLen(m unsafe.Pointer) int
 
-func AppendByteSlice(b []byte, src []byte) []byte {
+func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {
 	if src == nil {
 		return append(b, `null`...)
 	}
@@ -287,7 +287,7 @@ func AppendByteSlice(b []byte, src []byte) []byte {
 	return append(append(b, buf...), '"')
 }
 
-func AppendFloat32(b []byte, v float32) []byte {
+func AppendFloat32(_ *RuntimeContext, b []byte, v float32) []byte {
 	f64 := float64(v)
 	abs := math.Abs(f64)
 	fmt := byte('f')
@@ -301,7 +301,7 @@ func AppendFloat32(b []byte, v float32) []byte {
 	return strconv.AppendFloat(b, f64, fmt, -1, 32)
 }
 
-func AppendFloat64(b []byte, v float64) []byte {
+func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
 	abs := math.Abs(v)
 	fmt := byte('f')
 	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
@@ -313,7 +313,7 @@ func AppendFloat64(b []byte, v float64) []byte {
 	return strconv.AppendFloat(b, v, fmt, -1, 64)
 }
 
-func AppendBool(b []byte, v bool) []byte {
+func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 	if v {
 		return append(b, "true"...)
 	}
@@ -340,7 +340,7 @@ var (
 	}
 )
 
-func AppendNumber(b []byte, n json.Number) ([]byte, error) {
+func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
@@ -367,7 +367,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	v = rv.Interface()
 	marshaler, ok := v.(json.Marshaler)
 	if !ok {
-		return AppendNull(b), nil
+		return AppendNull(ctx, b), nil
 	}
 	bb, err := marshaler.MarshalJSON()
 	if err != nil {
@@ -397,7 +397,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	v = rv.Interface()
 	marshaler, ok := v.(json.Marshaler)
 	if !ok {
-		return AppendNull(b), nil
+		return AppendNull(ctx, b), nil
 	}
 	bb, err := marshaler.MarshalJSON()
 	if err != nil {
@@ -433,7 +433,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
-		return AppendNull(b), nil
+		return AppendNull(ctx, b), nil
 	}
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
@@ -456,7 +456,7 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
-		return AppendNull(b), nil
+		return AppendNull(ctx, b), nil
 	}
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
@@ -465,19 +465,19 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func AppendNull(b []byte) []byte {
+func AppendNull(_ *RuntimeContext, b []byte) []byte {
 	return append(b, "null"...)
 }
 
-func AppendComma(b []byte) []byte {
+func AppendComma(_ *RuntimeContext, b []byte) []byte {
 	return append(b, ',')
 }
 
-func AppendCommaIndent(b []byte) []byte {
+func AppendCommaIndent(_ *RuntimeContext, b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
-func AppendStructEnd(b []byte) []byte {
+func AppendStructEnd(_ *RuntimeContext, b []byte) []byte {
 	return append(b, '}', ',')
 }
 

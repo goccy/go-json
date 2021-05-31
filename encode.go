@@ -170,8 +170,8 @@ func marshalIndent(v interface{}, prefix, indent string, optFuncs ...EncodeOptio
 func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	b := ctx.Buf[:0]
 	if v == nil {
-		b = encoder.AppendNull(b)
-		b = encoder.AppendComma(b)
+		b = encoder.AppendNull(ctx, b)
+		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
@@ -198,8 +198,8 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	b := ctx.Buf[:0]
 	if v == nil {
-		b = encoder.AppendNull(b)
-		b = encoder.AppendComma(b)
+		b = encoder.AppendNull(ctx, b)
+		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
@@ -225,8 +225,8 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent string) ([]byte, error) {
 	b := ctx.Buf[:0]
 	if v == nil {
-		b = encoder.AppendNull(b)
-		b = encoder.AppendCommaIndent(b)
+		b = encoder.AppendNull(ctx, b)
+		b = encoder.AppendCommaIndent(ctx, b)
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))

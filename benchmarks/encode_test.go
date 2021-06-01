@@ -67,6 +67,16 @@ func Benchmark_Encode_SmallStruct_SegmentioJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_SmallStruct_GoJsonColored(b *testing.B) {
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(NewSmallPayload(), colorOpt); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_SmallStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -146,6 +156,17 @@ func Benchmark_Encode_SmallStructCached_SegmentioJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_SmallStructCached_GoJsonColored(b *testing.B) {
+	cached := NewSmallPayload()
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(cached, colorOpt); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_SmallStructCached_GoJson(b *testing.B) {
 	cached := NewSmallPayload()
 	b.ReportAllocs()
@@ -216,6 +237,16 @@ func Benchmark_Encode_MediumStruct_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(NewMediumPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MediumStruct_GoJsonColored(b *testing.B) {
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(NewMediumPayload(), colorOpt); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -300,6 +331,17 @@ func Benchmark_Encode_MediumStructCached_SegmentioJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_MediumStructCached_GoJsonColored(b *testing.B) {
+	cached := NewMediumPayload()
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(cached, colorOpt); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_MediumStructCached_GoJson(b *testing.B) {
 	cached := NewMediumPayload()
 	b.ReportAllocs()
@@ -370,6 +412,16 @@ func Benchmark_Encode_LargeStruct_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(NewLargePayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStruct_GoJsonColored(b *testing.B) {
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(NewLargePayload(), colorOpt); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -449,6 +501,17 @@ func Benchmark_Encode_LargeStructCached_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(cached); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStructCached_GoJsonColored(b *testing.B) {
+	cached := NewLargePayload()
+	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(cached, colorOpt); err != nil {
 			b.Fatal(err)
 		}
 	}

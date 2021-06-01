@@ -1456,7 +1456,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		}
 		var key string
 		if ctx.escapeKey {
-			rctx := &RuntimeContext{Option: &Option{HTMLEscape: true}}
+			rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
 			key = fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, tag.Key)))
 		} else {
 			key = fmt.Sprintf(`"%s":`, tag.Key)

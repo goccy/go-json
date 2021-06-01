@@ -43,9 +43,9 @@ func (e *Encoder) EncodeWithOption(v interface{}, optFuncs ...EncodeOptionFunc) 
 }
 
 func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v interface{}, optFuncs ...EncodeOptionFunc) error {
-	initOption(ctx.Option)
+	ctx.Option.Flag = 0
 	if e.enabledHTMLEscape {
-		ctx.Option.HTMLEscape = true
+		ctx.Option.Flag |= encoder.HTMLEscapeOption
 	}
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
@@ -97,8 +97,8 @@ func (e *Encoder) SetIndent(prefix, indent string) {
 func marshal(v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 
-	initOption(ctx.Option)
-	ctx.Option.HTMLEscape = true
+	ctx.Option.Flag = 0
+	ctx.Option.Flag |= encoder.HTMLEscapeOption
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}
@@ -124,8 +124,8 @@ func marshal(v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, error) {
 func marshalNoEscape(v interface{}) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 
-	initOption(ctx.Option)
-	ctx.Option.HTMLEscape = true
+	ctx.Option.Flag = 0
+	ctx.Option.Flag |= encoder.HTMLEscapeOption
 
 	buf, err := encodeNoEscape(ctx, v)
 	if err != nil {
@@ -148,9 +148,8 @@ func marshalNoEscape(v interface{}) ([]byte, error) {
 func marshalIndent(v interface{}, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 
-	initOption(ctx.Option)
-	ctx.Option.HTMLEscape = true
-	ctx.Option.Indent = true
+	ctx.Option.Flag = 0
+	ctx.Option.Flag |= (encoder.HTMLEscapeOption | encoder.IndentOption)
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}
@@ -255,13 +254,13 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 }
 
 func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
-	if ctx.Option.Debug {
-		if ctx.Option.Colorize {
+	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
+		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 			return vm_color.DebugRun(ctx, b, codeSet)
 		}
 		return vm.DebugRun(ctx, b, codeSet)
 	}
-	if ctx.Option.Colorize {
+	if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 		return vm_color.Run(ctx, b, codeSet)
 	}
 	return vm.Run(ctx, b, codeSet)
@@ -270,22 +269,14 @@ func encodeRunCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.Opcod
 func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string) ([]byte, error) {
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
-	if ctx.Option.Debug {
-		if ctx.Option.Colorize {
+	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
+		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 			return vm_color_indent.DebugRun(ctx, b, codeSet)
 		}
 		return vm_indent.DebugRun(ctx, b, codeSet)
 	}
-	if ctx.Option.Colorize {
+	if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 		return vm_color_indent.Run(ctx, b, codeSet)
 	}
 	return vm_indent.Run(ctx, b, codeSet)
-}
-
-func initOption(opt *EncodeOption) {
-	opt.HTMLEscape = false
-	opt.Indent = false
-	opt.UnorderedMap = false
-	opt.Debug = false
-	opt.Colorize = false
 }

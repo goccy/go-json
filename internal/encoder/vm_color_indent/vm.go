@@ -14,7 +14,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.Ptr()
 	var code *encoder.Opcode
-	if ctx.Option.HTMLEscape {
+	if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
 		code = codeSet.EscapeKeyCode
 	} else {
 		code = codeSet.NoescapeKeyCode
@@ -370,7 +370,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.ElemIdx, 0)
 			store(ctxptr, code.Length, uintptr(mlen))
 			store(ctxptr, code.MapIter, uintptr(iter))
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendMapKeyIndent(ctx, code.Next, b)
 			} else {
 				mapCtx := encoder.NewMapContext(mlen)
@@ -385,7 +385,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			idx := load(ctxptr, code.ElemIdx)
 			length := load(ctxptr, code.Length)
 			idx++
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				if idx < length {
 					b = appendMapKeyIndent(ctx, code, b)
 					store(ctxptr, code.ElemIdx, idx)
@@ -414,7 +414,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 		case encoder.OpMapValue:
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendColon(ctx, b)
 			} else {
 				ptr := load(ctxptr, code.End.MapPos)

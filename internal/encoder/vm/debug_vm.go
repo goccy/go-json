@@ -9,7 +9,7 @@ import (
 func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	defer func() {
 		var code *encoder.Opcode
-		if ctx.Option.HTMLEscape {
+		if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
 			code = codeSet.EscapeKeyCode
 		} else {
 			code = codeSet.NoescapeKeyCode

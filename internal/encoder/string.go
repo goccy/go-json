@@ -406,7 +406,7 @@ func stringToUint64Slice(s string) []uint64 {
 }
 
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
-	if !ctx.Option.HTMLEscape {
+	if ctx.Option.Flag&HTMLEscapeOption == 0 {
 		return appendString(buf, s)
 	}
 	valLen := len(s)

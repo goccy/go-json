@@ -10,19 +10,19 @@ type EncodeOptionFunc func(*EncodeOption)
 
 func UnorderedMap() EncodeOptionFunc {
 	return func(opt *EncodeOption) {
-		opt.UnorderedMap = true
+		opt.Flag |= encoder.UnorderedMapOption
 	}
 }
 
 func Debug() EncodeOptionFunc {
 	return func(opt *EncodeOption) {
-		opt.Debug = true
+		opt.Flag |= encoder.DebugOption
 	}
 }
 
 func Colorize(scheme *ColorScheme) EncodeOptionFunc {
 	return func(opt *EncodeOption) {
-		opt.Colorize = true
+		opt.Flag |= encoder.ColorizeOption
 		opt.ColorScheme = scheme
 	}
 }

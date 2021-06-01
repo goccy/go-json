@@ -154,47 +154,23 @@ func appendNull(ctx *encoder.RuntimeContext, b []byte) []byte {
 }
 
 func appendComma(ctx *encoder.RuntimeContext, b []byte) []byte {
-	format := ctx.Option.ColorScheme.Comma
-	b = append(b, format.Header...)
-	b = append(b, ',')
-	return append(b, format.Footer...)
+	return append(b, ',')
 }
 
-func appendColon(ctx *encoder.RuntimeContext, b []byte) []byte {
-	format := ctx.Option.ColorScheme.Colon
+func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	last := len(b) - 1
-	if len(format.Header) > 0 {
-		b[last] = format.Header[0]
-		b = append(b, format.Header[1:]...)
-		b = append(b, ':')
-		return append(b, format.Footer...)
-	}
 	b[last] = ':'
 	return b
 }
 
 func appendMapKeyValue(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
-	keyFormat := ctx.Option.ColorScheme.String
-	b = append(b, keyFormat.Header...)
-	b = append(b, key...)
-	b = append(b, keyFormat.Footer...)
-
-	b = appendColon(ctx, b)
-
+	b = append(b, key[:len(key)-1]...)
+	b = append(b, ':')
 	return append(b, value...)
 }
 
 func appendMapEnd(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
-	format := ctx.Option.ColorScheme.ObjectEnd
 	last := len(b) - 1
-	if len(format.Header) > 0 {
-		b[last] = format.Header[0]
-		b = append(b, format.Header[1:]...)
-		b = append(b, '}')
-		b = append(b, format.Footer...)
-
-		return append(b, ',')
-	}
 	b[last] = '}'
 	b = append(b, ',')
 	return b
@@ -248,67 +224,31 @@ func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []by
 }
 
 func appendArrayHead(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
-	format := ctx.Option.ColorScheme.ArrayStart
-	b = append(b, format.Header...)
-	b = append(b, '[')
-	return append(b, format.Footer...)
+	return append(b, '[')
 }
 
-func appendArrayEnd(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+func appendArrayEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
-	if b[last] == ',' {
-		b[last] = ']'
-		return appendComma(ctx, b)
-	}
-	format := ctx.Option.ColorScheme.ArrayEnd
-	b = append(b, format.Header...)
-	b = append(b, ']')
-	b = append(b, format.Footer...)
-	return appendComma(ctx, b)
+	b[last] = ']'
+	return append(b, ',')
 }
 
-func appendEmptyArray(ctx *encoder.RuntimeContext, b []byte) []byte {
-	b = appendArrayHead(ctx, nil, b)
-
-	format := ctx.Option.ColorScheme.ArrayEnd
-	b = append(b, format.Header...)
-	b = append(b, ']')
-	b = append(b, format.Footer...)
-
-	return appendComma(ctx, b)
+func appendEmptyArray(_ *encoder.RuntimeContext, b []byte) []byte {
+	return append(b, '[', ']', ',')
 }
 
-func appendEmptyObject(ctx *encoder.RuntimeContext, b []byte) []byte {
-	b = appendStructHead(ctx, b)
-
-	format := ctx.Option.ColorScheme.ObjectEnd
-	b = append(b, format.Header...)
-	b = append(b, '}')
-	b = append(b, format.Footer...)
-
-	return appendComma(ctx, b)
+func appendEmptyObject(_ *encoder.RuntimeContext, b []byte) []byte {
+	return append(b, '{', '}', ',')
 }
 
-func appendObjectEnd(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
-	format := ctx.Option.ColorScheme.ObjectEnd
-
+func appendObjectEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
-	if len(format.Header) > 0 {
-		b[last] = format.Header[0]
-		b = append(b, format.Header[1:]...)
-		b = append(b, '}')
-		b = append(b, format.Footer...)
-		return appendComma(ctx, b)
-	}
 	b[last] = '}'
 	return append(b, ',')
 }
 
 func appendStructHead(ctx *encoder.RuntimeContext, b []byte) []byte {
-	format := ctx.Option.ColorScheme.ObjectStart
-	b = append(b, format.Header...)
-	b = append(b, '{')
-	return append(b, format.Footer...)
+	return append(b, '{')
 }
 
 func appendStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
@@ -317,36 +257,15 @@ func appendStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 	b = append(b, code.Key[:len(code.Key)-1]...)
 	b = append(b, format.Footer...)
 
-	colonFormat := ctx.Option.ColorScheme.Colon
-	b = append(b, colonFormat.Header...)
-	b = append(b, ':')
-	return append(b, colonFormat.Footer...)
+	return append(b, ':')
 }
 
-func appendStructEnd(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
-	format := ctx.Option.ColorScheme.ObjectEnd
-
-	b = append(b, format.Header...)
-	b = append(b, '}')
-	b = append(b, format.Footer...)
-
-	return appendComma(ctx, b)
+func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	return append(b, '}', ',')
 }
 
 func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	footerLen := len(ctx.Option.ColorScheme.Comma.Footer)
-	lastCharIdx := footerLen + 1
-
-	if len(b) < lastCharIdx {
-		last := len(b) - 1
-		if b[last] == ',' {
-			b[last] = '}'
-			return appendComma(ctx, b)
-		}
-		return appendStructEnd(ctx, code, b)
-	}
-
-	last := len(b) - lastCharIdx
+	last := len(b) - 1
 	if b[last] == ',' {
 		b[last] = '}'
 		return appendComma(ctx, b)

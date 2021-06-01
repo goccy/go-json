@@ -56,18 +56,13 @@ func resetColor() string {
 
 var (
 	DefaultColorScheme = &ColorScheme{
-		Int:         createColorFormat(fgHiMagentaColor),
-		Uint:        createColorFormat(fgHiMagentaColor),
-		Float:       createColorFormat(fgHiMagentaColor),
-		Bool:        createColorFormat(fgHiYellowColor),
-		String:      createColorFormat(fgHiGreenColor),
-		Binary:      createColorFormat(fgHiRedColor),
-		ObjectStart: createColorFormat(fgWhiteColor),
-		ObjectKey:   createColorFormat(fgHiCyanColor),
-		ObjectEnd:   createColorFormat(fgWhiteColor),
-		ArrayStart:  createColorFormat(fgWhiteColor),
-		ArrayEnd:    createColorFormat(fgWhiteColor),
-		Colon:       createColorFormat(fgWhiteColor),
-		Null:        createColorFormat(fgBlueColor),
+		Int:       createColorFormat(fgHiMagentaColor),
+		Uint:      createColorFormat(fgHiMagentaColor),
+		Float:     createColorFormat(fgHiMagentaColor),
+		Bool:      createColorFormat(fgHiYellowColor),
+		String:    createColorFormat(fgHiGreenColor),
+		Binary:    createColorFormat(fgHiRedColor),
+		ObjectKey: createColorFormat(fgHiCyanColor),
+		Null:      createColorFormat(fgBlueColor),
 	}
 )

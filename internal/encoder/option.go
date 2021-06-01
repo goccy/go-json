@@ -21,20 +21,14 @@ type EncodeFormat struct {
 }
 
 type EncodeFormatScheme struct {
-	Int         EncodeFormat
-	Uint        EncodeFormat
-	Float       EncodeFormat
-	Bool        EncodeFormat
-	String      EncodeFormat
-	Binary      EncodeFormat
-	ObjectStart EncodeFormat
-	ObjectKey   EncodeFormat
-	ObjectEnd   EncodeFormat
-	ArrayStart  EncodeFormat
-	ArrayEnd    EncodeFormat
-	Colon       EncodeFormat
-	Comma       EncodeFormat
-	Null        EncodeFormat
+	Int       EncodeFormat
+	Uint      EncodeFormat
+	Float     EncodeFormat
+	Bool      EncodeFormat
+	String    EncodeFormat
+	Binary    EncodeFormat
+	ObjectKey EncodeFormat
+	Null      EncodeFormat
 }
 
 type (

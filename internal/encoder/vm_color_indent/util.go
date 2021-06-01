@@ -156,17 +156,11 @@ func appendNull(ctx *encoder.RuntimeContext, b []byte) []byte {
 }
 
 func appendComma(ctx *encoder.RuntimeContext, b []byte) []byte {
-	format := ctx.Option.ColorScheme.Comma
-	b = append(b, format.Header...)
-	b = append(b, ',', '\n')
-	return append(b, format.Footer...)
+	return append(b, ',', '\n')
 }
 
 func appendColon(ctx *encoder.RuntimeContext, b []byte) []byte {
-	format := ctx.Option.ColorScheme.Colon
-	b = append(b, format.Header...)
-	b = append(b, ':', ' ')
-	return append(b, format.Footer...)
+	return append(b, ':', ' ')
 }
 
 func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, code *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
@@ -253,7 +247,13 @@ func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []by
 }
 
 func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalTextIndent(ctx, code, b, v)
+	format := ctx.Option.ColorScheme.String
+	b = append(b, format.Header...)
+	bb, err := encoder.AppendMarshalTextIndent(ctx, code, b, v)
+	if err != nil {
+		return nil, err
+	}
+	return append(bb, format.Footer...), nil
 }
 
 func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
@@ -262,8 +262,13 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 
 func appendStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	b = appendIndent(ctx, b, code.Indent)
-	b = append(b, code.Key...)
-	return append(b, ' ')
+
+	format := ctx.Option.ColorScheme.ObjectKey
+	b = append(b, format.Header...)
+	b = append(b, code.Key[:len(code.Key)-1]...)
+	b = append(b, format.Footer...)
+
+	return append(b, ':', ' ')
 }
 
 func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {

@@ -155,11 +155,11 @@ func appendNull(ctx *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, format.Footer...)
 }
 
-func appendComma(ctx *encoder.RuntimeContext, b []byte) []byte {
+func appendComma(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
-func appendColon(ctx *encoder.RuntimeContext, b []byte) []byte {
+func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ':', ' ')
 }
 

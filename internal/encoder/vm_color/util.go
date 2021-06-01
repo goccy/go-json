@@ -153,7 +153,7 @@ func appendNull(ctx *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, format.Footer...)
 }
 
-func appendComma(ctx *encoder.RuntimeContext, b []byte) []byte {
+func appendComma(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ',')
 }
 
@@ -163,13 +163,13 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return b
 }
 
-func appendMapKeyValue(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
+func appendMapKeyValue(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
 	b = append(b, key[:len(key)-1]...)
 	b = append(b, ':')
 	return append(b, value...)
 }
 
-func appendMapEnd(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	b[last] = '}'
 	b = append(b, ',')
@@ -223,7 +223,7 @@ func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []by
 	return append(bb, format.Footer...), nil
 }
 
-func appendArrayHead(ctx *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+func appendArrayHead(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	return append(b, '[')
 }
 
@@ -247,7 +247,7 @@ func appendObjectEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []b
 	return append(b, ',')
 }
 
-func appendStructHead(ctx *encoder.RuntimeContext, b []byte) []byte {
+func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 

@@ -1,3 +1,21 @@
+# v0.6.0 - 2021/06/01
+
+### Support Colorize option for encoding (#233)
+
+```go
+b, err := json.MarshalWithOption(v, json.Colorize(json.DefaultColorScheme))
+if err != nil {
+  ...
+}
+fmt.Println(string(b)) // print colored json
+```
+
+### Refactor
+
+* Fix opcode layout - Adjust memory layout of the opcode to 128 bytes in a 64-bit environment ( #230 )
+* Refactor encode option ( #231 )
+* Refactor escape string ( #232 )
+
 # v0.5.1 - 2021/5/20
 
 ### Optimization

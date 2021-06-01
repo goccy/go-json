@@ -13,17 +13,12 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 ```
 * version ( expected release date )
 
-* v0.5.0
- |
- | refactor all sources for maintainability and improve performance
- |
- v
-* v0.6.0 ( 2021/05 Mid )
+* v0.6.0
  |
  | while maintaining compatibility with encoding/json, we will add convenient APIs
  |
  v
-* v1.0.0 ( 2021/06 Mid )
+* v1.0.0 ( 2021/06 )
 ```
 
 We are accepting requests for features that will be implemented between v0.6.0 and v.1.0.0.

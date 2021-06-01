@@ -14,7 +14,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 	ptrOffset := uintptr(0)
 	ctxptr := ctx.Ptr()
 	var code *encoder.Opcode
-	if ctx.Option.HTMLEscape {
+	if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
 		code = codeSet.EscapeKeyCode
 	} else {
 		code = codeSet.NoescapeKeyCode
@@ -39,7 +39,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpInt:
-			b = appendInt(b, ptrToUint64(load(ctxptr, code.Idx)), code)
+			b = appendInt(ctx, b, ptrToUint64(load(ctxptr, code.Idx)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpUintPtr:
@@ -53,18 +53,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpUint:
-			b = appendUint(b, ptrToUint64(load(ctxptr, code.Idx)), code)
+			b = appendUint(ctx, b, ptrToUint64(load(ctxptr, code.Idx)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpIntString:
 			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(load(ctxptr, code.Idx)), code)
+			b = appendInt(ctx, b, ptrToUint64(load(ctxptr, code.Idx)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpUintString:
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(load(ctxptr, code.Idx)), code)
+			b = appendUint(ctx, b, ptrToUint64(load(ctxptr, code.Idx)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -370,7 +370,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.ElemIdx, 0)
 			store(ctxptr, code.Length, uintptr(mlen))
 			store(ctxptr, code.MapIter, uintptr(iter))
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendMapKeyIndent(ctx, code.Next, b)
 			} else {
 				mapCtx := encoder.NewMapContext(mlen)
@@ -385,7 +385,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			idx := load(ctxptr, code.ElemIdx)
 			length := load(ctxptr, code.Length)
 			idx++
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				if idx < length {
 					b = appendMapKeyIndent(ctx, code, b)
 					store(ctxptr, code.ElemIdx, idx)
@@ -414,7 +414,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 		case encoder.OpMapValue:
-			if ctx.Option.UnorderedMap {
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendColon(ctx, b)
 			} else {
 				ptr := load(ctxptr, code.End.MapPos)
@@ -602,7 +602,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructHead(ctx, b)
 			}
 			b = appendStructKey(ctx, code, b)
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyInt:
@@ -638,7 +638,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 			} else {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = appendComma(ctx, b)
 				code = code.Next
 			}
@@ -671,7 +671,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -709,7 +709,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			} else {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 				code = code.Next
@@ -746,7 +746,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -780,7 +780,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -817,7 +817,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -853,7 +853,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -886,7 +886,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructHead(ctx, b)
 			}
 			b = appendStructKey(ctx, code, b)
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyUint:
@@ -922,7 +922,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 			} else {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = appendComma(ctx, b)
 				code = code.Next
 			}
@@ -955,7 +955,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -993,7 +993,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			} else {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 				code = code.Next
@@ -1030,7 +1030,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1064,7 +1064,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1101,7 +1101,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -1137,7 +1137,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -3413,7 +3413,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldInt:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyInt:
@@ -3422,7 +3422,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := u64 & ((1 << code.NumBitSize) - 1)
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -3430,7 +3430,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3441,7 +3441,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -3453,7 +3453,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3462,7 +3462,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -3474,7 +3474,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -3485,7 +3485,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -3493,7 +3493,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldUint:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyUint:
@@ -3502,7 +3502,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := u64 & ((1 << code.NumBitSize) - 1)
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -3510,7 +3510,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3521,7 +3521,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -3533,7 +3533,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3542,7 +3542,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -3554,7 +3554,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -3565,7 +3565,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -4297,7 +4297,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructEndInt:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyInt:
@@ -4306,7 +4306,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := u64 & ((1 << code.NumBitSize) - 1)
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -4316,7 +4316,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendInt(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendInt(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4327,7 +4327,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, u64, code)
+				b = appendInt(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
 			} else {
@@ -4341,7 +4341,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4350,7 +4350,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -4364,7 +4364,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(ctx, code, b)
@@ -4375,7 +4375,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendInt(b, ptrToUint64(p), code)
+				b = appendInt(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
 			} else {
@@ -4385,7 +4385,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructEndUint:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyUint:
@@ -4394,7 +4394,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := u64 & ((1 << code.NumBitSize) - 1)
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -4404,7 +4404,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendUint(b, ptrToUint64(p+uintptr(code.Offset)), code)
+			b = appendUint(ctx, b, ptrToUint64(p+uintptr(code.Offset)), code)
 			b = append(b, '"')
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4415,7 +4415,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, u64, code)
+				b = appendUint(ctx, b, u64, code)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
 			} else {
@@ -4429,7 +4429,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4438,7 +4438,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -4452,7 +4452,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(ctx, code, b)
@@ -4463,7 +4463,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendUint(b, ptrToUint64(p), code)
+				b = appendUint(ctx, b, ptrToUint64(p), code)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
 			} else {

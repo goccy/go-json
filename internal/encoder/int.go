@@ -53,7 +53,7 @@ func numMask(numBitSize uint8) uint64 {
 	return 1<<numBitSize - 1
 }
 
-func AppendInt(out []byte, u64 uint64, code *Opcode) []byte {
+func AppendInt(_ *RuntimeContext, out []byte, u64 uint64, code *Opcode) []byte {
 	mask := numMask(code.NumBitSize)
 	n := u64 & mask
 	negative := (u64>>(code.NumBitSize-1))&1 == 1
@@ -96,7 +96,7 @@ func AppendInt(out []byte, u64 uint64, code *Opcode) []byte {
 	return append(out, b[i:]...)
 }
 
-func AppendUint(out []byte, u64 uint64, code *Opcode) []byte {
+func AppendUint(_ *RuntimeContext, out []byte, u64 uint64, code *Opcode) []byte {
 	mask := numMask(code.NumBitSize)
 	n := u64 & mask
 	if n < 10 {

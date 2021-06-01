@@ -1,4 +1,4 @@
-package vm
+package vm_color_indent
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 )
 
 func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
-	defer func() {
-		var code *encoder.Opcode
-		if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
-			code = codeSet.EscapeKeyCode
-		} else {
-			code = codeSet.NoescapeKeyCode
-		}
+	var code *encoder.Opcode
+	if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
+		code = codeSet.EscapeKeyCode
+	} else {
+		code = codeSet.NoescapeKeyCode
+	}
 
+	defer func() {
 		if err := recover(); err != nil {
 			fmt.Println("=============[DEBUG]===============")
 			fmt.Println("* [TYPE]")

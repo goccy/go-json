@@ -30,6 +30,13 @@ We are accepting requests for features that will be implemented between v0.6.0 a
 If you have the API you need, please submit your issue [here](https://github.com/goccy/go-json/issues).
 For example, I'm thinking of supporting `context.Context` of `json.Marshaler` and decoding using JSON Path.
 
+# Features
+
+- Drop-in replacement of `encoding/json`
+- Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
+- Flexible customization with options
+- Coloring the encoded string
+
 # Installation
 
 ```

@@ -60,12 +60,13 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 | [json-iterator/go](https://github.com/json-iterator/go) | yes | yes | partial |
 | [easyjson](https://github.com/mailru/easyjson) | yes | yes |  no |
 | [gojay](https://github.com/francoispqt/gojay) | yes | yes |  no |
-| [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | yes | yes | yes |
+| [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | yes | yes | partial |
 | [jettison](https://github.com/wI2L/jettison) | yes | no | no |
 | [simdjson-go](https://github.com/minio/simdjson-go) | no | yes | no |
 | goccy/go-json | yes | yes | yes |
 
-- `json-iterator/go` isn't compatible with `encoding/json` in many ways, but it hasn't been supported for a long time.
+- `json-iterator/go` isn't compatible with `encoding/json` in many ways (e.g. https://github.com/json-iterator/go/issues/229 ), but it hasn't been supported for a long time.
+- `segmentio/encoding/json` is well supported for encoders, but some are not supported for decoder APIs such as `Token` ( streaming decode )
 
 ## Other libraries
 
@@ -77,7 +78,7 @@ Also, it seems to panic when it receives an unexpected value because there is no
 - [ffjson](https://github.com/pquerna/ffjson)
 
 Benchmarking gave very slow results.
-It seems that it is assumed that the user will use the buffa pool properly.
+It seems that it is assumed that the user will use the buffer pool properly.
 Also, development seems to have already stopped
 
 # Benchmarks

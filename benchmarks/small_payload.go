@@ -4,7 +4,20 @@ import "github.com/francoispqt/gojay"
 
 var SmallFixture = []byte(`{"st": 1,"sid": 486,"tt": "active","gr": 0,"uuid": "de305d54-75b4-431b-adb2-eb6b9e546014","ip": "127.0.0.1","ua": "user_agent","tz": -6,"v": 1}`)
 
+// ffjson:skip
 type SmallPayload struct {
+	St   int
+	Sid  int
+	Tt   string
+	Gr   int
+	Uuid string
+	Ip   string
+	Ua   string
+	Tz   int
+	V    int
+}
+
+type SmallPayloadFFJson struct {
 	St   int
 	Sid  int
 	Tt   string
@@ -89,6 +102,20 @@ func NewSmallPayload() *SmallPayload {
 
 func NewSmallPayloadEasyJson() *SmallPayloadEasyJson {
 	return &SmallPayloadEasyJson{
+		St:   1,
+		Sid:  2,
+		Tt:   "TestString",
+		Gr:   4,
+		Uuid: "8f9a65eb-4807-4d57-b6e0-bda5d62f1429",
+		Ip:   "127.0.0.1",
+		Ua:   "Mozilla",
+		Tz:   8,
+		V:    6,
+	}
+}
+
+func NewSmallPayloadFFJson() *SmallPayloadFFJson {
+	return &SmallPayloadFFJson{
 		St:   1,
 		Sid:  2,
 		Tt:   "TestString",

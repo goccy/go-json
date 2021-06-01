@@ -8,6 +8,7 @@ import (
 	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pquerna/ffjson/ffjson"
 	segmentiojson "github.com/segmentio/encoding/json"
 	"github.com/wI2L/jettison"
 )
@@ -16,6 +17,15 @@ func Benchmark_Encode_SmallStruct_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(NewSmallPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_SmallStruct_FFJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := ffjson.Marshal(NewSmallPayloadFFJson()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -100,6 +110,16 @@ func Benchmark_Encode_SmallStructCached_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := json.Marshal(cached); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_SmallStructCached_FFJson(b *testing.B) {
+	cached := NewSmallPayloadFFJson()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := ffjson.Marshal(cached); err != nil {
 			b.Fatal(err)
 		}
 	}

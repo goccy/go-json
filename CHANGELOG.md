@@ -1,3 +1,9 @@
+# v0.6.1 - 2021/06/02
+
+### Fix encoder
+
+* Fix value of totalLength for encoding ( #236 )
+
 # v0.6.0 - 2021/06/01
 
 ### Support Colorize option for encoding (#233)

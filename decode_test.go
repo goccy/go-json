@@ -3594,3 +3594,18 @@ func TestIssue218(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeEscapedCharField(t *testing.T) {
+	b := []byte(`{"\u6D88\u606F":"\u6D88\u606F"}`)
+	t.Run("unmarshal", func(t *testing.T) {
+		v := struct {
+			Msg string `json:"消息"`
+		}{}
+		if err := json.Unmarshal(b, &v); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal([]byte(v.Msg), []byte("消息")) {
+			t.Fatal("failed to decode unicode char")
+		}
+	})
+}

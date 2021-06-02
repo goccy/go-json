@@ -3608,4 +3608,15 @@ func TestDecodeEscapedCharField(t *testing.T) {
 			t.Fatal("failed to decode unicode char")
 		}
 	})
+	t.Run("stream", func(t *testing.T) {
+		v := struct {
+			Msg string `json:"消息"`
+		}{}
+		if err := json.NewDecoder(bytes.NewBuffer(b)).Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal([]byte(v.Msg), []byte("消息")) {
+			t.Fatal("failed to decode unicode char")
+		}
+	})
 }

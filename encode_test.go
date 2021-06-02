@@ -1893,3 +1893,22 @@ func TestIssue180(t *testing.T) {
 		t.Fatalf("failed to equal encoded result: expected %s but got %s", string(b1), string(b2))
 	}
 }
+
+func TestIssue235(t *testing.T) {
+	type TaskMessage struct {
+		Type      string
+		Payload   map[string]interface{}
+		UniqueKey string
+	}
+	msg := TaskMessage{
+		Payload: map[string]interface{}{
+			"sent_at": map[string]interface{}{
+				"Time":  "0001-01-01T00:00:00Z",
+				"Valid": false,
+			},
+		},
+	}
+	if _, err := json.Marshal(msg); err != nil {
+		t.Fatal(err)
+	}
+}

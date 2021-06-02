@@ -49,6 +49,23 @@ type Opcode struct {
 	DisplayKey string        // key text to display
 }
 
+func (c *Opcode) MaxIdx() uint32 {
+	max := uint32(0)
+	for _, value := range []uint32{
+		c.Idx,
+		c.ElemIdx,
+		c.Length,
+		c.MapIter,
+		c.MapPos,
+		c.Size,
+	} {
+		if max < value {
+			max = value
+		}
+	}
+	return max
+}
+
 func (c *Opcode) ToHeaderType(isString bool) OpType {
 	switch c.Op {
 	case OpInt:
@@ -338,7 +355,10 @@ func (c *Opcode) BeforeLastCode() *Opcode {
 func (c *Opcode) TotalLength() int {
 	var idx int
 	for code := c; code.Op != OpEnd; {
-		idx = int(code.Idx / uintptrSize)
+		maxIdx := int(code.MaxIdx() / uintptrSize)
+		if idx < maxIdx {
+			idx = maxIdx
+		}
 		if code.Op == OpRecursiveEnd {
 			break
 		}
@@ -349,7 +369,7 @@ func (c *Opcode) TotalLength() int {
 			code = code.Next
 		}
 	}
-	return idx + 2 // opEnd + 1
+	return idx + 1
 }
 
 func (c *Opcode) decOpcodeIndex() {

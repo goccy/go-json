@@ -10,14 +10,14 @@ import (
 type arrayDecoder struct {
 	elemType     *runtime.Type
 	size         uintptr
-	valueDecoder decoder
+	valueDecoder Decoder
 	alen         int
 	structName   string
 	fieldName    string
 	zeroValue    unsafe.Pointer
 }
 
-func newArrayDecoder(dec decoder, elemType *runtime.Type, alen int, structName, fieldName string) *arrayDecoder {
+func newArrayDecoder(dec Decoder, elemType *runtime.Type, alen int, structName, fieldName string) *arrayDecoder {
 	zeroValue := *(*unsafe.Pointer)(unsafe_New(elemType))
 	return &arrayDecoder{
 		valueDecoder: dec,

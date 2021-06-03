@@ -11,7 +11,7 @@ import (
 
 var decMu sync.RWMutex
 
-func CompileToGetDecoder(typ *runtime.Type) (decoder, error) {
+func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if typeptr > typeAddr.MaxTypeAddr {
 		return compileToGetDecoderSlowPath(typeptr, typ)
@@ -25,7 +25,7 @@ func CompileToGetDecoder(typ *runtime.Type) (decoder, error) {
 	}
 	decMu.RUnlock()
 
-	dec, err := compileHead(typ, map[uintptr]decoder{})
+	dec, err := compileHead(typ, map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}

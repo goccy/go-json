@@ -85,7 +85,7 @@ func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *inter
 	}
 }
 
-func (d *interfaceDecoder) numDecoder(s *Stream) decoder {
+func (d *interfaceDecoder) numDecoder(s *Stream) Decoder {
 	if s.UseNumber {
 		return d.numberDecoder
 	}

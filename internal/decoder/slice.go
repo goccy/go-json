@@ -12,7 +12,7 @@ import (
 type sliceDecoder struct {
 	elemType          *runtime.Type
 	isElemPointerType bool
-	valueDecoder      decoder
+	valueDecoder      Decoder
 	size              uintptr
 	arrayPool         sync.Pool
 	structName        string
@@ -32,7 +32,7 @@ const (
 	defaultSliceCapacity = 2
 )
 
-func newSliceDecoder(dec decoder, elemType *runtime.Type, size uintptr, structName, fieldName string) *sliceDecoder {
+func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder:      dec,
 		elemType:          elemType,

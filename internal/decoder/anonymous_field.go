@@ -9,10 +9,10 @@ import (
 type anonymousFieldDecoder struct {
 	structType *runtime.Type
 	offset     uintptr
-	dec        decoder
+	dec        Decoder
 }
 
-func newAnonymousFieldDecoder(structType *runtime.Type, offset uintptr, dec decoder) *anonymousFieldDecoder {
+func newAnonymousFieldDecoder(structType *runtime.Type, offset uintptr, dec Decoder) *anonymousFieldDecoder {
 	return &anonymousFieldDecoder{
 		structType: structType,
 		offset:     offset,

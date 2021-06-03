@@ -7,13 +7,13 @@ import (
 )
 
 type ptrDecoder struct {
-	dec        decoder
+	dec        Decoder
 	typ        *runtime.Type
 	structName string
 	fieldName  string
 }
 
-func newPtrDecoder(dec decoder, typ *runtime.Type, structName, fieldName string) *ptrDecoder {
+func newPtrDecoder(dec Decoder, typ *runtime.Type, structName, fieldName string) *ptrDecoder {
 	return &ptrDecoder{
 		dec:        dec,
 		typ:        typ,
@@ -22,7 +22,7 @@ func newPtrDecoder(dec decoder, typ *runtime.Type, structName, fieldName string)
 	}
 }
 
-func (d *ptrDecoder) contentDecoder() decoder {
+func (d *ptrDecoder) contentDecoder() Decoder {
 	dec, ok := d.dec.(*ptrDecoder)
 	if !ok {
 		return d.dec

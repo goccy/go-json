@@ -12,7 +12,7 @@ import (
 )
 
 type structFieldSet struct {
-	dec         decoder
+	dec         Decoder
 	offset      uintptr
 	isTaggedKey bool
 	key         string

@@ -10,13 +10,13 @@ import (
 
 type bytesDecoder struct {
 	typ          *runtime.Type
-	sliceDecoder decoder
+	sliceDecoder Decoder
 	structName   string
 	fieldName    string
 }
 
-func byteUnmarshalerSliceDecoder(typ *runtime.Type, structName string, fieldName string) decoder {
-	var unmarshalDecoder decoder
+func byteUnmarshalerSliceDecoder(typ *runtime.Type, structName string, fieldName string) Decoder {
+	var unmarshalDecoder Decoder
 	switch {
 	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
 		unmarshalDecoder = newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName)

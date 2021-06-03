@@ -11,13 +11,13 @@ type mapDecoder struct {
 	mapType      *runtime.Type
 	keyType      *runtime.Type
 	valueType    *runtime.Type
-	keyDecoder   decoder
-	valueDecoder decoder
+	keyDecoder   Decoder
+	valueDecoder Decoder
 	structName   string
 	fieldName    string
 }
 
-func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec decoder, valueType *runtime.Type, valueDec decoder, structName, fieldName string) *mapDecoder {
+func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec Decoder, valueType *runtime.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
 	return &mapDecoder{
 		mapType:      mapType,
 		keyDecoder:   keyDec,

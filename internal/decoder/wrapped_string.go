@@ -9,14 +9,14 @@ import (
 
 type wrappedStringDecoder struct {
 	typ           *runtime.Type
-	dec           decoder
+	dec           Decoder
 	stringDecoder *stringDecoder
 	structName    string
 	fieldName     string
 	isPtrType     bool
 }
 
-func newWrappedStringDecoder(typ *runtime.Type, dec decoder, structName, fieldName string) *wrappedStringDecoder {
+func newWrappedStringDecoder(typ *runtime.Type, dec Decoder, structName, fieldName string) *wrappedStringDecoder {
 	return &wrappedStringDecoder{
 		typ:           typ,
 		dec:           dec,

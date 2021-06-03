@@ -1,24 +1,27 @@
-package json
+package decoder
 
 import (
 	"encoding/base64"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type bytesDecoder struct {
-	typ          *rtype
+	typ          *runtime.Type
 	sliceDecoder decoder
 	structName   string
 	fieldName    string
 }
 
-func byteUnmarshalerSliceDecoder(typ *rtype, structName string, fieldName string) decoder {
+func byteUnmarshalerSliceDecoder(typ *runtime.Type, structName string, fieldName string) decoder {
 	var unmarshalDecoder decoder
 	switch {
-	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
-		unmarshalDecoder = newUnmarshalJSONDecoder(rtype_ptrTo(typ), structName, fieldName)
-	case rtype_ptrTo(typ).Implements(unmarshalTextType):
-		unmarshalDecoder = newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName)
+	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+		unmarshalDecoder = newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName)
+	case runtime.PtrTo(typ).Implements(unmarshalTextType):
+		unmarshalDecoder = newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName)
 	}
 	if unmarshalDecoder == nil {
 		return nil
@@ -26,7 +29,7 @@ func byteUnmarshalerSliceDecoder(typ *rtype, structName string, fieldName string
 	return newSliceDecoder(unmarshalDecoder, typ, 1, structName, fieldName)
 }
 
-func newBytesDecoder(typ *rtype, structName string, fieldName string) *bytesDecoder {
+func newBytesDecoder(typ *runtime.Type, structName string, fieldName string) *bytesDecoder {
 	return &bytesDecoder{
 		typ:          typ,
 		sliceDecoder: byteUnmarshalerSliceDecoder(typ, structName, fieldName),
@@ -35,7 +38,7 @@ func newBytesDecoder(typ *rtype, structName string, fieldName string) *bytesDeco
 	}
 }
 
-func (d *bytesDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *bytesDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamBinary(s, depth, p)
 	if err != nil {
 		return err
@@ -54,7 +57,7 @@ func (d *bytesDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 	return nil
 }
 
-func (d *bytesDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *bytesDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeBinary(buf, cursor, depth, p)
 	if err != nil {
 		return 0, err
@@ -73,7 +76,7 @@ func (d *bytesDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 	return cursor, nil
 }
 
-func binaryBytes(s *stream) ([]byte, error) {
+func binaryBytes(s *Stream) ([]byte, error) {
 	s.cursor++
 	start := s.cursor
 	for {
@@ -91,10 +94,10 @@ func binaryBytes(s *stream) ([]byte, error) {
 		s.cursor++
 	}
 ERROR:
-	return nil, errUnexpectedEndOfJSON("[]byte", s.totalOffset())
+	return nil, errors.ErrUnexpectedEndOfJSON("[]byte", s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeStreamBinary(s *stream, depth int64, p unsafe.Pointer) ([]byte, error) {
+func (d *bytesDecoder) decodeStreamBinary(s *Stream, depth int64, p unsafe.Pointer) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -109,12 +112,12 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream, depth int64, p unsafe.Point
 			return nil, nil
 		case '[':
 			if d.sliceDecoder == nil {
-				return nil, &UnmarshalTypeError{
-					Type:   rtype2type(d.typ),
+				return nil, &errors.UnmarshalTypeError{
+					Type:   runtime.RType2Type(d.typ),
 					Offset: s.totalOffset(),
 				}
 			}
-			if err := d.sliceDecoder.decodeStream(s, depth, p); err != nil {
+			if err := d.sliceDecoder.DecodeStream(s, depth, p); err != nil {
 				return nil, err
 			}
 			return nil, nil
@@ -125,7 +128,7 @@ func (d *bytesDecoder) decodeStreamBinary(s *stream, depth int64, p unsafe.Point
 		}
 		break
 	}
-	return nil, errNotAtBeginningOfValue(s.totalOffset())
+	return nil, errors.ErrNotAtBeginningOfValue(s.totalOffset())
 }
 
 func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Pointer) ([]byte, int64, error) {
@@ -143,18 +146,18 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Po
 					cursor++
 					return literal, cursor, nil
 				case nul:
-					return nil, 0, errUnexpectedEndOfJSON("[]byte", cursor)
+					return nil, 0, errors.ErrUnexpectedEndOfJSON("[]byte", cursor)
 				}
 				cursor++
 			}
 		case '[':
 			if d.sliceDecoder == nil {
-				return nil, 0, &UnmarshalTypeError{
-					Type:   rtype2type(d.typ),
+				return nil, 0, &errors.UnmarshalTypeError{
+					Type:   runtime.RType2Type(d.typ),
 					Offset: cursor,
 				}
 			}
-			c, err := d.sliceDecoder.decode(buf, cursor, depth, p)
+			c, err := d.sliceDecoder.Decode(buf, cursor, depth, p)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -166,7 +169,7 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Po
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			return nil, 0, errNotAtBeginningOfValue(cursor)
+			return nil, 0, errors.ErrNotAtBeginningOfValue(cursor)
 		}
 	}
 }

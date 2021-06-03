@@ -1,6 +1,10 @@
 package json
 
+import (
+	"github.com/goccy/go-json/internal/errors"
+)
+
 var (
-	NewSyntaxError    = errSyntax
-	NewMarshalerError = errMarshaler
+	NewSyntaxError    = errors.ErrSyntax
+	NewMarshalerError = errors.ErrMarshaler
 )

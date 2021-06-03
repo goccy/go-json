@@ -1,12 +1,14 @@
-package json
+package decoder
 
 import (
 	"reflect"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type wrappedStringDecoder struct {
-	typ           *rtype
+	typ           *runtime.Type
 	dec           decoder
 	stringDecoder *stringDecoder
 	structName    string
@@ -14,7 +16,7 @@ type wrappedStringDecoder struct {
 	isPtrType     bool
 }
 
-func newWrappedStringDecoder(typ *rtype, dec decoder, structName, fieldName string) *wrappedStringDecoder {
+func newWrappedStringDecoder(typ *runtime.Type, dec decoder, structName, fieldName string) *wrappedStringDecoder {
 	return &wrappedStringDecoder{
 		typ:           typ,
 		dec:           dec,
@@ -25,7 +27,7 @@ func newWrappedStringDecoder(typ *rtype, dec decoder, structName, fieldName stri
 	}
 }
 
-func (d *wrappedStringDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *wrappedStringDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.stringDecoder.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -38,13 +40,13 @@ func (d *wrappedStringDecoder) decodeStream(s *stream, depth int64, p unsafe.Poi
 	}
 	b := make([]byte, len(bytes)+1)
 	copy(b, bytes)
-	if _, err := d.dec.decode(b, 0, depth, p); err != nil {
+	if _, err := d.dec.Decode(b, 0, depth, p); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *wrappedStringDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *wrappedStringDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.stringDecoder.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -56,7 +58,7 @@ func (d *wrappedStringDecoder) decode(buf []byte, cursor, depth int64, p unsafe.
 		return c, nil
 	}
 	bytes = append(bytes, nul)
-	if _, err := d.dec.decode(bytes, 0, depth, p); err != nil {
+	if _, err := d.dec.Decode(bytes, 0, depth, p); err != nil {
 		return 0, err
 	}
 	return c, nil

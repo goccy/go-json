@@ -1,20 +1,23 @@
-package json
+package decoder
 
 import (
 	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type intDecoder struct {
-	typ        *rtype
+	typ        *runtime.Type
 	kind       reflect.Kind
 	op         func(unsafe.Pointer, int64)
 	structName string
 	fieldName  string
 }
 
-func newIntDecoder(typ *rtype, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
+func newIntDecoder(typ *runtime.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{
 		typ:        typ,
 		kind:       typ.Kind(),
@@ -24,10 +27,10 @@ func newIntDecoder(typ *rtype, structName, fieldName string, op func(unsafe.Poin
 	}
 }
 
-func (d *intDecoder) typeError(buf []byte, offset int64) *UnmarshalTypeError {
-	return &UnmarshalTypeError{
+func (d *intDecoder) typeError(buf []byte, offset int64) *errors.UnmarshalTypeError {
+	return &errors.UnmarshalTypeError{
 		Value:  fmt.Sprintf("number %s", string(buf)),
-		Type:   rtype2type(d.typ),
+		Type:   runtime.RType2Type(d.typ),
 		Struct: d.structName,
 		Field:  d.fieldName,
 		Offset: offset,
@@ -83,7 +86,7 @@ var (
 	numZeroBuf = []byte{'0'}
 )
 
-func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+func (d *intDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -142,7 +145,7 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		}
 	}
 ERROR:
-	return nil, errUnexpectedEndOfJSON("number(integer)", s.totalOffset())
+	return nil, errors.ErrUnexpectedEndOfJSON("number(integer)", s.totalOffset())
 }
 
 func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
@@ -175,7 +178,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 	}
 }
 
-func (d *intDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *intDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -206,7 +209,7 @@ func (d *intDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) erro
 	return nil
 }
 
-func (d *intDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *intDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

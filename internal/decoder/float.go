@@ -1,8 +1,10 @@
-package json
+package decoder
 
 import (
 	"strconv"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
 type floatDecoder struct {
@@ -47,7 +49,7 @@ var (
 	}
 )
 
-func floatBytes(s *stream) []byte {
+func floatBytes(s *Stream) []byte {
 	start := s.cursor
 	for {
 		s.cursor++
@@ -64,7 +66,7 @@ func floatBytes(s *stream) []byte {
 	return s.buf[start:s.cursor]
 }
 
-func (d *floatDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+func (d *floatDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -87,7 +89,7 @@ func (d *floatDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		}
 	}
 ERROR:
-	return nil, errUnexpectedEndOfJSON("float", s.totalOffset())
+	return nil, errors.ErrUnexpectedEndOfJSON("float", s.totalOffset())
 }
 
 func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
@@ -111,12 +113,12 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			return nil, 0, errUnexpectedEndOfJSON("float", cursor)
+			return nil, 0, errors.ErrUnexpectedEndOfJSON("float", cursor)
 		}
 	}
 }
 
-func (d *floatDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *floatDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -127,13 +129,13 @@ func (d *floatDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 	str := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		return errSyntax(err.Error(), s.totalOffset())
+		return errors.ErrSyntax(err.Error(), s.totalOffset())
 	}
 	d.op(p, f64)
 	return nil
 }
 
-func (d *floatDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *floatDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -143,12 +145,12 @@ func (d *floatDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 	}
 	cursor = c
 	if !validEndNumberChar[buf[cursor]] {
-		return 0, errUnexpectedEndOfJSON("float", cursor)
+		return 0, errors.ErrUnexpectedEndOfJSON("float", cursor)
 	}
 	s := *(*string)(unsafe.Pointer(&bytes))
 	f64, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return 0, errSyntax(err.Error(), cursor)
+		return 0, errors.ErrSyntax(err.Error(), cursor)
 	}
 	d.op(p, f64)
 	return cursor, nil

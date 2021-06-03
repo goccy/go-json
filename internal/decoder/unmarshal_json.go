@@ -1,16 +1,20 @@
-package json
+package decoder
 
 import (
+	"encoding/json"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type unmarshalJSONDecoder struct {
-	typ        *rtype
+	typ        *runtime.Type
 	structName string
 	fieldName  string
 }
 
-func newUnmarshalJSONDecoder(typ *rtype, structName, fieldName string) *unmarshalJSONDecoder {
+func newUnmarshalJSONDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
 		typ:        typ,
 		structName: structName,
@@ -20,15 +24,15 @@ func newUnmarshalJSONDecoder(typ *rtype, structName, fieldName string) *unmarsha
 
 func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
 	switch e := err.(type) {
-	case *UnmarshalTypeError:
+	case *errors.UnmarshalTypeError:
 		e.Struct = d.structName
 		e.Field = d.fieldName
-	case *SyntaxError:
+	case *errors.SyntaxError:
 		e.Offset = cursor
 	}
 }
 
-func (d *unmarshalJSONDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *unmarshalJSONDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	start := s.cursor
 	if err := s.skipValue(depth); err != nil {
@@ -42,14 +46,14 @@ func (d *unmarshalJSONDecoder) decodeStream(s *stream, depth int64, p unsafe.Poi
 		typ: d.typ,
 		ptr: p,
 	}))
-	if err := v.(Unmarshaler).UnmarshalJSON(dst); err != nil {
+	if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
 		d.annotateError(s.cursor, err)
 		return err
 	}
 	return nil
 }
 
-func (d *unmarshalJSONDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *unmarshalJSONDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)
@@ -64,7 +68,7 @@ func (d *unmarshalJSONDecoder) decode(buf []byte, cursor, depth int64, p unsafe.
 		typ: d.typ,
 		ptr: p,
 	}))
-	if err := v.(Unmarshaler).UnmarshalJSON(dst); err != nil {
+	if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
 		d.annotateError(cursor, err)
 		return 0, err
 	}

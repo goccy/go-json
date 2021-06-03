@@ -11,7 +11,7 @@ import (
 func CompileToGetDecoder(typ *runtime.Type) (decoder, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if typeptr > typeAddr.MaxTypeAddr {
-		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
+		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
 
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
@@ -19,7 +19,7 @@ func CompileToGetDecoder(typ *runtime.Type) (decoder, error) {
 		return dec, nil
 	}
 
-	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
+	dec, err := compileHead(typ, map[uintptr]decoder{})
 	if err != nil {
 		return nil, err
 	}

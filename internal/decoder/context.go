@@ -1,7 +1,9 @@
-package json
+package decoder
 
 import (
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
 var (
@@ -34,7 +36,7 @@ func skipObject(buf []byte, cursor, depth int64) (int64, error) {
 			braceCount++
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return 0, errExceededMaxDepth(buf[cursor], cursor)
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 			}
 		case '}':
 			depth--
@@ -45,7 +47,7 @@ func skipObject(buf []byte, cursor, depth int64) (int64, error) {
 		case '[':
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return 0, errExceededMaxDepth(buf[cursor], cursor)
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 			}
 		case ']':
 			depth--
@@ -56,16 +58,16 @@ func skipObject(buf []byte, cursor, depth int64) (int64, error) {
 				case '\\':
 					cursor++
 					if buf[cursor] == nul {
-						return 0, errUnexpectedEndOfJSON("string of object", cursor)
+						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 					}
 				case '"':
 					goto SWITCH_OUT
 				case nul:
-					return 0, errUnexpectedEndOfJSON("string of object", cursor)
+					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 				}
 			}
 		case nul:
-			return 0, errUnexpectedEndOfJSON("object of object", cursor)
+			return 0, errors.ErrUnexpectedEndOfJSON("object of object", cursor)
 		}
 	SWITCH_OUT:
 		cursor++
@@ -80,7 +82,7 @@ func skipArray(buf []byte, cursor, depth int64) (int64, error) {
 			bracketCount++
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return 0, errExceededMaxDepth(buf[cursor], cursor)
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 			}
 		case ']':
 			bracketCount--
@@ -91,7 +93,7 @@ func skipArray(buf []byte, cursor, depth int64) (int64, error) {
 		case '{':
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return 0, errExceededMaxDepth(buf[cursor], cursor)
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 			}
 		case '}':
 			depth--
@@ -102,16 +104,16 @@ func skipArray(buf []byte, cursor, depth int64) (int64, error) {
 				case '\\':
 					cursor++
 					if buf[cursor] == nul {
-						return 0, errUnexpectedEndOfJSON("string of object", cursor)
+						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 					}
 				case '"':
 					goto SWITCH_OUT
 				case nul:
-					return 0, errUnexpectedEndOfJSON("string of object", cursor)
+					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 				}
 			}
 		case nul:
-			return 0, errUnexpectedEndOfJSON("array of object", cursor)
+			return 0, errors.ErrUnexpectedEndOfJSON("array of object", cursor)
 		}
 	SWITCH_OUT:
 		cursor++
@@ -135,12 +137,12 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 				case '\\':
 					cursor++
 					if buf[cursor] == nul {
-						return 0, errUnexpectedEndOfJSON("string of object", cursor)
+						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 					}
 				case '"':
 					return cursor + 1, nil
 				case nul:
-					return 0, errUnexpectedEndOfJSON("string of object", cursor)
+					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 				}
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
@@ -171,58 +173,58 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			cursor += 4
 			return cursor, nil
 		default:
-			return cursor, errUnexpectedEndOfJSON("null", cursor)
+			return cursor, errors.ErrUnexpectedEndOfJSON("null", cursor)
 		}
 	}
 }
 
 func validateTrue(buf []byte, cursor int64) error {
 	if cursor+3 >= int64(len(buf)) {
-		return errUnexpectedEndOfJSON("true", cursor)
+		return errors.ErrUnexpectedEndOfJSON("true", cursor)
 	}
 	if buf[cursor+1] != 'r' {
-		return errInvalidCharacter(buf[cursor+1], "true", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+1], "true", cursor)
 	}
 	if buf[cursor+2] != 'u' {
-		return errInvalidCharacter(buf[cursor+2], "true", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+2], "true", cursor)
 	}
 	if buf[cursor+3] != 'e' {
-		return errInvalidCharacter(buf[cursor+3], "true", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+3], "true", cursor)
 	}
 	return nil
 }
 
 func validateFalse(buf []byte, cursor int64) error {
 	if cursor+4 >= int64(len(buf)) {
-		return errUnexpectedEndOfJSON("false", cursor)
+		return errors.ErrUnexpectedEndOfJSON("false", cursor)
 	}
 	if buf[cursor+1] != 'a' {
-		return errInvalidCharacter(buf[cursor+1], "false", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+1], "false", cursor)
 	}
 	if buf[cursor+2] != 'l' {
-		return errInvalidCharacter(buf[cursor+2], "false", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+2], "false", cursor)
 	}
 	if buf[cursor+3] != 's' {
-		return errInvalidCharacter(buf[cursor+3], "false", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+3], "false", cursor)
 	}
 	if buf[cursor+4] != 'e' {
-		return errInvalidCharacter(buf[cursor+4], "false", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+4], "false", cursor)
 	}
 	return nil
 }
 
 func validateNull(buf []byte, cursor int64) error {
 	if cursor+3 >= int64(len(buf)) {
-		return errUnexpectedEndOfJSON("null", cursor)
+		return errors.ErrUnexpectedEndOfJSON("null", cursor)
 	}
 	if buf[cursor+1] != 'u' {
-		return errInvalidCharacter(buf[cursor+1], "null", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+1], "null", cursor)
 	}
 	if buf[cursor+2] != 'l' {
-		return errInvalidCharacter(buf[cursor+2], "null", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+2], "null", cursor)
 	}
 	if buf[cursor+3] != 'l' {
-		return errInvalidCharacter(buf[cursor+3], "null", cursor)
+		return errors.ErrInvalidCharacter(buf[cursor+3], "null", cursor)
 	}
 	return nil
 }

@@ -1,20 +1,23 @@
-package json
+package decoder
 
 import (
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type arrayDecoder struct {
-	elemType     *rtype
+	elemType     *runtime.Type
 	size         uintptr
-	valueDecoder decoder
+	valueDecoder Decoder
 	alen         int
 	structName   string
 	fieldName    string
 	zeroValue    unsafe.Pointer
 }
 
-func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldName string) *arrayDecoder {
+func newArrayDecoder(dec Decoder, elemType *runtime.Type, alen int, structName, fieldName string) *arrayDecoder {
 	zeroValue := *(*unsafe.Pointer)(unsafe_New(elemType))
 	return &arrayDecoder{
 		valueDecoder: dec,
@@ -27,10 +30,10 @@ func newArrayDecoder(dec decoder, elemType *rtype, alen int, structName, fieldNa
 	}
 }
 
-func (d *arrayDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	depth++
 	if depth > maxDecodeNestingDepth {
-		return errExceededMaxDepth(s.char(), s.cursor)
+		return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 	}
 
 	for {
@@ -46,7 +49,7 @@ func (d *arrayDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 			for {
 				s.cursor++
 				if idx < d.alen {
-					if err := d.valueDecoder.decodeStream(s, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
+					if err := d.valueDecoder.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
 						return err
 					}
 				} else {
@@ -86,13 +89,13 @@ func (d *arrayDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) er
 		s.cursor++
 	}
 ERROR:
-	return errUnexpectedEndOfJSON("array", s.totalOffset())
+	return errors.ErrUnexpectedEndOfJSON("array", s.totalOffset())
 }
 
-func (d *arrayDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *arrayDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	depth++
 	if depth > maxDecodeNestingDepth {
-		return 0, errExceededMaxDepth(buf[cursor], cursor)
+		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 	}
 
 	for {
@@ -111,7 +114,7 @@ func (d *arrayDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 			for {
 				cursor++
 				if idx < d.alen {
-					c, err := d.valueDecoder.decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
+					c, err := d.valueDecoder.Decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
 					if err != nil {
 						return 0, err
 					}
@@ -136,11 +139,11 @@ func (d *arrayDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 				case ',':
 					continue
 				default:
-					return 0, errInvalidCharacter(buf[cursor], "array", cursor)
+					return 0, errors.ErrInvalidCharacter(buf[cursor], "array", cursor)
 				}
 			}
 		default:
-			return 0, errUnexpectedEndOfJSON("array", cursor)
+			return 0, errors.ErrUnexpectedEndOfJSON("array", cursor)
 		}
 	}
 }

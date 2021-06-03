@@ -1,4 +1,4 @@
-package json
+package decoder
 
 import (
 	"reflect"
@@ -6,6 +6,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
 type stringDecoder struct {
@@ -20,8 +22,8 @@ func newStringDecoder(structName, fieldName string) *stringDecoder {
 	}
 }
 
-func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *UnmarshalTypeError {
-	return &UnmarshalTypeError{
+func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.UnmarshalTypeError {
+	return &errors.UnmarshalTypeError{
 		Value:  typeName,
 		Type:   reflect.TypeOf(""),
 		Offset: offset,
@@ -30,7 +32,7 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *Unmarsh
 	}
 }
 
-func (d *stringDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *stringDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	bytes, err := d.decodeStreamByte(s)
 	if err != nil {
 		return err
@@ -43,7 +45,7 @@ func (d *stringDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) e
 	return nil
 }
 
-func (d *stringDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *stringDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
@@ -91,13 +93,13 @@ func unicodeToRune(code []byte) rune {
 	return r
 }
 
-func decodeUnicodeRune(s *stream) (rune, int64, error) {
+func decodeUnicodeRune(s *Stream) (rune, int64, error) {
 	const defaultOffset = 5
 	const surrogateOffset = 11
 
 	if s.cursor+defaultOffset >= s.length {
 		if !s.read() {
-			return rune(0), 0, errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+			return rune(0), 0, errors.ErrInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 		}
 	}
 
@@ -117,7 +119,7 @@ func decodeUnicodeRune(s *stream) (rune, int64, error) {
 	return r, defaultOffset, nil
 }
 
-func decodeUnicode(s *stream) error {
+func decodeUnicode(s *Stream) error {
 	const backSlashAndULen = 2 // length of \u
 
 	r, offset, err := decodeUnicodeRune(s)
@@ -133,7 +135,7 @@ func decodeUnicode(s *stream) error {
 	return nil
 }
 
-func decodeEscapeString(s *stream) error {
+func decodeEscapeString(s *Stream) error {
 	s.cursor++
 RETRY:
 	switch s.buf[s.cursor] {
@@ -157,11 +159,11 @@ RETRY:
 		return decodeUnicode(s)
 	case nul:
 		if !s.read() {
-			return errInvalidCharacter(s.char(), "escaped string", s.totalOffset())
+			return errors.ErrInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 		}
 		goto RETRY
 	default:
-		return errUnexpectedEndOfJSON("string", s.totalOffset())
+		return errors.ErrUnexpectedEndOfJSON("string", s.totalOffset())
 	}
 	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
 	s.length--
@@ -174,7 +176,7 @@ var (
 	runeErrBytesLen = int64(len(runeErrBytes))
 )
 
-func stringBytes(s *stream) ([]byte, error) {
+func stringBytes(s *Stream) ([]byte, error) {
 	_, cursor, p := s.stat()
 	cursor++ // skip double quote char
 	start := cursor
@@ -245,10 +247,10 @@ func stringBytes(s *stream) ([]byte, error) {
 		cursor++
 	}
 ERROR:
-	return nil, errUnexpectedEndOfJSON("string", s.totalOffset())
+	return nil, errors.ErrUnexpectedEndOfJSON("string", s.totalOffset())
 }
 
-func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
+func (d *stringDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
 	for {
 		switch s.char() {
 		case ' ', '\n', '\t', '\r':
@@ -274,7 +276,7 @@ func (d *stringDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 		}
 		break
 	}
-	return nil, errNotAtBeginningOfValue(s.totalOffset())
+	return nil, errors.ErrNotAtBeginningOfValue(s.totalOffset())
 }
 
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
@@ -324,13 +326,13 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 					case 'u':
 						buflen := int64(len(buf))
 						if cursor+5 >= buflen {
-							return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
+							return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 						}
 						code := unicodeToRune(buf[cursor+1 : cursor+5])
 						unicode := []byte(string(code))
 						buf = append(append(buf[:cursor-1], unicode...), buf[cursor+5:]...)
 					default:
-						return nil, 0, errUnexpectedEndOfJSON("escaped string", cursor)
+						return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 					}
 					continue
 				case '"':
@@ -338,7 +340,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 					cursor++
 					return literal, cursor, nil
 				case nul:
-					return nil, 0, errUnexpectedEndOfJSON("string", cursor)
+					return nil, 0, errors.ErrUnexpectedEndOfJSON("string", cursor)
 				}
 				cursor++
 			}
@@ -349,7 +351,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			return nil, 0, errNotAtBeginningOfValue(cursor)
+			return nil, 0, errors.ErrNotAtBeginningOfValue(cursor)
 		}
 	}
 }

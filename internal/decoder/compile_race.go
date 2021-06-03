@@ -1,21 +1,23 @@
 // +build race
 
-package json
+package decoder
 
 import (
 	"sync"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 var decMu sync.RWMutex
 
-func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
+func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
-	if typeptr > maxTypeAddr {
-		return decodeCompileToGetDecoderSlowPath(typeptr, typ)
+	if typeptr > typeAddr.MaxTypeAddr {
+		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
 
-	index := (typeptr - baseTypeAddr) >> typeAddrShift
+	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
 	decMu.RLock()
 	if dec := cachedDecoder[index]; dec != nil {
 		decMu.RUnlock()
@@ -23,7 +25,7 @@ func decodeCompileToGetDecoder(typ *rtype) (decoder, error) {
 	}
 	decMu.RUnlock()
 
-	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
+	dec, err := compileHead(typ, map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}

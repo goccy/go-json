@@ -1,4 +1,4 @@
-package json
+package decoder
 
 import (
 	"bytes"
@@ -7,15 +7,18 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type unmarshalTextDecoder struct {
-	typ        *rtype
+	typ        *runtime.Type
 	structName string
 	fieldName  string
 }
 
-func newUnmarshalTextDecoder(typ *rtype, structName, fieldName string) *unmarshalTextDecoder {
+func newUnmarshalTextDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{
 		typ:        typ,
 		structName: structName,
@@ -25,10 +28,10 @@ func newUnmarshalTextDecoder(typ *rtype, structName, fieldName string) *unmarsha
 
 func (d *unmarshalTextDecoder) annotateError(cursor int64, err error) {
 	switch e := err.(type) {
-	case *UnmarshalTypeError:
+	case *errors.UnmarshalTypeError:
 		e.Struct = d.structName
 		e.Field = d.fieldName
-	case *SyntaxError:
+	case *errors.SyntaxError:
 		e.Offset = cursor
 	}
 }
@@ -37,7 +40,7 @@ var (
 	nullbytes = []byte(`null`)
 )
 
-func (d *unmarshalTextDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	start := s.cursor
 	if err := s.skipValue(depth); err != nil {
@@ -47,21 +50,21 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, depth int64, p unsafe.Poi
 	if len(src) > 0 {
 		switch src[0] {
 		case '[':
-			return &UnmarshalTypeError{
+			return &errors.UnmarshalTypeError{
 				Value:  "array",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: s.totalOffset(),
 			}
 		case '{':
-			return &UnmarshalTypeError{
+			return &errors.UnmarshalTypeError{
 				Value:  "object",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: s.totalOffset(),
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return &UnmarshalTypeError{
+			return &errors.UnmarshalTypeError{
 				Value:  "number",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: s.totalOffset(),
 			}
 		case 'n':
@@ -88,7 +91,7 @@ func (d *unmarshalTextDecoder) decodeStream(s *stream, depth int64, p unsafe.Poi
 	return nil
 }
 
-func (d *unmarshalTextDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *unmarshalTextDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)
@@ -99,21 +102,21 @@ func (d *unmarshalTextDecoder) decode(buf []byte, cursor, depth int64, p unsafe.
 	if len(src) > 0 {
 		switch src[0] {
 		case '[':
-			return 0, &UnmarshalTypeError{
+			return 0, &errors.UnmarshalTypeError{
 				Value:  "array",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: start,
 			}
 		case '{':
-			return 0, &UnmarshalTypeError{
+			return 0, &errors.UnmarshalTypeError{
 				Value:  "object",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: start,
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return 0, &UnmarshalTypeError{
+			return 0, &errors.UnmarshalTypeError{
 				Value:  "number",
-				Type:   rtype2type(d.typ),
+				Type:   runtime.RType2Type(d.typ),
 				Offset: start,
 			}
 		case 'n':

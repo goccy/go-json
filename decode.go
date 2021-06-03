@@ -1,32 +1,28 @@
 package json
 
 import (
-	"encoding"
 	"fmt"
 	"io"
 	"reflect"
-	"strconv"
 	"unsafe"
-)
 
-type decoder interface {
-	decode([]byte, int64, int64, unsafe.Pointer) (int64, error)
-	decodeStream(*stream, int64, unsafe.Pointer) error
-}
+	"github.com/goccy/go-json/internal/decoder"
+	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
+)
 
 type Decoder struct {
-	s *stream
+	s *decoder.Stream
 }
 
-var (
-	unmarshalJSONType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
-	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+const (
+	nul = '\000'
 )
 
-const (
-	nul                   = '\000'
-	maxDecodeNestingDepth = 10000
-)
+type emptyInterface struct {
+	typ *runtime.Type
+	ptr unsafe.Pointer
+}
 
 func unmarshal(data []byte, v interface{}) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
@@ -37,11 +33,11 @@ func unmarshal(data []byte, v interface{}) error {
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decodeCompileToGetDecoder(header.typ)
+	dec, err := decoder.CompileToGetDecoder(header.typ)
 	if err != nil {
 		return err
 	}
-	cursor, err := dec.decode(src, 0, 0, header.ptr)
+	cursor, err := dec.Decode(src, 0, 0, header.ptr)
 	if err != nil {
 		return err
 	}
@@ -57,11 +53,11 @@ func unmarshalNoEscape(data []byte, v interface{}) error {
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decodeCompileToGetDecoder(header.typ)
+	dec, err := decoder.CompileToGetDecoder(header.typ)
 	if err != nil {
 		return err
 	}
-	cursor, err := dec.decode(src, 0, 0, noescape(header.ptr))
+	cursor, err := dec.Decode(src, 0, 0, noescape(header.ptr))
 	if err != nil {
 		return err
 	}
@@ -77,7 +73,7 @@ func validateEndBuf(src []byte, cursor int64) error {
 		case nul:
 			return nil
 		}
-		return errSyntax(
+		return errors.ErrSyntax(
 			fmt.Sprintf("invalid character '%c' after top-level value", src[cursor]),
 			cursor+1,
 		)
@@ -91,9 +87,9 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(x ^ 0)
 }
 
-func validateType(typ *rtype, p uintptr) error {
+func validateType(typ *runtime.Type, p uintptr) error {
 	if typ == nil || typ.Kind() != reflect.Ptr || p == 0 {
-		return &InvalidUnmarshalError{Type: rtype2type(typ)}
+		return &InvalidUnmarshalError{Type: runtime.RType2Type(typ)}
 	}
 	return nil
 }
@@ -103,7 +99,7 @@ func validateType(typ *rtype, p uintptr) error {
 // The decoder introduces its own buffering and may
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
-	s := newStream(r)
+	s := decoder.NewStream(r)
 	return &Decoder{
 		s: s,
 	}
@@ -112,28 +108,7 @@ func NewDecoder(r io.Reader) *Decoder {
 // Buffered returns a reader of the data remaining in the Decoder's
 // buffer. The reader is valid until the next call to Decode.
 func (d *Decoder) Buffered() io.Reader {
-	return d.s.buffered()
-}
-
-func (d *Decoder) prepareForDecode() error {
-	s := d.s
-	for {
-		switch s.char() {
-		case ' ', '\t', '\r', '\n':
-			s.cursor++
-			continue
-		case ',', ':':
-			s.cursor++
-			return nil
-		case nul:
-			if s.read() {
-				continue
-			}
-			return io.EOF
-		}
-		break
-	}
-	return nil
+	return d.s.Buffered()
 }
 
 // Decode reads the next JSON-encoded value from its
@@ -147,115 +122,48 @@ func (d *Decoder) Decode(v interface{}) error {
 	ptr := uintptr(header.ptr)
 	typeptr := uintptr(unsafe.Pointer(typ))
 	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := *(**rtype)(unsafe.Pointer(&typeptr))
+	copiedType := *(**runtime.Type)(unsafe.Pointer(&typeptr))
 
 	if err := validateType(copiedType, ptr); err != nil {
 		return err
 	}
 
-	dec, err := decodeCompileToGetDecoder(typ)
+	dec, err := decoder.CompileToGetDecoder(typ)
 	if err != nil {
 		return err
 	}
-	if err := d.prepareForDecode(); err != nil {
+	if err := d.s.PrepareForDecode(); err != nil {
 		return err
 	}
 	s := d.s
-	if err := dec.decodeStream(s, 0, header.ptr); err != nil {
+	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
 		return err
 	}
-	s.reset()
-	s.bufSize = initBufSize
+	s.Reset()
 	return nil
 }
 
 func (d *Decoder) More() bool {
-	s := d.s
-	for {
-		switch s.char() {
-		case ' ', '\n', '\r', '\t':
-			s.cursor++
-			continue
-		case '}', ']':
-			return false
-		case nul:
-			if s.read() {
-				continue
-			}
-			return false
-		}
-		break
-	}
-	return true
+	return d.s.More()
 }
 
 func (d *Decoder) Token() (Token, error) {
-	s := d.s
-	for {
-		c := s.char()
-		switch c {
-		case ' ', '\n', '\r', '\t':
-			s.cursor++
-		case '{', '[', ']', '}':
-			s.cursor++
-			return Delim(c), nil
-		case ',', ':':
-			s.cursor++
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			bytes := floatBytes(s)
-			s := *(*string)(unsafe.Pointer(&bytes))
-			f64, err := strconv.ParseFloat(s, 64)
-			if err != nil {
-				return nil, err
-			}
-			return f64, nil
-		case '"':
-			bytes, err := stringBytes(s)
-			if err != nil {
-				return nil, err
-			}
-			return string(bytes), nil
-		case 't':
-			if err := trueBytes(s); err != nil {
-				return nil, err
-			}
-			return true, nil
-		case 'f':
-			if err := falseBytes(s); err != nil {
-				return nil, err
-			}
-			return false, nil
-		case 'n':
-			if err := nullBytes(s); err != nil {
-				return nil, err
-			}
-			return nil, nil
-		case nul:
-			if s.read() {
-				continue
-			}
-			goto END
-		default:
-			return nil, errInvalidCharacter(s.char(), "token", s.totalOffset())
-		}
-	}
-END:
-	return nil, io.EOF
+	return d.s.Token()
 }
 
 // DisallowUnknownFields causes the Decoder to return an error when the destination
 // is a struct and the input contains object keys which do not match any
 // non-ignored, exported fields in the destination.
 func (d *Decoder) DisallowUnknownFields() {
-	d.s.disallowUnknownFields = true
+	d.s.DisallowUnknownFields = true
 }
 
 func (d *Decoder) InputOffset() int64 {
-	return d.s.totalOffset()
+	return d.s.TotalOffset()
 }
 
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a
 // Number instead of as a float64.
 func (d *Decoder) UseNumber() {
-	d.s.useNumber = true
+	d.s.UseNumber = true
 }

@@ -1,27 +1,56 @@
-package json
+package decoder
 
 import (
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"unicode"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
 var (
-	jsonNumberType = reflect.TypeOf(json.Number(""))
+	jsonNumberType   = reflect.TypeOf(json.Number(""))
+	typeAddr         *runtime.TypeAddr
+	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
+	cachedDecoder    []Decoder
 )
 
-func decodeCompileToGetDecoderSlowPath(typeptr uintptr, typ *rtype) (decoder, error) {
+func init() {
+	typeAddr = runtime.AnalyzeTypeAddr()
+	if typeAddr == nil {
+		typeAddr = &runtime.TypeAddr{}
+	}
+	cachedDecoder = make([]Decoder, typeAddr.AddrRange>>typeAddr.AddrShift)
+}
+
+func loadDecoderMap() map[uintptr]Decoder {
+	p := atomic.LoadPointer(&cachedDecoderMap)
+	return *(*map[uintptr]Decoder)(unsafe.Pointer(&p))
+}
+
+func storeDecoder(typ uintptr, dec Decoder, m map[uintptr]Decoder) {
+	newDecoderMap := make(map[uintptr]Decoder, len(m)+1)
+	newDecoderMap[typ] = dec
+
+	for k, v := range m {
+		newDecoderMap[k] = v
+	}
+
+	atomic.StorePointer(&cachedDecoderMap, *(*unsafe.Pointer)(unsafe.Pointer(&newDecoderMap)))
+}
+
+func compileToGetDecoderSlowPath(typeptr uintptr, typ *runtime.Type) (Decoder, error) {
 	decoderMap := loadDecoderMap()
 	if dec, exists := decoderMap[typeptr]; exists {
 		return dec, nil
 	}
 
-	dec, err := decodeCompileHead(typ, map[uintptr]decoder{})
+	dec, err := compileHead(typ, map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}
@@ -29,84 +58,84 @@ func decodeCompileToGetDecoderSlowPath(typeptr uintptr, typ *rtype) (decoder, er
 	return dec, nil
 }
 
-func decodeCompileHead(typ *rtype, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
+func compileHead(typ *runtime.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch {
-	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
-		return newUnmarshalJSONDecoder(rtype_ptrTo(typ), "", ""), nil
-	case rtype_ptrTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(rtype_ptrTo(typ), "", ""), nil
+	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), "", ""), nil
+	case runtime.PtrTo(typ).Implements(unmarshalTextType):
+		return newUnmarshalTextDecoder(runtime.PtrTo(typ), "", ""), nil
 	}
-	return decodeCompile(typ.Elem(), "", "", structTypeToDecoder)
+	return compile(typ.Elem(), "", "", structTypeToDecoder)
 }
 
-func decodeCompile(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
+func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch {
-	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
-		return newUnmarshalJSONDecoder(rtype_ptrTo(typ), structName, fieldName), nil
-	case rtype_ptrTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName), nil
+	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName), nil
+	case runtime.PtrTo(typ).Implements(unmarshalTextType):
+		return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
 	}
 
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return decodeCompilePtr(typ, structName, fieldName, structTypeToDecoder)
+		return compilePtr(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Struct:
-		return decodeCompileStruct(typ, structName, fieldName, structTypeToDecoder)
+		return compileStruct(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Slice:
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
-			return decodeCompileBytes(elem, structName, fieldName)
+			return compileBytes(elem, structName, fieldName)
 		}
-		return decodeCompileSlice(typ, structName, fieldName, structTypeToDecoder)
+		return compileSlice(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Array:
-		return decodeCompileArray(typ, structName, fieldName, structTypeToDecoder)
+		return compileArray(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Map:
-		return decodeCompileMap(typ, structName, fieldName, structTypeToDecoder)
+		return compileMap(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Interface:
-		return decodeCompileInterface(typ, structName, fieldName)
+		return compileInterface(typ, structName, fieldName)
 	case reflect.Uintptr:
-		return decodeCompileUint(typ, structName, fieldName)
+		return compileUint(typ, structName, fieldName)
 	case reflect.Int:
-		return decodeCompileInt(typ, structName, fieldName)
+		return compileInt(typ, structName, fieldName)
 	case reflect.Int8:
-		return decodeCompileInt8(typ, structName, fieldName)
+		return compileInt8(typ, structName, fieldName)
 	case reflect.Int16:
-		return decodeCompileInt16(typ, structName, fieldName)
+		return compileInt16(typ, structName, fieldName)
 	case reflect.Int32:
-		return decodeCompileInt32(typ, structName, fieldName)
+		return compileInt32(typ, structName, fieldName)
 	case reflect.Int64:
-		return decodeCompileInt64(typ, structName, fieldName)
+		return compileInt64(typ, structName, fieldName)
 	case reflect.Uint:
-		return decodeCompileUint(typ, structName, fieldName)
+		return compileUint(typ, structName, fieldName)
 	case reflect.Uint8:
-		return decodeCompileUint8(typ, structName, fieldName)
+		return compileUint8(typ, structName, fieldName)
 	case reflect.Uint16:
-		return decodeCompileUint16(typ, structName, fieldName)
+		return compileUint16(typ, structName, fieldName)
 	case reflect.Uint32:
-		return decodeCompileUint32(typ, structName, fieldName)
+		return compileUint32(typ, structName, fieldName)
 	case reflect.Uint64:
-		return decodeCompileUint64(typ, structName, fieldName)
+		return compileUint64(typ, structName, fieldName)
 	case reflect.String:
-		return decodeCompileString(typ, structName, fieldName)
+		return compileString(typ, structName, fieldName)
 	case reflect.Bool:
-		return decodeCompileBool(structName, fieldName)
+		return compileBool(structName, fieldName)
 	case reflect.Float32:
-		return decodeCompileFloat32(structName, fieldName)
+		return compileFloat32(structName, fieldName)
 	case reflect.Float64:
-		return decodeCompileFloat64(structName, fieldName)
+		return compileFloat64(structName, fieldName)
 	}
-	return nil, &UnmarshalTypeError{
+	return nil, &errors.UnmarshalTypeError{
 		Value:  "object",
-		Type:   rtype2type(typ),
+		Type:   runtime.RType2Type(typ),
 		Offset: 0,
 	}
 }
 
-func isStringTagSupportedType(typ *rtype) bool {
+func isStringTagSupportedType(typ *runtime.Type) bool {
 	switch {
-	case rtype_ptrTo(typ).Implements(unmarshalJSONType):
+	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
 		return false
-	case rtype_ptrTo(typ).Implements(unmarshalTextType):
+	case runtime.PtrTo(typ).Implements(unmarshalTextType):
 		return false
 	}
 	switch typ.Kind() {
@@ -124,11 +153,11 @@ func isStringTagSupportedType(typ *rtype) bool {
 	return true
 }
 
-func decodeCompileMapKey(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
-	if rtype_ptrTo(typ).Implements(unmarshalTextType) {
-		return newUnmarshalTextDecoder(rtype_ptrTo(typ), structName, fieldName), nil
+func compileMapKey(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
+	if runtime.PtrTo(typ).Implements(unmarshalTextType) {
+		return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
 	}
-	dec, err := decodeCompile(typ, structName, fieldName, structTypeToDecoder)
+	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
@@ -145,145 +174,145 @@ func decodeCompileMapKey(typ *rtype, structName, fieldName string, structTypeToD
 		}
 	}
 ERROR:
-	return nil, &UnmarshalTypeError{
+	return nil, &errors.UnmarshalTypeError{
 		Value:  "object",
-		Type:   rtype2type(typ),
+		Type:   runtime.RType2Type(typ),
 		Offset: 0,
 	}
 }
 
-func decodeCompilePtr(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
-	dec, err := decodeCompile(typ.Elem(), structName, fieldName, structTypeToDecoder)
+func compilePtr(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
+	dec, err := compile(typ.Elem(), structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	return newPtrDecoder(dec, typ.Elem(), structName, fieldName), nil
 }
 
-func decodeCompileInt(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInt(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newIntDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v int64) {
 		*(*int)(p) = int(v)
 	}), nil
 }
 
-func decodeCompileInt8(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInt8(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newIntDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v int64) {
 		*(*int8)(p) = int8(v)
 	}), nil
 }
 
-func decodeCompileInt16(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInt16(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newIntDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v int64) {
 		*(*int16)(p) = int16(v)
 	}), nil
 }
 
-func decodeCompileInt32(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInt32(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newIntDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v int64) {
 		*(*int32)(p) = int32(v)
 	}), nil
 }
 
-func decodeCompileInt64(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInt64(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newIntDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v int64) {
 		*(*int64)(p) = v
 	}), nil
 }
 
-func decodeCompileUint(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileUint(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint)(p) = uint(v)
 	}), nil
 }
 
-func decodeCompileUint8(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileUint8(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint8)(p) = uint8(v)
 	}), nil
 }
 
-func decodeCompileUint16(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileUint16(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint16)(p) = uint16(v)
 	}), nil
 }
 
-func decodeCompileUint32(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileUint32(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint32)(p) = uint32(v)
 	}), nil
 }
 
-func decodeCompileUint64(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileUint64(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newUintDecoder(typ, structName, fieldName, func(p unsafe.Pointer, v uint64) {
 		*(*uint64)(p) = v
 	}), nil
 }
 
-func decodeCompileFloat32(structName, fieldName string) (decoder, error) {
+func compileFloat32(structName, fieldName string) (Decoder, error) {
 	return newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
 		*(*float32)(p) = float32(v)
 	}), nil
 }
 
-func decodeCompileFloat64(structName, fieldName string) (decoder, error) {
+func compileFloat64(structName, fieldName string) (Decoder, error) {
 	return newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
 		*(*float64)(p) = v
 	}), nil
 }
 
-func decodeCompileString(typ *rtype, structName, fieldName string) (decoder, error) {
-	if typ == type2rtype(jsonNumberType) {
-		return newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v Number) {
-			*(*Number)(p) = v
+func compileString(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
+	if typ == runtime.Type2RType(jsonNumberType) {
+		return newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v json.Number) {
+			*(*json.Number)(p) = v
 		}), nil
 	}
 	return newStringDecoder(structName, fieldName), nil
 }
 
-func decodeCompileBool(structName, fieldName string) (decoder, error) {
+func compileBool(structName, fieldName string) (Decoder, error) {
 	return newBoolDecoder(structName, fieldName), nil
 }
 
-func decodeCompileBytes(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileBytes(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newBytesDecoder(typ, structName, fieldName), nil
 }
 
-func decodeCompileSlice(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
+func compileSlice(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	elem := typ.Elem()
-	decoder, err := decodeCompile(elem, structName, fieldName, structTypeToDecoder)
+	decoder, err := compile(elem, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	return newSliceDecoder(decoder, elem, elem.Size(), structName, fieldName), nil
 }
 
-func decodeCompileArray(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
+func compileArray(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	elem := typ.Elem()
-	decoder, err := decodeCompile(elem, structName, fieldName, structTypeToDecoder)
+	decoder, err := compile(elem, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	return newArrayDecoder(decoder, elem, typ.Len(), structName, fieldName), nil
 }
 
-func decodeCompileMap(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
-	keyDec, err := decodeCompileMapKey(typ.Key(), structName, fieldName, structTypeToDecoder)
+func compileMap(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
+	keyDec, err := compileMapKey(typ.Key(), structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
-	valueDec, err := decodeCompile(typ.Elem(), structName, fieldName, structTypeToDecoder)
+	valueDec, err := compile(typ.Elem(), structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	return newMapDecoder(typ, typ.Key(), keyDec, typ.Elem(), valueDec, structName, fieldName), nil
 }
 
-func decodeCompileInterface(typ *rtype, structName, fieldName string) (decoder, error) {
+func compileInterface(typ *runtime.Type, structName, fieldName string) (Decoder, error) {
 	return newInterfaceDecoder(typ, structName, fieldName), nil
 }
 
-func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, field reflect.StructField) {
+func removeConflictFields(fieldMap map[string]*structFieldSet, conflictedMap map[string]struct{}, dec *structDecoder, field reflect.StructField) {
 	for k, v := range dec.fieldMap {
 		if _, exists := conflictedMap[k]; exists {
 			// already conflicted key
@@ -338,7 +367,7 @@ func decodeRemoveConflictFields(fieldMap map[string]*structFieldSet, conflictedM
 	}
 }
 
-func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToDecoder map[uintptr]decoder) (decoder, error) {
+func compileStruct(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	fieldNum := typ.NumField()
 	conflictedMap := map[string]struct{}{}
 	fieldMap := map[string]*structFieldSet{}
@@ -356,17 +385,17 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 		}
 		isUnexportedField := unicode.IsLower([]rune(field.Name)[0])
 		tag := runtime.StructTagFromField(field)
-		dec, err := decodeCompile(type2rtype(field.Type), structName, field.Name, structTypeToDecoder)
+		dec, err := compile(runtime.Type2RType(field.Type), structName, field.Name, structTypeToDecoder)
 		if err != nil {
 			return nil, err
 		}
 		if field.Anonymous && !tag.IsTaggedKey {
 			if stDec, ok := dec.(*structDecoder); ok {
-				if type2rtype(field.Type) == typ {
+				if runtime.Type2RType(field.Type) == typ {
 					// recursive definition
 					continue
 				}
-				decodeRemoveConflictFields(fieldMap, conflictedMap, stDec, field)
+				removeConflictFields(fieldMap, conflictedMap, stDec, field)
 			} else if pdec, ok := dec.(*ptrDecoder); ok {
 				contentDec := pdec.contentDecoder()
 				if pdec.typ == typ {
@@ -438,8 +467,8 @@ func decodeCompileStruct(typ *rtype, structName, fieldName string, structTypeToD
 				}
 			}
 		} else {
-			if tag.IsString && isStringTagSupportedType(type2rtype(field.Type)) {
-				dec = newWrappedStringDecoder(type2rtype(field.Type), dec, structName, field.Name)
+			if tag.IsString && isStringTagSupportedType(runtime.Type2RType(field.Type)) {
+				dec = newWrappedStringDecoder(runtime.Type2RType(field.Type), dec, structName, field.Name)
 			}
 			var key string
 			if tag.Key != "" {

@@ -191,7 +191,7 @@ For this reason, to date `reflect.Type` is the same as `*reflect.rtype`.
 
 Therefore, by directly handling `*reflect.rtype`, which is an implementation of `reflect.Type`, it is possible to avoid escaping because it changes from `interface` to using `struct`.
 
-The technique for working with `*reflect.rtype` directly from `go-json` is implemented at https://github.com/goccy/go-json/blob/master/rtype.go.
+The technique for working with `*reflect.rtype` directly from `go-json` is implemented at [rtype.go](https://github.com/goccy/go-json/blob/master/internal/runtime/rtype.go)
 
 Also, the same technique is cut out as a library ( https://github.com/goccy/go-reflect )
 
@@ -352,7 +352,7 @@ However, if there is too much type information, it will use a lot of memory, so 
 
 If this approach is not available, it will fall back to the `atomic` based process described above.
 
-If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/codec.go#L24-L76 )
+If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/internal/runtime/type.go#L36-L100)
 
 ## Decoder
 

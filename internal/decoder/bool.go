@@ -1,7 +1,9 @@
-package json
+package decoder
 
 import (
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
 type boolDecoder struct {
@@ -13,7 +15,7 @@ func newBoolDecoder(structName, fieldName string) *boolDecoder {
 	return &boolDecoder{structName: structName, fieldName: fieldName}
 }
 
-func (d *boolDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) error {
+func (d *boolDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	s.skipWhiteSpace()
 	for {
 		switch s.char() {
@@ -43,10 +45,10 @@ func (d *boolDecoder) decodeStream(s *stream, depth int64, p unsafe.Pointer) err
 		break
 	}
 ERROR:
-	return errUnexpectedEndOfJSON("bool", s.totalOffset())
+	return errors.ErrUnexpectedEndOfJSON("bool", s.totalOffset())
 }
 
-func (d *boolDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *boolDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case 't':
@@ -70,5 +72,5 @@ func (d *boolDecoder) decode(buf []byte, cursor, depth int64, p unsafe.Pointer) 
 		cursor += 4
 		return cursor, nil
 	}
-	return 0, errUnexpectedEndOfJSON("bool", cursor)
+	return 0, errors.ErrUnexpectedEndOfJSON("bool", cursor)
 }

@@ -1,16 +1,20 @@
-package json
+package decoder
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
+	"strconv"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/errors"
 )
 
 const (
 	initBufSize = 512
 )
 
-type stream struct {
+type Stream struct {
 	buf                   []byte
 	bufSize               int64
 	length                int64
@@ -19,19 +23,23 @@ type stream struct {
 	cursor                int64
 	filledBuffer          bool
 	allRead               bool
-	useNumber             bool
-	disallowUnknownFields bool
+	UseNumber             bool
+	DisallowUnknownFields bool
 }
 
-func newStream(r io.Reader) *stream {
-	return &stream{
+func NewStream(r io.Reader) *Stream {
+	return &Stream{
 		r:       r,
 		bufSize: initBufSize,
 		buf:     []byte{nul},
 	}
 }
 
-func (s *stream) buffered() io.Reader {
+func (s *Stream) TotalOffset() int64 {
+	return s.totalOffset()
+}
+
+func (s *Stream) Buffered() io.Reader {
 	buflen := int64(len(s.buf))
 	for i := s.cursor; i < buflen; i++ {
 		if s.buf[i] == nul {
@@ -41,15 +49,35 @@ func (s *stream) buffered() io.Reader {
 	return bytes.NewReader(s.buf[s.cursor:])
 }
 
-func (s *stream) totalOffset() int64 {
+func (s *Stream) PrepareForDecode() error {
+	for {
+		switch s.char() {
+		case ' ', '\t', '\r', '\n':
+			s.cursor++
+			continue
+		case ',', ':':
+			s.cursor++
+			return nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			return io.EOF
+		}
+		break
+	}
+	return nil
+}
+
+func (s *Stream) totalOffset() int64 {
 	return s.offset + s.cursor
 }
 
-func (s *stream) char() byte {
+func (s *Stream) char() byte {
 	return s.buf[s.cursor]
 }
 
-func (s *stream) equalChar(c byte) bool {
+func (s *Stream) equalChar(c byte) bool {
 	cur := s.buf[s.cursor]
 	if cur == nul {
 		s.read()
@@ -58,23 +86,100 @@ func (s *stream) equalChar(c byte) bool {
 	return cur == c
 }
 
-func (s *stream) stat() ([]byte, int64, unsafe.Pointer) {
+func (s *Stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
-func (s *stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
+func (s *Stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
 	s.cursor-- // for retry ( because caller progress cursor position in each loop )
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
-func (s *stream) reset() {
+func (s *Stream) Reset() {
+	s.reset()
+	s.bufSize = initBufSize
+}
+
+func (s *Stream) More() bool {
+	for {
+		switch s.char() {
+		case ' ', '\n', '\r', '\t':
+			s.cursor++
+			continue
+		case '}', ']':
+			return false
+		case nul:
+			if s.read() {
+				continue
+			}
+			return false
+		}
+		break
+	}
+	return true
+}
+
+func (s *Stream) Token() (interface{}, error) {
+	for {
+		c := s.char()
+		switch c {
+		case ' ', '\n', '\r', '\t':
+			s.cursor++
+		case '{', '[', ']', '}':
+			s.cursor++
+			return json.Delim(c), nil
+		case ',', ':':
+			s.cursor++
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			bytes := floatBytes(s)
+			s := *(*string)(unsafe.Pointer(&bytes))
+			f64, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return nil, err
+			}
+			return f64, nil
+		case '"':
+			bytes, err := stringBytes(s)
+			if err != nil {
+				return nil, err
+			}
+			return string(bytes), nil
+		case 't':
+			if err := trueBytes(s); err != nil {
+				return nil, err
+			}
+			return true, nil
+		case 'f':
+			if err := falseBytes(s); err != nil {
+				return nil, err
+			}
+			return false, nil
+		case 'n':
+			if err := nullBytes(s); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		case nul:
+			if s.read() {
+				continue
+			}
+			goto END
+		default:
+			return nil, errors.ErrInvalidCharacter(s.char(), "token", s.totalOffset())
+		}
+	}
+END:
+	return nil, io.EOF
+}
+
+func (s *Stream) reset() {
 	s.offset += s.cursor
 	s.buf = s.buf[s.cursor:]
 	s.length -= s.cursor
 	s.cursor = 0
 }
 
-func (s *stream) readBuf() []byte {
+func (s *Stream) readBuf() []byte {
 	if s.filledBuffer {
 		s.bufSize *= 2
 		remainBuf := s.buf
@@ -92,7 +197,7 @@ func (s *stream) readBuf() []byte {
 	return s.buf[s.cursor+remainNotNulCharNum:]
 }
 
-func (s *stream) read() bool {
+func (s *Stream) read() bool {
 	if s.allRead {
 		return false
 	}
@@ -114,7 +219,7 @@ func (s *stream) read() bool {
 	return true
 }
 
-func (s *stream) skipWhiteSpace() {
+func (s *Stream) skipWhiteSpace() {
 LOOP:
 	switch s.char() {
 	case ' ', '\n', '\t', '\r':
@@ -127,7 +232,7 @@ LOOP:
 	}
 }
 
-func (s *stream) skipObject(depth int64) error {
+func (s *Stream) skipObject(depth int64) error {
 	braceCount := 1
 	_, cursor, p := s.stat()
 	for {
@@ -136,7 +241,7 @@ func (s *stream) skipObject(depth int64) error {
 			braceCount++
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return errExceededMaxDepth(s.char(), s.cursor)
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 			}
 		case '}':
 			braceCount--
@@ -148,7 +253,7 @@ func (s *stream) skipObject(depth int64) error {
 		case '[':
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return errExceededMaxDepth(s.char(), s.cursor)
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 			}
 		case ']':
 			depth--
@@ -164,7 +269,7 @@ func (s *stream) skipObject(depth int64) error {
 							_, cursor, p = s.statForRetry()
 							continue
 						}
-						return errUnexpectedEndOfJSON("string of object", cursor)
+						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 					}
 				case '"':
 					goto SWITCH_OUT
@@ -174,7 +279,7 @@ func (s *stream) skipObject(depth int64) error {
 						_, cursor, p = s.statForRetry()
 						continue
 					}
-					return errUnexpectedEndOfJSON("string of object", cursor)
+					return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 				}
 			}
 		case nul:
@@ -183,14 +288,14 @@ func (s *stream) skipObject(depth int64) error {
 				_, cursor, p = s.stat()
 				continue
 			}
-			return errUnexpectedEndOfJSON("object of object", cursor)
+			return errors.ErrUnexpectedEndOfJSON("object of object", cursor)
 		}
 	SWITCH_OUT:
 		cursor++
 	}
 }
 
-func (s *stream) skipArray(depth int64) error {
+func (s *Stream) skipArray(depth int64) error {
 	bracketCount := 1
 	_, cursor, p := s.stat()
 	for {
@@ -199,7 +304,7 @@ func (s *stream) skipArray(depth int64) error {
 			bracketCount++
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return errExceededMaxDepth(s.char(), s.cursor)
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 			}
 		case ']':
 			bracketCount--
@@ -211,7 +316,7 @@ func (s *stream) skipArray(depth int64) error {
 		case '{':
 			depth++
 			if depth > maxDecodeNestingDepth {
-				return errExceededMaxDepth(s.char(), s.cursor)
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 			}
 		case '}':
 			depth--
@@ -227,7 +332,7 @@ func (s *stream) skipArray(depth int64) error {
 							_, cursor, p = s.statForRetry()
 							continue
 						}
-						return errUnexpectedEndOfJSON("string of object", cursor)
+						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 					}
 				case '"':
 					goto SWITCH_OUT
@@ -237,7 +342,7 @@ func (s *stream) skipArray(depth int64) error {
 						_, cursor, p = s.statForRetry()
 						continue
 					}
-					return errUnexpectedEndOfJSON("string of object", cursor)
+					return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
 				}
 			}
 		case nul:
@@ -246,14 +351,14 @@ func (s *stream) skipArray(depth int64) error {
 				_, cursor, p = s.stat()
 				continue
 			}
-			return errUnexpectedEndOfJSON("array of object", cursor)
+			return errors.ErrUnexpectedEndOfJSON("array of object", cursor)
 		}
 	SWITCH_OUT:
 		cursor++
 	}
 }
 
-func (s *stream) skipValue(depth int64) error {
+func (s *Stream) skipValue(depth int64) error {
 	_, cursor, p := s.stat()
 	for {
 		switch char(p, cursor) {
@@ -266,7 +371,7 @@ func (s *stream) skipValue(depth int64) error {
 				_, cursor, p = s.stat()
 				continue
 			}
-			return errUnexpectedEndOfJSON("value of object", s.totalOffset())
+			return errors.ErrUnexpectedEndOfJSON("value of object", s.totalOffset())
 		case '{':
 			s.cursor = cursor + 1
 			return s.skipObject(depth + 1)
@@ -285,7 +390,7 @@ func (s *stream) skipValue(depth int64) error {
 							_, cursor, p = s.statForRetry()
 							continue
 						}
-						return errUnexpectedEndOfJSON("value of string", s.totalOffset())
+						return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())
 					}
 				case '"':
 					s.cursor = cursor + 1
@@ -296,7 +401,7 @@ func (s *stream) skipValue(depth int64) error {
 						_, cursor, p = s.statForRetry()
 						continue
 					}
-					return errUnexpectedEndOfJSON("value of string", s.totalOffset())
+					return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())
 				}
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
@@ -338,7 +443,7 @@ func (s *stream) skipValue(depth int64) error {
 	}
 }
 
-func nullBytes(s *stream) error {
+func nullBytes(s *Stream) error {
 	// current cursor's character is 'n'
 	s.cursor++
 	if s.char() != 'u' {
@@ -362,14 +467,14 @@ func nullBytes(s *stream) error {
 	return nil
 }
 
-func retryReadNull(s *stream) error {
+func retryReadNull(s *Stream) error {
 	if s.char() == nul && s.read() {
 		return nil
 	}
-	return errInvalidCharacter(s.char(), "null", s.totalOffset())
+	return errors.ErrInvalidCharacter(s.char(), "null", s.totalOffset())
 }
 
-func trueBytes(s *stream) error {
+func trueBytes(s *Stream) error {
 	// current cursor's character is 't'
 	s.cursor++
 	if s.char() != 'r' {
@@ -393,14 +498,14 @@ func trueBytes(s *stream) error {
 	return nil
 }
 
-func retryReadTrue(s *stream) error {
+func retryReadTrue(s *Stream) error {
 	if s.char() == nul && s.read() {
 		return nil
 	}
-	return errInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
+	return errors.ErrInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 }
 
-func falseBytes(s *stream) error {
+func falseBytes(s *Stream) error {
 	// current cursor's character is 'f'
 	s.cursor++
 	if s.char() != 'a' {
@@ -430,9 +535,9 @@ func falseBytes(s *stream) error {
 	return nil
 }
 
-func retryReadFalse(s *stream) error {
+func retryReadFalse(s *Stream) error {
 	if s.char() == nul && s.read() {
 		return nil
 	}
-	return errInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
+	return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 }

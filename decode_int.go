@@ -79,6 +79,10 @@ var (
 	}
 )
 
+var (
+	numZeroBuf = []byte{'0'}
+)
+
 func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 	for {
 		switch s.char() {
@@ -106,7 +110,7 @@ func (d *intDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			return num, nil
 		case '0':
 			s.cursor++
-			return []byte{'0'}, nil
+			return numZeroBuf, nil
 		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
 			for {
@@ -150,7 +154,7 @@ func (d *intDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error)
 			continue
 		case '0':
 			cursor++
-			return []byte{'0'}, cursor, nil
+			return numZeroBuf, cursor, nil
 		case '-', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++

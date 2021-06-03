@@ -62,7 +62,7 @@ func (d *uintDecoder) decodeStreamByte(s *stream) ([]byte, error) {
 			continue
 		case '0':
 			s.cursor++
-			return []byte{'0'}, nil
+			return numZeroBuf, nil
 		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := s.cursor
 			for {
@@ -104,7 +104,7 @@ func (d *uintDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error
 			continue
 		case '0':
 			cursor++
-			return []byte{'0'}, cursor, nil
+			return numZeroBuf, cursor, nil
 		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			start := cursor
 			cursor++

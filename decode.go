@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
+	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -72,7 +73,7 @@ func validateEndBuf(src []byte, cursor int64) error {
 		case nul:
 			return nil
 		}
-		return errSyntax(
+		return errors.ErrSyntax(
 			fmt.Sprintf("invalid character '%c' after top-level value", src[cursor]),
 			cursor+1,
 		)

@@ -680,7 +680,8 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	}
 }
 
-func (d *structDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {
 		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
@@ -722,7 +723,7 @@ func (d *structDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer
 			if field.err != nil {
 				return 0, field.err
 			}
-			c, err := field.dec.Decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+			c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
 			if err != nil {
 				return 0, err
 			}

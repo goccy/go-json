@@ -135,7 +135,8 @@ func (d *floatDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 	return nil
 }
 
-func (d *floatDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

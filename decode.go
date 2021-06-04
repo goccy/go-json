@@ -37,14 +37,21 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	if err != nil {
 		return err
 	}
-	cursor, err := dec.Decode(src, 0, 0, header.ptr)
+	ctx := decoder.TakeRuntimeContext()
+	ctx.Buf = src
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
+	decoder.ReleaseRuntimeContext(ctx)
 	return validateEndBuf(src, cursor)
 }
 
-func unmarshalNoEscape(data []byte, v interface{}) error {
+func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 
@@ -57,10 +64,18 @@ func unmarshalNoEscape(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	cursor, err := dec.Decode(src, 0, 0, noescape(header.ptr))
+
+	ctx := decoder.TakeRuntimeContext()
+	ctx.Buf = src
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+	cursor, err := dec.Decode(ctx, 0, 0, noescape(header.ptr))
 	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
+	decoder.ReleaseRuntimeContext(ctx)
 	return validateEndBuf(src, cursor)
 }
 

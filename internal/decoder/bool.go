@@ -49,7 +49,8 @@ ERROR:
 	return errors.ErrUnexpectedEndOfJSON("bool", s.totalOffset())
 }
 
-func (d *boolDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *boolDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case 't':

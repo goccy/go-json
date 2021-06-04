@@ -37,8 +37,8 @@ func (d *numberDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	return nil
 }
 
-func (d *numberDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeByte(buf, cursor)
+func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	bytes, c, err := d.decodeByte(ctx.Buf, cursor)
 	if err != nil {
 		return 0, err
 	}

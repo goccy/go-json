@@ -90,7 +90,8 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 	}
 }
 
-func (d *mapDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {
 		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
@@ -126,7 +127,7 @@ func (d *mapDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (
 	}
 	for {
 		k := unsafe_New(d.keyType)
-		keyCursor, err := d.keyDecoder.Decode(buf, cursor, depth, k)
+		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
 			return 0, err
 		}
@@ -136,7 +137,7 @@ func (d *mapDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (
 		}
 		cursor++
 		v := unsafe_New(d.valueType)
-		valueCursor, err := d.valueDecoder.Decode(buf, cursor, depth, v)
+		valueCursor, err := d.valueDecoder.Decode(ctx, cursor, depth, v)
 		if err != nil {
 			return 0, err
 		}

@@ -24,7 +24,7 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
-func unmarshal(data []byte, v interface{}) error {
+func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 

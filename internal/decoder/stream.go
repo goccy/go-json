@@ -31,7 +31,7 @@ func NewStream(r io.Reader) *Stream {
 	return &Stream{
 		r:       r,
 		bufSize: initBufSize,
-		buf:     []byte{nul},
+		buf:     make([]byte, initBufSize),
 	}
 }
 

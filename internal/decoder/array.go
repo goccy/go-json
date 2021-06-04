@@ -58,8 +58,7 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					}
 				}
 				idx++
-				s.skipWhiteSpace()
-				switch s.char() {
+				switch s.skipWhiteSpace() {
 				case ']':
 					for idx < d.alen {
 						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue

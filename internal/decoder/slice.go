@@ -111,8 +111,7 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			return nil
 		case '[':
 			s.cursor++
-			s.skipWhiteSpace()
-			if s.char() == ']' {
+			if s.skipWhiteSpace() == ']' {
 				dst := (*sliceHeader)(p)
 				if dst.data == nil {
 					dst.data = newArray(d.elemType, 0)

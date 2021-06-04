@@ -176,9 +176,9 @@ func decodeTextUnmarshaler(buf []byte, cursor, depth int64, unmarshaler encoding
 }
 
 func (d *interfaceDecoder) decodeStreamEmptyInterface(s *Stream, depth int64, p unsafe.Pointer) error {
-	s.skipWhiteSpace()
+	c := s.skipWhiteSpace()
 	for {
-		switch s.char() {
+		switch c {
 		case '{':
 			var v map[string]interface{}
 			ptr := unsafe.Pointer(&v)
@@ -239,6 +239,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *Stream, depth int64, p 
 			return nil
 		case nul:
 			if s.read() {
+				c = s.char()
 				continue
 			}
 		}
@@ -265,8 +266,7 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
 			return decodeStreamTextUnmarshaler(s, depth, u, p)
 		}
-		s.skipWhiteSpace()
-		if s.char() == 'n' {
+		if s.skipWhiteSpace() == 'n' {
 			if err := nullBytes(s); err != nil {
 				return err
 			}
@@ -285,8 +285,7 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
 		return d.decodeStreamEmptyInterface(s, depth, p)
 	}
-	s.skipWhiteSpace()
-	if s.char() == 'n' {
+	if s.skipWhiteSpace() == 'n' {
 		if err := nullBytes(s); err != nil {
 			return err
 		}

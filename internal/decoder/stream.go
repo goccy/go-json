@@ -90,6 +90,10 @@ func (s *Stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
+func (s *Stream) bufptr() unsafe.Pointer {
+	return (*sliceHeader)(unsafe.Pointer(&s.buf)).data
+}
+
 func (s *Stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
 	s.cursor-- // for retry ( because caller progress cursor position in each loop )
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
@@ -219,17 +223,21 @@ func (s *Stream) read() bool {
 	return true
 }
 
-func (s *Stream) skipWhiteSpace() {
+func (s *Stream) skipWhiteSpace() byte {
+	p := s.bufptr()
 LOOP:
-	switch s.char() {
+	c := char(p, s.cursor)
+	switch c {
 	case ' ', '\n', '\t', '\r':
 		s.cursor++
 		goto LOOP
 	case nul:
 		if s.read() {
+			p = s.bufptr()
 			goto LOOP
 		}
 	}
+	return c
 }
 
 func (s *Stream) skipObject(depth int64) error {

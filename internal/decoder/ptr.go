@@ -35,8 +35,7 @@ func (d *ptrDecoder) contentDecoder() Decoder {
 func unsafe_New(*runtime.Type) unsafe.Pointer
 
 func (d *ptrDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	s.skipWhiteSpace()
-	if s.char() == nul {
+	if s.skipWhiteSpace() == nul {
 		s.read()
 	}
 	if s.char() == 'n' {

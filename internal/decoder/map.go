@@ -42,8 +42,7 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 		return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 	}
 
-	s.skipWhiteSpace()
-	switch s.char() {
+	switch s.skipWhiteSpace() {
 	case 'n':
 		if err := nullBytes(s); err != nil {
 			return err
@@ -54,7 +53,6 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 	default:
 		return errors.ErrExpected("{ character for map value", s.totalOffset())
 	}
-	s.skipWhiteSpace()
 	mapValue := *(*unsafe.Pointer)(p)
 	if mapValue == nil {
 		mapValue = makemap(d.mapType, 0)

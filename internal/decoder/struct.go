@@ -627,23 +627,20 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 	}
 
-	s.skipWhiteSpace()
-	switch s.char() {
+	c := s.skipWhiteSpace()
+	switch c {
 	case 'n':
 		if err := nullBytes(s); err != nil {
 			return err
 		}
 		return nil
-	case nul:
-		s.read()
 	default:
 		if s.char() != '{' {
 			return errors.ErrNotAtBeginningOfValue(s.totalOffset())
 		}
 	}
 	s.cursor++
-	s.skipWhiteSpace()
-	if s.char() == '}' {
+	if s.skipWhiteSpace() == '}' {
 		s.cursor++
 		return nil
 	}
@@ -653,16 +650,10 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		if err != nil {
 			return err
 		}
-		s.skipWhiteSpace()
-		if s.char() != ':' {
+		if s.skipWhiteSpace() != ':' {
 			return errors.ErrExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
-		if s.char() == nul {
-			if !s.read() {
-				return errors.ErrExpected("object value after colon", s.totalOffset())
-			}
-		}
 		if field != nil {
 			if field.err != nil {
 				return field.err
@@ -677,8 +668,7 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 				return err
 			}
 		}
-		s.skipWhiteSpace()
-		c := s.char()
+		c := s.skipWhiteSpace()
 		if c == '}' {
 			s.cursor++
 			return nil

@@ -16,9 +16,9 @@ func newBoolDecoder(structName, fieldName string) *boolDecoder {
 }
 
 func (d *boolDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	s.skipWhiteSpace()
+	c := s.skipWhiteSpace()
 	for {
-		switch s.char() {
+		switch c {
 		case 't':
 			if err := trueBytes(s); err != nil {
 				return err
@@ -38,6 +38,7 @@ func (d *boolDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) err
 			return nil
 		case nul:
 			if s.read() {
+				c = s.char()
 				continue
 			}
 			goto ERROR

@@ -17,22 +17,24 @@ type structFieldSet struct {
 	dec         Decoder
 	offset      uintptr
 	isTaggedKey bool
+	fieldIdx    int
 	key         string
 	keyLen      int64
 	err         error
 }
 
 type structDecoder struct {
-	fieldMap         map[string]*structFieldSet
-	stringDecoder    *stringDecoder
-	structName       string
-	fieldName        string
-	isTriedOptimize  bool
-	keyBitmapUint8   [][256]uint8
-	keyBitmapUint16  [][256]uint16
-	sortedFieldSets  []*structFieldSet
-	keyDecoder       func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
-	keyStreamDecoder func(*structDecoder, *Stream) (*structFieldSet, string, error)
+	fieldMap           map[string]*structFieldSet
+	fieldUniqueNameNum int
+	stringDecoder      *stringDecoder
+	structName         string
+	fieldName          string
+	isTriedOptimize    bool
+	keyBitmapUint8     [][256]uint8
+	keyBitmapUint16    [][256]uint16
+	sortedFieldSets    []*structFieldSet
+	keyDecoder         func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
+	keyStreamDecoder   func(*structDecoder, *Stream) (*structFieldSet, string, error)
 }
 
 var (
@@ -66,6 +68,21 @@ const (
 )
 
 func (d *structDecoder) tryOptimize() {
+	fieldUniqueNameMap := map[string]int{}
+	fieldIdx := -1
+	for k, v := range d.fieldMap {
+		lower := strings.ToLower(k)
+		idx, exists := fieldUniqueNameMap[lower]
+		if exists {
+			v.fieldIdx = idx
+		} else {
+			fieldIdx++
+			v.fieldIdx = fieldIdx
+		}
+		fieldUniqueNameMap[lower] = fieldIdx
+	}
+	d.fieldUniqueNameNum = len(fieldUniqueNameMap)
+
 	if d.isTriedOptimize {
 		return
 	}
@@ -706,6 +723,14 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		cursor++
 		return cursor, nil
 	}
+	var (
+		seenFields   map[int]struct{}
+		seenFieldNum int
+	)
+	firstWin := ctx.Option.FirstWin
+	if firstWin {
+		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
+	}
 	for {
 		c, field, err := d.keyDecoder(d, buf, cursor)
 		if err != nil {
@@ -723,11 +748,32 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 			if field.err != nil {
 				return 0, field.err
 			}
-			c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
-			if err != nil {
-				return 0, err
+			if firstWin {
+				if _, exists := seenFields[field.fieldIdx]; exists {
+					c, err := skipValue(buf, cursor, depth)
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+				} else {
+					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+					seenFieldNum++
+					if d.fieldUniqueNameNum <= seenFieldNum {
+						return skipObject(buf, cursor, depth)
+					}
+					seenFields[field.fieldIdx] = struct{}{}
+				}
+			} else {
+				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
 			}
-			cursor = c
 		} else {
 			c, err := skipValue(buf, cursor, depth)
 			if err != nil {

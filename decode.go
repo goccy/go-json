@@ -39,6 +39,7 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	}
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
+	ctx.Option.FirstWin = false
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}
@@ -67,6 +68,7 @@ func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc)
 
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
+	ctx.Option.FirstWin = false
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}

@@ -58,8 +58,11 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		return c, nil
 	}
 	bytes = append(bytes, nul)
+	oldBuf := ctx.Buf
+	ctx.Buf = bytes
 	if _, err := d.dec.Decode(ctx, 0, depth, p); err != nil {
 		return 0, err
 	}
+	ctx.Buf = oldBuf
 	return c, nil
 }

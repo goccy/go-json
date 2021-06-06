@@ -1912,3 +1912,9 @@ func TestIssue235(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestEncodeMapKeyTypeInterface(t *testing.T) {
+	if _, err := json.Marshal(map[interface{}]interface{}{"a": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}

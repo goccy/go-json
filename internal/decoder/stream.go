@@ -25,6 +25,7 @@ type Stream struct {
 	allRead               bool
 	UseNumber             bool
 	DisallowUnknownFields bool
+	Option                *Option
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -32,6 +33,7 @@ func NewStream(r io.Reader) *Stream {
 		r:       r,
 		bufSize: initBufSize,
 		buf:     make([]byte, initBufSize),
+		Option:  &Option{},
 	}
 }
 

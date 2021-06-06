@@ -661,6 +661,14 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		s.cursor++
 		return nil
 	}
+	var (
+		seenFields   map[int]struct{}
+		seenFieldNum int
+	)
+	firstWin := (s.Option.Flag & FirstWinOption) != 0
+	if firstWin {
+		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
+	}
 	for {
 		s.reset()
 		field, key, err := d.keyStreamDecoder(d, s)
@@ -675,8 +683,25 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 			if field.err != nil {
 				return field.err
 			}
-			if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
-				return err
+			if firstWin {
+				if _, exists := seenFields[field.fieldIdx]; exists {
+					if err := s.skipValue(depth); err != nil {
+						return err
+					}
+				} else {
+					if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+						return err
+					}
+					seenFieldNum++
+					if d.fieldUniqueNameNum <= seenFieldNum {
+						return s.skipObject(depth)
+					}
+					seenFields[field.fieldIdx] = struct{}{}
+				}
+			} else {
+				if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+					return err
+				}
 			}
 		} else if s.DisallowUnknownFields {
 			return fmt.Errorf("json: unknown field %q", key)

@@ -462,3 +462,18 @@ func Benchmark_Decode_LargeStruct_Stream_GoJson(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Decode_LargeStruct_Stream_GoJsonFirstWinMode(b *testing.B) {
+	b.ReportAllocs()
+	reader := bytes.NewReader(LargeFixture)
+	for i := 0; i < b.N; i++ {
+		result := LargePayload{}
+		reader.Reset(LargeFixture)
+		if err := gojson.NewDecoder(reader).DecodeWithOption(
+			&result,
+			gojson.DecodeFieldPriorityFirstWin(),
+		); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

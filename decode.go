@@ -134,6 +134,10 @@ func (d *Decoder) Buffered() io.Reader {
 // See the documentation for Unmarshal for details about
 // the conversion of JSON into a Go value.
 func (d *Decoder) Decode(v interface{}) error {
+	return d.DecodeWithOption(v)
+}
+
+func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) error {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 	ptr := uintptr(header.ptr)
@@ -153,6 +157,9 @@ func (d *Decoder) Decode(v interface{}) error {
 		return err
 	}
 	s := d.s
+	for _, optFunc := range optFuncs {
+		optFunc(s.Option)
+	}
 	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
 		return err
 	}

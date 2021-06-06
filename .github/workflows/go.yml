@@ -24,13 +24,13 @@ jobs:
     - name: checkout
       uses: actions/checkout@v2
     - name: simple test
-      run: go test -v ./ -count=1
+      run: go test -v ./... -count=1
     - name: test with GC pressure
-      run: go test -v ./ -count=1
+      run: go test -v ./... -count=1
       env:
         GOGC: 1
     - name: test with race detector
-      run: go test -v -race ./ -count=1
+      run: go test -v -race ./... -count=1
   bench:
     name: Benchmark
     runs-on: ubuntu-latest

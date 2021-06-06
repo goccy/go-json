@@ -14,7 +14,7 @@ $(BIN_DIR):
 
 .PHONY: cover
 cover:
-	go test -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out .
+	go test -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out ./...
 
 .PHONY: cover-html
 cover-html: cover

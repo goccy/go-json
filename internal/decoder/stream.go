@@ -198,6 +198,7 @@ func (s *Stream) readBuf() []byte {
 		}
 		remainNotNulCharNum++
 	}
+	s.length = s.cursor + remainNotNulCharNum
 	return s.buf[s.cursor+remainNotNulCharNum:]
 }
 
@@ -209,7 +210,7 @@ func (s *Stream) read() bool {
 	last := len(buf) - 1
 	buf[last] = nul
 	n, err := s.r.Read(buf[:last])
-	s.length = s.cursor + int64(n)
+	s.length += int64(n)
 	if n == last {
 		s.filledBuffer = true
 	} else {

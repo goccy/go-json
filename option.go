@@ -32,6 +32,6 @@ type DecodeOptionFunc func(*DecodeOption)
 
 func DecodeFieldPriorityFirstWin() DecodeOptionFunc {
 	return func(opt *DecodeOption) {
-		opt.FirstWin = true
+		opt.Flag |= decoder.FirstWinOption
 	}
 }

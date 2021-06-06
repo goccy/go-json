@@ -727,7 +727,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		seenFields   map[int]struct{}
 		seenFieldNum int
 	)
-	firstWin := ctx.Option.FirstWin
+	firstWin := (ctx.Option.Flag & FirstWinOption) != 0
 	if firstWin {
 		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
 	}

@@ -486,8 +486,6 @@ func compileKey(ctx *compileContext) (*Opcode, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return compilePtr(ctx)
-	case reflect.Interface:
-		return compileInterface(ctx)
 	case reflect.String:
 		return compileString(ctx)
 	case reflect.Int:

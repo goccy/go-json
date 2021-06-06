@@ -8,7 +8,7 @@ import (
 )
 
 type Decoder interface {
-	Decode([]byte, int64, int64, unsafe.Pointer) (int64, error)
+	Decode(*RuntimeContext, int64, int64, unsafe.Pointer) (int64, error)
 	DecodeStream(*Stream, int64, unsafe.Pointer) error
 }
 

@@ -91,7 +91,8 @@ func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 	return nil
 }
 
-func (d *unmarshalTextDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)

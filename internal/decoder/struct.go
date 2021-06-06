@@ -17,22 +17,24 @@ type structFieldSet struct {
 	dec         Decoder
 	offset      uintptr
 	isTaggedKey bool
+	fieldIdx    int
 	key         string
 	keyLen      int64
 	err         error
 }
 
 type structDecoder struct {
-	fieldMap         map[string]*structFieldSet
-	stringDecoder    *stringDecoder
-	structName       string
-	fieldName        string
-	isTriedOptimize  bool
-	keyBitmapUint8   [][256]uint8
-	keyBitmapUint16  [][256]uint16
-	sortedFieldSets  []*structFieldSet
-	keyDecoder       func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
-	keyStreamDecoder func(*structDecoder, *Stream) (*structFieldSet, string, error)
+	fieldMap           map[string]*structFieldSet
+	fieldUniqueNameNum int
+	stringDecoder      *stringDecoder
+	structName         string
+	fieldName          string
+	isTriedOptimize    bool
+	keyBitmapUint8     [][256]uint8
+	keyBitmapUint16    [][256]uint16
+	sortedFieldSets    []*structFieldSet
+	keyDecoder         func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
+	keyStreamDecoder   func(*structDecoder, *Stream) (*structFieldSet, string, error)
 }
 
 var (
@@ -66,6 +68,21 @@ const (
 )
 
 func (d *structDecoder) tryOptimize() {
+	fieldUniqueNameMap := map[string]int{}
+	fieldIdx := -1
+	for k, v := range d.fieldMap {
+		lower := strings.ToLower(k)
+		idx, exists := fieldUniqueNameMap[lower]
+		if exists {
+			v.fieldIdx = idx
+		} else {
+			fieldIdx++
+			v.fieldIdx = fieldIdx
+		}
+		fieldUniqueNameMap[lower] = fieldIdx
+	}
+	d.fieldUniqueNameNum = len(fieldUniqueNameMap)
+
 	if d.isTriedOptimize {
 		return
 	}
@@ -627,25 +644,30 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		return errors.ErrExceededMaxDepth(s.char(), s.cursor)
 	}
 
-	s.skipWhiteSpace()
-	switch s.char() {
+	c := s.skipWhiteSpace()
+	switch c {
 	case 'n':
 		if err := nullBytes(s); err != nil {
 			return err
 		}
 		return nil
-	case nul:
-		s.read()
 	default:
 		if s.char() != '{' {
 			return errors.ErrNotAtBeginningOfValue(s.totalOffset())
 		}
 	}
 	s.cursor++
-	s.skipWhiteSpace()
-	if s.char() == '}' {
+	if s.skipWhiteSpace() == '}' {
 		s.cursor++
 		return nil
+	}
+	var (
+		seenFields   map[int]struct{}
+		seenFieldNum int
+	)
+	firstWin := (s.Option.Flag & FirstWinOption) != 0
+	if firstWin {
+		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
 	}
 	for {
 		s.reset()
@@ -653,22 +675,33 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		if err != nil {
 			return err
 		}
-		s.skipWhiteSpace()
-		if s.char() != ':' {
+		if s.skipWhiteSpace() != ':' {
 			return errors.ErrExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
-		if s.char() == nul {
-			if !s.read() {
-				return errors.ErrExpected("object value after colon", s.totalOffset())
-			}
-		}
 		if field != nil {
 			if field.err != nil {
 				return field.err
 			}
-			if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
-				return err
+			if firstWin {
+				if _, exists := seenFields[field.fieldIdx]; exists {
+					if err := s.skipValue(depth); err != nil {
+						return err
+					}
+				} else {
+					if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+						return err
+					}
+					seenFieldNum++
+					if d.fieldUniqueNameNum <= seenFieldNum {
+						return s.skipObject(depth)
+					}
+					seenFields[field.fieldIdx] = struct{}{}
+				}
+			} else {
+				if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+					return err
+				}
 			}
 		} else if s.DisallowUnknownFields {
 			return fmt.Errorf("json: unknown field %q", key)
@@ -677,8 +710,7 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 				return err
 			}
 		}
-		s.skipWhiteSpace()
-		c := s.char()
+		c := s.skipWhiteSpace()
 		if c == '}' {
 			s.cursor++
 			return nil
@@ -690,7 +722,8 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	}
 }
 
-func (d *structDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {
 		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
@@ -715,6 +748,14 @@ func (d *structDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer
 		cursor++
 		return cursor, nil
 	}
+	var (
+		seenFields   map[int]struct{}
+		seenFieldNum int
+	)
+	firstWin := (ctx.Option.Flag & FirstWinOption) != 0
+	if firstWin {
+		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
+	}
 	for {
 		c, field, err := d.keyDecoder(d, buf, cursor)
 		if err != nil {
@@ -732,11 +773,32 @@ func (d *structDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer
 			if field.err != nil {
 				return 0, field.err
 			}
-			c, err := field.dec.Decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
-			if err != nil {
-				return 0, err
+			if firstWin {
+				if _, exists := seenFields[field.fieldIdx]; exists {
+					c, err := skipValue(buf, cursor, depth)
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+				} else {
+					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+					if err != nil {
+						return 0, err
+					}
+					cursor = c
+					seenFieldNum++
+					if d.fieldUniqueNameNum <= seenFieldNum {
+						return skipObject(buf, cursor, depth)
+					}
+					seenFields[field.fieldIdx] = struct{}{}
+				}
+			} else {
+				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
 			}
-			cursor = c
 		} else {
 			c, err := skipValue(buf, cursor, depth)
 			if err != nil {

@@ -375,6 +375,34 @@ func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonNoEscape(b *testing.B) {
 	}
 }
 
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonFirstWinMode(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := LargePayload{}
+		if err := gojson.UnmarshalWithOption(
+			LargeFixture,
+			&result,
+			gojson.DecodeFieldPriorityFirstWin(),
+		); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonNoEscapeFirstWinMode(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := LargePayload{}
+		if err := gojson.UnmarshalNoEscape(
+			LargeFixture,
+			&result,
+			gojson.DecodeFieldPriorityFirstWin(),
+		); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Decode_LargeStruct_Stream_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	reader := bytes.NewReader(LargeFixture)
@@ -430,6 +458,21 @@ func Benchmark_Decode_LargeStruct_Stream_GoJson(b *testing.B) {
 		result := LargePayload{}
 		reader.Reset(LargeFixture)
 		if err := gojson.NewDecoder(reader).Decode(&result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_LargeStruct_Stream_GoJsonFirstWinMode(b *testing.B) {
+	b.ReportAllocs()
+	reader := bytes.NewReader(LargeFixture)
+	for i := 0; i < b.N; i++ {
+		result := LargePayload{}
+		reader.Reset(LargeFixture)
+		if err := gojson.NewDecoder(reader).DecodeWithOption(
+			&result,
+			gojson.DecodeFieldPriorityFirstWin(),
+		); err != nil {
 			b.Fatal(err)
 		}
 	}

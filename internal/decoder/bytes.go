@@ -57,8 +57,8 @@ func (d *bytesDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 	return nil
 }
 
-func (d *bytesDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeBinary(buf, cursor, depth, p)
+func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	bytes, c, err := d.decodeBinary(ctx, cursor, depth, p)
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +131,8 @@ func (d *bytesDecoder) decodeStreamBinary(s *Stream, depth int64, p unsafe.Point
 	return nil, errors.ErrNotAtBeginningOfValue(s.totalOffset())
 }
 
-func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Pointer) ([]byte, int64, error) {
+func (d *bytesDecoder) decodeBinary(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) ([]byte, int64, error) {
+	buf := ctx.Buf
 	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -157,7 +158,7 @@ func (d *bytesDecoder) decodeBinary(buf []byte, cursor, depth int64, p unsafe.Po
 					Offset: cursor,
 				}
 			}
-			c, err := d.sliceDecoder.Decode(buf, cursor, depth, p)
+			c, err := d.sliceDecoder.Decode(ctx, cursor, depth, p)
 			if err != nil {
 				return nil, 0, err
 			}

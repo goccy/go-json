@@ -25,13 +25,15 @@ type Stream struct {
 	allRead               bool
 	UseNumber             bool
 	DisallowUnknownFields bool
+	Option                *Option
 }
 
 func NewStream(r io.Reader) *Stream {
 	return &Stream{
 		r:       r,
 		bufSize: initBufSize,
-		buf:     []byte{nul},
+		buf:     make([]byte, initBufSize),
+		Option:  &Option{},
 	}
 }
 
@@ -88,6 +90,10 @@ func (s *Stream) equalChar(c byte) bool {
 
 func (s *Stream) stat() ([]byte, int64, unsafe.Pointer) {
 	return s.buf, s.cursor, (*sliceHeader)(unsafe.Pointer(&s.buf)).data
+}
+
+func (s *Stream) bufptr() unsafe.Pointer {
+	return (*sliceHeader)(unsafe.Pointer(&s.buf)).data
 }
 
 func (s *Stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
@@ -194,6 +200,7 @@ func (s *Stream) readBuf() []byte {
 		}
 		remainNotNulCharNum++
 	}
+	s.length = s.cursor + remainNotNulCharNum
 	return s.buf[s.cursor+remainNotNulCharNum:]
 }
 
@@ -205,7 +212,7 @@ func (s *Stream) read() bool {
 	last := len(buf) - 1
 	buf[last] = nul
 	n, err := s.r.Read(buf[:last])
-	s.length = s.cursor + int64(n)
+	s.length += int64(n)
 	if n == last {
 		s.filledBuffer = true
 	} else {
@@ -219,17 +226,21 @@ func (s *Stream) read() bool {
 	return true
 }
 
-func (s *Stream) skipWhiteSpace() {
+func (s *Stream) skipWhiteSpace() byte {
+	p := s.bufptr()
 LOOP:
-	switch s.char() {
+	c := char(p, s.cursor)
+	switch c {
 	case ' ', '\n', '\t', '\r':
 		s.cursor++
 		goto LOOP
 	case nul:
 		if s.read() {
+			p = s.bufptr()
 			goto LOOP
 		}
 	}
+	return c
 }
 
 func (s *Stream) skipObject(depth int64) error {

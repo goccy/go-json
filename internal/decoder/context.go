@@ -1,10 +1,34 @@
 package decoder
 
 import (
+	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
 )
+
+type RuntimeContext struct {
+	Buf    []byte
+	Option *Option
+}
+
+var (
+	runtimeContextPool = sync.Pool{
+		New: func() interface{} {
+			return &RuntimeContext{
+				Option: &Option{},
+			}
+		},
+	}
+)
+
+func TakeRuntimeContext() *RuntimeContext {
+	return runtimeContextPool.Get().(*RuntimeContext)
+}
+
+func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	runtimeContextPool.Put(ctx)
+}
 
 var (
 	isWhiteSpace = [256]bool{}

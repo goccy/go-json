@@ -58,8 +58,7 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					}
 				}
 				idx++
-				s.skipWhiteSpace()
-				switch s.char() {
+				switch s.skipWhiteSpace() {
 				case ']':
 					for idx < d.alen {
 						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
@@ -92,7 +91,8 @@ ERROR:
 	return errors.ErrUnexpectedEndOfJSON("array", s.totalOffset())
 }
 
-func (d *arrayDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {
 		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
@@ -114,7 +114,7 @@ func (d *arrayDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 			for {
 				cursor++
 				if idx < d.alen {
-					c, err := d.valueDecoder.Decode(buf, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
+					c, err := d.valueDecoder.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
 					if err != nil {
 						return 0, err
 					}

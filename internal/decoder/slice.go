@@ -111,8 +111,7 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			return nil
 		case '[':
 			s.cursor++
-			s.skipWhiteSpace()
-			if s.char() == ']' {
+			if s.skipWhiteSpace() == ']' {
 				dst := (*sliceHeader)(p)
 				if dst.data == nil {
 					dst.data = newArray(d.elemType, 0)
@@ -200,7 +199,8 @@ ERROR:
 	return errors.ErrUnexpectedEndOfJSON("slice", s.totalOffset())
 }
 
-func (d *sliceDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {
 		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
@@ -254,7 +254,7 @@ func (d *sliceDecoder) Decode(buf []byte, cursor, depth int64, p unsafe.Pointer)
 						typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
 					}
 				}
-				c, err := d.valueDecoder.Decode(buf, cursor, depth, ep)
+				c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
 				if err != nil {
 					return 0, err
 				}

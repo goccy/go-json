@@ -203,7 +203,7 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *Stream, depth int64, p 
 			for {
 				switch s.char() {
 				case '\\':
-					if err := decodeEscapeString(s); err != nil {
+					if _, err := decodeEscapeString(s, nil); err != nil {
 						return err
 					}
 				case '"':

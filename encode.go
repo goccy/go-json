@@ -125,7 +125,6 @@ func marshalNoEscape(v interface{}) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 
 	ctx.Option.Flag = 0
-	ctx.Option.Flag |= encoder.HTMLEscapeOption
 
 	buf, err := encodeNoEscape(ctx, v)
 	if err != nil {

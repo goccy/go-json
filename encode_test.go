@@ -1918,3 +1918,17 @@ func TestEncodeMapKeyTypeInterface(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestIssue245(t *testing.T) {
+	data, err := json.Marshal("<html>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "escape", `"\u003chtml\u003e"`, string(data))
+
+	data, err = json.MarshalNoEscape("<html>")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "noescape", `"<html>"`, string(data))
+}

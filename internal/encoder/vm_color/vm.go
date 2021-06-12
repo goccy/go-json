@@ -484,7 +484,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			oldOffset := ptrOffset
 			ptrOffset += code.Jmp.CurLen * uintptrSize
 			oldBaseIndent := ctx.BaseIndent
-			ctx.BaseIndent += code.Indent - 1
+			indentDiffFromTop := c.Indent - 1
+			ctx.BaseIndent += code.Indent - indentDiffFromTop
 
 			newLen := offsetNum + code.Jmp.CurLen + code.Jmp.NextLen
 			if curlen < newLen {

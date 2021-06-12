@@ -269,8 +269,8 @@ func linkRecursiveCode(c *Opcode) {
 			lastCode.Length = lastCode.Idx + 2*uintptrSize
 
 			// extend length to alloc slot for elemIdx + length
-			totalLength := uintptr(code.TotalLength() + 2)
-			nextTotalLength := uintptr(c.TotalLength() + 2)
+			totalLength := uintptr(code.TotalLength() + 3)
+			nextTotalLength := uintptr(c.TotalLength() + 3)
 
 			c.End.Next.Op = OpRecursiveEnd
 

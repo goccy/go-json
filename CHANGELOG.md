@@ -1,3 +1,40 @@
+# v0.7.0 - 2021/06/12
+
+### Support context for MarshalJSON and UnmarshalJSON ( #248 )
+
+* json.MarshalContext(context.Context, interface{}, ...json.EncodeOption) ([]byte, error)
+* json.NewEncoder(io.Writer).EncodeContext(context.Context, interface{}, ...json.EncodeOption) error
+* json.UnmarshalContext(context.Context, []byte, interface{}, ...json.DecodeOption) error
+* json.NewDecoder(io.Reader).DecodeContext(context.Context, interface{}) error
+
+```go
+type MarshalerContext interface {
+  MarshalJSON(context.Context) ([]byte, error)
+}
+
+type UnmarshalerContext interface {
+  UnmarshalJSON(context.Context, []byte) error
+}
+```
+
+### Add DecodeFieldPriorityFirstWin option ( #242 )
+
+In the default behavior, go-json, like encoding/json, will reflect the result of the last evaluation when a field with the same name exists. I've added new options to allow you to change this behavior. `json.DecodeFieldPriorityFirstWin` option reflects the result of the first evaluation if a field with the same name exists. This behavior has a performance advantage as it allows the subsequent strings to be skipped if all fields have been evaluated.
+
+### Fix encoder
+
+* Fix indent number contains recursive type ( #249 )
+* Fix encoding of using empty interface as map key ( #244 )
+
+### Fix decoder
+
+* Fix decoding fields containing escaped characters ( #237 )
+
+### Refactor
+
+* Move some tests to subdirectory ( #243 )
+* Refactor package layout for decoder ( #238 )
+
 # v0.6.1 - 2021/06/02
 
 ### Fix encoder

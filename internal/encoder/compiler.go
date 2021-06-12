@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"context"
 	"encoding"
 	"encoding/json"
 	"fmt"
@@ -13,13 +14,18 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+type marshalerContext interface {
+	MarshalJSON(context.Context) ([]byte, error)
+}
+
 var (
-	marshalJSONType  = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
-	marshalTextType  = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
-	jsonNumberType   = reflect.TypeOf(json.Number(""))
-	cachedOpcodeSets []*OpcodeSet
-	cachedOpcodeMap  unsafe.Pointer // map[uintptr]*OpcodeSet
-	typeAddr         *runtime.TypeAddr
+	marshalJSONType        = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
+	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
+	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	jsonNumberType         = reflect.TypeOf(json.Number(""))
+	cachedOpcodeSets       []*OpcodeSet
+	cachedOpcodeMap        unsafe.Pointer // map[uintptr]*OpcodeSet
+	typeAddr               *runtime.TypeAddr
 )
 
 func init() {
@@ -110,7 +116,7 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
 			p := runtime.PtrTo(elem)
-			if !p.Implements(marshalJSONType) && !p.Implements(marshalTextType) {
+			if !implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
 				if isPtr {
 					return compileBytesPtr(ctx)
 				}
@@ -340,14 +346,14 @@ func optimizeStructEnd(c *Opcode) {
 }
 
 func implementsMarshalJSON(typ *runtime.Type) bool {
-	if !typ.Implements(marshalJSONType) {
+	if !implementsMarshalJSONType(typ) {
 		return false
 	}
 	if typ.Kind() != reflect.Ptr {
 		return true
 	}
 	// type kind is reflect.Ptr
-	if !typ.Elem().Implements(marshalJSONType) {
+	if !implementsMarshalJSONType(typ.Elem()) {
 		return true
 	}
 	// needs to dereference
@@ -384,7 +390,7 @@ func compile(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
 			p := runtime.PtrTo(elem)
-			if !p.Implements(marshalJSONType) && !p.Implements(marshalTextType) {
+			if !implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
 				return compileBytes(ctx)
 			}
 		}
@@ -527,8 +533,11 @@ func compilePtr(ctx *compileContext) (*Opcode, error) {
 func compileMarshalJSON(ctx *compileContext) (*Opcode, error) {
 	code := newOpCode(ctx, OpMarshalJSON)
 	typ := ctx.typ
-	if !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType) {
+	if isPtrMarshalJSONType(typ) {
 		code.Flags |= AddrForMarshalerFlags
+	}
+	if typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType) {
+		code.Flags |= MarshalerContextFlags
 	}
 	if isNilableType(typ) {
 		code.Flags |= IsNilableTypeFlags
@@ -920,7 +929,7 @@ func compileSlice(ctx *compileContext) (*Opcode, error) {
 func compileListElem(ctx *compileContext) (*Opcode, error) {
 	typ := ctx.typ
 	switch {
-	case !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType):
+	case isPtrMarshalJSONType(typ):
 		return compileMarshalJSON(ctx)
 	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
 		return compileMarshalText(ctx)
@@ -1534,8 +1543,12 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 	return ret, nil
 }
 
+func implementsMarshalJSONType(typ *runtime.Type) bool {
+	return typ.Implements(marshalJSONType) || typ.Implements(marshalJSONContextType)
+}
+
 func isPtrMarshalJSONType(typ *runtime.Type) bool {
-	return !typ.Implements(marshalJSONType) && runtime.PtrTo(typ).Implements(marshalJSONType)
+	return !implementsMarshalJSONType(typ) && implementsMarshalJSONType(runtime.PtrTo(typ))
 }
 
 func isPtrMarshalTextType(typ *runtime.Type) bool {

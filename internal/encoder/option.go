@@ -1,5 +1,7 @@
 package encoder
 
+import "context"
+
 type OptionFlag uint8
 
 const (
@@ -8,11 +10,13 @@ const (
 	UnorderedMapOption
 	DebugOption
 	ColorizeOption
+	ContextOption
 )
 
 type Option struct {
 	Flag        OptionFlag
 	ColorScheme *ColorScheme
+	Context     context.Context
 }
 
 type EncodeFormat struct {

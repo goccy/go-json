@@ -46,9 +46,16 @@ func (d *unmarshalJSONDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 		typ: d.typ,
 		ptr: p,
 	}))
-	if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
-		d.annotateError(s.cursor, err)
-		return err
+	if (s.Option.Flags & ContextOption) != 0 {
+		if err := v.(unmarshalerContext).UnmarshalJSON(s.Option.Context, dst); err != nil {
+			d.annotateError(s.cursor, err)
+			return err
+		}
+	} else {
+		if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
+			d.annotateError(s.cursor, err)
+			return err
+		}
 	}
 	return nil
 }
@@ -69,9 +76,16 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: d.typ,
 		ptr: p,
 	}))
-	if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
-		d.annotateError(cursor, err)
-		return 0, err
+	if (ctx.Option.Flags & ContextOption) != 0 {
+		if err := v.(unmarshalerContext).UnmarshalJSON(ctx.Option.Context, dst); err != nil {
+			d.annotateError(cursor, err)
+			return 0, err
+		}
+	} else {
+		if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
+			d.annotateError(cursor, err)
+			return 0, err
+		}
 	}
 	return end, nil
 }

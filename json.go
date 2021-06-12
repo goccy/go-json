@@ -2,6 +2,7 @@ package json
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -11,6 +12,12 @@ import (
 // can marshal themselves into valid JSON.
 type Marshaler interface {
 	MarshalJSON() ([]byte, error)
+}
+
+// MarshalerContext is the interface implemented by types that
+// can marshal themselves into valid JSON with context.Context.
+type MarshalerContext interface {
+	MarshalJSON(context.Context) ([]byte, error)
 }
 
 // Unmarshaler is the interface implemented by types
@@ -23,6 +30,12 @@ type Marshaler interface {
 // Unmarshalers implement UnmarshalJSON([]byte("null")) as a no-op.
 type Unmarshaler interface {
 	UnmarshalJSON([]byte) error
+}
+
+// UnmarshalerContext is the interface implemented by types
+// that can unmarshal with context.Context a JSON description of themselves.
+type UnmarshalerContext interface {
+	UnmarshalJSON(context.Context, []byte) error
 }
 
 // Marshal returns the JSON encoding of v.
@@ -158,9 +171,14 @@ func Marshal(v interface{}) ([]byte, error) {
 	return MarshalWithOption(v)
 }
 
-// MarshalNoEscape
+// MarshalNoEscape returns the JSON encoding of v and doesn't escape v.
 func MarshalNoEscape(v interface{}) ([]byte, error) {
 	return marshalNoEscape(v)
+}
+
+// MarshalContext returns the JSON encoding of v with context.Context and EncodeOption.
+func MarshalContext(ctx context.Context, v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	return marshalContext(ctx, v, optFuncs...)
 }
 
 // MarshalWithOption returns the JSON encoding of v with EncodeOption.
@@ -256,6 +274,13 @@ func MarshalIndentWithOption(v interface{}, prefix, indent string, optFuncs ...E
 //
 func Unmarshal(data []byte, v interface{}) error {
 	return unmarshal(data, v)
+}
+
+// UnmarshalContext parses the JSON-encoded data and stores the result
+// in the value pointed to by v. If you implement the UnmarshalerContext interface,
+// call it with ctx as an argument.
+func UnmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	return unmarshalContext(ctx, data, v)
 }
 
 func UnmarshalWithOption(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {

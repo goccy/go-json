@@ -117,6 +117,21 @@ func decodeStreamUnmarshaler(s *Stream, depth int64, unmarshaler json.Unmarshale
 	return nil
 }
 
+func decodeStreamUnmarshalerContext(s *Stream, depth int64, unmarshaler unmarshalerContext) error {
+	start := s.cursor
+	if err := s.skipValue(depth); err != nil {
+		return err
+	}
+	src := s.buf[start:s.cursor]
+	dst := make([]byte, len(src))
+	copy(dst, src)
+
+	if err := unmarshaler.UnmarshalJSON(s.Option.Context, dst); err != nil {
+		return err
+	}
+	return nil
+}
+
 func decodeUnmarshaler(buf []byte, cursor, depth int64, unmarshaler json.Unmarshaler) (int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
@@ -129,6 +144,23 @@ func decodeUnmarshaler(buf []byte, cursor, depth int64, unmarshaler json.Unmarsh
 	copy(dst, src)
 
 	if err := unmarshaler.UnmarshalJSON(dst); err != nil {
+		return 0, err
+	}
+	return end, nil
+}
+
+func decodeUnmarshalerContext(ctx *RuntimeContext, buf []byte, cursor, depth int64, unmarshaler unmarshalerContext) (int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	start := cursor
+	end, err := skipValue(buf, cursor, depth)
+	if err != nil {
+		return 0, err
+	}
+	src := buf[start:end]
+	dst := make([]byte, len(src))
+	copy(dst, src)
+
+	if err := unmarshaler.UnmarshalJSON(ctx.Option.Context, dst); err != nil {
 		return 0, err
 	}
 	return end, nil
@@ -260,6 +292,9 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 	}))
 	rv := reflect.ValueOf(runtimeInterfaceValue)
 	if rv.NumMethod() > 0 && rv.CanInterface() {
+		if u, ok := rv.Interface().(unmarshalerContext); ok {
+			return decodeStreamUnmarshalerContext(s, depth, u)
+		}
 		if u, ok := rv.Interface().(json.Unmarshaler); ok {
 			return decodeStreamUnmarshaler(s, depth, u)
 		}
@@ -317,6 +352,9 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 	}))
 	rv := reflect.ValueOf(runtimeInterfaceValue)
 	if rv.NumMethod() > 0 && rv.CanInterface() {
+		if u, ok := rv.Interface().(unmarshalerContext); ok {
+			return decodeUnmarshalerContext(ctx, buf, cursor, depth, u)
+		}
 		if u, ok := rv.Interface().(json.Unmarshaler); ok {
 			return decodeUnmarshaler(buf, cursor, depth, u)
 		}

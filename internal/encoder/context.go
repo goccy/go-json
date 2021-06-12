@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"context"
 	"sync"
 	"unsafe"
 
@@ -104,6 +105,7 @@ var (
 )
 
 type RuntimeContext struct {
+	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
 	Ptrs       []uintptr

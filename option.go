@@ -41,6 +41,6 @@ type DecodeOptionFunc func(*DecodeOption)
 // This behavior has a performance advantage as it allows the subsequent strings to be skipped if all fields have been evaluated.
 func DecodeFieldPriorityFirstWin() DecodeOptionFunc {
 	return func(opt *DecodeOption) {
-		opt.Flag |= decoder.FirstWinOption
+		opt.Flags |= decoder.FirstWinOption
 	}
 }

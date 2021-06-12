@@ -10,7 +10,7 @@ import (
 
 const uintptrSize = 4 << (^uintptr(0) >> 63)
 
-type OpFlags uint8
+type OpFlags uint16
 
 const (
 	AnonymousHeadFlags    OpFlags = 1 << 0
@@ -21,6 +21,7 @@ const (
 	AddrForMarshalerFlags OpFlags = 1 << 5
 	IsNextOpPtrTypeFlags  OpFlags = 1 << 6
 	IsNilableTypeFlags    OpFlags = 1 << 7
+	MarshalerContextFlags OpFlags = 1 << 8
 )
 
 type Opcode struct {
@@ -32,9 +33,8 @@ type Opcode struct {
 	Key        string  // struct field key
 	Offset     uint32  // offset size from struct header
 	PtrNum     uint8   // pointer number: e.g. double pointer is 2.
-	Flags      OpFlags
 	NumBitSize uint8
-	_          [1]uint8 // 1
+	Flags      OpFlags
 
 	Type       *runtime.Type // go type
 	PrevField  *Opcode       // prev struct field

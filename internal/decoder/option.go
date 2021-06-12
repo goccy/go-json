@@ -1,11 +1,15 @@
 package decoder
 
-type OptionFlag int
+import "context"
+
+type OptionFlags uint8
 
 const (
-	FirstWinOption OptionFlag = 1 << iota
+	FirstWinOption OptionFlags = 1 << iota
+	ContextOption
 )
 
 type Option struct {
-	Flag OptionFlag
+	Flags   OptionFlags
+	Context context.Context
 }

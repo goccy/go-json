@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"context"
 	"encoding"
 	stdjson "encoding/json"
 	"errors"
@@ -3617,6 +3618,51 @@ func TestDecodeEscapedCharField(t *testing.T) {
 		}
 		if !bytes.Equal([]byte(v.Msg), []byte("消息")) {
 			t.Fatal("failed to decode unicode char")
+		}
+	})
+}
+
+type unmarshalContextKey struct{}
+
+type unmarshalContextStructType struct {
+	v int
+}
+
+func (t *unmarshalContextStructType) UnmarshalJSON(ctx context.Context, b []byte) error {
+	v := ctx.Value(unmarshalContextKey{})
+	s, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("failed to propagate parent context.Context")
+	}
+	if s != "hello" {
+		return fmt.Errorf("failed to propagate parent context.Context")
+	}
+	t.v = 100
+	return nil
+}
+
+func TestDecodeContextOption(t *testing.T) {
+	src := []byte("10")
+	buf := bytes.NewBuffer(src)
+
+	t.Run("UnmarshalContext", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), unmarshalContextKey{}, "hello")
+		var v unmarshalContextStructType
+		if err := json.UnmarshalContext(ctx, src, &v); err != nil {
+			t.Fatal(err)
+		}
+		if v.v != 100 {
+			t.Fatal("failed to decode with context")
+		}
+	})
+	t.Run("DecodeContext", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), unmarshalContextKey{}, "hello")
+		var v unmarshalContextStructType
+		if err := json.NewDecoder(buf).DecodeContext(ctx, &v); err != nil {
+			t.Fatal(err)
+		}
+		if v.v != 100 {
+			t.Fatal("failed to decode with context")
 		}
 	})
 }

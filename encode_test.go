@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"context"
 	"encoding"
 	stdjson "encoding/json"
 	"errors"
@@ -1917,4 +1918,43 @@ func TestEncodeMapKeyTypeInterface(t *testing.T) {
 	if _, err := json.Marshal(map[interface{}]interface{}{"a": 1}); err == nil {
 		t.Fatal("expected error")
 	}
+}
+
+type marshalContextKey struct{}
+
+type marshalContextStructType struct{}
+
+func (t *marshalContextStructType) MarshalJSON(ctx context.Context) ([]byte, error) {
+	v := ctx.Value(marshalContextKey{})
+	s, ok := v.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to propagate parent context.Context")
+	}
+	if s != "hello" {
+		return nil, fmt.Errorf("failed to propagate parent context.Context")
+	}
+	return []byte(`"success"`), nil
+}
+
+func TestEncodeContextOption(t *testing.T) {
+	t.Run("MarshalContext", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), marshalContextKey{}, "hello")
+		b, err := json.MarshalContext(ctx, &marshalContextStructType{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != `"success"` {
+			t.Fatal("failed to encode with MarshalerContext")
+		}
+	})
+	t.Run("EncodeContext", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), marshalContextKey{}, "hello")
+		buf := bytes.NewBuffer([]byte{})
+		if err := json.NewEncoder(buf).EncodeContext(ctx, &marshalContextStructType{}); err != nil {
+			t.Fatal(err)
+		}
+		if buf.String() != "\"success\"\n" {
+			t.Fatal("failed to encode with EncodeContext")
+		}
+	})
 }

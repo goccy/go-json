@@ -60,7 +60,7 @@ func compileToGetDecoderSlowPath(typeptr uintptr, typ *runtime.Type) (Decoder, e
 
 func compileHead(typ *runtime.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch {
-	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
 		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), "", ""), nil
 	case runtime.PtrTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(runtime.PtrTo(typ), "", ""), nil
@@ -70,7 +70,7 @@ func compileHead(typ *runtime.Type, structTypeToDecoder map[uintptr]Decoder) (De
 
 func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch {
-	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
 		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName), nil
 	case runtime.PtrTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
@@ -133,7 +133,7 @@ func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecode
 
 func isStringTagSupportedType(typ *runtime.Type) bool {
 	switch {
-	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
+	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
 		return false
 	case runtime.PtrTo(typ).Implements(unmarshalTextType):
 		return false
@@ -493,4 +493,8 @@ func compileStruct(typ *runtime.Type, structName, fieldName string, structTypeTo
 	delete(structTypeToDecoder, typeptr)
 	structDec.tryOptimize()
 	return structDec, nil
+}
+
+func implementsUnmarshalJSONType(typ *runtime.Type) bool {
+	return typ.Implements(unmarshalJSONType) || typ.Implements(unmarshalJSONContextType)
 }

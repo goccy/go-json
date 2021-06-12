@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"context"
 	"encoding"
 	"encoding/json"
 	"reflect"
@@ -17,7 +18,12 @@ const (
 	maxDecodeNestingDepth = 10000
 )
 
+type unmarshalerContext interface {
+	UnmarshalJSON(context.Context, []byte) error
+}
+
 var (
-	unmarshalJSONType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
-	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	unmarshalJSONType        = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+	unmarshalJSONContextType = reflect.TypeOf((*unmarshalerContext)(nil)).Elem()
+	unmarshalTextType        = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 )

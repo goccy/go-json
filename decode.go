@@ -1,6 +1,7 @@
 package json
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -39,7 +40,7 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	}
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
-	ctx.Option.Flag = 0
+	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}
@@ -49,6 +50,36 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 		return err
 	}
 	decoder.ReleaseRuntimeContext(ctx)
+	return validateEndBuf(src, cursor)
+}
+
+func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	src := make([]byte, len(data)+1) // append nul byte to the end
+	copy(src, data)
+
+	header := (*emptyInterface)(unsafe.Pointer(&v))
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decoder.CompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	rctx := decoder.TakeRuntimeContext()
+	rctx.Buf = src
+	rctx.Option.Flags = 0
+	rctx.Option.Flags |= decoder.ContextOption
+	rctx.Option.Context = ctx
+	for _, optFunc := range optFuncs {
+		optFunc(rctx.Option)
+	}
+	cursor, err := dec.Decode(rctx, 0, 0, header.ptr)
+	if err != nil {
+		decoder.ReleaseRuntimeContext(rctx)
+		return err
+	}
+	decoder.ReleaseRuntimeContext(rctx)
 	return validateEndBuf(src, cursor)
 }
 
@@ -68,7 +99,7 @@ func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc)
 
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
-	ctx.Option.Flag = 0
+	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}
@@ -134,6 +165,14 @@ func (d *Decoder) Buffered() io.Reader {
 // See the documentation for Unmarshal for details about
 // the conversion of JSON into a Go value.
 func (d *Decoder) Decode(v interface{}) error {
+	return d.DecodeWithOption(v)
+}
+
+// DecodeContext reads the next JSON-encoded value from its
+// input and stores it in the value pointed to by v with context.Context.
+func (d *Decoder) DecodeContext(ctx context.Context, v interface{}) error {
+	d.s.Option.Flags |= decoder.ContextOption
+	d.s.Option.Context = ctx
 	return d.DecodeWithOption(v)
 }
 

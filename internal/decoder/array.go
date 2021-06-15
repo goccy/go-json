@@ -111,8 +111,17 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			return cursor, nil
 		case '[':
 			idx := 0
-			for {
+			cursor++
+			cursor = skipWhiteSpace(buf, cursor)
+			if buf[cursor] == ']' {
+				for idx < d.alen {
+					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					idx++
+				}
 				cursor++
+				return cursor, nil
+			}
+			for {
 				if idx < d.alen {
 					c, err := d.valueDecoder.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
 					if err != nil {
@@ -137,6 +146,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 					cursor++
 					return cursor, nil
 				case ',':
+					cursor++
 					continue
 				default:
 					return 0, errors.ErrInvalidCharacter(buf[cursor], "array", cursor)

@@ -1958,3 +1958,19 @@ func TestEncodeContextOption(t *testing.T) {
 		}
 	})
 }
+
+func TestIssue251(t *testing.T) {
+	array := [3]int{1, 2, 3}
+	err := stdjson.Unmarshal([]byte("[ ]"), &array)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(array)
+
+	array = [3]int{1, 2, 3}
+	err = json.Unmarshal([]byte("[ ]"), &array)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(array)
+}

@@ -46,8 +46,16 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			return nil
 		case '[':
 			idx := 0
-			for {
+			s.cursor++
+			if s.skipWhiteSpace() == ']' {
+				for idx < d.alen {
+					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					idx++
+				}
 				s.cursor++
+				return nil
+			}
+			for {
 				if idx < d.alen {
 					if err := d.valueDecoder.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
 						return err
@@ -67,9 +75,11 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					s.cursor++
 					return nil
 				case ',':
+					s.cursor++
 					continue
 				case nul:
 					if s.read() {
+						s.cursor++
 						continue
 					}
 					goto ERROR

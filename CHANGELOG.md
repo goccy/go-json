@@ -1,3 +1,9 @@
+# v0.7.1 - 2021/06/18
+
+### Fix decoder
+
+* Fix error when unmarshal empty array ( #253 )
+
 # v0.7.0 - 2021/06/12
 
 ### Support context for MarshalJSON and UnmarshalJSON ( #248 )

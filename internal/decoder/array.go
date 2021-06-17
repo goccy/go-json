@@ -46,8 +46,16 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			return nil
 		case '[':
 			idx := 0
-			for {
+			s.cursor++
+			if s.skipWhiteSpace() == ']' {
+				for idx < d.alen {
+					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					idx++
+				}
 				s.cursor++
+				return nil
+			}
+			for {
 				if idx < d.alen {
 					if err := d.valueDecoder.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
 						return err
@@ -67,9 +75,11 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					s.cursor++
 					return nil
 				case ',':
+					s.cursor++
 					continue
 				case nul:
 					if s.read() {
+						s.cursor++
 						continue
 					}
 					goto ERROR
@@ -111,8 +121,17 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			return cursor, nil
 		case '[':
 			idx := 0
-			for {
+			cursor++
+			cursor = skipWhiteSpace(buf, cursor)
+			if buf[cursor] == ']' {
+				for idx < d.alen {
+					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					idx++
+				}
 				cursor++
+				return cursor, nil
+			}
+			for {
 				if idx < d.alen {
 					c, err := d.valueDecoder.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
 					if err != nil {
@@ -137,6 +156,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 					cursor++
 					return cursor, nil
 				case ',':
+					cursor++
 					continue
 				default:
 					return 0, errors.ErrInvalidCharacter(buf[cursor], "array", cursor)

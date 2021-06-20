@@ -1,6 +1,8 @@
 package decoder
 
 import (
+	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -145,6 +147,86 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
+			cursor++
+			return cursor, nil
+		}
+		if buf[cursor] != ',' {
+			return 0, errors.ErrExpected("comma after object value", cursor)
+		}
+		cursor++
+	}
+}
+
+func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+	}
+
+	cursor = skipWhiteSpace(buf, cursor)
+	buflen := int64(len(buf))
+	if buflen < 2 {
+		return 0, errors.ErrExpected("{} for map", cursor)
+	}
+	switch buf[cursor] {
+	case 'n':
+		if err := validateNull(buf, cursor); err != nil {
+			return 0, err
+		}
+		cursor += 4
+		return cursor, nil
+	case '{':
+	default:
+		return 0, errors.ErrExpected("{ character for map value", cursor)
+	}
+	cursor++
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == '}' {
+		cursor++
+		return cursor, nil
+	}
+	keyDecoder, ok := d.keyDecoder.(*stringDecoder)
+	if !ok {
+		return 0, &errors.UnmarshalTypeError{
+			Value:  "string",
+			Type:   reflect.TypeOf(""),
+			Offset: cursor,
+			Struct: d.structName,
+			Field:  d.fieldName,
+		}
+	}
+	for {
+		key, keyCursor, err := keyDecoder.decodeByte(buf, cursor)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, keyCursor)
+		if buf[cursor] != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		cursor++
+		child, found, err := ctx.Option.Path.Field(strings.ToLower(string(key)))
+		if err != nil {
+			return 0, err
+		}
+		if found {
+			oldPath := ctx.Option.Path
+			ctx.Option.Path = child
+			c, err := d.valueDecoder.Decode(ctx, cursor, depth, p)
+			if err != nil {
+				return 0, err
+			}
+			ctx.Option.Path = oldPath
+			cursor = c
+			return skipObject(buf, cursor, depth)
+		}
+		c, err := skipValue(buf, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
+		if buf[cursor] == '}' {
 			cursor++
 			return cursor, nil
 		}

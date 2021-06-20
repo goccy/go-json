@@ -94,6 +94,7 @@ func (d *interfaceDecoder) numDecoder(s *Stream) Decoder {
 
 var (
 	emptyInterfaceType = runtime.Type2RType(reflect.TypeOf((*interface{})(nil)).Elem())
+	EmptyInterfaceType = emptyInterfaceType
 	interfaceMapType   = runtime.Type2RType(
 		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
 	)
@@ -404,6 +405,9 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
+		if (ctx.Option.Flags&PathOption) != 0 && ctx.Option.Path != nil {
+			return d.mapDecoder.DecodePath(ctx, cursor, depth, p)
+		}
 		var v map[string]interface{}
 		ptr := unsafe.Pointer(&v)
 		cursor, err := d.mapDecoder.Decode(ctx, cursor, depth, ptr)
@@ -413,6 +417,9 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '[':
+		if (ctx.Option.Flags&PathOption) != 0 && ctx.Option.Path != nil && ctx.Option.Path.single() {
+			return d.sliceDecoder.DecodePath(ctx, cursor, depth, p)
+		}
 		var v []interface{}
 		ptr := unsafe.Pointer(&v)
 		cursor, err := d.sliceDecoder.Decode(ctx, cursor, depth, ptr)

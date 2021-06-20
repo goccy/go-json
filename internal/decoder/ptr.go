@@ -34,6 +34,10 @@ func (d *ptrDecoder) contentDecoder() Decoder {
 //go:linkname unsafe_New reflect.unsafe_New
 func unsafe_New(*runtime.Type) unsafe.Pointer
 
+func UnsafeNew(t *runtime.Type) unsafe.Pointer {
+	return unsafe_New(t)
+}
+
 func (d *ptrDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	if s.skipWhiteSpace() == nul {
 		s.read()

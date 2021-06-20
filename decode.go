@@ -83,6 +83,46 @@ func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs 
 	return validateEndBuf(src, cursor)
 }
 
+func unmarshalPath(path *Path, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	src := make([]byte, len(data)+1) // append nul byte to the end
+	copy(src, data)
+
+	header := (*emptyInterface)(unsafe.Pointer(&v))
+	typ := header.typ
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if err := validateType(*(**runtime.Type)(unsafe.Pointer(&typeptr)), uintptr(header.ptr)); err != nil {
+		return err
+	}
+
+	dec, err := decoder.CompileToGetDecoder(runtime.PtrTo(decoder.EmptyInterfaceType))
+	if err != nil {
+		return err
+	}
+	ctx := decoder.TakeRuntimeContext()
+	ctx.Buf = src
+	ctx.Option.Flags = 0
+	ctx.Option.Flags |= decoder.PathOption
+	ctx.Option.Path = path.path
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+	ptr := decoder.UnsafeNew(decoder.EmptyInterfaceType)
+	cursor, err := dec.Decode(ctx, 0, 0, ptr)
+	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
+		return err
+	}
+	decoder.ReleaseRuntimeContext(ctx)
+	if err := validateEndBuf(src, cursor); err != nil {
+		return err
+	}
+
+	return decoder.AssignValue(v, *(*interface{})(unsafe.Pointer(&emptyInterface{
+		typ: decoder.EmptyInterfaceType,
+		ptr: ptr,
+	})))
+}
+
 func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)

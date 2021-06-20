@@ -292,3 +292,65 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		}
 	}
 }
+
+func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+	}
+
+	for {
+		switch buf[cursor] {
+		case ' ', '\n', '\t', '\r':
+			cursor++
+			continue
+		case 'n':
+			if err := validateNull(buf, cursor); err != nil {
+				return 0, err
+			}
+			cursor += 4
+			return cursor, nil
+		case '[':
+			cursor++
+			cursor = skipWhiteSpace(buf, cursor)
+			if buf[cursor] == ']' {
+				cursor++
+				return cursor, nil
+			}
+			idx := 0
+			for {
+				child, found, err := ctx.Option.Path.Index(idx)
+				if err != nil {
+					return 0, err
+				}
+				if found {
+					oldPath := ctx.Option.Path
+					ctx.Option.Path = child
+					c, err := d.valueDecoder.Decode(ctx, cursor, depth, p)
+					if err != nil {
+						return 0, err
+					}
+					ctx.Option.Path = oldPath
+					cursor = c
+					return skipArray(buf, cursor, depth)
+				}
+				cursor = skipWhiteSpace(buf, cursor)
+				switch buf[cursor] {
+				case ']':
+					cursor++
+					return cursor, nil
+				case ',':
+					idx++
+				default:
+					return 0, errors.ErrInvalidCharacter(buf[cursor], "slice", cursor)
+				}
+				cursor++
+			}
+		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			return 0, d.errNumber(cursor)
+		default:
+			return 0, errors.ErrUnexpectedEndOfJSON("slice", cursor)
+		}
+	}
+}

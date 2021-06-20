@@ -155,3 +155,10 @@ func ErrInvalidCharacter(c byte, context string, cursor int64) *SyntaxError {
 		Offset: cursor,
 	}
 }
+
+type PathError struct {
+}
+
+func (e *PathError) Error() string {
+	return "json: invalid path"
+}

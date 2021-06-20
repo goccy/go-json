@@ -287,8 +287,24 @@ func UnmarshalWithOption(data []byte, v interface{}, optFuncs ...DecodeOptionFun
 	return unmarshal(data, v, optFuncs...)
 }
 
+func UnmarshalPath(path PathString, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	p, err := path.Build()
+	if err != nil {
+		return err
+	}
+	return unmarshalPath(p, data, v, optFuncs...)
+}
+
 func UnmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	return unmarshalNoEscape(data, v, optFuncs...)
+}
+
+func Get(path PathString, src, dst interface{}) error {
+	p, err := path.Build()
+	if err != nil {
+		return err
+	}
+	return p.Get(src, dst)
 }
 
 // A Token holds a value of one of these types:

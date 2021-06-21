@@ -3,9 +3,10 @@ module benchmark
 go 1.12
 
 require (
+	github.com/bytedance/sonic v0.0.0-20210621033418-85a0d4219f94
 	github.com/francoispqt/gojay v1.2.13
 	github.com/goccy/go-json v0.0.0-00010101000000-000000000000
-	github.com/json-iterator/go v1.1.9
+	github.com/json-iterator/go v1.1.10
 	github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/segmentio/encoding v0.2.4

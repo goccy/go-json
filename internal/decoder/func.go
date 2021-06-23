@@ -53,9 +53,26 @@ func (d *funcDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) err
 				Offset: s.totalOffset(),
 			}
 		case 'n':
-			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
-				return nil
+			if err := nullBytes(s); err != nil {
+				return err
+			}
+			*(*unsafe.Pointer)(p) = nil
+			return nil
+		case 't':
+			if err := trueBytes(s); err == nil {
+				return &errors.UnmarshalTypeError{
+					Value:  "boolean",
+					Type:   runtime.RType2Type(d.typ),
+					Offset: s.totalOffset(),
+				}
+			}
+		case 'f':
+			if err := falseBytes(s); err == nil {
+				return &errors.UnmarshalTypeError{
+					Value:  "boolean",
+					Type:   runtime.RType2Type(d.typ),
+					Offset: s.totalOffset(),
+				}
 			}
 		}
 	}
@@ -101,6 +118,22 @@ func (d *funcDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.
 			if bytes.Equal(src, nullbytes) {
 				*(*unsafe.Pointer)(p) = nil
 				return end, nil
+			}
+		case 't':
+			if err := validateTrue(buf, start); err == nil {
+				return 0, &errors.UnmarshalTypeError{
+					Value:  "boolean",
+					Type:   runtime.RType2Type(d.typ),
+					Offset: start,
+				}
+			}
+		case 'f':
+			if err := validateFalse(buf, start); err == nil {
+				return 0, &errors.UnmarshalTypeError{
+					Value:  "boolean",
+					Type:   runtime.RType2Type(d.typ),
+					Offset: start,
+				}
 			}
 		}
 	}

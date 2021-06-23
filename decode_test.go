@@ -173,7 +173,7 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "struct.D.AA", 2, v.D.AA)
 		assertEq(t, "struct.D.BB", "world", v.D.BB)
 		assertEq(t, "struct.D.CC", true, v.D.CC)
-		assertEq(t, "struct.E", nil, v.E)
+		assertEq(t, "struct.E", true, v.E == nil)
 		t.Run("struct.field null", func(t *testing.T) {
 			var v struct {
 				A string
@@ -195,7 +195,7 @@ func Test_Decoder(t *testing.T) {
 			assertNeq(t, "array", v.E, nil)
 			assertEq(t, "array", len(v.E), 2)
 			assertEq(t, "interface{}", v.F, nil)
-			assertEq(t, "func", v.G, nil)
+			assertEq(t, "nilfunc", true, v.G == nil)
 		})
 	})
 	t.Run("interface", func(t *testing.T) {
@@ -247,7 +247,7 @@ func Test_Decoder(t *testing.T) {
 	t.Run("func", func(t *testing.T) {
 		var v func()
 		assertErr(t, json.Unmarshal([]byte(`null`), &v))
-		assertEq(t, "func", nil, v)
+		assertEq(t, "nilfunc", true, v == nil)
 	})
 }
 

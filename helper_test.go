@@ -11,7 +11,7 @@ func assertErr(t *testing.T, err error) {
 
 func assertEq(t *testing.T, msg string, exp interface{}, act interface{}) {
 	t.Helper()
-	if exp != act {
+	if exp != act && exp != nil && act != nil {
 		t.Fatalf("failed to test for %s. exp=[%v] but act=[%v]", msg, exp, act)
 	}
 }

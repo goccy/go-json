@@ -35,6 +35,7 @@ func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec Decoder,
 //go:linkname makemap reflect.makemap
 func makemap(*runtime.Type, int) unsafe.Pointer
 
+//nolint:golint
 //go:linkname mapassign_faststr runtime.mapassign_faststr
 //go:noescape
 func mapassign_faststr(t *runtime.Type, m unsafe.Pointer, s string) unsafe.Pointer

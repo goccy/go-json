@@ -152,6 +152,7 @@ func Test_Decoder(t *testing.T) {
 			B string `json:"str"`
 			C bool
 			D *T
+			E func()
 		}
 		content := []byte(`
 {
@@ -162,7 +163,8 @@ func Test_Decoder(t *testing.T) {
     "aa": 2,
     "bb": "world",
     "cc": true
-  }
+  },
+  "e"   : null
 }`)
 		assertErr(t, json.Unmarshal(content, &v))
 		assertEq(t, "struct.A", 123, v.A)
@@ -171,6 +173,7 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "struct.D.AA", 2, v.D.AA)
 		assertEq(t, "struct.D.BB", "world", v.D.BB)
 		assertEq(t, "struct.D.CC", true, v.D.CC)
+		assertEq(t, "struct.E", true, v.E == nil)
 		t.Run("struct.field null", func(t *testing.T) {
 			var v struct {
 				A string
@@ -179,8 +182,9 @@ func Test_Decoder(t *testing.T) {
 				D map[string]interface{}
 				E [2]string
 				F interface{}
+				G func()
 			}
-			assertErr(t, json.Unmarshal([]byte(`{"a":null,"b":null,"c":null,"d":null,"e":null,"f":null}`), &v))
+			assertErr(t, json.Unmarshal([]byte(`{"a":null,"b":null,"c":null,"d":null,"e":null,"f":null,"g":null}`), &v))
 			assertEq(t, "string", v.A, "")
 			assertNeq(t, "[]string", v.B, nil)
 			assertEq(t, "[]string", len(v.B), 0)
@@ -191,6 +195,7 @@ func Test_Decoder(t *testing.T) {
 			assertNeq(t, "array", v.E, nil)
 			assertEq(t, "array", len(v.E), 2)
 			assertEq(t, "interface{}", v.F, nil)
+			assertEq(t, "nilfunc", true, v.G == nil)
 		})
 	})
 	t.Run("interface", func(t *testing.T) {
@@ -238,6 +243,11 @@ func Test_Decoder(t *testing.T) {
 			assertErr(t, json.Unmarshal([]byte(`null`), &v))
 			assertEq(t, "interface", nil, v)
 		})
+	})
+	t.Run("func", func(t *testing.T) {
+		var v func()
+		assertErr(t, json.Unmarshal([]byte(`null`), &v))
+		assertEq(t, "nilfunc", true, v == nil)
 	})
 }
 

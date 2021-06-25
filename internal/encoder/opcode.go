@@ -553,7 +553,7 @@ func (c *Opcode) dumpValue(code *Opcode) string {
 
 func (c *Opcode) Dump() string {
 	codes := []string{}
-	for code := c; code.Op != OpEnd; {
+	for code := c; code.Op != OpEnd && code.Op != OpInterfaceEnd; {
 		switch code.Op.CodeType() {
 		case CodeSliceHead:
 			codes = append(codes, c.dumpHead(code))

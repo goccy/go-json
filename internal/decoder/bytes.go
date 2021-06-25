@@ -49,10 +49,11 @@ func (d *bytesDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 	}
 	decodedLen := base64.StdEncoding.DecodedLen(len(bytes))
 	buf := make([]byte, decodedLen)
-	if _, err := base64.StdEncoding.Decode(buf, bytes); err != nil {
+	n, err := base64.StdEncoding.Decode(buf, bytes)
+	if err != nil {
 		return err
 	}
-	*(*[]byte)(p) = buf
+	*(*[]byte)(p) = buf[:n]
 	s.reset()
 	return nil
 }

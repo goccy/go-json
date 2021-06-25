@@ -163,43 +163,6 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ':', ' ')
 }
 
-func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, code *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
-	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
-	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
-	if err != nil {
-		return nil, err
-	}
-
-	totalLength := uintptr(codeSet.CodeLength)
-	nextTotalLength := uintptr(ifaceCodeSet.CodeLength)
-
-	curlen := uintptr(len(ctx.Ptrs))
-	offsetNum := ptrOffset / uintptrSize
-
-	newLen := offsetNum + totalLength + nextTotalLength
-	if curlen < newLen {
-		ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
-	}
-	oldPtrs := ctx.Ptrs
-
-	newPtrs := ctx.Ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
-	newPtrs[0] = uintptr(iface.ptr)
-
-	ctx.Ptrs = newPtrs
-
-	oldBaseIndent := ctx.BaseIndent
-	ctx.BaseIndent = code.Indent
-	bb, err := Run(ctx, b, ifaceCodeSet)
-	if err != nil {
-		return nil, err
-	}
-	ctx.BaseIndent = oldBaseIndent
-
-	ctx.Ptrs = oldPtrs
-
-	return bb, nil
-}
-
 func appendMapKeyValue(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key, value []byte) []byte {
 	b = appendIndent(ctx, b, code.Indent+1)
 	b = append(b, key...)
@@ -292,7 +255,7 @@ func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr uin
 }
 
 func storeIndent(ctxptr uintptr, code *encoder.Opcode, indent uintptr) {
-	store(ctxptr, code.End.Next.Length, indent)
+	store(ctxptr, code.Length, indent)
 }
 
 func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {

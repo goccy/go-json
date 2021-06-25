@@ -224,7 +224,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, c.Idx, uintptr(iface.ptr))
 			store(ctxptr, end.Idx, oldOffset)
 			store(ctxptr, end.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
-			storeIndent(ctxptr, c, uintptr(oldBaseIndent))
+			storeIndent(ctxptr, end, uintptr(oldBaseIndent))
 			code = c
 		case encoder.OpInterfaceEnd:
 			offset := load(ctxptr, code.Idx)
@@ -533,7 +533,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, c.Idx, ptr)
 			store(ctxptr, c.End.Next.Idx, oldOffset)
 			store(ctxptr, c.End.Next.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
-			storeIndent(ctxptr, c, uintptr(oldBaseIndent))
+			storeIndent(ctxptr, c.End.Next, uintptr(oldBaseIndent))
 			code = c
 			recursiveLevel++
 		case encoder.OpRecursiveEnd:

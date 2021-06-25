@@ -285,6 +285,46 @@ func copyOpcode(code *Opcode) *Opcode {
 	return code.copy(codeMap)
 }
 
+func setTotalLengthToInterfaceOp(code *Opcode) {
+	c := code
+	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
+		if c.Op == OpInterface {
+			c.Length = uint32(code.TotalLength())
+		}
+		switch c.Op.CodeType() {
+		case CodeArrayElem, CodeSliceElem, CodeMapKey:
+			c = c.End
+		default:
+			c = c.Next
+		}
+	}
+}
+
+func ToEndCode(code *Opcode) *Opcode {
+	c := code
+	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
+		switch c.Op.CodeType() {
+		case CodeArrayElem, CodeSliceElem, CodeMapKey:
+			c = c.End
+		default:
+			c = c.Next
+		}
+	}
+	return c
+}
+
+func copyToInterfaceOpcode(code *Opcode) *Opcode {
+	copied := copyOpcode(code)
+	c := copied
+	c = ToEndCode(c)
+	copied.Op = copied.Op.PtrHeadToHead()
+	c.Idx += uintptrSize
+	c.ElemIdx = c.Idx + uintptrSize
+	c.Length = c.Idx + 2*uintptrSize
+	c.Op = OpInterfaceEnd
+	return copied
+}
+
 func newOpCodeWithNext(ctx *compileContext, op OpType, next *Opcode) *Opcode {
 	return &Opcode{
 		Op:         op,
@@ -354,7 +394,8 @@ func (c *Opcode) BeforeLastCode() *Opcode {
 
 func (c *Opcode) TotalLength() int {
 	var idx int
-	for code := c; code.Op != OpEnd; {
+	code := c
+	for code.Op != OpEnd && code.Op != OpInterfaceEnd {
 		maxIdx := int(code.MaxIdx() / uintptrSize)
 		if idx < maxIdx {
 			idx = maxIdx
@@ -368,6 +409,10 @@ func (c *Opcode) TotalLength() int {
 		default:
 			code = code.Next
 		}
+	}
+	maxIdx := int(code.MaxIdx() / uintptrSize)
+	if idx < maxIdx {
+		idx = maxIdx
 	}
 	return idx + 1
 }

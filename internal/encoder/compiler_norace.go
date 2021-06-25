@@ -37,12 +37,19 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 	}
 	noescapeKeyCode = copyOpcode(noescapeKeyCode)
 	escapeKeyCode = copyOpcode(escapeKeyCode)
+	setTotalLengthToInterfaceOp(noescapeKeyCode)
+	setTotalLengthToInterfaceOp(escapeKeyCode)
+	interfaceNoescapeKeyCode := copyToInterfaceOpcode(noescapeKeyCode)
+	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
 	codeLength := noescapeKeyCode.TotalLength()
 	codeSet := &OpcodeSet{
-		Type:            copiedType,
-		NoescapeKeyCode: noescapeKeyCode,
-		EscapeKeyCode:   escapeKeyCode,
-		CodeLength:      codeLength,
+		Type:                     copiedType,
+		NoescapeKeyCode:          noescapeKeyCode,
+		EscapeKeyCode:            escapeKeyCode,
+		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,
+		InterfaceEscapeKeyCode:   interfaceEscapeKeyCode,
+		CodeLength:               codeLength,
+		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
 	}
 	cachedOpcodeSets[index] = codeSet
 	return codeSet, nil

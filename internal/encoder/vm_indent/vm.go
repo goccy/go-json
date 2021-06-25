@@ -190,15 +190,52 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			bb, err := appendInterface(ctx, codeSet, code, b, iface, ptrOffset)
+
+			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
+			ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
 			if err != nil {
 				return nil, err
 			}
-			ctxptr = ctx.Ptr()
+
+			totalLength := uintptr(code.Length) + 3
+			nextTotalLength := uintptr(ifaceCodeSet.CodeLength) + 3
+
+			var c *encoder.Opcode
+			if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
+				c = ifaceCodeSet.InterfaceEscapeKeyCode
+			} else {
+				c = ifaceCodeSet.InterfaceNoescapeKeyCode
+			}
+			curlen := uintptr(len(ctx.Ptrs))
+			offsetNum := ptrOffset / uintptrSize
+			oldOffset := ptrOffset
+			ptrOffset += totalLength * uintptrSize
+			oldBaseIndent := ctx.BaseIndent
+			indentDiffFromTop := c.Indent - 1
+			ctx.BaseIndent += code.Indent - indentDiffFromTop
+
+			newLen := offsetNum + totalLength + nextTotalLength
+			if curlen < newLen {
+				ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
+			}
+			ctxptr = ctx.Ptr() + ptrOffset // assign new ctxptr
+
+			end := ifaceCodeSet.EndCode
+			store(ctxptr, c.Idx, uintptr(iface.ptr))
+			store(ctxptr, end.Idx, oldOffset)
+			store(ctxptr, end.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
+			storeIndent(ctxptr, c, uintptr(oldBaseIndent))
+			code = c
+		case encoder.OpInterfaceEnd:
+			offset := load(ctxptr, code.Idx)
+			// restore ctxptr
+			restoreIndent(ctx, code, ctxptr)
 			ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
 
-			b = bb
-			code = code.Next
+			codePtr := load(ctxptr, code.ElemIdx)
+			code = (*encoder.Opcode)(ptrToUnsafePtr(codePtr))
+			ctxptr = ctx.Ptr() + offset
+			ptrOffset = offset
 		case encoder.OpMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {

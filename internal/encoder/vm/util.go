@@ -123,39 +123,6 @@ func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte
 	return b
 }
 
-func appendInterface(ctx *encoder.RuntimeContext, codeSet *encoder.OpcodeSet, _ *encoder.Opcode, b []byte, iface *emptyInterface, ptrOffset uintptr) ([]byte, error) {
-	ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(iface))
-	ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(iface.typ)))
-	if err != nil {
-		return nil, err
-	}
-
-	totalLength := uintptr(codeSet.CodeLength)
-	nextTotalLength := uintptr(ifaceCodeSet.CodeLength)
-
-	curlen := uintptr(len(ctx.Ptrs))
-	offsetNum := ptrOffset / uintptrSize
-
-	newLen := offsetNum + totalLength + nextTotalLength
-	if curlen < newLen {
-		ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
-	}
-	oldPtrs := ctx.Ptrs
-
-	newPtrs := ctx.Ptrs[(ptrOffset+totalLength*uintptrSize)/uintptrSize:]
-	newPtrs[0] = uintptr(iface.ptr)
-
-	ctx.Ptrs = newPtrs
-
-	bb, err := Run(ctx, b, ifaceCodeSet)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx.Ptrs = oldPtrs
-	return bb, nil
-}
-
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
 	return encoder.AppendMarshalJSON(ctx, code, b, v)
 }

@@ -94,10 +94,13 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type            *runtime.Type
-	NoescapeKeyCode *Opcode
-	EscapeKeyCode   *Opcode
-	CodeLength      int
+	Type                     *runtime.Type
+	NoescapeKeyCode          *Opcode
+	EscapeKeyCode            *Opcode
+	InterfaceNoescapeKeyCode *Opcode
+	InterfaceEscapeKeyCode   *Opcode
+	CodeLength               int
+	EndCode                  *Opcode
 }
 
 type CompiledCode struct {

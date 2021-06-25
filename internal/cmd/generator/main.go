@@ -200,6 +200,7 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 		createOpType("Recursive", "Op"),
 		createOpType("RecursivePtr", "Op"),
 		createOpType("RecursiveEnd", "Op"),
+		createOpType("InterfaceEnd", "Op"),
 		createOpType("StructAnonymousEnd", "StructEnd"),
 	}
 	for _, typ := range primitiveTypesUpper {

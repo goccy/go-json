@@ -1,3 +1,19 @@
+# v0.7.2 - 2021/06/26
+
+### Fix decoder
+
+* Add decoder for func type to fix decoding of nil function value ( #257 )
+* Fix stream decoding of []byte type ( #258 )
+
+### Performance
+
+* Improve decoding performance of map[string]interface{} type ( use `mapassign_faststr` ) ( #256 )
+* Improve encoding performance of empty interface type ( remove recursive calling of `vm.Run` ) ( #259 )
+
+### Benchmark
+
+* Add bytedance/sonic as benchmark target ( #254 )
+
 # v0.7.1 - 2021/06/18
 
 ### Fix decoder

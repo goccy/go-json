@@ -177,9 +177,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			for _, seen := range ctx.SeenPtr {
-				if p == seen {
-					return nil, errUnsupportedValue(code, p)
+			if recursiveLevel > encoder.StartDetectingCyclesAfter {
+				for _, seen := range ctx.SeenPtr {
+					if p == seen {
+						return nil, errUnsupportedValue(code, p)
+					}
 				}
 			}
 			ctx.SeenPtr = append(ctx.SeenPtr, p)
@@ -226,9 +228,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, end.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
 			storeIndent(ctxptr, end, uintptr(oldBaseIndent))
 			code = c
+			recursiveLevel++
 		case encoder.OpInterfaceEnd:
-			offset := load(ctxptr, code.Idx)
+			recursiveLevel--
+
 			// restore ctxptr
+			offset := load(ctxptr, code.Idx)
 			restoreIndent(ctx, code, ctxptr)
 			ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
 

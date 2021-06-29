@@ -1,3 +1,7 @@
+# v0.7.3 - 2021/06/29
+
+* Fix encoding of pointer type in empty interface ( #262 )
+
 # v0.7.2 - 2021/06/26
 
 ### Fix decoder

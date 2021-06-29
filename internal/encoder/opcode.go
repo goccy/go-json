@@ -317,7 +317,6 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	copied := copyOpcode(code)
 	c := copied
 	c = ToEndCode(c)
-	copied.Op = copied.Op.PtrHeadToHead()
 	c.Idx += uintptrSize
 	c.ElemIdx = c.Idx + uintptrSize
 	c.Length = c.Idx + 2*uintptrSize

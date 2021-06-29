@@ -1958,3 +1958,49 @@ func TestEncodeContextOption(t *testing.T) {
 		}
 	})
 }
+
+func TestInterfaceWithPointer(t *testing.T) {
+	var (
+		ivalue   int         = 10
+		uvalue   uint        = 20
+		svalue   string      = "value"
+		bvalue   bool        = true
+		fvalue   float32     = 3.14
+		nvalue   json.Number = "1.23"
+		structv              = struct{ A int }{A: 10}
+		slice                = []int{1, 2, 3, 4}
+		array                = [4]int{1, 2, 3, 4}
+		mapvalue             = map[string]int{"a": 1}
+	)
+	data := map[string]interface{}{
+		"ivalue":  ivalue,
+		"uvalue":  uvalue,
+		"svalue":  svalue,
+		"bvalue":  bvalue,
+		"fvalue":  fvalue,
+		"nvalue":  nvalue,
+		"struct":  structv,
+		"slice":   slice,
+		"array":   array,
+		"map":     mapvalue,
+		"pivalue": &ivalue,
+		"puvalue": &uvalue,
+		"psvalue": &svalue,
+		"pbvalue": &bvalue,
+		"pfvalue": &fvalue,
+		"pnvalue": &nvalue,
+		"pstruct": &structv,
+		"pslice":  &slice,
+		"parray":  &array,
+		"pmap":    &mapvalue,
+	}
+	expected, err := stdjson.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := json.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "interface{}", string(expected), string(actual))
+}

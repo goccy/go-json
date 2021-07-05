@@ -631,6 +631,56 @@ func TestCoverInt(t *testing.T) {
 			}{A: -1}},
 		},
 
+		// HeadIntNotRootMultiFields
+		{
+			name: "HeadIntNotRootMultiFields",
+			data: struct {
+				A struct {
+					A int `json:"a"`
+					B int `json:"b"`
+				}
+			}{A: struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{A: -1, B: 1}},
+		},
+		{
+			name: "HeadIntNotRootOmitEmptyMultiFields",
+			data: struct {
+				A struct {
+					A int `json:"a,omitempty"`
+					B int `json:"b,omitempty"`
+				}
+			}{A: struct {
+				A int `json:"a,omitempty"`
+				B int `json:"b,omitempty"`
+			}{A: -1, B: 1}},
+		},
+		{
+			name: "HeadIntNotRootStringMultiFields",
+			data: struct {
+				A struct {
+					A int `json:"a,string"`
+					B int `json:"b,string"`
+				}
+			}{A: struct {
+				A int `json:"a,string"`
+				B int `json:"b,string"`
+			}{A: -1, B: 1}},
+		},
+		{
+			name: "HeadIntNotRootStringOmitEmptyMultiFields",
+			data: struct {
+				A struct {
+					A int `json:"a,string,omitempty"`
+					B int `json:"b,string,omitempty"`
+				}
+			}{A: struct {
+				A int `json:"a,string,omitempty"`
+				B int `json:"b,string,omitempty"`
+			}{A: -1, B: 1}},
+		},
+
 		// HeadIntPtrNotRoot
 		{
 			name: "HeadIntPtrNotRoot",
@@ -789,6 +839,56 @@ func TestCoverInt(t *testing.T) {
 			}{A: &(struct {
 				A int `json:"a,string,omitempty"`
 			}{A: -1})},
+		},
+
+		// PtrHeadIntNotRootMultiFields
+		{
+			name: "PtrHeadIntNotRootMultiFields",
+			data: struct {
+				A *struct {
+					A int `json:"a"`
+					B int `json:"b"`
+				}
+			}{A: &(struct {
+				A int `json:"a"`
+				B int `json:"b"`
+			}{A: -1, B: 1})},
+		},
+		{
+			name: "PtrHeadIntNotRootOmitEmptyMultiFields",
+			data: struct {
+				A *struct {
+					A int `json:"a,omitempty"`
+					B int `json:"b,omitempty"`
+				}
+			}{A: &(struct {
+				A int `json:"a,omitempty"`
+				B int `json:"b,omitempty"`
+			}{A: -1, B: 1})},
+		},
+		{
+			name: "PtrHeadIntNotRootStringMultiFields",
+			data: struct {
+				A *struct {
+					A int `json:"a,string"`
+					B int `json:"b,string"`
+				}
+			}{A: &(struct {
+				A int `json:"a,string"`
+				B int `json:"b,string"`
+			}{A: -1, B: 1})},
+		},
+		{
+			name: "PtrHeadIntNotRootStringOmitEmptyMultiFields",
+			data: struct {
+				A *struct {
+					A int `json:"a,string,omitempty"`
+					B int `json:"b,string,omitempty"`
+				}
+			}{A: &(struct {
+				A int `json:"a,string,omitempty"`
+				B int `json:"b,string,omitempty"`
+			}{A: -1, B: 1})},
 		},
 
 		// PtrHeadIntPtrNotRoot

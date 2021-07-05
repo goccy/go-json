@@ -2004,3 +2004,32 @@ func TestInterfaceWithPointer(t *testing.T) {
 	}
 	assertEq(t, "interface{}", string(expected), string(actual))
 }
+
+func TestIssue263(t *testing.T) {
+	type Foo struct {
+		A []string `json:"a"`
+		B int      `json:"b"`
+	}
+
+	type MyStruct struct {
+		Foo *Foo `json:"foo,omitempty"`
+	}
+
+	s := MyStruct{
+		Foo: &Foo{
+			A: []string{"ls -lah"},
+			B: 0,
+		},
+	}
+	expected, err := stdjson.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, actual) {
+		t.Fatalf("expected:[%s] but got:[%s]", string(expected), string(actual))
+	}
+}

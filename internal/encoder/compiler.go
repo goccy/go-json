@@ -1440,8 +1440,10 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 				// if parent is indirect type, set child indirect property to true
 				valueCode.Flags |= IndirectFlags
 			} else {
-				// if parent is not indirect type and child have only one field, set child indirect property to false
-				if i == 0 && valueCode.NextField != nil && valueCode.NextField.Op == OpStructEnd {
+				// if parent is not indirect type, set child indirect property to false.
+				// but if parent's indirect is false and isPtr is true, then indirect must be true.
+				// Do this only if indirectConversion is enabled at the end of compileStruct.
+				if i == 0 {
 					valueCode.Flags &= ^IndirectFlags
 				}
 			}
@@ -1544,7 +1546,11 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 	delete(ctx.structTypeToCompiledCode, typeptr)
 
 	if !disableIndirectConversion && (head.Flags&IndirectFlags == 0) && isPtr {
-		head.Flags |= IndirectFlags
+		headCode := head
+		for strings.Contains(headCode.Op.String(), "Head") {
+			headCode.Flags |= IndirectFlags
+			headCode = headCode.Next
+		}
 	}
 
 	return ret, nil

@@ -1,3 +1,7 @@
+# v0.7.4 - 2021/07/06
+
+* Fix encoding of indirect layout structure ( #264 )
+
 # v0.7.3 - 2021/06/29
 
 * Fix encoding of pointer type in empty interface ( #262 )

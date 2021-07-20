@@ -578,8 +578,10 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if code.Flags&encoder.AnonymousHeadFlags == 0 {
 				b = appendStructHead(ctx, b)
 			}
-			if (code.Flags&encoder.AnonymousKeyFlags) == 0 && len(code.Key) > 0 {
-				b = appendStructKey(ctx, code, b)
+			if len(code.Key) > 0 {
+				if (code.Flags&encoder.IsTaggedKeyFlags) != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+					b = appendStructKey(ctx, code, b)
+				}
 			}
 			p += uintptr(code.Offset)
 			code = code.Next

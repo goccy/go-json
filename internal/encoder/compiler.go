@@ -1417,7 +1417,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			valueCode = code
 		}
 
-		if field.Anonymous {
+		if field.Anonymous && !tag.IsTaggedKey {
 			tagKey := ""
 			if tag.IsTaggedKey {
 				tagKey = tag.Key
@@ -1426,9 +1426,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 
-			if !tag.IsTaggedKey {
-				valueCode.decIndent()
-			}
+			valueCode.decIndent()
 
 			// fix issue144
 			if !(isPtr && strings.Contains(valueCode.Op.String(), "Marshal")) {

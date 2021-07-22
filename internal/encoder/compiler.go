@@ -1425,7 +1425,10 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			for k, v := range anonymousStructFieldPairMap(tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
-			valueCode.decIndent()
+
+			if !tag.IsTaggedKey {
+				valueCode.decIndent()
+			}
 
 			// fix issue144
 			if !(isPtr && strings.Contains(valueCode.Op.String(), "Marshal")) {

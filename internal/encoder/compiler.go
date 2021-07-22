@@ -1417,7 +1417,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			valueCode = code
 		}
 
-		if field.Anonymous {
+		if field.Anonymous && !tag.IsTaggedKey {
 			tagKey := ""
 			if tag.IsTaggedKey {
 				tagKey = tag.Key
@@ -1425,6 +1425,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			for k, v := range anonymousStructFieldPairMap(tags, tagKey, valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
+
 			valueCode.decIndent()
 
 			// fix issue144

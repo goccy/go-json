@@ -141,14 +141,54 @@ func (d *bytesDecoder) decodeBinary(ctx *RuntimeContext, cursor, depth int64, p 
 		case '"':
 			cursor++
 			start := cursor
+			b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 			for {
-				switch buf[cursor] {
+				switch char(b, cursor) {
+				case '\\':
+					cursor++
+					switch char(b, cursor) {
+					case '"':
+						buf[cursor] = '"'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case '\\':
+						buf[cursor] = '\\'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case '/':
+						buf[cursor] = '/'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'b':
+						buf[cursor] = '\b'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'f':
+						buf[cursor] = '\f'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'n':
+						buf[cursor] = '\n'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'r':
+						buf[cursor] = '\r'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 't':
+						buf[cursor] = '\t'
+						buf = append(buf[:cursor-1], buf[cursor:]...)
+					case 'u':
+						buflen := int64(len(buf))
+						if cursor+5 >= buflen {
+							return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+						}
+						code := unicodeToRune(buf[cursor+1 : cursor+5])
+						unicode := []byte(string(code))
+						buf = append(append(buf[:cursor-1], unicode...), buf[cursor+5:]...)
+					default:
+						return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+					}
+					continue
 				case '"':
 					literal := buf[start:cursor]
 					cursor++
 					return literal, cursor, nil
 				case nul:
-					return nil, 0, errors.ErrUnexpectedEndOfJSON("[]byte", cursor)
+					return nil, 0, errors.ErrUnexpectedEndOfJSON("string", cursor)
 				}
 				cursor++
 			}

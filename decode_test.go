@@ -3699,3 +3699,36 @@ func TestIssue251(t *testing.T) {
 	}
 	t.Log(array)
 }
+
+func TestDecodeBinaryTypeWithEscapedChar(t *testing.T) {
+	type T struct {
+		Msg []byte `json:"msg"`
+	}
+	content := []byte(`{"msg":"aGVsbG8K\n"}`)
+	t.Run("unmarshal", func(t *testing.T) {
+		var expected T
+		if err := stdjson.Unmarshal(content, &expected); err != nil {
+			t.Fatal(err)
+		}
+		var got T
+		if err := json.Unmarshal(content, &got); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected.Msg, got.Msg) {
+			t.Fatalf("failed to decode binary type with escaped char. expected %q but got %q", expected.Msg, got.Msg)
+		}
+	})
+	t.Run("stream", func(t *testing.T) {
+		var expected T
+		if err := stdjson.NewDecoder(bytes.NewBuffer(content)).Decode(&expected); err != nil {
+			t.Fatal(err)
+		}
+		var got T
+		if err := json.NewDecoder(bytes.NewBuffer(content)).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected.Msg, got.Msg) {
+			t.Fatalf("failed to decode binary type with escaped char. expected %q but got %q", expected.Msg, got.Msg)
+		}
+	})
+}

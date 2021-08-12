@@ -170,6 +170,7 @@ RETRY:
 	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
 	s.length--
 	s.cursor--
+	p = s.bufptr()
 	return p, nil
 }
 

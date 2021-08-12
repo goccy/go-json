@@ -2086,3 +2086,25 @@ func TestIssue263(t *testing.T) {
 		t.Fatalf("expected:[%s] but got:[%s]", string(expected), string(actual))
 	}
 }
+
+func TestEmbeddedNotFirstField(t *testing.T) {
+	type Embedded struct {
+		Has bool `json:"has"`
+	}
+	type T struct {
+		X        int `json:"is"`
+		Embedded `json:"child"`
+	}
+	p := T{X: 10, Embedded: Embedded{Has: true}}
+	expected, err := stdjson.Marshal(&p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(&p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode embedded structure. expected = %q but got %q", expected, got)
+	}
+}

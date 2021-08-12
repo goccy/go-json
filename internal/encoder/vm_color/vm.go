@@ -3439,7 +3439,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 			}
 		case encoder.OpStructField:
-			if code.Flags&encoder.AnonymousKeyFlags == 0 {
+			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
 				b = appendStructKey(ctx, code, b)
 			}
 			p := load(ctxptr, code.Idx) + uintptr(code.Offset)

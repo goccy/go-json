@@ -281,7 +281,7 @@ func (d *stringDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
 		}
 		break
 	}
-	return nil, errors.ErrNotAtBeginningOfValue(s.totalOffset())
+	return nil, errors.ErrInvalidBeginningOfValue(s.char(), s.totalOffset())
 }
 
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
@@ -356,7 +356,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor += 4
 			return nil, cursor, nil
 		default:
-			return nil, 0, errors.ErrNotAtBeginningOfValue(cursor)
+			return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 		}
 	}
 }

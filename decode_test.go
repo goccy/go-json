@@ -1270,7 +1270,7 @@ var unmarshalTests = []unmarshalTest{
 		in:  `invalid`, // 143
 		ptr: new(json.Number),
 		err: json.NewSyntaxError(
-			`json: json.Number unexpected end of JSON input`,
+			`invalid character 'i' looking for beginning of value`,
 			1,
 		),
 	},
@@ -1998,8 +1998,8 @@ type wrongStringTest struct {
 }
 
 var wrongStringTests = []wrongStringTest{
-	{`{"result":"x"}`, `not at beginning of value`},
-	{`{"result":"foo"}`, `not at beginning of value`},
+	{`{"result":"x"}`, `invalid character 'x' looking for beginning of value`},
+	{`{"result":"foo"}`, `invalid character 'f' looking for beginning of value`},
 	{`{"result":"123"}`, `json: cannot unmarshal number into Go struct field WrongString.Message of type string`},
 	{`{"result":123}`, `json: cannot unmarshal number into Go struct field WrongString.Message of type string`},
 	{`{"result":"\""}`, `json: string unexpected end of JSON input`},
@@ -2691,10 +2691,10 @@ func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 		err error
 	}{{
 		in:  `1 false null :`,
-		err: json.NewSyntaxError("not at beginning of value", 14),
+		err: json.NewSyntaxError("invalid character '\x00' looking for beginning of value", 14),
 	}, {
 		in:  `1 [] [,]`,
-		err: json.NewSyntaxError("not at beginning of value", 6),
+		err: json.NewSyntaxError("invalid character ',' looking for beginning of value", 6),
 	}, {
 		in:  `1 [] [true:]`,
 		err: json.NewSyntaxError("json: slice unexpected end of JSON input", 10),

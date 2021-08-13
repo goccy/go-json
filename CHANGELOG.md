@@ -1,3 +1,8 @@
+# v0.7.6 - 2021/08/13
+
+* Fix nil slice assignment ( #276 )
+* Improve error message ( #277 )
+
 # v0.7.5 - 2021/08/12
 
 * Fix encoding of embedded struct with tags ( #265 )

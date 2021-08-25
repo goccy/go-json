@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -499,6 +500,19 @@ func TestGzipStreaming(t *testing.T) {
 	err = dec.Decode(&v)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
+	}
+}
+
+func TestLongUTF8(t *testing.T) {
+	want := strings.Repeat("あ", 342)
+	r := strings.NewReader(strconv.Quote(want))
+
+	var got string
+	if err := json.NewDecoder(r).Decode(&got); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if got != want {
+    t.Errorf("string %q; want = %q", got, want)
 	}
 }
 

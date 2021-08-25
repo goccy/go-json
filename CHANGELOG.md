@@ -1,3 +1,10 @@
+# v0.7.7 - 2021/08/25
+
+* Fix invalid utf8 on stream decoder ( #279 )
+* Fix buffer length bug on string stream decoder ( #280 )
+
+Thank you @orisano !!
+
 # v0.7.6 - 2021/08/13
 
 * Fix nil slice assignment ( #276 )

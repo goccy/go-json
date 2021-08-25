@@ -512,7 +512,7 @@ func TestLongUTF8(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	if got != want {
-    t.Errorf("string %q; want = %q", got, want)
+		t.Errorf("string %q; want = %q", got, want)
 	}
 }
 

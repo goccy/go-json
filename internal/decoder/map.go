@@ -9,26 +9,29 @@ import (
 )
 
 type mapDecoder struct {
-	mapType       *runtime.Type
-	keyType       *runtime.Type
-	valueType     *runtime.Type
-	stringKeyType bool
-	keyDecoder    Decoder
-	valueDecoder  Decoder
-	structName    string
-	fieldName     string
+	mapType                 *runtime.Type
+	keyType                 *runtime.Type
+	valueType               *runtime.Type
+	canUseAssignFaststrType bool
+	keyDecoder              Decoder
+	valueDecoder            Decoder
+	structName              string
+	fieldName               string
 }
 
 func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec Decoder, valueType *runtime.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
+	isStructIndirect := valueType.Kind() == reflect.Struct && runtime.IfaceIndir(valueType)
+	stringKeyType := keyType.Kind() == reflect.String
+	canUseAssignFaststrType := stringKeyType && !isStructIndirect
 	return &mapDecoder{
-		mapType:       mapType,
-		keyDecoder:    keyDec,
-		keyType:       keyType,
-		stringKeyType: keyType.Kind() == reflect.String,
-		valueType:     valueType,
-		valueDecoder:  valueDec,
-		structName:    structName,
-		fieldName:     fieldName,
+		mapType:                 mapType,
+		keyDecoder:              keyDec,
+		keyType:                 keyType,
+		canUseAssignFaststrType: canUseAssignFaststrType,
+		valueType:               valueType,
+		valueDecoder:            valueDec,
+		structName:              structName,
+		fieldName:               fieldName,
 	}
 }
 
@@ -45,8 +48,8 @@ func mapassign_faststr(t *runtime.Type, m unsafe.Pointer, s string) unsafe.Point
 func mapassign(t *runtime.Type, m unsafe.Pointer, k, v unsafe.Pointer)
 
 func (d *mapDecoder) mapassign(t *runtime.Type, m, k, v unsafe.Pointer) {
-	if d.stringKeyType {
-		mapV := mapassign_faststr(d.mapType, m, *(*string)(k))
+	if d.canUseAssignFaststrType {
+		mapV := mapassign_faststr(t, m, *(*string)(k))
 		typedmemmove(d.valueType, mapV, v)
 	} else {
 		mapassign(t, m, k, v)

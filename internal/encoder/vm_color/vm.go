@@ -190,12 +190,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ      *runtime.Type
 				ifacePtr unsafe.Pointer
 			)
+			up := ptrToUnsafePtr(p)
 			if code.Flags&encoder.NonEmptyInterfaceFlags != 0 {
-				iface := (*nonEmptyInterface)(ptrToUnsafePtr(p))
+				iface := (*nonEmptyInterface)(up)
 				ifacePtr = iface.ptr
 				typ = iface.itab.typ
 			} else {
-				iface := (*emptyInterface)(ptrToUnsafePtr(p))
+				iface := (*emptyInterface)(up)
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
@@ -205,7 +206,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(p))
+			ctx.KeepRefs = append(ctx.KeepRefs, up)
 			ifaceCodeSet, err := encoder.CompileToGetCodeSet(uintptr(unsafe.Pointer(typ)))
 			if err != nil {
 				return nil, err

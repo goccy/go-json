@@ -3732,3 +3732,46 @@ func TestDecodeBinaryTypeWithEscapedChar(t *testing.T) {
 		}
 	})
 }
+
+func TestIssue282(t *testing.T) {
+	var J = []byte(`{
+  "a": {},
+  "b": {},
+  "c": {},
+  "d": {},
+  "e": {},
+  "f": {},
+  "g": {},
+  "h": {
+    "m": "1"
+  },
+  "i": {}
+}`)
+
+	type T4 struct {
+		F0 string
+		F1 string
+		F2 string
+		F3 string
+		F4 string
+		F5 string
+		F6 int
+	}
+	type T3 struct {
+		F0 string
+		F1 T4
+	}
+	type T2 struct {
+		F0 string `json:"m"`
+		F1 T3
+	}
+	type T0 map[string]T2
+
+	var v T0
+	if err := json.Unmarshal(J, &v); err != nil {
+		t.Fatal(err)
+	}
+	if v["h"].F0 != "1" {
+		t.Fatalf("failed to assign map value")
+	}
+}

@@ -2108,3 +2108,29 @@ func TestEmbeddedNotFirstField(t *testing.T) {
 		t.Fatalf("failed to encode embedded structure. expected = %q but got %q", expected, got)
 	}
 }
+
+type implementedMethodIface interface {
+	M()
+}
+
+type implementedIfaceType struct {
+	A int
+	B string
+}
+
+func (implementedIfaceType) M() {}
+
+func TestImplementedMethodInterfaceType(t *testing.T) {
+	data := []implementedIfaceType{implementedIfaceType{}}
+	expected, err := stdjson.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode implemented method interface type. expected:[%q] but got:[%q]", expected, got)
+	}
+}

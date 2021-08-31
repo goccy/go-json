@@ -20,19 +20,29 @@ type mapDecoder struct {
 }
 
 func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec Decoder, valueType *runtime.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
-	isStructIndirect := valueType.Kind() == reflect.Struct && runtime.IfaceIndir(valueType)
-	stringKeyType := keyType.Kind() == reflect.String
-	canUseAssignFaststrType := stringKeyType && !isStructIndirect
 	return &mapDecoder{
 		mapType:                 mapType,
 		keyDecoder:              keyDec,
 		keyType:                 keyType,
-		canUseAssignFaststrType: canUseAssignFaststrType,
+		canUseAssignFaststrType: canUseAssignFaststrType(keyType, valueType),
 		valueType:               valueType,
 		valueDecoder:            valueDec,
 		structName:              structName,
 		fieldName:               fieldName,
 	}
+}
+
+const (
+	mapMaxElemSize = 128
+)
+
+// See detail: https://github.com/goccy/go-json/pull/283
+func canUseAssignFaststrType(key *runtime.Type, value *runtime.Type) bool {
+	indirectElem := value.Size() > mapMaxElemSize
+	if indirectElem {
+		return false
+	}
+	return key.Kind() == reflect.String
 }
 
 //go:linkname makemap reflect.makemap

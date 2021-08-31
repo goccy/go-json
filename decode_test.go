@@ -3767,6 +3767,7 @@ func TestIssue282(t *testing.T) {
 	}
 	type T0 map[string]T2
 
+	// T2 size is 136 bytes. This is indirect type.
 	var v T0
 	if err := json.Unmarshal(J, &v); err != nil {
 		t.Fatal(err)

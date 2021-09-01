@@ -1,3 +1,9 @@
+# v0.7.8 - 2021/09/01
+
+* Fix mapassign_faststr for indirect struct type ( #283 )
+* Fix encoding of not empty interface type ( #284 )
+* Fix encoding of empty struct interface type ( #286 )
+
 # v0.7.7 - 2021/08/25
 
 * Fix invalid utf8 on stream decoder ( #279 )

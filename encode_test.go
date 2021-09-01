@@ -2134,3 +2134,17 @@ func TestImplementedMethodInterfaceType(t *testing.T) {
 		t.Fatalf("failed to encode implemented method interface type. expected:[%q] but got:[%q]", expected, got)
 	}
 }
+
+func TestEmptyStructInterface(t *testing.T) {
+	expected, err := stdjson.Marshal([]interface{}{struct{}{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal([]interface{}{struct{}{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode empty struct interface. expected:[%q] but got:[%q]", expected, got)
+	}
+}

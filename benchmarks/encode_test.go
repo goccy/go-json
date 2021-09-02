@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bytedance/sonic"
 	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
@@ -73,15 +72,6 @@ func Benchmark_Encode_SmallStruct_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(NewSmallPayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_SmallStruct_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(NewSmallPayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -186,16 +176,6 @@ func Benchmark_Encode_SmallStructCached_SegmentioJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_SmallStructCached_Sonic(b *testing.B) {
-	cached := NewSmallPayload()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(cached); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func Benchmark_Encode_SmallStructCached_GoJsonColored(b *testing.B) {
 	cached := NewSmallPayload()
 	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
@@ -277,15 +257,6 @@ func Benchmark_Encode_MediumStruct_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(NewMediumPayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_MediumStruct_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(NewMediumPayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -380,16 +351,6 @@ func Benchmark_Encode_MediumStructCached_SegmentioJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_MediumStructCached_Sonic(b *testing.B) {
-	cached := NewMediumPayload()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(cached); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func Benchmark_Encode_MediumStructCached_GoJsonColored(b *testing.B) {
 	cached := NewMediumPayload()
 	colorOpt := gojson.Colorize(gojson.DefaultColorScheme)
@@ -471,15 +432,6 @@ func Benchmark_Encode_LargeStruct_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(NewLargePayload()); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_LargeStruct_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(NewLargePayload()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -569,16 +521,6 @@ func Benchmark_Encode_LargeStructCached_SegmentioJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := segmentiojson.Marshal(cached); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Encode_LargeStructCached_Sonic(b *testing.B) {
-	cached := NewLargePayload()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := sonic.Marshal(cached); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bytedance/sonic"
 	gojay "github.com/francoispqt/gojay"
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
@@ -39,16 +38,6 @@ func Benchmark_Decode_SmallStruct_Unmarshal_SegmentioJson(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		result := SmallPayload{}
 		if err := segmentiojson.Unmarshal(SmallFixture, &result); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Decode_SmallStruct_Unmarshal_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
-		result := SmallPayload{}
-		if err := sonic.Unmarshal(SmallFixture, &result); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -180,16 +169,6 @@ func Benchmark_Decode_MediumStruct_Unmarshal_FastJson(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		var p fastjson.Parser
 		if _, err := p.Parse(mediumFixture); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Decode_MediumStruct_Unmarshal_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		result := MediumPayload{}
-		if err := sonic.Unmarshal(MediumFixture, &result); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -331,16 +310,6 @@ func Benchmark_Decode_LargeStruct_Unmarshal_FastJson(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		var p fastjson.Parser
 		if _, err := p.Parse(largeFixture); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func Benchmark_Decode_LargeStruct_Unmarshal_Sonic(b *testing.B) {
-	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
-		result := LargePayload{}
-		if err := sonic.Unmarshal(LargeFixture, &result); err != nil {
 			b.Fatal(err)
 		}
 	}

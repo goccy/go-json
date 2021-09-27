@@ -2148,3 +2148,23 @@ func TestEmptyStructInterface(t *testing.T) {
 		t.Fatalf("failed to encode empty struct interface. expected:[%q] but got:[%q]", expected, got)
 	}
 }
+
+func TestIssue290(t *testing.T) {
+	type Issue290 interface {
+		A()
+	}
+	var a struct {
+		A Issue290
+	}
+	expected, err := stdjson.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode non empty interface. expected = %q but got %q", expected, got)
+	}
+}

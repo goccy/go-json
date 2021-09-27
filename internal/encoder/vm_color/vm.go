@@ -194,7 +194,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if code.Flags&encoder.NonEmptyInterfaceFlags != 0 {
 				iface := (*nonEmptyInterface)(up)
 				ifacePtr = iface.ptr
-				typ = iface.itab.typ
+				if iface.itab != nil {
+					typ = iface.itab.typ
+				}
 			} else {
 				iface := (*emptyInterface)(up)
 				ifacePtr = iface.ptr

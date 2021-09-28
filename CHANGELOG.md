@@ -1,3 +1,7 @@
+# v0.7.9 - 2021/09/28
+
+* Fix encoding of nil value about interface type that has method ( #291 )
+
 # v0.7.8 - 2021/09/01
 
 * Fix mapassign_faststr for indirect struct type ( #283 )

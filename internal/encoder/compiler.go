@@ -353,18 +353,19 @@ func optimizeStructEnd(c *Opcode) {
 }
 
 func implementsMarshalJSON(typ *runtime.Type) bool {
-	if !implementsMarshalJSONType(typ) {
-		return false
-	}
-	if typ.Kind() != reflect.Ptr {
-		return true
-	}
-	// type kind is reflect.Ptr
-	if !implementsMarshalJSONType(typ.Elem()) {
-		return true
-	}
-	// needs to dereference
 	return false
+	// if !implementsMarshalJSONType(typ) {
+	// 	return false
+	// }
+	// if typ.Kind() != reflect.Ptr {
+	// 	return true
+	// }
+	// // type kind is reflect.Ptr
+	// if !implementsMarshalJSONType(typ.Elem()) {
+	// 	return true
+	// }
+	// // needs to dereference
+	// return false
 }
 
 func implementsMarshalText(typ *runtime.Type) bool {

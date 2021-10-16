@@ -1,3 +1,7 @@
+# v0.7.10 - 2021/10/16
+
+* Fix conversion from pointer to uint64  ( #294 )
+
 # v0.7.9 - 2021/09/28
 
 * Fix encoding of nil value about interface type that has method ( #291 )

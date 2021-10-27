@@ -369,6 +369,10 @@ func (s *Stream) skipArray(depth int64) error {
 	}
 }
 
+func (s *Stream) SkipErrorValue() {
+	_ = s.skipValue(0)
+}
+
 func (s *Stream) skipValue(depth int64) error {
 	_, cursor, p := s.stat()
 	for {

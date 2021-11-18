@@ -50,6 +50,20 @@ type Opcode struct {
 	DisplayKey string        // key text to display
 }
 
+func (c *Opcode) IsStructHeadOp() bool {
+	if c == nil {
+		return false
+	}
+	return strings.Contains(c.Op.String(), "Head")
+}
+
+func (c *Opcode) IsRecursiveOp() bool {
+	if c == nil {
+		return false
+	}
+	return strings.Contains(c.Op.String(), "Recursive")
+}
+
 func (c *Opcode) MaxIdx() uint32 {
 	max := uint32(0)
 	for _, value := range []uint32{
@@ -621,7 +635,7 @@ func linkPrevToNextField(cur *Opcode, removedFields map[*Opcode]struct{}) {
 			nextCode = code.Next
 		}
 		if nextCode == fcode {
-			code.Next = fcode.Next
+			code.Next = fcode.NextField
 			break
 		} else if nextCode.Op == OpEnd {
 			break

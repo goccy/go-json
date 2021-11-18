@@ -2168,3 +2168,77 @@ func TestIssue290(t *testing.T) {
 		t.Fatalf("failed to encode non empty interface. expected = %q but got %q", expected, got)
 	}
 }
+
+func TestIssue299(t *testing.T) {
+	t.Run("conflict second field", func(t *testing.T) {
+		type Embedded struct {
+			ID   string            `json:"id"`
+			Name map[string]string `json:"name"`
+		}
+		type Container struct {
+			Embedded
+			Name string `json:"name"`
+		}
+		c := &Container{
+			Embedded: Embedded{
+				ID:   "1",
+				Name: map[string]string{"en": "Hello", "es": "Hola"},
+			},
+			Name: "Hi",
+		}
+		expected, _ := stdjson.Marshal(c)
+		got, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected, got) {
+			t.Fatalf("expected %q but got %q", expected, got)
+		}
+	})
+	t.Run("conflict map field", func(t *testing.T) {
+		type Embedded struct {
+			Name map[string]string `json:"name"`
+		}
+		type Container struct {
+			Embedded
+			Name string `json:"name"`
+		}
+		c := &Container{
+			Embedded: Embedded{
+				Name: map[string]string{"en": "Hello", "es": "Hola"},
+			},
+			Name: "Hi",
+		}
+		expected, _ := stdjson.Marshal(c)
+		got, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected, got) {
+			t.Fatalf("expected %q but got %q", expected, got)
+		}
+	})
+	t.Run("conflict slice field", func(t *testing.T) {
+		type Embedded struct {
+			Name []string `json:"name"`
+		}
+		type Container struct {
+			Embedded
+			Name string `json:"name"`
+		}
+		c := &Container{
+			Embedded: Embedded{
+				Name: []string{"Hello"},
+			},
+			Name: "Hi",
+		}
+		expected, _ := stdjson.Marshal(c)
+		got, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected, got) {
+			t.Fatalf("expected %q but got %q", expected, got)
+		}
+	})
+}

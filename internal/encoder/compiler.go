@@ -12,6 +12,7 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
+	"github.com/k0kubun/pp"
 )
 
 type marshalerContext interface {
@@ -98,6 +99,11 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 
 func compileHead(ctx *compileContext) (*Opcode, error) {
 	typ := ctx.typ
+	code, err := type2code(typ)
+	if err != nil {
+		return nil, err
+	}
+	pp.Println(code)
 	switch {
 	case implementsMarshalJSON(typ):
 		return compileMarshalJSON(ctx)
@@ -1309,6 +1315,7 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
 
+		fmt.Println("fieldOpcodeIndex = ", fieldOpcodeIndex)
 		nilcheck := true
 		addrForMarshaler := false
 		isIndirectSpecialCase := isPtr && i == 0 && fieldNum == 1
@@ -1432,6 +1439,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		} else {
 			key = fmt.Sprintf(`"%s":`, tag.Key)
 		}
+		fmt.Println("== valueCode ==")
+		fmt.Println(valueCode.Dump())
 		fieldCode := &Opcode{
 			Idx:        opcodeOffset(fieldPtrIndex),
 			Next:       valueCode,
@@ -1455,6 +1464,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			fieldCode.PrevField = prevField
 			prevField = fieldCode
 		}
+		fmt.Println("== fieldCode ==")
+		fmt.Println(fieldCode.Dump())
 		fieldIdx++
 	}
 
@@ -1493,6 +1504,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 
 	head.End = structEndCode
 	code.Next = structEndCode
+	fmt.Println("== head ==")
+	fmt.Println(head.Dump())
 	optimizeConflictAnonymousFields(anonymousFields)
 	ret := (*Opcode)(unsafe.Pointer(head))
 	compiled.Code = ret

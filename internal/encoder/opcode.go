@@ -50,6 +50,42 @@ type Opcode struct {
 	DisplayKey string        // key text to display
 }
 
+func (c *Opcode) Validate() error {
+	var prevIdx uint32
+	for code := c; !code.IsEnd(); {
+		if prevIdx != 0 {
+			if code.DisplayIdx != prevIdx+1 {
+				return fmt.Errorf(
+					"invalid index. previous display index is %d but next is %d. dump = %s",
+					prevIdx, code.DisplayIdx, c.Dump(),
+				)
+			}
+		}
+		prevIdx = code.DisplayIdx
+		code = code.IterNext()
+	}
+	return nil
+}
+
+func (c *Opcode) IterNext() *Opcode {
+	if c == nil {
+		return nil
+	}
+	switch c.Op.CodeType() {
+	case CodeArrayElem, CodeSliceElem, CodeMapKey:
+		return c.End
+	default:
+		return c.Next
+	}
+}
+
+func (c *Opcode) IsEnd() bool {
+	if c == nil {
+		return false
+	}
+	return c.Op == OpEnd || c.Op == OpInterfaceEnd
+}
+
 func (c *Opcode) IsStructHeadOp() bool {
 	if c == nil {
 		return false
@@ -392,14 +428,8 @@ func (c *Opcode) copy(codeMap map[uintptr]*Opcode) *Opcode {
 func (c *Opcode) BeforeLastCode() *Opcode {
 	code := c
 	for {
-		var nextCode *Opcode
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			nextCode = code.End
-		default:
-			nextCode = code.Next
-		}
-		if nextCode.Op == OpEnd {
+		nextCode := code.IterNext()
+		if nextCode.IsEnd() {
 			return code
 		}
 		code = nextCode
@@ -409,7 +439,7 @@ func (c *Opcode) BeforeLastCode() *Opcode {
 func (c *Opcode) TotalLength() int {
 	var idx int
 	code := c
-	for code.Op != OpEnd && code.Op != OpInterfaceEnd {
+	for !code.IsEnd() {
 		maxIdx := int(code.MaxIdx() / uintptrSize)
 		if idx < maxIdx {
 			idx = maxIdx
@@ -417,12 +447,7 @@ func (c *Opcode) TotalLength() int {
 		if code.Op == OpRecursiveEnd {
 			break
 		}
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 	maxIdx := int(code.MaxIdx() / uintptrSize)
 	if idx < maxIdx {
@@ -432,7 +457,7 @@ func (c *Opcode) TotalLength() int {
 }
 
 func (c *Opcode) decOpcodeIndex() {
-	for code := c; code.Op != OpEnd; {
+	for code := c; !code.IsEnd(); {
 		code.DisplayIdx--
 		if code.Idx > 0 {
 			code.Idx -= uintptrSize
@@ -446,24 +471,14 @@ func (c *Opcode) decOpcodeIndex() {
 		if code.Length > 0 && code.Op.CodeType() != CodeArrayHead && code.Op.CodeType() != CodeArrayElem {
 			code.Length -= uintptrSize
 		}
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 }
 
 func (c *Opcode) decIndent() {
-	for code := c; code.Op != OpEnd; {
+	for code := c; !code.IsEnd(); {
 		code.Indent--
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 }
 
@@ -567,7 +582,7 @@ func (c *Opcode) dumpValue(code *Opcode) string {
 
 func (c *Opcode) Dump() string {
 	codes := []string{}
-	for code := c; code.Op != OpEnd && code.Op != OpInterfaceEnd; {
+	for code := c; !code.IsEnd(); {
 		switch code.Op.CodeType() {
 		case CodeSliceHead:
 			codes = append(codes, c.dumpHead(code))
@@ -625,17 +640,10 @@ func linkPrevToNextField(cur *Opcode, removedFields map[*Opcode]struct{}) {
 	prev := prevField(cur.PrevField, removedFields)
 	prev.NextField = nextField(cur.NextField, removedFields)
 	code := prev
-	fcode := cur
 	for {
-		var nextCode *Opcode
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			nextCode = code.End
-		default:
-			nextCode = code.Next
-		}
-		if nextCode == fcode {
-			code.Next = fcode.NextField
+		nextCode := code.IterNext()
+		if nextCode == cur {
+			code.Next = cur.NextField
 			break
 		} else if nextCode.Op == OpEnd {
 			break

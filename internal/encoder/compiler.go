@@ -98,12 +98,13 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 }
 
 func compileHead(ctx *compileContext) (*Opcode, error) {
-	typ := ctx.typ
-	code, err := type2code(typ)
+	code, err := type2code(ctx)
 	if err != nil {
 		return nil, err
 	}
 	pp.Println(code)
+
+	typ := ctx.typ
 	switch {
 	case implementsMarshalJSON(typ):
 		return compileMarshalJSON(ctx)
@@ -1378,12 +1379,8 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		}
 
 		if field.Anonymous && !tag.IsTaggedKey {
-			tagKey := ""
-			if tag.IsTaggedKey {
-				tagKey = tag.Key
-			}
 			valueCode = filterAnonymousStructFieldsByTags(valueCode, tags)
-			for k, v := range anonymousStructFieldPairMap(tagKey, valueCode) {
+			for k, v := range anonymousStructFieldPairMap("", valueCode) {
 				anonymousFields[k] = append(anonymousFields[k], v...)
 			}
 
@@ -1439,8 +1436,6 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		} else {
 			key = fmt.Sprintf(`"%s":`, tag.Key)
 		}
-		fmt.Println("== valueCode ==")
-		fmt.Println(valueCode.Dump())
 		fieldCode := &Opcode{
 			Idx:        opcodeOffset(fieldPtrIndex),
 			Next:       valueCode,
@@ -1464,8 +1459,6 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 			fieldCode.PrevField = prevField
 			prevField = fieldCode
 		}
-		fmt.Println("== fieldCode ==")
-		fmt.Println(fieldCode.Dump())
 		fieldIdx++
 	}
 
@@ -1504,8 +1497,6 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 
 	head.End = structEndCode
 	code.Next = structEndCode
-	fmt.Println("== head ==")
-	fmt.Println(head.Dump())
 	optimizeConflictAnonymousFields(anonymousFields)
 	ret := (*Opcode)(unsafe.Pointer(head))
 	compiled.Code = ret

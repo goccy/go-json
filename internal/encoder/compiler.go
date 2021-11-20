@@ -1316,7 +1316,6 @@ func compileStruct(ctx *compileContext, isPtr bool) (*Opcode, error) {
 		fieldPtrIndex := ctx.ptrIndex
 		ctx.incIndex()
 
-		fmt.Println("fieldOpcodeIndex = ", fieldOpcodeIndex)
 		nilcheck := true
 		addrForMarshaler := false
 		isIndirectSpecialCase := isPtr && i == 0 && fieldNum == 1

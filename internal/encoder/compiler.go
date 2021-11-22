@@ -12,7 +12,6 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
-	"github.com/k0kubun/pp"
 )
 
 type marshalerContext interface {
@@ -102,7 +101,12 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 	if err != nil {
 		return nil, err
 	}
-	pp.Println(code)
+	//pp.Println(code)
+	newCtx := *ctx
+	codes := code.ToOpcode(&newCtx)
+	codes.Last().Next = newEndOp(ctx)
+	//pp.Println(codes)
+	fmt.Println(codes.First().Dump())
 
 	typ := ctx.typ
 	switch {

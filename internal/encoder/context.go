@@ -15,6 +15,7 @@ type compileContext struct {
 	indent                   uint32
 	escapeKey                bool
 	structTypeToCompiledCode map[uintptr]*CompiledCode
+	structTypeToCode         map[uintptr]*StructCode
 
 	parent *compileContext
 }
@@ -27,6 +28,7 @@ func (c *compileContext) context() *compileContext {
 		indent:                   c.indent,
 		escapeKey:                c.escapeKey,
 		structTypeToCompiledCode: c.structTypeToCompiledCode,
+		structTypeToCode:         c.structTypeToCode,
 		parent:                   c,
 	}
 }

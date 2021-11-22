@@ -1,3 +1,4 @@
+//go:build !race
 // +build !race
 
 package encoder
@@ -23,6 +24,7 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 	noescapeKeyCode, err := compileHead(&compileContext{
 		typ:                      copiedType,
 		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
+		structTypeToCode:         map[uintptr]*StructCode{},
 	})
 	if err != nil {
 		return nil, err
@@ -30,6 +32,7 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 	escapeKeyCode, err := compileHead(&compileContext{
 		typ:                      copiedType,
 		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
+		structTypeToCode:         map[uintptr]*StructCode{},
 		escapeKey:                true,
 	})
 	if err != nil {

@@ -83,7 +83,7 @@ func (c *Opcode) IsEnd() bool {
 	if c == nil {
 		return false
 	}
-	return c.Op == OpEnd || c.Op == OpInterfaceEnd
+	return c.Op == OpEnd || c.Op == OpInterfaceEnd || c.Op == OpRecursiveEnd
 }
 
 func (c *Opcode) IsStructHeadOp() bool {

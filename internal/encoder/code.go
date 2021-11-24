@@ -238,7 +238,7 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes.Last().Next = elemCode
 	elemCode.Next = codes.First()
 	elemCode.End = end
-	return Opcodes{header}
+	return append(append(Opcodes{header}, codes...), elemCode, end)
 }
 
 type ArrayCode struct {
@@ -261,9 +261,9 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	header := newArrayHeaderCode(ctx, alen)
 	ctx.incIndex()
 
-	codes := c.value.ToOpcode(ctx)
+	codes := c.value.ToOpcode(ctx.incIndent())
 
-	elemCode := newArrayElemCode(ctx.withType(c.typ.Elem()).incIndent(), header, alen, size)
+	elemCode := newArrayElemCode(ctx.withType(elem), header, alen, size)
 	ctx.incIndex()
 
 	end := newOpCode(ctx, OpArrayEnd)
@@ -274,7 +274,8 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes.Last().Next = elemCode
 	elemCode.Next = codes.First()
 	elemCode.End = end
-	return Opcodes{header}
+
+	return append(append(Opcodes{header}, codes...), elemCode, end)
 }
 
 type MapCode struct {
@@ -318,7 +319,7 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header.End = end
 	key.End = end
 	value.End = end
-	return Opcodes{header}
+	return append(append(append(append(append(Opcodes{header}, keyCodes...), value), valueCodes...), key), end)
 }
 
 type StructCode struct {
@@ -371,11 +372,21 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		if isEndField {
 			if len(codes) > 0 {
 				codes.First().End = fieldCodes.Last()
+			} else if field.isAnonymous {
+				fieldCodes.First().End = fieldCodes.Last()
+				//fieldCodes.First().Next.End = fieldCodes.Last()
+				fieldCodes.First().Next.NextField = fieldCodes.Last()
 			} else {
 				fieldCodes.First().End = fieldCodes.Last()
 			}
 		}
-		prevField = fieldCodes.First()
+		if field.isAnonymous {
+			// fieldCodes.First() is StructHead operation.
+			// StructHead's next operation is truely head operation.
+			prevField = fieldCodes.First().Next
+		} else {
+			prevField = fieldCodes.First()
+		}
 		codes = append(codes, fieldCodes...)
 	}
 	ctx = ctx.decIndent()
@@ -539,24 +550,9 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	} else {
 		key = fmt.Sprintf(`"%s":`, c.key)
 	}
-	var flags OpFlags
+	flags := c.flags()
 	if c.isAnonymous {
 		flags |= AnonymousKeyFlags
-	}
-	if c.isTaggedKey {
-		flags |= IsTaggedKeyFlags
-	}
-	if c.isNilableType {
-		flags |= IsNilableTypeFlags
-	}
-	if c.isNilCheck {
-		flags |= NilCheckFlags
-	}
-	if c.isAddrForMarshaler {
-		flags |= AddrForMarshalerFlags
-	}
-	if c.isNextOpPtrType {
-		flags |= IsNextOpPtrTypeFlags
 	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
@@ -633,17 +629,8 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	return fieldCodes
 }
 
-func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
-	var key string
-	if ctx.escapeKey {
-		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
-		key = fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
-	} else {
-		key = fmt.Sprintf(`"%s":`, c.key)
-	}
+func (c *StructFieldCode) flags() OpFlags {
 	var flags OpFlags
-	flags |= AnonymousHeadFlags
-	flags |= AnonymousKeyFlags
 	if c.isTaggedKey {
 		flags |= IsTaggedKeyFlags
 	}
@@ -659,6 +646,20 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	if c.isNextOpPtrType {
 		flags |= IsNextOpPtrTypeFlags
 	}
+	return flags
+}
+
+func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	var key string
+	if ctx.escapeKey {
+		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
+		key = fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
+	} else {
+		key = fmt.Sprintf(`"%s":`, c.key)
+	}
+	flags := c.flags()
+	flags |= AnonymousHeadFlags
+	flags |= AnonymousKeyFlags
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      flags,

@@ -369,7 +369,12 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 			} else if field.isAnonymous {
 				fieldCodes.First().End = fieldCodes.Last()
 				//fieldCodes.First().Next.End = fieldCodes.Last()
-				fieldCodes.First().Next.NextField = fieldCodes.Last()
+				fieldCode := fieldCodes.First().Next
+				for fieldCode.NextField != nil {
+					fieldCode = fieldCode.NextField
+				}
+				// link curLastField => endField
+				fieldCode.NextField = fieldCodes.Last()
 			} else {
 				fieldCodes.First().End = fieldCodes.Last()
 			}
@@ -377,9 +382,17 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		if field.isAnonymous {
 			// fieldCodes.First() is StructHead operation.
 			// StructHead's next operation is truely head operation.
-			prevField = fieldCodes.First().Next
+			fieldCode := fieldCodes.First().Next
+			for fieldCode.NextField != nil {
+				fieldCode = fieldCode.NextField
+			}
+			prevField = fieldCode
 		} else {
-			prevField = fieldCodes.First()
+			fieldCode := fieldCodes.First()
+			for fieldCode.NextField != nil {
+				fieldCode = fieldCode.NextField
+			}
+			prevField = fieldCode
 		}
 		codes = append(codes, fieldCodes...)
 	}
@@ -1002,6 +1015,14 @@ func compileFloat642(ctx *compileContext, isPtr bool) (*FloatCode, error) {
 	return &FloatCode{typ: ctx.typ, bitSize: 64, isPtr: isPtr}, nil
 }
 
+func compileString2(ctx *compileContext, isPtr bool) (*StringCode, error) {
+	return &StringCode{typ: ctx.typ, isPtr: isPtr}, nil
+}
+
+func compileBool2(ctx *compileContext, isPtr bool) (*BoolCode, error) {
+	return &BoolCode{typ: ctx.typ, isPtr: isPtr}, nil
+}
+
 func compileIntString2(ctx *compileContext) (*IntCode, error) {
 	return &IntCode{typ: ctx.typ, bitSize: intSize, isString: true}, nil
 }
@@ -1040,14 +1061,6 @@ func compileUint32String2(ctx *compileContext) (*UintCode, error) {
 
 func compileUint64String2(ctx *compileContext) (*UintCode, error) {
 	return &UintCode{typ: ctx.typ, bitSize: 64, isString: true}, nil
-}
-
-func compileString2(ctx *compileContext, isString bool) (*StringCode, error) {
-	return &StringCode{typ: ctx.typ, isString: isString}, nil
-}
-
-func compileBool2(ctx *compileContext, isString bool) (*BoolCode, error) {
-	return &BoolCode{typ: ctx.typ, isString: isString}, nil
 }
 
 func compileSlice2(ctx *compileContext) (*SliceCode, error) {
@@ -1423,7 +1436,6 @@ func (c *StructCode) compileStructField(ctx *compileContext, tag *runtime.Struct
 			fieldCode.isNextOpPtrType = true
 		}
 		fieldCode.value = code
-		fieldCode.isNilCheck = false
 	}
 	return fieldCode, nil
 }

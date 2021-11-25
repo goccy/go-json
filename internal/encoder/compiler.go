@@ -102,11 +102,14 @@ func compileHead(ctx *compileContext) (*Opcode, error) {
 		return nil, err
 	}
 	//pp.Println(code)
-	newCtx := *ctx
-	codes := code.ToOpcode(&newCtx)
-	codes.Last().Next = newEndOp(ctx)
-	//pp.Println(codes)
+	derefctx := *ctx
+	newCtx := &derefctx
+	codes := code.ToOpcode(newCtx)
+	codes.Last().Next = newEndOp(newCtx)
+	//pp.Println(codes.First())
 	fmt.Println(codes.First().Dump())
+	linkRecursiveCode2(newCtx)
+	return codes.First(), nil
 
 	typ := ctx.typ
 	switch {

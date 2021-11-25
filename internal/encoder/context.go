@@ -16,6 +16,8 @@ type compileContext struct {
 	escapeKey                bool
 	structTypeToCompiledCode map[uintptr]*CompiledCode
 	structTypeToCode         map[uintptr]*StructCode
+	structTypeToCodes        map[uintptr]Opcodes
+	recursiveCodes           *Opcodes
 
 	parent *compileContext
 }
@@ -29,6 +31,8 @@ func (c *compileContext) context() *compileContext {
 		escapeKey:                c.escapeKey,
 		structTypeToCompiledCode: c.structTypeToCompiledCode,
 		structTypeToCode:         c.structTypeToCode,
+		structTypeToCodes:        c.structTypeToCodes,
+		recursiveCodes:           c.recursiveCodes,
 		parent:                   c,
 	}
 }

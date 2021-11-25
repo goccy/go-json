@@ -25,6 +25,8 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 		typ:                      copiedType,
 		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
 		structTypeToCode:         map[uintptr]*StructCode{},
+		structTypeToCodes:        map[uintptr]Opcodes{},
+		recursiveCodes:           &Opcodes{},
 	})
 	if err != nil {
 		return nil, err
@@ -33,6 +35,8 @@ func CompileToGetCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 		typ:                      copiedType,
 		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
 		structTypeToCode:         map[uintptr]*StructCode{},
+		structTypeToCodes:        map[uintptr]Opcodes{},
+		recursiveCodes:           &Opcodes{},
 		escapeKey:                true,
 	})
 	if err != nil {

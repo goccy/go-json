@@ -228,8 +228,8 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	size := c.typ.Elem().Size()
 	header := newSliceHeaderCode(ctx)
 	ctx.incIndex()
-	codes := c.value.ToOpcode(ctx)
-	elemCode := newSliceElemCode(ctx.withType(c.typ.Elem()).incIndent(), header, size)
+	codes := c.value.ToOpcode(ctx.incIndent())
+	elemCode := newSliceElemCode(ctx.withType(c.typ.Elem()), header, size)
 	ctx.incIndex()
 	end := newOpCode(ctx, OpSliceEnd)
 	ctx.incIndex()
@@ -292,7 +292,6 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	// header => code => value => code => key => code => value => code => end
 	//                                     ^                       |
 	//                                     |_______________________|
-	ctx = ctx.incIndent()
 	header := newMapHeaderCode(ctx)
 	ctx.incIndex()
 
@@ -300,12 +299,10 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 
 	value := newMapValueCode(ctx, header)
 	ctx.incIndex()
-	valueCodes := c.value.ToOpcode(ctx)
+	valueCodes := c.value.ToOpcode(ctx.incIndent())
 
 	key := newMapKeyCode(ctx, header)
 	ctx.incIndex()
-
-	ctx = ctx.decIndent()
 
 	end := newMapEndCode(ctx, header)
 	ctx.incIndex()
@@ -340,14 +337,11 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
-	var recursive *Opcode
-	compiled := &CompiledCode{}
 	if c.isRecursive {
-		recursive = newRecursiveCode(ctx, compiled)
+		recursive := newRecursiveCode(ctx, &CompiledCode{})
+		recursive.Type = c.typ
 		ctx.incIndex()
-	}
-	if len(c.recursiveCodes) > 0 {
-		c.linkRecursiveCode(compiled, c.recursiveCodes)
+		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
 	}
 	codes := Opcodes{}
@@ -389,12 +383,27 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		}
 		codes = append(codes, fieldCodes...)
 	}
-	ctx = ctx.decIndent()
-	if c.isRecursive {
-		c.recursiveCodes = codes
-		c.linkRecursiveCode(compiled, c.recursiveCodes)
-		return Opcodes{recursive}
+	if len(codes) == 0 {
+		end := &Opcode{
+			Op:         OpStructEnd,
+			Idx:        opcodeOffset(ctx.ptrIndex),
+			DisplayIdx: ctx.opcodeIndex,
+			Indent:     ctx.indent,
+		}
+		head := &Opcode{
+			Op:         OpStructHead,
+			Idx:        opcodeOffset(ctx.ptrIndex),
+			NextField:  end,
+			Type:       c.typ,
+			DisplayIdx: ctx.opcodeIndex,
+			Indent:     ctx.indent,
+		}
+		codes = append(codes, head, end)
+		end.PrevField = head
+		ctx.incIndex()
 	}
+	ctx = ctx.decIndent()
+	ctx.structTypeToCodes[uintptr(unsafe.Pointer(c.typ))] = codes
 	return codes
 }
 
@@ -402,14 +411,11 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	// header => code => structField => code => end
 	//                        ^          |
 	//                        |__________|
-	var recursive *Opcode
-	compiled := &CompiledCode{}
 	if c.isRecursive {
-		recursive = newRecursiveCode(ctx, compiled)
+		recursive := newRecursiveCode(ctx, &CompiledCode{})
+		recursive.Type = c.typ
 		ctx.incIndex()
-	}
-	if len(c.recursiveCodes) > 0 {
-		c.linkRecursiveCode(compiled, c.recursiveCodes)
+		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
 	}
 	codes := Opcodes{}
@@ -440,36 +446,35 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		prevField = fieldCodes.First()
 		codes = append(codes, fieldCodes...)
 	}
-	if c.isRecursive {
-		c.recursiveCodes = codes
-		c.linkRecursiveCode(compiled, c.recursiveCodes)
-		return Opcodes{recursive}
-	}
 	return codes
 }
 
-func (c *StructCode) linkRecursiveCode(compiled *CompiledCode, codes Opcodes) {
-	compiled.Code = copyOpcode(codes.First())
-	code := compiled.Code
-	code.End.Next = newEndOp(&compileContext{})
-	code.Op = code.Op.PtrHeadToHead()
+func linkRecursiveCode2(ctx *compileContext) {
+	for _, recursive := range *ctx.recursiveCodes {
+		typeptr := uintptr(unsafe.Pointer(recursive.Type))
+		codes := ctx.structTypeToCodes[typeptr]
+		compiled := recursive.Jmp
+		compiled.Code = copyOpcode(codes.First())
+		code := compiled.Code
+		code.End.Next = newEndOp(&compileContext{})
+		code.Op = code.Op.PtrHeadToHead()
 
-	beforeLastCode := code.End
-	lastCode := beforeLastCode.Next
+		beforeLastCode := code.End
+		lastCode := beforeLastCode.Next
 
-	lastCode.Idx = beforeLastCode.Idx + uintptrSize
-	lastCode.ElemIdx = lastCode.Idx + uintptrSize
-	lastCode.Length = lastCode.Idx + 2*uintptrSize
+		lastCode.Idx = beforeLastCode.Idx + uintptrSize
+		lastCode.ElemIdx = lastCode.Idx + uintptrSize
+		lastCode.Length = lastCode.Idx + 2*uintptrSize
+		code.End.Next.Op = OpRecursiveEnd
 
-	// extend length to alloc slot for elemIdx + length
-	totalLength := uintptr((codes.Last().MaxIdx() / uintptrSize) + 3)
-	nextTotalLength := uintptr(code.TotalLength() + 3)
+		// extend length to alloc slot for elemIdx + length
+		totalLength := uintptr(recursive.TotalLength()) + 3
+		nextTotalLength := uintptr(codes.First().TotalLength()) + 3
 
-	code.End.Next.Op = OpRecursiveEnd
-
-	compiled.CurLen = totalLength
-	compiled.NextLen = nextTotalLength
-	compiled.Linked = true
+		compiled.CurLen = totalLength
+		compiled.NextLen = nextTotalLength
+		compiled.Linked = true
+	}
 }
 
 func (c *StructCode) removeFieldsByTags(tags runtime.StructTags) {
@@ -567,9 +572,9 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	ctx.incIndex()
 	var codes Opcodes
 	if c.isAnonymous {
-		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx)
+		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ))
 	} else {
-		codes = c.value.ToOpcode(ctx)
+		codes = c.value.ToOpcode(ctx.withType(c.typ))
 	}
 	if isFirstField {
 		op := optimizeStructHeader(codes.First(), c.tag)
@@ -673,9 +678,9 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	ctx.incIndex()
 	var codes Opcodes
 	if c.isAnonymous {
-		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx)
+		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ))
 	} else {
-		codes = c.value.ToOpcode(ctx)
+		codes = c.value.ToOpcode(ctx.withType(c.typ))
 	}
 	if isFirstField {
 		op := optimizeStructHeader(codes.First(), c.tag)
@@ -746,7 +751,7 @@ func (c *MarshalJSONCode) Type() CodeType2 {
 }
 
 func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
-	code := newOpCode(ctx, OpMarshalJSON)
+	code := newOpCode(ctx.withType(c.typ), OpMarshalJSON)
 	typ := c.typ
 	if isPtrMarshalJSONType(typ) {
 		code.Flags |= AddrForMarshalerFlags
@@ -772,7 +777,7 @@ func (c *MarshalTextCode) Type() CodeType2 {
 }
 
 func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
-	code := newOpCode(ctx, OpMarshalText)
+	code := newOpCode(ctx.withType(c.typ), OpMarshalText)
 	typ := c.typ
 	if !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType) {
 		code.Flags |= AddrForMarshalerFlags
@@ -797,14 +802,14 @@ func (c *PtrCode) Type() CodeType2 {
 }
 
 func (c *PtrCode) ToOpcode(ctx *compileContext) Opcodes {
-	codes := c.value.ToOpcode(ctx)
+	codes := c.value.ToOpcode(ctx.withType(c.typ.Elem()))
 	codes.First().Op = convertPtrOp(codes.First())
 	codes.First().PtrNum = c.ptrNum
 	return codes
 }
 
 func (c *PtrCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
-	codes := c.value.(AnonymousCode).ToAnonymousOpcode(ctx)
+	codes := c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ.Elem()))
 	codes.First().Op = convertPtrOp(codes.First())
 	codes.First().PtrNum = c.ptrNum
 	return codes
@@ -954,15 +959,15 @@ func compileInt2(ctx *compileContext, isPtr bool) (*IntCode, error) {
 }
 
 func compileInt82(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: intSize, isPtr: isPtr}, nil
-}
-
-func compileInt162(ctx *compileContext, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: ctx.typ, bitSize: 8, isPtr: isPtr}, nil
 }
 
-func compileInt322(ctx *compileContext, isPtr bool) (*IntCode, error) {
+func compileInt162(ctx *compileContext, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: ctx.typ, bitSize: 16, isPtr: isPtr}, nil
+}
+
+func compileInt322(ctx *compileContext, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: ctx.typ, bitSize: 32, isPtr: isPtr}, nil
 }
 
 func compileInt642(ctx *compileContext, isPtr bool) (*IntCode, error) {
@@ -974,15 +979,15 @@ func compileUint2(ctx *compileContext, isPtr bool) (*UintCode, error) {
 }
 
 func compileUint82(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: intSize, isPtr: isPtr}, nil
-}
-
-func compileUint162(ctx *compileContext, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: ctx.typ, bitSize: 8, isPtr: isPtr}, nil
 }
 
-func compileUint322(ctx *compileContext, isPtr bool) (*UintCode, error) {
+func compileUint162(ctx *compileContext, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: ctx.typ, bitSize: 16, isPtr: isPtr}, nil
+}
+
+func compileUint322(ctx *compileContext, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: ctx.typ, bitSize: 32, isPtr: isPtr}, nil
 }
 
 func compileUint642(ctx *compileContext, isPtr bool) (*UintCode, error) {
@@ -1002,15 +1007,15 @@ func compileIntString2(ctx *compileContext) (*IntCode, error) {
 }
 
 func compileInt8String2(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: intSize, isString: true}, nil
-}
-
-func compileInt16String2(ctx *compileContext) (*IntCode, error) {
 	return &IntCode{typ: ctx.typ, bitSize: 8, isString: true}, nil
 }
 
-func compileInt32String2(ctx *compileContext) (*IntCode, error) {
+func compileInt16String2(ctx *compileContext) (*IntCode, error) {
 	return &IntCode{typ: ctx.typ, bitSize: 16, isString: true}, nil
+}
+
+func compileInt32String2(ctx *compileContext) (*IntCode, error) {
+	return &IntCode{typ: ctx.typ, bitSize: 32, isString: true}, nil
 }
 
 func compileInt64String2(ctx *compileContext) (*IntCode, error) {
@@ -1022,15 +1027,15 @@ func compileUintString2(ctx *compileContext) (*UintCode, error) {
 }
 
 func compileUint8String2(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: intSize, isString: true}, nil
-}
-
-func compileUint16String2(ctx *compileContext) (*UintCode, error) {
 	return &UintCode{typ: ctx.typ, bitSize: 8, isString: true}, nil
 }
 
-func compileUint32String2(ctx *compileContext) (*UintCode, error) {
+func compileUint16String2(ctx *compileContext) (*UintCode, error) {
 	return &UintCode{typ: ctx.typ, bitSize: 16, isString: true}, nil
+}
+
+func compileUint32String2(ctx *compileContext) (*UintCode, error) {
+	return &UintCode{typ: ctx.typ, bitSize: 32, isString: true}, nil
 }
 
 func compileUint64String2(ctx *compileContext) (*UintCode, error) {

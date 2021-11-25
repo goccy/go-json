@@ -413,6 +413,8 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 			Type:       c.typ,
 			DisplayIdx: ctx.opcodeIndex,
 			Indent:     ctx.indent,
+			Next:       end,
+			End:        end,
 		}
 		codes = append(codes, head, end)
 		end.PrevField = head
@@ -750,9 +752,9 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 	var code *Opcode
 	switch {
 	case c.isPtr:
-		code = newOpCode(ctx, OpInterfacePtr)
+		code = newOpCode(ctx.withType(c.typ), OpInterfacePtr)
 	default:
-		code = newOpCode(ctx, OpInterface)
+		code = newOpCode(ctx.withType(c.typ), OpInterface)
 	}
 	ctx.incIndex()
 	return Opcodes{code}

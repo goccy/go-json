@@ -81,7 +81,7 @@ func (c *Opcode) IterNext() *Opcode {
 
 func (c *Opcode) IsEnd() bool {
 	if c == nil {
-		return false
+		return true
 	}
 	return c.Op == OpEnd || c.Op == OpInterfaceEnd || c.Op == OpRecursiveEnd
 }

@@ -229,6 +229,7 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	header := newSliceHeaderCode(ctx)
 	ctx.incIndex()
 	codes := c.value.ToOpcode(ctx.incIndent())
+	codes.First().Flags |= IndirectFlags
 	elemCode := newSliceElemCode(ctx.withType(c.typ.Elem()), header, size)
 	ctx.incIndex()
 	end := newOpCode(ctx, OpSliceEnd)
@@ -262,6 +263,7 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	ctx.incIndex()
 
 	codes := c.value.ToOpcode(ctx.incIndent())
+	codes.First().Flags |= IndirectFlags
 
 	elemCode := newArrayElemCode(ctx.withType(elem), header, alen, size)
 	ctx.incIndex()
@@ -300,6 +302,7 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	value := newMapValueCode(ctx, header)
 	ctx.incIndex()
 	valueCodes := c.value.ToOpcode(ctx.incIndent())
+	valueCodes.First().Flags |= IndirectFlags
 
 	key := newMapKeyCode(ctx, header)
 	ctx.incIndex()

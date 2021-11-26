@@ -483,16 +483,17 @@ func linkRecursiveCode2(ctx *compileContext) {
 		beforeLastCode := code.End
 		lastCode := beforeLastCode.Next
 
-		lastCode.Idx = beforeLastCode.Idx + uintptrSize
+		totalLength := code.TotalLength()
+		lastCode.Idx = uint32((totalLength + 1) * uintptrSize)
 		lastCode.ElemIdx = lastCode.Idx + uintptrSize
 		lastCode.Length = lastCode.Idx + 2*uintptrSize
 		code.End.Next.Op = OpRecursiveEnd
 
-		// extend length to alloc slot for elemIdx + length
-		totalLength := uintptr(recursive.TotalLength()) + 3
-		nextTotalLength := uintptr(codes.First().TotalLength()) + 3
 
-		compiled.CurLen = totalLength
+		// extend length to alloc slot for elemIdx + length
+		curTotalLength := uintptr(recursive.TotalLength()) + 3
+		nextTotalLength := uintptr(totalLength) + 3
+		compiled.CurLen = curTotalLength
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 	}

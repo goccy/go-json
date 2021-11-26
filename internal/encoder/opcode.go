@@ -490,7 +490,7 @@ func (c *Opcode) dumpHead(code *Opcode) string {
 		length = code.Length / uintptrSize
 	}
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][elemIdx:%d][length:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -502,7 +502,7 @@ func (c *Opcode) dumpHead(code *Opcode) string {
 
 func (c *Opcode) dumpMapHead(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -515,7 +515,7 @@ func (c *Opcode) dumpMapHead(code *Opcode) string {
 
 func (c *Opcode) dumpMapEnd(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
+		`[%03d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -533,7 +533,7 @@ func (c *Opcode) dumpElem(code *Opcode) string {
 		length = code.Length / uintptrSize
 	}
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][elemIdx:%d][length:%d][size:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][size:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -546,7 +546,7 @@ func (c *Opcode) dumpElem(code *Opcode) string {
 
 func (c *Opcode) dumpField(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][key:%s][offset:%d])`,
+		`[%03d]%s%s ([idx:%d][key:%s][offset:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -558,7 +558,7 @@ func (c *Opcode) dumpField(code *Opcode) string {
 
 func (c *Opcode) dumpKey(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -571,7 +571,7 @@ func (c *Opcode) dumpKey(code *Opcode) string {
 
 func (c *Opcode) dumpValue(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%02d]%s%s ([idx:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -610,7 +610,7 @@ func (c *Opcode) Dump() string {
 			code = code.Next
 		default:
 			codes = append(codes, fmt.Sprintf(
-				"[%02d]%s%s ([idx:%d])",
+				"[%03d]%s%s ([idx:%d])",
 				code.DisplayIdx,
 				strings.Repeat("-", int(code.Indent)),
 				code.Op,

@@ -334,6 +334,27 @@ func (c *StructCode) Type() CodeType2 {
 	return CodeTypeStruct
 }
 
+func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *Opcode {
+	if field.isAnonymous {
+		return c.lastAnonymousFieldCode(firstField)
+	}
+	lastField := firstField
+	for lastField.NextField != nil {
+		lastField = lastField.NextField
+	}
+	return lastField
+}
+
+func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
+	// firstField is special StructHead operation for anonymous structure.
+	// So, StructHead's next operation is truely struct head operation.
+	lastField := firstField.Next
+	for lastField.NextField != nil {
+		lastField = lastField.NextField
+	}
+	return lastField
+}
+
 func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	// header => code => structField => code => end
 	//                        ^          |
@@ -357,46 +378,29 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 				code.Flags |= IndirectFlags
 			}
 		}
+		firstField := fieldCodes.First()
 		if len(codes) > 0 {
-			codes.Last().Next = fieldCodes.First()
-			fieldCodes.First().Idx = codes.First().Idx
+			codes.Last().Next = firstField
+			firstField.Idx = codes.First().Idx
 		}
 		if prevField != nil {
-			prevField.NextField = fieldCodes.First()
+			prevField.NextField = firstField
 		}
 		if isEndField {
+			endField := fieldCodes.Last()
 			if len(codes) > 0 {
-				codes.First().End = fieldCodes.Last()
+				codes.First().End = endField
 			} else if field.isAnonymous {
-				fieldCodes.First().End = fieldCodes.Last()
-				//fieldCodes.First().Next.End = fieldCodes.Last()
-				fieldCode := fieldCodes.First().Next
-				for fieldCode.NextField != nil {
-					fieldCode = fieldCode.NextField
-				}
-				// link curLastField => endField
-				fieldCode.NextField = fieldCodes.Last()
+				firstField.End = endField
+				lastField := c.lastAnonymousFieldCode(firstField)
+				lastField.NextField = endField
 			} else {
-				fieldCodes.First().End = fieldCodes.Last()
+				firstField.End = endField
 			}
 			codes = append(codes, fieldCodes...)
 			break
 		}
-		if field.isAnonymous {
-			// fieldCodes.First() is StructHead operation.
-			// StructHead's next operation is truely head operation.
-			fieldCode := fieldCodes.First().Next
-			for fieldCode.NextField != nil {
-				fieldCode = fieldCode.NextField
-			}
-			prevField = fieldCode
-		} else {
-			fieldCode := fieldCodes.First()
-			for fieldCode.NextField != nil {
-				fieldCode = fieldCode.NextField
-			}
-			prevField = fieldCode
-		}
+		prevField = c.lastFieldCode(field, firstField)
 		codes = append(codes, fieldCodes...)
 	}
 	if len(codes) == 0 {
@@ -448,21 +452,23 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 				code.Flags |= IndirectFlags
 			}
 		}
+		firstField := fieldCodes.First()
 		if len(codes) > 0 {
-			codes.Last().Next = fieldCodes.First()
-			fieldCodes.First().Idx = codes.First().Idx
+			codes.Last().Next = firstField
+			firstField.Idx = codes.First().Idx
 		}
 		if prevField != nil {
-			prevField.NextField = fieldCodes.First()
+			prevField.NextField = firstField
 		}
 		if isEndField {
+			lastField := fieldCodes.Last()
 			if len(codes) > 0 {
-				codes.First().End = fieldCodes.Last()
+				codes.First().End = lastField
 			} else {
-				fieldCodes.First().End = fieldCodes.Last()
+				firstField.End = lastField
 			}
 		}
-		prevField = fieldCodes.First()
+		prevField = firstField
 		codes = append(codes, fieldCodes...)
 	}
 	return codes
@@ -538,96 +544,59 @@ func (c *StructFieldCode) getAnonymousStruct() *StructCode {
 	return c.getStruct()
 }
 
-func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
-	var key string
-	if ctx.escapeKey {
-		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
-		key = fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
-	} else {
-		key = fmt.Sprintf(`"%s":`, c.key)
-	}
-	flags := c.flags()
-	if c.isAnonymous {
-		flags |= AnonymousKeyFlags
-	}
-	field := &Opcode{
-		Idx:        opcodeOffset(ctx.ptrIndex),
-		Flags:      flags,
-		Key:        key,
-		Offset:     uint32(c.offset),
-		Type:       c.typ,
-		DisplayIdx: ctx.opcodeIndex,
-		Indent:     ctx.indent,
-		DisplayKey: c.key,
-	}
-	ctx.incIndex()
-	var codes Opcodes
-	if c.isAnonymous {
-		anonymCode, ok := c.value.(AnonymousCode)
-		if ok {
-			codes = anonymCode.ToAnonymousOpcode(ctx.withType(c.typ))
-		} else {
-			codes = c.value.ToOpcode(ctx.withType(c.typ))
-		}
-	} else {
-		codes = c.value.ToOpcode(ctx.withType(c.typ))
-	}
-	if isFirstField {
-		op := optimizeStructHeader(codes.First(), c.tag)
-		field.Op = op
-		field.NumBitSize = codes.First().NumBitSize
-		field.PtrNum = codes.First().PtrNum
-		fieldCodes := Opcodes{field}
-		if op.IsMultipleOpHead() {
-			field.Next = codes.First()
-			fieldCodes = append(fieldCodes, codes...)
-		} else {
-			ctx.decIndex()
-		}
-		if isEndField {
-			end := &Opcode{
-				Op:         OpStructEnd,
-				Idx:        opcodeOffset(ctx.ptrIndex),
-				DisplayIdx: ctx.opcodeIndex,
-				Indent:     ctx.indent,
-			}
-			fieldCodes.Last().Next = end
-			fieldCodes.First().NextField = end
-			fieldCodes = append(fieldCodes, end)
-			ctx.incIndex()
-		}
-		return fieldCodes
-	}
-	op := optimizeStructField(codes.First(), c.tag)
+func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
+	value := valueCodes.First()
+	op := optimizeStructHeader(value, c.tag)
 	field.Op = op
-	field.NumBitSize = codes.First().NumBitSize
-	field.PtrNum = codes.First().PtrNum
+	field.NumBitSize = value.NumBitSize
+	field.PtrNum = value.PtrNum
+	fieldCodes := Opcodes{field}
+	if op.IsMultipleOpHead() {
+		field.Next = value
+		fieldCodes = append(fieldCodes, valueCodes...)
+	} else {
+		ctx.decIndex()
+	}
+	return fieldCodes
+}
+
+func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
+	value := valueCodes.First()
+	op := optimizeStructField(value, c.tag)
+	field.Op = op
+	field.NumBitSize = value.NumBitSize
+	field.PtrNum = value.PtrNum
 
 	fieldCodes := Opcodes{field}
 	if op.IsMultipleOpField() {
-		field.Next = codes.First()
-		fieldCodes = append(fieldCodes, codes...)
+		field.Next = value
+		fieldCodes = append(fieldCodes, valueCodes...)
 	} else {
-		// optimize codes
 		ctx.decIndex()
 	}
-	if isEndField {
-		if isEnableStructEndOptimizationType(c.value.Type()) {
-			field.Op = field.Op.FieldToEnd()
-		} else {
-			end := &Opcode{
-				Op:         OpStructEnd,
-				Idx:        opcodeOffset(ctx.ptrIndex),
-				DisplayIdx: ctx.opcodeIndex,
-				Indent:     ctx.indent,
-			}
-			fieldCodes.Last().Next = end
-			fieldCodes.First().NextField = end
-			fieldCodes = append(fieldCodes, end)
-			ctx.incIndex()
-		}
-	}
 	return fieldCodes
+}
+
+func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) Opcodes {
+	end := &Opcode{
+		Op:         OpStructEnd,
+		Idx:        opcodeOffset(ctx.ptrIndex),
+		DisplayIdx: ctx.opcodeIndex,
+		Indent:     ctx.indent,
+	}
+	codes.Last().Next = end
+	codes.First().NextField = end
+	codes = append(codes, end)
+	ctx.incIndex()
+	return codes
+}
+
+func (c *StructFieldCode) structKey(ctx *compileContext) string {
+	if ctx.escapeKey {
+		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
+		return fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
+	}
+	return fmt.Sprintf(`"%s":`, c.key)
 }
 
 func (c *StructFieldCode) flags() OpFlags {
@@ -647,26 +616,27 @@ func (c *StructFieldCode) flags() OpFlags {
 	if c.isNextOpPtrType {
 		flags |= IsNextOpPtrTypeFlags
 	}
-	return flags
-}
-
-func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
-	var key string
-	if ctx.escapeKey {
-		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
-		key = fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
-	} else {
-		key = fmt.Sprintf(`"%s":`, c.key)
-	}
-	flags := c.flags()
-	flags |= AnonymousHeadFlags
 	if c.isAnonymous {
 		flags |= AnonymousKeyFlags
 	}
+	return flags
+}
+
+func (c *StructFieldCode) toValueOpcodes(ctx *compileContext) Opcodes {
+	if c.isAnonymous {
+		anonymCode, ok := c.value.(AnonymousCode)
+		if ok {
+			return anonymCode.ToAnonymousOpcode(ctx.withType(c.typ))
+		}
+	}
+	return c.value.ToOpcode(ctx.withType(c.typ))
+}
+
+func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
-		Flags:      flags,
-		Key:        key,
+		Flags:      c.flags(),
+		Key:        c.structKey(ctx),
 		Offset:     uint32(c.offset),
 		Type:       c.typ,
 		DisplayIdx: ctx.opcodeIndex,
@@ -674,45 +644,42 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 		DisplayKey: c.key,
 	}
 	ctx.incIndex()
-	var codes Opcodes
-	if c.isAnonymous {
-		anonymCode, ok := c.value.(AnonymousCode)
-		if ok {
-			codes = anonymCode.ToAnonymousOpcode(ctx.withType(c.typ))
-		} else {
-			codes = c.value.ToOpcode(ctx.withType(c.typ))
-		}
-	} else {
-		codes = c.value.ToOpcode(ctx.withType(c.typ))
-	}
+	valueCodes := c.toValueOpcodes(ctx)
 	if isFirstField {
-		op := optimizeStructHeader(codes.First(), c.tag)
-		field.Op = op
-		field.NumBitSize = codes.First().NumBitSize
-		field.PtrNum = codes.First().PtrNum
-		fieldCodes := Opcodes{field}
-		if op.IsMultipleOpHead() {
-			field.Next = codes.First()
-			fieldCodes = append(fieldCodes, codes...)
-		} else {
-			ctx.decIndex()
+		codes := c.headerOpcodes(ctx, field, valueCodes)
+		if isEndField {
+			codes = c.addStructEndCode(ctx, codes)
 		}
-		return fieldCodes
+		return codes
 	}
-	op := optimizeStructField(codes.First(), c.tag)
-	field.Op = op
-	field.NumBitSize = codes.First().NumBitSize
-	field.PtrNum = codes.First().PtrNum
+	codes := c.fieldOpcodes(ctx, field, valueCodes)
+	if isEndField {
+		if isEnableStructEndOptimizationType(c.value.Type()) {
+			field.Op = field.Op.FieldToEnd()
+		} else {
+			codes = c.addStructEndCode(ctx, codes)
+		}
+	}
+	return codes
+}
 
-	fieldCodes := Opcodes{field}
-	if op.IsMultipleOpField() {
-		field.Next = codes.First()
-		fieldCodes = append(fieldCodes, codes...)
-	} else {
-		// optimize codes
-		ctx.decIndex()
+func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	field := &Opcode{
+		Idx:        opcodeOffset(ctx.ptrIndex),
+		Flags:      c.flags() | AnonymousHeadFlags,
+		Key:        c.structKey(ctx),
+		Offset:     uint32(c.offset),
+		Type:       c.typ,
+		DisplayIdx: ctx.opcodeIndex,
+		Indent:     ctx.indent,
+		DisplayKey: c.key,
 	}
-	return fieldCodes
+	ctx.incIndex()
+	valueCodes := c.toValueOpcodes(ctx)
+	if isFirstField {
+		return c.headerOpcodes(ctx, field, valueCodes)
+	}
+	return c.fieldOpcodes(ctx, field, valueCodes)
 }
 
 func isEnableStructEndOptimizationType(typ CodeType2) bool {

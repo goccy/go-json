@@ -690,7 +690,9 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	}
 	flags := c.flags()
 	flags |= AnonymousHeadFlags
-	flags |= AnonymousKeyFlags
+	if c.isAnonymous {
+		flags |= AnonymousKeyFlags
+	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      flags,
@@ -1304,13 +1306,41 @@ func getFieldMap(fields []*StructFieldCode) map[string][]*StructFieldCode {
 	fieldMap := map[string][]*StructFieldCode{}
 	for _, field := range fields {
 		if field.isAnonymous {
-			structCode := field.getAnonymousStruct()
-			if structCode != nil && !structCode.isRecursive {
-				for k, v := range getFieldMap(structCode.fields) {
-					fieldMap[k] = append(fieldMap[k], v...)
-				}
-				continue
+			for k, v := range getAnonymousFieldMap(field) {
+				fieldMap[k] = append(fieldMap[k], v...)
 			}
+			continue
+		}
+		fieldMap[field.key] = append(fieldMap[field.key], field)
+	}
+	return fieldMap
+}
+
+func getAnonymousFieldMap(field *StructFieldCode) map[string][]*StructFieldCode {
+	fieldMap := map[string][]*StructFieldCode{}
+	structCode := field.getAnonymousStruct()
+	if structCode == nil || structCode.isRecursive {
+		fieldMap[field.key] = append(fieldMap[field.key], field)
+		return fieldMap
+	}
+	for k, v := range getFieldMapFromAnonymousParent(structCode.fields) {
+		fieldMap[k] = append(fieldMap[k], v...)
+	}
+	return fieldMap
+}
+
+func getFieldMapFromAnonymousParent(fields []*StructFieldCode) map[string][]*StructFieldCode {
+	fieldMap := map[string][]*StructFieldCode{}
+	for _, field := range fields {
+		if field.isAnonymous {
+			for k, v := range getAnonymousFieldMap(field) {
+				// Do not handle tagged key when embedding more than once
+				for _, vv := range v {
+					vv.isTaggedKey = false
+				}
+				fieldMap[k] = append(fieldMap[k], v...)
+			}
+			continue
 		}
 		fieldMap[field.key] = append(fieldMap[field.key], field)
 	}

@@ -381,6 +381,8 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 			} else {
 				fieldCodes.First().End = fieldCodes.Last()
 			}
+			codes = append(codes, fieldCodes...)
+			break
 		}
 		if field.isAnonymous {
 			// fieldCodes.First() is StructHead operation.
@@ -400,24 +402,25 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		codes = append(codes, fieldCodes...)
 	}
 	if len(codes) == 0 {
+		head := &Opcode{
+			Op:         OpStructHead,
+			Idx:        opcodeOffset(ctx.ptrIndex),
+			Type:       c.typ,
+			DisplayIdx: ctx.opcodeIndex,
+			Indent:     ctx.indent,
+		}
+		ctx.incOpcodeIndex()
 		end := &Opcode{
 			Op:         OpStructEnd,
 			Idx:        opcodeOffset(ctx.ptrIndex),
 			DisplayIdx: ctx.opcodeIndex,
 			Indent:     ctx.indent,
 		}
-		head := &Opcode{
-			Op:         OpStructHead,
-			Idx:        opcodeOffset(ctx.ptrIndex),
-			NextField:  end,
-			Type:       c.typ,
-			DisplayIdx: ctx.opcodeIndex,
-			Indent:     ctx.indent,
-			Next:       end,
-			End:        end,
-		}
-		codes = append(codes, head, end)
+		head.NextField = end
+		head.Next = end
+		head.End = end
 		end.PrevField = head
+		codes = append(codes, head, end)
 		ctx.incIndex()
 	}
 	ctx = ctx.decIndent()
@@ -590,7 +593,12 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	ctx.incIndex()
 	var codes Opcodes
 	if c.isAnonymous {
-		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ))
+		anonymCode, ok := c.value.(AnonymousCode)
+		if ok {
+			codes = anonymCode.ToAnonymousOpcode(ctx.withType(c.typ))
+		} else {
+			codes = c.value.ToOpcode(ctx.withType(c.typ))
+		}
 	} else {
 		codes = c.value.ToOpcode(ctx.withType(c.typ))
 	}
@@ -633,7 +641,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 		// optimize codes
 		ctx.decIndex()
 	}
-	if isEndField && !c.isAnonymous {
+	if isEndField {
 		if isEnableStructEndOptimizationType(c.value.Type()) {
 			field.Op = field.Op.FieldToEnd()
 		} else {
@@ -696,7 +704,12 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	ctx.incIndex()
 	var codes Opcodes
 	if c.isAnonymous {
-		codes = c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ))
+		anonymCode, ok := c.value.(AnonymousCode)
+		if ok {
+			codes = anonymCode.ToAnonymousOpcode(ctx.withType(c.typ))
+		} else {
+			codes = c.value.ToOpcode(ctx.withType(c.typ))
+		}
 	} else {
 		codes = c.value.ToOpcode(ctx.withType(c.typ))
 	}
@@ -827,7 +840,13 @@ func (c *PtrCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 func (c *PtrCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
-	codes := c.value.(AnonymousCode).ToAnonymousOpcode(ctx.withType(c.typ.Elem()))
+	var codes Opcodes
+	anonymCode, ok := c.value.(AnonymousCode)
+	if ok {
+		codes = anonymCode.ToAnonymousOpcode(ctx.withType(c.typ.Elem()))
+	} else {
+		codes = c.value.ToOpcode(ctx.withType(c.typ.Elem()))
+	}
 	codes.First().Op = convertPtrOp(codes.First())
 	codes.First().PtrNum = c.ptrNum
 	return codes
@@ -1247,12 +1266,12 @@ func compileStruct2(ctx *compileContext, isPtr bool) (*StructCode, error) {
 			structCode := field.getAnonymousStruct()
 			if structCode != nil {
 				structCode.removeFieldsByTags(tags)
-			}
-			if isAssignableIndirect(field, isPtr) {
-				if indirect {
-					structCode.isIndirect = true
-				} else {
-					structCode.isIndirect = false
+				if isAssignableIndirect(field, isPtr) {
+					if indirect {
+						structCode.isIndirect = true
+					} else {
+						structCode.isIndirect = false
+					}
 				}
 			}
 		} else {

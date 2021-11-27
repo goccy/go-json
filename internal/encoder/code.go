@@ -109,10 +109,9 @@ func (c *UintCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 type FloatCode struct {
-	typ      *runtime.Type
-	bitSize  uint8
-	isString bool
-	isPtr    bool
+	typ     *runtime.Type
+	bitSize uint8
+	isPtr   bool
 }
 
 func (c *FloatCode) Kind() CodeKind {
@@ -142,9 +141,8 @@ func (c *FloatCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 type StringCode struct {
-	typ      *runtime.Type
-	isString bool
-	isPtr    bool
+	typ   *runtime.Type
+	isPtr bool
 }
 
 func (c *StringCode) Kind() CodeKind {
@@ -152,16 +150,16 @@ func (c *StringCode) Kind() CodeKind {
 }
 
 func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
-	isJsonNumberType := c.typ == runtime.Type2RType(jsonNumberType)
+	isJSONNumberType := c.typ == runtime.Type2RType(jsonNumberType)
 	var code *Opcode
 	if c.isPtr {
-		if isJsonNumberType {
+		if isJSONNumberType {
 			code = newOpCode(ctx, c.typ, OpNumberPtr)
 		} else {
 			code = newOpCode(ctx, c.typ, OpStringPtr)
 		}
 	} else {
-		if isJsonNumberType {
+		if isJSONNumberType {
 			code = newOpCode(ctx, c.typ, OpNumber)
 		} else {
 			code = newOpCode(ctx, c.typ, OpString)
@@ -172,9 +170,8 @@ func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 type BoolCode struct {
-	typ      *runtime.Type
-	isString bool
-	isPtr    bool
+	typ   *runtime.Type
+	isPtr bool
 }
 
 func (c *BoolCode) Kind() CodeKind {
@@ -337,12 +334,11 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 
 type StructCode struct {
 	typ                       *runtime.Type
-	isPtr                     bool
 	fields                    []*StructFieldCode
+	isPtr                     bool
 	disableIndirectConversion bool
 	isIndirect                bool
 	isRecursive               bool
-	recursiveCodes            Opcodes
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -362,7 +358,7 @@ func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *
 
 func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
 	// firstField is special StructHead operation for anonymous structure.
-	// So, StructHead's next operation is truely struct head operation.
+	// So, StructHead's next operation is truly struct head operation.
 	lastField := firstField.Next
 	for lastField.NextField != nil {
 		lastField = lastField.NextField

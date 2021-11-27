@@ -428,32 +428,6 @@ func (c *Opcode) TotalLength() int {
 	return idx + 1
 }
 
-func (c *Opcode) decOpcodeIndex() {
-	for code := c; !code.IsEnd(); {
-		code.DisplayIdx--
-		if code.Idx > 0 {
-			code.Idx -= uintptrSize
-		}
-		if code.ElemIdx > 0 {
-			code.ElemIdx -= uintptrSize
-		}
-		if code.MapIter > 0 {
-			code.MapIter -= uintptrSize
-		}
-		if code.Length > 0 && code.Op.CodeType() != CodeArrayHead && code.Op.CodeType() != CodeArrayElem {
-			code.Length -= uintptrSize
-		}
-		code = code.IterNext()
-	}
-}
-
-func (c *Opcode) decIndent() {
-	for code := c; !code.IsEnd(); {
-		code.Indent--
-		code = code.IterNext()
-	}
-}
-
 func (c *Opcode) dumpHead(code *Opcode) string {
 	var length uint32
 	if code.Op.CodeType() == CodeArrayHead {

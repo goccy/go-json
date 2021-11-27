@@ -248,100 +248,165 @@ func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error
 
 const intSize = 32 << (^uint(0) >> 63)
 
+//nolint:unparam
 func (c *Compiler) intCode(typ *runtime.Type, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int8Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int16Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int32Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int64Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uintCode(typ *runtime.Type, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint8Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint16Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint32Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint64Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) float32Code(typ *runtime.Type, isPtr bool) (*FloatCode, error) {
 	return &FloatCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) float64Code(typ *runtime.Type, isPtr bool) (*FloatCode, error) {
 	return &FloatCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) stringCode(typ *runtime.Type, isPtr bool) (*StringCode, error) {
 	return &StringCode{typ: typ, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) boolCode(typ *runtime.Type, isPtr bool) (*BoolCode, error) {
 	return &BoolCode{typ: typ, isPtr: isPtr}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) intStringCode(typ *runtime.Type) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: intSize, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int8StringCode(typ *runtime.Type) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 8, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int16StringCode(typ *runtime.Type) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 16, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int32StringCode(typ *runtime.Type) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 32, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) int64StringCode(typ *runtime.Type) (*IntCode, error) {
 	return &IntCode{typ: typ, bitSize: 64, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uintStringCode(typ *runtime.Type) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: intSize, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint8StringCode(typ *runtime.Type) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 8, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint16StringCode(typ *runtime.Type) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 16, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint32StringCode(typ *runtime.Type) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 32, isString: true}, nil
 }
 
+//nolint:unparam
 func (c *Compiler) uint64StringCode(typ *runtime.Type) (*UintCode, error) {
 	return &UintCode{typ: typ, bitSize: 64, isString: true}, nil
+}
+
+//nolint:unparam
+func (c *Compiler) bytesCode(typ *runtime.Type, isPtr bool) (*BytesCode, error) {
+	return &BytesCode{typ: typ, isPtr: isPtr}, nil
+}
+
+//nolint:unparam
+func (c *Compiler) interfaceCode(typ *runtime.Type, isPtr bool) (*InterfaceCode, error) {
+	return &InterfaceCode{typ: typ, isPtr: isPtr}, nil
+}
+
+//nolint:unparam
+func (c *Compiler) marshalJSONCode(typ *runtime.Type) (*MarshalJSONCode, error) {
+	return &MarshalJSONCode{
+		typ:                typ,
+		isAddrForMarshaler: c.isPtrMarshalJSONType(typ),
+		isNilableType:      c.isNilableType(typ),
+		isMarshalerContext: typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType),
+	}, nil
+}
+
+//nolint:unparam
+func (c *Compiler) marshalTextCode(typ *runtime.Type) (*MarshalTextCode, error) {
+	return &MarshalTextCode{
+		typ:                typ,
+		isAddrForMarshaler: c.isPtrMarshalTextType(typ),
+		isNilableType:      c.isNilableType(typ),
+	}, nil
+}
+
+func (c *Compiler) ptrCode(typ *runtime.Type) (*PtrCode, error) {
+	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
+	if err != nil {
+		return nil, err
+	}
+	ptr, ok := code.(*PtrCode)
+	if ok {
+		return &PtrCode{typ: typ, value: ptr.value, ptrNum: ptr.ptrNum + 1}, nil
+	}
+	return &PtrCode{typ: typ, value: code, ptrNum: 1}, nil
 }
 
 func (c *Compiler) sliceCode(typ *runtime.Type) (*SliceCode, error) {
@@ -384,43 +449,6 @@ func (c *Compiler) mapCode(typ *runtime.Type) (*MapCode, error) {
 		structCode.enableIndirect()
 	}
 	return &MapCode{typ: typ, key: keyCode, value: valueCode}, nil
-}
-
-func (c *Compiler) bytesCode(typ *runtime.Type, isPtr bool) (*BytesCode, error) {
-	return &BytesCode{typ: typ, isPtr: isPtr}, nil
-}
-
-func (c *Compiler) interfaceCode(typ *runtime.Type, isPtr bool) (*InterfaceCode, error) {
-	return &InterfaceCode{typ: typ, isPtr: isPtr}, nil
-}
-
-func (c *Compiler) marshalJSONCode(typ *runtime.Type) (*MarshalJSONCode, error) {
-	return &MarshalJSONCode{
-		typ:                typ,
-		isAddrForMarshaler: c.isPtrMarshalJSONType(typ),
-		isNilableType:      c.isNilableType(typ),
-		isMarshalerContext: typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType),
-	}, nil
-}
-
-func (c *Compiler) marshalTextCode(typ *runtime.Type) (*MarshalTextCode, error) {
-	return &MarshalTextCode{
-		typ:                typ,
-		isAddrForMarshaler: c.isPtrMarshalTextType(typ),
-		isNilableType:      c.isNilableType(typ),
-	}, nil
-}
-
-func (c *Compiler) ptrCode(typ *runtime.Type) (*PtrCode, error) {
-	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
-	if err != nil {
-		return nil, err
-	}
-	ptr, ok := code.(*PtrCode)
-	if ok {
-		return &PtrCode{typ: typ, value: ptr.value, ptrNum: ptr.ptrNum + 1}, nil
-	}
-	return &PtrCode{typ: typ, value: code, ptrNum: 1}, nil
 }
 
 func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {

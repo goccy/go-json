@@ -697,22 +697,6 @@ func newMapEndCode(ctx *compileContext, head *Opcode) *Opcode {
 	}
 }
 
-func newInterfaceCode(ctx *compileContext) *Opcode {
-	var flag OpFlags
-	if ctx.typ.NumMethod() > 0 {
-		flag |= NonEmptyInterfaceFlags
-	}
-	return &Opcode{
-		Op:         OpInterface,
-		Idx:        opcodeOffset(ctx.ptrIndex),
-		Next:       newEndOp(ctx),
-		Type:       ctx.typ,
-		DisplayIdx: ctx.opcodeIndex,
-		Indent:     ctx.indent,
-		Flags:      flag,
-	}
-}
-
 func newRecursiveCode(ctx *compileContext, jmp *CompiledCode) *Opcode {
 	return &Opcode{
 		Op:         OpRecursive,

@@ -732,6 +732,9 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 	default:
 		code = newOpCode(ctx.withType(c.typ), OpInterface)
 	}
+	if c.typ.NumMethod() > 0 {
+		code.Flags |= NonEmptyInterfaceFlags
+	}
 	ctx.incIndex()
 	return Opcodes{code}
 }

@@ -421,7 +421,6 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		head.NextField = end
 		head.Next = end
 		head.End = end
-		end.PrevField = head
 		codes = append(codes, head, end)
 		ctx.incIndex()
 	}

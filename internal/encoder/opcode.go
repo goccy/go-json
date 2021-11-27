@@ -38,7 +38,6 @@ type Opcode struct {
 	Flags      OpFlags
 
 	Type       *runtime.Type // go type
-	PrevField  *Opcode       // prev struct field
 	Jmp        *CompiledCode // for recursive call
 	ElemIdx    uint32        // offset to access array/slice/map elem
 	Length     uint32        // offset to access slice/map length or array length
@@ -84,20 +83,6 @@ func (c *Opcode) IsEnd() bool {
 		return true
 	}
 	return c.Op == OpEnd || c.Op == OpInterfaceEnd || c.Op == OpRecursiveEnd
-}
-
-func (c *Opcode) IsStructHeadOp() bool {
-	if c == nil {
-		return false
-	}
-	return strings.Contains(c.Op.String(), "Head")
-}
-
-func (c *Opcode) IsRecursiveOp() bool {
-	if c == nil {
-		return false
-	}
-	return strings.Contains(c.Op.String(), "Recursive")
 }
 
 func (c *Opcode) MaxIdx() uint32 {
@@ -337,29 +322,18 @@ func copyOpcode(code *Opcode) *Opcode {
 }
 
 func setTotalLengthToInterfaceOp(code *Opcode) {
-	c := code
-	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
+	for c := code; !c.IsEnd(); {
 		if c.Op == OpInterface {
 			c.Length = uint32(code.TotalLength())
 		}
-		switch c.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			c = c.End
-		default:
-			c = c.Next
-		}
+		c = c.IterNext()
 	}
 }
 
 func ToEndCode(code *Opcode) *Opcode {
 	c := code
-	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
-		switch c.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			c = c.End
-		default:
-			c = c.Next
-		}
+	for !c.IsEnd() {
+		c = c.IterNext()
 	}
 	return c
 }
@@ -418,22 +392,10 @@ func (c *Opcode) copy(codeMap map[uintptr]*Opcode) *Opcode {
 	}
 	codeMap[addr] = copied
 	copied.End = c.End.copy(codeMap)
-	copied.PrevField = c.PrevField.copy(codeMap)
 	copied.NextField = c.NextField.copy(codeMap)
 	copied.Next = c.Next.copy(codeMap)
 	copied.Jmp = c.Jmp
 	return copied
-}
-
-func (c *Opcode) BeforeLastCode() *Opcode {
-	code := c
-	for {
-		nextCode := code.IterNext()
-		if nextCode.IsEnd() {
-			return code
-		}
-		code = nextCode
-	}
 }
 
 func (c *Opcode) TotalLength() int {
@@ -620,36 +582,6 @@ func (c *Opcode) Dump() string {
 		}
 	}
 	return strings.Join(codes, "\n")
-}
-
-func prevField(code *Opcode, removedFields map[*Opcode]struct{}) *Opcode {
-	if _, exists := removedFields[code]; exists {
-		return prevField(code.PrevField, removedFields)
-	}
-	return code
-}
-
-func nextField(code *Opcode, removedFields map[*Opcode]struct{}) *Opcode {
-	if _, exists := removedFields[code]; exists {
-		return nextField(code.NextField, removedFields)
-	}
-	return code
-}
-
-func linkPrevToNextField(cur *Opcode, removedFields map[*Opcode]struct{}) {
-	prev := prevField(cur.PrevField, removedFields)
-	prev.NextField = nextField(cur.NextField, removedFields)
-	code := prev
-	for {
-		nextCode := code.IterNext()
-		if nextCode == cur {
-			code.Next = cur.NextField
-			break
-		} else if nextCode.Op == OpEnd {
-			break
-		}
-		code = nextCode
-	}
 }
 
 func newSliceHeaderCode(ctx *compileContext) *Opcode {

@@ -14,7 +14,6 @@ type compileContext struct {
 	ptrIndex          int
 	indent            uint32
 	escapeKey         bool
-	structTypeToCode  map[uintptr]*StructCode
 	structTypeToCodes map[uintptr]Opcodes
 	recursiveCodes    *Opcodes
 
@@ -28,7 +27,6 @@ func (c *compileContext) context() *compileContext {
 		ptrIndex:          c.ptrIndex,
 		indent:            c.indent,
 		escapeKey:         c.escapeKey,
-		structTypeToCode:  c.structTypeToCode,
 		structTypeToCodes: c.structTypeToCodes,
 		recursiveCodes:    c.recursiveCodes,
 		parent:            c,

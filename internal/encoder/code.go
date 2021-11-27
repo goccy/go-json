@@ -8,7 +8,7 @@ import (
 )
 
 type Code interface {
-	Type() CodeType2
+	Kind() CodeKind
 	ToOpcode(*compileContext) Opcodes
 }
 
@@ -36,24 +36,24 @@ func (o Opcodes) Add(codes ...*Opcode) Opcodes {
 	return append(o, codes...)
 }
 
-type CodeType2 int
+type CodeKind int
 
 const (
-	CodeTypeInterface CodeType2 = iota
-	CodeTypePtr
-	CodeTypeInt
-	CodeTypeUint
-	CodeTypeFloat
-	CodeTypeString
-	CodeTypeBool
-	CodeTypeStruct
-	CodeTypeMap
-	CodeTypeSlice
-	CodeTypeArray
-	CodeTypeBytes
-	CodeTypeMarshalJSON
-	CodeTypeMarshalText
-	CodeTypeRecursive
+	CodeKindInterface CodeKind = iota
+	CodeKindPtr
+	CodeKindInt
+	CodeKindUint
+	CodeKindFloat
+	CodeKindString
+	CodeKindBool
+	CodeKindStruct
+	CodeKindMap
+	CodeKindSlice
+	CodeKindArray
+	CodeKindBytes
+	CodeKindMarshalJSON
+	CodeKindMarshalText
+	CodeKindRecursive
 )
 
 type IntCode struct {
@@ -63,8 +63,8 @@ type IntCode struct {
 	isPtr    bool
 }
 
-func (c *IntCode) Type() CodeType2 {
-	return CodeTypeInt
+func (c *IntCode) Kind() CodeKind {
+	return CodeKindInt
 }
 
 func (c *IntCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -89,8 +89,8 @@ type UintCode struct {
 	isPtr    bool
 }
 
-func (c *UintCode) Type() CodeType2 {
-	return CodeTypeUint
+func (c *UintCode) Kind() CodeKind {
+	return CodeKindUint
 }
 
 func (c *UintCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -115,8 +115,8 @@ type FloatCode struct {
 	isPtr    bool
 }
 
-func (c *FloatCode) Type() CodeType2 {
-	return CodeTypeFloat
+func (c *FloatCode) Kind() CodeKind {
+	return CodeKindFloat
 }
 
 func (c *FloatCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -147,8 +147,8 @@ type StringCode struct {
 	isPtr    bool
 }
 
-func (c *StringCode) Type() CodeType2 {
-	return CodeTypeString
+func (c *StringCode) Kind() CodeKind {
+	return CodeKindString
 }
 
 func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -177,8 +177,8 @@ type BoolCode struct {
 	isPtr    bool
 }
 
-func (c *BoolCode) Type() CodeType2 {
-	return CodeTypeBool
+func (c *BoolCode) Kind() CodeKind {
+	return CodeKindBool
 }
 
 func (c *BoolCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -198,8 +198,8 @@ type BytesCode struct {
 	isPtr bool
 }
 
-func (c *BytesCode) Type() CodeType2 {
-	return CodeTypeBytes
+func (c *BytesCode) Kind() CodeKind {
+	return CodeKindBytes
 }
 
 func (c *BytesCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -219,8 +219,8 @@ type SliceCode struct {
 	value Code
 }
 
-func (c *SliceCode) Type() CodeType2 {
-	return CodeTypeSlice
+func (c *SliceCode) Kind() CodeKind {
+	return CodeKindSlice
 }
 
 func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -249,8 +249,8 @@ type ArrayCode struct {
 	value Code
 }
 
-func (c *ArrayCode) Type() CodeType2 {
-	return CodeTypeArray
+func (c *ArrayCode) Kind() CodeKind {
+	return CodeKindArray
 }
 
 func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -288,8 +288,8 @@ type MapCode struct {
 	value Code
 }
 
-func (c *MapCode) Type() CodeType2 {
-	return CodeTypeMap
+func (c *MapCode) Kind() CodeKind {
+	return CodeKindMap
 }
 
 func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -334,8 +334,8 @@ type StructCode struct {
 	recursiveCodes            Opcodes
 }
 
-func (c *StructCode) Type() CodeType2 {
-	return CodeTypeStruct
+func (c *StructCode) Kind() CodeKind {
+	return CodeKindStruct
 }
 
 func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *Opcode {
@@ -547,6 +547,22 @@ func (c *StructFieldCode) getAnonymousStruct() *StructCode {
 	return c.getStruct()
 }
 
+func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
+	headType := code.ToHeaderType(tag.IsString)
+	if tag.IsOmitEmpty {
+		headType = headType.HeadToOmitEmptyHead()
+	}
+	return headType
+}
+
+func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
+	fieldType := code.ToFieldType(tag.IsString)
+	if tag.IsOmitEmpty {
+		fieldType = fieldType.FieldToOmitEmptyField()
+	}
+	return fieldType
+}
+
 func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
 	value := valueCodes.First()
 	op := optimizeStructHeader(value, c.tag)
@@ -657,7 +673,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	}
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
-		if isEnableStructEndOptimizationType(c.value.Type()) {
+		if isEnableStructEndOptimizationType(c.value.Kind()) {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)
@@ -685,9 +701,14 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	return c.fieldOpcodes(ctx, field, valueCodes)
 }
 
-func isEnableStructEndOptimizationType(typ CodeType2) bool {
+func isEnableStructEndOptimizationType(typ CodeKind) bool {
 	switch typ {
-	case CodeTypeInt, CodeTypeUint, CodeTypeFloat, CodeTypeString, CodeTypeBool, CodeTypeBytes:
+	case CodeKindInt,
+		CodeKindUint,
+		CodeKindFloat,
+		CodeKindString,
+		CodeKindBool,
+		CodeKindBytes:
 		return true
 	default:
 		return false
@@ -699,8 +720,8 @@ type InterfaceCode struct {
 	isPtr bool
 }
 
-func (c *InterfaceCode) Type() CodeType2 {
-	return CodeTypeInterface
+func (c *InterfaceCode) Kind() CodeKind {
+	return CodeKindInterface
 }
 
 func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -716,23 +737,25 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 type MarshalJSONCode struct {
-	typ *runtime.Type
+	typ                *runtime.Type
+	isAddrForMarshaler bool
+	isNilableType      bool
+	isMarshalerContext bool
 }
 
-func (c *MarshalJSONCode) Type() CodeType2 {
-	return CodeTypeMarshalJSON
+func (c *MarshalJSONCode) Kind() CodeKind {
+	return CodeKindMarshalJSON
 }
 
 func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx.withType(c.typ), OpMarshalJSON)
-	typ := c.typ
-	if isPtrMarshalJSONType(typ) {
+	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
 	}
-	if typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType) {
+	if c.isMarshalerContext {
 		code.Flags |= MarshalerContextFlags
 	}
-	if isNilableType(typ) {
+	if c.isNilableType {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -742,20 +765,21 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 }
 
 type MarshalTextCode struct {
-	typ *runtime.Type
+	typ                *runtime.Type
+	isAddrForMarshaler bool
+	isNilableType      bool
 }
 
-func (c *MarshalTextCode) Type() CodeType2 {
-	return CodeTypeMarshalText
+func (c *MarshalTextCode) Kind() CodeKind {
+	return CodeKindMarshalText
 }
 
 func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx.withType(c.typ), OpMarshalText)
-	typ := c.typ
-	if !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType) {
+	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
 	}
-	if isNilableType(typ) {
+	if c.isNilableType {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -770,8 +794,8 @@ type PtrCode struct {
 	ptrNum uint8
 }
 
-func (c *PtrCode) Type() CodeType2 {
-	return CodeTypePtr
+func (c *PtrCode) Kind() CodeKind {
+	return CodeKindPtr
 }
 
 func (c *PtrCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -794,85 +818,46 @@ func (c *PtrCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	return codes
 }
 
-func (c *StructCode) compileStructField(ctx *compileContext, tag *runtime.StructTag, isPtr, isOnlyOneFirstField bool) (*StructFieldCode, error) {
-	field := tag.Field
-	fieldType := runtime.Type2RType(field.Type)
-	isIndirectSpecialCase := isPtr && isOnlyOneFirstField
-	fieldCode := &StructFieldCode{
-		typ:           fieldType,
-		key:           tag.Key,
-		tag:           tag,
-		offset:        field.Offset,
-		isAnonymous:   field.Anonymous && !tag.IsTaggedKey,
-		isTaggedKey:   tag.IsTaggedKey,
-		isNilableType: isNilableType(fieldType),
-		isNilCheck:    true,
+func convertPtrOp(code *Opcode) OpType {
+	ptrHeadOp := code.Op.HeadToPtrHead()
+	if code.Op != ptrHeadOp {
+		if code.PtrNum > 0 {
+			// ptr field and ptr head
+			code.PtrNum--
+		}
+		return ptrHeadOp
 	}
-	switch {
-	case isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
-		code, err := compileMarshalJSON(ctx.withType(fieldType))
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
-		c.isIndirect = false
-		c.disableIndirectConversion = true
-	case isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
-		code, err := compileMarshalText(ctx.withType(fieldType))
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
-		c.isIndirect = false
-		c.disableIndirectConversion = true
-	case isPtr && isPtrMarshalJSONType(fieldType):
-		// *struct{ field T }
-		// func (*T) MarshalJSON() ([]byte, error)
-		code, err := compileMarshalJSON(ctx.withType(fieldType))
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
-	case isPtr && isPtrMarshalTextType(fieldType):
-		// *struct{ field T }
-		// func (*T) MarshalText() ([]byte, error)
-		code, err := compileMarshalText(ctx.withType(fieldType))
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
-	default:
-		code, err := type2codeWithPtr(ctx.withType(fieldType), isPtr)
-		if err != nil {
-			return nil, err
-		}
-		switch code.Type() {
-		case CodeTypePtr, CodeTypeInterface:
-			fieldCode.isNextOpPtrType = true
-		}
-		fieldCode.value = code
+	switch code.Op {
+	case OpInt:
+		return OpIntPtr
+	case OpUint:
+		return OpUintPtr
+	case OpFloat32:
+		return OpFloat32Ptr
+	case OpFloat64:
+		return OpFloat64Ptr
+	case OpString:
+		return OpStringPtr
+	case OpBool:
+		return OpBoolPtr
+	case OpBytes:
+		return OpBytesPtr
+	case OpNumber:
+		return OpNumberPtr
+	case OpArray:
+		return OpArrayPtr
+	case OpSlice:
+		return OpSlicePtr
+	case OpMap:
+		return OpMapPtr
+	case OpMarshalJSON:
+		return OpMarshalJSONPtr
+	case OpMarshalText:
+		return OpMarshalTextPtr
+	case OpInterface:
+		return OpInterfacePtr
+	case OpRecursive:
+		return OpRecursivePtr
 	}
-	return fieldCode, nil
-}
-
-func isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {
-	if isPtr {
-		return false
-	}
-	codeType := fieldCode.value.Type()
-	if codeType == CodeTypeMarshalJSON {
-		return false
-	}
-	if codeType == CodeTypeMarshalText {
-		return false
-	}
-	return true
+	return code.Op
 }

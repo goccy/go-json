@@ -55,27 +55,42 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	if codeSet, exists := opcodeMap[typeptr]; exists {
 		return codeSet, nil
 	}
+	codeSet, err := newCompiler().compile(typeptr)
+	if err != nil {
+		return nil, err
+	}
+	storeOpcodeSet(typeptr, codeSet, opcodeMap)
+	return codeSet, nil
+}
 
+type Compiler struct {
+	structTypeToCode map[uintptr]*StructCode
+}
+
+func newCompiler() *Compiler {
+	return &Compiler{
+		structTypeToCode: map[uintptr]*StructCode{},
+	}
+}
+
+func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := *(**runtime.Type)(unsafe.Pointer(&typeptr))
-
-	noescapeKeyCode, err := compile(&compileContext{
-		typ:               copiedType,
-		structTypeToCode:  map[uintptr]*StructCode{},
-		structTypeToCodes: map[uintptr]Opcodes{},
-	})
+	typ := *(**runtime.Type)(unsafe.Pointer(&typeptr))
+	code, err := c.typeToCode(typ)
 	if err != nil {
 		return nil, err
 	}
-	escapeKeyCode, err := compile(&compileContext{
-		typ:               copiedType,
-		structTypeToCode:  map[uintptr]*StructCode{},
+	noescapeKeyCode := c.codeToOpcode(&compileContext{
+		typ:               typ,
 		structTypeToCodes: map[uintptr]Opcodes{},
+		recursiveCodes:    &Opcodes{},
+	}, code)
+	escapeKeyCode := c.codeToOpcode(&compileContext{
+		typ:               typ,
+		structTypeToCodes: map[uintptr]Opcodes{},
+		recursiveCodes:    &Opcodes{},
 		escapeKey:         true,
-	})
-	if err != nil {
-		return nil, err
-	}
+	}, code)
 	noescapeKeyCode = copyOpcode(noescapeKeyCode)
 	escapeKeyCode = copyOpcode(escapeKeyCode)
 	setTotalLengthToInterfaceOp(noescapeKeyCode)
@@ -83,48 +98,690 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	interfaceNoescapeKeyCode := copyToInterfaceOpcode(noescapeKeyCode)
 	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
 	codeLength := noescapeKeyCode.TotalLength()
-	codeSet := &OpcodeSet{
-		Type:                     copiedType,
+	return &OpcodeSet{
+		Type:                     typ,
 		NoescapeKeyCode:          noescapeKeyCode,
 		EscapeKeyCode:            escapeKeyCode,
 		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,
 		InterfaceEscapeKeyCode:   interfaceEscapeKeyCode,
 		CodeLength:               codeLength,
 		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
-	}
-	storeOpcodeSet(typeptr, codeSet, opcodeMap)
-	return codeSet, nil
+	}, nil
 }
 
-func compile(ctx *compileContext) (*Opcode, error) {
-	code, err := type2code(ctx)
+func (c *Compiler) typeToCode(typ *runtime.Type) (Code, error) {
+	switch {
+	case c.implementsMarshalJSON(typ):
+		return c.marshalJSONCode(typ)
+	case c.implementsMarshalText(typ):
+		return c.marshalTextCode(typ)
+	}
+
+	isPtr := false
+	orgType := typ
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+		isPtr = true
+	}
+	switch {
+	case c.implementsMarshalJSON(typ):
+		return c.marshalJSONCode(orgType)
+	case c.implementsMarshalText(typ):
+		return c.marshalTextCode(orgType)
+	}
+	switch typ.Kind() {
+	case reflect.Slice:
+		elem := typ.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			p := runtime.PtrTo(elem)
+			if !c.implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
+				return c.bytesCode(typ, isPtr)
+			}
+		}
+		return c.sliceCode(typ)
+	case reflect.Map:
+		if isPtr {
+			return c.ptrCode(runtime.PtrTo(typ))
+		}
+		return c.mapCode(typ)
+	case reflect.Struct:
+		return c.structCode(typ, isPtr)
+	case reflect.Int:
+		return c.intCode(typ, isPtr)
+	case reflect.Int8:
+		return c.int8Code(typ, isPtr)
+	case reflect.Int16:
+		return c.int16Code(typ, isPtr)
+	case reflect.Int32:
+		return c.int32Code(typ, isPtr)
+	case reflect.Int64:
+		return c.int64Code(typ, isPtr)
+	case reflect.Uint, reflect.Uintptr:
+		return c.uintCode(typ, isPtr)
+	case reflect.Uint8:
+		return c.uint8Code(typ, isPtr)
+	case reflect.Uint16:
+		return c.uint16Code(typ, isPtr)
+	case reflect.Uint32:
+		return c.uint32Code(typ, isPtr)
+	case reflect.Uint64:
+		return c.uint64Code(typ, isPtr)
+	case reflect.Float32:
+		return c.float32Code(typ, isPtr)
+	case reflect.Float64:
+		return c.float64Code(typ, isPtr)
+	case reflect.String:
+		return c.stringCode(typ, isPtr)
+	case reflect.Bool:
+		return c.boolCode(typ, isPtr)
+	case reflect.Interface:
+		return c.interfaceCode(typ, isPtr)
+	default:
+		if isPtr && typ.Implements(marshalTextType) {
+			typ = orgType
+		}
+		return c.typeToCodeWithPtr(typ, isPtr)
+	}
+}
+
+func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error) {
+	switch {
+	case c.implementsMarshalJSON(typ):
+		return c.marshalJSONCode(typ)
+	case c.implementsMarshalText(typ):
+		return c.marshalTextCode(typ)
+	}
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return c.ptrCode(typ)
+	case reflect.Slice:
+		elem := typ.Elem()
+		if elem.Kind() == reflect.Uint8 {
+			p := runtime.PtrTo(elem)
+			if !c.implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
+				return c.bytesCode(typ, false)
+			}
+		}
+		return c.sliceCode(typ)
+	case reflect.Array:
+		return c.arrayCode(typ)
+	case reflect.Map:
+		return c.mapCode(typ)
+	case reflect.Struct:
+		return c.structCode(typ, isPtr)
+	case reflect.Interface:
+		return c.interfaceCode(typ, false)
+	case reflect.Int:
+		return c.intCode(typ, false)
+	case reflect.Int8:
+		return c.int8Code(typ, false)
+	case reflect.Int16:
+		return c.int16Code(typ, false)
+	case reflect.Int32:
+		return c.int32Code(typ, false)
+	case reflect.Int64:
+		return c.int64Code(typ, false)
+	case reflect.Uint:
+		return c.uintCode(typ, false)
+	case reflect.Uint8:
+		return c.uint8Code(typ, false)
+	case reflect.Uint16:
+		return c.uint16Code(typ, false)
+	case reflect.Uint32:
+		return c.uint32Code(typ, false)
+	case reflect.Uint64:
+		return c.uint64Code(typ, false)
+	case reflect.Uintptr:
+		return c.uintCode(typ, false)
+	case reflect.Float32:
+		return c.float32Code(typ, false)
+	case reflect.Float64:
+		return c.float64Code(typ, false)
+	case reflect.String:
+		return c.stringCode(typ, false)
+	case reflect.Bool:
+		return c.boolCode(typ, false)
+	}
+	return nil, &errors.UnsupportedTypeError{Type: runtime.RType2Type(typ)}
+}
+
+const intSize = 32 << (^uint(0) >> 63)
+
+func (c *Compiler) intCode(typ *runtime.Type, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) int8Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) int16Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) int32Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) int64Code(typ *runtime.Type, isPtr bool) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) uintCode(typ *runtime.Type, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) uint8Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) uint16Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) uint32Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) uint64Code(typ *runtime.Type, isPtr bool) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) float32Code(typ *runtime.Type, isPtr bool) (*FloatCode, error) {
+	return &FloatCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) float64Code(typ *runtime.Type, isPtr bool) (*FloatCode, error) {
+	return &FloatCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) stringCode(typ *runtime.Type, isPtr bool) (*StringCode, error) {
+	return &StringCode{typ: typ, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) boolCode(typ *runtime.Type, isPtr bool) (*BoolCode, error) {
+	return &BoolCode{typ: typ, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) intStringCode(typ *runtime.Type) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: intSize, isString: true}, nil
+}
+
+func (c *Compiler) int8StringCode(typ *runtime.Type) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 8, isString: true}, nil
+}
+
+func (c *Compiler) int16StringCode(typ *runtime.Type) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 16, isString: true}, nil
+}
+
+func (c *Compiler) int32StringCode(typ *runtime.Type) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 32, isString: true}, nil
+}
+
+func (c *Compiler) int64StringCode(typ *runtime.Type) (*IntCode, error) {
+	return &IntCode{typ: typ, bitSize: 64, isString: true}, nil
+}
+
+func (c *Compiler) uintStringCode(typ *runtime.Type) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: intSize, isString: true}, nil
+}
+
+func (c *Compiler) uint8StringCode(typ *runtime.Type) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 8, isString: true}, nil
+}
+
+func (c *Compiler) uint16StringCode(typ *runtime.Type) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 16, isString: true}, nil
+}
+
+func (c *Compiler) uint32StringCode(typ *runtime.Type) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 32, isString: true}, nil
+}
+
+func (c *Compiler) uint64StringCode(typ *runtime.Type) (*UintCode, error) {
+	return &UintCode{typ: typ, bitSize: 64, isString: true}, nil
+}
+
+func (c *Compiler) sliceCode(typ *runtime.Type) (*SliceCode, error) {
+	elem := typ.Elem()
+	code, err := c.listElemCode(elem)
 	if err != nil {
 		return nil, err
 	}
-	derefctx := *ctx
-	newCtx := &derefctx
-	codes := code.ToOpcode(newCtx)
-	codes.Last().Next = newEndOp(newCtx)
-	linkRecursiveCode(newCtx)
-	return codes.First(), nil
+	if code.Kind() == CodeKindStruct {
+		structCode := code.(*StructCode)
+		structCode.enableIndirect()
+	}
+	return &SliceCode{typ: typ, value: code}, nil
 }
 
-func implementsMarshalJSON(typ *runtime.Type) bool {
-	if !implementsMarshalJSONType(typ) {
+func (c *Compiler) arrayCode(typ *runtime.Type) (*ArrayCode, error) {
+	elem := typ.Elem()
+	code, err := c.listElemCode(elem)
+	if err != nil {
+		return nil, err
+	}
+	if code.Kind() == CodeKindStruct {
+		structCode := code.(*StructCode)
+		structCode.enableIndirect()
+	}
+	return &ArrayCode{typ: typ, value: code}, nil
+}
+
+func (c *Compiler) mapCode(typ *runtime.Type) (*MapCode, error) {
+	keyCode, err := c.mapKeyCode(typ.Key())
+	if err != nil {
+		return nil, err
+	}
+	valueCode, err := c.mapValueCode(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	if valueCode.Kind() == CodeKindStruct {
+		structCode := valueCode.(*StructCode)
+		structCode.enableIndirect()
+	}
+	return &MapCode{typ: typ, key: keyCode, value: valueCode}, nil
+}
+
+func (c *Compiler) bytesCode(typ *runtime.Type, isPtr bool) (*BytesCode, error) {
+	return &BytesCode{typ: typ, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) interfaceCode(typ *runtime.Type, isPtr bool) (*InterfaceCode, error) {
+	return &InterfaceCode{typ: typ, isPtr: isPtr}, nil
+}
+
+func (c *Compiler) marshalJSONCode(typ *runtime.Type) (*MarshalJSONCode, error) {
+	return &MarshalJSONCode{
+		typ:                typ,
+		isAddrForMarshaler: c.isPtrMarshalJSONType(typ),
+		isNilableType:      c.isNilableType(typ),
+		isMarshalerContext: typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType),
+	}, nil
+}
+
+func (c *Compiler) marshalTextCode(typ *runtime.Type) (*MarshalTextCode, error) {
+	return &MarshalTextCode{
+		typ:                typ,
+		isAddrForMarshaler: !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType),
+		isNilableType:      c.isNilableType(typ),
+	}, nil
+}
+
+func (c *Compiler) ptrCode(typ *runtime.Type) (*PtrCode, error) {
+	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
+	if err != nil {
+		return nil, err
+	}
+	ptr, ok := code.(*PtrCode)
+	if ok {
+		return &PtrCode{typ: typ, value: ptr.value, ptrNum: ptr.ptrNum + 1}, nil
+	}
+	return &PtrCode{typ: typ, value: code, ptrNum: 1}, nil
+}
+
+func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
+	switch {
+	case c.isPtrMarshalJSONType(typ):
+		return c.marshalJSONCode(typ)
+	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
+		return c.marshalTextCode(typ)
+	case typ.Kind() == reflect.Map:
+		return c.ptrCode(runtime.PtrTo(typ))
+	default:
+		code, err := c.typeToCodeWithPtr(typ, false)
+		if err != nil {
+			return nil, err
+		}
+		ptr, ok := code.(*PtrCode)
+		if ok {
+			if ptr.value.Kind() == CodeKindMap {
+				ptr.ptrNum++
+			}
+		}
+		return code, nil
+	}
+}
+
+func (c *Compiler) mapKeyCode(typ *runtime.Type) (Code, error) {
+	switch {
+	case c.implementsMarshalJSON(typ):
+		return c.marshalJSONCode(typ)
+	case c.implementsMarshalText(typ):
+		return c.marshalTextCode(typ)
+	}
+	switch typ.Kind() {
+	case reflect.Ptr:
+		return c.ptrCode(typ)
+	case reflect.String:
+		return c.stringCode(typ, false)
+	case reflect.Int:
+		return c.intStringCode(typ)
+	case reflect.Int8:
+		return c.int8StringCode(typ)
+	case reflect.Int16:
+		return c.int16StringCode(typ)
+	case reflect.Int32:
+		return c.int32StringCode(typ)
+	case reflect.Int64:
+		return c.int64StringCode(typ)
+	case reflect.Uint:
+		return c.uintStringCode(typ)
+	case reflect.Uint8:
+		return c.uint8StringCode(typ)
+	case reflect.Uint16:
+		return c.uint16StringCode(typ)
+	case reflect.Uint32:
+		return c.uint32StringCode(typ)
+	case reflect.Uint64:
+		return c.uint64StringCode(typ)
+	case reflect.Uintptr:
+		return c.uintStringCode(typ)
+	}
+	return nil, &errors.UnsupportedTypeError{Type: runtime.RType2Type(typ)}
+}
+
+func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
+	switch typ.Kind() {
+	case reflect.Map:
+		return c.ptrCode(runtime.PtrTo(typ))
+	default:
+		code, err := c.typeToCodeWithPtr(typ, false)
+		if err != nil {
+			return nil, err
+		}
+		ptr, ok := code.(*PtrCode)
+		if ok {
+			if ptr.value.Kind() == CodeKindMap {
+				ptr.ptrNum++
+			}
+		}
+		return code, nil
+	}
+}
+
+func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error) {
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if code, exists := c.structTypeToCode[typeptr]; exists {
+		derefCode := *code
+		derefCode.isRecursive = true
+		return &derefCode, nil
+	}
+	indirect := runtime.IfaceIndir(typ)
+	code := &StructCode{typ: typ, isPtr: isPtr, isIndirect: indirect}
+	c.structTypeToCode[typeptr] = code
+
+	fieldNum := typ.NumField()
+	tags := c.typeToStructTags(typ)
+	fields := []*StructFieldCode{}
+	for i, tag := range tags {
+		isOnlyOneFirstField := i == 0 && fieldNum == 1
+		field, err := c.structFieldCode(code, tag, isPtr, isOnlyOneFirstField)
+		if err != nil {
+			return nil, err
+		}
+		if field.isAnonymous {
+			structCode := field.getAnonymousStruct()
+			if structCode != nil {
+				structCode.removeFieldsByTags(tags)
+				if c.isAssignableIndirect(field, isPtr) {
+					if indirect {
+						structCode.isIndirect = true
+					} else {
+						structCode.isIndirect = false
+					}
+				}
+			}
+		} else {
+			structCode := field.getStruct()
+			if structCode != nil {
+				if indirect {
+					// if parent is indirect type, set child indirect property to true
+					structCode.isIndirect = true
+				} else {
+					// if parent is not indirect type, set child indirect property to false.
+					// but if parent's indirect is false and isPtr is true, then indirect must be true.
+					// Do this only if indirectConversion is enabled at the end of compileStruct.
+					structCode.isIndirect = false
+				}
+			}
+		}
+		fields = append(fields, field)
+	}
+	fieldMap := c.getFieldMap(fields)
+	duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
+	code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
+	if !code.disableIndirectConversion && !indirect && isPtr {
+		code.enableIndirect()
+	}
+	delete(c.structTypeToCode, typeptr)
+	return code, nil
+}
+
+func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTag, isPtr, isOnlyOneFirstField bool) (*StructFieldCode, error) {
+	field := tag.Field
+	fieldType := runtime.Type2RType(field.Type)
+	isIndirectSpecialCase := isPtr && isOnlyOneFirstField
+	fieldCode := &StructFieldCode{
+		typ:           fieldType,
+		key:           tag.Key,
+		tag:           tag,
+		offset:        field.Offset,
+		isAnonymous:   field.Anonymous && !tag.IsTaggedKey,
+		isTaggedKey:   tag.IsTaggedKey,
+		isNilableType: c.isNilableType(fieldType),
+		isNilCheck:    true,
+	}
+	switch {
+	case c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
+		code, err := c.marshalJSONCode(fieldType)
+		if err != nil {
+			return nil, err
+		}
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
+		structCode.isIndirect = false
+		structCode.disableIndirectConversion = true
+	case c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
+		code, err := c.marshalTextCode(fieldType)
+		if err != nil {
+			return nil, err
+		}
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
+		structCode.isIndirect = false
+		structCode.disableIndirectConversion = true
+	case isPtr && c.isPtrMarshalJSONType(fieldType):
+		// *struct{ field T }
+		// func (*T) MarshalJSON() ([]byte, error)
+		code, err := c.marshalJSONCode(fieldType)
+		if err != nil {
+			return nil, err
+		}
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
+	case isPtr && c.isPtrMarshalTextType(fieldType):
+		// *struct{ field T }
+		// func (*T) MarshalText() ([]byte, error)
+		code, err := c.marshalTextCode(fieldType)
+		if err != nil {
+			return nil, err
+		}
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
+	default:
+		code, err := c.typeToCodeWithPtr(fieldType, isPtr)
+		if err != nil {
+			return nil, err
+		}
+		switch code.Kind() {
+		case CodeKindPtr, CodeKindInterface:
+			fieldCode.isNextOpPtrType = true
+		}
+		fieldCode.value = code
+	}
+	return fieldCode, nil
+}
+
+func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {
+	if isPtr {
+		return false
+	}
+	codeType := fieldCode.value.Kind()
+	if codeType == CodeKindMarshalJSON {
+		return false
+	}
+	if codeType == CodeKindMarshalText {
+		return false
+	}
+	return true
+}
+
+func (c *Compiler) getFieldMap(fields []*StructFieldCode) map[string][]*StructFieldCode {
+	fieldMap := map[string][]*StructFieldCode{}
+	for _, field := range fields {
+		if field.isAnonymous {
+			for k, v := range c.getAnonymousFieldMap(field) {
+				fieldMap[k] = append(fieldMap[k], v...)
+			}
+			continue
+		}
+		fieldMap[field.key] = append(fieldMap[field.key], field)
+	}
+	return fieldMap
+}
+
+func (c *Compiler) getAnonymousFieldMap(field *StructFieldCode) map[string][]*StructFieldCode {
+	fieldMap := map[string][]*StructFieldCode{}
+	structCode := field.getAnonymousStruct()
+	if structCode == nil || structCode.isRecursive {
+		fieldMap[field.key] = append(fieldMap[field.key], field)
+		return fieldMap
+	}
+	for k, v := range c.getFieldMapFromAnonymousParent(structCode.fields) {
+		fieldMap[k] = append(fieldMap[k], v...)
+	}
+	return fieldMap
+}
+
+func (c *Compiler) getFieldMapFromAnonymousParent(fields []*StructFieldCode) map[string][]*StructFieldCode {
+	fieldMap := map[string][]*StructFieldCode{}
+	for _, field := range fields {
+		if field.isAnonymous {
+			for k, v := range c.getAnonymousFieldMap(field) {
+				// Do not handle tagged key when embedding more than once
+				for _, vv := range v {
+					vv.isTaggedKey = false
+				}
+				fieldMap[k] = append(fieldMap[k], v...)
+			}
+			continue
+		}
+		fieldMap[field.key] = append(fieldMap[field.key], field)
+	}
+	return fieldMap
+}
+
+func (c *Compiler) getDuplicatedFieldMap(fieldMap map[string][]*StructFieldCode) map[*StructFieldCode]struct{} {
+	duplicatedFieldMap := map[*StructFieldCode]struct{}{}
+	for _, fields := range fieldMap {
+		if len(fields) == 1 {
+			continue
+		}
+		if c.isTaggedKeyOnly(fields) {
+			for _, field := range fields {
+				if field.isTaggedKey {
+					continue
+				}
+				duplicatedFieldMap[field] = struct{}{}
+			}
+		} else {
+			for _, field := range fields {
+				duplicatedFieldMap[field] = struct{}{}
+			}
+		}
+	}
+	return duplicatedFieldMap
+}
+
+func (c *Compiler) filteredDuplicatedFields(fields []*StructFieldCode, duplicatedFieldMap map[*StructFieldCode]struct{}) []*StructFieldCode {
+	filteredFields := make([]*StructFieldCode, 0, len(fields))
+	for _, field := range fields {
+		if field.isAnonymous {
+			structCode := field.getAnonymousStruct()
+			if structCode != nil && !structCode.isRecursive {
+				structCode.fields = c.filteredDuplicatedFields(structCode.fields, duplicatedFieldMap)
+				if len(structCode.fields) > 0 {
+					filteredFields = append(filteredFields, field)
+				}
+				continue
+			}
+		}
+		if _, exists := duplicatedFieldMap[field]; exists {
+			continue
+		}
+		filteredFields = append(filteredFields, field)
+	}
+	return filteredFields
+}
+
+func (c *Compiler) isTaggedKeyOnly(fields []*StructFieldCode) bool {
+	var taggedKeyFieldCount int
+	for _, field := range fields {
+		if field.isTaggedKey {
+			taggedKeyFieldCount++
+		}
+	}
+	return taggedKeyFieldCount == 1
+}
+
+func (c *Compiler) typeToStructTags(typ *runtime.Type) runtime.StructTags {
+	tags := runtime.StructTags{}
+	fieldNum := typ.NumField()
+	for i := 0; i < fieldNum; i++ {
+		field := typ.Field(i)
+		if runtime.IsIgnoredStructField(field) {
+			continue
+		}
+		tags = append(tags, runtime.StructTagFromField(field))
+	}
+	return tags
+}
+
+// *struct{ field T } => struct { field *T }
+// func (*T) MarshalJSON() ([]byte, error)
+func (c *Compiler) isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(typ *runtime.Type, isIndirectSpecialCase bool) bool {
+	return isIndirectSpecialCase && !c.isNilableType(typ) && c.isPtrMarshalJSONType(typ)
+}
+
+// *struct{ field T } => struct { field *T }
+// func (*T) MarshalText() ([]byte, error)
+func (c *Compiler) isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(typ *runtime.Type, isIndirectSpecialCase bool) bool {
+	return isIndirectSpecialCase && !c.isNilableType(typ) && c.isPtrMarshalTextType(typ)
+}
+
+func (c *Compiler) implementsMarshalJSON(typ *runtime.Type) bool {
+	if !c.implementsMarshalJSONType(typ) {
 		return false
 	}
 	if typ.Kind() != reflect.Ptr {
 		return true
 	}
 	// type kind is reflect.Ptr
-	if !implementsMarshalJSONType(typ.Elem()) {
+	if !c.implementsMarshalJSONType(typ.Elem()) {
 		return true
 	}
 	// needs to dereference
 	return false
 }
 
-func implementsMarshalText(typ *runtime.Type) bool {
+func (c *Compiler) implementsMarshalText(typ *runtime.Type) bool {
 	if !typ.Implements(marshalTextType) {
 		return false
 	}
@@ -139,69 +796,7 @@ func implementsMarshalText(typ *runtime.Type) bool {
 	return false
 }
 
-func convertPtrOp(code *Opcode) OpType {
-	ptrHeadOp := code.Op.HeadToPtrHead()
-	if code.Op != ptrHeadOp {
-		if code.PtrNum > 0 {
-			// ptr field and ptr head
-			code.PtrNum--
-		}
-		return ptrHeadOp
-	}
-	switch code.Op {
-	case OpInt:
-		return OpIntPtr
-	case OpUint:
-		return OpUintPtr
-	case OpFloat32:
-		return OpFloat32Ptr
-	case OpFloat64:
-		return OpFloat64Ptr
-	case OpString:
-		return OpStringPtr
-	case OpBool:
-		return OpBoolPtr
-	case OpBytes:
-		return OpBytesPtr
-	case OpNumber:
-		return OpNumberPtr
-	case OpArray:
-		return OpArrayPtr
-	case OpSlice:
-		return OpSlicePtr
-	case OpMap:
-		return OpMapPtr
-	case OpMarshalJSON:
-		return OpMarshalJSONPtr
-	case OpMarshalText:
-		return OpMarshalTextPtr
-	case OpInterface:
-		return OpInterfacePtr
-	case OpRecursive:
-		return OpRecursivePtr
-	}
-	return code.Op
-}
-
-const intSize = 32 << (^uint(0) >> 63)
-
-func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
-	headType := code.ToHeaderType(tag.IsString)
-	if tag.IsOmitEmpty {
-		headType = headType.HeadToOmitEmptyHead()
-	}
-	return headType
-}
-
-func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
-	fieldType := code.ToFieldType(tag.IsString)
-	if tag.IsOmitEmpty {
-		fieldType = fieldType.FieldToOmitEmptyField()
-	}
-	return fieldType
-}
-
-func isNilableType(typ *runtime.Type) bool {
+func (c *Compiler) isNilableType(typ *runtime.Type) bool {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return true
@@ -214,19 +809,26 @@ func isNilableType(typ *runtime.Type) bool {
 	}
 }
 
-func implementsMarshalJSONType(typ *runtime.Type) bool {
+func (c *Compiler) implementsMarshalJSONType(typ *runtime.Type) bool {
 	return typ.Implements(marshalJSONType) || typ.Implements(marshalJSONContextType)
 }
 
-func isPtrMarshalJSONType(typ *runtime.Type) bool {
-	return !implementsMarshalJSONType(typ) && implementsMarshalJSONType(runtime.PtrTo(typ))
+func (c *Compiler) isPtrMarshalJSONType(typ *runtime.Type) bool {
+	return !c.implementsMarshalJSONType(typ) && c.implementsMarshalJSONType(runtime.PtrTo(typ))
 }
 
-func isPtrMarshalTextType(typ *runtime.Type) bool {
+func (c *Compiler) isPtrMarshalTextType(typ *runtime.Type) bool {
 	return !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType)
 }
 
-func linkRecursiveCode(ctx *compileContext) {
+func (c *Compiler) codeToOpcode(ctx *compileContext, code Code) *Opcode {
+	codes := code.ToOpcode(ctx)
+	codes.Last().Next = newEndOp(ctx)
+	c.linkRecursiveCode(ctx)
+	return codes.First()
+}
+
+func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
 	for _, recursive := range *ctx.recursiveCodes {
 		typeptr := uintptr(unsafe.Pointer(recursive.Type))
 		codes := ctx.structTypeToCodes[typeptr]
@@ -252,575 +854,4 @@ func linkRecursiveCode(ctx *compileContext) {
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 	}
-}
-
-func type2code(ctx *compileContext) (Code, error) {
-	typ := ctx.typ
-	switch {
-	case implementsMarshalJSON(typ):
-		return compileMarshalJSON(ctx)
-	case implementsMarshalText(typ):
-		return compileMarshalText(ctx)
-	}
-
-	isPtr := false
-	orgType := typ
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-		isPtr = true
-	}
-	switch {
-	case implementsMarshalJSON(typ):
-		return compileMarshalJSON(ctx)
-	case implementsMarshalText(typ):
-		return compileMarshalText(ctx)
-	}
-	switch typ.Kind() {
-	case reflect.Slice:
-		ctx := ctx.withType(typ)
-		elem := typ.Elem()
-		if elem.Kind() == reflect.Uint8 {
-			p := runtime.PtrTo(elem)
-			if !implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
-				return compileBytes(ctx, isPtr)
-			}
-		}
-		return compileSlice(ctx)
-	case reflect.Map:
-		if isPtr {
-			return compilePtr(ctx.withType(runtime.PtrTo(typ)))
-		}
-		return compileMap(ctx.withType(typ))
-	case reflect.Struct:
-		return compileStruct(ctx.withType(typ), isPtr)
-	case reflect.Int:
-		return compileInt(ctx.withType(typ), isPtr)
-	case reflect.Int8:
-		return compileInt8(ctx.withType(typ), isPtr)
-	case reflect.Int16:
-		return compileInt16(ctx.withType(typ), isPtr)
-	case reflect.Int32:
-		return compileInt32(ctx.withType(typ), isPtr)
-	case reflect.Int64:
-		return compileInt64(ctx.withType(typ), isPtr)
-	case reflect.Uint, reflect.Uintptr:
-		return compileUint(ctx.withType(typ), isPtr)
-	case reflect.Uint8:
-		return compileUint8(ctx.withType(typ), isPtr)
-	case reflect.Uint16:
-		return compileUint16(ctx.withType(typ), isPtr)
-	case reflect.Uint32:
-		return compileUint32(ctx.withType(typ), isPtr)
-	case reflect.Uint64:
-		return compileUint64(ctx.withType(typ), isPtr)
-	case reflect.Float32:
-		return compileFloat32(ctx.withType(typ), isPtr)
-	case reflect.Float64:
-		return compileFloat64(ctx.withType(typ), isPtr)
-	case reflect.String:
-		return compileString(ctx.withType(typ), isPtr)
-	case reflect.Bool:
-		return compileBool(ctx.withType(typ), isPtr)
-	case reflect.Interface:
-		return compileInterface(ctx.withType(typ), isPtr)
-	default:
-		if isPtr && typ.Implements(marshalTextType) {
-			typ = orgType
-		}
-		return type2codeWithPtr(ctx.withType(typ), isPtr)
-	}
-}
-
-func type2codeWithPtr(ctx *compileContext, isPtr bool) (Code, error) {
-	typ := ctx.typ
-	switch {
-	case implementsMarshalJSON(typ):
-		return compileMarshalJSON(ctx)
-	case implementsMarshalText(typ):
-		return compileMarshalText(ctx)
-	}
-	switch typ.Kind() {
-	case reflect.Ptr:
-		return compilePtr(ctx)
-	case reflect.Slice:
-		elem := typ.Elem()
-		if elem.Kind() == reflect.Uint8 {
-			p := runtime.PtrTo(elem)
-			if !implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
-				return compileBytes(ctx, false)
-			}
-		}
-		return compileSlice(ctx)
-	case reflect.Array:
-		return compileArray(ctx)
-	case reflect.Map:
-		return compileMap(ctx)
-	case reflect.Struct:
-		return compileStruct(ctx, isPtr)
-	case reflect.Interface:
-		return compileInterface(ctx, false)
-	case reflect.Int:
-		return compileInt(ctx, false)
-	case reflect.Int8:
-		return compileInt8(ctx, false)
-	case reflect.Int16:
-		return compileInt16(ctx, false)
-	case reflect.Int32:
-		return compileInt32(ctx, false)
-	case reflect.Int64:
-		return compileInt64(ctx, false)
-	case reflect.Uint:
-		return compileUint(ctx, false)
-	case reflect.Uint8:
-		return compileUint8(ctx, false)
-	case reflect.Uint16:
-		return compileUint16(ctx, false)
-	case reflect.Uint32:
-		return compileUint32(ctx, false)
-	case reflect.Uint64:
-		return compileUint64(ctx, false)
-	case reflect.Uintptr:
-		return compileUint(ctx, false)
-	case reflect.Float32:
-		return compileFloat32(ctx, false)
-	case reflect.Float64:
-		return compileFloat64(ctx, false)
-	case reflect.String:
-		return compileString(ctx, false)
-	case reflect.Bool:
-		return compileBool(ctx, false)
-	}
-	return nil, &errors.UnsupportedTypeError{Type: runtime.RType2Type(typ)}
-}
-
-func compileInt(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: intSize, isPtr: isPtr}, nil
-}
-
-func compileInt8(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 8, isPtr: isPtr}, nil
-}
-
-func compileInt16(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 16, isPtr: isPtr}, nil
-}
-
-func compileInt32(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 32, isPtr: isPtr}, nil
-}
-
-func compileInt64(ctx *compileContext, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 64, isPtr: isPtr}, nil
-}
-
-func compileUint(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: intSize, isPtr: isPtr}, nil
-}
-
-func compileUint8(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 8, isPtr: isPtr}, nil
-}
-
-func compileUint16(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 16, isPtr: isPtr}, nil
-}
-
-func compileUint32(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 32, isPtr: isPtr}, nil
-}
-
-func compileUint64(ctx *compileContext, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 64, isPtr: isPtr}, nil
-}
-
-func compileFloat32(ctx *compileContext, isPtr bool) (*FloatCode, error) {
-	return &FloatCode{typ: ctx.typ, bitSize: 32, isPtr: isPtr}, nil
-}
-
-func compileFloat64(ctx *compileContext, isPtr bool) (*FloatCode, error) {
-	return &FloatCode{typ: ctx.typ, bitSize: 64, isPtr: isPtr}, nil
-}
-
-func compileString(ctx *compileContext, isPtr bool) (*StringCode, error) {
-	return &StringCode{typ: ctx.typ, isPtr: isPtr}, nil
-}
-
-func compileBool(ctx *compileContext, isPtr bool) (*BoolCode, error) {
-	return &BoolCode{typ: ctx.typ, isPtr: isPtr}, nil
-}
-
-func compileIntString(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: intSize, isString: true}, nil
-}
-
-func compileInt8String(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 8, isString: true}, nil
-}
-
-func compileInt16String(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 16, isString: true}, nil
-}
-
-func compileInt32String(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 32, isString: true}, nil
-}
-
-func compileInt64String(ctx *compileContext) (*IntCode, error) {
-	return &IntCode{typ: ctx.typ, bitSize: 64, isString: true}, nil
-}
-
-func compileUintString(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: intSize, isString: true}, nil
-}
-
-func compileUint8String(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 8, isString: true}, nil
-}
-
-func compileUint16String(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 16, isString: true}, nil
-}
-
-func compileUint32String(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 32, isString: true}, nil
-}
-
-func compileUint64String(ctx *compileContext) (*UintCode, error) {
-	return &UintCode{typ: ctx.typ, bitSize: 64, isString: true}, nil
-}
-
-func compileSlice(ctx *compileContext) (*SliceCode, error) {
-	elem := ctx.typ.Elem()
-	code, err := compileListElem(ctx.withType(elem))
-	if err != nil {
-		return nil, err
-	}
-	if code.Type() == CodeTypeStruct {
-		structCode := code.(*StructCode)
-		structCode.enableIndirect()
-	}
-	return &SliceCode{typ: ctx.typ, value: code}, nil
-}
-
-func compileArray(ctx *compileContext) (*ArrayCode, error) {
-	typ := ctx.typ
-	elem := typ.Elem()
-	code, err := compileListElem(ctx.withType(elem))
-	if err != nil {
-		return nil, err
-	}
-	if code.Type() == CodeTypeStruct {
-		structCode := code.(*StructCode)
-		structCode.enableIndirect()
-	}
-	return &ArrayCode{typ: ctx.typ, value: code}, nil
-}
-
-func compileMap(ctx *compileContext) (*MapCode, error) {
-	typ := ctx.typ
-	keyCode, err := compileMapKey(ctx.withType(typ.Key()))
-	if err != nil {
-		return nil, err
-	}
-	valueCode, err := compileMapValue(ctx.withType(typ.Elem()))
-	if err != nil {
-		return nil, err
-	}
-	if valueCode.Type() == CodeTypeStruct {
-		structCode := valueCode.(*StructCode)
-		structCode.enableIndirect()
-	}
-	return &MapCode{typ: ctx.typ, key: keyCode, value: valueCode}, nil
-}
-
-func compileBytes(ctx *compileContext, isPtr bool) (*BytesCode, error) {
-	return &BytesCode{typ: ctx.typ, isPtr: isPtr}, nil
-}
-
-func compileInterface(ctx *compileContext, isPtr bool) (*InterfaceCode, error) {
-	return &InterfaceCode{typ: ctx.typ, isPtr: isPtr}, nil
-}
-
-func compileMarshalJSON(ctx *compileContext) (*MarshalJSONCode, error) {
-	return &MarshalJSONCode{typ: ctx.typ}, nil
-}
-
-func compileMarshalText(ctx *compileContext) (*MarshalTextCode, error) {
-	return &MarshalTextCode{typ: ctx.typ}, nil
-}
-
-func compilePtr(ctx *compileContext) (*PtrCode, error) {
-	code, err := type2codeWithPtr(ctx.withType(ctx.typ.Elem()), true)
-	if err != nil {
-		return nil, err
-	}
-	ptr, ok := code.(*PtrCode)
-	if ok {
-		return &PtrCode{typ: ctx.typ, value: ptr.value, ptrNum: ptr.ptrNum + 1}, nil
-	}
-	return &PtrCode{typ: ctx.typ, value: code, ptrNum: 1}, nil
-}
-
-func compileListElem(ctx *compileContext) (Code, error) {
-	typ := ctx.typ
-	switch {
-	case isPtrMarshalJSONType(typ):
-		return compileMarshalJSON(ctx)
-	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
-		return compileMarshalText(ctx)
-	case typ.Kind() == reflect.Map:
-		return compilePtr(ctx.withType(runtime.PtrTo(typ)))
-	default:
-		code, err := type2codeWithPtr(ctx, false)
-		if err != nil {
-			return nil, err
-		}
-		ptr, ok := code.(*PtrCode)
-		if ok {
-			if ptr.value.Type() == CodeTypeMap {
-				ptr.ptrNum++
-			}
-		}
-		return code, nil
-	}
-}
-
-func compileMapKey(ctx *compileContext) (Code, error) {
-	typ := ctx.typ
-	switch {
-	case implementsMarshalJSON(typ):
-		return compileMarshalJSON(ctx)
-	case implementsMarshalText(typ):
-		return compileMarshalText(ctx)
-	}
-	switch typ.Kind() {
-	case reflect.Ptr:
-		return compilePtr(ctx)
-	case reflect.String:
-		return compileString(ctx, false)
-	case reflect.Int:
-		return compileIntString(ctx)
-	case reflect.Int8:
-		return compileInt8String(ctx)
-	case reflect.Int16:
-		return compileInt16String(ctx)
-	case reflect.Int32:
-		return compileInt32String(ctx)
-	case reflect.Int64:
-		return compileInt64String(ctx)
-	case reflect.Uint:
-		return compileUintString(ctx)
-	case reflect.Uint8:
-		return compileUint8String(ctx)
-	case reflect.Uint16:
-		return compileUint16String(ctx)
-	case reflect.Uint32:
-		return compileUint32String(ctx)
-	case reflect.Uint64:
-		return compileUint64String(ctx)
-	case reflect.Uintptr:
-		return compileUintString(ctx)
-	}
-	return nil, &errors.UnsupportedTypeError{Type: runtime.RType2Type(typ)}
-}
-
-func compileMapValue(ctx *compileContext) (Code, error) {
-	switch ctx.typ.Kind() {
-	case reflect.Map:
-		return compilePtr(ctx.withType(runtime.PtrTo(ctx.typ)))
-	default:
-		code, err := type2codeWithPtr(ctx, false)
-		if err != nil {
-			return nil, err
-		}
-		ptr, ok := code.(*PtrCode)
-		if ok {
-			if ptr.value.Type() == CodeTypeMap {
-				ptr.ptrNum++
-			}
-		}
-		return code, nil
-	}
-}
-
-func compileStruct(ctx *compileContext, isPtr bool) (*StructCode, error) {
-	typ := ctx.typ
-	typeptr := uintptr(unsafe.Pointer(typ))
-	if code, exists := ctx.structTypeToCode[typeptr]; exists {
-		derefCode := *code
-		derefCode.isRecursive = true
-		return &derefCode, nil
-	}
-	indirect := runtime.IfaceIndir(typ)
-	code := &StructCode{typ: typ, isPtr: isPtr, isIndirect: indirect}
-	ctx.structTypeToCode[typeptr] = code
-
-	fieldNum := typ.NumField()
-	tags := typeToStructTags(typ)
-	fields := []*StructFieldCode{}
-	for i, tag := range tags {
-		isOnlyOneFirstField := i == 0 && fieldNum == 1
-		field, err := code.compileStructField(ctx, tag, isPtr, isOnlyOneFirstField)
-		if err != nil {
-			return nil, err
-		}
-		if field.isAnonymous {
-			structCode := field.getAnonymousStruct()
-			if structCode != nil {
-				structCode.removeFieldsByTags(tags)
-				if isAssignableIndirect(field, isPtr) {
-					if indirect {
-						structCode.isIndirect = true
-					} else {
-						structCode.isIndirect = false
-					}
-				}
-			}
-		} else {
-			structCode := field.getStruct()
-			if structCode != nil {
-				if indirect {
-					// if parent is indirect type, set child indirect property to true
-					structCode.isIndirect = true
-				} else {
-					// if parent is not indirect type, set child indirect property to false.
-					// but if parent's indirect is false and isPtr is true, then indirect must be true.
-					// Do this only if indirectConversion is enabled at the end of compileStruct.
-					structCode.isIndirect = false
-				}
-			}
-		}
-		fields = append(fields, field)
-	}
-	fieldMap := getFieldMap(fields)
-	duplicatedFieldMap := getDuplicatedFieldMap(fieldMap)
-	code.fields = filteredDuplicatedFields(fields, duplicatedFieldMap)
-	if !code.disableIndirectConversion && !indirect && isPtr {
-		code.enableIndirect()
-	}
-	delete(ctx.structTypeToCode, typeptr)
-	return code, nil
-}
-
-func getFieldMap(fields []*StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
-	for _, field := range fields {
-		if field.isAnonymous {
-			for k, v := range getAnonymousFieldMap(field) {
-				fieldMap[k] = append(fieldMap[k], v...)
-			}
-			continue
-		}
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-	}
-	return fieldMap
-}
-
-func getAnonymousFieldMap(field *StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
-	structCode := field.getAnonymousStruct()
-	if structCode == nil || structCode.isRecursive {
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-		return fieldMap
-	}
-	for k, v := range getFieldMapFromAnonymousParent(structCode.fields) {
-		fieldMap[k] = append(fieldMap[k], v...)
-	}
-	return fieldMap
-}
-
-func getFieldMapFromAnonymousParent(fields []*StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
-	for _, field := range fields {
-		if field.isAnonymous {
-			for k, v := range getAnonymousFieldMap(field) {
-				// Do not handle tagged key when embedding more than once
-				for _, vv := range v {
-					vv.isTaggedKey = false
-				}
-				fieldMap[k] = append(fieldMap[k], v...)
-			}
-			continue
-		}
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-	}
-	return fieldMap
-}
-
-func getDuplicatedFieldMap(fieldMap map[string][]*StructFieldCode) map[*StructFieldCode]struct{} {
-	duplicatedFieldMap := map[*StructFieldCode]struct{}{}
-	for _, fields := range fieldMap {
-		if len(fields) == 1 {
-			continue
-		}
-		if isTaggedKeyOnly(fields) {
-			for _, field := range fields {
-				if field.isTaggedKey {
-					continue
-				}
-				duplicatedFieldMap[field] = struct{}{}
-			}
-		} else {
-			for _, field := range fields {
-				duplicatedFieldMap[field] = struct{}{}
-			}
-		}
-	}
-	return duplicatedFieldMap
-}
-
-func filteredDuplicatedFields(fields []*StructFieldCode, duplicatedFieldMap map[*StructFieldCode]struct{}) []*StructFieldCode {
-	filteredFields := make([]*StructFieldCode, 0, len(fields))
-	for _, field := range fields {
-		if field.isAnonymous {
-			structCode := field.getAnonymousStruct()
-			if structCode != nil && !structCode.isRecursive {
-				structCode.fields = filteredDuplicatedFields(structCode.fields, duplicatedFieldMap)
-				if len(structCode.fields) > 0 {
-					filteredFields = append(filteredFields, field)
-				}
-				continue
-			}
-		}
-		if _, exists := duplicatedFieldMap[field]; exists {
-			continue
-		}
-		filteredFields = append(filteredFields, field)
-	}
-	return filteredFields
-}
-
-func isTaggedKeyOnly(fields []*StructFieldCode) bool {
-	var taggedKeyFieldCount int
-	for _, field := range fields {
-		if field.isTaggedKey {
-			taggedKeyFieldCount++
-		}
-	}
-	return taggedKeyFieldCount == 1
-}
-
-func typeToStructTags(typ *runtime.Type) runtime.StructTags {
-	tags := runtime.StructTags{}
-	fieldNum := typ.NumField()
-	for i := 0; i < fieldNum; i++ {
-		field := typ.Field(i)
-		if runtime.IsIgnoredStructField(field) {
-			continue
-		}
-		tags = append(tags, runtime.StructTagFromField(field))
-	}
-	return tags
-}
-
-// *struct{ field T } => struct { field *T }
-// func (*T) MarshalJSON() ([]byte, error)
-func isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(typ *runtime.Type, isIndirectSpecialCase bool) bool {
-	return isIndirectSpecialCase && !isNilableType(typ) && isPtrMarshalJSONType(typ)
-}
-
-// *struct{ field T } => struct { field *T }
-// func (*T) MarshalText() ([]byte, error)
-func isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(typ *runtime.Type, isIndirectSpecialCase bool) bool {
-	return isIndirectSpecialCase && !isNilableType(typ) && isPtrMarshalTextType(typ)
 }

@@ -32,6 +32,10 @@ func (o Opcodes) Last() *Opcode {
 	return o[len(o)-1]
 }
 
+func (o Opcodes) Add(codes ...*Opcode) Opcodes {
+	return append(o, codes...)
+}
+
 type CodeType2 int
 
 const (
@@ -237,7 +241,7 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes.Last().Next = elemCode
 	elemCode.Next = codes.First()
 	elemCode.End = end
-	return append(append(Opcodes{header}, codes...), elemCode, end)
+	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
 type ArrayCode struct {
@@ -275,7 +279,7 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	elemCode.Next = codes.First()
 	elemCode.End = end
 
-	return append(append(Opcodes{header}, codes...), elemCode, end)
+	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
 type MapCode struct {
@@ -317,7 +321,7 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header.End = end
 	key.End = end
 	value.End = end
-	return append(append(append(append(append(Opcodes{header}, keyCodes...), value), valueCodes...), key), end)
+	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
 }
 
 type StructCode struct {
@@ -397,11 +401,11 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 			} else {
 				firstField.End = endField
 			}
-			codes = append(codes, fieldCodes...)
+			codes = codes.Add(fieldCodes...)
 			break
 		}
 		prevField = c.lastFieldCode(field, firstField)
-		codes = append(codes, fieldCodes...)
+		codes = codes.Add(fieldCodes...)
 	}
 	if len(codes) == 0 {
 		head := &Opcode{
@@ -421,7 +425,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		head.NextField = end
 		head.Next = end
 		head.End = end
-		codes = append(codes, head, end)
+		codes = codes.Add(head, end)
 		ctx.incIndex()
 	}
 	ctx = ctx.decIndent()
@@ -468,7 +472,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 			}
 		}
 		prevField = firstField
-		codes = append(codes, fieldCodes...)
+		codes = codes.Add(fieldCodes...)
 	}
 	return codes
 }
@@ -552,7 +556,7 @@ func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valu
 	fieldCodes := Opcodes{field}
 	if op.IsMultipleOpHead() {
 		field.Next = value
-		fieldCodes = append(fieldCodes, valueCodes...)
+		fieldCodes = fieldCodes.Add(valueCodes...)
 	} else {
 		ctx.decIndex()
 	}
@@ -569,7 +573,7 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	fieldCodes := Opcodes{field}
 	if op.IsMultipleOpField() {
 		field.Next = value
-		fieldCodes = append(fieldCodes, valueCodes...)
+		fieldCodes = fieldCodes.Add(valueCodes...)
 	} else {
 		ctx.decIndex()
 	}
@@ -585,8 +589,8 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 	}
 	codes.Last().Next = end
 	codes.First().NextField = end
-	codes = append(codes, end)
-	ctx.incIndex()
+	codes = codes.Add(end)
+	ctx.incOpcodeIndex()
 	return codes
 }
 
@@ -683,7 +687,7 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 
 func isEnableStructEndOptimizationType(typ CodeType2) bool {
 	switch typ {
-	case CodeTypeInt, CodeTypeUint, CodeTypeFloat, CodeTypeString, CodeTypeBool:
+	case CodeTypeInt, CodeTypeUint, CodeTypeFloat, CodeTypeString, CodeTypeBool, CodeTypeBytes:
 		return true
 	default:
 		return false

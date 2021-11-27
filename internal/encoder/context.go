@@ -9,31 +9,29 @@ import (
 )
 
 type compileContext struct {
-	typ                      *runtime.Type
-	opcodeIndex              uint32
-	ptrIndex                 int
-	indent                   uint32
-	escapeKey                bool
-	structTypeToCompiledCode map[uintptr]*CompiledCode
-	structTypeToCode         map[uintptr]*StructCode
-	structTypeToCodes        map[uintptr]Opcodes
-	recursiveCodes           *Opcodes
+	typ               *runtime.Type
+	opcodeIndex       uint32
+	ptrIndex          int
+	indent            uint32
+	escapeKey         bool
+	structTypeToCode  map[uintptr]*StructCode
+	structTypeToCodes map[uintptr]Opcodes
+	recursiveCodes    *Opcodes
 
 	parent *compileContext
 }
 
 func (c *compileContext) context() *compileContext {
 	return &compileContext{
-		typ:                      c.typ,
-		opcodeIndex:              c.opcodeIndex,
-		ptrIndex:                 c.ptrIndex,
-		indent:                   c.indent,
-		escapeKey:                c.escapeKey,
-		structTypeToCompiledCode: c.structTypeToCompiledCode,
-		structTypeToCode:         c.structTypeToCode,
-		structTypeToCodes:        c.structTypeToCodes,
-		recursiveCodes:           c.recursiveCodes,
-		parent:                   c,
+		typ:               c.typ,
+		opcodeIndex:       c.opcodeIndex,
+		ptrIndex:          c.ptrIndex,
+		indent:            c.indent,
+		escapeKey:         c.escapeKey,
+		structTypeToCode:  c.structTypeToCode,
+		structTypeToCodes: c.structTypeToCodes,
+		recursiveCodes:    c.recursiveCodes,
+		parent:            c,
 	}
 }
 

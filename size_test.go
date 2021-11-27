@@ -12,7 +12,7 @@ func TestOpcodeSize(t *testing.T) {
 	if uintptrSize == 8 {
 		size := unsafe.Sizeof(encoder.Opcode{})
 		if size != 120 {
-			t.Fatalf("unexpected opcode size: expected 128bytes but got %dbytes", size)
+			t.Fatalf("unexpected opcode size: expected 120bytes but got %dbytes", size)
 		}
 	}
 }

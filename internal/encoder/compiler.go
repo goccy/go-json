@@ -59,17 +59,19 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	copiedType := *(**runtime.Type)(unsafe.Pointer(&typeptr))
 
-	noescapeKeyCode, err := compileHead(&compileContext{
-		typ:                      copiedType,
-		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
+	noescapeKeyCode, err := compile(&compileContext{
+		typ:               copiedType,
+		structTypeToCode:  map[uintptr]*StructCode{},
+		structTypeToCodes: map[uintptr]Opcodes{},
 	})
 	if err != nil {
 		return nil, err
 	}
-	escapeKeyCode, err := compileHead(&compileContext{
-		typ:                      copiedType,
-		structTypeToCompiledCode: map[uintptr]*CompiledCode{},
-		escapeKey:                true,
+	escapeKeyCode, err := compile(&compileContext{
+		typ:               copiedType,
+		structTypeToCode:  map[uintptr]*StructCode{},
+		structTypeToCodes: map[uintptr]Opcodes{},
+		escapeKey:         true,
 	})
 	if err != nil {
 		return nil, err
@@ -94,7 +96,7 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	return codeSet, nil
 }
 
-func compileHead(ctx *compileContext) (*Opcode, error) {
+func compile(ctx *compileContext) (*Opcode, error) {
 	code, err := type2code(ctx)
 	if err != nil {
 		return nil, err

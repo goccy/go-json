@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -2047,9 +2048,9 @@ func TestCoverSlice(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			for _, indent := range []bool{true, false} {
-				for _, htmlEscape := range []bool{true, false} {
+		for _, indent := range []bool{true, false} {
+			for _, htmlEscape := range []bool{true, false} {
+				t.Run(fmt.Sprintf("%s_indent_%t_escape_%t", test.name, indent, htmlEscape), func(t *testing.T) {
 					var buf bytes.Buffer
 					enc := json.NewEncoder(&buf)
 					enc.SetEscapeHTML(htmlEscape)
@@ -2063,8 +2064,8 @@ func TestCoverSlice(t *testing.T) {
 					if buf.String() != stdresult {
 						t.Errorf("%s(htmlEscape:%v,indent:%v): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, indent, stdresult, buf.String())
 					}
-				}
+				})
 			}
-		})
+		}
 	}
 }

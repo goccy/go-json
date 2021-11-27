@@ -38,7 +38,6 @@ type Opcode struct {
 	Flags      OpFlags
 
 	Type       *runtime.Type // go type
-	PrevField  *Opcode       // prev struct field
 	Jmp        *CompiledCode // for recursive call
 	ElemIdx    uint32        // offset to access array/slice/map elem
 	Length     uint32        // offset to access slice/map length or array length
@@ -50,18 +49,40 @@ type Opcode struct {
 	DisplayKey string        // key text to display
 }
 
-func (c *Opcode) IsStructHeadOp() bool {
-	if c == nil {
-		return false
+func (c *Opcode) Validate() error {
+	var prevIdx uint32
+	for code := c; !code.IsEnd(); {
+		if prevIdx != 0 {
+			if code.DisplayIdx != prevIdx+1 {
+				return fmt.Errorf(
+					"invalid index. previous display index is %d but next is %d. dump = %s",
+					prevIdx, code.DisplayIdx, c.Dump(),
+				)
+			}
+		}
+		prevIdx = code.DisplayIdx
+		code = code.IterNext()
 	}
-	return strings.Contains(c.Op.String(), "Head")
+	return nil
 }
 
-func (c *Opcode) IsRecursiveOp() bool {
+func (c *Opcode) IterNext() *Opcode {
 	if c == nil {
-		return false
+		return nil
 	}
-	return strings.Contains(c.Op.String(), "Recursive")
+	switch c.Op.CodeType() {
+	case CodeArrayElem, CodeSliceElem, CodeMapKey:
+		return c.End
+	default:
+		return c.Next
+	}
+}
+
+func (c *Opcode) IsEnd() bool {
+	if c == nil {
+		return true
+	}
+	return c.Op == OpEnd || c.Op == OpInterfaceEnd || c.Op == OpRecursiveEnd
 }
 
 func (c *Opcode) MaxIdx() uint32 {
@@ -287,43 +308,76 @@ func (c *Opcode) ToFieldType(isString bool) OpType {
 	return OpStructField
 }
 
-func newOpCode(ctx *compileContext, op OpType) *Opcode {
-	return newOpCodeWithNext(ctx, op, newEndOp(ctx))
+func newOpCode(ctx *compileContext, typ *runtime.Type, op OpType) *Opcode {
+	return newOpCodeWithNext(ctx, typ, op, newEndOp(ctx, typ))
 }
 
 func opcodeOffset(idx int) uint32 {
 	return uint32(idx) * uintptrSize
 }
 
+func getCodeAddrByIdx(head *Opcode, idx uint32) *Opcode {
+	addr := uintptr(unsafe.Pointer(head)) + uintptr(idx)*unsafe.Sizeof(Opcode{})
+	return *(**Opcode)(unsafe.Pointer(&addr))
+}
+
 func copyOpcode(code *Opcode) *Opcode {
-	codeMap := map[uintptr]*Opcode{}
-	return code.copy(codeMap)
+	codeNum := ToEndCode(code).DisplayIdx + 1
+	codeSlice := make([]Opcode, codeNum)
+	head := (*Opcode)((*runtime.SliceHeader)(unsafe.Pointer(&codeSlice)).Data)
+	ptr := head
+	c := code
+	for {
+		*ptr = Opcode{
+			Op:         c.Op,
+			Key:        c.Key,
+			PtrNum:     c.PtrNum,
+			NumBitSize: c.NumBitSize,
+			Flags:      c.Flags,
+			Idx:        c.Idx,
+			Offset:     c.Offset,
+			Type:       c.Type,
+			DisplayIdx: c.DisplayIdx,
+			DisplayKey: c.DisplayKey,
+			ElemIdx:    c.ElemIdx,
+			Length:     c.Length,
+			MapIter:    c.MapIter,
+			MapPos:     c.MapPos,
+			Size:       c.Size,
+			Indent:     c.Indent,
+			Jmp:        c.Jmp,
+		}
+		if c.End != nil {
+			ptr.End = getCodeAddrByIdx(head, c.End.DisplayIdx)
+		}
+		if c.NextField != nil {
+			ptr.NextField = getCodeAddrByIdx(head, c.NextField.DisplayIdx)
+		}
+		if c.Next != nil {
+			ptr.Next = getCodeAddrByIdx(head, c.Next.DisplayIdx)
+		}
+		if c.IsEnd() {
+			break
+		}
+		ptr = getCodeAddrByIdx(head, c.DisplayIdx+1)
+		c = c.IterNext()
+	}
+	return head
 }
 
 func setTotalLengthToInterfaceOp(code *Opcode) {
-	c := code
-	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
+	for c := code; !c.IsEnd(); {
 		if c.Op == OpInterface {
 			c.Length = uint32(code.TotalLength())
 		}
-		switch c.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			c = c.End
-		default:
-			c = c.Next
-		}
+		c = c.IterNext()
 	}
 }
 
 func ToEndCode(code *Opcode) *Opcode {
 	c := code
-	for c.Op != OpEnd && c.Op != OpInterfaceEnd {
-		switch c.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			c = c.End
-		default:
-			c = c.Next
-		}
+	for !c.IsEnd() {
+		c = c.IterNext()
 	}
 	return c
 }
@@ -339,77 +393,25 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	return copied
 }
 
-func newOpCodeWithNext(ctx *compileContext, op OpType, next *Opcode) *Opcode {
+func newOpCodeWithNext(ctx *compileContext, typ *runtime.Type, op OpType, next *Opcode) *Opcode {
 	return &Opcode{
 		Op:         op,
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Next:       next,
-		Type:       ctx.typ,
+		Type:       typ,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 	}
 }
 
-func newEndOp(ctx *compileContext) *Opcode {
-	return newOpCodeWithNext(ctx, OpEnd, nil)
-}
-
-func (c *Opcode) copy(codeMap map[uintptr]*Opcode) *Opcode {
-	if c == nil {
-		return nil
-	}
-	addr := uintptr(unsafe.Pointer(c))
-	if code, exists := codeMap[addr]; exists {
-		return code
-	}
-	copied := &Opcode{
-		Op:         c.Op,
-		Key:        c.Key,
-		PtrNum:     c.PtrNum,
-		NumBitSize: c.NumBitSize,
-		Flags:      c.Flags,
-		Idx:        c.Idx,
-		Offset:     c.Offset,
-		Type:       c.Type,
-		DisplayIdx: c.DisplayIdx,
-		DisplayKey: c.DisplayKey,
-		ElemIdx:    c.ElemIdx,
-		Length:     c.Length,
-		MapIter:    c.MapIter,
-		MapPos:     c.MapPos,
-		Size:       c.Size,
-		Indent:     c.Indent,
-	}
-	codeMap[addr] = copied
-	copied.End = c.End.copy(codeMap)
-	copied.PrevField = c.PrevField.copy(codeMap)
-	copied.NextField = c.NextField.copy(codeMap)
-	copied.Next = c.Next.copy(codeMap)
-	copied.Jmp = c.Jmp
-	return copied
-}
-
-func (c *Opcode) BeforeLastCode() *Opcode {
-	code := c
-	for {
-		var nextCode *Opcode
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			nextCode = code.End
-		default:
-			nextCode = code.Next
-		}
-		if nextCode.Op == OpEnd {
-			return code
-		}
-		code = nextCode
-	}
+func newEndOp(ctx *compileContext, typ *runtime.Type) *Opcode {
+	return newOpCodeWithNext(ctx, typ, OpEnd, nil)
 }
 
 func (c *Opcode) TotalLength() int {
 	var idx int
 	code := c
-	for code.Op != OpEnd && code.Op != OpInterfaceEnd {
+	for !code.IsEnd() {
 		maxIdx := int(code.MaxIdx() / uintptrSize)
 		if idx < maxIdx {
 			idx = maxIdx
@@ -417,12 +419,7 @@ func (c *Opcode) TotalLength() int {
 		if code.Op == OpRecursiveEnd {
 			break
 		}
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 	maxIdx := int(code.MaxIdx() / uintptrSize)
 	if idx < maxIdx {
@@ -432,7 +429,7 @@ func (c *Opcode) TotalLength() int {
 }
 
 func (c *Opcode) decOpcodeIndex() {
-	for code := c; code.Op != OpEnd; {
+	for code := c; !code.IsEnd(); {
 		code.DisplayIdx--
 		if code.Idx > 0 {
 			code.Idx -= uintptrSize
@@ -446,24 +443,14 @@ func (c *Opcode) decOpcodeIndex() {
 		if code.Length > 0 && code.Op.CodeType() != CodeArrayHead && code.Op.CodeType() != CodeArrayElem {
 			code.Length -= uintptrSize
 		}
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 }
 
 func (c *Opcode) decIndent() {
-	for code := c; code.Op != OpEnd; {
+	for code := c; !code.IsEnd(); {
 		code.Indent--
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			code = code.End
-		default:
-			code = code.Next
-		}
+		code = code.IterNext()
 	}
 }
 
@@ -475,7 +462,7 @@ func (c *Opcode) dumpHead(code *Opcode) string {
 		length = code.Length / uintptrSize
 	}
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][elemIdx:%d][length:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -487,7 +474,7 @@ func (c *Opcode) dumpHead(code *Opcode) string {
 
 func (c *Opcode) dumpMapHead(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -500,7 +487,7 @@ func (c *Opcode) dumpMapHead(code *Opcode) string {
 
 func (c *Opcode) dumpMapEnd(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
+		`[%03d]%s%s ([idx:%d][mapPos:%d][length:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -518,7 +505,7 @@ func (c *Opcode) dumpElem(code *Opcode) string {
 		length = code.Length / uintptrSize
 	}
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][elemIdx:%d][length:%d][size:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][size:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -531,7 +518,7 @@ func (c *Opcode) dumpElem(code *Opcode) string {
 
 func (c *Opcode) dumpField(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][key:%s][offset:%d])`,
+		`[%03d]%s%s ([idx:%d][key:%s][offset:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -543,7 +530,7 @@ func (c *Opcode) dumpField(code *Opcode) string {
 
 func (c *Opcode) dumpKey(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -556,7 +543,7 @@ func (c *Opcode) dumpKey(code *Opcode) string {
 
 func (c *Opcode) dumpValue(code *Opcode) string {
 	return fmt.Sprintf(
-		`[%d]%s%s ([idx:%d][mapIter:%d])`,
+		`[%03d]%s%s ([idx:%d][mapIter:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
@@ -567,7 +554,7 @@ func (c *Opcode) dumpValue(code *Opcode) string {
 
 func (c *Opcode) Dump() string {
 	codes := []string{}
-	for code := c; code.Op != OpEnd && code.Op != OpInterfaceEnd; {
+	for code := c; !code.IsEnd(); {
 		switch code.Op.CodeType() {
 		case CodeSliceHead:
 			codes = append(codes, c.dumpHead(code))
@@ -595,7 +582,7 @@ func (c *Opcode) Dump() string {
 			code = code.Next
 		default:
 			codes = append(codes, fmt.Sprintf(
-				"[%d]%s%s ([idx:%d])",
+				"[%03d]%s%s ([idx:%d])",
 				code.DisplayIdx,
 				strings.Repeat("-", int(code.Indent)),
 				code.Op,
@@ -607,44 +594,7 @@ func (c *Opcode) Dump() string {
 	return strings.Join(codes, "\n")
 }
 
-func prevField(code *Opcode, removedFields map[*Opcode]struct{}) *Opcode {
-	if _, exists := removedFields[code]; exists {
-		return prevField(code.PrevField, removedFields)
-	}
-	return code
-}
-
-func nextField(code *Opcode, removedFields map[*Opcode]struct{}) *Opcode {
-	if _, exists := removedFields[code]; exists {
-		return nextField(code.NextField, removedFields)
-	}
-	return code
-}
-
-func linkPrevToNextField(cur *Opcode, removedFields map[*Opcode]struct{}) {
-	prev := prevField(cur.PrevField, removedFields)
-	prev.NextField = nextField(cur.NextField, removedFields)
-	code := prev
-	fcode := cur
-	for {
-		var nextCode *Opcode
-		switch code.Op.CodeType() {
-		case CodeArrayElem, CodeSliceElem, CodeMapKey:
-			nextCode = code.End
-		default:
-			nextCode = code.Next
-		}
-		if nextCode == fcode {
-			code.Next = fcode.NextField
-			break
-		} else if nextCode.Op == OpEnd {
-			break
-		}
-		code = nextCode
-	}
-}
-
-func newSliceHeaderCode(ctx *compileContext) *Opcode {
+func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -652,6 +602,7 @@ func newSliceHeaderCode(ctx *compileContext) *Opcode {
 	length := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpSlice,
+		Type:       typ,
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    elemIdx,
@@ -660,9 +611,10 @@ func newSliceHeaderCode(ctx *compileContext) *Opcode {
 	}
 }
 
-func newSliceElemCode(ctx *compileContext, head *Opcode, size uintptr) *Opcode {
+func newSliceElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpSliceElem,
+		Type:       typ,
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -672,12 +624,13 @@ func newSliceElemCode(ctx *compileContext, head *Opcode, size uintptr) *Opcode {
 	}
 }
 
-func newArrayHeaderCode(ctx *compileContext, alen int) *Opcode {
+func newArrayHeaderCode(ctx *compileContext, typ *runtime.Type, alen int) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpArray,
+		Type:       typ,
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    elemIdx,
@@ -686,9 +639,10 @@ func newArrayHeaderCode(ctx *compileContext, alen int) *Opcode {
 	}
 }
 
-func newArrayElemCode(ctx *compileContext, head *Opcode, length int, size uintptr) *Opcode {
+func newArrayElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, length int, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpArrayElem,
+		Type:       typ,
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -698,7 +652,7 @@ func newArrayElemCode(ctx *compileContext, head *Opcode, length int, size uintpt
 	}
 }
 
-func newMapHeaderCode(ctx *compileContext) *Opcode {
+func newMapHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -708,8 +662,8 @@ func newMapHeaderCode(ctx *compileContext) *Opcode {
 	mapIter := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpMap,
+		Type:       typ,
 		Idx:        idx,
-		Type:       ctx.typ,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    elemIdx,
 		Length:     length,
@@ -718,9 +672,10 @@ func newMapHeaderCode(ctx *compileContext) *Opcode {
 	}
 }
 
-func newMapKeyCode(ctx *compileContext, head *Opcode) *Opcode {
+func newMapKeyCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapKey,
+		Type:       typ,
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -730,9 +685,10 @@ func newMapKeyCode(ctx *compileContext, head *Opcode) *Opcode {
 	}
 }
 
-func newMapValueCode(ctx *compileContext, head *Opcode) *Opcode {
+func newMapValueCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapValue,
+		Type:       typ,
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -742,14 +698,15 @@ func newMapValueCode(ctx *compileContext, head *Opcode) *Opcode {
 	}
 }
 
-func newMapEndCode(ctx *compileContext, head *Opcode) *Opcode {
+func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
 	mapPos := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	idx := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpMapEnd,
+		Type:       typ,
 		Idx:        idx,
-		Next:       newEndOp(ctx),
+		Next:       newEndOp(ctx, typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Length:     head.Length,
 		MapPos:     mapPos,
@@ -757,28 +714,12 @@ func newMapEndCode(ctx *compileContext, head *Opcode) *Opcode {
 	}
 }
 
-func newInterfaceCode(ctx *compileContext) *Opcode {
-	var flag OpFlags
-	if ctx.typ.NumMethod() > 0 {
-		flag |= NonEmptyInterfaceFlags
-	}
-	return &Opcode{
-		Op:         OpInterface,
-		Idx:        opcodeOffset(ctx.ptrIndex),
-		Next:       newEndOp(ctx),
-		Type:       ctx.typ,
-		DisplayIdx: ctx.opcodeIndex,
-		Indent:     ctx.indent,
-		Flags:      flag,
-	}
-}
-
-func newRecursiveCode(ctx *compileContext, jmp *CompiledCode) *Opcode {
+func newRecursiveCode(ctx *compileContext, typ *runtime.Type, jmp *CompiledCode) *Opcode {
 	return &Opcode{
 		Op:         OpRecursive,
+		Type:       typ,
 		Idx:        opcodeOffset(ctx.ptrIndex),
-		Next:       newEndOp(ctx),
-		Type:       ctx.typ,
+		Next:       newEndOp(ctx, typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 		Jmp:        jmp,

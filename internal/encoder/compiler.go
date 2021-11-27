@@ -85,6 +85,9 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 		structTypeToCodes: map[uintptr]Opcodes{},
 		recursiveCodes:    &Opcodes{},
 	}, code)
+	if err := noescapeKeyCode.Validate(); err != nil {
+		return nil, err
+	}
 	escapeKeyCode := c.codeToOpcode(&compileContext{
 		typ:               typ,
 		structTypeToCodes: map[uintptr]Opcodes{},
@@ -405,7 +408,7 @@ func (c *Compiler) marshalJSONCode(typ *runtime.Type) (*MarshalJSONCode, error) 
 func (c *Compiler) marshalTextCode(typ *runtime.Type) (*MarshalTextCode, error) {
 	return &MarshalTextCode{
 		typ:                typ,
-		isAddrForMarshaler: !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType),
+		isAddrForMarshaler: c.isPtrMarshalTextType(typ),
 		isNilableType:      c.isNilableType(typ),
 	}, nil
 }

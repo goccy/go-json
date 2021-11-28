@@ -4349,8 +4349,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				store(ctxptr, code.Idx, p)
 			}
-		case encoder.OpStructAnonymousEnd:
-			code = code.Next
 		case encoder.OpStructEnd:
 			b = appendStructEndSkipLast(ctx, code, b)
 			code = code.Next

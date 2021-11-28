@@ -128,6 +128,10 @@ func appendComma(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
+func appendNullComma(_ *encoder.RuntimeContext, b []byte) []byte {
+	return append(b, "null,\n"...)
+}
+
 func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ':', ' ')
 }

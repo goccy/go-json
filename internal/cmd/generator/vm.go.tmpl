@@ -32,8 +32,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpIntPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -46,8 +45,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpUintPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -86,8 +84,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpFloat64Ptr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -104,8 +101,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStringPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -118,8 +114,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpBoolPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -132,8 +127,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpBytesPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -146,8 +140,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpNumberPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -163,8 +156,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpInterfacePtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -173,8 +165,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpInterface:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -203,8 +194,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ = iface.typ
 			}
 			if ifacePtr == nil {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -259,8 +249,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -269,8 +258,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMarshalJSON:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -286,8 +274,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMarshalTextPtr:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
@@ -313,8 +300,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpSlicePtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -324,8 +310,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			slice := ptrToSlice(p)
 			if p == 0 || slice.Data == nil {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -358,8 +343,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpArrayPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -368,8 +352,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpArray:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -399,8 +382,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapPtr:
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -409,8 +391,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMap:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.End.Next
 				break
 			}
@@ -572,8 +553,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -584,8 +564,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && ((code.Flags&encoder.IndirectFlags) != 0 || code.Next.Op == encoder.OpStructEnd) {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -605,8 +584,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -617,8 +595,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && ((code.Flags&encoder.IndirectFlags) != 0 || code.Next.Op == encoder.OpStructEnd) {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -639,8 +616,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -652,8 +628,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -670,8 +645,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -683,8 +657,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -707,8 +680,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -720,8 +692,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -740,8 +711,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -753,8 +723,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -778,8 +747,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -790,8 +758,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -814,8 +781,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -826,8 +792,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -848,8 +813,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -860,8 +824,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -886,8 +849,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -898,8 +860,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -923,8 +884,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -936,8 +896,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -954,8 +913,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -967,8 +925,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -991,8 +948,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1004,8 +960,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1024,8 +979,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1037,8 +991,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1062,8 +1015,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1074,8 +1026,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1098,8 +1049,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1110,8 +1060,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1132,8 +1081,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1144,8 +1092,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1170,8 +1117,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1182,8 +1128,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1207,8 +1152,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1220,8 +1164,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1238,8 +1181,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1251,8 +1193,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1274,8 +1215,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1287,8 +1227,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1307,8 +1246,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1320,8 +1258,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1344,8 +1281,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1356,8 +1292,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1380,8 +1315,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1392,8 +1326,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1414,8 +1347,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1426,8 +1358,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1452,8 +1383,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1464,8 +1394,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1489,8 +1418,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1502,8 +1430,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1524,8 +1451,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1537,8 +1463,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1563,8 +1488,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1576,8 +1500,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1600,8 +1523,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1613,8 +1535,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1640,8 +1561,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1652,8 +1572,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1680,8 +1599,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1692,8 +1610,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1718,8 +1635,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1730,8 +1646,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1760,8 +1675,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1772,8 +1686,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1801,8 +1714,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1832,8 +1744,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1845,8 +1756,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1868,8 +1778,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1881,8 +1790,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1899,8 +1807,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -1912,8 +1819,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1934,8 +1840,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1946,8 +1851,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1970,8 +1874,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -1982,8 +1885,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2004,8 +1906,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2016,8 +1917,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2040,8 +1940,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2052,8 +1951,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2075,8 +1973,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2088,8 +1985,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2106,8 +2002,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2119,8 +2014,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2142,8 +2036,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2155,8 +2048,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2175,8 +2067,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2188,8 +2079,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2212,8 +2102,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2224,8 +2113,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2248,8 +2136,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2260,8 +2147,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2282,8 +2168,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2294,8 +2179,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2320,8 +2204,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2332,8 +2215,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2357,8 +2239,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2370,8 +2251,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2388,8 +2268,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2401,8 +2280,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2423,8 +2301,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2435,8 +2312,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2459,8 +2335,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2471,8 +2346,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2494,8 +2368,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2507,8 +2380,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2528,8 +2400,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2541,8 +2412,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2567,8 +2437,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2580,8 +2449,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2603,8 +2471,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2616,8 +2483,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2643,8 +2509,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2655,8 +2520,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2683,8 +2547,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2695,8 +2558,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2720,8 +2582,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2732,8 +2593,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2761,8 +2621,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2773,8 +2632,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2801,8 +2659,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2814,8 +2671,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2832,8 +2688,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2845,8 +2700,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2863,8 +2717,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p := load(ctxptr, code.Idx)
 				if p == 0 {
 					if code.Flags&encoder.AnonymousHeadFlags == 0 {
-						b = appendNull(ctx, b)
-						b = appendComma(ctx, b)
+						b = appendNullComma(ctx, b)
 					}
 					code = code.End.Next
 					break
@@ -2876,8 +2729,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2898,8 +2750,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2910,8 +2761,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2924,8 +2774,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			}
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.NextField
 			} else {
 				code = code.Next
@@ -2935,8 +2784,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2947,8 +2795,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2970,8 +2817,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -2982,8 +2828,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3001,8 +2846,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3013,8 +2857,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3036,8 +2879,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3048,8 +2890,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3059,15 +2900,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendStructKey(ctx, code, b)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.NextField
 				break
 			}
 			p = ptrToPtr(p + uintptr(code.Offset))
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.NextField
 			} else {
 				if (code.Flags & encoder.IndirectFlags) != 0 {
@@ -3080,8 +2919,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3092,8 +2930,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3120,8 +2957,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3134,8 +2970,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3164,8 +2999,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3178,8 +3012,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3209,8 +3042,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3221,8 +3053,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3249,8 +3080,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3261,8 +3091,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3289,8 +3118,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3303,8 +3131,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3333,8 +3160,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3347,8 +3173,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3377,8 +3202,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3389,8 +3213,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3417,8 +3240,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3429,8 +3251,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			if p == 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNull(ctx, b)
-					b = appendComma(ctx, b)
+					b = appendNullComma(ctx, b)
 				}
 				code = code.End.Next
 				break
@@ -3761,8 +3582,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			b = appendStructKey(ctx, code, b)
 			if p == 0 {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
+				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}

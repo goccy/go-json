@@ -181,6 +181,13 @@ func appendComma(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ',', '\n')
 }
 
+func appendNullComma(ctx *encoder.RuntimeContext, b []byte) []byte {
+	format := ctx.Option.ColorScheme.Null
+	b = append(b, format.Header...)
+	b = append(b, "null"...)
+	return append(append(b, format.Footer...), ',', '\n')
+}
+
 func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, ':', ' ')
 }

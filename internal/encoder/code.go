@@ -680,7 +680,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	}
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
-		if isEnableStructEndOptimizationType(c.value.Kind()) {
+		if isEnableStructEndOptimization(c.value) {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)
@@ -708,8 +708,8 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	return c.fieldOpcodes(ctx, field, valueCodes)
 }
 
-func isEnableStructEndOptimizationType(typ CodeKind) bool {
-	switch typ {
+func isEnableStructEndOptimization(value Code) bool {
+	switch value.Kind() {
 	case CodeKindInt,
 		CodeKindUint,
 		CodeKindFloat,
@@ -717,6 +717,8 @@ func isEnableStructEndOptimizationType(typ CodeKind) bool {
 		CodeKindBool,
 		CodeKindBytes:
 		return true
+	case CodeKindPtr:
+		return isEnableStructEndOptimization(value.(*PtrCode).value)
 	default:
 		return false
 	}

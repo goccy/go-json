@@ -894,7 +894,7 @@ func (t OpType) HeadToOmitEmptyHead() OpType {
 }
 
 func (t OpType) PtrHeadToHead() OpType {
-	idx := strings.Index(t.String(), "Ptr")
+	idx := strings.Index(t.String(), "PtrHead")
 	if idx == -1 {
 		return t
 	}

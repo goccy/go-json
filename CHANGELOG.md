@@ -1,3 +1,7 @@
+# v0.8.1 - 2021/12/05
+
+* Fix operation conversion from PtrHead to Head in Recursive type ( #305 )
+
 # v0.8.0 - 2021/12/02
 
 * Fix embedded field conflict behavior ( #300 )

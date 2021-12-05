@@ -2242,3 +2242,39 @@ func TestIssue299(t *testing.T) {
 		}
 	})
 }
+
+func TestRecursivePtrHead(t *testing.T) {
+	type User struct {
+		Account  *string `json:"account"`
+		Password *string `json:"password"`
+		Nickname *string `json:"nickname"`
+		Address  *string `json:"address,omitempty"`
+		Friends  []*User `json:"friends,omitempty"`
+	}
+	user1Account, user1Password, user1Nickname := "abcdef", "123456", "user1"
+	user1 := &User{
+		Account:  &user1Account,
+		Password: &user1Password,
+		Nickname: &user1Nickname,
+		Address:  nil,
+	}
+	user2Account, user2Password, user2Nickname := "ghijkl", "123456", "user2"
+	user2 := &User{
+		Account:  &user2Account,
+		Password: &user2Password,
+		Nickname: &user2Nickname,
+		Address:  nil,
+	}
+	user1.Friends = []*User{user2}
+	expected, err := stdjson.Marshal(user1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(user1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+	}
+}

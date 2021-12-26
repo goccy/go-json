@@ -256,10 +256,6 @@ func ReleaseMapContext(c *MapContext) {
 	mapContextPool.Put(c)
 }
 
-//go:linkname MapIterInit reflect.mapiterinit
-//go:noescape
-func MapIterInit(mapType *runtime.Type, m unsafe.Pointer) unsafe.Pointer
-
 //go:linkname MapIterKey reflect.mapiterkey
 //go:noescape
 func MapIterKey(it unsafe.Pointer) unsafe.Pointer

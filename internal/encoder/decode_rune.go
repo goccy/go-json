@@ -2,22 +2,7 @@ package encoder
 
 import "unicode/utf8"
 
-// Code points in the surrogate range are not valid for UTF-8.
 const (
-	surrogateMin = 0xD800
-	surrogateMax = 0xDFFF
-)
-
-const (
-	maskx = 63 //0b00111111
-	mask2 = 31 //0b00011111
-	mask3 = 15 //0b00001111
-	mask4 = 7  //0b00000111
-
-	rune1Max = 1<<7 - 1
-	rune2Max = 1<<11 - 1
-	rune3Max = 1<<16 - 1
-
 	// The default lowest and highest continuation byte.
 	locb = 128 //0b10000000
 	hicb = 191 //0b10111111

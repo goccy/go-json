@@ -402,12 +402,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.End.Next
 				break
 			}
-			b = appendStructHead(ctx, b)
-			mapCtx := encoder.NewMapContext(mlen)
+			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
+			mapCtx := encoder.NewMapContext(mlen, unorderedMap)
 			mapiterinit(code.Type, uptr, &mapCtx.Iter)
 			store(ctxptr, code.Idx, uintptr(unsafe.Pointer(mapCtx)))
 			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(mapCtx))
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
+			b = appendStructHead(ctx, b)
+			if unorderedMap {
 				b = appendMapKeyIndent(ctx, code.Next, b)
 			} else {
 				mapCtx.Start = len(b)

@@ -3,7 +3,6 @@ package encoder
 import (
 	"math/bits"
 	"reflect"
-	"unicode/utf8"
 	"unsafe"
 )
 
@@ -489,10 +488,9 @@ ESCAPE_END:
 			i = j + 1
 			j = j + 1
 			continue
-		}
 
-		// This encodes bytes < 0x20 except for \t, \n and \r.
-		if c < 0x20 {
+		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0B, 0x0C, 0x0E, 0x0F, // 0x00-0x0F
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
 			buf = append(buf, s[i:j]...)
 			buf = append(buf, `\u00`...)
 			buf = append(buf, hex[c>>4], hex[c&0xF])
@@ -501,18 +499,14 @@ ESCAPE_END:
 			continue
 		}
 
-		r, size := utf8.DecodeRuneInString(s[j:])
-
-		if r == utf8.RuneError && size == 1 {
+		state, size := decodeRuneInString(s[j:])
+		switch state {
+		case runeErrorState:
 			buf = append(buf, s[i:j]...)
 			buf = append(buf, `\ufffd`...)
-			i = j + size
-			j = j + size
+			i = j + 1
+			j = j + 1
 			continue
-		}
-
-		switch r {
-		case '\u2028', '\u2029':
 			// U+2028 is LINE SEPARATOR.
 			// U+2029 is PARAGRAPH SEPARATOR.
 			// They are both technically valid characters in JSON strings,
@@ -520,14 +514,19 @@ ESCAPE_END:
 			// and can lead to security holes there. It is valid JSON to
 			// escape them, so we do so unconditionally.
 			// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
+		case lineSepState:
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u202`...)
-			buf = append(buf, hex[r&0xF])
-			i = j + size
-			j = j + size
+			buf = append(buf, `\u2028`...)
+			i = j + 3
+			j = j + 3
+			continue
+		case paragraphSepState:
+			buf = append(buf, s[i:j]...)
+			buf = append(buf, `\u2029`...)
+			i = j + 3
+			j = j + 3
 			continue
 		}
-
 		j += size
 	}
 
@@ -594,10 +593,9 @@ func appendString(buf []byte, s string) []byte {
 			i = j + 1
 			j = j + 1
 			continue
-		}
 
-		// This encodes bytes < 0x20 except for \t, \n and \r.
-		if c < 0x20 {
+		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0B, 0x0C, 0x0E, 0x0F, // 0x00-0x0F
+			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
 			buf = append(buf, s[i:j]...)
 			buf = append(buf, `\u00`...)
 			buf = append(buf, hex[c>>4], hex[c&0xF])
@@ -606,18 +604,14 @@ func appendString(buf []byte, s string) []byte {
 			continue
 		}
 
-		r, size := utf8.DecodeRuneInString(s[j:])
-
-		if r == utf8.RuneError && size == 1 {
+		state, size := decodeRuneInString(s[j:])
+		switch state {
+		case runeErrorState:
 			buf = append(buf, s[i:j]...)
 			buf = append(buf, `\ufffd`...)
-			i = j + size
-			j = j + size
+			i = j + 1
+			j = j + 1
 			continue
-		}
-
-		switch r {
-		case '\u2028', '\u2029':
 			// U+2028 is LINE SEPARATOR.
 			// U+2029 is PARAGRAPH SEPARATOR.
 			// They are both technically valid characters in JSON strings,
@@ -625,14 +619,19 @@ func appendString(buf []byte, s string) []byte {
 			// and can lead to security holes there. It is valid JSON to
 			// escape them, so we do so unconditionally.
 			// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
+		case lineSepState:
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u202`...)
-			buf = append(buf, hex[r&0xF])
-			i = j + size
-			j = j + size
+			buf = append(buf, `\u2028`...)
+			i = j + 3
+			j = j + 3
+			continue
+		case paragraphSepState:
+			buf = append(buf, s[i:j]...)
+			buf = append(buf, `\u2029`...)
+			i = j + 3
+			j = j + 3
 			continue
 		}
-
 		j += size
 	}
 

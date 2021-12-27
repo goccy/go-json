@@ -11,7 +11,6 @@ RUN go install \
     github.com/minio/c2goasm \
     github.com/klauspost/asmfmt/cmd/asmfmt
 
-COPY ./simd/string.h ./string.h
 COPY ./simd/string.c ./string.c
 
 RUN clang -S \

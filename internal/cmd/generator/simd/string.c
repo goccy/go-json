@@ -1,5 +1,33 @@
-#include "string.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 #include <immintrin.h>
+
+uint64_t findEscapeIndex64(char *buf, int len) {
+  static const uint64_t lsb = 0x0101010101010101;
+  static const uint64_t msb = 0x8080808080808080;
+
+  static const uint64_t space  = lsb * 0x20;
+  static const uint64_t quote  = lsb * '"';
+  static const uint64_t escape = lsb * '\\';
+  static const uint64_t lt     = lsb * '<';
+  static const uint64_t gt     = lsb * '>';
+  static const uint64_t amp    = lsb * '&';
+
+  char *sp = buf;
+  size_t chunkLen = len / 8;
+  int chunkIdx = 0;
+  for (; chunkIdx < chunkLen; chunkIdx++) {
+    uint64_t n    = *(uint64_t *)sp;
+    uint64_t mask = n | (n - space) | ((n ^ quote) - lsb) | ((n ^ escape) - lsb) | ((n ^ lt) - lsb) | ((n ^ gt) - lsb) | ((n ^ amp) - lsb);
+    uint64_t masked = mask & msb;
+    if (masked != 0) {
+      return __builtin_ctz(masked);
+    }
+    sp += 8;
+  }
+  return 8 * chunkLen;
+}
 
 uint64_t findEscapeIndex128(char *buf, int len) {
   static const uint64_t lsb = 0x0101010101010101;
@@ -41,7 +69,11 @@ uint64_t findEscapeIndex128(char *buf, int len) {
     }
     sp += 16;
   }
-  return 16 * chunkLen;
+  int idx = 16 * chunkLen;
+  if (len - idx >= 8) {
+    return findEscapeIndex64(sp, len - idx);
+  }
+  return idx;
 }
 
 uint64_t findEscapeIndex256(char *buf, int len) {
@@ -84,5 +116,12 @@ uint64_t findEscapeIndex256(char *buf, int len) {
     }
     sp += 32;
   }
-  return 32 * chunkLen;
+  int idx = 32 * chunkLen;
+  int remainLen = len - idx;
+  if (remainLen >= 16) {
+    return findEscapeIndex128(sp, remainLen);
+  } else if (remainLen >= 8) {
+    return findEscapeIndex64(sp, remainLen);
+  }
+  return idx;
 }

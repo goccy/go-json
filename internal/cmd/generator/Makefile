@@ -5,4 +5,4 @@ asm:
 .PHONY: generate
 generate:
 	docker build -f Dockerfile.simd -t go-json-simd .
-	docker run --rm -v "$(CURDIR):/tmp" go-json-simd bash -c "cp /work/string_avx.s /tmp/string_avx.s"
+	docker run --rm -v "$(CURDIR)/simd:/tmp" go-json-simd bash -c "cp /work/string_avx.s /tmp/string_avx.s"

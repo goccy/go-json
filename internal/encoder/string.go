@@ -374,36 +374,12 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	switch valLen {
 	case 1, 2, 3, 4, 5, 6, 7:
 	case 8, 9, 10, 11, 12, 13, 14, 15:
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb) |
-				((n ^ (lsb * '<')) - lsb) |
-				((n ^ (lsb * '>')) - lsb) |
-				((n ^ (lsb * '&')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeWithHTML[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		// no found any escape characters.
-		return append(append(buf, s...), '"')
+		j = _findEscapeIndex64((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
 	case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
 		j = _findEscapeIndex128((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
 	default:
 		j = _findEscapeIndex256((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
 	}
-ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 

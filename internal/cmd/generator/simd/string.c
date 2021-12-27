@@ -22,7 +22,7 @@ uint64_t findEscapeIndex64(char *buf, int len) {
     uint64_t mask = n | (n - space) | ((n ^ quote) - lsb) | ((n ^ escape) - lsb) | ((n ^ lt) - lsb) | ((n ^ gt) - lsb) | ((n ^ amp) - lsb);
     uint64_t masked = mask & msb;
     if (masked != 0) {
-      return __builtin_ctz(masked);
+      return __builtin_ctz(masked) / 8;
     }
     sp += 8;
   }
@@ -71,7 +71,7 @@ uint64_t findEscapeIndex128(char *buf, int len) {
   }
   int idx = 16 * chunkLen;
   if (len - idx >= 8) {
-    return findEscapeIndex64(sp, len - idx);
+    return idx + findEscapeIndex64(sp, len - idx);
   }
   return idx;
 }
@@ -119,9 +119,9 @@ uint64_t findEscapeIndex256(char *buf, int len) {
   int idx = 32 * chunkLen;
   int remainLen = len - idx;
   if (remainLen >= 16) {
-    return findEscapeIndex128(sp, remainLen);
+    return idx + findEscapeIndex128(sp, remainLen);
   } else if (remainLen >= 8) {
-    return findEscapeIndex64(sp, remainLen);
+    return idx + findEscapeIndex64(sp, remainLen);
   }
   return idx;
 }

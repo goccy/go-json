@@ -4,6 +4,8 @@ import (
 	"math/bits"
 	"reflect"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -369,7 +371,9 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	if valLen >= 8 {
+	switch valLen {
+	case 1, 2, 3, 4, 5, 6, 7:
+	case 8, 9, 10, 11, 12, 13, 14, 15:
 		chunks := stringToUint64Slice(s)
 		for _, n := range chunks {
 			// combine masks before checking for the MSB of each byte. We include
@@ -394,6 +398,10 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 		}
 		// no found any escape characters.
 		return append(append(buf, s...), '"')
+	case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
+		j = _findEscapeIndex128((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
+	default:
+		j = _findEscapeIndex256((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
 	}
 ESCAPE_END:
 	for j < valLen {

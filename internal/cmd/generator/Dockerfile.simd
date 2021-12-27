@@ -1,0 +1,31 @@
+FROM golang:1.16
+
+RUN apt-get update; \
+    apt-get install -y build-essential clang yasm
+
+WORKDIR /work
+
+COPY ./go.* ./
+RUN go install \
+    github.com/minio/asm2plan9s \
+    github.com/minio/c2goasm \
+    github.com/klauspost/asmfmt/cmd/asmfmt
+
+COPY ./simd/string.h ./string.h
+COPY ./simd/string.c ./string.c
+
+RUN clang -S \
+    -O2 \
+    -mavx2 \
+    -masm=intel \
+    -mno-red-zone \
+    -mstackrealign \
+    -mllvm \
+    -inline-threshold=1000 \
+    -fno-asynchronous-unwind-tables \
+    -fno-exceptions \
+    -fno-rtti \
+    -c string.c
+
+COPY ./simd/string_avx.go ./string_avx.go
+RUN c2goasm -a -f ./string.s ./string_avx.s

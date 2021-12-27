@@ -36,4 +36,4 @@ golangci-lint: | $(BIN_DIR)
 
 .PHONY: generate
 generate:
-	go generate ./internal/...
+	cd internal/cmd/generator && go generate .

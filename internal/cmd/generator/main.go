@@ -8,6 +8,9 @@ import (
 	"go/printer"
 	"go/token"
 	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -302,6 +305,32 @@ func generateVM() error {
 	return nil
 }
 
+func generateSIMDSources() error {
+	root := repoRoot()
+	genCmd := exec.Command("make", "generate")
+	genCmd.Stdout = os.Stdout
+	genCmd.Stderr = os.Stderr
+	if err := genCmd.Run(); err != nil {
+		return err
+	}
+	for _, srcName := range []string{
+		"string_avx.s",
+		"string_avx.go",
+	} {
+		srcFile := filepath.Join(root, "internal", "cmd", "generator", "simd", srcName)
+		dstFile := filepath.Join(root, "internal", "encoder", srcName)
+		log.Printf("copy %s to %s", srcFile, dstFile)
+		src, err := os.ReadFile(srcFile)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(dstFile, src, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	relativePathFromRepoRoot := filepath.Join("internal", "cmd", "generator")
@@ -310,6 +339,9 @@ func repoRoot() string {
 
 //go:generate go run main.go
 func main() {
+	if err := generateSIMDSources(); err != nil {
+		panic(err)
+	}
 	if err := generateVM(); err != nil {
 		panic(err)
 	}

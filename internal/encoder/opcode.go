@@ -685,6 +685,7 @@ func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode
 		Length:     head.Length,
 		MapPos:     mapPos,
 		Indent:     ctx.indent,
+		MapIter:    head.MapIter,
 	}
 }
 

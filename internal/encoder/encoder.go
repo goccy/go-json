@@ -222,6 +222,7 @@ func (m *Mapslice) Swap(i, j int) {
 	m.Items[i], m.Items[j] = m.Items[j], m.Items[i]
 }
 
+//nolint:structcheck,unused
 type mapIter struct {
 	key         unsafe.Pointer
 	elem        unsafe.Pointer

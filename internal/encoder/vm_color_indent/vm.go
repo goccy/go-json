@@ -405,7 +405,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendStructHead(ctx, b)
 			mapCtx := encoder.NewMapContext(mlen)
 			mapiterinit(code.Type, uptr, &mapCtx.Iter)
-			store(ctxptr, code.MapIter, uintptr(unsafe.Pointer(mapCtx)))
+			store(ctxptr, code.Idx, uintptr(unsafe.Pointer(mapCtx)))
 			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(mapCtx))
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendMapKeyIndent(ctx, code.Next, b)
@@ -417,7 +417,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Next.Idx, uintptr(key))
 			code = code.Next
 		case encoder.OpMapKey:
-			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.MapIter)))
+			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.Idx)))
 			idx := mapCtx.Idx
 			idx++
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
@@ -445,7 +445,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 		case encoder.OpMapValue:
-			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.MapIter)))
+			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.Idx)))
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendColon(ctx, b)
 			} else {
@@ -458,7 +458,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = code.Next
 		case encoder.OpMapEnd:
 			// this operation only used by sorted map.
-			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.MapIter)))
+			mapCtx := (*encoder.MapContext)(ptrToUnsafePtr(load(ctxptr, code.Idx)))
 			sort.Sort(mapCtx.Slice)
 			buf := mapCtx.Buf
 			for _, item := range mapCtx.Slice.Items {

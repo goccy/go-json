@@ -207,7 +207,7 @@ type MapItem struct {
 }
 
 type Mapslice struct {
-	Items []*MapItem
+	Items []MapItem
 }
 
 func (m *Mapslice) Len() int {
@@ -253,22 +253,16 @@ type MapContext struct {
 
 var mapContextPool = sync.Pool{
 	New: func() interface{} {
-		return &MapContext{}
+		return &MapContext{
+			Slice: &Mapslice{},
+		}
 	},
 }
 
 func NewMapContext(mapLen int) *MapContext {
 	ctx := mapContextPool.Get().(*MapContext)
-	if ctx.Slice == nil {
-		ctx.Slice = &Mapslice{
-			Items: make([]*MapItem, 0, mapLen),
-		}
-	}
 	if len(ctx.Slice.Items) < mapLen {
-		ctx.Slice.Items = make([]*MapItem, mapLen)
-		for i := 0; i < mapLen; i++ {
-			ctx.Slice.Items[i] = &MapItem{}
-		}
+		ctx.Slice.Items = make([]MapItem, mapLen)
 	} else {
 		ctx.Slice.Items = ctx.Slice.Items[:mapLen]
 	}

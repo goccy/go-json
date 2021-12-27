@@ -51,8 +51,7 @@ type acceptRange struct {
 	hi uint8 // highest value for second byte.
 }
 
-var (
-	sep          = [2]byte{226, 128}
+const (
 	lineSep      = byte(168) //'\u2028'
 	paragraphSep = byte(169) //'\u2029'
 )
@@ -109,8 +108,9 @@ func decodeRuneInString(s string) (decodeRuneState, int) {
 		return runeErrorState, 1
 	}
 	if sz <= 3 {
-		if s[0] == sep[0] && s[1] == sep[1] {
-			switch s[2] {
+		// separator character prefixes: [2]byte{226, 128}
+		if s0 == 226 && s1 == 128 {
+			switch s2 {
 			case lineSep:
 				return lineSepState, 3
 			case paragraphSep:

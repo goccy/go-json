@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"math/bits"
 	"reflect"
 	"unsafe"
 
@@ -370,24 +371,166 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	switch valLen {
-	case 1, 2, 3, 4, 5, 6, 7:
-	case 8, 9, 10, 11, 12, 13, 14, 15:
-		j = _findHTMLEscapeIndex64((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
-		j = _findHTMLEscapeIndex128((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	default:
-		j = _findHTMLEscapeIndex256((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	}
-	for j < valLen {
+	orgLen := valLen
+	base := (*runtime.SliceHeader)(unsafe.Pointer(&s)).Data
+	for {
+		valLen = len(s) - j
+		if valLen <= 0 {
+			return append(append(buf, s[i:]...), '"')
+		}
+		data := unsafe.Pointer(uintptr(base) + uintptr(j))
+		switch valLen {
+		case 1:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 2:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 3:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 4:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 5:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 6:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 7:
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscapeWithHTML[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 8, 9, 10, 11, 12, 13, 14, 15:
+			chunks := stringToUint64Slice(s[j:])
+			for _, n := range chunks {
+				// combine masks before checking for the MSB of each byte. We include
+				// `n` in the mask to check whether any of the *input* byte MSBs were
+				// set (i.e. the byte was outside the ASCII range).
+				mask := n | (n - (lsb * 0x20)) |
+					((n ^ (lsb * '"')) - lsb) |
+					((n ^ (lsb * '\\')) - lsb) |
+					((n ^ (lsb * '<')) - lsb) |
+					((n ^ (lsb * '>')) - lsb) |
+					((n ^ (lsb * '&')) - lsb)
+				if (mask & msb) != 0 {
+					j += bits.TrailingZeros64(mask&msb) / 8
+					goto ESCAPE
+				}
+			}
+			j += len(chunks) * 8
+		case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
+			j += _findHTMLEscapeIndex128(data, valLen)
+		default:
+			j += _findHTMLEscapeIndex256(data, valLen)
+		}
+		if j >= orgLen {
+			return append(append(buf, s[i:]...), '"')
+		}
+	ESCAPE:
 		c := s[j]
-
 		if !needEscapeWithHTML[c] {
-			// fast path: most of the time, printable ascii characters are used
 			j++
 			continue
 		}
-
 		switch c {
 		case '\\', '"':
 			buf = append(buf, s[i:j]...)
@@ -434,7 +577,6 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 			j = j + 1
 			continue
 		}
-
 		state, size := decodeRuneInString(s[j:])
 		switch state {
 		case runeErrorState:
@@ -465,8 +607,6 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 		}
 		j += size
 	}
-
-	return append(append(buf, s[i:]...), '"')
 }
 
 func appendString(buf []byte, s string) []byte {
@@ -478,24 +618,150 @@ func appendString(buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	switch valLen {
-	case 1, 2, 3, 4, 5, 6, 7:
-	case 8, 9, 10, 11, 12, 13, 14, 15:
-		j = _findEscapeIndex64((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
-		j = _findEscapeIndex128((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	default:
-		j = _findEscapeIndex256((*runtime.SliceHeader)(unsafe.Pointer(&s)).Data, len(s))
-	}
-	for j < valLen {
+	base := (*runtime.SliceHeader)(unsafe.Pointer(&s)).Data
+	orgLen := valLen
+	for {
+		valLen = len(s) - j
+		if valLen <= 0 {
+			return append(append(buf, s[i:]...), '"')
+		}
+		data := unsafe.Pointer(uintptr(base) + uintptr(j))
+		switch valLen {
+		case 1:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(buf, s[i], '"')
+		case 2:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 3:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 4:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 5:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 6:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 7:
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			j++
+			if needEscape[s[j]] {
+				goto ESCAPE
+			}
+			return append(append(buf, s[i:]...), '"')
+		case 8, 9, 10, 11, 12, 13, 14, 15:
+			j += _findEscapeIndex64(data, valLen)
+		case 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31:
+			j += _findEscapeIndex128(data, valLen)
+		default:
+			j += _findEscapeIndex256(data, valLen)
+		}
+		if j == orgLen {
+			return append(append(buf, s[i:]...), '"')
+		}
+	ESCAPE:
 		c := s[j]
-
 		if !needEscape[c] {
-			// fast path: most of the time, printable ascii characters are used
 			j++
 			continue
 		}
-
 		switch c {
 		case '\\', '"':
 			buf = append(buf, s[i:j]...)
@@ -525,14 +791,6 @@ func appendString(buf []byte, s string) []byte {
 			j = j + 1
 			continue
 
-		case '<', '>', '&':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
-			i = j + 1
-			j = j + 1
-			continue
-
 		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0B, 0x0C, 0x0E, 0x0F, // 0x00-0x0F
 			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
 			buf = append(buf, s[i:j]...)
@@ -542,7 +800,6 @@ func appendString(buf []byte, s string) []byte {
 			j = j + 1
 			continue
 		}
-
 		state, size := decodeRuneInString(s[j:])
 		switch state {
 		case runeErrorState:
@@ -573,6 +830,4 @@ func appendString(buf []byte, s string) []byte {
 		}
 		j += size
 	}
-
-	return append(append(buf, s[i:]...), '"')
 }

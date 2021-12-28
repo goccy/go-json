@@ -15,6 +15,12 @@ func UnorderedMap() EncodeOptionFunc {
 	}
 }
 
+func DisableHTMLEscape() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Flag &= ^encoder.HTMLEscapeOption
+	}
+}
+
 // Debug outputs debug information when panic occurs during encoding.
 func Debug() EncodeOptionFunc {
 	return func(opt *EncodeOption) {

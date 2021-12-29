@@ -758,10 +758,6 @@ func appendString(buf []byte, s string) []byte {
 		}
 	ESCAPE:
 		c := s[j]
-		if !needEscape[c] {
-			j++
-			continue
-		}
 		switch c {
 		case '\\', '"':
 			buf = append(buf, s[i:j]...)

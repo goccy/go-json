@@ -1,6 +1,6 @@
 .PHONY: asm
 asm:
-	clang -S -O2 -mavx2 -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -c ./simd/string.c
+	clang -Wall -S -O2 -mavx2 -masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 -fno-asynchronous-unwind-tables -fno-exceptions -fno-rtti -c ./simd/string.c
 
 .PHONY: generate
 generate:

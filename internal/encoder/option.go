@@ -11,6 +11,7 @@ const (
 	DebugOption
 	ColorizeOption
 	ContextOption
+	NormalizeUTF8Option
 )
 
 type Option struct {

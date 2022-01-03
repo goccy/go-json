@@ -275,12 +275,14 @@ var mapContextPool = sync.Pool{
 	},
 }
 
-func NewMapContext(mapLen int) *MapContext {
+func NewMapContext(mapLen int, unorderedMap bool) *MapContext {
 	ctx := mapContextPool.Get().(*MapContext)
-	if len(ctx.Slice.Items) < mapLen {
-		ctx.Slice.Items = make([]MapItem, mapLen)
-	} else {
-		ctx.Slice.Items = ctx.Slice.Items[:mapLen]
+	if !unorderedMap {
+		if len(ctx.Slice.Items) < mapLen {
+			ctx.Slice.Items = make([]MapItem, mapLen)
+		} else {
+			ctx.Slice.Items = ctx.Slice.Items[:mapLen]
+		}
 	}
 	ctx.Buf = ctx.Buf[:0]
 	ctx.Iter = mapIter{}

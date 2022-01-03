@@ -23,7 +23,6 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 
 We are accepting requests for features that will be implemented between v0.8.0 and v.1.0.0.
 If you have the API you need, please submit your issue [here](https://github.com/goccy/go-json/issues).
-For example, I'm thinking of supporting `context.Context` of `json.Marshaler` and decoding using JSON Path.
 
 # Features
 
@@ -32,6 +31,7 @@ For example, I'm thinking of supporting `context.Context` of `json.Marshaler` an
 - Flexible customization with options
 - Coloring the encoded string
 - Can propagate context.Context to `MarshalJSON` or `UnmarshalJSON`
+- Can dynamically filter the fields of the structure type-safely
 
 # Installation
 

@@ -101,6 +101,22 @@ type OpcodeSet struct {
 	InterfaceEscapeKeyCode   *Opcode
 	CodeLength               int
 	EndCode                  *Opcode
+	Code                     Code
+	QueryCache               map[string]*OpcodeSet
+	cacheMu                  sync.RWMutex
+}
+
+func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
+	s.cacheMu.RLock()
+	codeSet := s.QueryCache[hash]
+	s.cacheMu.RUnlock()
+	return codeSet
+}
+
+func (s *OpcodeSet) setQueryCache(hash string, codeSet *OpcodeSet) {
+	s.cacheMu.Lock()
+	s.QueryCache[hash] = codeSet
+	s.cacheMu.Unlock()
 }
 
 type CompiledCode struct {
@@ -395,7 +411,11 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 		if !ok {
 			return AppendNull(ctx, b), nil
 		}
-		b, err := marshaler.MarshalJSON(ctx.Option.Context)
+		stdctx := ctx.Option.Context
+		if ctx.Option.Flag&FieldQueryOption != 0 {
+			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
+		}
+		b, err := marshaler.MarshalJSON(stdctx)
 		if err != nil {
 			return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 		}

@@ -12,6 +12,7 @@ const (
 	ColorizeOption
 	ContextOption
 	NormalizeUTF8Option
+	FieldQueryOption
 )
 
 type Option struct {

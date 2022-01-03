@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -831,6 +832,83 @@ func Benchmark_Encode_MarshalJSON_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+type queryTestX struct {
+	XA int
+	XB string
+	XC *queryTestY
+	XD bool
+	XE float32
+}
+
+type queryTestY struct {
+	YA int
+	YB string
+	YC bool
+	YD float32
+}
+
+func Benchmark_Encode_FilterByMap(b *testing.B) {
+	v := &queryTestX{
+		XA: 1,
+		XB: "xb",
+		XC: &queryTestY{
+			YA: 2,
+			YB: "yb",
+			YC: true,
+			YD: 4,
+		},
+		XD: true,
+		XE: 5,
+	}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		filteredMap := map[string]interface{}{
+			"XA": v.XA,
+			"XB": v.XB,
+			"XC": map[string]interface{}{
+				"YA": v.XC.YA,
+				"YB": v.XC.YB,
+			},
+		}
+		if _, err := gojson.Marshal(filteredMap); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_FilterByFieldQuery(b *testing.B) {
+	query, err := gojson.BuildFieldQuery(
+		"XA",
+		"XB",
+		gojson.BuildSubFieldQuery("XC").Fields(
+			"YA",
+			"YB",
+		),
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	v := &queryTestX{
+		XA: 1,
+		XB: "xb",
+		XC: &queryTestY{
+			YA: 2,
+			YB: "yb",
+			YC: true,
+			YD: 4,
+		},
+		XD: true,
+		XE: 5,
+	}
+	ctx := gojson.SetFieldQueryToContext(context.Background(), query)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalContext(ctx, v); err != nil {
 			b.Fatal(err)
 		}
 	}

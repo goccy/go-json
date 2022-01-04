@@ -2278,3 +2278,25 @@ func TestRecursivePtrHead(t *testing.T) {
 		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
 	}
 }
+
+func TestMarshalIndent(t *testing.T) {
+	v := map[string]map[string]interface{}{
+		"a": {
+			"b": "1",
+			"c": map[string]interface{}{
+				"d": "1",
+			},
+		},
+	}
+	expected, err := stdjson.MarshalIndent(v, "", "    ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.MarshalIndent(v, "", "    ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("expected: %q but got %q", expected, got)
+	}
+}

@@ -1,3 +1,20 @@
+# v0.9.0 - 2021/01/05
+
+### New feature
+
+* Supports dynamic filtering of struct fields ( #314 )
+
+### Improve encoding performance
+
+* Improve map encoding performance ( #310 )
+* Optimize encoding path for escaped string ( #311 )
+* Add encoding option for performance ( #312 )
+
+### Fix bugs
+
+* Fix panic at encoding map value on 1.18 ( #310 )
+* Fix MarshalIndent for interface type ( #317 )
+
 # v0.8.1 - 2021/12/05
 
 * Fix operation conversion from PtrHead to Head in Recursive type ( #305 )

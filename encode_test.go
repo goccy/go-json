@@ -550,20 +550,28 @@ func Test_MarshalIndent(t *testing.T) {
 	prefix := "-"
 	indent := "\t"
 	t.Run("struct", func(t *testing.T) {
-		bytes, err := json.MarshalIndent(struct {
-			A int    `json:"a"`
-			B uint   `json:"b"`
-			C string `json:"c"`
-			D int    `json:"-"`  // ignore field
-			a int    `json:"aa"` // private field
+		v := struct {
+			A int         `json:"a"`
+			B uint        `json:"b"`
+			C string      `json:"c"`
+			D interface{} `json:"d"`
+			X int         `json:"-"`  // ignore field
+			a int         `json:"aa"` // private field
 		}{
 			A: -1,
 			B: 1,
 			C: "hello world",
-		}, prefix, indent)
+			D: struct {
+				E bool `json:"e"`
+			}{
+				E: true,
+			},
+		}
+		expected, err := stdjson.MarshalIndent(v, prefix, indent)
 		assertErr(t, err)
-		result := "{\n-\t\"a\": -1,\n-\t\"b\": 1,\n-\t\"c\": \"hello world\"\n-}"
-		assertEq(t, "struct", result, string(bytes))
+		got, err := json.MarshalIndent(v, prefix, indent)
+		assertErr(t, err)
+		assertEq(t, "struct", string(expected), string(got))
 	})
 	t.Run("slice", func(t *testing.T) {
 		t.Run("[]int", func(t *testing.T) {

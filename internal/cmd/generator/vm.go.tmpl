@@ -218,8 +218,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			oldOffset := ptrOffset
 			ptrOffset += totalLength * uintptrSize
 			oldBaseIndent := ctx.BaseIndent
-			indentDiffFromTop := c.Indent - 1
-			ctx.BaseIndent += code.Indent - indentDiffFromTop
+			ctx.BaseIndent += code.Indent
 
 			newLen := offsetNum + totalLength + nextTotalLength
 			if curlen < newLen {

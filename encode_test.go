@@ -2308,3 +2308,34 @@ func TestMarshalIndent(t *testing.T) {
 		t.Fatalf("expected: %q but got %q", expected, got)
 	}
 }
+
+type issue318Embedded struct {
+	_ [64]byte
+}
+
+type issue318 struct {
+	issue318Embedded `json:"-"`
+	ID               issue318MarshalText `json:"id,omitempty"`
+}
+
+type issue318MarshalText struct {
+	ID string
+}
+
+func (i issue318MarshalText) MarshalText() ([]byte, error) {
+	return []byte(i.ID), nil
+}
+
+func TestIssue318(t *testing.T) {
+	v := issue318{
+		ID: issue318MarshalText{ID: "1"},
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{"id":"1"}`
+	if string(b) != expected {
+		t.Fatalf("failed to encode. expected %s but got %s", expected, string(b))
+	}
+}

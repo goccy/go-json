@@ -1,3 +1,7 @@
+# v0.9.1 - 2021/01/11
+
+* Fix encoding of MarshalText/MarshalJSON operation with head offset ( #319 )
+
 # v0.9.0 - 2021/01/05
 
 ### New feature

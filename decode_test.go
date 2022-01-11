@@ -3776,3 +3776,18 @@ func TestIssue282(t *testing.T) {
 		t.Fatalf("failed to assign map value")
 	}
 }
+
+func TestDecodeStreamWithError(t *testing.T) {
+	type Test struct {
+		Val int `json:"val"`
+	}
+	p := Test{}
+	dec := json.NewDecoder(strings.NewReader("[12,{\"val\" : 2}]"))
+	dec.Token()
+	for dec.More() {
+		_ = dec.Decode(&p) // ignore error value
+	}
+	if p.Val != 2 {
+		t.Fatal("failed to decode")
+	}
+}

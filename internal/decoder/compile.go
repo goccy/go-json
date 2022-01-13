@@ -9,7 +9,6 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -126,13 +125,7 @@ func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecode
 	case reflect.Func:
 		return compileFunc(typ, structName, fieldName)
 	}
-	return nil, &errors.UnmarshalTypeError{
-		Value:  "object",
-		Type:   runtime.RType2Type(typ),
-		Offset: 0,
-		Struct: structName,
-		Field:  fieldName,
-	}
+	return newInvalidDecoder(typ, structName, fieldName), nil
 }
 
 func isStringTagSupportedType(typ *runtime.Type) bool {
@@ -174,16 +167,8 @@ func compileMapKey(typ *runtime.Type, structName, fieldName string, structTypeTo
 		case *ptrDecoder:
 			dec = t.dec
 		default:
-			goto ERROR
+			return newInvalidDecoder(typ, structName, fieldName), nil
 		}
-	}
-ERROR:
-	return nil, &errors.UnmarshalTypeError{
-		Value:  "object",
-		Type:   runtime.RType2Type(typ),
-		Offset: 0,
-		Struct: structName,
-		Field:  fieldName,
 	}
 }
 

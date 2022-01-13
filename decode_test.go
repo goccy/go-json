@@ -3776,3 +3776,16 @@ func TestIssue282(t *testing.T) {
 		t.Fatalf("failed to assign map value")
 	}
 }
+
+func TestDecodeStructFieldMap(t *testing.T) {
+	type Foo struct {
+		Bar map[float64]float64 `json:"bar,omitempty"`
+	}
+	var v Foo
+	if err := json.Unmarshal([]byte(`{"name":"test"}`), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.Bar != nil {
+		t.Fatalf("failed to decode v.Bar = %+v", v.Bar)
+	}
+}

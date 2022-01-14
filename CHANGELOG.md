@@ -1,3 +1,7 @@
+# v0.9.2 - 2021/01/14
+
+* Add invalid decoder to delay type error judgment at decode ( #321 )
+
 # v0.9.1 - 2021/01/11
 
 * Fix encoding of MarshalText/MarshalJSON operation with head offset ( #319 )

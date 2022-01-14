@@ -3789,3 +3789,42 @@ func TestDecodeStructFieldMap(t *testing.T) {
 		t.Fatalf("failed to decode v.Bar = %+v", v.Bar)
 	}
 }
+
+type issue303 struct {
+	Count int
+	Type  string
+	Value interface{}
+}
+
+func (t *issue303) UnmarshalJSON(b []byte) error {
+	type tmpType issue303
+
+	wrapped := struct {
+		Value json.RawMessage
+		tmpType
+	}{}
+	if err := json.Unmarshal(b, &wrapped); err != nil {
+		return err
+	}
+	*t = issue303(wrapped.tmpType)
+
+	switch wrapped.Type {
+	case "string":
+		var str string
+		if err := json.Unmarshal(wrapped.Value, &str); err != nil {
+			return err
+		}
+		t.Value = str
+	}
+	return nil
+}
+
+func TestIssue303(t *testing.T) {
+	var v issue303
+	if err := json.Unmarshal([]byte(`{"Count":7,"Type":"string","Value":"hello"}`), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.Count != 7 || v.Type != "string" || v.Value != "hello" {
+		t.Fatalf("failed to decode. count = %d type = %s value = %v", v.Count, v.Type, v.Value)
+	}
+}

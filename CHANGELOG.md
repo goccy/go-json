@@ -1,3 +1,7 @@
+# v0.9.3 - 2021/01/14
+
+* Fix logic of removing struct field for decoder ( #322 )
+
 # v0.9.2 - 2021/01/14
 
 * Add invalid decoder to delay type error judgment at decode ( #321 )

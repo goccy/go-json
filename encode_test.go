@@ -2358,3 +2358,32 @@ func TestEmptyStringMarshaler(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "struct", string(expected), string(got))
 }
+
+func TestIssue324(t *testing.T) {
+	type T struct {
+		FieldA *string  `json:"fieldA,omitempty"`
+		FieldB *string  `json:"fieldB,omitempty"`
+		FieldC *bool    `json:"fieldC"`
+		FieldD []string `json:"fieldD,omitempty"`
+	}
+	v := &struct {
+		Code string `json:"code"`
+		*T
+	}{
+		T: &T{},
+	}
+	var sv = "Test Field"
+	v.Code = "Test"
+	v.T.FieldB = &sv
+	expected, err := stdjson.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+	}
+}

@@ -1,5 +1,6 @@
 # v0.9.4 - 2022/01/21
 
+* Fix IsNilForMarshaler for string type with omitempty ( #323 )
 * Fix the case where the embedded field is at the end ( #326 )
 
 # v0.9.3 - 2022/01/14

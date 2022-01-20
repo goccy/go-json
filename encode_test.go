@@ -2339,3 +2339,22 @@ func TestIssue318(t *testing.T) {
 		t.Fatalf("failed to encode. expected %s but got %s", expected, string(b))
 	}
 }
+
+type emptyStringMarshaler struct {
+	Value stringMarshaler `json:"value,omitempty"`
+}
+
+type stringMarshaler string
+
+func (s stringMarshaler) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + s + `"`), nil
+}
+
+func TestEmptyStringMarshaler(t *testing.T) {
+	value := emptyStringMarshaler{}
+	expected, err := stdjson.Marshal(value)
+	assertErr(t, err)
+	got, err := json.Marshal(value)
+	assertErr(t, err)
+	assertEq(t, "struct", string(expected), string(got))
+}

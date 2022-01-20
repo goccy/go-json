@@ -1,16 +1,20 @@
-# v0.9.3 - 2021/01/14
+# v0.9.4 - 2022/01/21
+
+* Fix the case where the embedded field is at the end ( #326 )
+
+# v0.9.3 - 2022/01/14
 
 * Fix logic of removing struct field for decoder ( #322 )
 
-# v0.9.2 - 2021/01/14
+# v0.9.2 - 2022/01/14
 
 * Add invalid decoder to delay type error judgment at decode ( #321 )
 
-# v0.9.1 - 2021/01/11
+# v0.9.1 - 2022/01/11
 
 * Fix encoding of MarshalText/MarshalJSON operation with head offset ( #319 )
 
-# v0.9.0 - 2021/01/05
+# v0.9.0 - 2022/01/05
 
 ### New feature
 

@@ -3828,3 +3828,17 @@ func TestIssue303(t *testing.T) {
 		t.Fatalf("failed to decode. count = %d type = %s value = %v", v.Count, v.Type, v.Value)
 	}
 }
+
+func TestIssue327(t *testing.T) {
+	var v struct {
+		Date time.Time `json:"date"`
+	}
+	dec := json.NewDecoder(strings.NewReader(`{"date": "2021-11-23T13:47:30+01:00"})`))
+	if err := dec.DecodeContext(context.Background(), &v); err != nil {
+		t.Fatal(err)
+	}
+	expected := "2021-11-23T13:47:30+01:00"
+	if got := v.Date.Format(time.RFC3339); got != expected {
+		t.Fatalf("failed to decode. expected %q but got %q", expected, got)
+	}
+}

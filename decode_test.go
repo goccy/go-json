@@ -3842,3 +3842,14 @@ func TestIssue327(t *testing.T) {
 		t.Fatalf("failed to decode. expected %q but got %q", expected, got)
 	}
 }
+
+func TestIssue337(t *testing.T) {
+	in := strings.Repeat(" ", 510) + "{}"
+	var m map[string]string
+	if err := json.NewDecoder(strings.NewReader(in)).Decode(&m); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(m) != 0 {
+		t.Fatal("unexpected result", m)
+	}
+}

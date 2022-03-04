@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/francoispqt/gojay"
 )
@@ -208,3 +209,5 @@ func NewLargePayloadEasyJson() *LargePayloadEasyJson {
 		},
 	}
 }
+
+var LargeSliceEscapedString = []byte("[" + strings.Repeat(",\"simple plain text\\r\\n\"", 10000)[1:] + "]")

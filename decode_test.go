@@ -1317,6 +1317,12 @@ var unmarshalTests = []unmarshalTest{
 		ptr: new(string),
 		out: "hello\ufffd\ufffd\ufffd\ufffd\ufffd\ufffdworld",
 	},
+	{in: "-128", ptr: new(int8), out: int8(-128)},
+	{in: "127", ptr: new(int8), out: int8(127)},
+	{in: "-32768", ptr: new(int16), out: int16(-32768)},
+	{in: "32767", ptr: new(int16), out: int16(32767)},
+	{in: "-2147483648", ptr: new(int32), out: int32(-2147483648)},
+	{in: "2147483647", ptr: new(int32), out: int32(2147483647)},
 }
 
 type All struct {

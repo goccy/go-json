@@ -3859,3 +3859,14 @@ func TestIssue337(t *testing.T) {
 		t.Fatal("unexpected result", m)
 	}
 }
+
+func TestIssue348(t *testing.T) {
+	in := strings.Repeat("["+strings.Repeat(",1000", 500)[1:]+"]", 2)
+	dec := json.NewDecoder(strings.NewReader(in))
+	for dec.More() {
+		var foo interface{}
+		if err := dec.Decode(&foo); err != nil {
+			t.Error(err)
+		}
+	}
+}

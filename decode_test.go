@@ -3860,6 +3860,25 @@ func TestIssue337(t *testing.T) {
 	}
 }
 
+func Benchmark306(b *testing.B) {
+	type T0 struct {
+		Str string
+	}
+	in := []byte(`{"Str":"` + strings.Repeat(`abcd\"`, 10000) + `"}`)
+	b.Run("stdjson", func(b *testing.B) {
+		var x T0
+		for i := 0; i < b.N; i++ {
+			stdjson.Unmarshal(in, &x)
+		}
+	})
+	b.Run("go-json", func(b *testing.B) {
+		var x T0
+		for i := 0; i < b.N; i++ {
+			json.Unmarshal(in, &x)
+		}
+	})
+}
+
 func TestIssue348(t *testing.T) {
 	in := strings.Repeat("["+strings.Repeat(",1000", 500)[1:]+"]", 2)
 	dec := json.NewDecoder(strings.NewReader(in))

@@ -1,3 +1,19 @@
+# v0.9.6 - 2022/03/22
+
+### Fix bugs
+
+* Correct the handling of the minimum value of int type for decoder ( #344 )
+* Fix bugs of stream decoder's bufferSize ( #349 )
+* Add a guard to use typeptr more safely ( #351 )
+
+### Improve decoder performance
+
+* Improve escapeString's performance ( #345 )
+
+### Others
+
+* Update go version for CI ( #347 )
+
 # v0.9.5 - 2022/03/04
 
 ### Fix bugs

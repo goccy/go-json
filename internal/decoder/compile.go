@@ -154,6 +154,9 @@ func compileMapKey(typ *runtime.Type, structName, fieldName string, structTypeTo
 	if runtime.PtrTo(typ).Implements(unmarshalTextType) {
 		return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
 	}
+	if typ.Kind() == reflect.String {
+		return newStringDecoder(structName, fieldName), nil
+	}
 	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err

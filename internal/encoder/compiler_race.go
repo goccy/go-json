@@ -11,7 +11,11 @@ var setsMu sync.RWMutex
 
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
-		return compileToGetCodeSetSlowPath(typeptr)
+		codeSet, err := compileToGetCodeSetSlowPath(typeptr)
+		if err != nil {
+			return nil, err
+		}
+		return getFilteredCodeSetIfNeeded(ctx, codeSet)
 	}
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
 	setsMu.RLock()

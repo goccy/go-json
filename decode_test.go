@@ -3889,3 +3889,21 @@ func TestIssue348(t *testing.T) {
 		}
 	}
 }
+
+type issue342 string
+
+func (t *issue342) UnmarshalJSON(b []byte) error {
+	panic("unreachable")
+}
+
+func TestIssue342(t *testing.T) {
+	var v map[issue342]int
+	in := []byte(`{"a":1}`)
+	if err := json.Unmarshal(in, &v); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	expected := 1
+	if got := v["a"]; got != expected {
+		t.Errorf("unexpected result: got(%v) != expected(%v)", got, expected)
+	}
+}

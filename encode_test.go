@@ -477,7 +477,8 @@ func TestDebugMode(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	}()
-	json.MarshalWithOption(mustErrTypeForDebug{}, json.Debug())
+	var buf bytes.Buffer
+	json.MarshalWithOption(mustErrTypeForDebug{}, json.Debug(), json.DebugWith(&buf))
 }
 
 func TestIssue116(t *testing.T) {

@@ -3,6 +3,7 @@ package json
 import (
 	"context"
 	"io"
+	"os"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -62,6 +63,7 @@ func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v interface{}, o
 		ctx.Option.Flag |= encoder.HTMLEscapeOption
 	}
 	ctx.Option.Flag |= encoder.NormalizeUTF8Option
+	ctx.Option.DebugOut = os.Stdout
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}

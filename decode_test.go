@@ -3907,3 +3907,14 @@ func TestIssue342(t *testing.T) {
 		t.Errorf("unexpected result: got(%v) != expected(%v)", got, expected)
 	}
 }
+
+func TestIssue360(t *testing.T) {
+	var uints []uint8
+	err := json.Unmarshal([]byte(`[0, 1, 2]`), &uints)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(uints) != 3 || !(uints[0] == 0 && uints[1] == 1 && uints[2] == 2) {
+		t.Errorf("unexpected result: %v", uints)
+	}
+}

@@ -1,3 +1,21 @@
+# v0.9.7 - 2022/04/22
+
+### Fix bugs
+
+#### Encoder
+
+* Add filtering process for encoding on slow path ( #355 )
+* Fix encoding of interface{} with pointer type ( #363 )
+
+#### Decoder
+
+* Fix map key decoder that implements UnmarshalJSON ( #353 )
+* Fix decoding of []uint8 type ( #361 )
+
+### New features
+
+* Add DebugWith option for encoder ( #356 )
+
 # v0.9.6 - 2022/03/22
 
 ### Fix bugs

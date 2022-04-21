@@ -3918,3 +3918,16 @@ func TestIssue360(t *testing.T) {
 		t.Errorf("unexpected result: %v", uints)
 	}
 }
+
+func TestIssue359(t *testing.T) {
+	var a interface{} = 1
+	var b interface{} = &a
+	var c interface{} = &b
+	v, err := json.Marshal(c)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if string(v) != "1" {
+		t.Errorf("unexpected result: %v", string(v))
+	}
+}

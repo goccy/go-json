@@ -363,7 +363,7 @@ func copyOpcode(code *Opcode) *Opcode {
 
 func setTotalLengthToInterfaceOp(code *Opcode) {
 	for c := code; !c.IsEnd(); {
-		if c.Op == OpInterface {
+		if c.Op == OpInterface || c.Op == OpInterfacePtr {
 			c.Length = uint32(code.TotalLength())
 		}
 		c = c.IterNext()

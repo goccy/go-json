@@ -3931,3 +3931,16 @@ func TestIssue359(t *testing.T) {
 		t.Errorf("unexpected result: %v", string(v))
 	}
 }
+
+func TestIssue364(t *testing.T) {
+	var v struct {
+		Description string `json:"description"`
+	}
+	err := json.Unmarshal([]byte(`{"description":"\uD83D\uDE87 Toledo is a metro station"}`), &v)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if v.Description != "🚇 Toledo is a metro station" {
+		t.Errorf("unexpected result: %v", v.Description)
+	}
+}

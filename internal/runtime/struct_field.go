@@ -17,7 +17,7 @@ func IsIgnoredStructField(field reflect.StructField) bool {
 			if t.Kind() == reflect.Ptr {
 				t = t.Elem()
 			}
-			if !field.IsExported() && t.Kind() != reflect.Struct {
+			if t.Kind() != reflect.Struct {
 				return true
 			}
 		} else {

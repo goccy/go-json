@@ -3944,3 +3944,18 @@ func TestIssue364(t *testing.T) {
 		t.Errorf("unexpected result: %v", v.Description)
 	}
 }
+
+func TestIssue362(t *testing.T) {
+	type AliasedPrimitive int
+	type Combiner struct {
+		SomeField int
+		AliasedPrimitive
+	}
+	originalCombiner := Combiner{AliasedPrimitive: 7}
+	b, err := json.Marshal(originalCombiner)
+	assertErr(t, err)
+	newCombiner := Combiner{}
+	err = json.Unmarshal(b, &newCombiner)
+	assertErr(t, err)
+	assertEq(t, "TestEmbeddedPrimitiveAlias", originalCombiner, newCombiner)
+}

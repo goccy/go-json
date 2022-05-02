@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"unicode"
 	"unicode/utf16"
@@ -322,6 +323,12 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 						buflen := int64(len(buf))
 						if cursor+5 >= buflen {
 							return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+						}
+						for i := int64(1); i <= 4; i++ {
+							c := char(b, cursor+i)
+							if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+								return nil, 0, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
+							}
 						}
 						cursor += 5
 					default:

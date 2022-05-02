@@ -3959,3 +3959,12 @@ func TestIssue362(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "TestEmbeddedPrimitiveAlias", originalCombiner, newCombiner)
 }
+
+func TestIssue335(t *testing.T) {
+	var v []string
+	in := []byte(`["\u","A"]`)
+	err := json.Unmarshal(in, &v)
+	if err == nil {
+		t.Errorf("unexpected success")
+	}
+}

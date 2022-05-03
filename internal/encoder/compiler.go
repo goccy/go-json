@@ -885,29 +885,40 @@ func (c *Compiler) codeToOpcode(ctx *compileContext, typ *runtime.Type, code Cod
 }
 
 func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
+	recursiveCodes := map[uintptr]*CompiledCode{}
 	for _, recursive := range *ctx.recursiveCodes {
 		typeptr := uintptr(unsafe.Pointer(recursive.Type))
 		codes := ctx.structTypeToCodes[typeptr]
-		compiled := recursive.Jmp
-		compiled.Code = copyOpcode(codes.First())
-		code := compiled.Code
-		code.End.Next = newEndOp(&compileContext{}, recursive.Type)
-		code.Op = code.Op.PtrHeadToHead()
+		if recursiveCode, ok := recursiveCodes[typeptr]; ok {
+			*recursive.Jmp = *recursiveCode
+			continue
+		}
 
-		beforeLastCode := code.End
-		lastCode := beforeLastCode.Next
+		code := copyOpcode(codes.First())
+		code.Op = code.Op.PtrHeadToHead()
+		lastCode := newEndOp(&compileContext{}, recursive.Type)
+		lastCode.Op = OpRecursiveEnd
+
+		// OpRecursiveEnd must set before call TotalLength
+		code.End.Next = lastCode
 
 		totalLength := code.TotalLength()
+
+		// Idx, ElemIdx, Length must set after call TotalLength
 		lastCode.Idx = uint32((totalLength + 1) * uintptrSize)
 		lastCode.ElemIdx = lastCode.Idx + uintptrSize
 		lastCode.Length = lastCode.Idx + 2*uintptrSize
-		code.End.Next.Op = OpRecursiveEnd
 
 		// extend length to alloc slot for elemIdx + length
 		curTotalLength := uintptr(recursive.TotalLength()) + 3
 		nextTotalLength := uintptr(totalLength) + 3
+
+		compiled := recursive.Jmp
+		compiled.Code = code
 		compiled.CurLen = curTotalLength
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
+
+		recursiveCodes[typeptr] = compiled
 	}
 }

@@ -7,6 +7,7 @@ package json_test
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -429,6 +430,16 @@ func TestDecodeInStream(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestDecodeStreamUseNumber(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`3.14`))
+	dec.UseNumber()
+	v, err := dec.Token()
+	if err != nil {
+		t.Errorf("unexpected error: %#v", err)
+	}
+	assertEq(t, "json.Number", "json.Number", fmt.Sprintf("%T", v))
 }
 
 // Test from golang.org/issue/11893

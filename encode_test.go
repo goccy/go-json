@@ -2389,7 +2389,7 @@ func TestIssue324(t *testing.T) {
 	}
 }
 
-func TestIssue271(t *testing.T) {
+func TestCamelCaseField(t *testing.T) {
 	type T struct {
 		FieldA bool
 	}

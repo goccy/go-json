@@ -1,3 +1,17 @@
+# v0.9.8 - 2022/06/30
+
+### Fix bugs
+
+* Fix decoding of surrogate-pair ( #365 )
+* Fix handling of embedded primitive type ( #366 )
+* Add validation of escape sequence for decoder ( #367 )
+* Fix stream tokenizing respecting UseNumber ( #369 )
+* Fix encoding when struct pointer type that implements Marshal JSON is embedded ( #375 )
+
+### Improve performance
+
+* Improve performance of linkRecursiveCode ( #368 )
+
 # v0.9.7 - 2022/04/22
 
 ### Fix bugs

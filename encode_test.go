@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -2386,5 +2387,22 @@ func TestIssue324(t *testing.T) {
 	}
 	if !bytes.Equal(expected, got) {
 		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+	}
+}
+
+func TestIssue339(t *testing.T) {
+	type T1 struct {
+		*big.Int
+	}
+	type T2 struct {
+		T1 T1 `json:"T1"`
+	}
+	v := T2{T1{Int: big.NewInt(10000)}}
+	b, err := json.Marshal(&v)
+	assertErr(t, err)
+	got := string(b)
+	expected := `{"T1":10000}`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
 	}
 }

@@ -853,6 +853,9 @@ func (c *Compiler) implementsMarshalText(typ *runtime.Type) bool {
 }
 
 func (c *Compiler) isNilableType(typ *runtime.Type) bool {
+	if !runtime.IfaceIndir(typ) {
+		return true
+	}
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return true

@@ -2406,3 +2406,21 @@ func TestIssue339(t *testing.T) {
 		t.Errorf("unexpected result: %v != %v", got, expected)
 	}
 }
+
+func TestIssue376(t *testing.T) {
+	type Container struct {
+		V interface{} `json:"value"`
+	}
+	type MapOnly struct {
+		Map map[string]int64 `json:"map"`
+	}
+	b, err := json.Marshal(Container{MapOnly{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	expected := `{"value":{"map":null}}`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}

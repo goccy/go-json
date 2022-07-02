@@ -3,6 +3,7 @@ package vm_color_indent
 
 import (
 	"math"
+	"reflect"
 	"sort"
 	"unsafe"
 
@@ -193,7 +194,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
-			if ifacePtr == nil {
+			isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
+			if ifacePtr == nil && !isDirectedNil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break

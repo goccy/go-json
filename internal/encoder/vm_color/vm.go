@@ -194,11 +194,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
-			isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
-			if ifacePtr == nil && !isDirectedNil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
+			if ifacePtr == nil {
+				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
+				if !isDirectedNil {
+					b = appendNullComma(ctx, b)
+					code = code.Next
+					break
+				}
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
 			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(typ)))

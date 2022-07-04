@@ -487,7 +487,8 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 	case typ.Kind() == reflect.Map:
 		return c.ptrCode(runtime.PtrTo(typ))
 	default:
-		code, err := c.typeToCodeWithPtr(typ, false)
+		// Strictly not isPtr == true, but reflect.ValueOf().Index() is canAddr, so set isPtr == true.
+		code, err := c.typeToCodeWithPtr(typ, true)
 		if err != nil {
 			return nil, err
 		}

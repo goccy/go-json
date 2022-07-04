@@ -2424,3 +2424,32 @@ func TestIssue376(t *testing.T) {
 		t.Errorf("unexpected result: %v != %v", got, expected)
 	}
 }
+
+type Issue370 struct {
+	String string
+	Valid  bool
+}
+
+func (i *Issue370) MarshalJSON() ([]byte, error) {
+	if !i.Valid {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(i.String)
+}
+
+func TestIssue370(t *testing.T) {
+	v := []struct {
+		V Issue370
+	}{
+		{V: Issue370{String: "test", Valid: true}},
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	expected := `[{"V":"test"}]`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}

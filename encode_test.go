@@ -7,12 +7,14 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -2422,5 +2424,18 @@ func TestIssue376(t *testing.T) {
 	expected := `{"value":{"map":null}}`
 	if got != expected {
 		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}
+
+func TestIssue374(t *testing.T) {
+	r := io.MultiReader(strings.NewReader(strings.Repeat(" ", 505)+`"\u`), strings.NewReader(`0000"`))
+	var v interface{}
+	if err := json.NewDecoder(r).Decode(&v); err != nil {
+		t.Fatal(err)
+	}
+	got := v.(string)
+	expected := "\u0000"
+	if got != expected {
+		t.Errorf("unexpected result: %q != %q", got, expected)
 	}
 }

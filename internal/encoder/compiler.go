@@ -487,7 +487,10 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 	case typ.Kind() == reflect.Map:
 		return c.ptrCode(runtime.PtrTo(typ))
 	default:
-		code, err := c.typeToCodeWithPtr(typ, false)
+		// isPtr was originally used to indicate whether the type of top level is pointer.
+		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
+		// See here for related issues: https://github.com/goccy/go-json/issues/370
+		code, err := c.typeToCodeWithPtr(typ, true)
 		if err != nil {
 			return nil, err
 		}

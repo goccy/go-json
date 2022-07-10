@@ -24,7 +24,7 @@ func init() {
 	if typeAddr == nil {
 		typeAddr = &runtime.TypeAddr{}
 	}
-	cachedDecoder = make([]Decoder, typeAddr.AddrRange>>typeAddr.AddrShift)
+	cachedDecoder = make([]Decoder, typeAddr.AddrRange>>typeAddr.AddrShift+1)
 }
 
 func loadDecoderMap() map[uintptr]Decoder {

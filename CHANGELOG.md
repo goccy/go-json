@@ -1,3 +1,9 @@
+# v0.9.10 - 2022/07/15
+
+### Fix bugs
+
+* Fix boundary exception of type caching ( #382 )
+
 # v0.9.9 - 2022/07/15
 
 ### Fix bugs

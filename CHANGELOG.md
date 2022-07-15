@@ -1,3 +1,12 @@
+# v0.9.9 - 2022/07/15
+
+### Fix bugs
+
+* Fix encoding of directed interface with typed nil ( #377 )
+* Fix embedded primitive type encoding using alias ( #378 )
+* Fix slice/array type encoding with types implementing MarshalJSON ( #379 )
+* Fix unicode decoding when the expected buffer state is not met after reading ( #380 )
+
 # v0.9.8 - 2022/06/30
 
 ### Fix bugs

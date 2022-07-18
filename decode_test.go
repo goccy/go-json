@@ -3994,8 +3994,8 @@ func (t *issue384) UnmarshalJSON(b []byte) error {
 
 func TestIssue384(t *testing.T) {
 	testcases := []string{
-		"{\"data\": \"" + strings.Repeat("-", 500) + "\\\"\"}",
-		"[\"" + strings.Repeat("-", 508) + "\\\"\"]",
+		`{"data": "` + strings.Repeat("-", 500) + `\""}`,
+		`["` + strings.Repeat("-", 508) + `\""]`,
 	}
 	for _, tc := range testcases {
 		dec := json.NewDecoder(strings.NewReader(tc))

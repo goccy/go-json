@@ -3986,17 +3986,22 @@ func TestIssue372(t *testing.T) {
 	}
 }
 
-type issue384 string
+type issue384 struct{}
 
 func (t *issue384) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
 func TestIssue384(t *testing.T) {
-	in := "{\"data\":{\"text\": \"" + strings.Repeat("-", 492) + "\\\"\"}}\n"
-	dec := json.NewDecoder(strings.NewReader(in))
-	var v issue384
-	if err := dec.Decode(&v); err != nil {
-		t.Errorf("unexpected error: %v", err)
+	testcases := []string{
+		"{\"data\":{\"text\": \"" + strings.Repeat("-", 492) + "\\\"\"}}\n",
+		"[\"" + strings.Repeat("-", 508) + "\\\"\"]",
+	}
+	for _, tc := range testcases {
+		dec := json.NewDecoder(strings.NewReader(tc))
+		var v issue384
+		if err := dec.Decode(&v); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
 	}
 }

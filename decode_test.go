@@ -3985,3 +3985,18 @@ func TestIssue372(t *testing.T) {
 		t.Errorf("unexpected result: %v != %v", got, expected)
 	}
 }
+
+type issue384 string
+
+func (t *issue384) UnmarshalJSON(b []byte) error {
+	return nil
+}
+
+func TestIssue384(t *testing.T) {
+	in := "{\"data\":{\"text\": \"" + strings.Repeat("-", 492) + "\\\"\"}}\n"
+	dec := json.NewDecoder(strings.NewReader(in))
+	var v issue384
+	if err := dec.Decode(&v); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

@@ -95,24 +95,30 @@ func unicodeToRune(code []byte) rune {
 	return r
 }
 
+func readAtLeast(s *Stream, n int64, p *unsafe.Pointer) bool {
+	for s.cursor+n >= s.length {
+		if !s.read() {
+			return false
+		}
+		*p = s.bufptr()
+	}
+	return true
+}
+
 func decodeUnicodeRune(s *Stream, p unsafe.Pointer) (rune, int64, unsafe.Pointer, error) {
 	const defaultOffset = 5
 	const surrogateOffset = 11
 
-	if s.cursor+defaultOffset >= s.length {
-		if !s.read() {
-			return rune(0), 0, nil, errors.ErrInvalidCharacter(s.char(), "escaped string", s.totalOffset())
-		}
-		p = s.bufptr()
+	if !readAtLeast(s, defaultOffset, &p) {
+		return rune(0), 0, nil, errors.ErrInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 	}
 
 	r := unicodeToRune(s.buf[s.cursor+1 : s.cursor+defaultOffset])
 	if utf16.IsSurrogate(r) {
-		if s.cursor+surrogateOffset >= s.length {
-			s.read()
-			p = s.bufptr()
+		if !readAtLeast(s, surrogateOffset, &p) {
+			return unicode.ReplacementChar, defaultOffset, p, nil
 		}
-		if s.cursor+surrogateOffset >= s.length || s.buf[s.cursor+defaultOffset] != '\\' || s.buf[s.cursor+defaultOffset+1] != 'u' {
+		if s.buf[s.cursor+defaultOffset] != '\\' || s.buf[s.cursor+defaultOffset+1] != 'u' {
 			return unicode.ReplacementChar, defaultOffset, p, nil
 		}
 		r2 := unicodeToRune(s.buf[s.cursor+defaultOffset+2 : s.cursor+surrogateOffset])

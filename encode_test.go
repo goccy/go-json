@@ -7,11 +7,14 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -2412,5 +2415,203 @@ func TestCamelCaseField(t *testing.T) {
 
 	if !bytes.Equal(expected, got) {
 		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+
+func TestIssue339(t *testing.T) {
+	type T1 struct {
+		*big.Int
+	}
+	type T2 struct {
+		T1 T1 `json:"T1"`
+	}
+	v := T2{T1{Int: big.NewInt(10000)}}
+	b, err := json.Marshal(&v)
+	assertErr(t, err)
+	got := string(b)
+	expected := `{"T1":10000}`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}
+
+func TestIssue376(t *testing.T) {
+	type Container struct {
+		V interface{} `json:"value"`
+	}
+	type MapOnly struct {
+		Map map[string]int64 `json:"map"`
+	}
+	b, err := json.Marshal(Container{MapOnly{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	expected := `{"value":{"map":null}}`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}
+
+type Issue370 struct {
+	String string
+	Valid  bool
+}
+
+func (i *Issue370) MarshalJSON() ([]byte, error) {
+	if !i.Valid {
+		return json.Marshal(nil)
+	}
+	return json.Marshal(i.String)
+}
+
+func TestIssue370(t *testing.T) {
+	v := []struct {
+		V Issue370
+	}{
+		{V: Issue370{String: "test", Valid: true}},
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	expected := `[{"V":"test"}]`
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}
+
+func TestIssue374(t *testing.T) {
+	r := io.MultiReader(strings.NewReader(strings.Repeat(" ", 505)+`"\u`), strings.NewReader(`0000"`))
+	var v interface{}
+	if err := json.NewDecoder(r).Decode(&v); err != nil {
+		t.Fatal(err)
+	}
+	got := v.(string)
+	expected := "\u0000"
+	if got != expected {
+		t.Errorf("unexpected result: %q != %q", got, expected)
+	}
+}
+
+func TestIssue381(t *testing.T) {
+	var v struct {
+		Field0  bool
+		Field1  bool
+		Field2  bool
+		Field3  bool
+		Field4  bool
+		Field5  bool
+		Field6  bool
+		Field7  bool
+		Field8  bool
+		Field9  bool
+		Field10 bool
+		Field11 bool
+		Field12 bool
+		Field13 bool
+		Field14 bool
+		Field15 bool
+		Field16 bool
+		Field17 bool
+		Field18 bool
+		Field19 bool
+		Field20 bool
+		Field21 bool
+		Field22 bool
+		Field23 bool
+		Field24 bool
+		Field25 bool
+		Field26 bool
+		Field27 bool
+		Field28 bool
+		Field29 bool
+		Field30 bool
+		Field31 bool
+		Field32 bool
+		Field33 bool
+		Field34 bool
+		Field35 bool
+		Field36 bool
+		Field37 bool
+		Field38 bool
+		Field39 bool
+		Field40 bool
+		Field41 bool
+		Field42 bool
+		Field43 bool
+		Field44 bool
+		Field45 bool
+		Field46 bool
+		Field47 bool
+		Field48 bool
+		Field49 bool
+		Field50 bool
+		Field51 bool
+		Field52 bool
+		Field53 bool
+		Field54 bool
+		Field55 bool
+		Field56 bool
+		Field57 bool
+		Field58 bool
+		Field59 bool
+		Field60 bool
+		Field61 bool
+		Field62 bool
+		Field63 bool
+		Field64 bool
+		Field65 bool
+		Field66 bool
+		Field67 bool
+		Field68 bool
+		Field69 bool
+		Field70 bool
+		Field71 bool
+		Field72 bool
+		Field73 bool
+		Field74 bool
+		Field75 bool
+		Field76 bool
+		Field77 bool
+		Field78 bool
+		Field79 bool
+		Field80 bool
+		Field81 bool
+		Field82 bool
+		Field83 bool
+		Field84 bool
+		Field85 bool
+		Field86 bool
+		Field87 bool
+		Field88 bool
+		Field89 bool
+		Field90 bool
+		Field91 bool
+		Field92 bool
+		Field93 bool
+		Field94 bool
+		Field95 bool
+		Field96 bool
+		Field97 bool
+		Field98 bool
+		Field99 bool
+	}
+
+	// test encoder cache issue, not related to encoder
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Errorf("failed to marshal %s", err.Error())
+		t.FailNow()
+	}
+
+	std, err := stdjson.Marshal(v)
+	if err != nil {
+		t.Errorf("failed to marshal with encoding/json %s", err.Error())
+		t.FailNow()
+	}
+
+	if !bytes.Equal(std, b) {
+		t.Errorf("encoding result not equal to encoding/json")
+		t.FailNow()
 	}
 }

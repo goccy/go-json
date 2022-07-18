@@ -3968,3 +3968,20 @@ func TestIssue335(t *testing.T) {
 		t.Errorf("unexpected success")
 	}
 }
+
+func TestIssue372(t *testing.T) {
+	type A int
+	type T struct {
+		_ int
+		*A
+	}
+	var v T
+	err := json.Unmarshal([]byte(`{"A":7}`), &v)
+	assertErr(t, err)
+
+	got := *v.A
+	expected := A(7)
+	if got != expected {
+		t.Errorf("unexpected result: %v != %v", got, expected)
+	}
+}

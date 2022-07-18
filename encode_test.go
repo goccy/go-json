@@ -2415,6 +2415,8 @@ func TestCamelCaseField(t *testing.T) {
 
 	if !bytes.Equal(expected, got) {
 		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+	}
+}
 
 func TestIssue339(t *testing.T) {
 	type T1 struct {

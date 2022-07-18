@@ -345,6 +345,7 @@ func (s *Stream) skipArray(depth int64) error {
 						s.cursor = cursor
 						if s.read() {
 							_, cursor, p = s.statForRetry()
+							cursor++
 							continue
 						}
 						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
@@ -403,6 +404,7 @@ func (s *Stream) skipValue(depth int64) error {
 						s.cursor = cursor
 						if s.read() {
 							_, cursor, p = s.statForRetry()
+							cursor++
 							continue
 						}
 						return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())

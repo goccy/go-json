@@ -171,6 +171,7 @@ RETRY:
 		if !s.read() {
 			return nil, errors.ErrInvalidCharacter(s.char(), "escaped string", s.totalOffset())
 		}
+		p = s.bufptr()
 		goto RETRY
 	default:
 		return nil, errors.ErrUnexpectedEndOfJSON("string", s.totalOffset())

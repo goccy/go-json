@@ -2591,3 +2591,17 @@ func TestIssue381(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestIssue386(t *testing.T) {
+	raw := `{"date": null, "platform": "\u6f2b\u753b", "images": {"small": "https://lain.bgm.tv/pic/cover/s/d2/a1/80048_jp.jpg", "grid": "https://lain.bgm.tv/pic/cover/g/d2/a1/80048_jp.jpg", "large": "https://lain.bgm.tv/pic/cover/l/d2/a1/80048_jp.jpg", "medium": "https://lain.bgm.tv/pic/cover/m/d2/a1/80048_jp.jpg", "common": "https://lain.bgm.tv/pic/cover/c/d2/a1/80048_jp.jpg"}, "summary": "\u5929\u624d\u8a2d\u8a08\u58eb\u30fb\u5929\u5bae\uff08\u3042\u307e\u307f\u3084\uff09\u3092\u62b1\u3048\u308b\u6751\u96e8\u7dcf\u5408\u4f01\u753b\u306f\u3001\u771f\u6c34\u5efa\u8a2d\u3068\u63d0\u643a\u3057\u3066\u300c\u3055\u304d\u305f\u307e\u30a2\u30ea\u30fc\u30ca\u300d\u306e\u30b3\u30f3\u30da\u306b\u512a\u52dd\u3059\u308b\u3053\u3068\u306b\u8ced\u3051\u3066\u3044\u305f\u3002\u3057\u304b\u3057\u3001\u73fe\u77e5\u4e8b\u306e\u6d25\u5730\u7530\uff08\u3064\u3061\u3060\uff09\u306f\u5927\u65e5\u5efa\u8a2d\u306b\u512a\u52dd\u3055\u305b\u3088\u3046\u3068\u6697\u8e8d\u3059\u308b\u3002\u305d\u308c\u306f\u73fe\u77e5\u4e8b\u306e\u6d25\u5730\u7530\u3068\u526f\u77e5\u4e8b\u306e\u592a\u7530\uff08\u304a\u304a\u305f\uff09\u306e\u653f\u6cbb\u751f\u547d\u3092\u5de6\u53f3\u3059\u308b\u4e89\u3044\u3068\u306a\u308a\u2026\u2026!?\u3000\u305d\u3057\u3066\u516c\u5171\u4e8b\u696d\u306b\u6e26\u5dfb\u304f\u6df1\u3044\u95c7\u306b\u842c\u7530\u9280\u6b21\u90ce\uff08\u307e\u3093\u3060\u30fb\u304e\u3093\u3058\u308d\u3046\uff09\u306f\u2026\u2026!?", "name": "\u30df\u30ca\u30df\u306e\u5e1d\u738b (48)"}`
+	var a struct {
+		Date     *string `json:"date"`
+		Platform *string `json:"platform"`
+		Summary  string  `json:"summary"`
+		Name     string  `json:"name"`
+	}
+	err := json.NewDecoder(strings.NewReader(raw)).Decode(&a)
+	if err != nil {
+		t.Error(err)
+	}
+}

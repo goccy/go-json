@@ -280,8 +280,7 @@ func (s *Stream) skipObject(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							_, cursor, p = s.statForRetry()
-							cursor++
+							_, cursor, p = s.stat()
 							continue
 						}
 						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
@@ -344,8 +343,7 @@ func (s *Stream) skipArray(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							_, cursor, p = s.statForRetry()
-							cursor++
+							_, cursor, p = s.stat()
 							continue
 						}
 						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
@@ -403,8 +401,7 @@ func (s *Stream) skipValue(depth int64) error {
 					if char(p, cursor) == nul {
 						s.cursor = cursor
 						if s.read() {
-							_, cursor, p = s.statForRetry()
-							cursor++
+							_, cursor, p = s.stat()
 							continue
 						}
 						return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())

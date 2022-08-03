@@ -3985,3 +3985,23 @@ func TestIssue372(t *testing.T) {
 		t.Errorf("unexpected result: %v != %v", got, expected)
 	}
 }
+
+type issue384 struct{}
+
+func (t *issue384) UnmarshalJSON(b []byte) error {
+	return nil
+}
+
+func TestIssue384(t *testing.T) {
+	testcases := []string{
+		`{"data": "` + strings.Repeat("-", 500) + `\""}`,
+		`["` + strings.Repeat("-", 508) + `\""]`,
+	}
+	for _, tc := range testcases {
+		dec := json.NewDecoder(strings.NewReader(tc))
+		var v issue384
+		if err := dec.Decode(&v); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+}

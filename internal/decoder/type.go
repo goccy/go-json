@@ -23,7 +23,7 @@ type unmarshalerContext interface {
 }
 
 var (
-	unmarshalJSONType        = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
-	unmarshalJSONContextType = reflect.TypeOf((*unmarshalerContext)(nil)).Elem()
-	unmarshalTextType        = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	unmarshalJSONType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+	//unmarshalJSONContextType = reflect.TypeOf((*unmarshalerContext)(nil)).Elem()
+	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 )

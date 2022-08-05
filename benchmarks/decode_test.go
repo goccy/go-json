@@ -477,3 +477,13 @@ func Benchmark_Decode_LargeStruct_Stream_GoJsonFirstWinMode(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Decode_LargeSlice_EscapedString_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var v []string
+		if err := gojson.Unmarshal(LargeSliceEscapedString, &v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

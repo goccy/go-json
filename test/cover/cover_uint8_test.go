@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -1788,19 +1789,21 @@ func TestCoverUint8(t *testing.T) {
 	for _, test := range tests {
 		for _, indent := range []bool{true, false} {
 			for _, htmlEscape := range []bool{true, false} {
-				var buf bytes.Buffer
-				enc := json.NewEncoder(&buf)
-				enc.SetEscapeHTML(htmlEscape)
-				if indent {
-					enc.SetIndent("", "  ")
-				}
-				if err := enc.Encode(test.data); err != nil {
-					t.Fatalf("%s(htmlEscape:%T): %+v: %s", test.name, htmlEscape, test.data, err)
-				}
-				stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
-				if buf.String() != stdresult {
-					t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
-				}
+				t.Run(fmt.Sprintf("%s_indent_%t_escape_%t", test.name, indent, htmlEscape), func(t *testing.T) {
+					var buf bytes.Buffer
+					enc := json.NewEncoder(&buf)
+					enc.SetEscapeHTML(htmlEscape)
+					if indent {
+						enc.SetIndent("", "  ")
+					}
+					if err := enc.Encode(test.data); err != nil {
+						t.Fatalf("%s(htmlEscape:%T): %+v: %s", test.name, htmlEscape, test.data, err)
+					}
+					stdresult := encodeByEncodingJSON(test.data, indent, htmlEscape)
+					if buf.String() != stdresult {
+						t.Errorf("%s(htmlEscape:%T): doesn't compatible with encoding/json. expected %q but got %q", test.name, htmlEscape, stdresult, buf.String())
+					}
+				})
 			}
 		}
 	}

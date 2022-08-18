@@ -1,3 +1,10 @@
+# v0.9.11 - 2022/08/18
+
+### Fix bugs
+
+* Fix unexpected behavior when buffer ends with backslash ( #383 )
+* Fix stream decoding of escaped character ( #387 )
+
 # v0.9.10 - 2022/07/15
 
 ### Fix bugs

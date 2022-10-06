@@ -333,7 +333,7 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 						}
 						for i := int64(1); i <= 4; i++ {
 							c := char(b, cursor+i)
-							if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+							if (('0' > c || c > '9') && ('a' > c || c > 'f') && ('A' > c || c > 'F')) {
 								return nil, 0, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
 							}
 						}

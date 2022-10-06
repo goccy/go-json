@@ -370,7 +370,9 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 			**(**interface{})(unsafe.Pointer(&p)) = nil
 			return cursor, nil
 		}
-		return 0, d.errUnmarshalType(rv.Type(), cursor)
+		if _, b := rv.Type().MethodByName("Error"); b {
+			return 0, d.errUnmarshalType(rv.Type(), cursor)
+		}
 	}
 
 	iface := rv.Interface()

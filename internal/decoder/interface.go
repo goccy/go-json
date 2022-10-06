@@ -97,6 +97,7 @@ var (
 	interfaceMapType   = runtime.Type2RType(
 		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
 	)
+	errorType  = reflect.TypeOf((*error)(nil)).Elem()
 	stringType = runtime.Type2RType(
 		reflect.TypeOf(""),
 	)
@@ -308,7 +309,10 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 			*(*interface{})(p) = nil
 			return nil
 		}
-		return d.errUnmarshalType(rv.Type(), s.totalOffset())
+		t := rv.Type()
+		if t == errorType {
+			return d.errUnmarshalType(rv.Type(), s.totalOffset())
+		}
 	}
 	iface := rv.Interface()
 	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
@@ -370,8 +374,9 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 			**(**interface{})(unsafe.Pointer(&p)) = nil
 			return cursor, nil
 		}
-		if _, b := rv.Type().MethodByName("Error"); b {
-			return 0, d.errUnmarshalType(rv.Type(), cursor)
+		t := rv.Type()
+		if t == errorType {
+			return 0, d.errUnmarshalType(t, cursor)
 		}
 	}
 

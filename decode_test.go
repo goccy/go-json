@@ -758,22 +758,23 @@ type DoublePtr struct {
 
 var unmarshalTests = []unmarshalTest{
 	// basic types
-	{in: `true`, ptr: new(bool), out: true},                                                                                                                       // 0
-	{in: `1`, ptr: new(int), out: 1},                                                                                                                              // 1
-	{in: `1.2`, ptr: new(float64), out: 1.2},                                                                                                                      // 2
-	{in: `-5`, ptr: new(int16), out: int16(-5)},                                                                                                                   // 3
-	{in: `2`, ptr: new(json.Number), out: json.Number("2"), useNumber: true},                                                                                      // 4
-	{in: `2`, ptr: new(json.Number), out: json.Number("2")},                                                                                                       // 5
-	{in: `2`, ptr: new(interface{}), out: float64(2.0)},                                                                                                           // 6
-	{in: `2`, ptr: new(interface{}), out: json.Number("2"), useNumber: true},                                                                                      // 7
-	{in: `"a\u1234"`, ptr: new(string), out: "a\u1234"},                                                                                                           // 8
-	{in: `"http:\/\/"`, ptr: new(string), out: "http://"},                                                                                                         // 9
-	{in: `"g-clef: \uD834\uDD1E"`, ptr: new(string), out: "g-clef: \U0001D11E"},                                                                                   // 10
-	{in: `"invalid: \uD834x\uDD1E"`, ptr: new(string), out: "invalid: \uFFFDx\uFFFD"},                                                                             // 11
-	{in: "null", ptr: new(interface{}), out: nil},                                                                                                                 // 12
-	{in: `{"X": [1,2,3], "Y": 4}`, ptr: new(T), out: T{Y: 4}, err: &json.UnmarshalTypeError{"array", reflect.TypeOf(""), 7, "T", "X"}},                            // 13
-	{in: `{"X": 23}`, ptr: new(T), out: T{}, err: &json.UnmarshalTypeError{"number", reflect.TypeOf(""), 8, "T", "X"}}, {in: `{"x": 1}`, ptr: new(tx), out: tx{}}, // 14
-	{in: `{"x": 1}`, ptr: new(tx), out: tx{}}, // 15, 16
+	{in: `true`, ptr: new(bool), out: true},                                                                                            // 0
+	{in: `1`, ptr: new(int), out: 1},                                                                                                   // 1
+	{in: `1.2`, ptr: new(float64), out: 1.2},                                                                                           // 2
+	{in: `-5`, ptr: new(int16), out: int16(-5)},                                                                                        // 3
+	{in: `2`, ptr: new(json.Number), out: json.Number("2"), useNumber: true},                                                           // 4
+	{in: `2`, ptr: new(json.Number), out: json.Number("2")},                                                                            // 5
+	{in: `2`, ptr: new(interface{}), out: float64(2.0)},                                                                                // 6
+	{in: `2`, ptr: new(interface{}), out: json.Number("2"), useNumber: true},                                                           // 7
+	{in: `"a\u1234"`, ptr: new(string), out: "a\u1234"},                                                                                // 8
+	{in: `"http:\/\/"`, ptr: new(string), out: "http://"},                                                                              // 9
+	{in: `"g-clef: \uD834\uDD1E"`, ptr: new(string), out: "g-clef: \U0001D11E"},                                                        // 10
+	{in: `"invalid: \uD834x\uDD1E"`, ptr: new(string), out: "invalid: \uFFFDx\uFFFD"},                                                  // 11
+	{in: "null", ptr: new(interface{}), out: nil},                                                                                      // 12
+	{in: `{"X": [1,2,3], "Y": 4}`, ptr: new(T), out: T{Y: 4}, err: &json.UnmarshalTypeError{"array", reflect.TypeOf(""), 7, "T", "X"}}, // 13
+	{in: `{"X": 23}`, ptr: new(T), out: T{}, err: &json.UnmarshalTypeError{"number", reflect.TypeOf(""), 8, "T", "X"}},
+	{in: `{"x": 1}`, ptr: new(tx), out: tx{}},                                                                                           // 14
+	{in: `{"x": 1}`, ptr: new(tx), out: tx{}},                                                                                           // 15, 16
 	{in: `{"x": 1}`, ptr: new(tx), err: fmt.Errorf("json: unknown field \"x\""), disallowUnknownFields: true},                           // 17
 	{in: `{"S": 23}`, ptr: new(W), out: W{}, err: &json.UnmarshalTypeError{"number", reflect.TypeOf(SS("")), 0, "W", "S"}},              // 18
 	{in: `{"F1":1,"F2":2,"F3":3}`, ptr: new(V), out: V{F1: float64(1), F2: int32(2), F3: json.Number("3")}},                             // 19
@@ -822,9 +823,9 @@ var unmarshalTests = []unmarshalTest{
 	{in: `[1, 2, 3]`, ptr: new(MustNotUnmarshalJSON), err: errors.New("MustNotUnmarshalJSON was used")}, // 51
 
 	// empty array to interface test
-	{in: `[]`, ptr: new([]interface{}), out: []interface{}{}},                                                //52
-	{in: `null`, ptr: new([]interface{}), out: []interface{}(nil)},                                           //53
-	{in: `{"T":[]}`, ptr: new(map[string]interface{}), out: map[string]interface{}{"T": []interface{}{}}},    //54
+	{in: `[]`, ptr: new([]interface{}), out: []interface{}{}},                                                // 52
+	{in: `null`, ptr: new([]interface{}), out: []interface{}(nil)},                                           // 53
+	{in: `{"T":[]}`, ptr: new(map[string]interface{}), out: map[string]interface{}{"T": []interface{}{}}},    // 54
 	{in: `{"T":null}`, ptr: new(map[string]interface{}), out: map[string]interface{}{"T": interface{}(nil)}}, // 55
 
 	// composite tests
@@ -1695,7 +1696,7 @@ func isSpace(c byte) bool {
 }
 
 func noSpace(c rune) rune {
-	if isSpace(byte(c)) { //only used for ascii
+	if isSpace(byte(c)) { // only used for ascii
 		return -1
 	}
 	return c
@@ -2441,7 +2442,7 @@ func TestSkipArrayObjects(t *testing.T) {
 // Issues 4900 and 8837, among others.
 func TestPrefilled(t *testing.T) {
 	// Values here change, cannot reuse table across runs.
-	var prefillTests = []struct {
+	prefillTests := []struct {
 		in  string
 		ptr interface{}
 		out interface{}
@@ -3293,7 +3294,6 @@ func TestInvalidNumber(t *testing.T) {
 				t.Fatalf("unexpected error message. expected: %q but got %q", stdErr.Error(), err.Error())
 			}
 		})
-
 	})
 	t.Run("invalid number of zero", func(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
@@ -3740,7 +3740,7 @@ func TestDecodeBinaryTypeWithEscapedChar(t *testing.T) {
 }
 
 func TestIssue282(t *testing.T) {
-	var J = []byte(`{
+	J := []byte(`{
   "a": {},
   "b": {},
   "c": {},
@@ -4004,4 +4004,38 @@ func TestIssue384(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 	}
+}
+
+type EsDocument interface {
+	IndexName() string
+}
+
+type Property struct {
+	Name string `json:"name"`
+}
+
+func (p Property) IndexName() string {
+	return "properties"
+}
+
+func TestIssue405(t *testing.T) {
+	b := []byte(`{"name":"Test Property to remove"}`)
+	p := Property{}
+
+	func(body []byte, doc EsDocument) {
+		if err := json.Unmarshal(body, &doc); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}(b, &p)
+}
+
+func TestIssue406(t *testing.T) {
+	r := strings.NewReader(`{"name":"Test Property to remove"}`)
+	p := Property{}
+
+	func(r *strings.Reader, doc EsDocument) {
+		if err := json.NewDecoder(r).Decode(&doc); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}(r, &p)
 }

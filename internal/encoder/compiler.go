@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/grbit/go-json/internal/errors"
+	"github.com/grbit/go-json/internal/runtime"
 )
 
 type marshalerContext interface {
@@ -489,7 +489,7 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
 		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
-		// See here for related issues: https://github.com/goccy/go-json/issues/370
+		// See here for related issues: https://github.com/grbit/go-json/issues/370
 		code, err := c.typeToCodeWithPtr(typ, true)
 		if err != nil {
 			return nil, err

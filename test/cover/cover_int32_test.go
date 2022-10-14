@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/goccy/go-json"
+	"github.com/grbit/go-json"
 )
 
 func TestCoverInt32(t *testing.T) {

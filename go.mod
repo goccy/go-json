@@ -1,3 +1,3 @@
-module github.com/goccy/go-json
+module github.com/grbit/go-json
 
 go 1.19

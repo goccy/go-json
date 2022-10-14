@@ -9,7 +9,7 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/grbit/go-json/internal/runtime"
 )
 
 var (

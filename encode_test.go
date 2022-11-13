@@ -2605,3 +2605,18 @@ func TestIssue386(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+type customMapKey string
+
+func (b customMapKey) MarshalJSON() ([]byte, error) {
+	return []byte("[]"), nil
+}
+
+func TestCustomMarshalForMapKey(t *testing.T) {
+	m := map[customMapKey]string{customMapKey("skipcustom"): "test"}
+	expected, err := stdjson.Marshal(m)
+	assertErr(t, err)
+	got, err := json.Marshal(m)
+	assertErr(t, err)
+	assertEq(t, "custom map key", string(expected), string(got))
+}

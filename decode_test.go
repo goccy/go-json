@@ -4019,14 +4019,22 @@ func (p Property) IndexName() string {
 }
 
 func TestIssue405(t *testing.T) {
-	b := []byte(`{"name":"Test Property to remove"}`)
-	p := Property{}
+	t.Run("unmarshal", func(t *testing.T) {
+		b := []byte(`{"name":"Test Property to remove"}`)
+		p := Property{}
 
-	func(body []byte, doc EsDocument) {
-		if err := json.Unmarshal(body, &doc); err != nil {
+		if err := json.Unmarshal(b, &p); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-	}(b, &p)
+	})
+	t.Run("stream", func(t *testing.T) {
+		r := strings.NewReader(`{"name":"Test Property to remove"}`)
+		p := Property{}
+
+		if err := json.NewDecoder(r).Decode(&p); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 }
 
 func TestIssue406(t *testing.T) {

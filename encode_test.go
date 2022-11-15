@@ -1022,18 +1022,27 @@ func (u *unmarshalerText) UnmarshalText(b []byte) error {
 }
 
 func TestTextMarshalerMapKeysAreSorted(t *testing.T) {
-	b, err := json.Marshal(map[unmarshalerText]int{
+	data := map[unmarshalerText]int{
 		{"x", "y"}: 1,
 		{"y", "x"}: 2,
 		{"a", "z"}: 3,
 		{"z", "a"}: 4,
-	})
+	}
+	b, err := json.Marshal(data)
 	if err != nil {
 		t.Fatalf("Failed to Marshal text.Marshaler: %v", err)
 	}
 	const want = `{"a:z":3,"x:y":1,"y:x":2,"z:a":4}`
 	if string(b) != want {
 		t.Errorf("Marshal map with text.Marshaler keys: got %#q, want %#q", b, want)
+	}
+
+	b, err = stdjson.Marshal(data)
+	if err != nil {
+		t.Fatalf("Failed to std Marshal text.Marshaler: %v", err)
+	}
+	if string(b) != want {
+		t.Errorf("std Marshal map with text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }
 
@@ -2604,4 +2613,19 @@ func TestIssue386(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+type customMapKey string
+
+func (b customMapKey) MarshalJSON() ([]byte, error) {
+	return []byte("[]"), nil
+}
+
+func TestCustomMarshalForMapKey(t *testing.T) {
+	m := map[customMapKey]string{customMapKey("skipcustom"): "test"}
+	expected, err := stdjson.Marshal(m)
+	assertErr(t, err)
+	got, err := json.Marshal(m)
+	assertErr(t, err)
+	assertEq(t, "custom map key", string(expected), string(got))
 }

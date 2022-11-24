@@ -484,7 +484,7 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 		return c.marshalJSONCode(typ)
 	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
 		return c.marshalTextCode(typ)
-	case typ.Kind() == reflect.Map:
+	case typ.Kind() == reflect.Map && !typ.Implements(marshalJSONType):
 		return c.ptrCode(runtime.PtrTo(typ))
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.

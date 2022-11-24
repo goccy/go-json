@@ -484,7 +484,7 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 		return c.marshalJSONCode(typ)
 	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
 		return c.marshalTextCode(typ)
-	case typ.Kind() == reflect.Map && !typ.Implements(marshalJSONType):
+	case typ.Kind() == reflect.Map && !typ.Implements(marshalJSONType) && !typ.Implements(marshalJSONContextType):
 		return c.ptrCode(runtime.PtrTo(typ))
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
@@ -541,22 +541,22 @@ func (c *Compiler) mapKeyCode(typ *runtime.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
-	switch typ.Kind() {
-	case reflect.Map:
+	if typ.Kind() == reflect.Map &&
+		!typ.Implements(marshalJSONType) && !typ.Implements(marshalJSONContextType) {
 		return c.ptrCode(runtime.PtrTo(typ))
-	default:
-		code, err := c.typeToCodeWithPtr(typ, false)
-		if err != nil {
-			return nil, err
-		}
-		ptr, ok := code.(*PtrCode)
-		if ok {
-			if ptr.value.Kind() == CodeKindMap {
-				ptr.ptrNum++
-			}
-		}
-		return code, nil
 	}
+
+	code, err := c.typeToCodeWithPtr(typ, false)
+	if err != nil {
+		return nil, err
+	}
+	ptr, ok := code.(*PtrCode)
+	if ok {
+		if ptr.value.Kind() == CodeKindMap {
+			ptr.ptrNum++
+		}
+	}
+	return code, nil
 }
 
 func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error) {

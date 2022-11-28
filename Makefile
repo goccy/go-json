@@ -22,7 +22,7 @@ cover-html: cover
 
 .PHONY: lint
 lint: golangci-lint
-	golangci-lint run
+	$(BIN_DIR)/golangci-lint run
 
 golangci-lint: | $(BIN_DIR)
 	@{ \

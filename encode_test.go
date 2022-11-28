@@ -2629,3 +2629,68 @@ func TestCustomMarshalForMapKey(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "custom map key", string(expected), string(got))
 }
+
+type Set map[string]struct{}
+
+func NewSet(items ...string) Set {
+	s := make(Set, len(items))
+	for _, v := range items {
+		s[v] = struct{}{}
+	}
+	return s
+}
+
+func (s Set) MarshalJSON() ([]byte, error) {
+	if s == nil {
+		return []byte("null"), nil
+	}
+
+	if len(s) == 0 {
+		return []byte("[]"), nil
+	}
+
+	size := 1
+	for symbol := range s {
+		size += len(symbol) + 3
+	}
+
+	b := make([]byte, 0, size)
+	b = append(b, '[')
+	for symbol := range s {
+		b = append(b, '"')
+		b = append(b, symbol...)
+		b = append(b, '"', ',')
+	}
+	b[len(b)-1] = ']'
+
+	return b, nil
+}
+
+func TestCustomMarshalForMapAlias(t *testing.T) {
+	m := map[string]Set{"foo": NewSet("foo", "bar")}
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "custom marshal map alias", string(b), "{\"foo\":[\"foo\",\"bar\"]}")
+}
+
+func TestEmbeddedOmitEmpty(t *testing.T) {
+	type A struct {
+		X string `json:"x,omitempty"`
+	}
+	type B struct {
+		A
+	}
+	type C struct {
+		B
+	}
+	b, err := json.Marshal(C{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{}" {
+		t.Errorf("unexpected json: %s", string(b))
+	}
+}

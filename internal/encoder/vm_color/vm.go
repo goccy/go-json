@@ -1745,7 +1745,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			v := ptrToString(p + uintptr(code.Offset))
 			if v == "" {
-				code = code.NextField
+				code = code.Next
 			} else {
 				b = appendStructKey(ctx, code, b)
 				b = appendString(ctx, b, v)

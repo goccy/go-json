@@ -16,7 +16,8 @@ import (
 // [*] : all objects/elements for array.
 //
 // Reserved words must be properly escaped when included in Path.
-// Escale Rule
+//
+// Escape Rule
 // single quote style escape: e.g.) `$['a.b'].c`
 // double quote style escape: e.g.) `$."a.b".c`
 func CreatePath(p string) (*Path, error) {

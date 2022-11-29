@@ -350,14 +350,16 @@ func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 							return nil, 0, err
 						}
 						ret = append(ret, buf[start:end])
+						cursor = end
 					}
 				} else {
 					c, err := skipValue(buf, cursor, depth)
 					if err != nil {
 						return nil, 0, err
 					}
-					cursor = skipWhiteSpace(buf, c)
+					cursor = c
 				}
+				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
 					cursor++

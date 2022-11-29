@@ -33,6 +33,11 @@ type Path struct {
 	path *decoder.Path
 }
 
+// RootSelectorOnly whether only the root selector ($) is used.
+func (p *Path) RootSelectorOnly() bool {
+	return p.path.RootSelectorOnly
+}
+
 // UsedSingleQuotePathSelector whether single quote-based escaping was done when building the JSON Path.
 func (p *Path) UsedSingleQuotePathSelector() bool {
 	return p.path.SingleQuotePathSelector
@@ -46,6 +51,11 @@ func (p *Path) UsedDoubleQuotePathSelector() bool {
 // Extract extracts a specific JSON string.
 func (p *Path) Extract(data []byte, optFuncs ...DecodeOptionFunc) ([][]byte, error) {
 	return extractFromPath(p, data, optFuncs...)
+}
+
+// PathString returns original JSON Path string.
+func (p *Path) PathString() string {
+	return p.path.String()
 }
 
 // Unmarshal extract and decode the value of the part corresponding to JSON Path from the input data.

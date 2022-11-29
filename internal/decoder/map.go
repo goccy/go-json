@@ -265,8 +265,9 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]b
 			if err != nil {
 				return nil, 0, err
 			}
-			cursor = skipWhiteSpace(buf, c)
+			cursor = c
 		}
+		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] == '}' {
 			cursor++
 			return ret, cursor, nil

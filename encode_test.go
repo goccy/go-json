@@ -2673,7 +2673,9 @@ func TestCustomMarshalForMapAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertEq(t, "custom marshal map alias", string(b), "{\"foo\":[\"foo\",\"bar\"]}")
+	if string(b) != "{\"foo\":[\"bar\",\"foo\"]}" && string(b) != "{\"foo\":[\"foo\",\"bar\"]}" {
+		t.Fatal("TestCustomMarshalForMapAlias failed")
+	}
 }
 
 func TestEmbeddedOmitEmpty(t *testing.T) {

@@ -1,3 +1,13 @@
+# v0.10.0 - 2022/11/29
+
+### New features
+
+* Support JSON Path ( #250 )
+
+### Fix bugs
+
+* Fix marshaler for map's key ( #409 )
+
 # v0.9.11 - 2022/08/18
 
 ### Fix bugs

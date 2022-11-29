@@ -30,6 +30,7 @@ func (b *PathBuilder) Build(buf []rune) (*Path, error) {
 	}
 	return &Path{
 		node:                    node,
+		RootSelectorOnly:        node == nil,
 		SingleQuotePathSelector: b.singleQuotePathSelector,
 		DoubleQuotePathSelector: b.doubleQuotePathSelector,
 	}, nil
@@ -57,8 +58,8 @@ func (b *PathBuilder) build(buf []rune) (PathNode, error) {
 }
 
 func (b *PathBuilder) buildNextCharIfExists(buf []rune, cursor int) (int, error) {
-	if len(buf) > cursor+1 {
-		offset, err := b.buildNext(buf[cursor+1:])
+	if len(buf) > cursor {
+		offset, err := b.buildNext(buf[cursor:])
 		if err != nil {
 			return 0, err
 		}
@@ -166,14 +167,16 @@ func (b *PathBuilder) buildQuoteSelector(buf []rune, sel QuotePathSelector) (int
 			}
 			selector := buf[:cursor]
 			b.addSelectorNode(string(selector))
-			return b.buildNextCharIfExists(buf, cursor+1)
+			b.singleQuotePathSelector = true
+			return b.buildNextCharIfExists(buf, cursor+2)
 		case '"':
 			if sel != DoubleQuotePathSelector {
 				return 0, errors.ErrInvalidPath("found single quote character in field selector with double quote context")
 			}
 			selector := buf[:cursor]
 			b.addSelectorNode(string(selector))
-			return b.buildNextCharIfExists(buf, cursor)
+			b.doubleQuotePathSelector = true
+			return b.buildNextCharIfExists(buf, cursor+1)
 		}
 	}
 	return 0, errors.ErrInvalidPath("couldn't find quote character in selector quote path context")
@@ -256,7 +259,7 @@ func (b *PathBuilder) buildIndex(buf []rune) (int, error) {
 				return 0, errors.ErrInvalidPath("%q is unexpected index path", buf[:cursor])
 			}
 			b.addIndexNode(int(index))
-			return b.buildNextCharIfExists(buf, cursor)
+			return b.buildNextCharIfExists(buf, cursor+1)
 		}
 	}
 	return 0, errors.ErrInvalidPath("couldn't find right bracket character in index path context")
@@ -311,16 +314,30 @@ const (
 
 type Path struct {
 	node                    PathNode
+	RootSelectorOnly        bool
 	SingleQuotePathSelector bool
 	DoubleQuotePathSelector bool
 }
 
 func (p *Path) Field(sel string) (PathNode, bool, error) {
+	if p.node == nil {
+		return nil, false, nil
+	}
 	return p.node.Field(sel)
 }
 
 func (p *Path) Get(src, dst reflect.Value) error {
+	if p.node == nil {
+		return nil
+	}
 	return p.node.Get(src, dst)
+}
+
+func (p *Path) String() string {
+	if p.node == nil {
+		return "$"
+	}
+	return p.node.String()
 }
 
 type PathNode interface {

@@ -88,6 +88,9 @@ var (
 )
 
 func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][]byte, error) {
+	if path.path.RootSelectorOnly {
+		return [][]byte{data}, nil
+	}
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 

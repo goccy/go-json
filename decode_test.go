@@ -4005,3 +4005,13 @@ func TestIssue384(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue408(t *testing.T) {
+	type T struct {
+		Arr [2]int32 `json:"arr"`
+	}
+	var v T
+	if err := json.Unmarshal([]byte(`{"arr": [1,2]}`), &v); err != nil {
+		t.Fatal(err)
+	}
+}

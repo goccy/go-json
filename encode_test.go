@@ -2678,9 +2678,28 @@ func TestCustomMarshalForMapAlias(t *testing.T) {
 	}
 }
 
-func TestEmbeddedOmitEmpty(t *testing.T) {
+func TestEmbeddedOmitEmptyStr(t *testing.T) {
 	type A struct {
 		X string `json:"x,omitempty"`
+	}
+	type B struct {
+		A
+	}
+	type C struct {
+		B
+	}
+	b, err := json.Marshal(C{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{}" {
+		t.Errorf("unexpected json: %s", string(b))
+	}
+}
+
+func TestEmbeddedOmitEmptyInt(t *testing.T) {
+	type A struct {
+		X int `json:"x,omitempty"`
 	}
 	type B struct {
 		A

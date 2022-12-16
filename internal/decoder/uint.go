@@ -77,6 +77,8 @@ func (d *uintDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
 						s.cursor-- // for retry current character
 						continue
 					}
+				} else if s.char() == '.' {
+					return nil, d.typeError([]byte{s.char()}, s.totalOffset())
 				}
 				break
 			}
@@ -113,6 +115,9 @@ func (d *uintDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error
 			cursor++
 			for numTable[buf[cursor]] {
 				cursor++
+			}
+			if buf[cursor] == '.' {
+				return nil, 0, d.typeError([]byte{buf[cursor]}, cursor)
 			}
 			num := buf[start:cursor]
 			return num, cursor, nil

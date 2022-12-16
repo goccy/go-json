@@ -4015,3 +4015,45 @@ func TestIssue408(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIntTypeError(t *testing.T) {
+	type Int struct {
+		Value int `json:"value"`
+	}
+	j := `{"value": 1.1}`
+	t.Run("unmarshal", func(t *testing.T) {
+		var v Int
+		if err := json.Unmarshal([]byte(j), &v); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("decode", func(t *testing.T) {
+		var v Int
+		reader := strings.NewReader(j)
+		err := json.NewDecoder(reader).Decode(&v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestUintTypeError(t *testing.T) {
+	type Uint struct {
+		Value uint `json:"value"`
+	}
+	j := `{"value": 1.1}`
+	t.Run("unmarshal", func(t *testing.T) {
+		var v Uint
+		if err := json.Unmarshal([]byte(j), &v); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("decode", func(t *testing.T) {
+		var v Uint
+		reader := strings.NewReader(j)
+		err := json.NewDecoder(reader).Decode(&v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}

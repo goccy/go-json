@@ -4015,3 +4015,18 @@ func TestIssue408(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIssue429(t *testing.T) {
+	var x struct {
+		N int32
+	}
+	for _, b := range []string{
+		`{"\u"`,
+		`{"\u0"`,
+		`{"\u00"`,
+	} {
+		if err := json.Unmarshal([]byte(b), &x); err == nil {
+			t.Errorf("unexpected success")
+		}
+	}
+}

@@ -4015,3 +4015,15 @@ func TestIssue408(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIssue416(t *testing.T) {
+	b := []byte(`{"Сообщение":"Текст"}`)
+
+	type T struct {
+		Msg string `json:"Сообщение"`
+	}
+	var x T
+	err := json.Unmarshal(b, &x)
+	assertErr(t, err)
+	assertEq(t, "unexpected result", "Текст", x.Msg)
+}

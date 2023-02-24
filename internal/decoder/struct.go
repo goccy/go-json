@@ -51,6 +51,14 @@ func init() {
 	}
 }
 
+func toASCIILower(s string) string {
+	b := []byte(s)
+	for i := range b {
+		b[i] = largeToSmallTable[b[i]]
+	}
+	return string(b)
+}
+
 func newStructDecoder(structName, fieldName string, fieldMap map[string]*structFieldSet) *structDecoder {
 	return &structDecoder{
 		fieldMap:         fieldMap,
@@ -91,6 +99,10 @@ func (d *structDecoder) tryOptimize() {
 	for k, v := range d.fieldMap {
 		key := strings.ToLower(k)
 		if key != k {
+			if key != toASCIILower(k) {
+				d.isTriedOptimize = true
+				return
+			}
 			// already exists same key (e.g. Hello and HELLO has same lower case key
 			if _, exists := conflicted[key]; exists {
 				d.isTriedOptimize = true

@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/goccy/go-json"
 )
@@ -310,4 +311,19 @@ func ExampleHTMLEscape() {
 	out.WriteTo(os.Stdout)
 	// Output:
 	//{"Name":"\u003cb\u003eHTML content\u003c/b\u003e"}
+}
+
+func TestOmitNil(t *testing.T) {
+	type Foo struct {
+		Bar []string          `json:"bar,omitnil"`
+		Baz map[string]string `json:"baz,omitnil"`
+	}
+	var a, b Foo
+	b.Bar = []string{}          // <- empty, not nil
+	b.Baz = map[string]string{} // <- empty, not nil
+
+	e := json.NewEncoder(os.Stdout)
+	_ = e.Encode(a)
+	println("")
+	_ = e.Encode(b)
 }

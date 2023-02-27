@@ -637,6 +637,8 @@ func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
 	headType := code.ToHeaderType(tag.IsString)
 	if tag.IsOmitEmpty {
 		headType = headType.HeadToOmitEmptyHead()
+	} else if tag.IsOmitNil {
+		headType = headType.HeadToOmitNilHead()
 	}
 	return headType
 }
@@ -645,6 +647,8 @@ func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
 	fieldType := code.ToFieldType(tag.IsString)
 	if tag.IsOmitEmpty {
 		fieldType = fieldType.FieldToOmitEmptyField()
+	} else if tag.IsOmitNil {
+		fieldType = fieldType.FieldToOmitNilField()
 	}
 	return fieldType
 }

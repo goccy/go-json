@@ -282,6 +282,14 @@ func Test_Decoder_DisallowUnknownFields(t *testing.T) {
 	}
 }
 
+func Test_Decoder_EmptyObjectWithSpace(t *testing.T) {
+	dec := json.NewDecoder(strings.NewReader(`{"obj":{ }}`))
+	var v struct {
+		Obj map[string]int `json:"obj"`
+	}
+	assertErr(t, dec.Decode(&v))
+}
+
 type unmarshalJSON struct {
 	v int
 }

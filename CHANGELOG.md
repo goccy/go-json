@@ -1,3 +1,15 @@
+# v0.10.1 - 2023/03/13
+
+### Fix bugs
+
+* Fix checkptr error for array decoder ( #415 )
+* Fix added buffer size check when decoding key ( #430 )
+* Fix handling of anonymous fields other than struct ( #431 )
+* Fix to not optimize when lower conversion can't handle byte-by-byte ( #432 )
+* Fix a problem that MarshalIndent does not work when UnorderedMap is specified ( #435 )
+* Fix mapDecoder.DecodeStream() for empty objects containing whitespace ( #425 )
+* Fix an issue that could not set the correct NextField for fields in the embedded structure ( #438 )
+
 # v0.10.0 - 2022/11/29
 
 ### New features

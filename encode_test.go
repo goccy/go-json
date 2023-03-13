@@ -2630,6 +2630,22 @@ func TestCustomMarshalForMapKey(t *testing.T) {
 	assertEq(t, "custom map key", string(expected), string(got))
 }
 
+func TestIssue417(t *testing.T) {
+	x := map[string]string{
+		"b": "b",
+		"a": "a",
+	}
+	b, err := json.MarshalIndentWithOption(x, "", " ", json.UnorderedMap())
+	assertErr(t, err)
+
+	var y map[string]string
+	err = json.Unmarshal(b, &y)
+	assertErr(t, err)
+
+	assertEq(t, "key b", "b", y["b"])
+	assertEq(t, "key a", "a", y["a"])
+}
+
 func TestIssue426(t *testing.T) {
 	type I interface {
 		Foo()

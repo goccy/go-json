@@ -2645,3 +2645,18 @@ func TestIssue417(t *testing.T) {
 	assertEq(t, "key b", "b", y["b"])
 	assertEq(t, "key a", "a", y["a"])
 }
+
+func TestIssue426(t *testing.T) {
+	type I interface {
+		Foo()
+	}
+	type A struct {
+		I
+		Val string
+	}
+	var s A
+	s.Val = "456"
+
+	b, _ := json.Marshal(s)
+	assertEq(t, "unexpected result", `{"I":null,"Val":"456"}`, string(b))
+}

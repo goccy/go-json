@@ -4027,3 +4027,18 @@ func TestIssue416(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "Текст", x.Msg)
 }
+
+func TestIssue429(t *testing.T) {
+	var x struct {
+		N int32
+	}
+	for _, b := range []string{
+		`{"\u"`,
+		`{"\u0"`,
+		`{"\u00"`,
+	} {
+		if err := json.Unmarshal([]byte(b), &x); err == nil {
+			t.Errorf("unexpected success")
+		}
+	}
+}

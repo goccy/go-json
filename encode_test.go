@@ -2629,3 +2629,18 @@ func TestCustomMarshalForMapKey(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "custom map key", string(expected), string(got))
 }
+
+func TestIssue426(t *testing.T) {
+	type I interface {
+		Foo()
+	}
+	type A struct {
+		I
+		Val string
+	}
+	var s A
+	s.Val = "456"
+
+	b, _ := json.Marshal(s)
+	assertEq(t, "unexpected result", `{"I":null,"Val":"456"}`, string(b))
+}

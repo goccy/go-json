@@ -2630,6 +2630,40 @@ func TestCustomMarshalForMapKey(t *testing.T) {
 	assertEq(t, "custom map key", string(expected), string(got))
 }
 
+func TestIssue391(t *testing.T) {
+	type A struct {
+		X string `json:"x,omitempty"`
+	}
+	type B struct {
+		A
+	}
+	type C struct {
+		X []int `json:"x,omitempty"`
+	}
+	for _, tc := range []struct {
+		name string
+		in   interface{}
+		out  string
+	}{
+		{in: struct{ B }{}, out: "{}"},
+		{in: struct {
+			B
+			Y string `json:"y"`
+		}{}, out: `{"y":""}`},
+		{in: struct {
+			Y string `json:"y"`
+			B
+		}{}, out: `{"y":""}`},
+		{in: struct{ C }{}, out: "{}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := json.Marshal(tc.in)
+			assertErr(t, err)
+			assertEq(t, "unexpected result", tc.out, string(b))
+		})
+	}
+}
+
 func TestIssue417(t *testing.T) {
 	x := map[string]string{
 		"b": "b",

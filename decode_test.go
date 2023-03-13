@@ -4016,6 +4016,18 @@ func TestIssue408(t *testing.T) {
 	}
 }
 
+func TestIssue416(t *testing.T) {
+	b := []byte(`{"Сообщение":"Текст"}`)
+
+	type T struct {
+		Msg string `json:"Сообщение"`
+	}
+	var x T
+	err := json.Unmarshal(b, &x)
+	assertErr(t, err)
+	assertEq(t, "unexpected result", "Текст", x.Msg)
+}
+
 func TestIssue429(t *testing.T) {
 	var x struct {
 		N int32

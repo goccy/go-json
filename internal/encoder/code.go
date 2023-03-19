@@ -397,7 +397,7 @@ func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *
 func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
 	// firstField is special StructHead operation for anonymous structure.
 	// So, StructHead's next operation is truly struct head operation.
-	for firstField.Op == OpStructHead {
+	for firstField.Op == OpStructHead || firstField.Op == OpStructField {
 		firstField = firstField.Next
 	}
 	lastField := firstField

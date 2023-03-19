@@ -33,6 +33,7 @@ type StructTag struct {
 	Key         string
 	IsTaggedKey bool
 	IsOmitEmpty bool
+	IsOmitNil   bool
 	IsString    bool
 	Field       reflect.StructField
 }
@@ -82,6 +83,8 @@ func StructTagFromField(field reflect.StructField) *StructTag {
 			switch opt {
 			case "omitempty":
 				st.IsOmitEmpty = true
+			case "omitnil":
+				st.IsOmitNil = true
 			case "string":
 				st.IsString = true
 			}

@@ -22,7 +22,7 @@ const (
 	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [400]string{
+var opTypeStrings = [411]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -423,6 +423,17 @@ var opTypeStrings = [400]string{
 	"StructFieldOmitEmpty",
 	"StructEnd",
 	"StructEndOmitEmpty",
+	"400",
+	"StructHeadOmitNilArray",
+	"StructFieldOmitNilArray",
+	"403",
+	"404",
+	"StructHeadOmitNilMap",
+	"StructFieldOmitNilMap",
+	"407",
+	"408",
+	"StructHeadOmitNilSlice",
+	"StructFieldOmitNilSlice",
 }
 
 type OpType uint16
@@ -828,10 +839,17 @@ const (
 	OpStructFieldOmitEmpty                   OpType = 397
 	OpStructEnd                              OpType = 398
 	OpStructEndOmitEmpty                     OpType = 399
+
+	OpStructHeadOmitNilArray				OpType = 401
+	OpStructHeadOmitNilMap					OpType = 405
+	OpStructHeadOmitNilSlice				OpType = 409
+	OpStructFieldOmitNilArray				OpType = 402
+	OpStructFieldOmitNilMap					OpType = 406
+	OpStructFieldOmitNilSlice				OpType = 410
 )
 
 func (t OpType) String() string {
-	if int(t) >= 400 {
+	if int(t) >= 411 {
 		return ""
 	}
 	return opTypeStrings[int(t)]
@@ -893,6 +911,15 @@ func (t OpType) HeadToOmitEmptyHead() OpType {
 	return t
 }
 
+func (t OpType) HeadToOmitNilHead() OpType {
+	const toOmitNilOffset = 313
+	if strings.Contains(OpType(int(t)+toOmitNilOffset).String(), "OmitNil") {
+		return OpType(int(t) + toOmitNilOffset)
+	}
+
+	return t
+}
+
 func (t OpType) PtrHeadToHead() OpType {
 	idx := strings.Index(t.String(), "PtrHead")
 	if idx == -1 {
@@ -927,6 +954,14 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	const toOmitEmptyOffset = 1
 	if strings.Contains(OpType(int(t)+toOmitEmptyOffset).String(), "OmitEmpty") {
 		return OpType(int(t) + toOmitEmptyOffset)
+	}
+	return t
+}
+
+func (t OpType) FieldToOmitNilField() OpType {
+	const toOmitNilOffset = 142
+	if strings.Contains(OpType(int(t)+toOmitNilOffset).String(), "OmitNil") {
+		return OpType(int(t) + toOmitNilOffset)
 	}
 	return t
 }

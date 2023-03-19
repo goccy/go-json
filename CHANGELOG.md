@@ -1,3 +1,13 @@
+# v0.10.2 - 2023/03/20
+
+### New features
+
+* Support DebugDOT option for debugging encoder ( #440 )
+
+### Fix bugs
+
+* Fix combination of embedding structure and omitempty option ( #442 )
+
 # v0.10.1 - 2023/03/13
 
 ### Fix bugs

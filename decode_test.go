@@ -4050,3 +4050,35 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestUnescapeString(t *testing.T) {
+	ts := []struct {
+		in  string
+		out string
+	}{
+		{"\"\xff\"", "\xef\xbf\xbd"},
+		{`"\ud800\ud800"`, "\xef\xbf\xbd\xef\xbf\xbd"},
+		{`"\ud800\ud800\udc00"`, "\xef\xbf\xbd𐀀"},
+		{"\"\xef\xbf\xbd\"", "\xef\xbf\xbd"},
+		{"\"\xff\xff\xff\"", "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd"},
+		{"\"\xefあ\"", "\xef\xbf\xbdあ"},
+	}
+	for _, tc := range ts {
+		var s string
+		{
+			err := json.Unmarshal([]byte(tc.in), &s)
+			assertErr(t, err)
+			assertEq(t, "escape string", tc.out, s)
+		}
+		{
+			err := json.NewDecoder(strings.NewReader(tc.in)).Decode(&s)
+			assertErr(t, err)
+			assertEq(t, "escape string", tc.out, s)
+		}
+		{
+			err := stdjson.Unmarshal([]byte(tc.in), &s)
+			assertErr(t, err)
+			assertEq(t, "escape string", tc.out, s)
+		}
+	}
+}

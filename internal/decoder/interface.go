@@ -231,27 +231,13 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *Stream, depth int64, p 
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return d.numDecoder(s).DecodeStream(s, depth, p)
 		case '"':
-			s.cursor++
-			start := s.cursor
-			for {
-				switch s.char() {
-				case '\\':
-					if _, err := decodeEscapeString(s, nil); err != nil {
-						return err
-					}
-				case '"':
-					literal := s.buf[start:s.cursor]
-					s.cursor++
-					*(*interface{})(p) = string(literal)
-					return nil
-				case nul:
-					if s.read() {
-						continue
-					}
-					return errors.ErrUnexpectedEndOfJSON("string", s.totalOffset())
-				}
-				s.cursor++
+			b, cursor, err := stringBytes(s)
+			s.cursor = cursor
+			if err != nil {
+				return err
 			}
+			*(*interface{})(p) = string(b)
+			return nil
 		case 't':
 			if err := trueBytes(s); err != nil {
 				return err

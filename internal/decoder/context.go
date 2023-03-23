@@ -45,6 +45,10 @@ func char(ptr unsafe.Pointer, offset int64) byte {
 	return *(*byte)(unsafe.Pointer(uintptr(ptr) + uintptr(offset)))
 }
 
+func ptrUint16(ptr unsafe.Pointer, offset int64) *uint16 {
+	return (*uint16)(unsafe.Pointer(uintptr(ptr) + uintptr(offset)))
+}
+
 func skipWhiteSpace(buf []byte, cursor int64) int64 {
 	for isWhiteSpace[buf[cursor]] {
 		cursor++

@@ -15,14 +15,26 @@ const (
 )
 
 type Stream struct {
-	buf                   []byte
-	bufSize               int64
-	length                int64
-	r                     io.Reader
-	offset                int64
-	cursor                int64
-	filledBuffer          bool
-	allRead               bool
+	// r は下位のリーダー
+	r io.Reader
+	// buf は r から読み込んだバッファしているバイト列
+	// 末尾は nul であることが保証されている
+	// バイト列が格納されているのは bufSize-1 バイト
+	buf []byte
+	// length は buf の有効なバイトが格納されているバイト数, buf[length] は nul である
+	length int64
+	// bufSize はバッファのサイズ
+	// 初期値は 512
+	bufSize int64
+	// cursor は現時点で処理している buf のインデックス
+	cursor int64
+	// offset は buf 先頭のストリーム全体におけるオフセット
+	offset int64
+	// filledBuffer は buf の中身がすべて有効なバイト列の場合 true になる
+	filledBuffer bool
+	// allRead は r から1度でも io.EOF が返されたら true になる
+	allRead bool
+
 	UseNumber             bool
 	DisallowUnknownFields bool
 	Option                *Option
@@ -41,6 +53,7 @@ func (s *Stream) TotalOffset() int64 {
 	return s.totalOffset()
 }
 
+// Buffered は encoding/json.Decoder との互換性のために提供されている
 func (s *Stream) Buffered() io.Reader {
 	buflen := int64(len(s.buf))
 	for i := s.cursor; i < buflen; i++ {
@@ -71,6 +84,7 @@ func (s *Stream) PrepareForDecode() error {
 	return nil
 }
 
+// totalOffset はストリーム全体におけるオフセット
 func (s *Stream) totalOffset() int64 {
 	return s.offset + s.cursor
 }
@@ -103,7 +117,6 @@ func (s *Stream) statForRetry() ([]byte, int64, unsafe.Pointer) {
 
 func (s *Stream) Reset() {
 	s.reset()
-	s.bufSize = int64(len(s.buf))
 }
 
 func (s *Stream) More() bool {
@@ -148,7 +161,8 @@ func (s *Stream) Token() (interface{}, error) {
 			}
 			return f64, nil
 		case '"':
-			bytes, err := stringBytes(s)
+			bytes, cursor, err := stringBytes(s)
+			s.cursor = cursor
 			if err != nil {
 				return nil, err
 			}
@@ -181,40 +195,39 @@ END:
 	return nil, io.EOF
 }
 
+// reset は offset を更新し、buf の先頭を更新する。
+// 既存の cursor と bufptr は失効する
 func (s *Stream) reset() {
 	s.offset += s.cursor
-	s.buf = s.buf[s.cursor:]
+	s.buf = s.buf[s.cursor:] // MEMO: buf を使いまわしてしまう
 	s.length -= s.cursor
 	s.cursor = 0
 }
 
+// readBuf はバッファ先のバイトスライスを返す。
+// buf, bufSize が更新される。
 func (s *Stream) readBuf() []byte {
+	// 直前の read で buf がすべて有効なバイト列の場合、バッファサイズを2倍にしてもとの buf をコピーする
 	if s.filledBuffer {
+		// TODO: bufSize の上限を設定しておくべき
 		s.bufSize *= 2
 		remainBuf := s.buf
 		s.buf = make([]byte, s.bufSize)
 		copy(s.buf, remainBuf)
 	}
-	remainLen := s.length - s.cursor
-	remainNotNulCharNum := int64(0)
-	for i := int64(0); i < remainLen; i++ {
-		if s.buf[s.cursor+i] == nul {
-			break
-		}
-		remainNotNulCharNum++
-	}
-	s.length = s.cursor + remainNotNulCharNum
-	return s.buf[s.cursor+remainNotNulCharNum:]
+	return s.buf[s.length:]
 }
 
+// read は buf にバイト列を読み込む
+// 下位のリーダーからエラーが返ってきた、もしくは allRead の状態で呼び出すと false を返す
 func (s *Stream) read() bool {
 	if s.allRead {
 		return false
 	}
 	buf := s.readBuf()
 	last := len(buf) - 1
-	buf[last] = nul
 	n, err := s.r.Read(buf[:last])
+	buf[n] = nul
 	s.length += int64(n)
 	if n == last {
 		s.filledBuffer = true
@@ -227,6 +240,30 @@ func (s *Stream) read() bool {
 		return false
 	}
 	return true
+}
+
+// requires は与えられた cursor から n バイト有効なバイトが buf に存在するまで read を繰り返します
+// 戻り値は read を呼び出した回数です。 read に失敗した場合は負の値が返ります
+func (s *Stream) requires(cursor, n int64) (read int) {
+RETRY:
+	if s.length-cursor < n {
+		if !s.read() {
+			return -1
+		}
+		read++
+		goto RETRY
+	}
+	return
+}
+
+// syncBufptr は requires と組み合わせて使うことを前提とした bufptr を同期するための関数
+// r には requires の戻り値を渡す必要があります
+// 一度でも read に成功していると bufptr を更新します
+func (s *Stream) syncBufptr(r int, p *unsafe.Pointer) int {
+	if r > 0 {
+		*p = s.bufptr()
+	}
+	return r
 }
 
 func (s *Stream) skipWhiteSpace() byte {
@@ -457,100 +494,71 @@ func (s *Stream) skipValue(depth int64) error {
 }
 
 func nullBytes(s *Stream) error {
+	if s.requires(s.cursor, 4) < 0 {
+		s.cursor = s.length
+		return errors.ErrUnexpectedEndOfJSON("null", s.cursor)
+	}
 	// current cursor's character is 'n'
 	s.cursor++
 	if s.char() != 'u' {
-		if err := retryReadNull(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'l' {
-		if err := retryReadNull(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'l' {
-		if err := retryReadNull(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "null", s.totalOffset())
 	}
 	s.cursor++
 	return nil
-}
-
-func retryReadNull(s *Stream) error {
-	if s.char() == nul && s.read() {
-		return nil
-	}
-	return errors.ErrInvalidCharacter(s.char(), "null", s.totalOffset())
 }
 
 func trueBytes(s *Stream) error {
+	if s.requires(s.cursor, 4) < 0 {
+		s.cursor = s.length
+		return errors.ErrUnexpectedEndOfJSON("bool(true)", s.cursor)
+	}
 	// current cursor's character is 't'
 	s.cursor++
 	if s.char() != 'r' {
-		if err := retryReadTrue(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'u' {
-		if err := retryReadTrue(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'e' {
-		if err := retryReadTrue(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 	}
 	s.cursor++
 	return nil
-}
-
-func retryReadTrue(s *Stream) error {
-	if s.char() == nul && s.read() {
-		return nil
-	}
-	return errors.ErrInvalidCharacter(s.char(), "bool(true)", s.totalOffset())
 }
 
 func falseBytes(s *Stream) error {
+	if s.requires(s.cursor, 5) < 0 {
+		s.cursor = s.length
+		return errors.ErrUnexpectedEndOfJSON("bool(false)", s.cursor)
+	}
 	// current cursor's character is 'f'
 	s.cursor++
 	if s.char() != 'a' {
-		if err := retryReadFalse(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'l' {
-		if err := retryReadFalse(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 's' {
-		if err := retryReadFalse(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
 	s.cursor++
 	if s.char() != 'e' {
-		if err := retryReadFalse(s); err != nil {
-			return err
-		}
+		return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 	}
 	s.cursor++
 	return nil
-}
-
-func retryReadFalse(s *Stream) error {
-	if s.char() == nul && s.read() {
-		return nil
-	}
-	return errors.ErrInvalidCharacter(s.char(), "bool(false)", s.totalOffset())
 }

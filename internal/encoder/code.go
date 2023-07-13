@@ -271,7 +271,13 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
-func (c *SliceCode) Filter(_ *FieldQuery) Code {
+func (c *SliceCode) Filter(fieldQuery *FieldQuery) Code {
+	if len(fieldQuery.Fields) > 0 && fieldQuery.Fields[0].Name == "#" {
+		return &SliceCode{
+			value: c.value.Filter(fieldQuery.Fields[0]),
+			typ:   c.typ,
+		}
+	}
 	return c
 }
 
@@ -316,7 +322,13 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
-func (c *ArrayCode) Filter(_ *FieldQuery) Code {
+func (c *ArrayCode) Filter(fieldQuery *FieldQuery) Code {
+	if len(fieldQuery.Fields) > 0 && fieldQuery.Fields[0].Name == "#" {
+		return &ArrayCode{
+			value: c.value.Filter(fieldQuery.Fields[0]),
+			typ:   c.typ,
+		}
+	}
 	return c
 }
 
@@ -366,7 +378,14 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
 }
 
-func (c *MapCode) Filter(_ *FieldQuery) Code {
+func (c *MapCode) Filter(fieldQuery *FieldQuery) Code {
+	if len(fieldQuery.Fields) > 0 && fieldQuery.Fields[0].Name == "#" {
+		return &MapCode{
+			value: c.value.Filter(fieldQuery.Fields[0]),
+			typ:   c.typ,
+			key:   c.key,
+		}
+	}
 	return c
 }
 

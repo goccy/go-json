@@ -812,7 +812,6 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 							if err != nil {
 								return 0, err
 							}
-							cursor = c
 						} else {
 							return 0, err
 						}
@@ -833,7 +832,6 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 						if err != nil {
 							return 0, err
 						}
-						cursor = c
 					} else {
 						return 0, err
 					}

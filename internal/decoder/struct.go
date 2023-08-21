@@ -778,6 +778,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	if firstWin {
 		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
 	}
+	var lastTypeMismatchError error
 	for {
 		c, field, err := d.keyDecoder(d, buf, cursor)
 		if err != nil {
@@ -805,7 +806,16 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 				} else {
 					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
 					if err != nil {
-						return 0, err
+						if _, ok := err.(*errors.UnmarshalTypeError); ok {
+							lastTypeMismatchError = err
+							c, err = skipValue(buf, cursor, depth)
+							if err != nil {
+								return 0, err
+							}
+							cursor = c
+						} else {
+							return 0, err
+						}
 					}
 					cursor = c
 					seenFieldNum++
@@ -817,7 +827,16 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 			} else {
 				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
 				if err != nil {
-					return 0, err
+					if _, ok := err.(*errors.UnmarshalTypeError); ok {
+						lastTypeMismatchError = err
+						c, err = skipValue(buf, cursor, depth)
+						if err != nil {
+							return 0, err
+						}
+						cursor = c
+					} else {
+						return 0, err
+					}
 				}
 				cursor = c
 			}
@@ -831,6 +850,9 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		cursor = skipWhiteSpace(buf, cursor)
 		if char(b, cursor) == '}' {
 			cursor++
+			if lastTypeMismatchError != nil {
+				return 0, lastTypeMismatchError
+			}
 			return cursor, nil
 		}
 		if char(b, cursor) != ',' {

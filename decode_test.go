@@ -4050,3 +4050,28 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue464(t *testing.T) {
+	type testStruct struct {
+		Name        string
+		Value       int
+		Description string
+	}
+
+	jsonValue := []byte("{\"Name\":\"Test Name\",\"Value\":\"incorrect\",\"Description\":\"Test Description\"}")
+
+	jsonData := testStruct{}
+	err := stdjson.Unmarshal(jsonValue, &jsonData)
+	assertIsType(t, "Incorrect error type stdjson", &stdjson.UnmarshalTypeError{}, err)
+
+	gojsonData := testStruct{}
+	err = json.Unmarshal(jsonValue, &gojsonData)
+	assertIsType(t, "Incorrect error type go-json", &json.UnmarshalTypeError{}, err)
+
+	assertEq(t, "Incorrect name stdjson", "Test Name", jsonData.Name)
+	assertEq(t, "Incorrect name go-json", "Test Name", gojsonData.Name)
+	assertEq(t, "Incorrect value stdjson", 0, jsonData.Value)
+	assertEq(t, "Incorrect value go-json", 0, gojsonData.Value)
+	assertEq(t, "Incorrect description stdjson", "Test Description", jsonData.Description)
+	assertEq(t, "Incorrect description go-json", "Test Description", gojsonData.Description)
+}

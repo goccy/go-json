@@ -75,6 +75,10 @@ func compile(typ *runtime.Type, structName, fieldName string, structTypeToDecode
 	//	return newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName), nil
 	//}
 
+	if runtime.PtrTo(typ).Implements(remergeUnmarshaler) {
+		return newRemergeUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName), nil 
+	}
+
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return compilePtr(typ, structName, fieldName, structTypeToDecoder)

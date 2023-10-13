@@ -7,7 +7,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -273,11 +273,11 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, buf, 0644)
+	return os.WriteFile(path, buf, 0644)
 }
 
 func generateVM() error {
-	file, err := ioutil.ReadFile("vm.go.tmpl")
+	file, err := os.ReadFile("vm.go.tmpl")
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func generateVM() error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(path, source, 0644); err != nil {
+		if err := os.WriteFile(path, source, 0644); err != nil {
 			return err
 		}
 	}

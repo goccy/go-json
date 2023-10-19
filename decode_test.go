@@ -197,6 +197,13 @@ func Test_Decoder(t *testing.T) {
 			assertEq(t, "interface{}", v.F, nil)
 			assertEq(t, "nilfunc", true, v.G == nil)
 		})
+		t.Run("struct.pointer must be nil", func(t *testing.T) {
+			var v struct {
+				A *int
+			}
+			json.Unmarshal([]byte(`{"a": "alpha"}`), &v)
+			assertEq(t, "struct.A", v.A, (*int)(nil))
+		})
 	})
 	t.Run("interface", func(t *testing.T) {
 		t.Run("number", func(t *testing.T) {

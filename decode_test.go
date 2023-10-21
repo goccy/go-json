@@ -208,9 +208,17 @@ func Test_Decoder(t *testing.T) {
 	t.Run("interface", func(t *testing.T) {
 		t.Run("number", func(t *testing.T) {
 			var v interface{}
-			assertErr(t, json.Unmarshal([]byte(`10`), &v))
+			assertErr(t, json.Unmarshal([]byte(`10.0`), &v))
 			assertEq(t, "interface.kind", "float64", reflect.TypeOf(v).Kind().String())
 			assertEq(t, "interface", `10`, fmt.Sprint(v))
+		})
+		t.Run("int64", func(t *testing.T) {
+			type StructValueLayout struct {
+				Values []interface{} `json:"values"`
+			}
+			var structLayout StructValueLayout
+			assertErr(t, json.Unmarshal([]byte(`{"values":[2074546971352916989, "test"]}`), &structLayout))
+			assertEq(t, "int64", int64(2074546971352916989), structLayout.Values[0].(int64))
 		})
 		t.Run("string", func(t *testing.T) {
 			var v interface{}

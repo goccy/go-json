@@ -5,12 +5,13 @@ import (
 	"io"
 )
 
-type OptionFlag uint8
+type OptionFlag uint16
 
 const (
 	HTMLEscapeOption OptionFlag = 1 << iota
 	IndentOption
 	UnorderedMapOption
+	NilSliceAsEmptyOption
 	DebugOption
 	ColorizeOption
 	ContextOption

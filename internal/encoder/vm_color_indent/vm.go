@@ -301,19 +301,29 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, bb)
 			code = code.Next
 		case encoder.OpSlicePtr:
+			nilSliceAsEmpty := ctx.Option.Flag&encoder.NilSliceAsEmptyOption != 0
 			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
 			if p == 0 {
-				b = appendNullComma(ctx, b)
+				if nilSliceAsEmpty {
+					b = appendEmptyArray(ctx, b)
+				} else {
+					b = appendNullComma(ctx, b)
+				}
 				code = code.End.Next
 				break
 			}
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpSlice:
+			nilSliceAsEmpty := ctx.Option.Flag&encoder.NilSliceAsEmptyOption != 0
 			p := load(ctxptr, code.Idx)
 			slice := ptrToSlice(p)
 			if p == 0 || slice.Data == nil {
-				b = appendNullComma(ctx, b)
+				if nilSliceAsEmpty {
+					b = appendEmptyArray(ctx, b)
+				} else {
+					b = appendNullComma(ctx, b)
+				}
 				code = code.End.Next
 				break
 			}

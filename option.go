@@ -17,6 +17,13 @@ func UnorderedMap() EncodeOptionFunc {
 	}
 }
 
+// NilSliceAsEmpty encodes nil slices as [] instead of null.
+func NilSliceAsEmpty() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Flag |= encoder.NilSliceAsEmptyOption
+	}
+}
+
 // DisableHTMLEscape disables escaping of HTML characters ( '&', '<', '>' ) when encoding string.
 func DisableHTMLEscape() EncodeOptionFunc {
 	return func(opt *EncodeOption) {

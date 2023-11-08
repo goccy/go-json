@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/therve/go-json/internal/runtime"
 )
 
 type ptrDecoder struct {

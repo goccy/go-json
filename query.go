@@ -1,7 +1,7 @@
 package json
 
 import (
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/therve/go-json/internal/encoder"
 )
 
 type (

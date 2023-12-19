@@ -47,6 +47,8 @@ func stringToUint64Slice(s string) []uint64 {
 }
 
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+	initStringTable() // lazy initialization
+
 	if ctx.Option.Flag&HTMLEscapeOption != 0 {
 		if ctx.Option.Flag&NormalizeUTF8Option != 0 {
 			return appendNormalizedHTMLString(buf, s)

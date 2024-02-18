@@ -15,7 +15,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -56,7 +55,7 @@ func codeInit() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := ioutil.ReadAll(gz)
+	data, err := io.ReadAll(gz)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +103,7 @@ func Benchmark_EncodeBigData_GoJson(b *testing.B) {
 		b.StartTimer()
 	}
 	b.RunParallel(func(pb *testing.PB) {
-		enc := json.NewEncoder(ioutil.Discard)
+		enc := json.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&codeStruct); err != nil {
 				b.Fatal("Encode:", err)
@@ -122,7 +121,7 @@ func Benchmark_EncodeBigData_EncodingJson(b *testing.B) {
 		b.StartTimer()
 	}
 	b.RunParallel(func(pb *testing.PB) {
-		enc := stdjson.NewEncoder(ioutil.Discard)
+		enc := stdjson.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&codeStruct); err != nil {
 				b.Fatal("Encode:", err)
@@ -141,7 +140,7 @@ func Benchmark_EncodeBigData_JsonIter(b *testing.B) {
 	}
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	b.RunParallel(func(pb *testing.PB) {
-		enc := json.NewEncoder(ioutil.Discard)
+		enc := json.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&codeStruct); err != nil {
 				b.Fatal("Encode:", err)
@@ -159,7 +158,7 @@ func Benchmark_EncodeBigData_SegmentioJson(b *testing.B) {
 		b.StartTimer()
 	}
 	b.RunParallel(func(pb *testing.PB) {
-		enc := segmentiojson.NewEncoder(ioutil.Discard)
+		enc := segmentiojson.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&codeStruct); err != nil {
 				b.Fatal("Encode:", err)
@@ -316,7 +315,7 @@ func Benchmark_EncodeRawMessage_EncodingJson(b *testing.B) {
 	}{}
 
 	b.RunParallel(func(pb *testing.PB) {
-		enc := stdjson.NewEncoder(ioutil.Discard)
+		enc := stdjson.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&m); err != nil {
 				b.Fatal("Encode:", err)
@@ -336,7 +335,7 @@ func Benchmark_EncodeRawMessage_JsonIter(b *testing.B) {
 	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 	b.RunParallel(func(pb *testing.PB) {
-		enc := json.NewEncoder(ioutil.Discard)
+		enc := json.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&m); err != nil {
 				b.Fatal("Encode:", err)
@@ -353,7 +352,7 @@ func Benchmark_EncodeRawMessage_GoJson(b *testing.B) {
 		B json.RawMessage
 	}{}
 	b.RunParallel(func(pb *testing.PB) {
-		enc := json.NewEncoder(ioutil.Discard)
+		enc := json.NewEncoder(io.Discard)
 		for pb.Next() {
 			if err := enc.Encode(&m); err != nil {
 				b.Fatal("Encode:", err)

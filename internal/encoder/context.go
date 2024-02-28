@@ -101,5 +101,6 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	ctx.Option = &Option{}
 	runtimeContextPool.Put(ctx)
 }

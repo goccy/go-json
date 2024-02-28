@@ -1999,36 +1999,58 @@ type marshalContextKey struct{}
 type marshalContextStructType struct{}
 
 func (t *marshalContextStructType) MarshalJSON(ctx context.Context) ([]byte, error) {
+	if ctx == nil {
+		return []byte(`"no context"`), nil
+	}
 	v := ctx.Value(marshalContextKey{})
+	if v == nil {
+		return []byte(`"no value in context"`), nil
+	}
 	s, ok := v.(string)
 	if !ok {
-		return nil, fmt.Errorf("failed to propagate parent context.Context")
+		return []byte(`"unexpected value in context"`), nil
 	}
-	if s != "hello" {
-		return nil, fmt.Errorf("failed to propagate parent context.Context")
-	}
-	return []byte(`"success"`), nil
+	return []byte(`"` + s + `"`), nil
 }
 
 func TestEncodeContextOption(t *testing.T) {
 	t.Run("MarshalContext", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), marshalContextKey{}, "hello")
+		ctx := context.WithValue(context.Background(), marshalContextKey{}, "success")
 		b, err := json.MarshalContext(ctx, &marshalContextStructType{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(b) != `"success"` {
-			t.Fatal("failed to encode with MarshalerContext")
+			t.Fatal("failed to encode with MarshalContext")
 		}
 	})
 	t.Run("EncodeContext", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), marshalContextKey{}, "hello")
+		ctx := context.WithValue(context.Background(), marshalContextKey{}, "success")
 		buf := bytes.NewBuffer([]byte{})
 		if err := json.NewEncoder(buf).EncodeContext(ctx, &marshalContextStructType{}); err != nil {
 			t.Fatal(err)
 		}
 		if buf.String() != "\"success\"\n" {
 			t.Fatal("failed to encode with EncodeContext")
+		}
+	})
+	t.Run("Marshal after MarshalContext", func(t *testing.T) {
+		// Regression test for https://github.com/goccy/go-json/issues/499
+		ctx := context.WithValue(context.Background(), marshalContextKey{}, "success")
+		b, err := json.MarshalContext(ctx, &marshalContextStructType{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != `"success"` {
+			t.Fatal("failed to encode with MarshalContext")
+		}
+
+		b, err = json.Marshal(&marshalContextStructType{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != `"no context"` {
+			t.Fatal("failed to encode with Marshal")
 		}
 	})
 }

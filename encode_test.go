@@ -426,6 +426,21 @@ func Test_Marshal(t *testing.T) {
 			assertErr(t, err)
 			assertEq(t, "[]interface{}", `[1,2.1,"hello"]`, string(bytes))
 		})
+		t.Run("nil_slice", func(t *testing.T) {
+			var a []int
+			bytes, err := json.Marshal(a)
+			assertErr(t, err)
+			assertEq(t, "nil_slice", `null`, string(bytes))
+			bytes, err = json.Marshal(&a)
+			assertErr(t, err)
+			assertEq(t, "nil_slice_ptr", `null`, string(bytes))
+			bytes, err = json.MarshalWithOption(a, json.NilSliceAsEmpty())
+			assertErr(t, err)
+			assertEq(t, "nil_slice_as_empty", `[]`, string(bytes))
+			bytes, err = json.MarshalWithOption(&a, json.NilSliceAsEmpty())
+			assertErr(t, err)
+			assertEq(t, "nil_slice_ptr_as_empty", `[]`, string(bytes))
+		})
 	})
 
 	t.Run("array", func(t *testing.T) {
@@ -589,6 +604,15 @@ func Test_MarshalIndent(t *testing.T) {
 			assertErr(t, err)
 			result := "[\n-\t1,\n-\t2.1,\n-\t\"hello\"\n-]"
 			assertEq(t, "[]interface{}", result, string(bytes))
+		})
+		t.Run("nil", func(t *testing.T) {
+			var a []int
+			bytes, err := json.MarshalIndent(a, prefix, indent)
+			assertErr(t, err)
+			assertEq(t, "nil_slice", `null`, string(bytes))
+			bytes, err = json.MarshalIndentWithOption(a, prefix, indent, json.NilSliceAsEmpty())
+			assertErr(t, err)
+			assertEq(t, "nil_slice_as_empty", `[]`, string(bytes))
 		})
 	})
 

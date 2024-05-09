@@ -270,6 +270,7 @@ func stringBytes(s *Stream) ([]byte, error) {
 			r, size := utf8.DecodeRune(s.buf[cursor:])
 			if r == utf8.RuneError {
 				s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
+				s.bufSize = int64(len(s.buf))
 				cursor += runeErrBytesLen
 				s.length += runeErrBytesLen
 				_, _, p = s.stat()

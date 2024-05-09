@@ -18,12 +18,20 @@ type intDecoder struct {
 }
 
 func newIntDecoder(typ *runtime.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
-	return &intDecoder{
-		typ:        typ,
-		kind:       typ.Kind(),
-		op:         op,
-		structName: structName,
-		fieldName:  fieldName,
+	if typ != nil {
+		return &intDecoder{
+			typ:        typ,
+			kind:       typ.Kind(),
+			op:         op,
+			structName: structName,
+			fieldName:  fieldName,
+		}
+	} else {
+		return &intDecoder{
+			op:         op,
+			structName: structName,
+			fieldName:  fieldName,
+		}
 	}
 }
 
@@ -190,18 +198,20 @@ func (d *intDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 	if err != nil {
 		return d.typeError(bytes, s.totalOffset())
 	}
-	switch d.kind {
-	case reflect.Int8:
-		if i64 < -1*(1<<7) || (1<<7) <= i64 {
-			return d.typeError(bytes, s.totalOffset())
-		}
-	case reflect.Int16:
-		if i64 < -1*(1<<15) || (1<<15) <= i64 {
-			return d.typeError(bytes, s.totalOffset())
-		}
-	case reflect.Int32:
-		if i64 < -1*(1<<31) || (1<<31) <= i64 {
-			return d.typeError(bytes, s.totalOffset())
+	if d.typ != nil {
+		switch d.kind {
+		case reflect.Int8:
+			if i64 < -1*(1<<7) || (1<<7) <= i64 {
+				return d.typeError(bytes, s.totalOffset())
+			}
+		case reflect.Int16:
+			if i64 < -1*(1<<15) || (1<<15) <= i64 {
+				return d.typeError(bytes, s.totalOffset())
+			}
+		case reflect.Int32:
+			if i64 < -1*(1<<31) || (1<<31) <= i64 {
+				return d.typeError(bytes, s.totalOffset())
+			}
 		}
 	}
 	d.op(p, i64)
@@ -223,18 +233,20 @@ func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	if err != nil {
 		return 0, d.typeError(bytes, cursor)
 	}
-	switch d.kind {
-	case reflect.Int8:
-		if i64 < -1*(1<<7) || (1<<7) <= i64 {
-			return 0, d.typeError(bytes, cursor)
-		}
-	case reflect.Int16:
-		if i64 < -1*(1<<15) || (1<<15) <= i64 {
-			return 0, d.typeError(bytes, cursor)
-		}
-	case reflect.Int32:
-		if i64 < -1*(1<<31) || (1<<31) <= i64 {
-			return 0, d.typeError(bytes, cursor)
+	if d.typ != nil {
+		switch d.kind {
+		case reflect.Int8:
+			if i64 < -1*(1<<7) || (1<<7) <= i64 {
+				return 0, d.typeError(bytes, cursor)
+			}
+		case reflect.Int16:
+			if i64 < -1*(1<<15) || (1<<15) <= i64 {
+				return 0, d.typeError(bytes, cursor)
+			}
+		case reflect.Int32:
+			if i64 < -1*(1<<31) || (1<<31) <= i64 {
+				return 0, d.typeError(bytes, cursor)
+			}
 		}
 	}
 	d.op(p, i64)

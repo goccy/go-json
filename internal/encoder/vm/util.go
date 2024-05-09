@@ -3,6 +3,7 @@ package vm
 import (
 	"encoding/json"
 	"fmt"
+	"unicode"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -184,7 +185,17 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 
-func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+func appendStructKey(e *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	if e.Option.Flag&encoder.CamelCaseOption > 0 {
+		key := []rune(code.Key)
+		for i := range key {
+			if unicode.IsLetter(key[i]) {
+				key[i] = unicode.ToLower(key[i])
+				break
+			}
+		}
+		return append(b, string(key)...)
+	}
 	return append(b, code.Key...)
 }
 

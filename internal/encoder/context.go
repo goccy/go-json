@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"context"
 	"sync"
 	"unsafe"
 
@@ -69,7 +68,6 @@ var (
 )
 
 type RuntimeContext struct {
-	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
 	Ptrs       []uintptr
@@ -101,6 +99,6 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
-	ctx.Option = &Option{}
+	ctx.Option.Context = nil
 	runtimeContextPool.Put(ctx)
 }

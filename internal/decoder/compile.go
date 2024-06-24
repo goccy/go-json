@@ -318,7 +318,11 @@ func typeToStructTags(typ *runtime.Type) runtime.StructTags {
 		if runtime.IsIgnoredStructField(field) {
 			continue
 		}
-		tags = append(tags, runtime.StructTagFromField(field))
+		structTag := runtime.StructTagFromField(field)
+		if structTag.IsReadonly {
+			continue
+		}
+		tags = append(tags, structTag)
 	}
 	return tags
 }

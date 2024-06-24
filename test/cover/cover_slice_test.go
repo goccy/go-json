@@ -16,6 +16,18 @@ func (coverSliceMarshalJSON) MarshalJSON() ([]byte, error) {
 	return []byte(`"hello"`), nil
 }
 
+type coverSliceMarshalJSONMap map[string]any
+
+func (c coverSliceMarshalJSONMap) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any(c))
+}
+
+type coverSliceMarshalJSONMapPtr map[string]any
+
+func (c *coverSliceMarshalJSONMapPtr) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any(*c))
+}
+
 type coverSliceMarshalText struct {
 	A int
 }
@@ -151,6 +163,22 @@ func TestCoverSlice(t *testing.T) {
 		{
 			name: "SliceMarshalJSON",
 			data: []coverSliceMarshalJSON{{A: 1}, {A: 2}},
+		},
+		{
+			name: "SliceMarshalJSONMap",
+			data: []coverSliceMarshalJSONMap{{"foo": "bar"}, {"some": 1}},
+		},
+		{
+			name: "SliceMarshalJSONMap",
+			data: []*coverSliceMarshalJSONMap{{"foo": "bar"}, {"some": 1}},
+		},
+		{
+			name: "SliceMarshalJSONMap",
+			data: []coverSliceMarshalJSONMapPtr{{"foo": "bar"}, {"some": 1}},
+		},
+		{
+			name: "SliceMarshalJSONMap",
+			data: []*coverSliceMarshalJSONMapPtr{{"foo": "bar"}, {"some": 1}},
 		},
 		{
 			name: "SliceMarshalText",

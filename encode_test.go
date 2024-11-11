@@ -426,6 +426,11 @@ func Test_Marshal(t *testing.T) {
 			assertErr(t, err)
 			assertEq(t, "[]interface{}", `[1,2.1,"hello"]`, string(bytes))
 		})
+		t.Run("[]*time.Time", func(t *testing.T) {
+			bytes, err := json.Marshal([]*time.Time{nil})
+			assertErr(t, err)
+			assertEq(t, "[]*time.Time", `[null]`, string(bytes))
+		})
 	})
 
 	t.Run("array", func(t *testing.T) {

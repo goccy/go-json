@@ -21,6 +21,18 @@ import (
 	"github.com/goccy/go-json"
 )
 
+type stringAlias string
+
+func (d *stringAlias) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", *d)), nil
+}
+
+type intAlias int
+
+func (d *intAlias) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%d", *d)), nil
+}
+
 type recursiveT struct {
 	A *recursiveT `json:"a,omitempty"`
 	B *recursiveU `json:"b,omitempty"`
@@ -382,6 +394,18 @@ func Test_Marshal(t *testing.T) {
 				bytes, err := json.Marshal(v)
 				assertErr(t, err)
 				assertEq(t, "array", `{"b":{"c":1}}`, string(bytes))
+			})
+
+			t.Run("custom type with MarshalJSON implementation with pointer receiver", func(t *testing.T) {
+				type withOmit struct {
+					A string      `json:"a,omitempty"`
+					B stringAlias `json:"b,omitempty"`
+					C intAlias    `json:"c,omitempty"`
+				}
+				w := withOmit{}
+				bytes, err := json.Marshal(&w)
+				assertErr(t, err)
+				assertEq(t, "custom type with MarshalJSON implementation with pointer receiver", `{}`, string(bytes))
 			})
 		})
 		t.Run("head_omitempty", func(t *testing.T) {

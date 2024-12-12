@@ -672,7 +672,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = true
 	case isPtr && c.isPtrMarshalTextType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalText() ([]byte, error)

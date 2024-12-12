@@ -203,6 +203,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
+			if code.FieldQuery != nil {
+				ctx.Option.Context = encoder.SetFieldQueryToContext(ctx.Option.Context, code.FieldQuery)
+			}
 			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(typ)))
 			if err != nil {
 				return nil, err

@@ -28,6 +28,20 @@ type queryTestZ struct {
 	ZA string
 	ZB bool
 	ZC int
+	ZD []queryTestW
+	ZE map[string]queryTestV
+}
+
+type queryTestW struct {
+	WA string
+	WB bool
+	WC int
+}
+
+type queryTestV struct {
+	VA string
+	VB bool
+	VC int
 }
 
 func (z *queryTestZ) MarshalJSON(ctx context.Context) ([]byte, error) {
@@ -45,6 +59,10 @@ func TestFieldQuery(t *testing.T) {
 			json.BuildSubFieldQuery("YC").Fields(
 				"ZA",
 				"ZB",
+				json.BuildSubFieldQuery("ZD").Fields(json.BuildSubFieldQuery("#").Fields(
+					"WA", "WC")),
+				json.BuildSubFieldQuery("ZE").Fields(json.BuildSubFieldQuery("#").Fields(
+					"VA", "VC")),
 			),
 		),
 	)
@@ -77,6 +95,38 @@ func TestFieldQuery(t *testing.T) {
 							{
 								Name: "ZB",
 							},
+							{
+								Name: "ZD",
+								Fields: []*json.FieldQuery{
+									{
+										Name: "#",
+										Fields: []*json.FieldQuery{
+											{
+												Name: "WA",
+											},
+											{
+												Name: "WC",
+											},
+										},
+									},
+								},
+							},
+							{
+								Name: "ZE",
+								Fields: []*json.FieldQuery{
+									{
+										Name: "#",
+										Fields: []*json.FieldQuery{
+											{
+												Name: "VA",
+											},
+											{
+												Name: "VC",
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -89,7 +139,7 @@ func TestFieldQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if queryStr != `["XA","XB",{"XC":["YA","YB",{"YC":["ZA","ZB"]}]}]` {
+	if queryStr != `["XA","XB",{"XC":["YA","YB",{"YC":["ZA","ZB",{"ZD":[{"#":["WA","WC"]}]},{"ZE":[{"#":["VA","VC"]}]}]}]}]` {
 		t.Fatalf("failed to create query string. %s", queryStr)
 	}
 	ctx := json.SetFieldQueryToContext(context.Background(), query)
@@ -103,6 +153,14 @@ func TestFieldQuery(t *testing.T) {
 				ZA: "za",
 				ZB: true,
 				ZC: 3,
+				ZD: []queryTestW{
+					{WA: "wa1", WB: true, WC: 1},
+					{WA: "wa2", WB: true, WC: 1},
+				},
+				ZE: map[string]queryTestV{
+					"key1": {VA: "va1", VB: true, VC: 1},
+					"key2": {VA: "va2", VB: true, VC: 1},
+				},
 			},
 			YD: true,
 			YE: 4,
@@ -113,7 +171,7 @@ func TestFieldQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := `{"XA":1,"XB":"xb","XC":{"YA":2,"YB":"yb","YC":{"ZA":"za","ZB":true}}}`
+	expected := `{"XA":1,"XB":"xb","XC":{"YA":2,"YB":"yb","YC":{"ZA":"za","ZB":true,"ZD":[{"WA":"wa1","WC":1},{"WA":"wa2","WC":1}],"ZE":{"key1":{"VA":"va1","VC":1},"key2":{"VA":"va2","VC":1}}}}}`
 	got := string(b)
 	if expected != got {
 		t.Fatalf("failed to encode with field query: expected %q but got %q", expected, got)

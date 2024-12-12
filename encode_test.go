@@ -2715,3 +2715,17 @@ func TestIssue441(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+func TestIssue459(t *testing.T) {
+	type A struct {
+		A *A `json:"a,omitempty"`
+	}
+
+	type B struct {
+		A
+	}
+
+	b, err := json.Marshal(B{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", "{}", string(b))
+}

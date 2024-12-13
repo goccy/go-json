@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-type OptionFlag uint8
+type OptionFlag uint16
 
 const (
 	HTMLEscapeOption OptionFlag = 1 << iota
@@ -16,6 +16,7 @@ const (
 	ContextOption
 	NormalizeUTF8Option
 	FieldQueryOption
+	CamelCaseOption
 )
 
 type Option struct {

@@ -274,7 +274,6 @@ func ExampleIndent() {
 	// =]
 }
 
-/*
 func ExampleMarshalIndent() {
 	data := map[string]int{
 		"a": 1,
@@ -293,7 +292,6 @@ func ExampleMarshalIndent() {
 	// <prefix><indent>"b": 2
 	// <prefix>}
 }
-*/
 
 func ExampleValid() {
 	goodJSON := `{"example": 1}`

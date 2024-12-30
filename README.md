@@ -35,7 +35,7 @@ If you have the API you need, please submit your issue [here](https://github.com
 
 # Installation
 
-```
+```shell
 go get github.com/goccy/go-json
 ```
 
@@ -43,7 +43,7 @@ go get github.com/goccy/go-json
 
 Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 
-```
+```diff
 -import "encoding/json"
 +import "github.com/goccy/go-json"
 ```
@@ -79,7 +79,7 @@ Also, development seems to have already stopped
 
 # Benchmarks
 
-```
+```console
 $ cd benchmarks
 $ go test -bench .
 ```
@@ -233,7 +233,7 @@ When encoding a structure like the one above, create a sequence of opcodes like 
 
 ※ When processing each operation, write the letters on the right.
 
-In addition, each opcode is managed by the following structure ( 
+In addition, each opcode is managed by the following structure (
 Pseudo code ).
 
 ```go

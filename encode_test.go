@@ -1703,6 +1703,64 @@ func TestAnonymousFields(t *testing.T) {
 			return S{}
 		},
 		want: `{}`,
+	}, {
+		// Structs with an inline tag option should be embedded.
+		label: "InlinedStruct",
+		makeInput: func() interface{} {
+			type (
+				S2 struct{ X int }
+				S  struct {
+					S2 `json:",inline"`
+				}
+			)
+			return S{S2: S2{X: 1}}
+		},
+		want: `{"X":1}`,
+	}, {
+		// Pointers to structs with an inline tag option should be embedded.
+		label: "InlinedStructPointer",
+		makeInput: func() interface{} {
+			type (
+				S2 struct{ X int }
+				S  struct {
+					*S2 `json:",inline"`
+				}
+			)
+			return S{S2: &S2{X: 1}}
+		},
+		want: `{"X":1}`,
+	}, {
+		// Non-anymous generic struct with an inline tag option should
+		// be embedded.
+		label: "InlinedStructGeneric",
+		makeInput: func() interface{} {
+			type (
+				S1 struct {
+					X int
+				}
+				S2 struct {
+					Y int
+				}
+				S[T any] struct {
+					Embedded T `json:",inline"`
+					S2
+				}
+			)
+			return S[S1]{Embedded: S1{X: 1}, S2: S2{Y: 2}}
+		},
+		want: `{"X":1,"Y":2}`,
+	}, {
+		// Non-struct with an inline tag option should be serialized
+		label: "InlinedStructPointer",
+		makeInput: func() interface{} {
+			type (
+				S struct {
+					X int `json:",inline"`
+				}
+			)
+			return S{X: 1}
+		},
+		want: `{"X":1}`,
 	}}
 
 	for i, tt := range tests {

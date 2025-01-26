@@ -5,18 +5,20 @@ go 1.19
 require (
 	github.com/francoispqt/gojay v1.2.13
 	github.com/goccy/go-json v0.0.0-00010101000000-000000000000
-	github.com/json-iterator/go v1.1.10
+	github.com/json-iterator/go v1.1.12
 	github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
-	github.com/segmentio/encoding v0.2.4
+	github.com/segmentio/encoding v0.3.4
 	github.com/valyala/fastjson v1.6.3
-	github.com/wI2L/jettison v0.7.1
+	github.com/wI2L/jettison v0.7.4
 )
 
 require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
+	golang.org/x/sys v0.0.0-20220318055525-2edf467146b5 // indirect
 )
 
 replace github.com/goccy/go-json => ../

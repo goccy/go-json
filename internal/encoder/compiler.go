@@ -817,7 +817,11 @@ func (c *Compiler) typeToStructTags(typ *runtime.Type) runtime.StructTags {
 		if runtime.IsIgnoredStructField(field) {
 			continue
 		}
-		tags = append(tags, runtime.StructTagFromField(field))
+		structTag := runtime.StructTagFromField(field)
+		if structTag.IsWriteonly {
+			continue
+		}
+		tags = append(tags, structTag)
 	}
 	return tags
 }

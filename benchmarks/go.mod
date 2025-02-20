@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/francoispqt/gojay v1.2.13
-	github.com/goccy/go-json v0.0.0-00010101000000-000000000000
+	github.com/bytedance/sonic v0.0.0-00010101000000-000000000000
 	github.com/json-iterator/go v1.1.10
 	github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
@@ -19,4 +19,4 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 )
 
-replace github.com/goccy/go-json => ../
+replace github.com/bytedance/sonic => ../

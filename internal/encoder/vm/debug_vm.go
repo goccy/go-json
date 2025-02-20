@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/bytedance/sonic/internal/encoder"
 )
 
 func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {

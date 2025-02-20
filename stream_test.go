@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package json_test
+package sonic_test
 
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -17,8 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/goccy/go-json"
 )
 
 // Test values for the stream test.

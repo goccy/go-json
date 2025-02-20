@@ -1,4 +1,4 @@
-package json_test
+package sonic_test
 
 import "testing"
 

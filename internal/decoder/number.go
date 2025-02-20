@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/bytedance/sonic/internal/errors"
 )
 
 type numberDecoder struct {

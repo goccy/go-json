@@ -1,11 +1,11 @@
-package json_test
+package sonic_test
 
 import (
 	"context"
 	"reflect"
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 )
 
 type queryTestX struct {

@@ -1,11 +1,11 @@
-package json
+package sonic
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/bytedance/sonic/internal/encoder"
 )
 
 // Marshaler is the interface implemented by types that

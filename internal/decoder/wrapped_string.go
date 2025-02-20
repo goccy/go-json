@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/bytedance/sonic/internal/runtime"
 )
 
 type wrappedStringDecoder struct {

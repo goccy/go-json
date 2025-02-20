@@ -1,9 +1,9 @@
-package json
+package sonic
 
 import (
 	"fmt"
 
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/bytedance/sonic/internal/encoder"
 )
 
 type (

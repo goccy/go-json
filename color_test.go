@@ -1,9 +1,9 @@
-package json_test
+package sonic_test
 
 import (
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 )
 
 func TestColorize(t *testing.T) {

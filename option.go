@@ -1,10 +1,10 @@
-package json
+package sonic
 
 import (
 	"io"
 
-	"github.com/goccy/go-json/internal/decoder"
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/bytedance/sonic/internal/decoder"
+	"github.com/bytedance/sonic/internal/encoder"
 )
 
 type EncodeOption = encoder.Option

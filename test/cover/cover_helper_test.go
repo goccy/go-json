@@ -4,7 +4,7 @@ import (
 	"bytes"
 	stdjson "encoding/json"
 
-	"github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 )
 
 func intptr(v int) *int                       { return &v }

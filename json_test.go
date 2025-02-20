@@ -1,4 +1,4 @@
-package json_test
+package sonic_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 )
 
 var validTests = []struct {

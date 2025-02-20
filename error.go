@@ -1,7 +1,7 @@
-package json
+package sonic
 
 import (
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/bytedance/sonic/internal/errors"
 )
 
 // Before Go 1.2, an InvalidUTF8Error was returned by Marshal when

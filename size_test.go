@@ -1,10 +1,10 @@
-package json
+package sonic
 
 import (
 	"testing"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/bytedance/sonic/internal/encoder"
 )
 
 func TestOpcodeSize(t *testing.T) {

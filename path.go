@@ -1,9 +1,9 @@
-package json
+package sonic
 
 import (
 	"reflect"
 
-	"github.com/goccy/go-json/internal/decoder"
+	"github.com/bytedance/sonic/internal/decoder"
 )
 
 // CreatePath creates JSON Path.

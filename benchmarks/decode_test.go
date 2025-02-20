@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	gojay "github.com/francoispqt/gojay"
-	gojson "github.com/goccy/go-json"
+	gojson "github.com/bytedance/sonic"
 	jsoniter "github.com/json-iterator/go"
 	segmentiojson "github.com/segmentio/encoding/json"
 	fastjson "github.com/valyala/fastjson"

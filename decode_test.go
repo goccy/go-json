@@ -1,4 +1,4 @@
-package json_test
+package sonic_test
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/goccy/go-json"
+	json "github.com/bytedance/sonic"
 )
 
 func Test_Decoder(t *testing.T) {
@@ -123,7 +123,7 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "map.c", v["c"], 3)
 		assertEq(t, "map.d", v["d"], 4)
 		t.Run("nested map", func(t *testing.T) {
-			// https://github.com/goccy/go-json/issues/8
+			// https://github.com/bytedance/sonic/issues/8
 			content := `
 {
   "a": {

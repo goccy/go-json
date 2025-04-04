@@ -2715,3 +2715,26 @@ func TestIssue441(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+type Map map[string]struct{}
+
+type MapMap map[string]Map
+
+func (m Map) MarshalJSON() ([]byte, error) {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return json.Marshal(keys)
+}
+
+func TestMapType(t *testing.T) {
+	v := MapMap{
+		"test": Map{
+			"test": {},
+		},
+	}
+	b, err := json.Marshal(v)
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"test":["test"]}`, string(b))
+}

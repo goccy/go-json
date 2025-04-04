@@ -265,7 +265,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
+			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 && code.Op != encoder.OpMarshalJSONPtr {
 				p = ptrToPtr(p)
 			}
 			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))

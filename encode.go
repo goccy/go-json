@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -219,6 +220,8 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
+
+	v = prepareForEncode(ctx, v)
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
@@ -247,6 +250,8 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
+
+	v = prepareForEncode(ctx, v)
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
@@ -274,6 +279,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		b = encoder.AppendCommaIndent(ctx, b)
 		return b, nil
 	}
+
+	v = prepareForEncode(ctx, v)
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
@@ -323,4 +330,15 @@ func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder
 		return vm_color_indent.Run(ctx, b, codeSet)
 	}
 	return vm_indent.Run(ctx, b, codeSet)
+}
+
+func prepareForEncode(ctx *encoder.RuntimeContext, v interface{}) interface{} {
+	rv := reflect.ValueOf(v)
+	// struct to *struct，fix: https://github.com/goccy/go-json/issues/519
+	if rv.Kind() == reflect.Struct {
+		newV := reflect.New(rv.Type())
+		newV.Elem().Set(rv)
+		v = newV.Interface()
+	}
+	return v
 }

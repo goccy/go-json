@@ -1779,7 +1779,9 @@ func (v *testNullStr) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 
-	return []byte(*v), nil
+	bs := append([]byte{'"'}, []byte(*v)...)
+	bs = append(bs, '"')
+	return bs, nil
 }
 
 func TestIssue147(t *testing.T) {
@@ -2714,4 +2716,64 @@ func TestIssue441(t *testing.T) {
 	b, err := json.Marshal(B{})
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
+}
+
+func TestIssue519(t *testing.T) {
+	type Item struct {
+		A string `json:"a"`
+		B string `json:"b,omitempty"`
+	}
+
+	type Detail struct {
+		I Item `json:"i"`
+	}
+
+	type Body struct {
+		Payload *Detail `json:"p,omitempty"`
+	}
+
+	b, err := json.Marshal(Body{
+		Payload: &Detail{
+			I: Item{
+				A: "123",
+				B: "456",
+			},
+		},
+	})
+	assertErr(t, err)
+	exp, _ := stdjson.Marshal(Body{
+		Payload: &Detail{
+			I: Item{
+				A: "123",
+				B: "456",
+			},
+		},
+	})
+	assertEq(t, "unexpected result", string(exp), string(b))
+}
+
+func TestIssue510(t *testing.T) {
+	type B struct {
+		Foo *string `json:"foo"`
+		Bar *string `json:"bar"`
+	}
+
+	type A struct {
+		B *B `json:"b"`
+	}
+
+	str := "hello"
+
+	b, err := json.Marshal(A{
+		B: &B{
+			Foo: &str,
+		},
+	})
+	assertErr(t, err)
+	exp, _ := stdjson.Marshal(A{
+		B: &B{
+			Foo: &str,
+		},
+	})
+	assertEq(t, "unexpected result", string(exp), string(b))
 }

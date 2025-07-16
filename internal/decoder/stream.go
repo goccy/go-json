@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/errors"
 )
 
 const (

@@ -1,10 +1,16 @@
 # go-json
 
-![Go](https://github.com/goccy/go-json/workflows/Go/badge.svg)
-[![GoDoc](https://godoc.org/github.com/goccy/go-json?status.svg)](https://pkg.go.dev/github.com/goccy/go-json?tab=doc)
-[![codecov](https://codecov.io/gh/goccy/go-json/branch/master/graph/badge.svg)](https://codecov.io/gh/goccy/go-json)
+![Go](https://github.com/ormi-labs/go-json/workflows/Go/badge.svg)
+[![GoDoc](https://godoc.org/github.com/ormi-labs/go-json?status.svg)](https://pkg.go.dev/github.com/ormi-labs/go-json?tab=doc)
+[![codecov](https://codecov.io/gh/ormi-labs/go-json/branch/master/graph/badge.svg)](https://codecov.io/gh/ormi-labs/go-json)
 
 Fast JSON encoder/decoder compatible with encoding/json for Go
+
+> [!NOTE]
+> This repo is a fork of goccy/go-json with the following added features:
+>>    - Custom struct tag keys
+>
+> The code for custom struct tag keys was based on [jsjain/go-json](https://github.com/jsjain/go-json) with fixes for initializing and resetting the context options.
 
 <img width="400px" src="https://user-images.githubusercontent.com/209884/92572337-42b42900-f2bf-11ea-973a-c74a359553a5.png"></img>
 
@@ -27,7 +33,7 @@ If you have the API you need, please submit your issue [here](https://github.com
 # Features
 
 - Drop-in replacement of `encoding/json`
-- Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
+- Fast ( See [Benchmark section](https://github.com/ormi-labs/go-json#benchmarks) )
 - Flexible customization with options
 - Coloring the encoded string
 - Can propagate context.Context to `MarshalJSON` or `UnmarshalJSON`
@@ -36,16 +42,16 @@ If you have the API you need, please submit your issue [here](https://github.com
 # Installation
 
 ```
-go get github.com/goccy/go-json
+go get github.com/ormi-labs/go-json
 ```
 
 # How to use
 
-Replace import statement from `encoding/json` to `github.com/goccy/go-json`
+Replace import statement from `encoding/json` to `github.com/ormi-labs/go-json`
 
 ```
 -import "encoding/json"
-+import "github.com/goccy/go-json"
++import "github.com/ormi-labs/go-json"
 ```
 
 # JSON library comparison

@@ -12,7 +12,7 @@ func TestDumpOpcode(t *testing.T) {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := CompileToGetCodeSet(ctx, typeptr, "json")
 	if err != nil {
 		t.Fatal(err)
 	}

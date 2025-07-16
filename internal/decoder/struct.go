@@ -10,7 +10,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/errors"
 )
 
 type structFieldSet struct {
@@ -59,10 +59,10 @@ func toASCIILower(s string) string {
 	return string(b)
 }
 
-func newStructDecoder(structName, fieldName string, fieldMap map[string]*structFieldSet) *structDecoder {
+func newStructDecoder(structName, fieldName, tagName string, fieldMap map[string]*structFieldSet) *structDecoder {
 	return &structDecoder{
 		fieldMap:         fieldMap,
-		stringDecoder:    newStringDecoder(structName, fieldName),
+		stringDecoder:    newStringDecoder(structName, fieldName, tagName),
 		structName:       structName,
 		fieldName:        fieldName,
 		keyDecoder:       decodeKey,

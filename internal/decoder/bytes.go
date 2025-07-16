@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type bytesDecoder struct {
@@ -17,24 +17,24 @@ type bytesDecoder struct {
 	fieldName     string
 }
 
-func byteUnmarshalerSliceDecoder(typ *runtime.Type, structName string, fieldName string) Decoder {
+func byteUnmarshalerSliceDecoder(typ *runtime.Type, structName string, fieldName string, tagName string) Decoder {
 	var unmarshalDecoder Decoder
 	switch {
 	case runtime.PtrTo(typ).Implements(unmarshalJSONType):
-		unmarshalDecoder = newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName)
+		unmarshalDecoder = newUnmarshalJSONDecoder(runtime.PtrTo(typ), structName, fieldName, tagName)
 	case runtime.PtrTo(typ).Implements(unmarshalTextType):
-		unmarshalDecoder = newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName)
+		unmarshalDecoder = newUnmarshalTextDecoder(runtime.PtrTo(typ), structName, fieldName, tagName)
 	default:
-		unmarshalDecoder, _ = compileUint8(typ, structName, fieldName)
+		unmarshalDecoder, _ = compileUint8(typ, structName, fieldName, tagName)
 	}
-	return newSliceDecoder(unmarshalDecoder, typ, 1, structName, fieldName)
+	return newSliceDecoder(unmarshalDecoder, typ, 1, structName, fieldName, tagName)
 }
 
-func newBytesDecoder(typ *runtime.Type, structName string, fieldName string) *bytesDecoder {
+func newBytesDecoder(typ *runtime.Type, structName string, fieldName string, tagName string) *bytesDecoder {
 	return &bytesDecoder{
 		typ:           typ,
-		sliceDecoder:  byteUnmarshalerSliceDecoder(typ, structName, fieldName),
-		stringDecoder: newStringDecoder(structName, fieldName),
+		sliceDecoder:  byteUnmarshalerSliceDecoder(typ, structName, fieldName, tagName),
+		stringDecoder: newStringDecoder(structName, fieldName, tagName),
 		structName:    structName,
 		fieldName:     fieldName,
 	}

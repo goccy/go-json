@@ -6,11 +6,11 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/encoder"
-	"github.com/goccy/go-json/internal/encoder/vm"
-	"github.com/goccy/go-json/internal/encoder/vm_color"
-	"github.com/goccy/go-json/internal/encoder/vm_color_indent"
-	"github.com/goccy/go-json/internal/encoder/vm_indent"
+	"github.com/ormi-labs/go-json/internal/encoder"
+	"github.com/ormi-labs/go-json/internal/encoder/vm"
+	"github.com/ormi-labs/go-json/internal/encoder/vm_color"
+	"github.com/ormi-labs/go-json/internal/encoder/vm_color_indent"
+	"github.com/ormi-labs/go-json/internal/encoder/vm_indent"
 )
 
 // An Encoder writes JSON values to an output stream.
@@ -223,7 +223,7 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr, ctx.Option.TagName)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr, ctx.Option.TagName)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr, ctx.Option.TagName)
 	if err != nil {
 		return nil, err
 	}

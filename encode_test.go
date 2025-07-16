@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goccy/go-json"
+	"github.com/ormi-labs/go-json"
 )
 
 type recursiveT struct {
@@ -2303,6 +2303,19 @@ func TestRecursivePtrHead(t *testing.T) {
 	if !bytes.Equal(expected, got) {
 		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
 	}
+}
+
+func Test_MarshalCustomTag(t *testing.T) {
+	type v struct {
+		A int `tag:"a"`
+		B int `tag:"b"`
+	}
+	v1 := v{A: 2, B: 3}
+	response, err := json.MarshalWithOption(v1, json.EncodeWithTag("tag"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "marshalled string", `{"a":2,"b":3}`, string(response))
 }
 
 func TestMarshalIndent(t *testing.T) {

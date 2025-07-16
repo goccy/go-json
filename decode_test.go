@@ -18,7 +18,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/goccy/go-json"
+	"github.com/ormi-labs/go-json"
 )
 
 func Test_Decoder(t *testing.T) {
@@ -123,7 +123,7 @@ func Test_Decoder(t *testing.T) {
 		assertEq(t, "map.c", v["c"], 3)
 		assertEq(t, "map.d", v["d"], 4)
 		t.Run("nested map", func(t *testing.T) {
-			// https://github.com/goccy/go-json/issues/8
+			// https://github.com/ormi-labs/go-json/issues/8
 			content := `
 {
   "a": {
@@ -316,6 +316,34 @@ func Test_UnmarshalJSON(t *testing.T) {
 		assertErr(t, json.Unmarshal([]byte(`10`), &v))
 		assertEq(t, "unmarshal", 10, v.v)
 	})
+}
+
+func Test_unmarshalCustomTag(t *testing.T) {
+	type v struct {
+		Name string `cus:"n" json:"name"`
+		Age  string `cus:"a" json:"age"`
+		ID   string `cus:"no" json:"id"`
+	}
+	content := []byte(`{"n": "name", "a": "age", "no": "id"}`)
+	var v1 v
+	json.UnmarshalWithOption(content, &v1, json.DecodeWithTag("cus"))
+	assertEq(t, "v1.Name", "name", v1.Name)
+	assertEq(t, "v1.Age", "age", v1.Age)
+	assertEq(t, "v1.ID", "id", v1.ID)
+}
+
+func Test_unmarshalStreamCustomTag(t *testing.T) {
+	type v struct {
+		Name string `cus:"n" json:"name"`
+		Age  string `cus:"a" json:"age"`
+		ID   string `cus:"no" json:"id"`
+	}
+	content := bytes.NewReader([]byte(`{"n": "name", "a": "age", "no": "id"}`))
+	var v1 v
+	json.NewDecoder(content).DecodeWithOption(&v1, json.DecodeWithTag("cus"))
+	assertEq(t, "v1.Name", "name", v1.Name)
+	assertEq(t, "v1.Age", "age", v1.Age)
+	assertEq(t, "v1.ID", "id", v1.ID)
 }
 
 type unmarshalText struct {

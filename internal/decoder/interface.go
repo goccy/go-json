@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type interfaceDecoder struct {
@@ -22,24 +22,24 @@ type interfaceDecoder struct {
 	stringDecoder *stringDecoder
 }
 
-func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
+func newEmptyInterfaceDecoder(structName, fieldName, tagName string) *interfaceDecoder {
 	ifaceDecoder := &interfaceDecoder{
 		typ:        emptyInterfaceType,
 		structName: structName,
 		fieldName:  fieldName,
-		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+		floatDecoder: newFloatDecoder(structName, fieldName, tagName, func(p unsafe.Pointer, v float64) {
 			*(*interface{})(p) = v
 		}),
-		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v json.Number) {
+		numberDecoder: newNumberDecoder(structName, fieldName, tagName, func(p unsafe.Pointer, v json.Number) {
 			*(*interface{})(p) = v
 		}),
-		stringDecoder: newStringDecoder(structName, fieldName),
+		stringDecoder: newStringDecoder(structName, fieldName, tagName),
 	}
 	ifaceDecoder.sliceDecoder = newSliceDecoder(
 		ifaceDecoder,
 		emptyInterfaceType,
 		emptyInterfaceType.Size(),
-		structName, fieldName,
+		structName, fieldName, tagName,
 	)
 	ifaceDecoder.mapDecoder = newMapDecoder(
 		interfaceMapType,
@@ -53,9 +53,9 @@ func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
 	return ifaceDecoder
 }
 
-func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *interfaceDecoder {
-	emptyIfaceDecoder := newEmptyInterfaceDecoder(structName, fieldName)
-	stringDecoder := newStringDecoder(structName, fieldName)
+func newInterfaceDecoder(typ *runtime.Type, structName, fieldName, tagName string) *interfaceDecoder {
+	emptyIfaceDecoder := newEmptyInterfaceDecoder(structName, fieldName, tagName)
+	stringDecoder := newStringDecoder(structName, fieldName, tagName)
 	return &interfaceDecoder{
 		typ:        typ,
 		structName: structName,
@@ -64,7 +64,7 @@ func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *inter
 			emptyIfaceDecoder,
 			emptyInterfaceType,
 			emptyInterfaceType.Size(),
-			structName, fieldName,
+			structName, fieldName, tagName,
 		),
 		mapDecoder: newMapDecoder(
 			interfaceMapType,
@@ -75,10 +75,10 @@ func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *inter
 			structName,
 			fieldName,
 		),
-		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+		floatDecoder: newFloatDecoder(structName, fieldName, tagName, func(p unsafe.Pointer, v float64) {
 			*(*interface{})(p) = v
 		}),
-		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v json.Number) {
+		numberDecoder: newNumberDecoder(structName, fieldName, tagName, func(p unsafe.Pointer, v json.Number) {
 			*(*interface{})(p) = v
 		}),
 		stringDecoder: stringDecoder,
@@ -328,7 +328,7 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 		*(*interface{})(p) = nil
 		return nil
 	}
-	decoder, err := CompileToGetDecoder(typ)
+	decoder, err := CompileToGetDecoder(typ, "json")
 	if err != nil {
 		return err
 	}
@@ -351,6 +351,7 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 		typ: d.typ,
 		ptr: p,
 	}))
+	tagName := ctx.Option.TagName
 	rv := reflect.ValueOf(runtimeInterfaceValue)
 	if rv.NumMethod() > 0 && rv.CanInterface() {
 		if u, ok := rv.Interface().(unmarshalerContext); ok {
@@ -393,7 +394,7 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 		**(**interface{})(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	}
-	decoder, err := CompileToGetDecoder(typ)
+	decoder, err := CompileToGetDecoder(typ, tagName)
 	if err != nil {
 		return 0, err
 	}
@@ -463,19 +464,19 @@ func NewPathDecoder() Decoder {
 		typ:        emptyInterfaceType,
 		structName: "",
 		fieldName:  "",
-		floatDecoder: newFloatDecoder("", "", func(p unsafe.Pointer, v float64) {
+		floatDecoder: newFloatDecoder("", "", "", func(p unsafe.Pointer, v float64) {
 			*(*interface{})(p) = v
 		}),
-		numberDecoder: newNumberDecoder("", "", func(p unsafe.Pointer, v json.Number) {
+		numberDecoder: newNumberDecoder("", "", "", func(p unsafe.Pointer, v json.Number) {
 			*(*interface{})(p) = v
 		}),
-		stringDecoder: newStringDecoder("", ""),
+		stringDecoder: newStringDecoder("", "", ""),
 	}
 	ifaceDecoder.sliceDecoder = newSliceDecoder(
 		ifaceDecoder,
 		emptyInterfaceType,
 		emptyInterfaceType.Size(),
-		"", "",
+		"", "", "",
 	)
 	ifaceDecoder.mapDecoder = newMapDecoder(
 		interfaceMapType,

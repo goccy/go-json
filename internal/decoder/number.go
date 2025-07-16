@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/errors"
 )
 
 type numberDecoder struct {
@@ -15,9 +15,9 @@ type numberDecoder struct {
 	fieldName     string
 }
 
-func newNumberDecoder(structName, fieldName string, op func(unsafe.Pointer, json.Number)) *numberDecoder {
+func newNumberDecoder(structName, fieldName, tagName string, op func(unsafe.Pointer, json.Number)) *numberDecoder {
 	return &numberDecoder{
-		stringDecoder: newStringDecoder(structName, fieldName),
+		stringDecoder: newStringDecoder(structName, fieldName, tagName),
 		op:            op,
 		structName:    structName,
 		fieldName:     fieldName,

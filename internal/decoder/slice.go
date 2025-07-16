@@ -5,8 +5,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 var (
@@ -24,6 +24,7 @@ type sliceDecoder struct {
 	arrayPool         sync.Pool
 	structName        string
 	fieldName         string
+	tagName           string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -39,7 +40,7 @@ const (
 	defaultSliceCapacity = 2
 )
 
-func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structName, fieldName string) *sliceDecoder {
+func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structName, fieldName, tagName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder:      dec,
 		elemType:          elemType,
@@ -56,6 +57,7 @@ func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structNa
 		},
 		structName: structName,
 		fieldName:  fieldName,
+		tagName:    tagName,
 	}
 }
 

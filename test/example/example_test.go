@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/goccy/go-json"
+	"github.com/ormi-labs/go-json"
 )
 
 func ExampleMarshal() {
@@ -33,6 +33,43 @@ func ExampleMarshal() {
 	os.Stdout.Write(b)
 	// Output:
 	// {"ID":1,"Name":"Reds","Colors":["Crimson","Red","Ruby","Maroon"]}
+}
+
+func ExampleUnmarshalStruct() {
+	type TestStruct struct {
+		Name string `json:"name" noren:"nm"`
+		Age  string `json:"age" noren:"ag"`
+	}
+	var jsonBlob = []byte(`[
+	{"nm": "Platypus", "ag": "Monotremata"},
+	{"nm": "Quoll",    "ag": "Dasyuromorphia"}
+]`)
+	var animals []TestStruct
+	err := json.UnmarshalWithOption(jsonBlob, &animals, json.DecodeWithTag("noren"))
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Printf("%+v", animals)
+	// Output:
+	// [{Name:Platypus Age:Monotremata} {Name:Quoll Age:Dasyuromorphia}]
+}
+
+func ExampleMarshalStruct() {
+	type TestStruct struct {
+		Name string `json:"name" noren:"nm"`
+		Age  string `json:"age" noren:"ag"`
+	}
+	animals := TestStruct{
+		Name: "Platypus",
+		Age:  "Monotremata",
+	}
+	byts, err := json.Marshal(animals)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Printf("%s", string(byts))
+	// Output:
+	// {"nm":"Platypus","ag":"Monotremata"}
 }
 
 func ExampleUnmarshal() {

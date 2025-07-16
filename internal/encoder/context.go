@@ -5,7 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type compileContext struct {
@@ -62,7 +62,9 @@ var (
 				Buf:      make([]byte, 0, bufSize),
 				Ptrs:     make([]uintptr, 128),
 				KeepRefs: make([]unsafe.Pointer, 0, 8),
-				Option:   &Option{},
+				Option: &Option{
+					TagName: "json",
+				},
 			}
 		},
 	}
@@ -101,5 +103,6 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	ctx.Option.TagName = "json"
 	runtimeContextPool.Put(ctx)
 }

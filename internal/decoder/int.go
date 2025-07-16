@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type intDecoder struct {
@@ -15,15 +15,17 @@ type intDecoder struct {
 	op         func(unsafe.Pointer, int64)
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newIntDecoder(typ *runtime.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
+func newIntDecoder(typ *runtime.Type, structName, fieldName, tagName string, op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{
 		typ:        typ,
 		kind:       typ.Kind(),
 		op:         op,
 		structName: structName,
 		fieldName:  fieldName,
+		tagName:    tagName,
 	}
 }
 

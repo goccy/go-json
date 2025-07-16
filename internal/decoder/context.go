@@ -4,7 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/errors"
 )
 
 type RuntimeContext struct {
@@ -16,7 +16,9 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() interface{} {
 			return &RuntimeContext{
-				Option: &Option{},
+				Option: &Option{
+					TagName: "json",
+				},
 			}
 		},
 	}
@@ -27,6 +29,7 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	ctx.Option.TagName = "json"
 	runtimeContextPool.Put(ctx)
 }
 

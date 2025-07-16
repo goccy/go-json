@@ -3,8 +3,8 @@ package json
 import (
 	"io"
 
-	"github.com/goccy/go-json/internal/decoder"
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/ormi-labs/go-json/internal/decoder"
+	"github.com/ormi-labs/go-json/internal/encoder"
 )
 
 type EncodeOption = encoder.Option
@@ -14,6 +14,13 @@ type EncodeOptionFunc func(*EncodeOption)
 func UnorderedMap() EncodeOptionFunc {
 	return func(opt *EncodeOption) {
 		opt.Flag |= encoder.UnorderedMapOption
+	}
+}
+
+// TagName
+func EncodeWithTag(tagName string) EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.TagName = tagName
 	}
 }
 
@@ -75,5 +82,11 @@ type DecodeOptionFunc func(*DecodeOption)
 func DecodeFieldPriorityFirstWin() DecodeOptionFunc {
 	return func(opt *DecodeOption) {
 		opt.Flags |= decoder.FirstWinOption
+	}
+}
+
+func DecodeWithTag(tagName string) DecodeOptionFunc {
+	return func(opt *DecodeOption) {
+		opt.TagName = tagName
 	}
 }

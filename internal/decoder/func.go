@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type funcDecoder struct {
 	typ        *runtime.Type
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newFuncDecoder(typ *runtime.Type, structName, fieldName string) *funcDecoder {
-	fnDecoder := &funcDecoder{typ, structName, fieldName}
+func newFuncDecoder(typ *runtime.Type, structName, fieldName, tagName string) *funcDecoder {
+	fnDecoder := &funcDecoder{typ, structName, fieldName, tagName}
 	return fnDecoder
 }
 

@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/decoder"
-	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
+	"github.com/ormi-labs/go-json/internal/decoder"
+	"github.com/ormi-labs/go-json/internal/errors"
+	"github.com/ormi-labs/go-json/internal/runtime"
 )
 
 type Decoder struct {
@@ -34,15 +34,17 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
-	if err != nil {
-		return err
-	}
+
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
+	}
+	tagName := getTagName(ctx.Option)
+	dec, err := decoder.CompileToGetDecoder(header.typ, tagName)
+	if err != nil {
+		return err
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
 	if err != nil {
@@ -62,11 +64,12 @@ func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs 
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	rctx := decoder.TakeRuntimeContext()
+	tagName := getTagName(rctx.Option)
+	dec, err := decoder.CompileToGetDecoder(header.typ, tagName)
 	if err != nil {
 		return err
 	}
-	rctx := decoder.TakeRuntimeContext()
 	rctx.Buf = src
 	rctx.Option.Flags = 0
 	rctx.Option.Flags |= decoder.ContextOption
@@ -123,12 +126,13 @@ func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc)
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	ctx := decoder.TakeRuntimeContext()
+	tagName := getTagName(ctx.Option)
+	dec, err := decoder.CompileToGetDecoder(header.typ, tagName)
 	if err != nil {
 		return err
 	}
 
-	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
@@ -171,6 +175,13 @@ func validateType(typ *runtime.Type, p uintptr) error {
 		return &InvalidUnmarshalError{Type: runtime.RType2Type(typ)}
 	}
 	return nil
+}
+
+func getTagName(option *decoder.Option) string {
+	if option.TagName != "" {
+		return option.TagName
+	}
+	return "json"
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -218,18 +229,21 @@ func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) 
 	if err := validateType(copiedType, ptr); err != nil {
 		return err
 	}
-
-	dec, err := decoder.CompileToGetDecoder(typ)
-	if err != nil {
-		return err
-	}
 	if err := d.s.PrepareForDecode(); err != nil {
 		return err
 	}
+
 	s := d.s
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
+
+	tagName := getTagName(d.s.Option)
+	dec, err := decoder.CompileToGetDecoder(typ, tagName)
+	if err != nil {
+		return err
+	}
+
 	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
 		return err
 	}

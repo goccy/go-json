@@ -2,8 +2,10 @@ package json
 
 import (
 	"context"
+	"github.com/goccy/go-json/internal/runtime"
 	"io"
 	"os"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -219,7 +221,7 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
-	header := (*emptyInterface)(unsafe.Pointer(&v))
+	header := unpackEface(v)
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
@@ -247,7 +249,7 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
-	header := (*emptyInterface)(unsafe.Pointer(&v))
+	header := unpackEface(v)
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
@@ -274,7 +276,7 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		b = encoder.AppendCommaIndent(ctx, b)
 		return b, nil
 	}
-	header := (*emptyInterface)(unsafe.Pointer(&v))
+	header := unpackEface(v)
 	typ := header.typ
 
 	typeptr := uintptr(unsafe.Pointer(typ))
@@ -323,4 +325,15 @@ func encodeRunIndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder
 		return vm_color_indent.Run(ctx, b, codeSet)
 	}
 	return vm_indent.Run(ctx, b, codeSet)
+}
+
+func unpackEface(v interface{}) *emptyInterface {
+	nv := (*emptyInterface)(unsafe.Pointer(&v))
+	// struct to *struct，fix: https://github.com/goccy/go-json/issues/519
+	if nv.typ.Kind() == reflect.Struct && nv.typ.Kind_&runtime.KindDirectIface != 0 {
+		n := &emptyInterface{typ: runtime.PtrTo(nv.typ), ptr: runtime.Unsafe_New(nv.typ)}
+		*(*unsafe.Pointer)(n.ptr) = nv.ptr
+		nv = n
+	}
+	return nv
 }

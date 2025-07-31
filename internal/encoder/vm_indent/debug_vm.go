@@ -3,7 +3,7 @@ package vm_indent
 import (
 	"fmt"
 
-	"github.com/ormi-labs/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/encoder"
 )
 
 func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {

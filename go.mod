@@ -1,3 +1,3 @@
-module github.com/ormi-labs/go-json
+module github.com/goccy/go-json
 
 go 1.19

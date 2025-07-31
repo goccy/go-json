@@ -1,3 +1,7 @@
+# Unreleased
+
+* Support custom tag names in structs for marshal/unmarshal
+
 # v0.10.2 - 2023/03/20
 
 ### New features

@@ -6,7 +6,7 @@ package decoder
 import (
 	"unsafe"
 
-	"github.com/ormi-labs/go-json/internal/runtime"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 func CompileToGetDecoder(typ *runtime.Type, tagName string) (Decoder, error) {

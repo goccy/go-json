@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/ormi-labs/go-json/internal/encoder"
-	"github.com/ormi-labs/go-json/internal/runtime"
+	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const uintptrSize = 4 << (^uintptr(0) >> 63)

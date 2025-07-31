@@ -1,4 +1,4 @@
-PKG := github.com/ormi-labs/go-json
+PKG := github.com/goccy/go-json
 
 BIN_DIR := $(CURDIR)/bin
 PKGS := $(shell go list ./... | grep -v internal/cmd|grep -v test)

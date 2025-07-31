@@ -3,7 +3,7 @@ package json
 import (
 	"fmt"
 
-	"github.com/ormi-labs/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/encoder"
 )
 
 type (

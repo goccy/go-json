@@ -3,8 +3,8 @@ package json
 import (
 	"io"
 
-	"github.com/ormi-labs/go-json/internal/decoder"
-	"github.com/ormi-labs/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/decoder"
+	"github.com/goccy/go-json/internal/encoder"
 )
 
 type EncodeOption = encoder.Option

@@ -745,6 +745,9 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 }
 
 func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if d == nil {
+		return 0, errors.New("go-json: Decode called on a nil structDecoder")
+	}
 	buf := ctx.Buf
 	depth++
 	if depth > maxDecodeNestingDepth {

@@ -38,6 +38,9 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	if err != nil {
 		return err
 	}
+	if dec == nil {
+		return errors.New("go-json: CompileToGetDecoder returned a nil decoder")
+	}
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
 	ctx.Option.Flags = 0

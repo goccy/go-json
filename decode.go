@@ -25,6 +25,62 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
+func unmarshalUnsafe(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	header := (*emptyInterface)(unsafe.Pointer(&v))
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decoder.CompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	ctx := decoder.TakeRuntimeContext()
+	if cap(ctx.Buf) < len(data)+1 {
+		ctx.Buf = make([]byte, len(data)+1)
+	}
+	ctx.Buf = ctx.Buf[:len(data)+1]
+	ctx.Buf[len(data)] = '\000'
+	copy(ctx.Buf, data)
+	ctx.Option.Flags = 0
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
+	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
+		return err
+	}
+	err = validateEndBuf(ctx.Buf, cursor)
+	decoder.ReleaseRuntimeContext(ctx)
+	return err
+}
+func unmarshalBYOB(buffer, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+	copy(buffer, data)
+
+	header := (*emptyInterface)(unsafe.Pointer(&v))
+
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
+		return err
+	}
+	dec, err := decoder.CompileToGetDecoder(header.typ)
+	if err != nil {
+		return err
+	}
+	ctx := decoder.TakeRuntimeContext()
+	ctx.Buf = buffer
+	ctx.Option.Flags = 0
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
+	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
+		return err
+	}
+	decoder.ReleaseRuntimeContext(ctx)
+	return validateEndBuf(buffer, cursor)
+}
+
 func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)

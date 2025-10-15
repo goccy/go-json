@@ -276,6 +276,15 @@ func Unmarshal(data []byte, v interface{}) error {
 	return unmarshal(data, v)
 }
 
+func UnmarshalUnsafe(data []byte, v interface{}) error {
+	return unmarshalUnsafe(data, v)
+}
+
+func UnmarshalBYOB(buffer, data []byte, v interface{}) error {
+	return unmarshalBYOB(buffer, data, v)
+}
+
+
 // UnmarshalContext parses the JSON-encoded data and stores the result
 // in the value pointed to by v. If you implement the UnmarshalerContext interface,
 // call it with ctx as an argument.

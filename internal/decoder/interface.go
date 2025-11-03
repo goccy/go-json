@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -18,6 +19,7 @@ type interfaceDecoder struct {
 	sliceDecoder  *sliceDecoder
 	mapDecoder    *mapDecoder
 	floatDecoder  *floatDecoder
+	intDecoder    *intDecoder
 	numberDecoder *numberDecoder
 	stringDecoder *stringDecoder
 }
@@ -28,6 +30,9 @@ func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
 		structName: structName,
 		fieldName:  fieldName,
 		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+			*(*interface{})(p) = v
+		}),
+		intDecoder: newIntDecoder(nil, structName, fieldName, func(p unsafe.Pointer, v int64) {
 			*(*interface{})(p) = v
 		}),
 		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v json.Number) {
@@ -76,6 +81,9 @@ func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *inter
 			fieldName,
 		),
 		floatDecoder: newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+			*(*interface{})(p) = v
+		}),
+		intDecoder: newIntDecoder(nil, structName, fieldName, func(p unsafe.Pointer, v int64) {
 			*(*interface{})(p) = v
 		}),
 		numberDecoder: newNumberDecoder(structName, fieldName, func(p unsafe.Pointer, v json.Number) {
@@ -423,7 +431,13 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		**(**interface{})(unsafe.Pointer(&p)) = v
 		return cursor, nil
 	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return d.floatDecoder.Decode(ctx, cursor, depth, p)
+		bytes, _, _ := d.numberDecoder.decodeByte(ctx.Buf, cursor)
+		numberStr := *(*string)(unsafe.Pointer(&bytes))
+		if strings.Contains(numberStr, ".") {
+			return d.floatDecoder.Decode(ctx, cursor, depth, p)
+		} else {
+			return d.intDecoder.Decode(ctx, cursor, depth, p)
+		}
 	case '"':
 		var v string
 		ptr := unsafe.Pointer(&v)

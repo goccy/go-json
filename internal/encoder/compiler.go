@@ -68,24 +68,52 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 }
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
+	//Initializing a deep copy to unexpected fault address
+	c := codeSet.deepCopy()
 	if (ctx.Option.Flag & ContextOption) == 0 {
-		return codeSet, nil
+		return c, nil
 	}
 	query := FieldQueryFromContext(ctx.Option.Context)
 	if query == nil {
-		return codeSet, nil
+		return c, nil
 	}
 	ctx.Option.Flag |= FieldQueryOption
-	cacheCodeSet := codeSet.getQueryCache(query.Hash())
+	cacheCodeSet := c.getQueryCache(query.Hash())
 	if cacheCodeSet != nil {
 		return cacheCodeSet, nil
 	}
-	queryCodeSet, err := newCompiler().codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
+	queryCodeSet, err := newCompiler().codeToOpcodeSet(c.Type, c.Code.Filter(query))
 	if err != nil {
 		return nil, err
 	}
 	codeSet.setQueryCache(query.Hash(), queryCodeSet)
 	return queryCodeSet, nil
+}
+func (codeSet *OpcodeSet) deepCopy() *OpcodeSet {
+	if codeSet == nil {
+		return nil
+	}
+	var queryCacheCopy map[string]*OpcodeSet
+	if codeSet.QueryCache != nil {
+		queryCacheCopy = make(map[string]*OpcodeSet, len(codeSet.QueryCache))
+		for k, v := range codeSet.QueryCache {
+			if v != nil {
+				queryCacheCopy[k] = v.deepCopy()
+			}
+		}
+	}
+	return &OpcodeSet{
+		Type:                     codeSet.Type,
+		NoescapeKeyCode:          codeSet.NoescapeKeyCode,
+		EscapeKeyCode:            codeSet.EscapeKeyCode,
+		InterfaceNoescapeKeyCode: codeSet.InterfaceNoescapeKeyCode,
+		InterfaceEscapeKeyCode:   codeSet.EscapeKeyCode,
+		CodeLength:               codeSet.CodeLength,
+		EndCode:                  codeSet.EndCode,
+		Code:                     codeSet.Code,
+		QueryCache:               queryCacheCopy,
+		cacheMu:                  sync.RWMutex{},
+	}
 }
 
 type Compiler struct {

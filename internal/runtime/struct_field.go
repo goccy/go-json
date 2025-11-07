@@ -31,6 +31,7 @@ func IsIgnoredStructField(field reflect.StructField) bool {
 
 type StructTag struct {
 	Key         string
+	IsInline    bool
 	IsTaggedKey bool
 	IsOmitEmpty bool
 	IsString    bool
@@ -84,6 +85,8 @@ func StructTagFromField(field reflect.StructField) *StructTag {
 				st.IsOmitEmpty = true
 			case "string":
 				st.IsString = true
+			case "inline":
+				st.IsInline = true
 			}
 		}
 	}

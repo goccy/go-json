@@ -1016,6 +1016,9 @@ func isEmbeddedStruct(field *StructFieldCode) bool {
 	if !field.isAnonymous {
 		return false
 	}
+	if field.tag.IsInline {
+		return true
+	}
 	t := field.typ
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()

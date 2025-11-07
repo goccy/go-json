@@ -413,7 +413,7 @@ func (n *PathSelectorNode) Get(src, dst reflect.Value) error {
 	case reflect.Struct:
 		typ := src.Type()
 		for i := 0; i < typ.Len(); i++ {
-			tag := runtime.StructTagFromField(typ.Field(i))
+			tag := runtime.StructTagFromField(typ.Field(i), "json")
 			child, found, err := n.Field(tag.Key)
 			if err != nil {
 				return err
@@ -621,7 +621,7 @@ func (n *PathRecursiveNode) Get(src, dst reflect.Value) error {
 	case reflect.Struct:
 		typ := src.Type()
 		for i := 0; i < typ.Len(); i++ {
-			tag := runtime.StructTagFromField(typ.Field(i))
+			tag := runtime.StructTagFromField(typ.Field(i), "json")
 			child, found, err := n.Field(tag.Key)
 			if err != nil {
 				return err

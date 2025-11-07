@@ -17,6 +17,13 @@ func UnorderedMap() EncodeOptionFunc {
 	}
 }
 
+// TagName
+func EncodeWithTag(tagName string) EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.TagName = tagName
+	}
+}
+
 // DisableHTMLEscape disables escaping of HTML characters ( '&', '<', '>' ) when encoding string.
 func DisableHTMLEscape() EncodeOptionFunc {
 	return func(opt *EncodeOption) {
@@ -75,5 +82,11 @@ type DecodeOptionFunc func(*DecodeOption)
 func DecodeFieldPriorityFirstWin() DecodeOptionFunc {
 	return func(opt *DecodeOption) {
 		opt.Flags |= decoder.FirstWinOption
+	}
+}
+
+func DecodeWithTag(tagName string) DecodeOptionFunc {
+	return func(opt *DecodeOption) {
+		opt.TagName = tagName
 	}
 }

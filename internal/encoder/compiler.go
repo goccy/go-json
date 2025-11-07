@@ -54,12 +54,12 @@ func storeOpcodeSet(typ uintptr, set *OpcodeSet, m map[uintptr]*OpcodeSet) {
 	atomic.StorePointer(&cachedOpcodeMap, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
 }
 
-func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
+func compileToGetCodeSetSlowPath(typeptr uintptr, tagName string) (*OpcodeSet, error) {
 	opcodeMap := loadOpcodeMap()
 	if codeSet, exists := opcodeMap[typeptr]; exists {
 		return codeSet, nil
 	}
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := newCompiler().compile(typeptr, tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +98,10 @@ func newCompiler() *Compiler {
 	}
 }
 
-func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
+func (c *Compiler) compile(typeptr uintptr, tagName string) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := *(**runtime.Type)(unsafe.Pointer(&typeptr))
-	code, err := c.typeToCode(typ)
+	code, err := c.typeToCode(typ, tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (c *Compiler) codeToOpcodeSet(typ *runtime.Type, code Code) (*OpcodeSet, er
 	}, nil
 }
 
-func (c *Compiler) typeToCode(typ *runtime.Type) (Code, error) {
+func (c *Compiler) typeToCode(typ *runtime.Type, tagName string) (Code, error) {
 	switch {
 	case c.implementsMarshalJSON(typ):
 		return c.marshalJSONCode(typ)
@@ -170,14 +170,14 @@ func (c *Compiler) typeToCode(typ *runtime.Type) (Code, error) {
 				return c.bytesCode(typ, isPtr)
 			}
 		}
-		return c.sliceCode(typ)
+		return c.sliceCode(typ, tagName)
 	case reflect.Map:
 		if isPtr {
-			return c.ptrCode(runtime.PtrTo(typ))
+			return c.ptrCode(runtime.PtrTo(typ), tagName)
 		}
-		return c.mapCode(typ)
+		return c.mapCode(typ, tagName)
 	case reflect.Struct:
-		return c.structCode(typ, isPtr)
+		return c.structCode(typ, isPtr, tagName)
 	case reflect.Int:
 		return c.intCode(typ, isPtr)
 	case reflect.Int8:
@@ -212,11 +212,11 @@ func (c *Compiler) typeToCode(typ *runtime.Type) (Code, error) {
 		if isPtr && typ.Implements(marshalTextType) {
 			typ = orgType
 		}
-		return c.typeToCodeWithPtr(typ, isPtr)
+		return c.typeToCodeWithPtr(typ, isPtr, tagName)
 	}
 }
 
-func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error) {
+func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool, tagName string) (Code, error) {
 	switch {
 	case c.implementsMarshalJSON(typ):
 		return c.marshalJSONCode(typ)
@@ -225,7 +225,7 @@ func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return c.ptrCode(typ)
+		return c.ptrCode(typ, tagName)
 	case reflect.Slice:
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
@@ -234,13 +234,13 @@ func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error
 				return c.bytesCode(typ, false)
 			}
 		}
-		return c.sliceCode(typ)
+		return c.sliceCode(typ, tagName)
 	case reflect.Array:
-		return c.arrayCode(typ)
+		return c.arrayCode(typ, tagName)
 	case reflect.Map:
-		return c.mapCode(typ)
+		return c.mapCode(typ, tagName)
 	case reflect.Struct:
-		return c.structCode(typ, isPtr)
+		return c.structCode(typ, isPtr, tagName)
 	case reflect.Interface:
 		return c.interfaceCode(typ, false)
 	case reflect.Int:
@@ -428,8 +428,8 @@ func (c *Compiler) marshalTextCode(typ *runtime.Type) (*MarshalTextCode, error) 
 	}, nil
 }
 
-func (c *Compiler) ptrCode(typ *runtime.Type) (*PtrCode, error) {
-	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
+func (c *Compiler) ptrCode(typ *runtime.Type, tagName string) (*PtrCode, error) {
+	code, err := c.typeToCodeWithPtr(typ.Elem(), true, tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -440,9 +440,9 @@ func (c *Compiler) ptrCode(typ *runtime.Type) (*PtrCode, error) {
 	return &PtrCode{typ: typ, value: code, ptrNum: 1}, nil
 }
 
-func (c *Compiler) sliceCode(typ *runtime.Type) (*SliceCode, error) {
+func (c *Compiler) sliceCode(typ *runtime.Type, tagName string) (*SliceCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -453,9 +453,9 @@ func (c *Compiler) sliceCode(typ *runtime.Type) (*SliceCode, error) {
 	return &SliceCode{typ: typ, value: code}, nil
 }
 
-func (c *Compiler) arrayCode(typ *runtime.Type) (*ArrayCode, error) {
+func (c *Compiler) arrayCode(typ *runtime.Type, tagName string) (*ArrayCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -466,12 +466,12 @@ func (c *Compiler) arrayCode(typ *runtime.Type) (*ArrayCode, error) {
 	return &ArrayCode{typ: typ, value: code}, nil
 }
 
-func (c *Compiler) mapCode(typ *runtime.Type) (*MapCode, error) {
-	keyCode, err := c.mapKeyCode(typ.Key())
+func (c *Compiler) mapCode(typ *runtime.Type, tagName string) (*MapCode, error) {
+	keyCode, err := c.mapKeyCode(typ.Key(), tagName)
 	if err != nil {
 		return nil, err
 	}
-	valueCode, err := c.mapValueCode(typ.Elem())
+	valueCode, err := c.mapValueCode(typ.Elem(), tagName)
 	if err != nil {
 		return nil, err
 	}
@@ -482,19 +482,19 @@ func (c *Compiler) mapCode(typ *runtime.Type) (*MapCode, error) {
 	return &MapCode{typ: typ, key: keyCode, value: valueCode}, nil
 }
 
-func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
+func (c *Compiler) listElemCode(typ *runtime.Type, tagName string) (Code, error) {
 	switch {
 	case c.implementsMarshalJSONType(typ) || c.implementsMarshalJSONType(runtime.PtrTo(typ)):
 		return c.marshalJSONCode(typ)
 	case !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType):
 		return c.marshalTextCode(typ)
 	case typ.Kind() == reflect.Map:
-		return c.ptrCode(runtime.PtrTo(typ))
+		return c.ptrCode(runtime.PtrTo(typ), tagName)
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
 		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
 		// See here for related issues: https://github.com/goccy/go-json/issues/370
-		code, err := c.typeToCodeWithPtr(typ, true)
+		code, err := c.typeToCodeWithPtr(typ, true, tagName)
 		if err != nil {
 			return nil, err
 		}
@@ -508,14 +508,14 @@ func (c *Compiler) listElemCode(typ *runtime.Type) (Code, error) {
 	}
 }
 
-func (c *Compiler) mapKeyCode(typ *runtime.Type) (Code, error) {
+func (c *Compiler) mapKeyCode(typ *runtime.Type, tagName string) (Code, error) {
 	switch {
 	case c.implementsMarshalText(typ):
 		return c.marshalTextCode(typ)
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return c.ptrCode(typ)
+		return c.ptrCode(typ, tagName)
 	case reflect.String:
 		return c.stringCode(typ, false)
 	case reflect.Int:
@@ -544,12 +544,12 @@ func (c *Compiler) mapKeyCode(typ *runtime.Type) (Code, error) {
 	return nil, &errors.UnsupportedTypeError{Type: runtime.RType2Type(typ)}
 }
 
-func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
+func (c *Compiler) mapValueCode(typ *runtime.Type, tagName string) (Code, error) {
 	switch typ.Kind() {
 	case reflect.Map:
-		return c.ptrCode(runtime.PtrTo(typ))
+		return c.ptrCode(runtime.PtrTo(typ), tagName)
 	default:
-		code, err := c.typeToCodeWithPtr(typ, false)
+		code, err := c.typeToCodeWithPtr(typ, false, tagName)
 		if err != nil {
 			return nil, err
 		}
@@ -563,7 +563,7 @@ func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
 	}
 }
 
-func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error) {
+func (c *Compiler) structCode(typ *runtime.Type, isPtr bool, tagName string) (*StructCode, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if code, exists := c.structTypeToCode[typeptr]; exists {
 		derefCode := *code
@@ -575,11 +575,11 @@ func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error
 	c.structTypeToCode[typeptr] = code
 
 	fieldNum := typ.NumField()
-	tags := c.typeToStructTags(typ)
+	tags := c.typeToStructTags(typ, tagName)
 	fields := []*StructFieldCode{}
 	for i, tag := range tags {
 		isOnlyOneFirstField := i == 0 && fieldNum == 1
-		field, err := c.structFieldCode(code, tag, isPtr, isOnlyOneFirstField)
+		field, err := c.structFieldCode(code, tag, isPtr, isOnlyOneFirstField, tagName)
 		if err != nil {
 			return nil, err
 		}
@@ -628,7 +628,7 @@ func toElemType(t *runtime.Type) *runtime.Type {
 	return t
 }
 
-func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTag, isPtr, isOnlyOneFirstField bool) (*StructFieldCode, error) {
+func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTag, isPtr, isOnlyOneFirstField bool, tagName string) (*StructFieldCode, error) {
 	field := tag.Field
 	fieldType := runtime.Type2RType(field.Type)
 	isIndirectSpecialCase := isPtr && isOnlyOneFirstField
@@ -684,7 +684,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.isAddrForMarshaler = true
 		fieldCode.isNilCheck = false
 	default:
-		code, err := c.typeToCodeWithPtr(fieldType, isPtr)
+		code, err := c.typeToCodeWithPtr(fieldType, isPtr, tagName)
 		if err != nil {
 			return nil, err
 		}
@@ -809,15 +809,15 @@ func (c *Compiler) isTaggedKeyOnly(fields []*StructFieldCode) bool {
 	return taggedKeyFieldCount == 1
 }
 
-func (c *Compiler) typeToStructTags(typ *runtime.Type) runtime.StructTags {
+func (c *Compiler) typeToStructTags(typ *runtime.Type, tagName string) runtime.StructTags {
 	tags := runtime.StructTags{}
 	fieldNum := typ.NumField()
 	for i := 0; i < fieldNum; i++ {
 		field := typ.Field(i)
-		if runtime.IsIgnoredStructField(field) {
+		if runtime.IsIgnoredStructField(field, tagName) {
 			continue
 		}
-		tags = append(tags, runtime.StructTagFromField(field))
+		tags = append(tags, runtime.StructTagFromField(field, tagName))
 	}
 	return tags
 }

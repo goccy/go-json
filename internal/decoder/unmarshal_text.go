@@ -17,9 +17,10 @@ type unmarshalTextDecoder struct {
 	typ        *runtime.Type
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newUnmarshalTextDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalTextDecoder {
+func newUnmarshalTextDecoder(typ *runtime.Type, structName, fieldName, tagName string) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{
 		typ:        typ,
 		structName: structName,

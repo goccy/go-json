@@ -14,13 +14,15 @@ type unmarshalJSONDecoder struct {
 	typ        *runtime.Type
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newUnmarshalJSONDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalJSONDecoder {
+func newUnmarshalJSONDecoder(typ *runtime.Type, structName, fieldName, tagName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
 		typ:        typ,
 		structName: structName,
 		fieldName:  fieldName,
+		tagName:    tagName,
 	}
 }
 

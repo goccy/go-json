@@ -6,11 +6,11 @@ import (
 	"unicode"
 )
 
-func getTag(field reflect.StructField) string {
-	return field.Tag.Get("json")
+func getTag(field reflect.StructField, tagName string) string {
+	return field.Tag.Get(tagName)
 }
 
-func IsIgnoredStructField(field reflect.StructField) bool {
+func IsIgnoredStructField(field reflect.StructField, tagName string) bool {
 	if field.PkgPath != "" {
 		if field.Anonymous {
 			t := field.Type
@@ -25,7 +25,7 @@ func IsIgnoredStructField(field reflect.StructField) bool {
 			return true
 		}
 	}
-	tag := getTag(field)
+	tag := getTag(field, tagName)
 	return tag == "-"
 }
 
@@ -65,9 +65,9 @@ func isValidTag(s string) bool {
 	return true
 }
 
-func StructTagFromField(field reflect.StructField) *StructTag {
+func StructTagFromField(field reflect.StructField, tagName string) *StructTag {
 	keyName := field.Name
-	tag := getTag(field)
+	tag := getTag(field, tagName)
 	st := &StructTag{Field: field}
 	opts := strings.Split(tag, ",")
 	if len(opts) > 0 {

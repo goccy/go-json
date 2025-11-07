@@ -19,6 +19,7 @@ const (
 )
 
 type Option struct {
+	TagName     string
 	Flag        OptionFlag
 	ColorScheme *ColorScheme
 	Context     context.Context

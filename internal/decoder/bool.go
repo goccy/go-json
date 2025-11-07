@@ -10,10 +10,11 @@ import (
 type boolDecoder struct {
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newBoolDecoder(structName, fieldName string) *boolDecoder {
-	return &boolDecoder{structName: structName, fieldName: fieldName}
+func newBoolDecoder(structName, fieldName, tagName string) *boolDecoder {
+	return &boolDecoder{structName: structName, fieldName: fieldName, tagName: tagName}
 }
 
 func (d *boolDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {

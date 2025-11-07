@@ -13,10 +13,11 @@ type funcDecoder struct {
 	typ        *runtime.Type
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newFuncDecoder(typ *runtime.Type, structName, fieldName string) *funcDecoder {
-	fnDecoder := &funcDecoder{typ, structName, fieldName}
+func newFuncDecoder(typ *runtime.Type, structName, fieldName, tagName string) *funcDecoder {
+	fnDecoder := &funcDecoder{typ, structName, fieldName, tagName}
 	return fnDecoder
 }
 

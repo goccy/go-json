@@ -318,6 +318,34 @@ func Test_UnmarshalJSON(t *testing.T) {
 	})
 }
 
+func Test_unmarshalCustomTag(t *testing.T) {
+	type v struct {
+		Name string `cus:"n" json:"name"`
+		Age  string `cus:"a" json:"age"`
+		ID   string `cus:"no" json:"id"`
+	}
+	content := []byte(`{"n": "name", "a": "age", "no": "id"}`)
+	var v1 v
+	json.UnmarshalWithOption(content, &v1, json.DecodeWithTag("cus"))
+	assertEq(t, "v1.Name", "name", v1.Name)
+	assertEq(t, "v1.Age", "age", v1.Age)
+	assertEq(t, "v1.ID", "id", v1.ID)
+}
+
+func Test_unmarshalStreamCustomTag(t *testing.T) {
+	type v struct {
+		Name string `cus:"n" json:"name"`
+		Age  string `cus:"a" json:"age"`
+		ID   string `cus:"no" json:"id"`
+	}
+	content := bytes.NewReader([]byte(`{"n": "name", "a": "age", "no": "id"}`))
+	var v1 v
+	json.NewDecoder(content).DecodeWithOption(&v1, json.DecodeWithTag("cus"))
+	assertEq(t, "v1.Name", "name", v1.Name)
+	assertEq(t, "v1.Age", "age", v1.Age)
+	assertEq(t, "v1.ID", "id", v1.ID)
+}
+
 type unmarshalText struct {
 	v int
 }

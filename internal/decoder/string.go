@@ -15,12 +15,14 @@ import (
 type stringDecoder struct {
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newStringDecoder(structName, fieldName string) *stringDecoder {
+func newStringDecoder(structName, fieldName, tagName string) *stringDecoder {
 	return &stringDecoder{
 		structName: structName,
 		fieldName:  fieldName,
+		tagName:    tagName,
 	}
 }
 

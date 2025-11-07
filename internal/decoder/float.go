@@ -11,10 +11,11 @@ type floatDecoder struct {
 	op         func(unsafe.Pointer, float64)
 	structName string
 	fieldName  string
+	tagName    string
 }
 
-func newFloatDecoder(structName, fieldName string, op func(unsafe.Pointer, float64)) *floatDecoder {
-	return &floatDecoder{op: op, structName: structName, fieldName: fieldName}
+func newFloatDecoder(structName, fieldName, tagName string, op func(unsafe.Pointer, float64)) *floatDecoder {
+	return &floatDecoder{op: op, structName: structName, fieldName: fieldName, tagName: tagName}
 }
 
 var (

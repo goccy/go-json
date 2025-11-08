@@ -68,6 +68,8 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 }
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
+	//Initializing a deep copy to unexpected fault address
+	codeSet = codeSet.deepCopy()
 	if (ctx.Option.Flag & ContextOption) == 0 {
 		return codeSet, nil
 	}
@@ -86,6 +88,23 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 	}
 	codeSet.setQueryCache(query.Hash(), queryCodeSet)
 	return queryCodeSet, nil
+}
+func (codeSet *OpcodeSet) deepCopy() *OpcodeSet {
+	if codeSet == nil {
+		return nil
+	}
+	return &OpcodeSet{
+		Type:                     codeSet.Type,
+		NoescapeKeyCode:          codeSet.NoescapeKeyCode,
+		EscapeKeyCode:            codeSet.EscapeKeyCode,
+		InterfaceNoescapeKeyCode: codeSet.InterfaceNoescapeKeyCode,
+		InterfaceEscapeKeyCode:   codeSet.EscapeKeyCode,
+		CodeLength:               codeSet.CodeLength,
+		EndCode:                  codeSet.EndCode,
+		Code:                     codeSet.Code,
+		QueryCache:               make(map[string]*OpcodeSet),
+		cacheMu:                  sync.RWMutex{},
+	}
 }
 
 type Compiler struct {

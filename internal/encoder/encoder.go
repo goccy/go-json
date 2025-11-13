@@ -579,6 +579,9 @@ func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 	return b
 }
 
+// IsNilForMarshaler returns whether an element should be omitted if omitempty is set.
+// According to encoding/json, the following values are considered empty:
+// false, 0, a nil pointer, a nil interface value, and any array, slice, map, or string of length zero.
 func IsNilForMarshaler(v interface{}) bool {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -590,11 +593,9 @@ func IsNilForMarshaler(v interface{}) bool {
 		return rv.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return math.Float64bits(rv.Float()) == 0
-	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Func:
+	case reflect.Interface, reflect.Ptr, reflect.Func:
 		return rv.IsNil()
-	case reflect.Slice:
-		return rv.IsNil() || rv.Len() == 0
-	case reflect.String:
+	case reflect.Slice, reflect.Map, reflect.String, reflect.Array:
 		return rv.Len() == 0
 	}
 	return false

@@ -24,6 +24,13 @@ func DisableHTMLEscape() EncodeOptionFunc {
 	}
 }
 
+// EnableCamelCase convert the keys to camel case when encoding a struct.
+func EnableCamelCase() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Flag |= encoder.CamelCaseOption
+	}
+}
+
 // DisableNormalizeUTF8
 // By default, when encoding string, UTF8 characters in the range of 0x80 - 0xFF are processed by applying \ufffd for invalid code and escaping for \u2028 and \u2029.
 // This option disables this behaviour. You can expect faster speeds by applying this option, but be careful.

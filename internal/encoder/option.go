@@ -24,6 +24,7 @@ type Option struct {
 	Context     context.Context
 	DebugOut    io.Writer
 	DebugDOTOut io.WriteCloser
+	DisableNewline bool
 }
 
 type EncodeFormat struct {

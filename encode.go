@@ -84,7 +84,9 @@ func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v interface{}, o
 	} else {
 		buf = buf[:len(buf)-1]
 	}
-	buf = append(buf, '\n')
+	if !ctx.Option.DisableNewline {
+		buf = append(buf, '\n')
+	}
 	if _, err := e.w.Write(buf); err != nil {
 		return err
 	}

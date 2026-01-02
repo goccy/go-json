@@ -595,12 +595,12 @@ func (c *Compiler) isIndirectFromType(typ *runtime.Type) bool {
 	}
 
 	reflectType := runtime.RType2Type(typ)
-	
+
 	// Our reflect-based implementation to replace runtime.IfaceIndir
 	// Based on Go's KindDirectIface: Size_ == PtrBytes == goarch.PtrSize
 	ptrSize := unsafe.Sizeof(uintptr(0))
 	typeSize := reflectType.Size()
-	
+
 	switch reflectType.Kind() {
 	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Func, reflect.UnsafePointer:
 		return false // Pointer-like types are stored directly
@@ -624,18 +624,18 @@ func (c *Compiler) isPointerLikeStruct(structType reflect.Type) bool {
 	if structType.Kind() != reflect.Struct {
 		return false
 	}
-	
+
 	// Must be exactly pointer-sized to be considered for direct storage
 	ptrSize := unsafe.Sizeof(uintptr(0))
 	if structType.Size() != ptrSize {
 		return false
 	}
-	
+
 	numFields := structType.NumField()
 	if numFields == 0 {
 		return false // Empty structs are not pointer-like
 	}
-	
+
 	// Check if this struct effectively contains only pointer-like content
 	return c.isEffectivelyPointerLike(structType)
 }
@@ -645,7 +645,7 @@ func (c *Compiler) isEffectivelyPointerLike(structType reflect.Type) bool {
 		field := structType.Field(i)
 		fieldType := field.Type
 		fieldKind := fieldType.Kind()
-		
+
 		switch fieldKind {
 		case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Func, reflect.UnsafePointer:
 			continue // This field is directly pointer-like
@@ -658,233 +658,8 @@ func (c *Compiler) isEffectivelyPointerLike(structType reflect.Type) bool {
 			return false // Non-pointer-like field found
 		}
 	}
-	
+
 	return true // All fields are effectively pointer-like
-}
-
-// testInterfaceStorageByAddress implements address comparison method from CLAUDE.md
-func (c *Compiler) testInterfaceStorageByAddress(reflectType reflect.Type) (result bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			// If we can't test safely, fall back to conservative approach
-			// Structs and arrays are typically stored indirectly
-			switch reflectType.Kind() {
-			case reflect.Struct, reflect.Array:
-				result = true
-			default:
-				result = false
-			}
-		}
-	}()
-
-	// Handle nil and invalid types
-	if reflectType == nil {
-		return false
-	}
-
-	// Create a non-null addressable value using reflect.New as suggested in CLAUDE.md
-	// This ensures we have a valid value for address comparison
-	var actualValue reflect.Value
-
-	switch reflectType.Kind() {
-	case reflect.Ptr:
-		// For pointer types, create a pointer to a zero value of the element type
-		if reflectType.Elem() != nil {
-			actualValue = reflect.New(reflectType.Elem()) // This creates *T and is addressable
-		} else {
-			// Create a nil pointer but make it addressable
-			ptrVal := reflect.New(reflectType).Elem() // Create *(*T) and dereference to get *T
-			actualValue = ptrVal
-		}
-	case reflect.Struct, reflect.Array:
-		// For struct and array types, create a new addressable value
-		actualValue = reflect.New(reflectType).Elem() // Creates *T then dereference to get T, but still addressable
-	default:
-		// For other types, create an addressable value
-		actualValue = reflect.New(reflectType).Elem()
-	}
-
-	if !actualValue.IsValid() {
-		// Conservative fallback for invalid values
-		return reflectType.Kind() == reflect.Struct || reflectType.Kind() == reflect.Array
-	}
-
-	// Ensure the value is addressable
-	if !actualValue.CanAddr() {
-		newVal := reflect.New(reflectType).Elem()
-		if actualValue.CanInterface() && newVal.CanSet() {
-			newVal.Set(actualValue)
-		}
-		actualValue = newVal
-	}
-
-	if !actualValue.CanAddr() {
-		// Conservative fallback if still cannot address
-		return reflectType.Kind() == reflect.Struct || reflectType.Kind() == reflect.Array
-	}
-
-	// Convert to interface{} to test storage
-	var interfaceValue interface{}
-	if actualValue.CanInterface() {
-		interfaceValue = actualValue.Interface()
-	} else {
-		// Conservative fallback for types that can't interface
-		return reflectType.Kind() == reflect.Struct || reflectType.Kind() == reflect.Array
-	}
-
-	// Get reflect.Value of the interface to examine storage
-	interfaceReflectValue := reflect.ValueOf(interfaceValue)
-
-	// Compare addresses to determine storage type
-	// According to CLAUDE.md: if struct first field address matches struct address, it's direct
-	// If they differ, it requires dereferencing (indirect storage)
-
-	originalAddr := actualValue.Addr().Pointer()
-
-	// For interface storage testing, we need to check if the interface value itself is addressable
-	var interfaceAddr uintptr
-	if interfaceReflectValue.CanAddr() {
-		interfaceAddr = interfaceReflectValue.Addr().Pointer()
-	} else {
-		// If interface value is not addressable, it means it's stored directly
-		// We test this by creating an addressable copy
-		interfaceCopy := reflect.New(interfaceReflectValue.Type()).Elem()
-		interfaceCopy.Set(interfaceReflectValue)
-		interfaceAddr = interfaceCopy.Addr().Pointer()
-	}
-
-	isDirect := (originalAddr == interfaceAddr)
-
-	// Return true if indirect storage (address differs), false if direct storage
-	return !isDirect
-}
-
-// structArrayAddressComparison implements address comparison for structs and arrays as per CLAUDE.md
-func (c *Compiler) structArrayAddressComparison(reflectType reflect.Type) bool {
-	// For struct and array types specifically, use address comparison as requested
-	// This is the method mentioned in CLAUDE.md: compare struct first field address with struct address
-
-	// Create an addressable instance using reflect.New as suggested in CLAUDE.md
-	ptrVal := reflect.New(reflectType)
-	structVal := ptrVal.Elem() // Get the actual struct/array value
-
-	if !structVal.CanAddr() {
-		// If cannot get address, fallback to conservative approach
-		return true // Assume indirect for safety
-	}
-
-	structAddr := structVal.Addr().Pointer()
-
-	// For structs, check first field address alignment
-	if reflectType.Kind() == reflect.Struct && reflectType.NumField() > 0 {
-		firstField := structVal.Field(0)
-		if firstField.CanAddr() {
-			firstFieldAddr := firstField.Addr().Pointer()
-			// If first field address matches struct address, it's direct storage
-			// If they differ, it requires dereferencing (indirect storage)
-			return structAddr != firstFieldAddr
-		}
-	}
-
-	// For arrays and structs without fields or when field not addressable,
-	// test interface storage directly by putting value into interface{}
-	interfaceVal := structVal.Interface()
-	interfaceReflectVal := reflect.ValueOf(interfaceVal)
-
-	// Create addressable copy to get interface storage address
-	interfaceCopy := reflect.New(interfaceReflectVal.Type()).Elem()
-	interfaceCopy.Set(interfaceReflectVal)
-
-	if interfaceCopy.CanAddr() {
-		interfaceAddr := interfaceCopy.Addr().Pointer()
-		// If addresses differ, storage is indirect
-		return structAddr != interfaceAddr
-	}
-
-	// Conservative fallback: structs and arrays are typically indirect
-	return true
-}
-
-// structAddressComparison implements CLAUDE.md address comparison for structs
-func (c *Compiler) structAddressComparison(structType reflect.Type) (result bool) {
-	// Panic recovery for safety
-	defer func() {
-		if r := recover(); r != nil {
-			// If any panic occurs, conservatively assume indirect storage
-			result = true
-		}
-	}()
-
-	// CLAUDE.md: check if struct field address alignment affects interface storage
-	// Safe implementation with nil checks to avoid panics
-
-	if structType.NumField() == 0 {
-		// Empty structs follow size rule
-		return structType.Size() > unsafe.Sizeof(uintptr(0))
-	}
-
-	// Create addressable struct value safely
-	structPtr := reflect.New(structType) // Create *StructType
-	if !structPtr.IsValid() {
-		return true // Conservative: assume indirect storage
-	}
-
-	structVal := structPtr.Elem() // Dereference to get StructType (addressable)
-	if !structVal.IsValid() || !structVal.CanAddr() {
-		return true // Conservative: assume indirect storage
-	}
-
-	// Get first field safely
-	firstField := structVal.Field(0)
-	if !firstField.IsValid() || !firstField.CanAddr() {
-		return true // Conservative: assume indirect storage
-	}
-
-	// Only proceed with address comparison if both are safely addressable
-	structAddr := structVal.Addr().Pointer()
-	firstFieldAddr := firstField.Addr().Pointer()
-
-	// CLAUDE.md: if addresses match, direct storage; if different, indirect storage
-	addressesMatch := (structAddr == firstFieldAddr)
-
-	return !addressesMatch // Return true for indirect storage
-}
-
-// noRuntimeInterfaceStorageLogic implements interface storage logic without runtime dependencies
-func (c *Compiler) noRuntimeInterfaceStorageLogic(reflectType reflect.Type) bool {
-	// Final implementation removing all runtime.IfaceIndir dependencies as per CLAUDE.md
-	// Based on Go's interface storage rules:
-	// - Pointer-like types (ptr, map, chan, func, unsafe.Pointer) and interfaces are stored directly
-	// - All other types (including basic types, strings, slices, structs, arrays) are stored indirectly
-
-	switch reflectType.Kind() {
-	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Func, reflect.UnsafePointer:
-		return false // Pointer-like types are stored directly
-	case reflect.Interface:
-		return false // Interface values stored directly
-	default:
-		// ALL other types are stored indirectly - this is the conservative approach
-		// This includes: bool, int*, uint*, float*, complex*, string, array, slice, struct
-		return true
-	}
-}
-
-// correctInterfaceStorageLogic implements the exact Go runtime behavior
-func (c *Compiler) correctInterfaceStorageLogic(reflectType reflect.Type) bool {
-	// Based on actual runtime.IfaceIndir behavior from testing
-	// Returns true if t is stored indirectly in an interface value
-
-	// Only these pointer-like types are stored directly (return false)
-	switch reflectType.Kind() {
-	case reflect.Ptr, reflect.Chan, reflect.Map, reflect.Func, reflect.UnsafePointer:
-		return false // Pointer-like types are stored directly
-	case reflect.Interface:
-		return false // Interface values stored directly
-	default:
-		// ALL other types (including basic types, strings, slices, structs, arrays)
-		// are stored indirectly (return true)
-		return true
-	}
 }
 
 // IsIndirectFromType provides public access to interface storage detection

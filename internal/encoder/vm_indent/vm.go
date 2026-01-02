@@ -437,7 +437,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					code = code.End.Next
 				}
 			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:]
+				mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:len(b)]
 				if idx < mapCtx.Len {
 					mapCtx.Idx = int(idx)
 					mapCtx.Start = len(b)
@@ -453,7 +453,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendColon(ctx, b)
 			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:]
+				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
 				mapCtx.Start = len(b)
 			}
 			value := mapitervalue(&mapCtx.Iter)

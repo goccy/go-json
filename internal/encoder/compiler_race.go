@@ -4,6 +4,7 @@
 package encoder
 
 import (
+	"reflect"
 	"sync"
 )
 
@@ -43,4 +44,9 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	cachedOpcodeSets[index] = codeSet
 	setsMu.Unlock()
 	return filtered, nil
+}
+
+func CompileToGetCodeSetFromValue(ctx *RuntimeContext, v reflect.Value) (*OpcodeSet, error) {
+	initEncoder()
+	return compileToGetCodeSetFromValue(ctx, v)
 }

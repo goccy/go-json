@@ -220,14 +220,10 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
 	p := uintptr(header.ptr)
 	ctx.Init(p, codeSet.CodeLength)
 	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
@@ -248,14 +244,10 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
 	p := uintptr(header.ptr)
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet)
@@ -275,14 +267,10 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
 	p := uintptr(header.ptr)
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)

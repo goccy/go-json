@@ -195,7 +195,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ = iface.typ
 			}
 			if ifacePtr == nil {
-				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
+				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !encoder.IsIndirectFromType(typ)
 				if !isDirectedNil {
 					b = appendNullComma(ctx, b)
 					code = code.Next

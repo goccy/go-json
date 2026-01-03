@@ -32,7 +32,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	}
 	setsMu.RUnlock()
 
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := newCompiler().compileFromUintptr(typeptr)
 	if err != nil {
 		return nil, err
 	}

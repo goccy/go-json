@@ -24,7 +24,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 		}
 		return filtered, nil
 	}
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := newCompiler().compileFromUintptr(typeptr)
 	if err != nil {
 		return nil, err
 	}

@@ -59,7 +59,7 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	if codeSet, exists := opcodeMap[typeptr]; exists {
 		return codeSet, nil
 	}
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := newCompiler().compileFromUintptr(typeptr)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func compileToGetCodeSetFromValue(ctx *RuntimeContext, v reflect.Value) (*Opcode
 	}
 
 	// Compile directly using reflect.Type
-	codeSet, err := newCompiler().compileFromType(typ)
+	codeSet, err := newCompiler().compile(typ)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +128,8 @@ func newCompiler() *Compiler {
 	}
 }
 
-func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
-	// noescape trick for header.typ ( reflect.*rtype )
-	runtimeTyp := *(**runtime.Type)(unsafe.Pointer(&typeptr))
-	typ := runtime.RType2Type(runtimeTyp)
+// compile compiles from reflect.Type to eliminate runtime dependencies
+func (c *Compiler) compile(typ reflect.Type) (*OpcodeSet, error) {
 	code, err := c.typeToCode(typ)
 	if err != nil {
 		return nil, err
@@ -139,13 +137,12 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	return c.codeToOpcodeSet(typ, code)
 }
 
-// compileFromType compiles directly from reflect.Type to eliminate runtime.Type2RType dependency
-func (c *Compiler) compileFromType(typ reflect.Type) (*OpcodeSet, error) {
-	code, err := c.typeToCode(typ)
-	if err != nil {
-		return nil, err
-	}
-	return c.codeToOpcodeSet(typ, code)
+// compileFromUintptr compiles from uintptr for backward compatibility
+func (c *Compiler) compileFromUintptr(typeptr uintptr) (*OpcodeSet, error) {
+	// noescape trick for header.typ ( reflect.*rtype )
+	runtimeTyp := *(**runtime.Type)(unsafe.Pointer(&typeptr))
+	typ := runtime.RType2Type(runtimeTyp)
+	return c.compile(typ)
 }
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {

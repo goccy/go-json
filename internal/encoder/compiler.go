@@ -728,7 +728,7 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	fieldMap := c.getFieldMap(fields)
 	duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
 	code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
-	if !code.disableIndirectConversion && !indirect && isPtr {
+	if !indirect && isPtr {
 		code.enableIndirect()
 	}
 	delete(c.structTypeToCode, typ)
@@ -758,18 +758,22 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		isNilCheck:    true,
 	}
 	switch {
-	case c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isSingleFieldPtrOptimization):
+	case isSingleFieldPtrOptimization && c.isPtrMarshalJSONType(fieldType):
 		code, err := c.marshalJSONCode(fieldType)
 		if err != nil {
 			return nil, err
 		}
-		c.setupPointerMoveOptimization(fieldCode, structCode, code)
-	case c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isSingleFieldPtrOptimization):
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
+	case isSingleFieldPtrOptimization && c.isPtrMarshalTextType(fieldType):
 		code, err := c.marshalTextCode(fieldType)
 		if err != nil {
 			return nil, err
 		}
-		c.setupPointerMoveOptimization(fieldCode, structCode, code)
+		fieldCode.value = code
+		fieldCode.isAddrForMarshaler = true
+		fieldCode.isNilCheck = false
 	case isPtr && c.isPtrMarshalJSONType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalJSON() ([]byte, error)
@@ -802,14 +806,6 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.value = code
 	}
 	return fieldCode, nil
-}
-
-func (c *Compiler) setupPointerMoveOptimization(fieldCode *StructFieldCode, structCode *StructCode, code Code) {
-	fieldCode.value = code
-	fieldCode.isAddrForMarshaler = true
-	fieldCode.isNilCheck = false
-	structCode.isIndirect = false
-	structCode.disableIndirectConversion = true
 }
 
 func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {
@@ -935,21 +931,6 @@ func (c *Compiler) typeToStructTags(typ reflect.Type) runtime.StructTags {
 		tags = append(tags, runtime.StructTagFromField(field))
 	}
 	return tags
-}
-
-// isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase checks if we can optimize
-// *struct{ field T } => struct { field *T } for MarshalJSON types
-// This optimization is valid when:
-// 1. Single field struct pointer optimization applies
-// 2. Field type is not nilable (to ensure safety)
-// 3. Pointer to field type implements MarshalJSON
-func (c *Compiler) isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(typ reflect.Type, isSingleFieldOptimization bool) bool {
-	return isSingleFieldOptimization && !c.isNilableType(typ) && c.isPtrMarshalJSONType(typ)
-}
-
-// isMovePointerPositionFromHeadToFirstMarshalTextFieldCase is similar to the JSON version but for MarshalText
-func (c *Compiler) isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(typ reflect.Type, isSingleFieldOptimization bool) bool {
-	return isSingleFieldOptimization && !c.isNilableType(typ) && c.isPtrMarshalTextType(typ)
 }
 
 func (c *Compiler) implementsMarshalJSON(typ reflect.Type) bool {

@@ -370,12 +370,11 @@ func (c *MapCode) Filter(_ *FieldQuery) Code {
 }
 
 type StructCode struct {
-	typ                       reflect.Type
-	fields                    []*StructFieldCode
-	isPtr                     bool
-	disableIndirectConversion bool
-	isIndirect                bool
-	isRecursive               bool
+	typ         reflect.Type
+	fields      []*StructFieldCode
+	isPtr       bool
+	isIndirect  bool
+	isRecursive bool
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -587,12 +586,11 @@ func (c *StructCode) Filter(query *FieldQuery) Code {
 		fields = append(fields, fieldCode)
 	}
 	return &StructCode{
-		typ:                       c.typ,
-		fields:                    fields,
-		isPtr:                     c.isPtr,
-		disableIndirectConversion: c.disableIndirectConversion,
-		isIndirect:                c.isIndirect,
-		isRecursive:               c.isRecursive,
+		typ:         c.typ,
+		fields:      fields,
+		isPtr:       c.isPtr,
+		isIndirect:  c.isIndirect,
+		isRecursive: c.isRecursive,
 	}
 }
 

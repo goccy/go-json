@@ -181,17 +181,21 @@ func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
 	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
 }
 func PtrToInterface(code *Opcode, p uintptr) interface{} {
-	return *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: runtime.Type2RType(code.Type),
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
-	}))
+	// Create interface{} using reflect.NewAt to avoid runtime.Type2RType
+	if p == 0 {
+		return reflect.Zero(code.Type).Interface()
+	}
+	return reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&p))).Elem().Interface()
 }
 
 func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: runtime.Type2RType(code.Type),
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
-	}))
+	// Create interface{} using reflect.NewAt to avoid runtime.Type2RType
+	var v interface{}
+	if ptr == 0 {
+		v = reflect.Zero(code.Type).Interface()
+	} else {
+		v = reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&ptr))).Elem().Interface()
+	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),

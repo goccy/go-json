@@ -73,13 +73,28 @@ func compileToGetCodeSetFromValue(ctx *RuntimeContext, v reflect.Value) (*Opcode
 		return nil, &errors.InvalidUnmarshalError{Type: nil}
 	}
 
-	// Extract type and use the same caching mechanism as CompileToGetCodeSet
+	// Extract type and create cache key without runtime.Type2RType
 	typ := v.Type()
-	runtimeTyp := runtime.Type2RType(typ)
-	typeptr := uintptr(unsafe.Pointer(runtimeTyp))
-	
-	// Delegate to the original CompileToGetCodeSet for proper caching
-	return CompileToGetCodeSet(ctx, typeptr)
+
+	// Use the reflect.Type's internal pointer as cache key to maintain caching compatibility
+	// This avoids runtime.Type2RType while still providing a unique uintptr for caching
+	typeptr := uintptr((*[2]unsafe.Pointer)(unsafe.Pointer(&typ))[1])
+
+	// Check cache first
+	opcodeMap := loadOpcodeMap()
+	if codeSet, exists := opcodeMap[typeptr]; exists {
+		return codeSet, nil
+	}
+
+	// Compile directly using reflect.Type
+	codeSet, err := newCompiler().compileFromType(typ)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in cache
+	storeOpcodeSet(typeptr, codeSet, opcodeMap)
+	return codeSet, nil
 }
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
@@ -124,6 +139,14 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	return c.codeToOpcodeSet(typ, code)
 }
 
+// compileFromType compiles directly from reflect.Type to eliminate runtime.Type2RType dependency
+func (c *Compiler) compileFromType(typ reflect.Type) (*OpcodeSet, error) {
+	code, err := c.typeToCode(typ)
+	if err != nil {
+		return nil, err
+	}
+	return c.codeToOpcodeSet(typ, code)
+}
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {
 	noescapeKeyCode := c.codeToOpcode(&compileContext{
@@ -717,7 +740,6 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	return code, nil
 }
 
-
 func toElemType(t reflect.Type) reflect.Type {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -997,11 +1019,11 @@ func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code
 }
 
 func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
-	recursiveCodes := map[uintptr]*CompiledCode{}
+	recursiveCodes := map[reflect.Type]*CompiledCode{}
 	for _, recursive := range *ctx.recursiveCodes {
 		typ := recursive.Type
 		codes := ctx.structTypeToCodes[typ]
-		if recursiveCode, ok := recursiveCodes[uintptr(unsafe.Pointer(runtime.Type2RType(typ)))]; ok {
+		if recursiveCode, ok := recursiveCodes[typ]; ok {
 			*recursive.Jmp = *recursiveCode
 			continue
 		}
@@ -1031,6 +1053,6 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 
-		recursiveCodes[uintptr(unsafe.Pointer(runtime.Type2RType(typ)))] = compiled
+		recursiveCodes[typ] = compiled
 	}
 }

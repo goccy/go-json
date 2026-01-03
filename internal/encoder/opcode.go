@@ -40,7 +40,7 @@ type Opcode struct {
 	NumBitSize uint8
 	Flags      OpFlags
 
-	Type       reflect.Type // go type
+	Type       reflect.Type  // go type
 	Jmp        *CompiledCode // for recursive call
 	FieldQuery *FieldQuery   // field query for Interface / MarshalJSON / MarshalText
 	ElemIdx    uint32        // offset to access array/slice elem

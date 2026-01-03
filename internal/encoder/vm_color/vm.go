@@ -195,7 +195,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ = iface.typ
 			}
 			if ifacePtr == nil {
-				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !encoder.IsIndirectFromType(typ)
+				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !encoder.IsIndirectFromType(runtime.RType2Type(typ))
 				if !isDirectedNil {
 					b = appendNullComma(ctx, b)
 					code = code.Next
@@ -408,7 +408,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendStructHead(ctx, b)
 			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
 			mapCtx := encoder.NewMapContext(mlen, unorderedMap)
-			mapiterinit(code.Type, uptr, &mapCtx.Iter)
+			mapiterinit(runtime.Type2RType(code.Type), uptr, &mapCtx.Iter)
 			store(ctxptr, code.Idx, uintptr(unsafe.Pointer(mapCtx)))
 			ctx.KeepRefs = append(ctx.KeepRefs, unsafe.Pointer(mapCtx))
 			if unorderedMap {

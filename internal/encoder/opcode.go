@@ -3,6 +3,7 @@ package encoder
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"unsafe"
@@ -39,7 +40,7 @@ type Opcode struct {
 	NumBitSize uint8
 	Flags      OpFlags
 
-	Type       *runtime.Type // go type
+	Type       reflect.Type // go type
 	Jmp        *CompiledCode // for recursive call
 	FieldQuery *FieldQuery   // field query for Interface / MarshalJSON / MarshalText
 	ElemIdx    uint32        // offset to access array/slice elem
@@ -307,7 +308,7 @@ func (c *Opcode) ToFieldType(isString bool) OpType {
 	return OpStructField
 }
 
-func newOpCode(ctx *compileContext, typ *runtime.Type, op OpType) *Opcode {
+func newOpCode(ctx *compileContext, typ reflect.Type, op OpType) *Opcode {
 	return newOpCodeWithNext(ctx, typ, op, newEndOp(ctx, typ))
 }
 
@@ -391,7 +392,7 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	return copied
 }
 
-func newOpCodeWithNext(ctx *compileContext, typ *runtime.Type, op OpType, next *Opcode) *Opcode {
+func newOpCodeWithNext(ctx *compileContext, typ reflect.Type, op OpType, next *Opcode) *Opcode {
 	return &Opcode{
 		Op:         op,
 		Idx:        opcodeOffset(ctx.ptrIndex),
@@ -402,7 +403,7 @@ func newOpCodeWithNext(ctx *compileContext, typ *runtime.Type, op OpType, next *
 	}
 }
 
-func newEndOp(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newEndOp(ctx *compileContext, typ reflect.Type) *Opcode {
 	return newOpCodeWithNext(ctx, typ, OpEnd, nil)
 }
 
@@ -638,7 +639,7 @@ func (c *Opcode) DumpDOT() string {
 	return b.String()
 }
 
-func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newSliceHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -655,7 +656,7 @@ func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	}
 }
 
-func newSliceElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, size uintptr) *Opcode {
+func newSliceElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpSliceElem,
 		Type:       typ,
@@ -668,7 +669,7 @@ func newSliceElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, size
 	}
 }
 
-func newArrayHeaderCode(ctx *compileContext, typ *runtime.Type, alen int) *Opcode {
+func newArrayHeaderCode(ctx *compileContext, typ reflect.Type, alen int) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -683,7 +684,7 @@ func newArrayHeaderCode(ctx *compileContext, typ *runtime.Type, alen int) *Opcod
 	}
 }
 
-func newArrayElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, length int, size uintptr) *Opcode {
+func newArrayElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, length int, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpArrayElem,
 		Type:       typ,
@@ -696,7 +697,7 @@ func newArrayElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, leng
 	}
 }
 
-func newMapHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newMapHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	return &Opcode{
@@ -708,7 +709,7 @@ func newMapHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	}
 }
 
-func newMapKeyCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapKeyCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapKey,
 		Type:       typ,
@@ -718,7 +719,7 @@ func newMapKeyCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode
 	}
 }
 
-func newMapValueCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapValueCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapValue,
 		Type:       typ,
@@ -728,7 +729,7 @@ func newMapValueCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opco
 	}
 }
 
-func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapEndCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapEnd,
 		Type:       typ,
@@ -739,7 +740,7 @@ func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode
 	}
 }
 
-func newRecursiveCode(ctx *compileContext, typ *runtime.Type, jmp *CompiledCode) *Opcode {
+func newRecursiveCode(ctx *compileContext, typ reflect.Type, jmp *CompiledCode) *Opcode {
 	return &Opcode{
 		Op:         OpRecursive,
 		Type:       typ,

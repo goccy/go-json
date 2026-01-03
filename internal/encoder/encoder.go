@@ -94,7 +94,7 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type                     *runtime.Type
+	Type                     reflect.Type
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -182,14 +182,14 @@ func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
 }
 func PtrToInterface(code *Opcode, p uintptr) interface{} {
 	return *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
+		typ: runtime.Type2RType(code.Type),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 }
 
 func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
 	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
+		typ: runtime.Type2RType(code.Type),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
 	}))
 	return &errors.UnsupportedValueError{
@@ -207,7 +207,7 @@ func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
 
 func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
 	return &errors.MarshalerError{
-		Type: runtime.RType2Type(code.Type),
+		Type: code.Type,
 		Err:  err,
 	}
 }

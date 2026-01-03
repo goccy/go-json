@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"unsafe"
 
@@ -13,7 +14,7 @@ type compileContext struct {
 	ptrIndex          int
 	indent            uint32
 	escapeKey         bool
-	structTypeToCodes map[uintptr]Opcodes
+	structTypeToCodes map[reflect.Type]Opcodes
 	recursiveCodes    *Opcodes
 }
 

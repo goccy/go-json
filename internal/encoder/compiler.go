@@ -67,15 +67,19 @@ func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
 	return codeSet, nil
 }
 
-func compileToGetCodeSetFromValue(_ *RuntimeContext, v reflect.Value) (*OpcodeSet, error) {
+func compileToGetCodeSetFromValue(ctx *RuntimeContext, v reflect.Value) (*OpcodeSet, error) {
 	// Safety check: ensure we have a valid reflect.Value
 	if !v.IsValid() {
 		return nil, &errors.InvalidUnmarshalError{Type: nil}
 	}
 
-	// For compilation purposes, we use the type information
-	// Currently falls back to original implementation
-	return newCompiler().compileFromValue(v)
+	// Extract type and use the same caching mechanism as CompileToGetCodeSet
+	typ := v.Type()
+	runtimeTyp := runtime.Type2RType(typ)
+	typeptr := uintptr(unsafe.Pointer(runtimeTyp))
+	
+	// Delegate to the original CompileToGetCodeSet for proper caching
+	return CompileToGetCodeSet(ctx, typeptr)
 }
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
@@ -120,18 +124,6 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	return c.codeToOpcodeSet(typ, code)
 }
 
-func (c *Compiler) compileFromValue(v reflect.Value) (*OpcodeSet, error) {
-	// Use reflect.Type directly now
-	typ := v.Type()
-
-	// Currently using original typeToCode implementation
-	// TODO: Implement reflect.Value based compilation as requested in CLAUDE.md
-	code, err := c.typeToCode(typ)
-	if err != nil {
-		return nil, err
-	}
-	return c.codeToOpcodeSet(typ, code)
-}
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {
 	noescapeKeyCode := c.codeToOpcode(&compileContext{
@@ -725,11 +717,6 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	return code, nil
 }
 
-func (c *Compiler) structCodeFromValue(typ reflect.Type, v reflect.Value, isPtr bool) (*StructCode, error) {
-	// For safety and to avoid memory corruption, use the original structCode implementation
-	// The reflect.Value parameter is preserved for API compatibility but not used
-	return c.structCode(typ, isPtr)
-}
 
 func toElemType(t reflect.Type) reflect.Type {
 	for t.Kind() == reflect.Ptr {

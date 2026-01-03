@@ -203,7 +203,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
-			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(typ)))
+			// CLAUDE.mdの指示に従い、reflect.Valueを使用してコンパイル
+			reflectType := runtime.RType2Type(typ)
+			// 安全なreflect.Valueを作成 - コンパイル用途のため実際のデータは不要
+			reflectValue := reflect.New(reflectType).Elem()
+			ifaceCodeSet, err := encoder.CompileToGetCodeSetFromValue(ctx, reflectValue)
 			if err != nil {
 				return nil, err
 			}

@@ -745,8 +745,6 @@ func toElemType(t reflect.Type) reflect.Type {
 func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTag, isPtr bool, fieldNum, fieldIndex int) (*StructFieldCode, error) {
 	field := tag.Field
 	fieldType := field.Type
-	// Check for pointer position optimization: single field struct with pointer marshaler
-	isSingleFieldPtrOptimization := isPtr && fieldIndex == 0 && fieldNum == 1
 	fieldCode := &StructFieldCode{
 		typ:           fieldType,
 		key:           tag.Key,
@@ -758,22 +756,6 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		isNilCheck:    true,
 	}
 	switch {
-	case isSingleFieldPtrOptimization && c.isPtrMarshalJSONType(fieldType):
-		code, err := c.marshalJSONCode(fieldType)
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
-	case isSingleFieldPtrOptimization && c.isPtrMarshalTextType(fieldType):
-		code, err := c.marshalTextCode(fieldType)
-		if err != nil {
-			return nil, err
-		}
-		fieldCode.value = code
-		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
 	case isPtr && c.isPtrMarshalJSONType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalJSON() ([]byte, error)

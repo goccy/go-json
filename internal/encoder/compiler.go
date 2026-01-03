@@ -607,7 +607,6 @@ func (c *Compiler) isIndirectFromType(typ reflect.Type) bool {
 		return false
 	}
 
-	// Our reflect-based implementation to replace runtime.IfaceIndir
 	// Based on Go's KindDirectIface: Size_ == PtrBytes == goarch.PtrSize
 	ptrSize := unsafe.Sizeof(uintptr(0))
 	typeSize := typ.Size()

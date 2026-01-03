@@ -48,5 +48,5 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 
 func CompileToGetCodeSetFromValue(ctx *RuntimeContext, v reflect.Value) (*OpcodeSet, error) {
 	initEncoder()
-	return compileToGetCodeSetFromValue(ctx, v)
+	return compileToGetCodeSetFromValue(v)
 }

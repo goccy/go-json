@@ -46,7 +46,7 @@ func AnalyzeTypeAddr() *TypeAddr {
 		section := sections[0]
 		offset := offsets[0]
 		var (
-			min         uintptr = uintptr(^uint(0))
+			min                 = uintptr(^uint(0))
 			max         uintptr = 0
 			isAligned64         = true
 			isAligned32         = true

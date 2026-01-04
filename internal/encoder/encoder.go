@@ -1,3 +1,4 @@
+// Package encoder provides JSON encoding functionality.
 package encoder
 
 import (

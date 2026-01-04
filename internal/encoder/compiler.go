@@ -739,7 +739,7 @@ func toElemType(t reflect.Type) reflect.Type {
 	return t
 }
 
-func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTag, isPtr bool, fieldNum, fieldIndex int) (*StructFieldCode, error) {
+func (c *Compiler) structFieldCode(_ *StructCode, tag *runtime.StructTag, isPtr bool, _ int, _ int) (*StructFieldCode, error) {
 	field := tag.Field
 	fieldType := field.Type
 	fieldCode := &StructFieldCode{

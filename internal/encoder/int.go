@@ -248,7 +248,7 @@ func appendInt64(out []byte, n uint64, negative bool) []byte {
 		}
 		return append(out, byte(n+'0'))
 	}
-	
+
 	// For larger numbers, use standard conversion
 	var b [20]byte
 	i := 20
@@ -260,7 +260,7 @@ func appendInt64(out []byte, n uint64, negative bool) []byte {
 	}
 	i--
 	b[i] = byte('0' + n)
-	
+
 	if negative {
 		i--
 		b[i] = '-'
@@ -272,7 +272,7 @@ func appendUint64(out []byte, n uint64) []byte {
 	if n < 10 {
 		return append(out, byte(n+'0'))
 	}
-	
+
 	// For larger numbers, use standard conversion
 	var b [20]byte
 	i := 20
@@ -284,6 +284,6 @@ func appendUint64(out []byte, n uint64) []byte {
 	}
 	i--
 	b[i] = byte('0' + n)
-	
+
 	return append(out, b[i:]...)
 }

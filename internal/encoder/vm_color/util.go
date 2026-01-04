@@ -108,35 +108,6 @@ func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
 	return p
 }
 
-func loadPtr(base unsafe.Pointer, idx uint32) unsafe.Pointer {
-	addr := unsafe.Add(base, idx)
-	return unsafe.Pointer(*(*uintptr)(addr))
-}
-
-func loadNPtrPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
-	addr := unsafe.Add(base, idx)
-	p := unsafe.Pointer(*(*uintptr)(addr))
-	for i := uint8(0); i < ptrNum; i++ {
-		if p == nil {
-			return nil
-		}
-		p = ptrToPtr(p)
-	}
-	return p
-}
-
-
-
-func storePtr(base unsafe.Pointer, idx uint32, p unsafe.Pointer) {
-	addr := unsafe.Add(base, idx)
-	*(*unsafe.Pointer)(addr) = p
-}
-
-func storePtrAsUintptr(base unsafe.Pointer, idx uint32, p unsafe.Pointer) {
-	addr := unsafe.Add(base, idx)
-	*(*uintptr)(addr) = uintptr(p)
-}
-
 func storeUintptr(base unsafe.Pointer, idx uint32, v uintptr) {
 	addr := unsafe.Add(base, idx)
 	*(*uintptr)(addr) = v
@@ -306,7 +277,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)               {}
-func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                                 {}
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)        {}
+func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

@@ -60,9 +60,9 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() interface{} {
 			return &RuntimeContext{
-				Buf:      make([]byte, 0, bufSize),
-				Ptrs:     make([]unsafe.Pointer, 128),
-				Option:   &Option{},
+				Buf:    make([]byte, 0, bufSize),
+				Ptrs:   make([]unsafe.Pointer, 128),
+				Option: &Option{},
 			}
 		},
 	}

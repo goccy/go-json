@@ -215,7 +215,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)               {}
-func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                                 {}
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)        {}
+func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

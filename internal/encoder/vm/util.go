@@ -106,7 +106,7 @@ func ptrToUnsafePtr(p uintptr) unsafe.Pointer {
 }
 func ptrToInterface(code *encoder.Opcode, p uintptr) interface{} {
 	return *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
+		typ: (*runtime.Type)(((*emptyInterface)(unsafe.Pointer(&code.Type))).ptr),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 }

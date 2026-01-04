@@ -1,3 +1,4 @@
+// Package encoder provides JSON encoding functionality.
 package encoder
 
 import (
@@ -94,7 +95,7 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type                     *runtime.Type
+	Type                     reflect.Type
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -181,17 +182,19 @@ func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
 	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
 }
 func PtrToInterface(code *Opcode, p uintptr) interface{} {
-	return *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
-	}))
+	if p == 0 {
+		return reflect.Zero(code.Type).Interface()
+	}
+	return reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&p))).Elem().Interface()
 }
 
 func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
-	}))
+	var v interface{}
+	if ptr == 0 {
+		v = reflect.Zero(code.Type).Interface()
+	} else {
+		v = reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&ptr))).Elem().Interface()
+	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),
@@ -207,7 +210,7 @@ func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
 
 func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
 	return &errors.MarshalerError{
-		Type: runtime.RType2Type(code.Type),
+		Type: code.Type,
 		Err:  err,
 	}
 }
@@ -295,9 +298,14 @@ func ReleaseMapContext(c *MapContext) {
 	mapContextPool.Put(c)
 }
 
-//go:linkname MapIterInit runtime.mapiterinit
+//go:linkname mapIterInit runtime.mapiterinit
 //go:noescape
-func MapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+func mapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+
+func MapIterInit(mapType reflect.Type, m unsafe.Pointer, it *mapIter) {
+	rtype := (*runtime.Type)(((*emptyInterface)(unsafe.Pointer(&mapType))).ptr)
+	mapIterInit(rtype, m, it)
+}
 
 //go:linkname MapIterKey reflect.mapiterkey
 //go:noescape
@@ -459,6 +467,11 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
+
 	v = rv.Interface()
 	var bb []byte
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -509,6 +522,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 			rv = newV
 		}
 	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
@@ -532,6 +546,7 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {

@@ -1955,9 +1955,9 @@ func TestIssue180(t *testing.T) {
 		}{
 			T4: []string{},
 			T7: [][]string{
-				[]string{""},
-				[]string{"hello", "world"},
-				[]string{},
+				{""},
+				{"hello", "world"},
+				{},
 			},
 		},
 	}
@@ -2147,7 +2147,7 @@ type implementedIfaceType struct {
 func (implementedIfaceType) M() {}
 
 func TestImplementedMethodInterfaceType(t *testing.T) {
-	data := []implementedIfaceType{implementedIfaceType{}}
+	data := []implementedIfaceType{{}}
 	expected, err := stdjson.Marshal(data)
 	if err != nil {
 		t.Fatal(err)

@@ -52,7 +52,7 @@ func (e *Encoder) EncodeContext(ctx context.Context, v interface{}, optFuncs ...
 	rctx.Option.Flag |= encoder.ContextOption
 	rctx.Option.Context = ctx
 
-	err := e.encodeWithOption(rctx, v, optFuncs...) //nolint: contextcheck
+	err := e.encodeWithOption(rctx, v, optFuncs...)
 
 	encoder.ReleaseRuntimeContext(rctx)
 	return err
@@ -120,7 +120,7 @@ func marshalContext(ctx context.Context, v interface{}, optFuncs ...EncodeOption
 		optFunc(rctx.Option)
 	}
 
-	buf, err := encode(rctx, v) //nolint: contextcheck
+	buf, err := encode(rctx, v)
 	if err != nil {
 		encoder.ReleaseRuntimeContext(rctx)
 		return nil, err
@@ -220,17 +220,11 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
-	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
+	ctx.Init(header.ptr, codeSet.CodeLength)
 
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
@@ -248,15 +242,11 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
-	p := uintptr(header.ptr)
+	p := header.ptr
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
@@ -275,20 +265,12 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return b, nil
 	}
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(unsafe.Pointer(typ))
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
+	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(header.typ)))
 	if err != nil {
 		return nil, err
 	}
-
-	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
+	ctx.Init(header.ptr, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)
-
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
-
 	if err != nil {
 		return nil, err
 	}

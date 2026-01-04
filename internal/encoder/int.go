@@ -77,17 +77,60 @@ func numMask(numBitSize uint8) uint64 {
 	return 1<<numBitSize - 1
 }
 
-func AppendInt(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
+func AppendIntDirect(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []byte {
 	var u64 uint64
 	switch code.NumBitSize {
 	case 8:
-		u64 = (uint64)(**(**uint8)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint8)(p))
 	case 16:
-		u64 = (uint64)(**(**uint16)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint16)(p))
 	case 32:
-		u64 = (uint64)(**(**uint32)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint32)(p))
 	case 64:
-		u64 = **(**uint64)(unsafe.Pointer(&p))
+		u64 = *(*uint64)(p)
+	}
+	mask := numMask(code.NumBitSize)
+	n := u64 & mask
+	negative := (u64>>(code.NumBitSize-1))&1 == 1
+	if negative {
+		// For negative numbers, convert to positive magnitude
+		// Handle special case of minimum value to avoid overflow
+		if n == (1 << (code.NumBitSize - 1)) {
+			// This is the minimum value (e.g., -128, -32768, -2147483648, -9223372036854775808)
+			n = 1 << (code.NumBitSize - 1)
+		} else {
+			n = (1 << code.NumBitSize) - n
+		}
+	}
+	if !negative {
+		if n < 10 {
+			return append(out, byte(n+'0'))
+		} else if n < 100 {
+			u := intLELookup[n]
+			return append(out, byte(u), byte(u>>8))
+		}
+	} else {
+		if n < 10 {
+			return append(out, '-', byte(n+'0'))
+		} else if n < 100 {
+			u := intLELookup[n]
+			return append(out, '-', byte(u), byte(u>>8))
+		}
+	}
+	return appendInt64(out, n, negative)
+}
+
+func AppendInt(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []byte {
+	var u64 uint64
+	switch code.NumBitSize {
+	case 8:
+		u64 = (uint64)(*(*uint8)(p))
+	case 16:
+		u64 = (uint64)(*(*uint16)(p))
+	case 32:
+		u64 = (uint64)(*(*uint32)(p))
+	case 64:
+		u64 = *(*uint64)(p)
 	}
 	mask := numMask(code.NumBitSize)
 	n := u64 & mask
@@ -131,17 +174,40 @@ func AppendInt(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
 	return append(out, b[i:]...)
 }
 
-func AppendUint(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
+func AppendUintDirect(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []byte {
 	var u64 uint64
 	switch code.NumBitSize {
 	case 8:
-		u64 = (uint64)(**(**uint8)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint8)(p))
 	case 16:
-		u64 = (uint64)(**(**uint16)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint16)(p))
 	case 32:
-		u64 = (uint64)(**(**uint32)(unsafe.Pointer(&p)))
+		u64 = uint64(*(*uint32)(p))
 	case 64:
-		u64 = **(**uint64)(unsafe.Pointer(&p))
+		u64 = *(*uint64)(p)
+	}
+	mask := numMask(code.NumBitSize)
+	n := u64 & mask
+	if n < 10 {
+		return append(out, byte(n+'0'))
+	} else if n < 100 {
+		u := intLELookup[n]
+		return append(out, byte(u), byte(u>>8))
+	}
+	return appendUint64(out, n)
+}
+
+func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []byte {
+	var u64 uint64
+	switch code.NumBitSize {
+	case 8:
+		u64 = (uint64)(*(*uint8)(p))
+	case 16:
+		u64 = (uint64)(*(*uint16)(p))
+	case 32:
+		u64 = (uint64)(*(*uint32)(p))
+	case 64:
+		u64 = *(*uint64)(p)
 	}
 	mask := numMask(code.NumBitSize)
 	n := u64 & mask
@@ -172,5 +238,52 @@ func AppendUint(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
 	if n < 10 {
 		i++ // remove leading zero
 	}
+	return append(out, b[i:]...)
+}
+
+func appendInt64(out []byte, n uint64, negative bool) []byte {
+	if n < 10 {
+		if negative {
+			return append(out, '-', byte(n+'0'))
+		}
+		return append(out, byte(n+'0'))
+	}
+
+	// For larger numbers, use standard conversion
+	var b [20]byte
+	i := 20
+	for n >= 10 {
+		i--
+		q := n / 10
+		b[i] = byte('0' + n - q*10)
+		n = q
+	}
+	i--
+	b[i] = byte('0' + n)
+
+	if negative {
+		i--
+		b[i] = '-'
+	}
+	return append(out, b[i:]...)
+}
+
+func appendUint64(out []byte, n uint64) []byte {
+	if n < 10 {
+		return append(out, byte(n+'0'))
+	}
+
+	// For larger numbers, use standard conversion
+	var b [20]byte
+	i := 20
+	for n >= 10 {
+		i--
+		q := n / 10
+		b[i] = byte('0' + n - q*10)
+		n = q
+	}
+	i--
+	b[i] = byte('0' + n)
+
 	return append(out, b[i:]...)
 }

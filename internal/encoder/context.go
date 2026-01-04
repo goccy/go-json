@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"unsafe"
 
@@ -13,7 +14,7 @@ type compileContext struct {
 	ptrIndex          int
 	indent            uint32
 	escapeKey         bool
-	structTypeToCodes map[uintptr]Opcodes
+	structTypeToCodes map[reflect.Type]Opcodes
 	recursiveCodes    *Opcodes
 }
 
@@ -59,10 +60,9 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() interface{} {
 			return &RuntimeContext{
-				Buf:      make([]byte, 0, bufSize),
-				Ptrs:     make([]uintptr, 128),
-				KeepRefs: make([]unsafe.Pointer, 0, 8),
-				Option:   &Option{},
+				Buf:    make([]byte, 0, bufSize),
+				Ptrs:   make([]unsafe.Pointer, 128),
+				Option: &Option{},
 			}
 		},
 	}
@@ -72,28 +72,26 @@ type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
-	Ptrs       []uintptr
-	KeepRefs   []unsafe.Pointer
-	SeenPtr    []uintptr
+	Ptrs       []unsafe.Pointer
+	SeenPtr    []unsafe.Pointer
 	BaseIndent uint32
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
 }
 
-func (c *RuntimeContext) Init(p uintptr, codelen int) {
+func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
 	if len(c.Ptrs) < codelen {
-		c.Ptrs = make([]uintptr, codelen)
+		c.Ptrs = make([]unsafe.Pointer, codelen)
 	}
 	c.Ptrs[0] = p
-	c.KeepRefs = c.KeepRefs[:0]
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
 }
 
-func (c *RuntimeContext) Ptr() uintptr {
+func (c *RuntimeContext) Ptr() unsafe.Pointer {
 	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
-	return uintptr(header.Data)
+	return unsafe.Pointer(header.Data)
 }
 
 func TakeRuntimeContext() *RuntimeContext {

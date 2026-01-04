@@ -1,3 +1,4 @@
+// Package encoder provides JSON encoding functionality.
 package encoder
 
 import (
@@ -94,7 +95,7 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type                     *runtime.Type
+	Type                     reflect.Type
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -128,70 +129,20 @@ type CompiledCode struct {
 
 const StartDetectingCyclesAfter = 1000
 
-func Load(base uintptr, idx uintptr) uintptr {
-	addr := base + idx
-	return **(**uintptr)(unsafe.Pointer(&addr))
-}
-
-func Store(base uintptr, idx uintptr, p uintptr) {
-	addr := base + idx
-	**(**uintptr)(unsafe.Pointer(&addr)) = p
-}
-
-func LoadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
-	addr := base + idx
-	p := **(**uintptr)(unsafe.Pointer(&addr))
-	if p == 0 {
-		return 0
-	}
-	return PtrToPtr(p)
-	/*
-		for i := 0; i < ptrNum; i++ {
-			if p == 0 {
-				return p
-			}
-			p = PtrToPtr(p)
-		}
-		return p
-	*/
-}
-
-func PtrToUint64(p uintptr) uint64              { return **(**uint64)(unsafe.Pointer(&p)) }
-func PtrToFloat32(p uintptr) float32            { return **(**float32)(unsafe.Pointer(&p)) }
-func PtrToFloat64(p uintptr) float64            { return **(**float64)(unsafe.Pointer(&p)) }
-func PtrToBool(p uintptr) bool                  { return **(**bool)(unsafe.Pointer(&p)) }
-func PtrToBytes(p uintptr) []byte               { return **(**[]byte)(unsafe.Pointer(&p)) }
-func PtrToNumber(p uintptr) json.Number         { return **(**json.Number)(unsafe.Pointer(&p)) }
-func PtrToString(p uintptr) string              { return **(**string)(unsafe.Pointer(&p)) }
-func PtrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader)(unsafe.Pointer(&p)) }
-func PtrToPtr(p uintptr) uintptr {
-	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-}
-func PtrToNPtr(p uintptr, ptrNum int) uintptr {
-	for i := 0; i < ptrNum; i++ {
-		if p == 0 {
-			return 0
-		}
-		p = PtrToPtr(p)
-	}
-	return p
-}
-
-func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
-	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
-}
 func PtrToInterface(code *Opcode, p uintptr) interface{} {
-	return *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
-	}))
+	if p == 0 {
+		return reflect.Zero(code.Type).Interface()
+	}
+	return reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&p))).Elem().Interface()
 }
 
-func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&ptr)),
-	}))
+func ErrUnsupportedValue(code *Opcode, ptr unsafe.Pointer) *errors.UnsupportedValueError {
+	var v interface{}
+	if ptr == nil {
+		v = reflect.Zero(code.Type).Interface()
+	} else {
+		v = reflect.NewAt(code.Type, ptr).Elem().Interface()
+	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),
@@ -207,7 +158,7 @@ func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
 
 func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
 	return &errors.MarshalerError{
-		Type: runtime.RType2Type(code.Type),
+		Type: code.Type,
 		Err:  err,
 	}
 }
@@ -295,9 +246,14 @@ func ReleaseMapContext(c *MapContext) {
 	mapContextPool.Put(c)
 }
 
-//go:linkname MapIterInit runtime.mapiterinit
+//go:linkname mapIterInit runtime.mapiterinit
 //go:noescape
-func MapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+func mapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+
+func MapIterInit(mapType reflect.Type, m unsafe.Pointer, it *mapIter) {
+	rtype := (*runtime.Type)(((*emptyInterface)(unsafe.Pointer(&mapType))).ptr)
+	mapIterInit(rtype, m, it)
+}
 
 //go:linkname MapIterKey reflect.mapiterkey
 //go:noescape
@@ -459,6 +415,11 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
+
 	v = rv.Interface()
 	var bb []byte
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -509,6 +470,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 			rv = newV
 		}
 	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
@@ -532,6 +494,7 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {

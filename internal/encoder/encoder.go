@@ -129,58 +129,6 @@ type CompiledCode struct {
 
 const StartDetectingCyclesAfter = 1000
 
-func Load(base uintptr, idx uintptr) uintptr {
-	addr := base + idx
-	return **(**uintptr)(unsafe.Pointer(&addr))
-}
-
-func Store(base uintptr, idx uintptr, p uintptr) {
-	addr := base + idx
-	**(**uintptr)(unsafe.Pointer(&addr)) = p
-}
-
-func LoadNPtr(base uintptr, idx uintptr, ptrNum int) uintptr {
-	addr := base + idx
-	p := **(**uintptr)(unsafe.Pointer(&addr))
-	if p == 0 {
-		return 0
-	}
-	return PtrToPtr(p)
-	/*
-		for i := 0; i < ptrNum; i++ {
-			if p == 0 {
-				return p
-			}
-			p = PtrToPtr(p)
-		}
-		return p
-	*/
-}
-
-func PtrToUint64(p uintptr) uint64              { return **(**uint64)(unsafe.Pointer(&p)) }
-func PtrToFloat32(p uintptr) float32            { return **(**float32)(unsafe.Pointer(&p)) }
-func PtrToFloat64(p uintptr) float64            { return **(**float64)(unsafe.Pointer(&p)) }
-func PtrToBool(p uintptr) bool                  { return **(**bool)(unsafe.Pointer(&p)) }
-func PtrToBytes(p uintptr) []byte               { return **(**[]byte)(unsafe.Pointer(&p)) }
-func PtrToNumber(p uintptr) json.Number         { return **(**json.Number)(unsafe.Pointer(&p)) }
-func PtrToString(p uintptr) string              { return **(**string)(unsafe.Pointer(&p)) }
-func PtrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader)(unsafe.Pointer(&p)) }
-func PtrToPtr(p uintptr) uintptr {
-	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-}
-func PtrToNPtr(p uintptr, ptrNum int) uintptr {
-	for i := 0; i < ptrNum; i++ {
-		if p == 0 {
-			return 0
-		}
-		p = PtrToPtr(p)
-	}
-	return p
-}
-
-func PtrToUnsafePtr(p uintptr) unsafe.Pointer {
-	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
-}
 func PtrToInterface(code *Opcode, p uintptr) interface{} {
 	if p == 0 {
 		return reflect.Zero(code.Type).Interface()
@@ -188,12 +136,12 @@ func PtrToInterface(code *Opcode, p uintptr) interface{} {
 	return reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&p))).Elem().Interface()
 }
 
-func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueError {
+func ErrUnsupportedValue(code *Opcode, ptr unsafe.Pointer) *errors.UnsupportedValueError {
 	var v interface{}
-	if ptr == 0 {
+	if ptr == nil {
 		v = reflect.Zero(code.Type).Interface()
 	} else {
-		v = reflect.NewAt(code.Type, *(*unsafe.Pointer)(unsafe.Pointer(&ptr))).Elem().Interface()
+		v = reflect.NewAt(code.Type, ptr).Elem().Interface()
 	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),

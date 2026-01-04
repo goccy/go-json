@@ -224,9 +224,7 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
+	ctx.Init(header.ptr, codeSet.CodeLength)
 
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
@@ -248,7 +246,7 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	p := uintptr(header.ptr)
+	p := header.ptr
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
@@ -271,12 +269,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 	if err != nil {
 		return nil, err
 	}
-	p := uintptr(header.ptr)
-	ctx.Init(p, codeSet.CodeLength)
+	ctx.Init(header.ptr, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)
-
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
-
 	if err != nil {
 		return nil, err
 	}

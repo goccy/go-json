@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package json_test
+package json5_test
 
 import (
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/vayload/json5-go"
 )
 
 type basicLatin2xTag struct {

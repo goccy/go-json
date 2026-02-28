@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	gojay "github.com/francoispqt/gojay"
-	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	segmentiojson "github.com/segmentio/encoding/json"
 	fastjson "github.com/valyala/fastjson"
+	gojson "github.com/vayload/json5-go"
 )
 
 func Benchmark_Decode_SmallStruct_Unmarshal_EncodingJson(b *testing.B) {

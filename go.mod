@@ -1,3 +1,3 @@
-module github.com/goccy/go-json
+module github.com/vayload/json5-go
 
-go 1.19
+go 1.26

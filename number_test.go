@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package json_test
+package json5_test
 
 import (
 	"regexp"
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/vayload/json5-go"
 )
 
 func TestNumberIsValid(t *testing.T) {

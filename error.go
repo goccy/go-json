@@ -1,7 +1,7 @@
-package json
+package json5
 
 import (
-	"github.com/goccy/go-json/internal/errors"
+	"github.com/vayload/json5-go/internal/errors"
 )
 
 // Before Go 1.2, an InvalidUTF8Error was returned by Marshal when

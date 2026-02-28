@@ -1,10 +1,10 @@
-package json
+package json5
 
 import (
 	"io"
 
-	"github.com/goccy/go-json/internal/decoder"
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/vayload/json5-go/internal/decoder"
+	"github.com/vayload/json5-go/internal/encoder"
 )
 
 type EncodeOption = encoder.Option

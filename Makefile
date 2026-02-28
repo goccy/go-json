@@ -1,4 +1,4 @@
-PKG := github.com/goccy/go-json
+PKG := github.com/vayload/json5-go
 
 BIN_DIR := $(CURDIR)/bin
 PKGS := $(shell go list ./... | grep -v internal/cmd|grep -v test)

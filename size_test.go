@@ -1,10 +1,10 @@
-package json
+package json5
 
 import (
 	"testing"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/vayload/json5-go/internal/encoder"
 )
 
 func TestOpcodeSize(t *testing.T) {

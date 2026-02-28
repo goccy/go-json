@@ -1,7 +1,7 @@
-package json
+package json5
 
 import (
-	"github.com/goccy/go-json/internal/encoder"
+	"github.com/vayload/json5-go/internal/encoder"
 )
 
 type (

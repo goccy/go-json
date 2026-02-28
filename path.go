@@ -1,9 +1,9 @@
-package json
+package json5
 
 import (
 	"reflect"
 
-	"github.com/goccy/go-json/internal/decoder"
+	"github.com/vayload/json5-go/internal/decoder"
 )
 
 // CreatePath creates JSON Path.

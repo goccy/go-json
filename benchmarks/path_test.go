@@ -3,7 +3,7 @@ package benchmark
 import (
 	"testing"
 
-	gojson "github.com/goccy/go-json"
+	gojson "github.com/vayload/json5-go"
 )
 
 func Benchmark_Decode_SmallStruct_UnmarshalPath_GoJson(b *testing.B) {

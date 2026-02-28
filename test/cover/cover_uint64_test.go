@@ -1,11 +1,11 @@
-package json_test
+package json5_test
 
 import (
 	"bytes"
 	"fmt"
 	"testing"
 
-	"github.com/goccy/go-json"
+	json "github.com/vayload/json5-go"
 )
 
 func TestCoverUint64(t *testing.T) {

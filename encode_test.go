@@ -1,4 +1,4 @@
-package json_test
+package json5_test
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goccy/go-json"
+	json "github.com/vayload/json5-go"
 )
 
 type recursiveT struct {

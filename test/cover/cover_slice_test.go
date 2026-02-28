@@ -1,11 +1,10 @@
-package json_test
+package json5_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"testing"
-
-	"github.com/goccy/go-json"
 )
 
 type coverSliceMarshalJSON struct {

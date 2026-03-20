@@ -24,27 +24,12 @@
 // SOFTWARE.
 package encoder
 
-import (
-	"math/bits"
-	"reflect"
-	"unsafe"
-)
-
 const (
 	lsb = 0x0101010101010101
 	msb = 0x8080808080808080
 )
 
 var hex = "0123456789abcdef"
-
-//nolint:govet
-func stringToUint64Slice(s string) []uint64 {
-	return *(*[]uint64)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,
-		Len:  len(s) / 8,
-		Cap:  len(s) / 8,
-	}))
-}
 
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	if ctx.Option.Flag&HTMLEscapeOption != 0 {
@@ -68,33 +53,11 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb) |
-				((n ^ (lsb * '<')) - lsb) |
-				((n ^ (lsb * '>')) - lsb) |
-				((n ^ (lsb * '&')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeHTMLNormalizeUTF8[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		// no found any escape characters.
+	// SIMD-accelerated scan for first character needing escape
+	j = scanEscapeHTML(stringptr(s), valLen)
+	if j == valLen {
 		return append(append(buf, s...), '"')
 	}
-ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 
@@ -193,33 +156,11 @@ func appendHTMLString(buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb) |
-				((n ^ (lsb * '<')) - lsb) |
-				((n ^ (lsb * '>')) - lsb) |
-				((n ^ (lsb * '&')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeHTML[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		// no found any escape characters.
+	// SIMD-accelerated scan for first character needing escape
+	j = scanEscapeHTML(stringptr(s), valLen)
+	if j == valLen {
 		return append(append(buf, s...), '"')
 	}
-ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 
@@ -290,30 +231,11 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		valLen := len(s)
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeNormalizeUTF8[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
+	// SIMD-accelerated scan for first character needing escape
+	j = scanEscapeBasic(stringptr(s), valLen)
+	if j == valLen {
 		return append(append(buf, s...), '"')
 	}
-ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 
@@ -405,30 +327,11 @@ func appendString(buf []byte, s string) []byte {
 	var (
 		i, j int
 	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		valLen := len(s)
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscape[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
+	// SIMD-accelerated scan for first character needing escape
+	j = scanEscapeBasic(stringptr(s), valLen)
+	if j == valLen {
 		return append(append(buf, s...), '"')
 	}
-ESCAPE_END:
 	for j < valLen {
 		c := s[j]
 

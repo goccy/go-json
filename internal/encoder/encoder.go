@@ -344,15 +344,81 @@ func AppendFloat32(_ *RuntimeContext, b []byte, v float32) []byte {
 }
 
 func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
+	// Fast path: integer-like floats are very common in JSON data.
+	// Converting to int64 and using integer formatting avoids the
+	// expensive Ryu float-to-string algorithm entirely.
+	// Limit to 2^53 where all integers are exactly representable in float64,
+	// ensuring the integer string IS the shortest decimal representation.
+	const maxSafeIntFloat = 1 << 53 // 9007199254740992
+	if v >= -maxSafeIntFloat && v <= maxSafeIntFloat {
+		i := int64(v)
+		if float64(i) == v && (i != 0 || !math.Signbit(v)) {
+			return appendInt64(b, i)
+		}
+	}
 	abs := math.Abs(v)
 	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
 	if abs != 0 {
 		if abs < 1e-6 || abs >= 1e21 {
 			fmt = 'e'
 		}
 	}
 	return strconv.AppendFloat(b, v, fmt, -1, 64)
+}
+
+// appendInt64 formats an int64 value directly into the byte slice.
+// This is faster than going through AppendInt which requires pointer indirection.
+func appendInt64(out []byte, v int64) []byte {
+	var n uint64
+	negative := v < 0
+	if negative {
+		n = uint64(-v)
+	} else {
+		n = uint64(v)
+	}
+	if !negative {
+		if n < 10 {
+			return append(out, byte(n+'0'))
+		} else if n < 100 {
+			u := intLELookup[n]
+			return append(out, byte(u), byte(u>>8))
+		}
+	}
+
+	lookup := intLookup[endianness]
+
+	var b [22]byte
+	u := (*[11]uint16)(unsafe.Pointer(&b))
+	i := 11
+
+	for n >= 10000 {
+		lo := n % 10000
+		n /= 10000
+		i -= 2
+		u[i+1] = lookup[lo%100]
+		u[i] = lookup[lo/100]
+	}
+
+	if n >= 100 {
+		j := n % 100
+		n /= 100
+		i--
+		u[i] = lookup[j]
+	}
+
+	i--
+	u[i] = lookup[n]
+
+	i *= 2
+	if n < 10 {
+		i++
+	}
+	if negative {
+		i--
+		b[i] = '-'
+	}
+
+	return append(out, b[i:]...)
 }
 
 func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {

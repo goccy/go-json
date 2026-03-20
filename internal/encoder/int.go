@@ -109,7 +109,16 @@ func AppendInt(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
 	u := (*[11]uint16)(unsafe.Pointer(&b))
 	i := 11
 
-	for n >= 100 {
+	// Unrolled loop: process 4 digits per iteration to reduce loop overhead.
+	for n >= 10000 {
+		lo := n % 10000
+		n /= 10000
+		i -= 2
+		u[i+1] = lookup[lo%100]
+		u[i] = lookup[lo/100]
+	}
+
+	if n >= 100 {
 		j := n % 100
 		n /= 100
 		i--
@@ -158,7 +167,16 @@ func AppendUint(_ *RuntimeContext, out []byte, p uintptr, code *Opcode) []byte {
 	u := (*[11]uint16)(unsafe.Pointer(&b))
 	i := 11
 
-	for n >= 100 {
+	// Unrolled loop: process 4 digits per iteration to reduce loop overhead.
+	for n >= 10000 {
+		lo := n % 10000
+		n /= 10000
+		i -= 2
+		u[i+1] = lookup[lo%100]
+		u[i] = lookup[lo/100]
+	}
+
+	if n >= 100 {
 		j := n % 100
 		n /= 100
 		i--

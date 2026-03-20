@@ -52,7 +52,7 @@ func (c *compileContext) decPtrIndex() {
 }
 
 const (
-	bufSize = 1024
+	bufSize = 4096
 )
 
 var (

@@ -49,15 +49,90 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 }
 
 // appendString encodes a JSON string without HTML escaping and without UTF-8 normalization.
-// Uses resumed SIMD scanning: after each escape, jumps back to SIMD instead of byte-by-byte.
-// Uses ASCIIOnly scanner that skips non-ASCII bytes (>= 0x80) since they're safe in this mode.
 func appendString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	// Pre-grow buffer for the common case (no escaping)
+
+	// Fast path for short strings: use uint64 chunk scan + byte-by-byte tail
+	if valLen < 16 {
+		if valLen >= 8 {
+			p := stringptr(s)
+			n := *(*uint64)(p)
+			mask := n | (n - (lsb * 0x20)) |
+				((n ^ (lsb * '"')) - lsb) |
+				((n ^ (lsb * '\\')) - lsb)
+			if (mask & msb) == 0 {
+				allSafe := true
+				for k := 8; k < valLen; k++ {
+					if needEscape[s[k]] {
+						allSafe = false
+						break
+					}
+				}
+				if allSafe {
+					return append(append(buf, s...), '"')
+				}
+			}
+		} else {
+			allSafe := true
+			for k := 0; k < valLen; k++ {
+				if needEscape[s[k]] {
+					allSafe = false
+					break
+				}
+			}
+			if allSafe {
+				return append(append(buf, s...), '"')
+			}
+		}
+		// Short string with escapes: fall through to byte-by-byte loop
+		var i, j int
+		for j < valLen {
+			c := s[j]
+			if !needEscape[c] {
+				j++
+				continue
+			}
+			switch c {
+			case '\\', '"':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', c)
+				i = j + 1
+				j = j + 1
+			case '\n':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 'n')
+				i = j + 1
+				j = j + 1
+			case '\r':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 'r')
+				i = j + 1
+				j = j + 1
+			case '\t':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 't')
+				i = j + 1
+				j = j + 1
+			default:
+				if c < 0x20 {
+					buf = append(buf, s[i:j]...)
+					buf = append(buf, `\u00`...)
+					buf = append(buf, hex[c>>4], hex[c&0xF])
+					i = j + 1
+					j = j + 1
+				} else {
+					j++
+				}
+			}
+		}
+		return append(append(buf, s[i:]...), '"')
+	}
+
+	// SIMD path for longer strings (>= 16 bytes)
 	if cap(buf)-len(buf) < valLen+1 {
 		newBuf := make([]byte, len(buf), 2*len(buf)+valLen+1)
 		copy(newBuf, buf)
@@ -68,7 +143,6 @@ func appendString(buf []byte, s string) []byte {
 	var i, j int
 
 	for j < valLen {
-		// Resumed SIMD scanning: use ASCIIOnly scanner for segments >= 16 bytes
 		remaining := valLen - j
 		if remaining >= 16 {
 			offset := scanEscapeBasicASCIIOnly(unsafe.Pointer(uintptr(p)+uintptr(j)), remaining)
@@ -114,7 +188,6 @@ func appendString(buf []byte, s string) []byte {
 				i = j + 1
 				j = j + 1
 			} else {
-				// Not actually an escape char (can happen in tail path)
 				j++
 			}
 		}
@@ -124,13 +197,99 @@ func appendString(buf []byte, s string) []byte {
 }
 
 // appendHTMLString encodes a JSON string with HTML escaping but without UTF-8 normalization.
-// Uses ASCIIOnly scanner that skips non-ASCII bytes.
 func appendHTMLString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
+
+	// Fast path for short strings
+	if valLen < 16 {
+		if valLen >= 8 {
+			p := stringptr(s)
+			n := *(*uint64)(p)
+			mask := n | (n - (lsb * 0x20)) |
+				((n ^ (lsb * '"')) - lsb) |
+				((n ^ (lsb * '\\')) - lsb) |
+				((n ^ (lsb * '<')) - lsb) |
+				((n ^ (lsb * '>')) - lsb) |
+				((n ^ (lsb * '&')) - lsb)
+			if (mask & msb) == 0 {
+				allSafe := true
+				for k := 8; k < valLen; k++ {
+					if needEscapeHTML[s[k]] {
+						allSafe = false
+						break
+					}
+				}
+				if allSafe {
+					return append(append(buf, s...), '"')
+				}
+			}
+		} else {
+			allSafe := true
+			for k := 0; k < valLen; k++ {
+				if needEscapeHTML[s[k]] {
+					allSafe = false
+					break
+				}
+			}
+			if allSafe {
+				return append(append(buf, s...), '"')
+			}
+		}
+		// Short string with escapes: fall through to byte-by-byte loop
+		var i, j int
+		for j < valLen {
+			c := s[j]
+			if !needEscapeHTML[c] {
+				j++
+				continue
+			}
+			switch c {
+			case '\\', '"':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', c)
+				i = j + 1
+				j = j + 1
+			case '\n':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 'n')
+				i = j + 1
+				j = j + 1
+			case '\r':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 'r')
+				i = j + 1
+				j = j + 1
+			case '\t':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, '\\', 't')
+				i = j + 1
+				j = j + 1
+			case '<', '>', '&':
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, `\u00`...)
+				buf = append(buf, hex[c>>4], hex[c&0xF])
+				i = j + 1
+				j = j + 1
+			default:
+				if c < 0x20 {
+					buf = append(buf, s[i:j]...)
+					buf = append(buf, `\u00`...)
+					buf = append(buf, hex[c>>4], hex[c&0xF])
+					i = j + 1
+					j = j + 1
+				} else {
+					j++
+				}
+			}
+		}
+		return append(append(buf, s[i:]...), '"')
+	}
+
+	// SIMD path for longer strings
 	if cap(buf)-len(buf) < valLen+1 {
 		newBuf := make([]byte, len(buf), 2*len(buf)+valLen+1)
 		copy(newBuf, buf)
@@ -201,13 +360,48 @@ func appendHTMLString(buf []byte, s string) []byte {
 }
 
 // appendNormalizedString encodes a JSON string with UTF-8 normalization but without HTML escaping.
-// Uses the original scanner that flags non-ASCII bytes for UTF-8 validation.
 func appendNormalizedString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
+
+	// Fast path for short strings
+	if valLen < 16 {
+		if valLen >= 8 {
+			p := stringptr(s)
+			n := *(*uint64)(p)
+			mask := n | (n - (lsb * 0x20)) |
+				((n ^ (lsb * '"')) - lsb) |
+				((n ^ (lsb * '\\')) - lsb)
+			if (mask & msb) == 0 {
+				allSafe := true
+				for k := 8; k < valLen; k++ {
+					if needEscapeNormalizeUTF8[s[k]] {
+						allSafe = false
+						break
+					}
+				}
+				if allSafe {
+					return append(append(buf, s...), '"')
+				}
+			}
+		} else {
+			allSafe := true
+			for k := 0; k < valLen; k++ {
+				if needEscapeNormalizeUTF8[s[k]] {
+					allSafe = false
+					break
+				}
+			}
+			if allSafe {
+				return append(append(buf, s...), '"')
+			}
+		}
+	}
+
+	// Long string / short string with escapes
 	if cap(buf)-len(buf) < valLen+1 {
 		newBuf := make([]byte, len(buf), 2*len(buf)+valLen+1)
 		copy(newBuf, buf)
@@ -218,7 +412,6 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	var i, j int
 
 	for j < valLen {
-		// For normalize paths, we must flag non-ASCII bytes, so use the original scanner
 		remaining := valLen - j
 		if remaining >= 16 {
 			offset := scanEscapeBasic(unsafe.Pointer(uintptr(p)+uintptr(j)), remaining)
@@ -264,7 +457,6 @@ func appendNormalizedString(buf []byte, s string) []byte {
 			i = j + 1
 			j = j + 1
 		default:
-			// Must be a non-ASCII byte (>= 0x80) - validate UTF-8
 			state, size := decodeRuneInString(s[j:])
 			switch state {
 			case runeErrorState:
@@ -292,13 +484,51 @@ func appendNormalizedString(buf []byte, s string) []byte {
 }
 
 // appendNormalizedHTMLString encodes a JSON string with both HTML escaping and UTF-8 normalization.
-// Uses the original HTML scanner that flags non-ASCII bytes.
 func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
+
+	// Fast path for short strings
+	if valLen < 16 {
+		if valLen >= 8 {
+			p := stringptr(s)
+			n := *(*uint64)(p)
+			mask := n | (n - (lsb * 0x20)) |
+				((n ^ (lsb * '"')) - lsb) |
+				((n ^ (lsb * '\\')) - lsb) |
+				((n ^ (lsb * '<')) - lsb) |
+				((n ^ (lsb * '>')) - lsb) |
+				((n ^ (lsb * '&')) - lsb)
+			if (mask & msb) == 0 {
+				allSafe := true
+				for k := 8; k < valLen; k++ {
+					if needEscapeHTMLNormalizeUTF8[s[k]] {
+						allSafe = false
+						break
+					}
+				}
+				if allSafe {
+					return append(append(buf, s...), '"')
+				}
+			}
+		} else {
+			allSafe := true
+			for k := 0; k < valLen; k++ {
+				if needEscapeHTMLNormalizeUTF8[s[k]] {
+					allSafe = false
+					break
+				}
+			}
+			if allSafe {
+				return append(append(buf, s...), '"')
+			}
+		}
+	}
+
+	// Long string / short string with escapes
 	if cap(buf)-len(buf) < valLen+1 {
 		newBuf := make([]byte, len(buf), 2*len(buf)+valLen+1)
 		copy(newBuf, buf)
@@ -360,7 +590,6 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 			i = j + 1
 			j = j + 1
 		default:
-			// Must be a non-ASCII byte (>= 0x80) - validate UTF-8
 			state, size := decodeRuneInString(s[j:])
 			switch state {
 			case runeErrorState:

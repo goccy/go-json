@@ -26,6 +26,16 @@ DATA const_amp<>+0x00(SB)/8, $0x2626262626262626
 DATA const_amp<>+0x08(SB)/8, $0x2626262626262626
 GLOBL const_amp<>(SB), (NOPTR+RODATA), $16
 
+// Constants for unsigned comparison (XOR with 0x80 trick)
+DATA const_flip<>+0x00(SB)/8, $0x8080808080808080
+DATA const_flip<>+0x08(SB)/8, $0x8080808080808080
+GLOBL const_flip<>(SB), (NOPTR+RODATA), $16
+
+// 0x20 ^ 0x80 = 0xA0
+DATA const_ctrl_u<>+0x00(SB)/8, $0xa0a0a0a0a0a0a0a0
+DATA const_ctrl_u<>+0x08(SB)/8, $0xa0a0a0a0a0a0a0a0
+GLOBL const_ctrl_u<>(SB), (NOPTR+RODATA), $16
+
 // AVX2 constants (32 bytes)
 
 DATA const_ctrl_avx<>+0x00(SB)/8, $0x2020202020202020
@@ -63,6 +73,20 @@ DATA const_amp_avx<>+0x08(SB)/8, $0x2626262626262626
 DATA const_amp_avx<>+0x10(SB)/8, $0x2626262626262626
 DATA const_amp_avx<>+0x18(SB)/8, $0x2626262626262626
 GLOBL const_amp_avx<>(SB), (NOPTR+RODATA), $32
+
+// AVX2 unsigned comparison constants
+DATA const_flip_avx<>+0x00(SB)/8, $0x8080808080808080
+DATA const_flip_avx<>+0x08(SB)/8, $0x8080808080808080
+DATA const_flip_avx<>+0x10(SB)/8, $0x8080808080808080
+DATA const_flip_avx<>+0x18(SB)/8, $0x8080808080808080
+GLOBL const_flip_avx<>(SB), (NOPTR+RODATA), $32
+
+// 0x20 ^ 0x80 = 0xA0
+DATA const_ctrl_u_avx<>+0x00(SB)/8, $0xa0a0a0a0a0a0a0a0
+DATA const_ctrl_u_avx<>+0x08(SB)/8, $0xa0a0a0a0a0a0a0a0
+DATA const_ctrl_u_avx<>+0x10(SB)/8, $0xa0a0a0a0a0a0a0a0
+DATA const_ctrl_u_avx<>+0x18(SB)/8, $0xa0a0a0a0a0a0a0a0
+GLOBL const_ctrl_u_avx<>(SB), (NOPTR+RODATA), $32
 
 // func scanEscapeBasic(p unsafe.Pointer, n int) int
 //
@@ -357,5 +381,310 @@ scanHTMLFoundTail:
 	RET
 
 scanHTMLNotFound:
+	MOVQ CX, ret+16(FP)
+	RET
+
+// func scanEscapeBasicASCIIOnly(p unsafe.Pointer, n int) int
+//
+// Like scanEscapeBasic but does NOT flag non-ASCII bytes (>= 0x80).
+// Only detects: control chars (< 0x20), '"' (0x22), '\' (0x5C).
+// Uses XOR-0x80 trick for unsigned byte comparison to avoid signed overflow.
+// This is critical for strings with Unicode content where high bytes are safe.
+// Uses AVX2 (32 bytes/iter) with SSE2 fallback (16 bytes/iter).
+TEXT ·scanEscapeBasicASCIIOnly(SB), NOSPLIT, $0-24
+	MOVQ p+0(FP), SI
+	MOVQ n+8(FP), CX
+	XORQ AX, AX
+
+	// Try AVX2 path first (32 bytes per iteration)
+	MOVQ CX, DX
+	SUBQ $31, DX
+	JLE  scanBasicAOSSE2Setup
+
+	// Load AVX2 constants
+	VMOVDQU const_flip_avx<>(SB), Y0     // 0x80 for XOR flip
+	VMOVDQU const_ctrl_u_avx<>(SB), Y1   // 0xA0 = 0x20^0x80 threshold
+	VMOVDQU const_quote_avx<>(SB), Y2    // '"'
+	VMOVDQU const_bslash_avx<>(SB), Y6   // '\'
+
+scanBasicAOLoop32:
+	CMPQ AX, DX
+	JGE  scanBasicAOAVX2Done
+
+	// Load 32 bytes
+	VMOVDQU (SI)(AX*1), Y3
+
+	// Unsigned comparison for control chars: XOR with 0x80, then signed compare
+	// After XOR: 0x00-0x1F -> 0x80-0x9F (negative, caught by 0xA0 >)
+	//            0x20-0x7F -> 0xA0-0xFF (not caught)
+	//            0x80-0xFF -> 0x00-0x7F (positive, not caught by 0xA0 >)
+	VPXOR  Y0, Y3, Y4       // Y4 = data ^ 0x80
+	VPCMPGTB Y4, Y1, Y5     // Y5 = 0xFF where 0xA0 > (data^0x80), i.e., data < 0x20
+
+	// Check for '"' (0x22)
+	VPCMPEQB Y2, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Check for '\' (0x5C)
+	VPCMPEQB Y6, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Extract bitmask
+	VPMOVMSKB Y5, BX
+	TESTL BX, BX
+	JNZ   scanBasicAOFound32
+
+	ADDQ $32, AX
+	JMP  scanBasicAOLoop32
+
+scanBasicAOFound32:
+	BSFL BX, BX
+	ADDQ BX, AX
+	VZEROUPPER
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanBasicAOAVX2Done:
+	VZEROUPPER
+
+scanBasicAOSSE2Setup:
+	// Load SSE2 constants
+	MOVOU const_flip<>(SB), X0      // 0x80 for XOR flip
+	MOVOU const_ctrl_u<>(SB), X1    // 0xA0 threshold
+	MOVOU const_quote<>(SB), X2     // '"'
+	MOVOU const_bslash<>(SB), X6    // '\'
+
+	// Calculate SSE2 loop bound
+	MOVQ CX, DX
+	SUBQ $15, DX
+	JLE  scanBasicAOTail
+
+scanBasicAOLoop16:
+	CMPQ AX, DX
+	JGE  scanBasicAOTail
+
+	// Load 16 bytes
+	MOVOU (SI)(AX*1), X3
+
+	// Unsigned comparison: XOR with 0x80, then signed compare with 0xA0
+	MOVO  X3, X4
+	PXOR  X0, X4         // X4 = data ^ 0x80
+	MOVO  X1, X5
+	PCMPGTB X4, X5       // X5 = 0xFF where 0xA0 > (data^0x80)
+
+	// Check for '"'
+	MOVO  X3, X7
+	PCMPEQB X2, X7
+	POR   X7, X5
+
+	// Check for '\'
+	MOVO  X3, X7
+	PCMPEQB X6, X7
+	POR   X7, X5
+
+	// Extract bitmask
+	PMOVMSKB X5, BX
+	TESTL BX, BX
+	JNZ   scanBasicAOFound16
+
+	ADDQ $16, AX
+	JMP  scanBasicAOLoop16
+
+scanBasicAOFound16:
+	BSFL BX, BX
+	ADDQ BX, AX
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanBasicAOTail:
+	CMPQ AX, CX
+	JGE  scanBasicAONotFound
+
+	MOVBLZX (SI)(AX*1), BX
+	CMPB BL, $0x20
+	JB   scanBasicAOFoundTail
+	CMPB BL, $0x22
+	JE   scanBasicAOFoundTail
+	CMPB BL, $0x5C
+	JE   scanBasicAOFoundTail
+
+	INCQ AX
+	JMP  scanBasicAOTail
+
+scanBasicAOFoundTail:
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanBasicAONotFound:
+	MOVQ CX, ret+16(FP)
+	RET
+
+// func scanEscapeHTMLASCIIOnly(p unsafe.Pointer, n int) int
+//
+// Like scanEscapeHTML but does NOT flag non-ASCII bytes (>= 0x80).
+// Only detects: control chars (< 0x20), '"', '\', '<', '>', '&'.
+// Uses XOR-0x80 trick for unsigned byte comparison.
+// Uses AVX2 (32 bytes/iter) with SSE2 fallback (16 bytes/iter).
+TEXT ·scanEscapeHTMLASCIIOnly(SB), NOSPLIT, $0-24
+	MOVQ p+0(FP), SI
+	MOVQ n+8(FP), CX
+	XORQ AX, AX
+
+	// Try AVX2 path first (32 bytes per iteration)
+	MOVQ CX, DX
+	SUBQ $31, DX
+	JLE  scanHTMLAOSSE2Setup
+
+	// Load AVX2 constants
+	VMOVDQU const_flip_avx<>(SB), Y0     // 0x80 for XOR flip
+	VMOVDQU const_ctrl_u_avx<>(SB), Y1   // 0xA0 threshold
+	VMOVDQU const_quote_avx<>(SB), Y2    // '"'
+	VMOVDQU const_bslash_avx<>(SB), Y6   // '\'
+	VMOVDQU const_lt_avx<>(SB), Y8       // '<'
+	VMOVDQU const_gt_avx<>(SB), Y9       // '>'
+	VMOVDQU const_amp_avx<>(SB), Y10     // '&'
+
+scanHTMLAOLoop32:
+	CMPQ AX, DX
+	JGE  scanHTMLAOAVX2Done
+
+	// Load 32 bytes
+	VMOVDQU (SI)(AX*1), Y3
+
+	// Unsigned comparison for control chars
+	VPXOR  Y0, Y3, Y4
+	VPCMPGTB Y4, Y1, Y5
+
+	// Check '"'
+	VPCMPEQB Y2, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Check '\'
+	VPCMPEQB Y6, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Check '<'
+	VPCMPEQB Y8, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Check '>'
+	VPCMPEQB Y9, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Check '&'
+	VPCMPEQB Y10, Y3, Y7
+	VPOR     Y7, Y5, Y5
+
+	// Extract bitmask
+	VPMOVMSKB Y5, BX
+	TESTL BX, BX
+	JNZ   scanHTMLAOFound32
+
+	ADDQ $32, AX
+	JMP  scanHTMLAOLoop32
+
+scanHTMLAOFound32:
+	BSFL BX, BX
+	ADDQ BX, AX
+	VZEROUPPER
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanHTMLAOAVX2Done:
+	VZEROUPPER
+
+scanHTMLAOSSE2Setup:
+	// Load SSE2 constants
+	MOVOU const_flip<>(SB), X0      // 0x80 for XOR flip
+	MOVOU const_ctrl_u<>(SB), X1    // 0xA0 threshold
+	MOVOU const_quote<>(SB), X2     // '"'
+	MOVOU const_bslash<>(SB), X6    // '\'
+	MOVOU const_lt<>(SB), X7
+	MOVOU const_gt<>(SB), X8
+	MOVOU const_amp<>(SB), X9
+
+	// Calculate SSE2 loop bound
+	MOVQ CX, DX
+	SUBQ $15, DX
+	JLE  scanHTMLAOTail
+
+scanHTMLAOLoop16:
+	CMPQ AX, DX
+	JGE  scanHTMLAOTail
+
+	// Load 16 bytes
+	MOVOU (SI)(AX*1), X3
+
+	// Unsigned comparison for control chars
+	MOVO  X3, X4
+	PXOR  X0, X4
+	MOVO  X1, X5
+	PCMPGTB X4, X5
+
+	// Check '"'
+	MOVO  X3, X10
+	PCMPEQB X2, X10
+	POR   X10, X5
+
+	// Check '\'
+	MOVO  X3, X10
+	PCMPEQB X6, X10
+	POR   X10, X5
+
+	// Check '<'
+	MOVO  X3, X10
+	PCMPEQB X7, X10
+	POR   X10, X5
+
+	// Check '>'
+	MOVO  X3, X10
+	PCMPEQB X8, X10
+	POR   X10, X5
+
+	// Check '&'
+	MOVO  X3, X10
+	PCMPEQB X9, X10
+	POR   X10, X5
+
+	// Extract bitmask
+	PMOVMSKB X5, BX
+	TESTL BX, BX
+	JNZ   scanHTMLAOFound16
+
+	ADDQ $16, AX
+	JMP  scanHTMLAOLoop16
+
+scanHTMLAOFound16:
+	BSFL BX, BX
+	ADDQ BX, AX
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanHTMLAOTail:
+	CMPQ AX, CX
+	JGE  scanHTMLAONotFound
+
+	MOVBLZX (SI)(AX*1), BX
+	CMPB BL, $0x20
+	JB   scanHTMLAOFoundTail
+	CMPB BL, $0x22
+	JE   scanHTMLAOFoundTail
+	CMPB BL, $0x5C
+	JE   scanHTMLAOFoundTail
+	CMPB BL, $0x3C
+	JE   scanHTMLAOFoundTail
+	CMPB BL, $0x3E
+	JE   scanHTMLAOFoundTail
+	CMPB BL, $0x26
+	JE   scanHTMLAOFoundTail
+
+	INCQ AX
+	JMP  scanHTMLAOTail
+
+scanHTMLAOFoundTail:
+	MOVQ AX, ret+16(FP)
+	RET
+
+scanHTMLAONotFound:
 	MOVQ CX, ret+16(FP)
 	RET

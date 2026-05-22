@@ -412,10 +412,11 @@ func (c *Compiler) interfaceCode(typ *runtime.Type, isPtr bool) (*InterfaceCode,
 //nolint:unparam
 func (c *Compiler) marshalJSONCode(typ *runtime.Type) (*MarshalJSONCode, error) {
 	return &MarshalJSONCode{
-		typ:                typ,
-		isAddrForMarshaler: c.isPtrMarshalJSONType(typ),
-		isNilableType:      c.isNilableType(typ),
-		isMarshalerContext: typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType),
+		typ:                    typ,
+		isAddrForMarshaler:     c.isPtrMarshalJSONType(typ),
+		isNilableType:          c.isNilableType(typ),
+		isMarshalerContext:     typ.Implements(marshalJSONContextType) || runtime.PtrTo(typ).Implements(marshalJSONContextType),
+		isDirectIfaceMarshaler: c.isDirectIfaceMarshaler(typ),
 	}, nil
 }
 
@@ -890,6 +891,10 @@ func (c *Compiler) isPtrMarshalJSONType(typ *runtime.Type) bool {
 
 func (c *Compiler) isPtrMarshalTextType(typ *runtime.Type) bool {
 	return !typ.Implements(marshalTextType) && runtime.PtrTo(typ).Implements(marshalTextType)
+}
+
+func (c *Compiler) isDirectIfaceMarshaler(typ *runtime.Type) bool {
+	return !runtime.IfaceIndir(typ) && typ.Kind() != reflect.Ptr
 }
 
 func (c *Compiler) codeToOpcode(ctx *compileContext, typ *runtime.Type, code Code) *Opcode {

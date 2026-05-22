@@ -861,6 +861,7 @@ type MarshalJSONCode struct {
 	isAddrForMarshaler bool
 	isNilableType      bool
 	isMarshalerContext bool
+	isDirectIfaceMarshaler bool // func, map, chan: nil value should still invoke MarshalJSON
 }
 
 func (c *MarshalJSONCode) Kind() CodeKind {
@@ -881,6 +882,9 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
 	}
+	if c.isDirectIfaceMarshaler {
+		code.Flags |= DirectIfaceMarshalerFlags
+	}
 	ctx.incIndex()
 	return Opcodes{code}
 }
@@ -892,6 +896,7 @@ func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
 		isMarshalerContext: c.isMarshalerContext,
+		isDirectIfaceMarshaler: c.isDirectIfaceMarshaler,
 	}
 }
 

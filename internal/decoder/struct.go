@@ -378,7 +378,7 @@ func decodeKey(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldS
 	k := *(*string)(unsafe.Pointer(&key))
 	field, exists := d.fieldMap[k]
 	if !exists {
-		return cursor, nil, nil
+		field = d.fieldMap[strings.ToLower(k)]
 	}
 	return cursor, field, nil
 }
@@ -657,7 +657,11 @@ func decodeKeyStream(d *structDecoder, s *Stream) (*structFieldSet, string, erro
 		return nil, "", err
 	}
 	k := *(*string)(unsafe.Pointer(&key))
-	return d.fieldMap[k], k, nil
+	field, exists := d.fieldMap[k]
+	if !exists {
+		field = d.fieldMap[strings.ToLower(k)]
+	}
+	return field, k, nil
 }
 
 func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {

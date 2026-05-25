@@ -4057,3 +4057,54 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestUnmarshalStructMoreThan16FieldsCaseInsensitive(t *testing.T) {
+	// Regression test for https://github.com/goccy/go-json/issues/427
+	// Structs with >16 fields must support case-insensitive key matching.
+	// JSON keys in camelCase must match PascalCase struct fields (no json tags).
+	type Large struct {
+		SomeField1  string
+		SomeField2  string
+		SomeField3  string
+		SomeField4  string
+		SomeField5  string
+		SomeField6  string
+		SomeField7  string
+		SomeField8  string
+		SomeField9  string
+		SomeField10 string
+		SomeField11 string
+		SomeField12 string
+		SomeField13 string
+		SomeField14 string
+		SomeField15 string
+		SomeField16 string
+		SomeField17 string
+	}
+	const input = `{
+		"someField1":  "v1",
+		"someField2":  "v2",
+		"someField3":  "v3",
+		"someField4":  "v4",
+		"someField5":  "v5",
+		"someField6":  "v6",
+		"someField7":  "v7",
+		"someField8":  "v8",
+		"someField9":  "v9",
+		"someField10": "v10",
+		"someField11": "v11",
+		"someField12": "v12",
+		"someField13": "v13",
+		"someField14": "v14",
+		"someField15": "v15",
+		"someField16": "v16",
+		"someField17": "v17"
+	}`
+	var got Large
+	if err := json.Unmarshal([]byte(input), &got); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+	if got.SomeField1 != "v1" || got.SomeField17 != "v17" {
+		t.Errorf("case-insensitive decode failed for >16-field struct: got SomeField1=%q SomeField17=%q", got.SomeField1, got.SomeField17)
+	}
+}

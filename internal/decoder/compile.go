@@ -17,9 +17,13 @@ var (
 	jsonNumberType   = reflect.TypeOf(json.Number(""))
 	typeAddr         *runtime.TypeAddr
 	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
-	cachedDecoder    []Decoder
+	cachedDecoder    []atomic.Pointer[decoderCacheEntry]
 	initOnce         sync.Once
 )
+
+type decoderCacheEntry struct {
+	dec Decoder
+}
 
 func initDecoder() {
 	initOnce.Do(func() {
@@ -27,8 +31,24 @@ func initDecoder() {
 		if typeAddr == nil {
 			typeAddr = &runtime.TypeAddr{}
 		}
-		cachedDecoder = make([]Decoder, typeAddr.AddrRange>>typeAddr.AddrShift+1)
+		cachedDecoder = make([]atomic.Pointer[decoderCacheEntry], typeAddr.AddrRange>>typeAddr.AddrShift+1)
 	})
+}
+
+func loadCachedDecoder(index uintptr) Decoder {
+	entry := cachedDecoder[index].Load()
+	if entry == nil {
+		return nil
+	}
+	return entry.dec
+}
+
+func storeCachedDecoder(index uintptr, dec Decoder) Decoder {
+	entry := &decoderCacheEntry{dec: dec}
+	if cachedDecoder[index].CompareAndSwap(nil, entry) {
+		return dec
+	}
+	return loadCachedDecoder(index)
 }
 
 func loadDecoderMap() map[uintptr]Decoder {

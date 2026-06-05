@@ -4,13 +4,10 @@
 package decoder
 
 import (
-	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
 )
-
-var decMu sync.RWMutex
 
 func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	initDecoder()
@@ -20,19 +17,13 @@ func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	}
 
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	decMu.RLock()
-	if dec := cachedDecoder[index]; dec != nil {
-		decMu.RUnlock()
+	if dec := loadCachedDecoder(index); dec != nil {
 		return dec, nil
 	}
-	decMu.RUnlock()
 
 	dec, err := compileHead(typ, map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}
-	decMu.Lock()
-	cachedDecoder[index] = dec
-	decMu.Unlock()
-	return dec, nil
+	return storeCachedDecoder(index, dec), nil
 }

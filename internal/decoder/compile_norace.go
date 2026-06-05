@@ -17,7 +17,7 @@ func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	}
 
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if dec := cachedDecoder[index]; dec != nil {
+	if dec := loadCachedDecoder(index); dec != nil {
 		return dec, nil
 	}
 
@@ -25,6 +25,5 @@ func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	cachedDecoder[index] = dec
-	return dec, nil
+	return storeCachedDecoder(index, dec), nil
 }

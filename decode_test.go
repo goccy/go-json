@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -4055,5 +4056,51 @@ func TestIssue429(t *testing.T) {
 		if err := json.Unmarshal([]byte(b), &x); err == nil {
 			t.Errorf("unexpected success")
 		}
+	}
+}
+
+func TestIssue495(t *testing.T) {
+	type issue495Nested struct {
+		D int `json:"d"`
+	}
+	type issue495Value struct {
+		A int             `json:"a"`
+		B string          `json:"b"`
+		C *issue495Nested `json:"c"`
+	}
+
+	const goroutineNum = 128
+	var wg sync.WaitGroup
+	errCh := make(chan error, goroutineNum)
+	start := make(chan struct{})
+
+	wg.Add(goroutineNum)
+	for i := 0; i < goroutineNum; i++ {
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("unexpected panic: %v", r)
+				}
+			}()
+			<-start
+
+			var v issue495Value
+			if err := json.Unmarshal([]byte(`{"a":1,"b":"x","c":{"d":2}}`), &v); err != nil {
+				errCh <- err
+				return
+			}
+			if v.A != 1 || v.B != "x" || v.C == nil || v.C.D != 2 {
+				errCh <- fmt.Errorf("unexpected decoded value: %+v", v)
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
 	}
 }

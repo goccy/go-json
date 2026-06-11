@@ -25,6 +25,7 @@
 package encoder
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"reflect"
 	"unsafe"
@@ -35,10 +36,38 @@ const (
 	msb = 0x8080808080808080
 )
 
+// isBigEndian reports whether the host CPU is big-endian.
+//
+// encoding/binary.NativeEndian interprets memory using the host's native byte
+// order. By reading the two-byte sequence [0x01, 0x00] as a uint16:
+//   - big-endian host:    first byte is the MSB → result is 0x0100 → true
+//   - little-endian host: first byte is the LSB → result is 0x0001 → false
+var isBigEndian = binary.NativeEndian.Uint16([]byte{0x01, 0x00}) == 0x0100
+
 var hex = "0123456789abcdef"
 
 //nolint:govet
 func stringToUint64Slice(s string) []uint64 {
+	if isBigEndian {
+		// On big-endian hosts (e.g. s390x), the native unsafe reinterpretation
+		// used by the little-endian path below would place byte 0 of each chunk
+		// in the most-significant lane of the uint64 word. The SWAR escape
+		// scanners use bits.TrailingZeros64(mask&msb)/8 to locate the first byte
+		// needing escaping, which assumes byte 0 is in the least-significant lane.
+		// To satisfy that invariant, read each 8-byte chunk explicitly in
+		// little-endian order via binary.LittleEndian.Uint64.
+		n := len(s) / 8
+		buf := make([]uint64, n)
+		data := *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
+			Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,
+			Len:  len(s),
+			Cap:  len(s),
+		}))
+		for i := 0; i < n; i++ {
+			buf[i] = binary.LittleEndian.Uint64(data[i*8 : i*8+8])
+		}
+		return buf
+	}
 	return *(*[]uint64)(unsafe.Pointer(&reflect.SliceHeader{
 		Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,
 		Len:  len(s) / 8,

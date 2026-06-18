@@ -309,6 +309,17 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 			*(*interface{})(p) = nil
 			return nil
 		}
+		// If the interface already holds a concrete pointer value (as
+		// encoding/json supports), decode into that value rather than failing.
+		iface := rv.Interface()
+		ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
+		if typ := ifaceHeader.typ; ifaceHeader.ptr != nil && typ != nil && typ.Kind() == reflect.Ptr {
+			decoder, err := CompileToGetDecoder(typ)
+			if err != nil {
+				return err
+			}
+			return decoder.DecodeStream(s, depth, ifaceHeader.ptr)
+		}
 		return d.errUnmarshalType(rv.Type(), s.totalOffset())
 	}
 	iface := rv.Interface()
@@ -370,6 +381,17 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 			cursor += 4
 			**(**interface{})(unsafe.Pointer(&p)) = nil
 			return cursor, nil
+		}
+		// If the interface already holds a concrete pointer value (as
+		// encoding/json supports), decode into that value rather than failing.
+		iface := rv.Interface()
+		ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
+		if typ := ifaceHeader.typ; ifaceHeader.ptr != nil && typ != nil && typ.Kind() == reflect.Ptr {
+			decoder, err := CompileToGetDecoder(typ)
+			if err != nil {
+				return 0, err
+			}
+			return decoder.Decode(ctx, cursor, depth, ifaceHeader.ptr)
 		}
 		return 0, d.errUnmarshalType(rv.Type(), cursor)
 	}

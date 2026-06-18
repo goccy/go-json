@@ -4057,3 +4057,60 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+type issue405Thing interface{ thing() }
+
+type issue405ThingA struct {
+	A int `json:"a"`
+}
+
+func (*issue405ThingA) thing() {}
+
+func TestIssue405(t *testing.T) {
+	type container struct {
+		Thing issue405Thing `json:"thing"`
+	}
+
+	// A non-empty interface field that already holds a concrete pointer value
+	// must be decoded into that value, matching encoding/json.
+	t.Run("Unmarshal", func(t *testing.T) {
+		v := container{Thing: &issue405ThingA{}}
+		assertErr(t, json.Unmarshal([]byte(`{"thing": {"a": 1}}`), &v))
+		got, ok := v.Thing.(*issue405ThingA)
+		if !ok {
+			t.Fatalf("unexpected type: %T", v.Thing)
+		}
+		assertEq(t, "issue405", 1, got.A)
+	})
+
+	t.Run("Decoder", func(t *testing.T) {
+		v := container{Thing: &issue405ThingA{}}
+		if err := json.NewDecoder(bytes.NewReader([]byte(`{"thing": {"a": 2}}`))).Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		got, ok := v.Thing.(*issue405ThingA)
+		if !ok {
+			t.Fatalf("unexpected type: %T", v.Thing)
+		}
+		assertEq(t, "issue405", 2, got.A)
+	})
+
+	// null clears the field without error.
+	t.Run("null", func(t *testing.T) {
+		v := container{Thing: &issue405ThingA{A: 3}}
+		assertErr(t, json.Unmarshal([]byte(`{"thing": null}`), &v))
+		assertEq(t, "issue405", true, v.Thing == nil)
+	})
+
+	// A nil interface field cannot be decoded into, same as encoding/json.
+	t.Run("nil interface", func(t *testing.T) {
+		var v container
+		if err := json.Unmarshal([]byte(`{"thing": {"a": 1}}`), &v); err == nil {
+			t.Fatal("expected error when decoding into a nil interface field")
+		}
+		var std container
+		if err := stdjson.Unmarshal([]byte(`{"thing": {"a": 1}}`), &std); err == nil {
+			t.Fatal("expected encoding/json to also error")
+		}
+	})
+}

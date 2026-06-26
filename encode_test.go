@@ -2729,3 +2729,28 @@ func TestIssue459(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+func TestIssue576(t *testing.T) {
+	type ErrOmit struct {
+		Error string `json:"error,omitempty"`
+	}
+	type MyResult struct {
+		ErrOmit
+		Data string `json:"data"`
+	}
+	type Result struct {
+		MyResult
+	}
+
+	b, err := json.Marshal(Result{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"data":""}`, string(b))
+
+	b, err = json.Marshal(Result{MyResult{Data: "hi"}})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"data":"hi"}`, string(b))
+
+	b, err = json.Marshal(Result{MyResult{ErrOmit{Error: "boom"}, "hi"}})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"error":"boom","data":"hi"}`, string(b))
+}

@@ -459,6 +459,11 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
+
 	v = rv.Interface()
 	var bb []byte
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -509,6 +514,11 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 			rv = newV
 		}
 	}
+
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
@@ -532,6 +542,11 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
+
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {

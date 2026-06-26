@@ -21,6 +21,17 @@ import (
 	"github.com/goccy/go-json"
 )
 
+// ptrTextMarshaler implements encoding.TextMarshaler with a pointer receiver
+// that dereferences the receiver, so calling MarshalText on a nil
+// *ptrTextMarshaler panics. A nil element in []*ptrTextMarshaler must therefore
+// be encoded as null rather than crashing (mirrors the []*time.Time fix from
+// #524, extended to the text-marshaler and indent encode paths).
+type ptrTextMarshaler struct{ s string }
+
+func (t *ptrTextMarshaler) MarshalText() ([]byte, error) {
+	return []byte(t.s), nil
+}
+
 type recursiveT struct {
 	A *recursiveT `json:"a,omitempty"`
 	B *recursiveU `json:"b,omitempty"`
@@ -430,6 +441,21 @@ func Test_Marshal(t *testing.T) {
 			bytes, err := json.Marshal([]*time.Time{nil})
 			assertErr(t, err)
 			assertEq(t, "[]*time.Time", `[null]`, string(bytes))
+		})
+		t.Run("[]*time.Time indent", func(t *testing.T) {
+			bytes, err := json.MarshalIndent([]*time.Time{nil}, "", "  ")
+			assertErr(t, err)
+			assertEq(t, "[]*time.Time indent", "[\n  null\n]", string(bytes))
+		})
+		t.Run("[]*ptrTextMarshaler", func(t *testing.T) {
+			bytes, err := json.Marshal([]*ptrTextMarshaler{nil})
+			assertErr(t, err)
+			assertEq(t, "[]*ptrTextMarshaler", `[null]`, string(bytes))
+		})
+		t.Run("[]*ptrTextMarshaler indent", func(t *testing.T) {
+			bytes, err := json.MarshalIndent([]*ptrTextMarshaler{nil}, "", "  ")
+			assertErr(t, err)
+			assertEq(t, "[]*ptrTextMarshaler indent", "[\n  null\n]", string(bytes))
 		})
 	})
 

@@ -2778,3 +2778,21 @@ func TestIssue581(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", `{"type":"","reason":{"reasonCode":"x"}}`, string(b))
 }
+
+func TestIssue554(t *testing.T) {
+	type Son struct {
+		B string `json:"b"`
+		C string `json:"c"`
+	}
+	type Father struct {
+		Son
+		A []string `json:"a,omitempty"`
+	}
+	type Grandpa struct {
+		Father
+	}
+
+	b, err := json.Marshal(&Grandpa{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"b":"","c":""}`, string(b))
+}

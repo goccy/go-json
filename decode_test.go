@@ -3698,6 +3698,73 @@ func TestDecodeContextOption(t *testing.T) {
 	})
 }
 
+type onlyContextUnmarshaler struct {
+	called bool
+	data   string
+}
+
+func (u *onlyContextUnmarshaler) UnmarshalJSON(_ context.Context, b []byte) error {
+	u.called = true
+	u.data = string(b)
+	return nil
+}
+
+type onlyStdUnmarshaler struct {
+	called bool
+	data   string
+}
+
+func (u *onlyStdUnmarshaler) UnmarshalJSON(b []byte) error {
+	u.called = true
+	u.data = string(b)
+	return nil
+}
+
+func TestUnmarshalerContextDispatch(t *testing.T) {
+	data := []byte(`{"name":"John"}`)
+
+	t.Run("context unmarshaler via Unmarshal", func(t *testing.T) {
+		var v onlyContextUnmarshaler
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if !v.called {
+			t.Fatal("UnmarshalJSON(context.Context, []byte) was not called")
+		}
+	})
+	t.Run("context unmarshaler via UnmarshalContext", func(t *testing.T) {
+		var v onlyContextUnmarshaler
+		if err := json.UnmarshalContext(context.Background(), data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if !v.called {
+			t.Fatal("UnmarshalJSON(context.Context, []byte) was not called")
+		}
+	})
+	t.Run("std unmarshaler via UnmarshalContext", func(t *testing.T) {
+		var v onlyStdUnmarshaler
+		if err := json.UnmarshalContext(context.Background(), data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if !v.called {
+			t.Fatal("UnmarshalJSON([]byte) was not called")
+		}
+	})
+	t.Run("std unmarshaler via Unmarshal matches encoding/json", func(t *testing.T) {
+		var v onlyStdUnmarshaler
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatal(err)
+		}
+		var std onlyStdUnmarshaler
+		if err := stdjson.Unmarshal(data, &std); err != nil {
+			t.Fatal(err)
+		}
+		if v.data != std.data {
+			t.Fatalf("go-json passed %q to UnmarshalJSON, encoding/json passed %q", v.data, std.data)
+		}
+	})
+}
+
 func TestIssue251(t *testing.T) {
 	array := [3]int{1, 2, 3}
 	err := stdjson.Unmarshal([]byte("[ ]"), &array)

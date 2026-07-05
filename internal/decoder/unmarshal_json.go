@@ -85,13 +85,20 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: d.typ,
 		ptr: p,
 	}))
-	if (ctx.Option.Flags & ContextOption) != 0 {
-		if err := v.(unmarshalerContext).UnmarshalJSON(ctx.Option.Context, dst); err != nil {
+	switch v := v.(type) {
+	case unmarshalerContext:
+		var c context.Context
+		if (ctx.Option.Flags & ContextOption) != 0 {
+			c = ctx.Option.Context
+		} else {
+			c = context.Background()
+		}
+		if err := v.UnmarshalJSON(c, dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}
-	} else {
-		if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
+	case json.Unmarshaler:
+		if err := v.UnmarshalJSON(dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}

@@ -4057,3 +4057,31 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue577(t *testing.T) {
+	// struct key with a dangling backslash at end of input must decode
+	// error, not read past the buffer (goccy/go-json#575, #577)
+	type T struct {
+		Hash     string `json:"hash"`
+		PrevHash string `json:"prev_hash"`
+		Data     string `json:"data"`
+		Seq      int64  `json:"seq"`
+		TsNs     int64  `json:"ts_ns"`
+		Kind     uint8  `json:"kind"`
+	}
+	inputs := []string{
+		"{\"\\29\\",
+		"{\"hAs\\",
+		"{\"a\\",
+		"{\"\\",
+	}
+	for i := 0; i < 8; i++ {
+		inputs = append(inputs, `{"`+strings.Repeat("a", i)+`\`)
+	}
+	for _, b := range inputs {
+		var x T
+		if err := json.Unmarshal([]byte(b), &x); err == nil {
+			t.Errorf("input %q: expected decode error, got nil", b)
+		}
+	}
+}

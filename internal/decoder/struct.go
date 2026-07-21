@@ -378,7 +378,12 @@ func decodeKey(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldS
 	k := *(*string)(unsafe.Pointer(&key))
 	field, exists := d.fieldMap[k]
 	if !exists {
-		return cursor, nil, nil
+		// encoding/json accepts case-insensitive matches. Bitmap-optimized
+		// paths already lower-case keys; the map fallback must too (#568).
+		field, exists = d.fieldMap[strings.ToLower(k)]
+		if !exists {
+			return cursor, nil, nil
+		}
 	}
 	return cursor, field, nil
 }
@@ -657,7 +662,11 @@ func decodeKeyStream(d *structDecoder, s *Stream) (*structFieldSet, string, erro
 		return nil, "", err
 	}
 	k := *(*string)(unsafe.Pointer(&key))
-	return d.fieldMap[k], k, nil
+	if field, ok := d.fieldMap[k]; ok {
+		return field, k, nil
+	}
+	// Same case-insensitive fallback as decodeKey for large structs (#568).
+	return d.fieldMap[strings.ToLower(k)], k, nil
 }
 
 func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {

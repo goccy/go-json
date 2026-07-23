@@ -13,6 +13,35 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
+	initEncoder()
+	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+		codeSet, err := compileToGetCodeSetSlowPath(typeptr)
+		if err != nil {
+			return nil, err
+		}
+		return getFilteredCodeSetIfNeeded(ctx, codeSet)
+	}
+	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
+	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
+		filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
+		if err != nil {
+			return nil, err
+		}
+		return filtered, nil
+	}
+	codeSet, err := newCompiler().compile(typeptr)
+	if err != nil {
+		return nil, err
+	}
+	filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
+	if err != nil {
+		return nil, err
+	}
+	cachedOpcodeSets[index].Store(codeSet)
+	return filtered, nil
+}
+
 type marshalerContext interface {
 	MarshalJSON(context.Context) ([]byte, error)
 }
@@ -22,7 +51,7 @@ var (
 	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
-	cachedOpcodeSets       []*OpcodeSet
+	cachedOpcodeSets       []atomic.Pointer[OpcodeSet]
 	cachedOpcodeMap        unsafe.Pointer // map[uintptr]*OpcodeSet
 	typeAddr               *runtime.TypeAddr
 	initEncoderOnce        sync.Once
@@ -34,7 +63,7 @@ func initEncoder() {
 		if typeAddr == nil {
 			typeAddr = &runtime.TypeAddr{}
 		}
-		cachedOpcodeSets = make([]*OpcodeSet, typeAddr.AddrRange>>typeAddr.AddrShift+1)
+		cachedOpcodeSets = make([]atomic.Pointer[OpcodeSet], typeAddr.AddrRange>>typeAddr.AddrShift+1)
 	})
 }
 

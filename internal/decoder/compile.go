@@ -13,11 +13,31 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
+	initDecoder()
+	typeptr := uintptr(unsafe.Pointer(typ))
+	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+		return compileToGetDecoderSlowPath(typeptr, typ)
+	}
+
+	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
+	if dec := cachedDecoder[index].Load(); dec != nil {
+		return *dec, nil
+	}
+
+	dec, err := compileHead(typ, map[uintptr]Decoder{})
+	if err != nil {
+		return nil, err
+	}
+	cachedDecoder[index].Store(&dec)
+	return dec, nil
+}
+
 var (
 	jsonNumberType   = reflect.TypeOf(json.Number(""))
 	typeAddr         *runtime.TypeAddr
 	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
-	cachedDecoder    []Decoder
+	cachedDecoder    []atomic.Pointer[Decoder]
 	initOnce         sync.Once
 )
 
@@ -27,7 +47,7 @@ func initDecoder() {
 		if typeAddr == nil {
 			typeAddr = &runtime.TypeAddr{}
 		}
-		cachedDecoder = make([]Decoder, typeAddr.AddrRange>>typeAddr.AddrShift+1)
+		cachedDecoder = make([]atomic.Pointer[Decoder], typeAddr.AddrRange>>typeAddr.AddrShift+1)
 	})
 }
 

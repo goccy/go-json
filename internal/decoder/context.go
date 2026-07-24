@@ -27,6 +27,7 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	ctx.Option.Context = nil
 	runtimeContextPool.Put(ctx)
 }
 

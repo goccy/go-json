@@ -4057,3 +4057,33 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue568CaseInsensitiveLargeStruct(t *testing.T) {
+	type large struct {
+		F1  string `json:"f1"`
+		F2  string `json:"f2"`
+		F3  string `json:"f3"`
+		F4  string `json:"f4"`
+		F5  string `json:"f5"`
+		F6  string `json:"f6"`
+		F7  string `json:"f7"`
+		F8  string `json:"f8"`
+		F9  string `json:"f9"`
+		F10 string `json:"f10"`
+		F11 string `json:"f11"`
+		F12 string `json:"f12"`
+		F13 string `json:"f13"`
+		F14 string `json:"f14"`
+		F15 string `json:"f15"`
+		F16 string `json:"f16"`
+		Name bool  `json:"name,omitempty"`
+	}
+	input := []byte(`{"Name":true}`)
+	var v large
+	if err := json.Unmarshal(input, &v); err != nil {
+		t.Fatal(err)
+	}
+	if !v.Name {
+		t.Fatalf("expected case-insensitive match for Name->name on 17-field struct")
+	}
+}

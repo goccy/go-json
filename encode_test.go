@@ -2729,3 +2729,70 @@ func TestIssue459(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+func TestIssue576(t *testing.T) {
+	type ErrOmit struct {
+		Error string `json:"error,omitempty"`
+	}
+	type MyResult struct {
+		ErrOmit
+		Data string `json:"data"`
+	}
+	type Result struct {
+		MyResult
+	}
+
+	b, err := json.Marshal(Result{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"data":""}`, string(b))
+
+	b, err = json.Marshal(Result{MyResult{Data: "hi"}})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"data":"hi"}`, string(b))
+
+	b, err = json.Marshal(Result{MyResult{ErrOmit{Error: "boom"}, "hi"}})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"error":"boom","data":"hi"}`, string(b))
+}
+
+func TestIssue581(t *testing.T) {
+	type Reason struct {
+		Code string `json:"reasonCode,omitempty"`
+	}
+	type Cov struct {
+		Type string `json:"type"`
+	}
+	type Inner struct {
+		Cov
+		R *Reason `json:"reason,omitempty"`
+	}
+	type Outer struct {
+		Inner
+	}
+
+	b, err := json.Marshal(Outer{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"type":""}`, string(b))
+
+	b, err = json.Marshal(Outer{Inner{R: &Reason{Code: "x"}}})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"type":"","reason":{"reasonCode":"x"}}`, string(b))
+}
+
+func TestIssue554(t *testing.T) {
+	type Son struct {
+		B string `json:"b"`
+		C string `json:"c"`
+	}
+	type Father struct {
+		Son
+		A []string `json:"a,omitempty"`
+	}
+	type Grandpa struct {
+		Father
+	}
+
+	b, err := json.Marshal(&Grandpa{})
+	assertErr(t, err)
+	assertEq(t, "unexpected result", `{"b":"","c":""}`, string(b))
+}

@@ -84,7 +84,7 @@ func validateEndBuf(src []byte, cursor int64) error {
 
 func skipWhiteSpace(buf []byte, cursor int64) int64 {
 LOOP:
-	if isWhiteSpace[buf[cursor]] {
+	if cursor < int64(len(buf)) && isWhiteSpace[buf[cursor]] {
 		cursor++
 		goto LOOP
 	}

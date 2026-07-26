@@ -1457,6 +1457,81 @@ func TestNilMarshal(t *testing.T) {
 	}
 }
 
+// nilFuncMarshaler is a named function type that implements json.Marshaler with a
+// value receiver. This exercises the case where a nil func (direct-interface type)
+// is marshalled: go-json should call MarshalJSON rather than short-circuiting to null.
+type nilFuncMarshaler func(yield func(int) bool)
+
+func (f nilFuncMarshaler) MarshalJSON() ([]byte, error) {
+	if f == nil {
+		return []byte(`[]`), nil
+	}
+	return []byte(`[1]`), nil
+}
+
+// nilSingleFieldStructMarshaler is a struct with exactly one func field.
+// Such a struct is a direct-interface type (IfaceIndir=false): its single field is
+// stored directly in the interface data word, so a zero-value struct (fn==nil)
+// produces p==0 in the encoder — the same condition that triggered the bug for func
+// types. Verifying this case ensures the fix covers all direct-interface types, not
+// only named func/map/chan types.
+type nilSingleFieldStructMarshaler struct{ fn func() }
+
+func (s nilSingleFieldStructMarshaler) MarshalJSON() ([]byte, error) {
+	if s.fn == nil {
+		return []byte(`"zero"`), nil
+	}
+	return []byte(`"nonzero"`), nil
+}
+
+// TestNilFuncMarshaler checks that a nil func type implementing json.Marshaler
+// produces the output of MarshalJSON rather than "null".
+// This matches the behaviour of encoding/json (see golang.org/issue/16042).
+func TestNilFuncMarshaler(t *testing.T) {
+	var f nilFuncMarshaler // nil
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal nil nilFuncMarshaler: unexpected error: %v", err)
+	}
+	if string(b) != `[]` {
+		t.Errorf("Marshal nil nilFuncMarshaler = %s, want []", b)
+	}
+
+	// Non-nil func must still work.
+	f = func(yield func(int) bool) { yield(1) }
+	b, err = json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal non-nil nilFuncMarshaler: unexpected error: %v", err)
+	}
+	if string(b) != `[1]` {
+		t.Errorf("Marshal non-nil nilFuncMarshaler = %s, want [1]", b)
+	}
+}
+
+// TestNilSingleFieldStructMarshaler checks that a struct with a single pointer-shaped
+// field (a direct-interface type) calls MarshalJSON even when the field is nil/zero.
+func TestNilSingleFieldStructMarshaler(t *testing.T) {
+	// Zero value: fn == nil → p == 0 in VM → must still call MarshalJSON.
+	s := nilSingleFieldStructMarshaler{}
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("Marshal zero nilSingleFieldStructMarshaler: unexpected error: %v", err)
+	}
+	if string(b) != `"zero"` {
+		t.Errorf("Marshal zero nilSingleFieldStructMarshaler = %s, want \"zero\"", b)
+	}
+
+	// Non-zero value must still work.
+	s = nilSingleFieldStructMarshaler{fn: func() {}}
+	b, err = json.Marshal(s)
+	if err != nil {
+		t.Fatalf("Marshal non-zero nilSingleFieldStructMarshaler: unexpected error: %v", err)
+	}
+	if string(b) != `"nonzero"` {
+		t.Errorf("Marshal non-zero nilSingleFieldStructMarshaler = %s, want \"nonzero\"", b)
+	}
+}
+
 // Issue 5245.
 func TestEmbeddedBug(t *testing.T) {
 	v := BugB{

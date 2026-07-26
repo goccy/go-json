@@ -15,16 +15,17 @@ const uintptrSize = 4 << (^uintptr(0) >> 63)
 type OpFlags uint16
 
 const (
-	AnonymousHeadFlags     OpFlags = 1 << 0
-	AnonymousKeyFlags      OpFlags = 1 << 1
-	IndirectFlags          OpFlags = 1 << 2
-	IsTaggedKeyFlags       OpFlags = 1 << 3
-	NilCheckFlags          OpFlags = 1 << 4
-	AddrForMarshalerFlags  OpFlags = 1 << 5
-	IsNextOpPtrTypeFlags   OpFlags = 1 << 6
-	IsNilableTypeFlags     OpFlags = 1 << 7
-	MarshalerContextFlags  OpFlags = 1 << 8
-	NonEmptyInterfaceFlags OpFlags = 1 << 9
+	AnonymousHeadFlags        OpFlags = 1 << 0
+	AnonymousKeyFlags         OpFlags = 1 << 1
+	IndirectFlags             OpFlags = 1 << 2
+	IsTaggedKeyFlags          OpFlags = 1 << 3
+	NilCheckFlags             OpFlags = 1 << 4
+	AddrForMarshalerFlags     OpFlags = 1 << 5
+	IsNextOpPtrTypeFlags      OpFlags = 1 << 6
+	IsNilableTypeFlags        OpFlags = 1 << 7
+	MarshalerContextFlags     OpFlags = 1 << 8
+	NonEmptyInterfaceFlags    OpFlags = 1 << 9
+	DirectIfaceMarshalerFlags OpFlags = 1 << 10 // func, map, chan: nil value should still invoke MarshalJSON
 )
 
 type Opcode struct {

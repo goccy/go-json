@@ -261,9 +261,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMarshalJSON:
 			p := load(ctxptr, code.Idx)
 			if p == 0 {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
+				if (code.Flags & encoder.DirectIfaceMarshalerFlags) == 0 {
+					b = appendNullComma(ctx, b)
+					code = code.Next
+					break
+				}
 			}
 			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				p = ptrToPtr(p)

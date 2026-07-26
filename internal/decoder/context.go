@@ -46,7 +46,7 @@ func char(ptr unsafe.Pointer, offset int64) byte {
 }
 
 func skipWhiteSpace(buf []byte, cursor int64) int64 {
-	for isWhiteSpace[buf[cursor]] {
+	for cursor < int64(len(buf)) && isWhiteSpace[buf[cursor]] {
 		cursor++
 	}
 	return cursor

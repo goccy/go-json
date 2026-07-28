@@ -79,7 +79,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpFloat32:
-			b = appendFloat32(ctx, b, ptrToFloat32(load(ctxptr, code.Idx)))
+			v := ptrToFloat32(load(ctxptr, code.Idx))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpFloat64Ptr:
@@ -1152,7 +1156,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructHead(ctx, b)
 			}
 			b = appendStructKey(ctx, code, b)
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructPtrHeadOmitEmptyFloat32:
@@ -1185,6 +1193,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 			} else {
 				b = appendStructKey(ctx, code, b)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = appendComma(ctx, b)
 				code = code.Next
@@ -1216,7 +1227,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1251,6 +1266,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			} else {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
@@ -1286,7 +1304,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1318,7 +1340,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1353,7 +1379,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -1387,7 +1417,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -3437,7 +3471,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldFloat32:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyFloat32:
@@ -3445,6 +3483,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToFloat32(p + uintptr(code.Offset))
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = appendComma(ctx, b)
 			}
@@ -3453,7 +3494,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3463,6 +3508,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
@@ -3475,7 +3523,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -3484,7 +3536,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -3496,7 +3552,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 			}
 			b = appendComma(ctx, b)
@@ -3507,7 +3567,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
@@ -4334,7 +4398,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructEndFloat32:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyFloat32:
@@ -4342,6 +4410,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToFloat32(p + uintptr(code.Offset))
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = appendStructEnd(ctx, code, b)
 			} else {
@@ -4352,7 +4423,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			b = appendFloat32(ctx, b, ptrToFloat32(p+uintptr(code.Offset)))
+			v := ptrToFloat32(p + uintptr(code.Offset))
+			if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+				return nil, errUnsupportedFloat(float64(v))
+			}
+			b = appendFloat32(ctx, b, v)
 			b = append(b, '"')
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4362,6 +4437,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
 				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
@@ -4376,7 +4454,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == 0 {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -4385,7 +4467,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(p+uintptr(code.Offset), code.PtrNum)
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -4399,7 +4485,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendNull(ctx, b)
 			} else {
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 			}
 			b = appendStructEnd(ctx, code, b)
@@ -4410,7 +4500,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p != 0 {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
+				v := ptrToFloat32(p)
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, errUnsupportedFloat(float64(v))
+				}
+				b = appendFloat32(ctx, b, v)
 				b = append(b, '"')
 				b = appendStructEnd(ctx, code, b)
 			} else {

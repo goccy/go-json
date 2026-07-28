@@ -1136,11 +1136,11 @@ var unmarshalTests = []unmarshalTest{
 	},
 
 	{in: `0.000001`, ptr: new(float64), out: 0.000001, golden: true},                               // 114
-	{in: `1e-07`, ptr: new(float64), out: 1e-7, golden: true},                                      // 115
+	{in: `1e-7`, ptr: new(float64), out: 1e-7, golden: true},                                       // 115
 	{in: `100000000000000000000`, ptr: new(float64), out: 100000000000000000000.0, golden: true},   // 116
 	{in: `1e+21`, ptr: new(float64), out: 1e21, golden: true},                                      // 117
 	{in: `-0.000001`, ptr: new(float64), out: -0.000001, golden: true},                             // 118
-	{in: `-1e-07`, ptr: new(float64), out: -1e-7, golden: true},                                    // 119
+	{in: `-1e-7`, ptr: new(float64), out: -1e-7, golden: true},                                     // 119
 	{in: `-100000000000000000000`, ptr: new(float64), out: -100000000000000000000.0, golden: true}, // 120
 	{in: `-1e+21`, ptr: new(float64), out: -1e21, golden: true},                                    // 121
 	{in: `999999999999999900000`, ptr: new(float64), out: 999999999999999900000.0, golden: true},   // 122

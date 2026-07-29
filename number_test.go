@@ -86,8 +86,8 @@ func TestNumberIsValid(t *testing.T) {
 		"1..1",
 		"-1-2",
 		"012a42",
-		//"01.2",
-		//"012",
+		"01.2",
+		"012",
 		"12E12.12",
 		"1e2e3",
 		"1e+-2",
@@ -98,9 +98,9 @@ func TestNumberIsValid(t *testing.T) {
 		"1ea",
 		"1a",
 		"1.a",
-		//"1.",
-		//"01",
-		//"1.e1",
+		"1.",
+		"01",
+		"1.e1",
 	}
 
 	for i, test := range invalidTests {

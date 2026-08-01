@@ -29,11 +29,24 @@ func (d *numberDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	if err != nil {
 		return err
 	}
-	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
+	if err := validateNumber(bytes); err != nil {
 		return errors.ErrSyntax(err.Error(), s.totalOffset())
 	}
 	d.op(p, json.Number(string(bytes)))
 	s.reset()
+	return nil
+}
+
+// validateNumber returns an error if bytes is not a syntactically valid number
+// literal. A number whose magnitude overflows float64 (strconv.ErrRange) is still a valid
+// JSON number and is preserved verbatim as a json.Number, matching encoding/json;
+// only genuine syntax errors are rejected.
+func validateNumber(bytes []byte) error {
+	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
+		if ne, ok := err.(*strconv.NumError); !ok || ne.Err != strconv.ErrRange {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -42,7 +55,7 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	if err != nil {
 		return 0, err
 	}
-	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
+	if err := validateNumber(bytes); err != nil {
 		return 0, errors.ErrSyntax(err.Error(), c)
 	}
 	cursor = c

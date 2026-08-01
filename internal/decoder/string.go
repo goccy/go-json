@@ -259,7 +259,14 @@ func stringBytes(s *Stream) ([]byte, error) {
 			fallthrough
 		default:
 			// multi bytes character
-			if !utf8.FullRune(s.buf[cursor : len(s.buf)-1]) {
+			//
+			// Bound the check by s.length -- the bytes actually read -- rather
+			// than len(s.buf), which is the allocated capacity. Everything past
+			// s.length is nul padding, and a truncated sequence followed by nul
+			// looks complete-but-invalid to utf8.FullRune. A rune split across a
+			// read boundary would therefore skip the refill below and be mangled
+			// into one U+FFFD per byte instead of being completed by the next read.
+			if !utf8.FullRune(s.buf[cursor:s.length]) {
 				s.cursor = cursor
 				if s.read() {
 					_, cursor, p = s.stat()

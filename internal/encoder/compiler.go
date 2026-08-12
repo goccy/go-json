@@ -206,7 +206,7 @@ func (c *Compiler) typeToCode(typ *runtime.Type) (Code, error) {
 		}
 		return c.mapCode(typ)
 	case reflect.Struct:
-		return c.structCode(typ, isPtr)
+		return c.structCode(typ, isPtr, true)
 	case reflect.Int:
 		return c.intCode(typ, isPtr)
 	case reflect.Int8:
@@ -269,7 +269,7 @@ func (c *Compiler) typeToCodeWithPtr(typ *runtime.Type, isPtr bool) (Code, error
 	case reflect.Map:
 		return c.mapCode(typ)
 	case reflect.Struct:
-		return c.structCode(typ, isPtr)
+		return c.structCode(typ, isPtr, false)
 	case reflect.Interface:
 		return c.interfaceCode(typ, false)
 	case reflect.Int:
@@ -592,7 +592,8 @@ func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
 	}
 }
 
-func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error) {
+// isRoot marks the struct the compilation started from: only it can travel inside the interface word
+func (c *Compiler) structCode(typ *runtime.Type, isPtr, isRoot bool) (*StructCode, error) {
 	typeptr := uintptr(unsafe.Pointer(typ))
 	if code, exists := c.structTypeToCode[typeptr]; exists {
 		derefCode := *code
@@ -630,6 +631,11 @@ func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error
 				if indirect {
 					// if parent is indirect type, set child indirect property to true
 					structCode.isIndirect = true
+				} else if isRoot && !isPtr && isSinglePtrStructField(field, structCode) {
+					// the interface word already holds the field pointer, nothing may follow it again
+					field.value = structCode
+					field.isNextOpPtrType = false
+					structCode.isIndirect = true
 				} else {
 					// if parent is not indirect type, set child indirect property to false.
 					// but if parent's indirect is false and isPtr is true, then indirect must be true.
@@ -648,6 +654,47 @@ func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error
 	}
 	delete(c.structTypeToCode, typeptr)
 	return code, nil
+}
+
+// isSinglePtrStructField reports whether the field is a single pointer to structCode. a self
+// reachable type is excluded: its recursive re-entry reuses the root opcodes, addressed layout and all
+func isSinglePtrStructField(field *StructFieldCode, structCode *StructCode) bool {
+	ptrCode, ok := field.value.(*PtrCode)
+	if !ok || ptrCode.ptrNum != 1 {
+		return false
+	}
+
+	value, ok := ptrCode.value.(*StructCode)
+
+	return ok && value == structCode && !hasRecursiveCode(structCode, map[*StructCode]struct{}{})
+}
+
+func hasRecursiveCode(code Code, seen map[*StructCode]struct{}) bool {
+	switch c := code.(type) {
+	case *StructCode:
+		if c.isRecursive {
+			return true
+		}
+		if _, ok := seen[c]; ok {
+			return false
+		}
+		seen[c] = struct{}{}
+		for _, field := range c.fields {
+			if hasRecursiveCode(field.value, seen) {
+				return true
+			}
+		}
+	case *PtrCode:
+		return hasRecursiveCode(c.value, seen)
+	case *SliceCode:
+		return hasRecursiveCode(c.value, seen)
+	case *ArrayCode:
+		return hasRecursiveCode(c.value, seen)
+	case *MapCode:
+		return hasRecursiveCode(c.key, seen) || hasRecursiveCode(c.value, seen)
+	}
+
+	return false
 }
 
 func toElemType(t *runtime.Type) *runtime.Type {

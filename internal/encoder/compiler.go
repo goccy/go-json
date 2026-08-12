@@ -119,6 +119,7 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 
 type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
+	rootType         *runtime.Type
 }
 
 func newCompiler() *Compiler {
@@ -130,6 +131,7 @@ func newCompiler() *Compiler {
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := *(**runtime.Type)(unsafe.Pointer(&typeptr))
+	c.rootType = typ
 	code, err := c.typeToCode(typ)
 	if err != nil {
 		return nil, err
@@ -630,7 +632,7 @@ func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error
 				if indirect {
 					// if parent is indirect type, set child indirect property to true
 					structCode.isIndirect = true
-				} else {
+				} else if !c.normalizeDirectInterfaceStructField(code, field, structCode, isPtr) {
 					// if parent is not indirect type, set child indirect property to false.
 					// but if parent's indirect is false and isPtr is true, then indirect must be true.
 					// Do this only if indirectConversion is enabled at the end of compileStruct.
@@ -648,6 +650,63 @@ func (c *Compiler) structCode(typ *runtime.Type, isPtr bool) (*StructCode, error
 	}
 	delete(c.structTypeToCode, typeptr)
 	return code, nil
+}
+
+// normalizeDirectInterfaceStructField removes the pointer level already consumed by
+// the interface representation of a direct-interface root struct. Nested instances
+// still use the regular addressed representation, so recursive roots are unchanged.
+func (c *Compiler) normalizeDirectInterfaceStructField(parent *StructCode, field *StructFieldCode, child *StructCode, isPtr bool) bool {
+	if isPtr || parent.typ != c.rootType || runtime.IfaceIndir(parent.typ) {
+		return false
+	}
+	ptr, ok := field.value.(*PtrCode)
+	if !ok || ptr.ptrNum == 0 || ptr.value != child {
+		return false
+	}
+	if codeReferencesType(child, parent.typ, map[Code]struct{}{}) {
+		return false
+	}
+
+	if ptr.ptrNum == 1 {
+		field.value = child
+		field.isNextOpPtrType = false
+	} else {
+		field.value = &PtrCode{
+			typ:    ptr.typ.Elem(),
+			value:  ptr.value,
+			ptrNum: ptr.ptrNum - 1,
+		}
+	}
+	child.isIndirect = true
+	return true
+}
+
+func codeReferencesType(code Code, target *runtime.Type, seen map[Code]struct{}) bool {
+	if structCode, ok := code.(*StructCode); ok && structCode.typ == target {
+		return true
+	}
+	if _, exists := seen[code]; exists {
+		return false
+	}
+	seen[code] = struct{}{}
+
+	switch code := code.(type) {
+	case *PtrCode:
+		return codeReferencesType(code.value, target, seen)
+	case *StructCode:
+		for _, field := range code.fields {
+			if codeReferencesType(field.value, target, seen) {
+				return true
+			}
+		}
+	case *SliceCode:
+		return codeReferencesType(code.value, target, seen)
+	case *ArrayCode:
+		return codeReferencesType(code.value, target, seen)
+	case *MapCode:
+		return codeReferencesType(code.key, target, seen) || codeReferencesType(code.value, target, seen)
+	}
+	return false
 }
 
 func toElemType(t *runtime.Type) *runtime.Type {

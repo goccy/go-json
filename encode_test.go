@@ -2729,3 +2729,215 @@ func TestIssue459(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+type issue503IgnoredBackReferenceRoot struct {
+	Child *issue503IgnoredBackReferenceChild `json:"child,omitempty"`
+}
+
+type issue503IgnoredBackReferenceChild struct {
+	Root  *issue503IgnoredBackReferenceRoot `json:"-"`
+	First *int                              `json:"first,omitempty"`
+	Value *string                           `json:"value,omitempty"`
+}
+
+type issue503UnexportedBackReferenceRoot struct {
+	Child *issue503UnexportedBackReferenceChild `json:"child,omitempty"`
+}
+
+type issue503UnexportedBackReferenceChild struct {
+	root  *issue503UnexportedBackReferenceRoot
+	First *int    `json:"first,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
+type issue503RecursiveRoot struct {
+	Child *issue503RecursiveChild `json:"child,omitempty"`
+}
+
+type issue503RecursiveChild struct {
+	Root  *issue503RecursiveRoot `json:"root,omitempty"`
+	Value string                 `json:"value,omitempty"`
+}
+
+func TestIssue503(t *testing.T) {
+	type Child struct {
+		First int    `json:"first"`
+		Later string `json:"later"`
+	}
+	type DirectRoot struct {
+		Child *Child `json:"child,omitempty"`
+	}
+	type BoolChild struct {
+		First bool `json:"first"`
+	}
+	type BoolRoot struct {
+		Child *BoolChild `json:"child,omitempty"`
+	}
+	type StringChild struct {
+		First string `json:"first"`
+	}
+	type StringRoot struct {
+		Child *StringChild `json:"child,omitempty"`
+	}
+	type IndirectRoot struct {
+		Child *Child `json:"child,omitempty"`
+		Tail  string `json:"tail"`
+	}
+	type PrefixedRoot struct {
+		Prefix string `json:"prefix"`
+		Child  *Child `json:"child,omitempty"`
+	}
+	type DoubleRoot struct {
+		Child **Child `json:"child,omitempty"`
+	}
+	type Nested struct {
+		Child *Child `json:"child,omitempty"`
+	}
+	type NestedRoot struct {
+		Nested *Nested `json:"nested,omitempty"`
+	}
+	type NestedWithTail struct {
+		Child *Child `json:"child,omitempty"`
+		Tail  string `json:"tail"`
+	}
+	type NestedWithTailRoot struct {
+		Nested *NestedWithTail `json:"nested,omitempty"`
+	}
+	type PointerFieldChild struct {
+		First *int    `json:"first,omitempty"`
+		Value *string `json:"value,omitempty"`
+	}
+	type PointerFieldRoot struct {
+		Child *PointerFieldChild `json:"child,omitempty"`
+	}
+	type DoublePointerFieldRoot struct {
+		Child **PointerFieldChild `json:"child,omitempty"`
+	}
+	type IgnoredMarkerRoot struct {
+		Marker struct{}           `json:"-"`
+		Child  *PointerFieldChild `json:"child,omitempty"`
+	}
+	type SelfRecursiveRoot struct {
+		Next *SelfRecursiveRoot `json:"next,omitempty"`
+	}
+
+	var nilChild *Child
+	child := &Child{}
+	pointerValue := "present"
+	pointerFieldChild := &PointerFieldChild{Value: &pointerValue}
+	tests := []struct {
+		name  string
+		value interface{}
+	}{
+		{
+			name:  "direct pointer with zero first and non-zero later field",
+			value: DirectRoot{Child: &Child{Later: "kept"}},
+		},
+		{
+			name:  "direct pointer with all-zero fields",
+			value: DirectRoot{Child: &Child{}},
+		},
+		{
+			name:  "direct pointer with false first field",
+			value: BoolRoot{Child: &BoolChild{}},
+		},
+		{
+			name:  "direct pointer with empty string first field",
+			value: StringRoot{Child: &StringChild{}},
+		},
+		{
+			name:  "direct nil pointer",
+			value: DirectRoot{},
+		},
+		{
+			name:  "indirect root with pointer first",
+			value: IndirectRoot{Child: &Child{}, Tail: "tail"},
+		},
+		{
+			name:  "indirect root with pointer after prefix",
+			value: PrefixedRoot{Prefix: "prefix", Child: &Child{}},
+		},
+		{
+			name:  "double pointer to zero-value child",
+			value: DoubleRoot{Child: &child},
+		},
+		{
+			name:  "double pointer with nil inner pointer",
+			value: DoubleRoot{Child: &nilChild},
+		},
+		{
+			name:  "double nil pointer",
+			value: DoubleRoot{},
+		},
+		{
+			name:  "nested non-nil pointers",
+			value: NestedRoot{Nested: &Nested{Child: &Child{}}},
+		},
+		{
+			name:  "nested nil child pointer",
+			value: NestedRoot{Nested: &Nested{}},
+		},
+		{
+			name:  "nested nil child pointer with non-zero later field",
+			value: NestedWithTailRoot{Nested: &NestedWithTail{Tail: "kept"}},
+		},
+		{
+			name:  "nested child pointer with non-zero later field",
+			value: NestedWithTailRoot{Nested: &NestedWithTail{Child: &Child{}, Tail: "kept"}},
+		},
+		{
+			name:  "nested nil pointer",
+			value: NestedRoot{},
+		},
+		{
+			name:  "direct pointer with pointer fields",
+			value: PointerFieldRoot{Child: pointerFieldChild},
+		},
+		{
+			name:  "direct double pointer with pointer fields",
+			value: DoublePointerFieldRoot{Child: &pointerFieldChild},
+		},
+		{
+			name:  "direct pointer after ignored zero-size marker",
+			value: IgnoredMarkerRoot{Child: pointerFieldChild},
+		},
+		{
+			name:  "direct pointer with ignored tagged back reference",
+			value: issue503IgnoredBackReferenceRoot{Child: &issue503IgnoredBackReferenceChild{Value: &pointerValue}},
+		},
+		{
+			name:  "direct pointer with unexported back reference",
+			value: issue503UnexportedBackReferenceRoot{Child: &issue503UnexportedBackReferenceChild{Value: &pointerValue}},
+		},
+		{
+			name:  "visible recursive back reference",
+			value: issue503RecursiveRoot{Child: &issue503RecursiveChild{Value: "present"}},
+		},
+		{
+			name:  "self-recursive root",
+			value: SelfRecursiveRoot{Next: &SelfRecursiveRoot{}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			expected, err := stdjson.Marshal(test.value)
+			assertErr(t, err)
+			got, err := json.Marshal(test.value)
+			assertErr(t, err)
+			assertEq(t, "unexpected result", string(expected), string(got))
+			got, err = json.MarshalWithOption(test.value, json.Colorize(&json.ColorScheme{}))
+			assertErr(t, err)
+			assertEq(t, "unexpected color result", string(expected), string(got))
+
+			expected, err = stdjson.MarshalIndent(test.value, "", "  ")
+			assertErr(t, err)
+			got, err = json.MarshalIndent(test.value, "", "  ")
+			assertErr(t, err)
+			assertEq(t, "unexpected indented result", string(expected), string(got))
+			got, err = json.MarshalIndentWithOption(test.value, "", "  ", json.Colorize(&json.ColorScheme{}))
+			assertErr(t, err)
+			assertEq(t, "unexpected indented color result", string(expected), string(got))
+		})
+	}
+}

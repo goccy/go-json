@@ -2729,3 +2729,93 @@ func TestIssue459(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+func TestIssue503(t *testing.T) {
+	type child struct {
+		Flag  *bool   `json:"flag,omitempty"`
+		Label *string `json:"label,omitempty"`
+	}
+	// a struct whose only field is a pointer travels inside the interface word
+	type root struct {
+		Child *child `json:"child,omitempty"`
+	}
+	type rootPlain struct {
+		Child *child `json:"child"`
+	}
+	type rootWide struct {
+		Child *child `json:"child,omitempty"`
+		Note  string `json:"note"`
+	}
+	type rootNested struct {
+		Mid *root `json:"mid,omitempty"`
+	}
+	type zeroInt struct {
+		V int `json:"v"`
+	}
+	type zeroBool struct {
+		V bool `json:"v"`
+	}
+	type zeroString struct {
+		V string `json:"v"`
+	}
+	type zeroIntRoot struct {
+		C *zeroInt `json:"c,omitempty"`
+	}
+	type zeroBoolRoot struct {
+		C *zeroBool `json:"c,omitempty"`
+	}
+	type zeroStringRoot struct {
+		C *zeroString `json:"c,omitempty"`
+	}
+
+	flag := true
+	label := "x"
+
+	for _, v := range []interface{}{
+		root{},
+		root{Child: &child{}},
+		root{Child: &child{Flag: &flag}},
+		root{Child: &child{Label: &label}},
+		root{Child: &child{Flag: &flag, Label: &label}},
+		rootPlain{},
+		rootPlain{Child: &child{}},
+		rootPlain{Child: &child{Label: &label}},
+		rootWide{Child: &child{Label: &label}, Note: "n"},
+		rootNested{Mid: &root{Child: &child{Label: &label}}},
+		zeroIntRoot{C: &zeroInt{V: 0}},
+		zeroIntRoot{C: &zeroInt{V: 1}},
+		zeroBoolRoot{C: &zeroBool{V: false}},
+		zeroBoolRoot{C: &zeroBool{V: true}},
+		zeroStringRoot{C: &zeroString{V: ""}},
+		zeroStringRoot{C: &zeroString{V: "a"}},
+
+		// the same type reached by an address instead of the interface word
+		&root{Child: &child{Label: &label}},
+		[]root{{Child: &child{Label: &label}}, {}},
+		map[string]root{"k": {Child: &child{Label: &label}}},
+		struct {
+			Any interface{} `json:"any"`
+		}{Any: root{Child: &child{Label: &label}}},
+	} {
+		expected, err := stdjson.Marshal(v)
+		assertErr(t, err)
+
+		got, err := json.Marshal(v)
+		assertErr(t, err)
+		assertEq(t, "unexpected result", string(expected), string(got))
+
+		expectedIndent, err := stdjson.MarshalIndent(v, "", "  ")
+		assertErr(t, err)
+
+		gotIndent, err := json.MarshalIndent(v, "", "  ")
+		assertErr(t, err)
+		assertEq(t, "unexpected indented result", string(expectedIndent), string(gotIndent))
+
+		var buf bytes.Buffer
+		assertErr(t, json.NewEncoder(&buf).Encode(v))
+		assertEq(t, "unexpected streamed result", string(expected)+"\n", buf.String())
+
+		_, err = json.MarshalWithOption(v, json.Colorize(json.DefaultColorScheme))
+		assertErr(t, err)
+	}
+}

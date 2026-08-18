@@ -190,7 +190,19 @@ func (s *Stream) reset() {
 
 func (s *Stream) readBuf() []byte {
 	if s.filledBuffer {
+		// s.buf may have grown beyond bufSize (e.g. when invalid/multi-byte
+		// characters are expanded to RuneError in place), so resync bufSize to
+		// the real buffer length before growing. Keep doubling until the new
+		// buffer can hold everything already read, otherwise the copy below
+		// truncates the buffer while s.length still refers to the old size,
+		// causing an out-of-range panic when the buffer is scanned.
+		if int64(len(s.buf)) > s.bufSize {
+			s.bufSize = int64(len(s.buf))
+		}
 		s.bufSize *= 2
+		for s.bufSize < s.length {
+			s.bufSize *= 2
+		}
 		remainBuf := s.buf
 		s.buf = make([]byte, s.bufSize)
 		copy(s.buf, remainBuf)

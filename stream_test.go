@@ -526,6 +526,24 @@ func TestLongUTF8(t *testing.T) {
 	}
 }
 
+func TestIssue424(t *testing.T) {
+	// A JSON string containing a run of incomplete multi-byte UTF-8 lead bytes
+	// used to overflow the stream decode buffer and panic with
+	// "index out of range" (#424). It must now return an error cleanly.
+	var input []byte
+	input = append(input, '"')
+	input = append(input, bytes.Repeat([]byte{'0'}, 252)...)
+	input = append(input, bytes.Repeat([]byte{0xE2}, 257)...)
+	input = append(input, '0', '0')
+
+	dec := json.NewDecoder(bytes.NewReader(input))
+	for {
+		if _, err := dec.Token(); err != nil {
+			break
+		}
+	}
+}
+
 func TestIssue278(t *testing.T) {
 	a := `{"嗷嗷":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u55f7"}`
 	r := strings.NewReader(a)

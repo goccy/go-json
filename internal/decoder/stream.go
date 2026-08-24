@@ -15,17 +15,18 @@ const (
 )
 
 type Stream struct {
-	buf                   []byte
-	bufSize               int64
-	length                int64
-	r                     io.Reader
-	offset                int64
-	cursor                int64
-	filledBuffer          bool
-	allRead               bool
-	UseNumber             bool
-	DisallowUnknownFields bool
-	Option                *Option
+	buf                     []byte
+	bufSize                 int64
+	length                  int64
+	r                       io.Reader
+	offset                  int64
+	cursor                  int64
+	filledBuffer            bool
+	allRead                 bool
+	UseNumber               bool
+	DisallowUnknownFields   bool
+	DisallowDuplicateFields bool
+	Option                  *Option
 }
 
 func NewStream(r io.Reader) *Stream {

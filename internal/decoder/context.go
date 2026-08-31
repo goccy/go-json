@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -53,94 +54,101 @@ func skipWhiteSpace(buf []byte, cursor int64) int64 {
 }
 
 func skipObject(buf []byte, cursor, depth int64) (int64, error) {
-	braceCount := 1
+	cursor = skipWhiteSpace(buf, cursor)
+	switch buf[cursor] {
+	case '}':
+		return cursor + 1, nil
+	case ',':
+		cursor = skipWhiteSpace(buf, cursor+1)
+	case nul:
+		return 0, errors.ErrUnexpectedEndOfJSON("object of object", cursor)
+	default:
+		return 0, errors.ErrExpected("comma after object element", cursor)
+	}
 	for {
+		c, err := skipObjectField(buf, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
-		case '{':
-			braceCount++
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-			}
 		case '}':
-			depth--
-			braceCount--
-			if braceCount == 0 {
-				return cursor + 1, nil
-			}
-		case '[':
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-			}
-		case ']':
-			depth--
-		case '"':
-			for {
-				cursor++
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-					if buf[cursor] == nul {
-						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					goto SWITCH_OUT
-				case nul:
-					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
-			}
+			return cursor + 1, nil
+		case ',':
+			cursor = skipWhiteSpace(buf, cursor+1)
 		case nul:
 			return 0, errors.ErrUnexpectedEndOfJSON("object of object", cursor)
+		default:
+			return 0, errors.ErrInvalidCharacter(buf[cursor], "object", cursor)
 		}
-	SWITCH_OUT:
-		cursor++
+	}
+}
+
+func skipObjectValue(buf []byte, cursor, depth int64) (int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == '}' {
+		return cursor + 1, nil
+	}
+	for {
+		c, err := skipObjectField(buf, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
+		switch buf[cursor] {
+		case '}':
+			return cursor + 1, nil
+		case ',':
+			cursor = skipWhiteSpace(buf, cursor+1)
+		case nul:
+			return 0, errors.ErrUnexpectedEndOfJSON("object of object", cursor)
+		default:
+			return 0, errors.ErrInvalidCharacter(buf[cursor], "object", cursor)
+		}
+	}
+}
+
+func skipObjectField(buf []byte, cursor, depth int64) (int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	switch buf[cursor] {
+	case '"':
+		c, err := skipString(buf, cursor, "string of object")
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
+		if buf[cursor] != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		return skipValue(buf, cursor+1, depth)
+	case nul:
+		return 0, errors.ErrUnexpectedEndOfJSON("object of object", cursor)
+	default:
+		return 0, errors.ErrInvalidCharacter(buf[cursor], "object key", cursor)
 	}
 }
 
 func skipArray(buf []byte, cursor, depth int64) (int64, error) {
-	bracketCount := 1
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == ']' {
+		return cursor + 1, nil
+	}
 	for {
+		c, err := skipValue(buf, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
-		case '[':
-			bracketCount++
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-			}
 		case ']':
-			bracketCount--
-			depth--
-			if bracketCount == 0 {
-				return cursor + 1, nil
-			}
-		case '{':
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-			}
-		case '}':
-			depth--
-		case '"':
-			for {
-				cursor++
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-					if buf[cursor] == nul {
-						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					goto SWITCH_OUT
-				case nul:
-					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
-			}
+			return cursor + 1, nil
+		case ',':
+			cursor = skipWhiteSpace(buf, cursor+1)
 		case nul:
 			return 0, errors.ErrUnexpectedEndOfJSON("array of object", cursor)
+		default:
+			return 0, errors.ErrInvalidCharacter(buf[cursor], "array", cursor)
 		}
-	SWITCH_OUT:
-		cursor++
 	}
 }
 
@@ -151,33 +159,19 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			cursor++
 			continue
 		case '{':
-			return skipObject(buf, cursor+1, depth+1)
+			if depth+1 > maxDecodeNestingDepth {
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+			}
+			return skipObjectValue(buf, cursor+1, depth+1)
 		case '[':
+			if depth+1 > maxDecodeNestingDepth {
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+			}
 			return skipArray(buf, cursor+1, depth+1)
 		case '"':
-			for {
-				cursor++
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-					if buf[cursor] == nul {
-						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					return cursor + 1, nil
-				case nul:
-					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
-			}
+			return skipString(buf, cursor, "string of object")
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			for {
-				cursor++
-				if floatTable[buf[cursor]] {
-					continue
-				}
-				break
-			}
-			return cursor, nil
+			return skipNumber(buf, cursor)
 		case 't':
 			if err := validateTrue(buf, cursor); err != nil {
 				return 0, err
@@ -200,6 +194,39 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			return cursor, errors.ErrUnexpectedEndOfJSON("null", cursor)
 		}
 	}
+}
+
+func skipString(buf []byte, cursor int64, context string) (int64, error) {
+	for {
+		cursor++
+		switch buf[cursor] {
+		case '\\':
+			cursor++
+			if buf[cursor] == nul {
+				return 0, errors.ErrUnexpectedEndOfJSON(context, cursor)
+			}
+		case '"':
+			return cursor + 1, nil
+		case nul:
+			return 0, errors.ErrUnexpectedEndOfJSON(context, cursor)
+		}
+	}
+}
+
+func skipNumber(buf []byte, cursor int64) (int64, error) {
+	start := cursor
+	for {
+		cursor++
+		if floatTable[buf[cursor]] {
+			continue
+		}
+		break
+	}
+	num := buf[start:cursor]
+	if !validNumber(num) {
+		return 0, errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", num), cursor)
+	}
+	return cursor, nil
 }
 
 func validateTrue(buf []byte, cursor int64) error {

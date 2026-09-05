@@ -266,6 +266,15 @@ func TestIssue98(t *testing.T) {
 	}
 }
 
+func TestDecoderTruncatedHighByteString(t *testing.T) {
+	data := append([]byte(`{"`), bytes.Repeat([]byte{0xae}, 1024)...)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	var v interface{}
+	if err := dec.Decode(&v); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func Test_Decoder_UseNumber(t *testing.T) {
 	dec := json.NewDecoder(strings.NewReader(`{"a": 3.14}`))
 	dec.UseNumber()

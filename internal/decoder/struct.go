@@ -194,7 +194,13 @@ func decodeKeyCharByUnicodeRune(buf []byte, cursor int64) ([]byte, int64, error)
 }
 
 func decodeKeyCharByEscapedChar(buf []byte, cursor int64) ([]byte, int64, error) {
+	if cursor < 0 || cursor >= int64(len(buf)) {
+		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+	}
 	c := buf[cursor]
+	if c == nul {
+		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+	}
 	cursor++
 	switch c {
 	case '"':
@@ -242,6 +248,9 @@ func decodeKeyByBitmapUint8(d *structDecoder, buf []byte, cursor int64) (int64, 
 			bitmap := d.keyBitmapUint8
 			start := cursor
 			for {
+				if cursor < 0 || cursor >= int64(len(buf)) {
+					return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
+				}
 				c := char(b, cursor)
 				switch c {
 				case '"':
@@ -308,6 +317,9 @@ func decodeKeyByBitmapUint16(d *structDecoder, buf []byte, cursor int64) (int64,
 			bitmap := d.keyBitmapUint16
 			start := cursor
 			for {
+				if cursor < 0 || cursor >= int64(len(buf)) {
+					return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
+				}
 				c := char(b, cursor)
 				switch c {
 				case '"':

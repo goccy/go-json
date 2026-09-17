@@ -397,11 +397,11 @@ func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *
 func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
 	// firstField is special StructHead operation for anonymous structure.
 	// So, StructHead's next operation is truly struct head operation.
-	for firstField.Op == OpStructHead || firstField.Op == OpStructField {
+	for firstField != nil && firstField.Next != nil && (firstField.Op == OpStructHead || firstField.Op == OpStructField) {
 		firstField = firstField.Next
 	}
 	lastField := firstField
-	for lastField.NextField != nil {
+	for lastField != nil && lastField.NextField != nil {
 		lastField = lastField.NextField
 	}
 	return lastField
@@ -515,7 +515,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 				firstField.End = lastField
 			}
 		}
-		prevField = firstField
+		prevField = c.lastFieldCode(field, firstField)
 		codes = codes.Add(fieldCodes...)
 	}
 	ctx.structTypeToCodes[uintptr(unsafe.Pointer(c.typ))] = codes

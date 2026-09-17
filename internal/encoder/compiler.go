@@ -15,14 +15,14 @@ import (
 
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	initEncoder()
-	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+	index, slow := encoderCacheIndex(typeptr)
+	if slow {
 		codeSet, err := compileToGetCodeSetSlowPath(typeptr)
 		if err != nil {
 			return nil, err
 		}
 		return getFilteredCodeSetIfNeeded(ctx, codeSet)
 	}
-	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
 	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
 		filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
 		if err != nil {
@@ -65,6 +65,17 @@ func initEncoder() {
 		}
 		cachedOpcodeSets = make([]atomic.Pointer[OpcodeSet], typeAddr.AddrRange>>typeAddr.AddrShift+1)
 	})
+}
+
+func encoderCacheIndex(typeptr uintptr) (index uintptr, slow bool) {
+	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+		return 0, true
+	}
+	index = (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
+	if index >= uintptr(len(cachedOpcodeSets)) {
+		return 0, true
+	}
+	return index, false
 }
 
 func loadOpcodeMap() map[uintptr]*OpcodeSet {

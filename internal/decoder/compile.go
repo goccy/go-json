@@ -16,11 +16,10 @@ import (
 func CompileToGetDecoder(typ *runtime.Type) (Decoder, error) {
 	initDecoder()
 	typeptr := uintptr(unsafe.Pointer(typ))
-	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+	index, slow := decoderCacheIndex(typeptr)
+	if slow {
 		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
-
-	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
 	if dec := cachedDecoder[index].Load(); dec != nil {
 		return *dec, nil
 	}
@@ -49,6 +48,20 @@ func initDecoder() {
 		}
 		cachedDecoder = make([]atomic.Pointer[Decoder], typeAddr.AddrRange>>typeAddr.AddrShift+1)
 	})
+}
+
+// decoderCacheIndex maps a runtime type pointer onto the compiled-decoder
+// slice. slow is true when the pointer is outside the analyzed module range
+// or would index past the slice (Windows / multi-module layouts; see #571).
+func decoderCacheIndex(typeptr uintptr) (index uintptr, slow bool) {
+	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+		return 0, true
+	}
+	index = (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
+	if index >= uintptr(len(cachedDecoder)) {
+		return 0, true
+	}
+	return index, false
 }
 
 func loadDecoderMap() map[uintptr]Decoder {

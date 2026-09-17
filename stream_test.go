@@ -376,6 +376,16 @@ var tokenStreamCases = []tokenStreamCase{
 			map[string]interface{}{"a": float64(1)},
 		}},
 		json.Delim('}')}},
+	// Token() must reject a missing comma, like encoding/json (Fixes #548).
+	{json: "{\n  \"hello\": \"value\"\n  \"foo\": \"bar\"\n}", expTokens: []interface{}{
+		json.Delim('{'), "hello", "value",
+		json.NewSyntaxError(`invalid character '"' after object key:value pair`, 23),
+	}},
+	{json: `[{"a":1}{"a":2}]`, expTokens: []interface{}{
+		json.Delim('['),
+		json.Delim('{'), "a", float64(1), json.Delim('}'),
+		json.NewSyntaxError(`invalid character '{' after array element`, 8),
+	}},
 	/*
 		{json: ` [{"a": 1} {"a": 2}] `, expTokens: []interface{}{
 			json.Delim('['),

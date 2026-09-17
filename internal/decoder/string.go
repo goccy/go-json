@@ -199,6 +199,18 @@ var (
 	runeErrBytesLen = int64(len(runeErrBytes))
 )
 
+// replaceInvalidUTF8Byte substitutes the byte at cursor with U+FFFD.
+// stringBytes grows s.buf via append; keep bufSize in sync so a later
+// readBuf doubling cannot allocate a smaller buffer and panic.
+func replaceInvalidUTF8Byte(s *Stream, cursor int64) int64 {
+	s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
+	s.length += runeErrBytesLen
+	if n := int64(len(s.buf)); n > s.bufSize {
+		s.bufSize = n
+	}
+	return cursor + runeErrBytesLen
+}
+
 func stringBytes(s *Stream) ([]byte, error) {
 	_, cursor, p := s.stat()
 	cursor++ // skip double quote char
@@ -237,10 +249,8 @@ func stringBytes(s *Stream) ([]byte, error) {
 			0xC0, 0xC1, // 0xC0-0xC1
 			0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF: // 0xF5-0xFE
 			// character is invalid
-			s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
+			cursor = replaceInvalidUTF8Byte(s, cursor)
 			_, _, p = s.stat()
-			cursor += runeErrBytesLen
-			s.length += runeErrBytesLen
 			continue
 		case nul:
 			s.cursor = cursor
@@ -269,9 +279,7 @@ func stringBytes(s *Stream) ([]byte, error) {
 			}
 			r, size := utf8.DecodeRune(s.buf[cursor:])
 			if r == utf8.RuneError {
-				s.buf = append(append(append([]byte{}, s.buf[:cursor]...), runeErrBytes...), s.buf[cursor+1:]...)
-				cursor += runeErrBytesLen
-				s.length += runeErrBytesLen
+				cursor = replaceInvalidUTF8Byte(s, cursor)
 				_, _, p = s.stat()
 			} else {
 				cursor += int64(size)

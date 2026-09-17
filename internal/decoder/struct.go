@@ -378,7 +378,13 @@ func decodeKey(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldS
 	k := *(*string)(unsafe.Pointer(&key))
 	field, exists := d.fieldMap[k]
 	if !exists {
-		return cursor, nil, nil
+		// encoding/json: exact match first, then case-insensitive.
+		// Bitmap-optimized structs (≤16 fields) fold case while scanning;
+		// the map path used for larger structs must do the same.
+		field, exists = d.fieldMap[strings.ToLower(k)]
+		if !exists {
+			return cursor, nil, nil
+		}
 	}
 	return cursor, field, nil
 }
@@ -657,7 +663,10 @@ func decodeKeyStream(d *structDecoder, s *Stream) (*structFieldSet, string, erro
 		return nil, "", err
 	}
 	k := *(*string)(unsafe.Pointer(&key))
-	return d.fieldMap[k], k, nil
+	if field, exists := d.fieldMap[k]; exists {
+		return field, k, nil
+	}
+	return d.fieldMap[strings.ToLower(k)], k, nil
 }
 
 func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {

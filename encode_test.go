@@ -2669,6 +2669,37 @@ func TestIssue391(t *testing.T) {
 	}
 }
 
+func TestIssue581(t *testing.T) {
+	type Reason struct {
+		Code string `json:"reasonCode,omitempty"`
+	}
+	type Cov struct {
+		Type string `json:"type"`
+	}
+	type Inner struct {
+		Cov
+		R *Reason `json:"reason,omitempty"`
+	}
+	type Outer struct {
+		Inner
+	}
+
+	got, err := json.Marshal(Outer{})
+	assertErr(t, err)
+	want, err := stdjson.Marshal(Outer{})
+	assertErr(t, err)
+	assertEq(t, "nested embedded omitempty ptr", string(want), string(got))
+
+	reason := &Reason{Code: "x"}
+	in := Outer{}
+	in.R = reason
+	got, err = json.Marshal(in)
+	assertErr(t, err)
+	want, err = stdjson.Marshal(in)
+	assertErr(t, err)
+	assertEq(t, "nested embedded with ptr", string(want), string(got))
+}
+
 func TestIssue417(t *testing.T) {
 	x := map[string]string{
 		"b": "b",

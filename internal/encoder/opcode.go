@@ -364,12 +364,28 @@ func copyOpcode(code *Opcode) *Opcode {
 }
 
 func setTotalLengthToInterfaceOp(code *Opcode) {
-	for c := code; !c.IsEnd(); {
-		if c.Op == OpInterface || c.Op == OpInterfacePtr {
-			c.Length = uint32(code.TotalLength())
+	seen := map[*Opcode]struct{}{}
+	var walk func(*Opcode)
+	walk = func(head *Opcode) {
+		if head == nil {
+			return
 		}
-		c = c.IterNext()
+		if _, ok := seen[head]; ok {
+			return
+		}
+		seen[head] = struct{}{}
+		total := uint32(head.TotalLength())
+		for c := head; !c.IsEnd(); {
+			if c.Op == OpInterface || c.Op == OpInterfacePtr {
+				c.Length = total
+			}
+			if (c.Op == OpRecursive || c.Op == OpRecursivePtr) && c.Jmp != nil {
+				walk(c.Jmp.Code)
+			}
+			c = c.IterNext()
+		}
 	}
+	walk(code)
 }
 
 func ToEndCode(code *Opcode) *Opcode {

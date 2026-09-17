@@ -144,6 +144,42 @@ func Test_Marshal(t *testing.T) {
 			assertErr(t, err)
 			assertEq(t, "recursive", `{"a":{"b":{"t":{"d":"hello"}},"c":{"t":{"d":"world"}}}}`, string(bytes))
 		})
+		t.Run("recursive with map[string]any", func(t *testing.T) {
+			// Issue #559: encoding a recursive struct that also has a
+			// map[string]any field panics (slice bounds / nil deref in the VM)
+			// when both parent and child maps are non-empty.
+			type Node struct {
+				Label    string         `json:"label"`
+				Value    string         `json:"value"`
+				Meta     map[string]any `json:"meta,omitempty"`
+				Children []Node         `json:"children,omitempty"`
+			}
+			tree := []Node{
+				{
+					Label: "Parent",
+					Value: "p1",
+					Meta: map[string]any{
+						"code": "parent",
+						"desc": "Parent node",
+					},
+					Children: []Node{
+						{
+							Label: "Child1",
+							Value: "c1",
+							Meta: map[string]any{
+								"code": "child1",
+								"desc": "First child",
+							},
+						},
+					},
+				},
+			}
+			want, err := stdjson.Marshal(tree)
+			assertErr(t, err)
+			got, err := json.Marshal(tree)
+			assertErr(t, err)
+			assertEq(t, "recursive map any", string(want), string(got))
+		})
 		t.Run("embedded", func(t *testing.T) {
 			type T struct {
 				A string `json:"a"`

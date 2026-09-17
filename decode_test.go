@@ -4057,3 +4057,34 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+type issue583ContextRawMessage []byte
+
+func (m *issue583ContextRawMessage) UnmarshalJSON(_ context.Context, data []byte) error {
+	*m = append((*m)[0:0], data...)
+	return nil
+}
+
+func TestIssue583(t *testing.T) {
+	data := []byte(`{"name":"John"}`)
+
+	t.Run("UnmarshalerContext via Unmarshal", func(t *testing.T) {
+		var v issue583ContextRawMessage
+		if err := json.Unmarshal(data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if string(v) != string(data) {
+			t.Fatalf("got %s, want %s", v, data)
+		}
+	})
+
+	t.Run("json.RawMessage via UnmarshalContext", func(t *testing.T) {
+		var v json.RawMessage
+		if err := json.UnmarshalContext(context.Background(), data, &v); err != nil {
+			t.Fatal(err)
+		}
+		if string(v) != string(data) {
+			t.Fatalf("got %s, want %s", v, data)
+		}
+	})
+}

@@ -574,6 +574,17 @@ func (c *Compiler) mapKeyCode(typ *runtime.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ *runtime.Type) (Code, error) {
+	// Map values are not addressable. Only call MarshalJSON/MarshalText when
+	// the value type itself implements the interface (not merely *T).
+	// Map-typed values that implement MarshalJSON must not take the extra
+	// pointer wrapper used for nested maps — that wrapper plus IndirectFlags
+	// double-dereferences the mapiter pointer and panics (see #401).
+	switch {
+	case c.implementsMarshalJSONType(typ):
+		return c.marshalJSONCode(typ)
+	case typ.Implements(marshalTextType):
+		return c.marshalTextCode(typ)
+	}
 	switch typ.Kind() {
 	case reflect.Map:
 		return c.ptrCode(runtime.PtrTo(typ))

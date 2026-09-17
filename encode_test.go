@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -2633,6 +2634,51 @@ func TestCustomMarshalForMapKey(t *testing.T) {
 	got, err := json.Marshal(m)
 	assertErr(t, err)
 	assertEq(t, "custom map key", string(expected), string(got))
+}
+
+// issue401Set is a map type with a value-receiver MarshalJSON, matching #401.
+type issue401Set map[string]struct{}
+
+func (s issue401Set) MarshalJSON() ([]byte, error) {
+	if s == nil {
+		return []byte("null"), nil
+	}
+	keys := make([]string, 0, len(s))
+	for k := range s {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return stdjson.Marshal(keys)
+}
+
+func TestIssue401_MapValueCustomMarshaler(t *testing.T) {
+	newSet := func(items ...string) issue401Set {
+		s := make(issue401Set, len(items))
+		for _, v := range items {
+			s[v] = struct{}{}
+		}
+		return s
+	}
+	cases := []struct {
+		name string
+		in   interface{}
+	}{
+		{"value", map[string]issue401Set{"foo": newSet("foo", "bar")}},
+		{"empty", map[string]issue401Set{"foo": issue401Set{}}},
+		{"nil", map[string]issue401Set{"foo": nil}},
+		{"struct field", struct {
+			M map[string]issue401Set `json:"m"`
+		}{M: map[string]issue401Set{"foo": newSet("a")}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := json.Marshal(tc.in)
+			assertErr(t, err)
+			want, err := stdjson.Marshal(tc.in)
+			assertErr(t, err)
+			assertEq(t, "map value marshaler", string(want), string(got))
+		})
+	}
 }
 
 func TestIssue391(t *testing.T) {

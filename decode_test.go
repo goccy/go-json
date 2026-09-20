@@ -2552,6 +2552,54 @@ func TestInvalidUnmarshalText(t *testing.T) {
 	}
 }
 
+// Whether the type is a pointer is validated when the decoder is compiled, not for every call,
+// so every entry point must keep returning InvalidUnmarshalError no matter how many times it is called.
+func TestInvalidUnmarshalEntryPoints(t *testing.T) {
+	entryPoints := []struct {
+		name   string
+		decode func([]byte, interface{}) error
+	}{
+		{"Unmarshal", json.Unmarshal},
+		{"UnmarshalNoEscape", func(data []byte, v interface{}) error {
+			return json.UnmarshalNoEscape(data, v)
+		}},
+		{"UnmarshalContext", func(data []byte, v interface{}) error {
+			return json.UnmarshalContext(context.Background(), data, v)
+		}},
+		{"Decoder.Decode", func(data []byte, v interface{}) error {
+			return json.NewDecoder(bytes.NewReader(data)).Decode(v)
+		}},
+	}
+	values := []struct {
+		name string
+		v    interface{}
+	}{
+		{"nil", nil},
+		{"non-pointer struct", struct{ A int }{}},
+		{"non-pointer int", 1},
+		{"nil pointer", (*int)(nil)},
+		{"nil map", map[string]int(nil)},
+		{"non-nil map", map[string]int{}},
+		{"non-pointer value whose pointer implements json.Unmarshaler", time.Time{}},
+	}
+	for _, entryPoint := range entryPoints {
+		for _, value := range values {
+			t.Run(entryPoint.name+"/"+value.name, func(t *testing.T) {
+				for i := 0; i < 2; i++ {
+					err := entryPoint.decode([]byte(`{"A":1}`), value.v)
+					var invalidErr *json.InvalidUnmarshalError
+					if !errors.As(err, &invalidErr) {
+						t.Fatalf("call %d: expected InvalidUnmarshalError but got %T: %v", i, err, err)
+					}
+					if want := reflect.TypeOf(value.v); invalidErr.Type != want {
+						t.Fatalf("call %d: expected type %v but got %v", i, want, invalidErr.Type)
+					}
+				}
+			})
+		}
+	}
+}
+
 // Test that string option is ignored for invalid types.
 // Issue 9812.
 func TestInvalidStringOption(t *testing.T) {

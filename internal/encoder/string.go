@@ -27,6 +27,8 @@ package encoder
 import (
 	"math/bits"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -36,8 +38,13 @@ const (
 
 var hex = "0123456789abcdef"
 
+// unsafe.Slice is not used here because it adds the overflow / nil checks to this hot path.
 func stringToUint64Slice(s string) []uint64 {
-	return unsafe.Slice((*uint64)(unsafe.Pointer(unsafe.StringData(s))), len(s)/8)
+	return *(*[]uint64)(unsafe.Pointer(&runtime.SliceHeader{
+		Data: unsafe.Pointer(unsafe.StringData(s)),
+		Len:  len(s) / 8,
+		Cap:  len(s) / 8,
+	}))
 }
 
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {

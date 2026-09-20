@@ -1,6 +1,6 @@
 module benchmark
 
-go 1.19
+go 1.21
 
 require (
 	github.com/francoispqt/gojay v1.2.13

@@ -17,6 +17,7 @@ type benchConfig struct {
 	Bench     string `json:"bench"`
 	BenchTime string `json:"benchTime"`
 	Rounds    int    `json:"rounds"`
+	Layouts   int    `json:"layouts"`
 }
 
 // machine identifies the environment in which a measurement is comparable with another one.

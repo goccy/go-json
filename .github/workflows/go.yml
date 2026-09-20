@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
     - name: build
       run: docker compose run go-json
 
@@ -23,12 +23,12 @@ jobs:
         go-version: [ "1.25", "1.26", "1.27" ]
     runs-on: ${{ matrix.os }}
     steps:
+    - name: checkout
+      uses: actions/checkout@v7
     - name: setup Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
-    - name: checkout
-      uses: actions/checkout@v3
     - name: simple test
       run: go test -v ./... -count=1
     - name: test with GC pressure
@@ -43,9 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v7
         with:
           go-version: '1.21'
       - name: lint
@@ -55,15 +55,15 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
     steps:
-      - name: setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.21'
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           # the master branch is required to measure the baseline.
           fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.21'
       # A verdict is saved only when the job succeeds,
       # so re-running a passed commit ends immediately and a failed commit is measured again.
       # The baseline is always measured in the same job because it is never shared between machines.
@@ -80,14 +80,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v7
         with:
           go-version: '1.21'
       - name: measure coverage
         run: make cover
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           verbose: true

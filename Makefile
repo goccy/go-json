@@ -37,3 +37,10 @@ golangci-lint: | $(BIN_DIR)
 .PHONY: generate
 generate:
 	go generate ./internal/...
+
+# Fails if any benchmark under ./benchmarks is degraded compared with the master branch.
+# Options of internal/cmd/benchcheck can be passed by BENCH_CHECK_FLAGS.
+# e.g.) make bench-check BENCH_CHECK_FLAGS="-bench GoJson -no-cache"
+.PHONY: bench-check
+bench-check:
+	go run ./internal/cmd/benchcheck $(BENCH_CHECK_FLAGS)

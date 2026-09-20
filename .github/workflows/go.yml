@@ -68,7 +68,7 @@ jobs:
       # so re-running a passed commit ends immediately and a failed commit is measured again.
       # The baseline is always measured in the same job because it is never shared between machines.
       - name: restore benchmark verdict
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .git/benchcheck/verdict
           key: benchcheck-verdict-${{ github.sha }}

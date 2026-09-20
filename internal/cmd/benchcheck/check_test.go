@@ -10,25 +10,28 @@ import (
 	"testing"
 )
 
+// The durations are far longer than the resolution of the timer of any platform
+// ( about 16ms at worst ), so that a single iteration is always measured as a positive time
+// and the slow one is always distinguishable from the fast one.
 const (
 	testLibFast = `package lib
 
+import "time"
+
 func Work() int {
-	n := 0
-	for i := 0; i < 100; i++ {
-		n += i
-	}
-	return n
+	time.Sleep(20 * time.Millisecond)
+	return 0
 }
 `
 	testLibFastRefactored = `package lib
 
+import "time"
+
+const workDuration = 20 * time.Millisecond
+
 func Work() int {
-	sum := 0
-	for i := 0; i < 100; i++ {
-		sum += i
-	}
-	return sum
+	time.Sleep(workDuration)
+	return 0
 }
 `
 	testLibSlow = `package lib
@@ -36,7 +39,7 @@ func Work() int {
 import "time"
 
 func Work() int {
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	return 0
 }
 `

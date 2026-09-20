@@ -160,6 +160,15 @@ func (c *checker) baseSuite(ctx context.Context) (*suite, error) {
 	return base, nil
 }
 
+// formatDelta returns how much slower headNs is than baseNs, in percent.
+func formatDelta(baseNs, headNs float64) string {
+	if baseNs == 0 {
+		// the ratio to zero can't be represented.
+		return "-"
+	}
+	return fmt.Sprintf("%+.2f%%", (headNs-baseNs)/baseNs*100)
+}
+
 func printProgress(base, head measurement) {
 	names := make([]string, 0, len(head))
 	for name := range head {
@@ -173,7 +182,7 @@ func printProgress(base, head measurement) {
 			fmt.Printf("%s\tbase: -\thead: %.2f ns/op\n", name, headNs)
 			continue
 		}
-		fmt.Printf("%s\tbase: %.2f ns/op\thead: %.2f ns/op\t%+.2f%%\n", name, baseNs, headNs, (headNs-baseNs)/baseNs*100)
+		fmt.Printf("%s\tbase: %.2f ns/op\thead: %.2f ns/op\t%s\n", name, baseNs, headNs, formatDelta(baseNs, headNs))
 	}
 }
 
@@ -357,8 +366,8 @@ func report(v *verdict) error {
 	for _, result := range v.Benchmarks {
 		switch result.Status {
 		case statusOK, statusRegressed:
-			delta := (result.HeadNs - result.BaseNs) / result.BaseNs * 100
-			fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%+.2f%%\t%d\t%s\n", result.Name, result.BaseNs, result.HeadNs, delta, result.Attempts, result.Status)
+			delta := formatDelta(result.BaseNs, result.HeadNs)
+			fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%s\t%d\t%s\n", result.Name, result.BaseNs, result.HeadNs, delta, result.Attempts, result.Status)
 		case statusNew:
 			fmt.Fprintf(w, "%s\t-\t%.2f\t-\t%d\t%s\n", result.Name, result.HeadNs, result.Attempts, result.Status)
 		}

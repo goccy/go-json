@@ -30,12 +30,15 @@ type benchResult struct {
 type comparison struct {
 	tolerance float64
 	results   map[string]*benchResult
+	// compared is the set of the benchmarks whose result holds a measured pair.
+	compared map[string]struct{}
 }
 
 func newComparison(tolerance float64) *comparison {
 	return &comparison{
 		tolerance: tolerance,
 		results:   map[string]*benchResult{},
+		compared:  map[string]struct{}{},
 	}
 }
 
@@ -43,6 +46,17 @@ func newComparison(tolerance float64) *comparison {
 // tolerance is the measurement noise ( in percent ) which is not treated as a degradation.
 func (c *comparison) reached(baseNs, headNs float64) bool {
 	return headNs <= baseNs*(1+c.tolerance/100)
+}
+
+// closerToBase reports whether the pair ( baseNs, headNs ) is better than ( otherBaseNs, otherHeadNs ),
+// that is, whether headNs/baseNs is less than otherHeadNs/otherBaseNs.
+// The ratios are compared without division, because ns/op can be zero.
+func closerToBase(baseNs, headNs, otherBaseNs, otherHeadNs float64) bool {
+	lhs, rhs := headNs*otherBaseNs, otherHeadNs*baseNs
+	if lhs != rhs {
+		return lhs < rhs
+	}
+	return headNs < otherHeadNs
 }
 
 // add records one attempt of the benchmark function fn:
@@ -67,9 +81,11 @@ func (c *comparison) add(fn string, base, head measurement) {
 			}
 			continue
 		}
-		if result.BaseNs == 0 || headNs/baseNs < result.HeadNs/result.BaseNs {
+		_, compared := c.compared[name]
+		if !compared || closerToBase(baseNs, headNs, result.BaseNs, result.HeadNs) {
 			result.BaseNs = baseNs
 			result.HeadNs = headNs
+			c.compared[name] = struct{}{}
 		}
 		if c.reached(baseNs, headNs) {
 			result.Status = statusOK

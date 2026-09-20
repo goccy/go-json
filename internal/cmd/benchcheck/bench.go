@@ -34,7 +34,7 @@ const (
 // The output is a text format owned by the testing package, specified at
 // https://go.dev/design/14313-benchmark-format :
 //
-//	Benchmark<name>[-<procs>] <iterations> <value> <unit> [<value> <unit>...]
+//	Benchmark<name>[-<procs>] <iterations> [<value> <unit>...]
 //
 // The specification requires readers to ignore every line that is not a benchmark result line,
 // so such lines are skipped here as well.
@@ -53,8 +53,8 @@ func parseBenchOutput(output string, procs int) measurement {
 
 func parseBenchLine(line string, procs int) (string, float64, bool) {
 	fields := strings.Fields(line)
-	// name, iterations and at least one value/unit pair.
-	if len(fields) < 4 || len(fields)%2 != 0 {
+	// name and iterations, followed by value/unit pairs.
+	if len(fields) < 2 || len(fields)%2 != 0 {
 		return "", 0, false
 	}
 	if !strings.HasPrefix(fields[0], benchmarkPrefix) {
@@ -73,7 +73,9 @@ func parseBenchLine(line string, procs int) (string, float64, bool) {
 		}
 		return trimProcsSuffix(fields[0], procs), v, true
 	}
-	return "", 0, false
+	// the testing package omits ns/op when it is zero:
+	// the elapsed time was below the resolution of the timer, or the benchmark suppressed the metric.
+	return trimProcsSuffix(fields[0], procs), 0, true
 }
 
 // trimProcsSuffix removes the "-<GOMAXPROCS>" suffix which the testing package appends

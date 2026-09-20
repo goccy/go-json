@@ -16,6 +16,7 @@ Benchmark_MarshalBytes_GoJson/32-8                	10000000	       100 ns/op
 Benchmark_MarshalBytes_GoJson/32-8                	10000000	        90 ns/op
 BenchmarkThroughput-8                             	    1000	    12.5 MB/s	   2000 ns/op
 BenchmarkNoTime-8                                 	    1000	    12.5 MB/s
+BenchmarkBelowTimerResolution-8                   	       1
 BenchmarkLogged-8
 --- BENCH: BenchmarkLogged-8
     bench_test.go:10: message
@@ -27,6 +28,9 @@ ok  	benchmark	10.000s
 		"Benchmark_Decode_SmallStruct_Unmarshal_GoJson": 250.5,
 		"Benchmark_MarshalBytes_GoJson/32":              90,
 		"BenchmarkThroughput":                           2000,
+		// the testing package omits ns/op when it is zero.
+		"BenchmarkNoTime":               0,
+		"BenchmarkBelowTimerResolution": 0,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected result: got %v, want %v", got, want)
@@ -157,5 +161,28 @@ func TestHashDir(t *testing.T) {
 	write("b_test.go", "")
 	if got := hash(); got == second {
 		t.Fatal("hash must change when a file is added")
+	}
+}
+
+func TestComparisonWithZeroMeasurement(t *testing.T) {
+	cmp := newComparison(5)
+	cmp.add("BenchmarkBothZero", measurement{"BenchmarkBothZero": 0}, measurement{"BenchmarkBothZero": 0})
+	cmp.add("BenchmarkZeroBase", measurement{"BenchmarkZeroBase": 0}, measurement{"BenchmarkZeroBase": 20})
+	cmp.add("BenchmarkZeroBase", measurement{"BenchmarkZeroBase": 0}, measurement{"BenchmarkZeroBase": 10})
+	cmp.add("BenchmarkZeroHead", measurement{"BenchmarkZeroHead": 10}, measurement{"BenchmarkZeroHead": 0})
+
+	want := []benchResult{
+		{Name: "BenchmarkBothZero", Func: "BenchmarkBothZero", Status: statusOK, Attempts: 1},
+		{Name: "BenchmarkZeroBase", Func: "BenchmarkZeroBase", Status: statusRegressed, BaseNs: 0, HeadNs: 10, Attempts: 2},
+		{Name: "BenchmarkZeroHead", Func: "BenchmarkZeroHead", Status: statusOK, BaseNs: 10, HeadNs: 0, Attempts: 1},
+	}
+	if got := cmp.sortedResults(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected results:\n got %+v\nwant %+v", got, want)
+	}
+	if got := formatDelta(0, 10); got != "-" {
+		t.Fatalf("unexpected delta for zero base: %s", got)
+	}
+	if got := formatDelta(100, 110); got != "+10.00%" {
+		t.Fatalf("unexpected delta: %s", got)
 	}
 }

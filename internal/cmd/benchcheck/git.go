@@ -88,7 +88,7 @@ func (r *repository) checkout(ctx context.Context, dir, commit string) (func(), 
 	}
 	cleanup := func() {
 		// ctx may already be canceled by a signal, but the worktree must be removed anyway.
-		if _, err := r.git(context.Background(), "worktree", "remove", "--force", dir); err != nil {
+		if _, err := r.git(context.WithoutCancel(ctx), "worktree", "remove", "--force", dir); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 	}

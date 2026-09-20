@@ -26,7 +26,6 @@ package encoder
 
 import (
 	"math/bits"
-	"reflect"
 	"unsafe"
 )
 
@@ -37,13 +36,8 @@ const (
 
 var hex = "0123456789abcdef"
 
-//nolint:govet
 func stringToUint64Slice(s string) []uint64 {
-	return *(*[]uint64)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,
-		Len:  len(s) / 8,
-		Cap:  len(s) / 8,
-	}))
+	return unsafe.Slice((*uint64)(unsafe.Pointer(unsafe.StringData(s))), len(s)/8)
 }
 
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {

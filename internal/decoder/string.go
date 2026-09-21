@@ -151,7 +151,9 @@ func decodeUnicode(s *Stream, p unsafe.Pointer) (unsafe.Pointer, error) {
 	unicodeLen := int64(len(unicode))
 	s.buf = append(append(s.buf[:s.cursor-1], unicode...), s.buf[s.cursor+offset:]...)
 	unicodeOrgLen := offset - 1
-	s.length = s.length - (backSlashAndULen + (unicodeOrgLen - unicodeLen))
+	removedLen := backSlashAndULen + (unicodeOrgLen - unicodeLen)
+	s.offset += removedLen
+	s.length -= removedLen
 	s.cursor = s.cursor - backSlashAndULen + unicodeLen
 	return pp, nil
 }
@@ -188,6 +190,7 @@ RETRY:
 		return nil, errors.ErrUnexpectedEndOfJSON("string", s.totalOffset())
 	}
 	s.buf = append(s.buf[:s.cursor-1], s.buf[s.cursor:]...)
+	s.offset++
 	s.length--
 	s.cursor--
 	p = s.bufptr()

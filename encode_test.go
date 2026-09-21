@@ -1079,13 +1079,13 @@ var badFloatREs = []*regexp.Regexp{
 	re(`\.[0-9]+0(e|$)`),        // no trailing zero in fraction
 	re(`^-?(0|[0-9]{2,})\..*e`), // exponential notation must have normalized mantissa
 	re(`e[0-9]`),                // positive exponent must be signed
-	//re(`e[+-]0`),                // exponent must not have leading zeros
-	re(`e-[1-6]$`),             // not tiny enough for exponential notation
-	re(`e+(.|1.|20)$`),         // not big enough for exponential notation
-	re(`^-?0\.0000000`),        // too tiny, should use exponential notation
-	re(`^-?[0-9]{22}`),         // too big, should use exponential notation
-	re(`[1-9][0-9]{16}[1-9]`),  // too many significant digits in integer
-	re(`[1-9][0-9.]{17}[1-9]`), // too many significant digits in decimal
+	re(`e[+-]0`),                // exponent must not have leading zeros
+	re(`e-[1-6]$`),              // not tiny enough for exponential notation
+	re(`e+(.|1.|20)$`),          // not big enough for exponential notation
+	re(`^-?0\.0000000`),         // too tiny, should use exponential notation
+	re(`^-?[0-9]{22}`),          // too big, should use exponential notation
+	re(`[1-9][0-9]{16}[1-9]`),   // too many significant digits in integer
+	re(`[1-9][0-9.]{17}[1-9]`),  // too many significant digits in decimal
 	// below here for float32 only
 	re(`[1-9][0-9]{8}[1-9]`),  // too many significant digits in integer
 	re(`[1-9][0-9.]{9}[1-9]`), // too many significant digits in decimal
@@ -1172,6 +1172,29 @@ func TestMarshalFloat(t *testing.T) {
 	test(math.Copysign(0, -1), 64)
 	test(0, 32)
 	test(math.Copysign(0, -1), 32)
+}
+
+// As a drop-in for encoding/json, exponents must not carry a leading zero
+// (1e-7, not 1e-07). Assert byte-equality with the standard library.
+func TestMarshalFloatExponent(t *testing.T) {
+	f64 := []float64{
+		1e-7, 1e-8, 1e-9, 5e-7, 1.5e-8, 9.99e-7, 2.5e-9, 1.234e-7,
+		-1e-7, -1e-9, 3e-8, 1e-6, 1e-10, 1e-100, 1e21, 1e22,
+	}
+	for _, v := range f64 {
+		g, _ := json.Marshal(v)
+		s, _ := stdjson.Marshal(v)
+		if !bytes.Equal(g, s) {
+			t.Errorf("Marshal(float64 %g) = %q, encoding/json = %q", v, g, s)
+		}
+	}
+	for _, v := range []float32{1e-7, 1e-8, 1e-9, 5e-7, 1e-10, -1e-8} {
+		g, _ := json.Marshal(v)
+		s, _ := stdjson.Marshal(v)
+		if !bytes.Equal(g, s) {
+			t.Errorf("Marshal(float32 %g) = %q, encoding/json = %q", v, g, s)
+		}
+	}
 }
 
 var encodeStringTests = []struct {

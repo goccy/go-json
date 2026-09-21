@@ -376,7 +376,16 @@ func AppendFloat32(_ *RuntimeContext, b []byte, v float32) []byte {
 			fmt = 'e'
 		}
 	}
-	return strconv.AppendFloat(b, f64, fmt, -1, 32)
+	b = strconv.AppendFloat(b, f64, fmt, -1, 32)
+	if fmt == 'e' {
+		// clean up e-09 to e-9
+		n := len(b)
+		if n >= 4 && b[n-4] == 'e' && b[n-3] == '-' && b[n-2] == '0' {
+			b[n-2] = b[n-1]
+			b = b[:n-1]
+		}
+	}
+	return b
 }
 
 func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
@@ -388,7 +397,16 @@ func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
 			fmt = 'e'
 		}
 	}
-	return strconv.AppendFloat(b, v, fmt, -1, 64)
+	b = strconv.AppendFloat(b, v, fmt, -1, 64)
+	if fmt == 'e' {
+		// clean up e-09 to e-9
+		n := len(b)
+		if n >= 4 && b[n-4] == 'e' && b[n-3] == '-' && b[n-2] == '0' {
+			b[n-2] = b[n-1]
+			b = b[:n-1]
+		}
+	}
+	return b
 }
 
 func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {

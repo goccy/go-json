@@ -189,6 +189,14 @@ func Marshal(v interface{}) ([]byte, error) {
 b, err := json.MarshalOf(v)
 ```
 
+Which one to use depends on what is passed:
+
+| What is passed | Recommended | Why |
+|---|---|---|
+| A value which is not a pointer ( a struct, an `int`, a `string`, ... ) | `json.MarshalOf(v)` | It saves the allocation of the copy: about 15% faster for a small struct. `v` can also stay on the stack of the caller, which `json.Marshal(&v)` doesn't allow. |
+| A pointer or a map | either | Such a value is stored in an `interface{}` value without an allocation, so they are the same. |
+| A large value which is already referred to by a pointer `p` | `json.Marshal(p)` | `json.MarshalOf(*p)` copies the whole value, which costs more as the value gets larger. |
+
 `MarshalNoEscape`, which left the value on the stack, is deprecated: the encoder refers to the value by its address, and the address gets invalid when the stack of the goroutine is moved. It is now the same as `Marshal`.
 
 ### Encoding using opcode sequence

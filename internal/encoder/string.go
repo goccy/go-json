@@ -124,22 +124,10 @@ func (e *stringEscape) exactCharsMask(n uint64) uint64 {
 	return ((c0 - lsb) &^ c0) | ((c1 - lsb) &^ c1) | ((c2 - lsb) &^ c2)
 }
 
-// hasEscape is whether a word of the string may have a byte to escape. The string is 8 bytes or longer.
-func (e *stringEscape) hasEscape(src unsafe.Pointer, n int) bool {
+// hasExactEscape is whether a word of the string has a byte to escape, not counting the bytes which are not
+// ASCII. The string is 8 bytes or longer.
+func (e *stringEscape) hasExactEscape(src unsafe.Pointer, n int) bool {
 	i := 0
-	if e.high != 0 {
-		for ; i+8 <= n; i += 8 {
-			if w := *(*uint64)(unsafe.Add(src, i)); (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0 {
-				return true
-			}
-		}
-		if i < n {
-			// the last word overlaps the previous one.
-			w := *(*uint64)(unsafe.Add(src, n-8))
-			return (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0
-		}
-		return false
-	}
 	for ; i+8 <= n; i += 8 {
 		if w := *(*uint64)(unsafe.Add(src, i)); (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0 {
 			return true
@@ -148,6 +136,24 @@ func (e *stringEscape) hasEscape(src unsafe.Pointer, n int) bool {
 	if i < n {
 		w := *(*uint64)(unsafe.Add(src, n-8))
 		return (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0
+	}
+	return false
+}
+
+// hasLooseEscape is whether a word of the string may have a byte to escape, or has a byte which is not ASCII.
+// The string is 8 bytes or longer. It is cheaper than hasExactEscape, and it is exact for a string of ASCII,
+// which most of the strings are.
+func (e *stringEscape) hasLooseEscape(src unsafe.Pointer, n int) bool {
+	i := 0
+	for ; i+8 <= n; i += 8 {
+		if w := *(*uint64)(unsafe.Add(src, i)); (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0 {
+			return true
+		}
+	}
+	if i < n {
+		// the last word overlaps the previous one.
+		w := *(*uint64)(unsafe.Add(src, n-8))
+		return (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0
 	}
 	return false
 }
@@ -192,7 +198,8 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 				return escape.appendEscaped(buf, s)
 			}
 		}
-	} else if escape.hasEscape(src, n) {
+	} else if escape.hasLooseEscape(src, n) && (escape.high != 0 || escape.hasExactEscape(src, n)) {
+		// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
 		return escape.appendEscaped(buf, s)
 	}
 

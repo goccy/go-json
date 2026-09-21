@@ -26,8 +26,9 @@ package encoder
 
 import (
 	"math/bits"
-	"reflect"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -37,10 +38,10 @@ const (
 
 var hex = "0123456789abcdef"
 
-//nolint:govet
+// unsafe.Slice is not used here because it adds the overflow / nil checks to this hot path.
 func stringToUint64Slice(s string) []uint64 {
-	return *(*[]uint64)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: ((*reflect.StringHeader)(unsafe.Pointer(&s))).Data,
+	return *(*[]uint64)(unsafe.Pointer(&runtime.SliceHeader{
+		Data: unsafe.Pointer(unsafe.StringData(s)),
 		Len:  len(s) / 8,
 		Cap:  len(s) / 8,
 	}))

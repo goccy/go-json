@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
@@ -166,8 +165,10 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 	return unsafe.Pointer(x ^ 0)
 }
 
+// validateType validates that the value is not nil.
+// Whether the type is a pointer is validated by decoder.CompileToGetDecoder, once per type.
 func validateType(typ *runtime.Type, p uintptr) error {
-	if typ == nil || typ.Kind() != reflect.Ptr || p == 0 {
+	if typ == nil || p == 0 {
 		return &InvalidUnmarshalError{Type: runtime.RType2Type(typ)}
 	}
 	return nil

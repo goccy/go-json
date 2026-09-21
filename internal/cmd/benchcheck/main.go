@@ -35,7 +35,12 @@ const (
 	defaultAttempts = 3
 	// A measurement consists of multiple short rounds rather than a single long run,
 	// because the fastest round is hardly affected by the temporary load of the machine.
-	defaultRounds    = 3
+	// Every layout is measured once by default.
+	defaultRounds = 4
+	// defaultLayouts is the number of the function layouts with which a benchmark is measured.
+	// The fastest layout of each side is compared, so the more layouts are measured,
+	// the less the result depends on how well a single layout happens to fit the code.
+	defaultLayouts   = 4
 	defaultBenchTime = "300ms"
 	// defaultTolerance absorbs the run-to-run noise of identical code measured on the same machine.
 	defaultTolerance = 5.0
@@ -59,6 +64,7 @@ func parseOptions() (*options, error) {
 	flag.StringVar(&opt.config.Bench, "bench", ".", "pattern of the top-level benchmark functions to run")
 	flag.StringVar(&opt.config.BenchTime, "benchtime", defaultBenchTime, "duration of each round of a benchmark ( go test -benchtime )")
 	flag.IntVar(&opt.config.Rounds, "rounds", defaultRounds, "number of rounds of a measurement: the fastest round is the result of the measurement")
+	flag.IntVar(&opt.config.Layouts, "layouts", defaultLayouts, "number of function layouts of the benchmark binary: the round N is measured with the layout N % layouts ( more than 1 requires Go 1.23 or later )")
 	flag.IntVar(&opt.attempts, "attempts", defaultAttempts, "max number of measurements to reach the result of the base")
 	flag.Float64Var(&opt.tolerance, "tolerance", defaultTolerance, "measurement noise ( in percent ) which is not treated as a degradation")
 	flag.StringVar(&opt.cacheDir, "cache-dir", "", "directory to store the results ( default: <git common dir>/benchcheck )")
@@ -69,6 +75,12 @@ func parseOptions() (*options, error) {
 	}
 	if opt.config.Rounds < 1 {
 		return nil, fmt.Errorf("rounds must be greater than zero: %d", opt.config.Rounds)
+	}
+	if opt.config.Layouts < 1 {
+		return nil, fmt.Errorf("layouts must be greater than zero: %d", opt.config.Layouts)
+	}
+	if opt.config.Layouts > opt.config.Rounds {
+		return nil, fmt.Errorf("layouts must not be greater than rounds, otherwise some of them are never measured: layouts %d, rounds %d", opt.config.Layouts, opt.config.Rounds)
 	}
 	if opt.attempts < 1 {
 		return nil, fmt.Errorf("attempts must be greater than zero: %d", opt.attempts)
@@ -147,11 +159,10 @@ func (c *checker) baseSuite(ctx context.Context) (*suite, error) {
 	if err != nil {
 		return nil, err
 	}
-	binary := binaryPath(c.tmpDir, "base.test")
-	base, err := buildSuite(ctx, c.benchDir, modFile, binary)
+	base, err := buildSuite(ctx, c.benchDir, modFile, c.tmpDir, "base", c.opt.config.Layouts)
 	if err != nil {
 		fmt.Printf("benchmarks of the working tree can't be built with base %s: use the benchmarks of the base\n", c.baseCommit)
-		base, err = buildSuite(ctx, filepath.Join(baseDir, c.opt.config.Dir), "", binary)
+		base, err = buildSuite(ctx, filepath.Join(baseDir, c.opt.config.Dir), "", c.tmpDir, "base", c.opt.config.Layouts)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +198,8 @@ func printProgress(base, head measurement) {
 }
 
 // measureFunc measures the benchmark function fn of the base and of the working tree.
-// The rounds of both sides are interleaved so that they run under the same load.
+// The rounds of both sides are interleaved so that they run under the same load,
+// and each round uses the next layout so that the fastest layout of each side is compared.
 // If base is nil, only the working tree is measured.
 func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst bool) (measurement, measurement, error) {
 	type side struct {
@@ -205,7 +217,7 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 			if s.suite == nil {
 				continue
 			}
-			result, err := s.suite.run(ctx, fn, c.opt.config.BenchTime)
+			result, err := s.suite.run(ctx, round%c.opt.config.Layouts, fn, c.opt.config.BenchTime)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -236,7 +248,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) ([]benchResult, err
 	}
 
 	fmt.Println("build benchmarks for working tree")
-	head, err := buildSuite(ctx, c.benchDir, "", binaryPath(c.tmpDir, "head.test"))
+	head, err := buildSuite(ctx, c.benchDir, "", c.tmpDir, "head", c.opt.config.Layouts)
 	if err != nil {
 		return nil, err
 	}

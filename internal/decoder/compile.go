@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -84,6 +85,11 @@ func compileToGetDecoderSlowPath(typeptr uintptr, typ *runtime.Type) (Decoder, e
 }
 
 func compileHead(typ *runtime.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
+	// The kind is validated here, once per type, instead of for every call of the decoding functions:
+	// the decoder of a non-pointer type is never created, so it is never cached either.
+	if typ.Kind() != reflect.Ptr {
+		return nil, &errors.InvalidUnmarshalError{Type: runtime.RType2Type(typ)}
+	}
 	switch {
 	case implementsUnmarshalJSONType(runtime.PtrTo(typ)):
 		return newUnmarshalJSONDecoder(runtime.PtrTo(typ), "", ""), nil

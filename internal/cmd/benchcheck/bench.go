@@ -87,49 +87,100 @@ func trimProcsSuffix(name string, procs int) string {
 	return strings.TrimSuffix(name, "-"+strconv.Itoa(procs))
 }
 
-// suite is a compiled test binary of the benchmarks.
+// suite is the compiled test binaries of the benchmarks.
+//
+// A change of the library shifts where the linker places every function of the binary,
+// and the alignment of a hot loop alone makes a benchmark faster or slower by more than 10%,
+// even if the code it runs is not changed at all.
+// Measuring the same binary again never removes this difference,
+// so a suite has the binaries of the same code with different function layouts,
+// and a benchmark is measured with all of them.
 type suite struct {
-	binary string
+	// binaries is indexed by the layout.
+	binaries []string
 	// dir is the directory of the benchmark package.
-	// The binary runs there, as `go test` does, so that the benchmarks can read their testdata.
+	// The binaries run there, as `go test` does, so that the benchmarks can read their testdata.
 	dir string
 }
 
-// buildSuite compiles the benchmarks in dir into binary.
+// buildSuite compiles the benchmarks in dir into the binaries named after name in outDir, one per layout.
 // If modFile is not empty, it is used instead of go.mod in dir.
-func buildSuite(ctx context.Context, dir, modFile, binary string) (*suite, error) {
-	args := []string{"test", "-c", "-o", binary}
-	if modFile != "" {
-		args = append(args, "-modfile", modFile)
+//
+// The layout 0 is the default one of the linker, and the others are randomized by the linker
+// with the layout number as the seed ( -randlayout, supported since Go 1.23 ).
+// Only the first build compiles the packages: the rest are linked from the build cache.
+func buildSuite(ctx context.Context, dir, modFile, outDir, name string, layouts int) (*suite, error) {
+	s := &suite{dir: dir}
+	for layout := 0; layout < layouts; layout++ {
+		binary := binaryPath(outDir, fmt.Sprintf("%s.layout%d.test", name, layout))
+		args := []string{"test", "-c", "-o", binary}
+		if layout != 0 {
+			args = append(args, "-ldflags", "-randlayout="+strconv.Itoa(layout))
+		}
+		if modFile != "" {
+			args = append(args, "-modfile", modFile)
+		}
+		args = append(args, ".")
+		cmd := exec.CommandContext(ctx, "go", args...)
+		cmd.Dir = dir
+		cmd.Stdout = os.Stderr
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to build benchmarks in %s ( layout %d ): %w", dir, layout, err)
+		}
+		s.binaries = append(s.binaries, binary)
 	}
-	args = append(args, ".")
-	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to build benchmarks in %s: %w", dir, err)
-	}
-	return &suite{binary: binary, dir: dir}, nil
+	return s, nil
 }
 
-func (s *suite) exec(ctx context.Context, args ...string) (string, error) {
+func (s *suite) exec(ctx context.Context, binary string, args ...string) (string, error) {
 	var stdout bytes.Buffer
-	cmd := exec.CommandContext(ctx, s.binary, args...)
+	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = s.dir
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		// a crashed benchmark reports its reason to stdout.
 		os.Stderr.Write(stdout.Bytes())
-		return "", fmt.Errorf("failed to run %s %s: %w", s.binary, strings.Join(args, " "), err)
+		return "", fmt.Errorf("failed to run %s %s: %w", binary, strings.Join(args, " "), err)
 	}
 	return stdout.String(), nil
 }
 
-// funcs returns the names of the top-level benchmark functions matched by pattern.
+// comparedLibraries are the libraries which the benchmarks compare go-json with.
+// Their benchmarks exist to be compared with go-json by hand. They are never measured here,
+// because the purpose of this command is to notice the degradation of go-json.
+var comparedLibraries = map[string]struct{}{
+	"EasyJson":      {},
+	"EncodingJson":  {},
+	"FFJson":        {},
+	"FastJson":      {},
+	"GoJay":         {},
+	"GoJayUnsafe":   {},
+	"Jettison":      {},
+	"JsonIter":      {},
+	"SegmentioJson": {},
+}
+
+// isComparedLibraryBenchmark reports whether the benchmark function measures a library other than go-json.
+//
+// A test binary identifies a benchmark only by its function name, so the library can't be carried
+// by anything else: the benchmarks are named Benchmark_<operation>_<library>, and the library is
+// the part after the last underscore. Every other name, including the one without an underscore,
+// is a benchmark of go-json.
+func isComparedLibraryBenchmark(name string) bool {
+	i := strings.LastIndexByte(name, '_')
+	if i < 0 {
+		return false
+	}
+	_, exists := comparedLibraries[name[i+1:]]
+	return exists
+}
+
+// funcs returns the names of the top-level benchmark functions of go-json matched by pattern.
 func (s *suite) funcs(ctx context.Context, pattern string) ([]string, error) {
-	out, err := s.exec(ctx, "-test.list", pattern)
+	// every layout has the same functions.
+	out, err := s.exec(ctx, s.binaries[0], "-test.list", pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -137,21 +188,25 @@ func (s *suite) funcs(ctx context.Context, pattern string) ([]string, error) {
 	for _, name := range strings.Fields(out) {
 		// -test.list also prints tests, fuzz targets and examples.
 		// The testing package distinguishes them only by the prefix of the function name.
-		if strings.HasPrefix(name, benchmarkPrefix) {
-			names = append(names, name)
+		if !strings.HasPrefix(name, benchmarkPrefix) {
+			continue
 		}
+		if isComparedLibraryBenchmark(name) {
+			continue
+		}
+		names = append(names, name)
 	}
 	return names, nil
 }
 
-// run measures a top-level benchmark function, including its sub-benchmarks.
+// run measures a top-level benchmark function, including its sub-benchmarks, with the binary of the layout.
 // The result is empty if the suite doesn't have the function.
-func (s *suite) run(ctx context.Context, fn, benchTime string) (measurement, error) {
+func (s *suite) run(ctx context.Context, layout int, fn, benchTime string) (measurement, error) {
 	args := []string{"-test.run", "^$", "-test.bench", "^" + regexp.QuoteMeta(fn) + "$", "-test.count", "1"}
 	if benchTime != "" {
 		args = append(args, "-test.benchtime", benchTime)
 	}
-	out, err := s.exec(ctx, args...)
+	out, err := s.exec(ctx, s.binaries[layout], args...)
 	if err != nil {
 		return nil, err
 	}

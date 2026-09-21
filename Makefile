@@ -30,7 +30,7 @@ golangci-lint: | $(BIN_DIR)
 		GOLANGCI_LINT_TMP_DIR=$$(mktemp -d); \
 		cd $$GOLANGCI_LINT_TMP_DIR; \
 		go mod init tmp; \
-		GOBIN=$(BIN_DIR) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2; \
+		GOBIN=$(BIN_DIR) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2; \
 		rm -rf $$GOLANGCI_LINT_TMP_DIR; \
 	}
 
@@ -38,7 +38,8 @@ golangci-lint: | $(BIN_DIR)
 generate:
 	go generate ./internal/...
 
-# Fails if any benchmark under ./benchmarks is degraded compared with the master branch.
+# Fails if any benchmark of go-json under ./benchmarks is degraded compared with the master branch.
+# The benchmarks of the other libraries are never measured.
 # Options of internal/cmd/benchcheck can be passed by BENCH_CHECK_FLAGS.
 # e.g.) make bench-check BENCH_CHECK_FLAGS="-bench GoJson -no-cache"
 .PHONY: bench-check

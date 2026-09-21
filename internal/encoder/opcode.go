@@ -87,18 +87,18 @@ func (c *Opcode) IsEnd() bool {
 }
 
 func (c *Opcode) MaxIdx() uint32 {
-	max := uint32(0)
+	maxIdx := uint32(0)
 	for _, value := range []uint32{
 		c.Idx,
 		c.ElemIdx,
 		c.Length,
 		c.Size,
 	} {
-		if max < value {
-			max = value
+		if maxIdx < value {
+			maxIdx = value
 		}
 	}
-	return max
+	return maxIdx
 }
 
 func (c *Opcode) ToHeaderType(isString bool) OpType {

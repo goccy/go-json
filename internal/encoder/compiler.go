@@ -676,7 +676,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
 	case c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
@@ -686,7 +686,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
 	case isPtr && c.isPtrMarshalJSONType(fieldType):
@@ -698,7 +698,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 	case isPtr && c.isPtrMarshalTextType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalText() ([]byte, error)
@@ -708,7 +708,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 	default:
 		code, err := c.typeToCodeWithPtr(fieldType, isPtr)
 		if err != nil {
@@ -721,6 +721,15 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.value = code
 	}
 	return fieldCode, nil
+}
+
+// isNilCheckForAddrMarshaler returns whether a field whose marshaler is called with its address is checked.
+//
+// The check is what decides that the field is empty for omitempty, by the kind of the value as encoding/json
+// does, so it is required for omitempty. Without omitempty it would write null instead of calling the
+// marshaler, which a pointer to the field never needs.
+func (c *Compiler) isNilCheckForAddrMarshaler(tag *runtime.StructTag) bool {
+	return tag.IsOmitEmpty
 }
 
 func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {

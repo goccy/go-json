@@ -166,14 +166,6 @@ func IfaceIndir(typ unsafe.Pointer) bool {
 	return codeSet.IfaceIndir
 }
 
-// TopCode returns the code to encode a value passed to Marshal.
-func (s *OpcodeSet) TopCode(opt *Option) *Opcode {
-	if (opt.Flag & HTMLEscapeOption) != 0 {
-		return s.EscapeKeyCode
-	}
-	return s.NoescapeKeyCode
-}
-
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
 	s.cacheMu.RLock()
 	codeSet := s.QueryCache[hash]
@@ -270,13 +262,15 @@ type mapIter struct {
 }
 
 type MapContext struct {
-	Start int
-	First int
-	Idx   int
-	Slice *Mapslice
-	Buf   []byte
-	Len   int
-	Iter  mapIter
+	// parent is the context of the map which this map is in.
+	parent *MapContext
+	Start  int
+	First  int
+	Idx    int
+	Slice  *Mapslice
+	Buf    []byte
+	Len    int
+	Iter   mapIter
 }
 
 var mapContextPool = sync.Pool{
@@ -287,8 +281,12 @@ var mapContextPool = sync.Pool{
 	},
 }
 
-func NewMapContext(mapLen int, unorderedMap bool) *MapContext {
+// NewMapContext returns the context to encode a map, which the runtime context refers to until it is released:
+// the VM has it only in a slot, which the GC doesn't see.
+func NewMapContext(rctx *RuntimeContext, mapLen int, unorderedMap bool) *MapContext {
 	ctx := mapContextPool.Get().(*MapContext)
+	ctx.parent = rctx.mapContext
+	rctx.mapContext = ctx
 	if !unorderedMap {
 		if len(ctx.Slice.Items) < mapLen {
 			ctx.Slice.Items = make([]MapItem, mapLen)
@@ -302,7 +300,10 @@ func NewMapContext(mapLen int, unorderedMap bool) *MapContext {
 	return ctx
 }
 
-func ReleaseMapContext(c *MapContext) {
+func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
+	// a map is always released before the maps it is in.
+	rctx.mapContext = c.parent
+	c.parent = nil
 	// the iterator refers to the map, which the pool must not keep alive.
 	c.Iter = mapIter{}
 	mapContextPool.Put(c)

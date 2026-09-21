@@ -425,7 +425,6 @@ func lastFieldOpcode(field *Opcode) *Opcode {
 // The slot of the first field holds the address of the struct, which every field refers to. The slots after it
 // are for the value of a field, and they are used only while that field is encoded, so every field takes the
 // same ones: the length of a frame depends on how deep the values are nested, not on how many fields there are.
-// The VM has the slots on the stack, so a frame has to be short.
 type fieldSlots struct {
 	structIndex int
 	isFirst     bool

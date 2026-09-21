@@ -3,14 +3,18 @@ package vm
 import (
 	"fmt"
 	"io"
-	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 )
 
-func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, p unsafe.Pointer) ([]byte, error) {
+func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	defer func() {
-		code := codeSet.TopCode(ctx.Option)
+		var code *encoder.Opcode
+		if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
+			code = codeSet.EscapeKeyCode
+		} else {
+			code = codeSet.NoescapeKeyCode
+		}
 		if wc := ctx.Option.DebugDOTOut; wc != nil {
 			_, _ = io.WriteString(wc, code.DumpDOT())
 			wc.Close()
@@ -33,5 +37,5 @@ func DebugRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet,
 		}
 	}()
 
-	return Run(ctx, b, codeSet.TopCode(ctx.Option), p, 0)
+	return Run(ctx, b, codeSet)
 }

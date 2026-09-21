@@ -42,27 +42,27 @@ func errUnimplementedOp(op encoder.OpType) error {
 	return fmt.Errorf("encoder (indent): opcode %s has not been implemented", op)
 }
 
-// The slots of the VM are separated by what they hold: load / store are for the slots of the pointers,
-// which the GC sees, and loadInt / storeInt are for the slots of the other values ( an index, a length, ... ).
+// load / store are for the half of a slot for a pointer, and loadInt / storeInt are for the other half.
+// A pointer is stored as uintptr, which needs no write barrier: see encoder.Slot.
 
-func load(slots *encoder.Slots, offset uintptr, idx uint32) unsafe.Pointer {
-	return *(*unsafe.Pointer)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx)))
+func load(base unsafe.Pointer, idx uint32) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Add(base, idx))
 }
 
-func store(slots *encoder.Slots, offset uintptr, idx uint32, p unsafe.Pointer) {
-	*(*unsafe.Pointer)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx))) = p
+func store(base unsafe.Pointer, idx uint32, p unsafe.Pointer) {
+	*(*uintptr)(unsafe.Add(base, idx)) = uintptr(p)
 }
 
-func loadInt(slots *encoder.Slots, offset uintptr, idx uint32) uintptr {
-	return *(*uintptr)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx)))
+func loadInt(base unsafe.Pointer, idx uint32) uintptr {
+	return *(*uintptr)(unsafe.Add(base, idx))
 }
 
-func storeInt(slots *encoder.Slots, offset uintptr, idx uint32, v uintptr) {
-	*(*uintptr)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx))) = v
+func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
+	*(*uintptr)(unsafe.Add(base, idx)) = v
 }
 
-func loadNPtr(slots *encoder.Slots, offset uintptr, idx uint32, ptrNum uint8) unsafe.Pointer {
-	return ptrToNPtr(load(slots, offset, idx), ptrNum)
+func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
+	return ptrToNPtr(load(base, idx), ptrNum)
 }
 
 func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
@@ -276,12 +276,12 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendComma(ctx, b)
 }
 
-func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, slots *encoder.Slots, offset uintptr) {
-	ctx.BaseIndent = uint32(loadInt(slots, offset, code.Length))
+func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr unsafe.Pointer) {
+	ctx.BaseIndent = uint32(loadInt(ctxptr, code.Length))
 }
 
-func storeIndent(slots *encoder.Slots, offset uintptr, code *encoder.Opcode, indent uintptr) {
-	storeInt(slots, offset, code.Length, indent)
+func storeIndent(ctxptr unsafe.Pointer, code *encoder.Opcode, indent uintptr) {
+	storeInt(ctxptr, code.Length, indent)
 }
 
 func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {

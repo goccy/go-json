@@ -87,6 +87,17 @@ type Slot struct {
 // slotWords is the number of the words of a slot.
 const slotWords = 2
 
+const (
+	recentCodeSetsLength = 8
+	// the types are aligned at least by 32 bytes, and most of them are apart more than that.
+	recentCodeSetShift = 6
+)
+
+type recentCodeSet struct {
+	typeptr uintptr
+	codeSet *OpcodeSet
+}
+
 type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
@@ -111,6 +122,8 @@ type RuntimeContext struct {
 	// held by the interface values. A slot is never moved.
 	topValue   unsafe.Pointer
 	valueSlots []*unsafe.Pointer
+	// recentCodeSets are the opcodes of the types encoded last, indexed by the address of the type.
+	recentCodeSets [recentCodeSetsLength]recentCodeSet
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet

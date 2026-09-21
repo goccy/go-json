@@ -170,3 +170,74 @@ func TestEncodeEmbeddedRecursiveStruct(t *testing.T) {
 		})
 	}
 }
+
+// The frame of the pointers of a recursive code must not overlap the frame it is jumped from.
+// Otherwise the indent to restore, which is kept at the end of a frame, is overwritten by a pointer,
+// and gigabytes of the indent are written.
+
+type recursiveIndentNode struct {
+	Next *recursiveIndentNode `json:"next"`
+}
+
+type recursiveIndentTree struct {
+	Name     string                `json:"name"`
+	Children []recursiveIndentTree `json:"children"`
+}
+
+type recursiveIndentMutualA struct {
+	B *recursiveIndentMutualB `json:"b"`
+}
+
+type recursiveIndentMutualB struct {
+	Value int                     `json:"value"`
+	A     *recursiveIndentMutualA `json:"a"`
+}
+
+func TestEncodeDeepRecursiveStructWithIndent(t *testing.T) {
+	const maxDepth = 6
+	values := map[string][]interface{}{}
+	for depth := 1; depth <= maxDepth; depth++ {
+		node := &recursiveIndentNode{}
+		tree := recursiveIndentTree{Name: "leaf"}
+		mutual := &recursiveIndentMutualA{}
+		for i := 1; i < depth; i++ {
+			node = &recursiveIndentNode{Next: node}
+			tree = recursiveIndentTree{Name: "node", Children: []recursiveIndentTree{tree, {Name: "sibling"}}}
+			mutual = &recursiveIndentMutualA{B: &recursiveIndentMutualB{Value: i, A: mutual}}
+		}
+		values["pointer"] = append(values["pointer"], node)
+		values["slice"] = append(values["slice"], tree)
+		values["mutual"] = append(values["mutual"], mutual)
+		values["in interface"] = append(values["in interface"], []interface{}{node, map[string]interface{}{"k": tree}})
+	}
+	for name, vs := range values {
+		t.Run(name, func(t *testing.T) {
+			for i, v := range vs {
+				depth := i + 1
+				expected, err := stdjson.Marshal(v)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("depth %d: %v", depth, err)
+				}
+				if string(got) != string(expected) {
+					t.Fatalf("depth %d: expected %s but got %s", depth, expected, got)
+				}
+				expectedIndent, err := stdjson.MarshalIndent(v, "", "  ")
+				if err != nil {
+					t.Fatal(err)
+				}
+				gotIndent, err := json.MarshalIndent(v, "", "  ")
+				if err != nil {
+					t.Fatalf("depth %d ( indent ): %v", depth, err)
+				}
+				if string(gotIndent) != string(expectedIndent) {
+					// the broken output can be gigabytes, so it is not printed.
+					t.Fatalf("depth %d ( indent ): expected %d bytes but got %d bytes", depth, len(expectedIndent), len(gotIndent))
+				}
+			}
+		})
+	}
+}

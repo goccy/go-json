@@ -666,7 +666,10 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		isAnonymous:   field.Anonymous && !tag.IsTaggedKey && toElemType(fieldType).Kind() == reflect.Struct,
 		isTaggedKey:   tag.IsTaggedKey,
 		isNilableType: c.isNilableType(fieldType),
-		isNilCheck:    true,
+		// The check writes null instead of calling the marshaler, which encoding/json does only for a nil
+		// pointer: the marshaler of a nil map is called. With omitempty the check is what decides that
+		// the field is empty, for every kind.
+		isNilCheck: tag.IsOmitEmpty || fieldType.Kind() == reflect.Ptr,
 	}
 	switch {
 	case c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
@@ -944,6 +947,8 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		embedded bool
 	}
 	recursiveCodes := map[recursiveTarget]*CompiledCode{}
+	// maxFrameLength is the length of the longest frame which a recursive code is jumped from.
+	var maxFrameLength uintptr
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
@@ -993,17 +998,35 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		// the slots of OpRecursiveEnd, so it is set after they are decided.
 		setTotalLengthToInterfaceOp(code)
 
+		// The frame of the recursive code has the slots up to the ones of OpRecursiveEnd
+		// ( the offset to return to, the opcode to return to and the indent to restore ),
+		// so its length is the last index + 1.
+		nextTotalLength := uintptr(code.TotalLength()) + 1
+		if maxFrameLength < nextTotalLength {
+			maxFrameLength = nextTotalLength
+		}
 		// extend length to alloc slot for elemIdx + length
-		curTotalLength := uintptr(recursive.TotalLength()) + 3
-		nextTotalLength := uintptr(totalLength) + 3
+		if curTotalLength := uintptr(recursive.TotalLength()) + 3; maxFrameLength < curTotalLength {
+			maxFrameLength = curTotalLength
+		}
 
 		compiled := recursive.Jmp
 		compiled.Code = code
-		compiled.CurLen = curTotalLength
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 
 		recursiveCodes[target] = compiled
+	}
+	// The new frame is allocated after the frame which the recursive code is jumped from, and CurLen is the
+	// length of that frame. The same CompiledCode is jumped to from the code of the top level and from every
+	// recursive code, including itself, so CurLen must not be less than any of those frames: otherwise the
+	// new frame overlaps the slots of OpRecursiveEnd of the frame it is jumped from, and the indent to
+	// restore is broken by a pointer.
+	for _, compiled := range recursiveCodes {
+		compiled.CurLen = maxFrameLength
+	}
+	for _, recursive := range *ctx.recursiveCodes {
+		recursive.Jmp.CurLen = maxFrameLength
 	}
 	return nil
 }

@@ -3167,11 +3167,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					p = ptrToPtr(p)
 				}
 			}
-			if p == 0 && (code.Flags&encoder.NilCheckFlags) != 0 {
+			iface := ptrToInterface(code, p)
+			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
 				code = code.NextField
 			} else {
 				b = appendStructKey(ctx, code, b)
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalText(ctx, code, b, iface)
 				if err != nil {
 					return nil, err
 				}
@@ -4001,8 +4002,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 				break
 			}
+			iface := ptrToInterface(code, p)
+			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
+				code = code.NextField
+				break
+			}
 			b = appendStructKey(ctx, code, b)
-			bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+			bb, err := appendMarshalText(ctx, code, b, iface)
 			if err != nil {
 				return nil, err
 			}

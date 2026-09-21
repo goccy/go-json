@@ -83,10 +83,18 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v7
+        with:
+          # the previous commit is required to measure what the last commit changed.
+          fetch-depth: 0
       - name: setup Go
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
+      # The machines of the CI differ, so a commit is compared with its parent on the same machine.
+      # HEAD is the merge commit of the pull request, whose second parent is the head of the branch.
+      - name: measure what the last commit changed
+        if: github.event_name == 'pull_request'
+        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal'" || true
       - name: compare the encode benchmarks
         run: make bench-compare-encode
       - name: measure the candidates of the optimizations

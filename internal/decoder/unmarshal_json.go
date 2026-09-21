@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -11,12 +12,12 @@ import (
 )
 
 type unmarshalJSONDecoder struct {
-	typ        *runtime.Type
+	typ        reflect.Type
 	structName string
 	fieldName  string
 }
 
-func newUnmarshalJSONDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalJSONDecoder {
+func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
 		typ:        typ,
 		structName: structName,
@@ -45,7 +46,7 @@ func (d *unmarshalJSONDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 	copy(dst, src)
 
 	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
 	switch v := v.(type) {
@@ -82,7 +83,7 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	copy(dst, src)
 
 	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
 	if (ctx.Option.Flags & ContextOption) != 0 {

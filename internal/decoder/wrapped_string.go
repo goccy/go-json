@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
-
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 type wrappedStringDecoder struct {
-	typ           *runtime.Type
+	typ           reflect.Type
 	dec           Decoder
 	stringDecoder *stringDecoder
 	structName    string
@@ -17,7 +15,7 @@ type wrappedStringDecoder struct {
 	isPtrType     bool
 }
 
-func newWrappedStringDecoder(typ *runtime.Type, dec Decoder, structName, fieldName string) *wrappedStringDecoder {
+func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldName string) *wrappedStringDecoder {
 	return &wrappedStringDecoder{
 		typ:           typ,
 		dec:           dec,

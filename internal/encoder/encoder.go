@@ -94,7 +94,10 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type                     *runtime.Type
+	Type reflect.Type
+	// IfaceIndir is whether a value of Type is stored indirectly in an interface value.
+	// It is decided when the type is compiled, because deciding it is not cheap.
+	IfaceIndir               bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -194,7 +197,7 @@ func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueErro
 	}))
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
-		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),
+		Str:   fmt.Sprintf("encountered a cycle via %s", runtime.TypeOfPtr(code.Type)),
 	}
 }
 
@@ -207,13 +210,13 @@ func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
 
 func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
 	return &errors.MarshalerError{
-		Type: runtime.RType2Type(code.Type),
+		Type: runtime.TypeOfPtr(code.Type),
 		Err:  err,
 	}
 }
 
 type emptyInterface struct {
-	typ *runtime.Type
+	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
@@ -297,7 +300,7 @@ func ReleaseMapContext(c *MapContext) {
 
 //go:linkname MapIterInit runtime.mapiterinit
 //go:noescape
-func MapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+func MapIterInit(mapType unsafe.Pointer, m unsafe.Pointer, it *mapIter)
 
 //go:linkname MapIterKey reflect.mapiterkey
 //go:noescape

@@ -20,7 +20,7 @@ const (
 )
 
 type emptyInterface struct {
-	typ *runtime.Type
+	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
@@ -167,9 +167,9 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 
 // validateType validates that the value is not nil.
 // Whether the type is a pointer is validated by decoder.CompileToGetDecoder, once per type.
-func validateType(typ *runtime.Type, p uintptr) error {
+func validateType(typ unsafe.Pointer, p uintptr) error {
 	if typ == nil || p == 0 {
-		return &InvalidUnmarshalError{Type: runtime.RType2Type(typ)}
+		return &InvalidUnmarshalError{Type: runtime.TypeOfPtr(typ)}
 	}
 	return nil
 }
@@ -210,17 +210,11 @@ func (d *Decoder) DecodeContext(ctx context.Context, v interface{}) error {
 
 func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) error {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-	ptr := uintptr(header.ptr)
-	typeptr := uintptr(unsafe.Pointer(typ))
-	// noescape trick for header.typ ( reflect.*rtype )
-	copiedType := *(**runtime.Type)(unsafe.Pointer(&typeptr))
-
-	if err := validateType(copiedType, ptr); err != nil {
+	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
 
-	dec, err := decoder.CompileToGetDecoder(typ)
+	dec, err := decoder.CompileToGetDecoder(header.typ)
 	if err != nil {
 		return err
 	}

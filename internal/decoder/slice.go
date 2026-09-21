@@ -10,14 +10,12 @@ import (
 )
 
 var (
-	sliceType = runtime.Type2RType(
-		reflect.TypeOf((*sliceHeader)(nil)).Elem(),
-	)
-	nilSlice = unsafe.Pointer(&sliceHeader{})
+	sliceType = reflect.TypeOf((*sliceHeader)(nil)).Elem()
+	nilSlice  = unsafe.Pointer(&sliceHeader{})
 )
 
 type sliceDecoder struct {
-	elemType          *runtime.Type
+	elemType          reflect.Type
 	isElemPointerType bool
 	valueDecoder      Decoder
 	size              uintptr
@@ -39,7 +37,7 @@ const (
 	defaultSliceCapacity = 2
 )
 
-func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structName, fieldName string) *sliceDecoder {
+func newSliceDecoder(dec Decoder, elemType reflect.Type, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
 		valueDecoder:      dec,
 		elemType:          elemType,
@@ -48,7 +46,7 @@ func newSliceDecoder(dec Decoder, elemType *runtime.Type, size uintptr, structNa
 		arrayPool: sync.Pool{
 			New: func() interface{} {
 				return &sliceHeader{
-					data: newArray(elemType, defaultSliceCapacity),
+					data: newArray(runtime.TypePtr(elemType), defaultSliceCapacity),
 					len:  0,
 					cap:  defaultSliceCapacity,
 				}
@@ -64,12 +62,12 @@ func (d *sliceDecoder) newSlice(src *sliceHeader) *sliceHeader {
 	if src.len > 0 {
 		// copy original elem
 		if slice.cap < src.cap {
-			data := newArray(d.elemType, src.cap)
+			data := newArray(runtime.TypePtr(d.elemType), src.cap)
 			slice = &sliceHeader{data: data, len: src.len, cap: src.cap}
 		} else {
 			slice.len = src.len
 		}
-		copySlice(d.elemType, *slice, *src)
+		copySlice(runtime.TypePtr(d.elemType), *slice, *src)
 	} else {
 		slice.len = 0
 	}
@@ -81,18 +79,18 @@ func (d *sliceDecoder) releaseSlice(p *sliceHeader) {
 }
 
 //go:linkname copySlice reflect.typedslicecopy
-func copySlice(elemType *runtime.Type, dst, src sliceHeader) int
+func copySlice(elemType unsafe.Pointer, dst, src sliceHeader) int
 
 //go:linkname newArray reflect.unsafe_NewArray
-func newArray(*runtime.Type, int) unsafe.Pointer
+func newArray(unsafe.Pointer, int) unsafe.Pointer
 
 //go:linkname typedmemmove reflect.typedmemmove
-func typedmemmove(t *runtime.Type, dst, src unsafe.Pointer)
+func typedmemmove(t unsafe.Pointer, dst, src unsafe.Pointer)
 
 func (d *sliceDecoder) errNumber(offset int64) *errors.UnmarshalTypeError {
 	return &errors.UnmarshalTypeError{
 		Value:  "number",
-		Type:   reflect.SliceOf(runtime.RType2Type(d.elemType)),
+		Type:   reflect.SliceOf(d.elemType),
 		Struct: d.structName,
 		Field:  d.fieldName,
 		Offset: offset,
@@ -114,14 +112,14 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			if err := nullBytes(s); err != nil {
 				return err
 			}
-			typedmemmove(sliceType, p, nilSlice)
+			typedmemmove(runtime.TypePtr(sliceType), p, nilSlice)
 			return nil
 		case '[':
 			s.cursor++
 			if s.skipWhiteSpace() == ']' {
 				dst := (*sliceHeader)(p)
 				if dst.data == nil {
-					dst.data = newArray(d.elemType, 0)
+					dst.data = newArray(runtime.TypePtr(d.elemType), 0)
 				} else {
 					dst.len = 0
 				}
@@ -137,9 +135,9 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 				if capacity <= idx {
 					src := sliceHeader{data: data, len: idx, cap: capacity}
 					capacity *= 2
-					data = newArray(d.elemType, capacity)
+					data = newArray(runtime.TypePtr(d.elemType), capacity)
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
-					copySlice(d.elemType, dst, src)
+					copySlice(runtime.TypePtr(d.elemType), dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
 
@@ -149,7 +147,7 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 					} else {
 						// assign new element to the slice
-						typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+						typedmemmove(runtime.TypePtr(d.elemType), ep, unsafe_New(runtime.TypePtr(d.elemType)))
 					}
 				}
 
@@ -166,10 +164,10 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					dst := (*sliceHeader)(p)
 					dst.len = idx + 1
 					if dst.len > dst.cap {
-						dst.data = newArray(d.elemType, dst.len)
+						dst.data = newArray(runtime.TypePtr(d.elemType), dst.len)
 						dst.cap = dst.len
 					}
-					copySlice(d.elemType, *dst, *slice)
+					copySlice(runtime.TypePtr(d.elemType), *dst, *slice)
 					d.releaseSlice(slice)
 					s.cursor++
 					return nil
@@ -223,7 +221,7 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				return 0, err
 			}
 			cursor += 4
-			typedmemmove(sliceType, p, nilSlice)
+			typedmemmove(runtime.TypePtr(sliceType), p, nilSlice)
 			return cursor, nil
 		case '[':
 			cursor++
@@ -231,7 +229,7 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			if buf[cursor] == ']' {
 				dst := (*sliceHeader)(p)
 				if dst.data == nil {
-					dst.data = newArray(d.elemType, 0)
+					dst.data = newArray(runtime.TypePtr(d.elemType), 0)
 				} else {
 					dst.len = 0
 				}
@@ -247,9 +245,9 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				if capacity <= idx {
 					src := sliceHeader{data: data, len: idx, cap: capacity}
 					capacity *= 2
-					data = newArray(d.elemType, capacity)
+					data = newArray(runtime.TypePtr(d.elemType), capacity)
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
-					copySlice(d.elemType, dst, src)
+					copySlice(runtime.TypePtr(d.elemType), dst, src)
 				}
 				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
 				// if srcLen is greater than idx, keep the original reference
@@ -258,7 +256,7 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
 					} else {
 						// assign new element to the slice
-						typedmemmove(d.elemType, ep, unsafe_New(d.elemType))
+						typedmemmove(runtime.TypePtr(d.elemType), ep, unsafe_New(runtime.TypePtr(d.elemType)))
 					}
 				}
 				c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
@@ -275,10 +273,10 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 					dst := (*sliceHeader)(p)
 					dst.len = idx + 1
 					if dst.len > dst.cap {
-						dst.data = newArray(d.elemType, dst.len)
+						dst.data = newArray(runtime.TypePtr(d.elemType), dst.len)
 						dst.cap = dst.len
 					}
-					copySlice(d.elemType, *dst, *slice)
+					copySlice(runtime.TypePtr(d.elemType), *dst, *slice)
 					d.releaseSlice(slice)
 					cursor++
 					return cursor, nil

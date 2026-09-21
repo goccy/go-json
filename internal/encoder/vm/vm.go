@@ -179,7 +179,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			ctx.SeenPtr = append(ctx.SeenPtr, p)
 			var (
-				typ      *runtime.Type
+				typ      unsafe.Pointer
 				ifacePtr unsafe.Pointer
 			)
 			up := ptrToUnsafePtr(p)
@@ -194,19 +194,23 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
-			if ifacePtr == nil {
-				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
-				if !isDirectedNil {
-					b = appendNullComma(ctx, b)
-					code = code.Next
-					break
-				}
+			// A nil data word is a value, not a nil pointer, only if the type is a struct stored directly
+			// in the interface value ( a struct of a single pointer whose value is nil ).
+			if ifacePtr == nil && (typ == nil || runtime.TypeOfPtr(typ).Kind() != reflect.Struct) {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
 			}
-			ctx.KeepRefs = append(ctx.KeepRefs, up)
-			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(typ)))
+			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))
 			if err != nil {
 				return nil, err
 			}
+			if ifacePtr == nil && ifaceCodeSet.IfaceIndir {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			ctx.KeepRefs = append(ctx.KeepRefs, up)
 
 			totalLength := uintptr(code.Length) + 3
 			nextTotalLength := uintptr(ifaceCodeSet.CodeLength) + 3

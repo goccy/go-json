@@ -12,7 +12,7 @@ import (
 )
 
 type interfaceDecoder struct {
-	typ           *runtime.Type
+	typ           reflect.Type
 	structName    string
 	fieldName     string
 	sliceDecoder  *sliceDecoder
@@ -53,7 +53,7 @@ func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
 	return ifaceDecoder
 }
 
-func newInterfaceDecoder(typ *runtime.Type, structName, fieldName string) *interfaceDecoder {
+func newInterfaceDecoder(typ reflect.Type, structName, fieldName string) *interfaceDecoder {
 	emptyIfaceDecoder := newEmptyInterfaceDecoder(structName, fieldName)
 	stringDecoder := newStringDecoder(structName, fieldName)
 	return &interfaceDecoder{
@@ -93,14 +93,10 @@ func (d *interfaceDecoder) numDecoder(s *Stream) Decoder {
 }
 
 var (
-	emptyInterfaceType = runtime.Type2RType(reflect.TypeOf((*interface{})(nil)).Elem())
+	emptyInterfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
 	EmptyInterfaceType = emptyInterfaceType
-	interfaceMapType   = runtime.Type2RType(
-		reflect.TypeOf((*map[string]interface{})(nil)).Elem(),
-	)
-	stringType = runtime.Type2RType(
-		reflect.TypeOf(""),
-	)
+	interfaceMapType   = reflect.TypeOf((*map[string]interface{})(nil)).Elem()
+	stringType         = reflect.TypeOf("")
 )
 
 func decodeStreamUnmarshaler(s *Stream, depth int64, unmarshaler json.Unmarshaler) error {
@@ -282,13 +278,13 @@ func (d *interfaceDecoder) decodeStreamEmptyInterface(s *Stream, depth int64, p 
 }
 
 type emptyInterface struct {
-	typ *runtime.Type
+	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
 func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
 	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
 	rv := reflect.ValueOf(runtimeInterfaceValue)
@@ -313,7 +309,7 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 	}
 	iface := rv.Interface()
 	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
-	typ := ifaceHeader.typ
+	typ := reflect.TypeOf(iface)
 	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeStreamEmptyInterface(s, depth, p)
@@ -328,7 +324,7 @@ func (d *interfaceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer
 		*(*interface{})(p) = nil
 		return nil
 	}
-	decoder, err := CompileToGetDecoder(typ)
+	decoder, err := CompileToGetDecoder(runtime.TypePtr(typ))
 	if err != nil {
 		return err
 	}
@@ -348,7 +344,7 @@ func (d *interfaceDecoder) errUnmarshalType(typ reflect.Type, offset int64) *err
 func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	runtimeInterfaceValue := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
 	rv := reflect.ValueOf(runtimeInterfaceValue)
@@ -376,7 +372,7 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 
 	iface := rv.Interface()
 	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
-	typ := ifaceHeader.typ
+	typ := reflect.TypeOf(iface)
 	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
 		// concrete type is empty interface
 		return d.decodeEmptyInterface(ctx, cursor, depth, p)
@@ -393,7 +389,7 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 		**(**interface{})(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	}
-	decoder, err := CompileToGetDecoder(typ)
+	decoder, err := CompileToGetDecoder(runtime.TypePtr(typ))
 	if err != nil {
 		return 0, err
 	}

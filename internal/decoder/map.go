@@ -9,9 +9,9 @@ import (
 )
 
 type mapDecoder struct {
-	mapType                 *runtime.Type
-	keyType                 *runtime.Type
-	valueType               *runtime.Type
+	mapType                 reflect.Type
+	keyType                 reflect.Type
+	valueType               reflect.Type
 	canUseAssignFaststrType bool
 	keyDecoder              Decoder
 	valueDecoder            Decoder
@@ -19,7 +19,7 @@ type mapDecoder struct {
 	fieldName               string
 }
 
-func newMapDecoder(mapType *runtime.Type, keyType *runtime.Type, keyDec Decoder, valueType *runtime.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
+func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, valueType reflect.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
 	return &mapDecoder{
 		mapType:                 mapType,
 		keyDecoder:              keyDec,
@@ -37,7 +37,7 @@ const (
 )
 
 // See detail: https://github.com/goccy/go-json/pull/283
-func canUseAssignFaststrType(key *runtime.Type, value *runtime.Type) bool {
+func canUseAssignFaststrType(key reflect.Type, value reflect.Type) bool {
 	indirectElem := value.Size() > mapMaxElemSize
 	if indirectElem {
 		return false
@@ -46,23 +46,23 @@ func canUseAssignFaststrType(key *runtime.Type, value *runtime.Type) bool {
 }
 
 //go:linkname makemap reflect.makemap
-func makemap(*runtime.Type, int) unsafe.Pointer
+func makemap(unsafe.Pointer, int) unsafe.Pointer
 
 //nolint:golint
 //go:linkname mapassign_faststr runtime.mapassign_faststr
 //go:noescape
-func mapassign_faststr(t *runtime.Type, m unsafe.Pointer, s string) unsafe.Pointer
+func mapassign_faststr(t unsafe.Pointer, m unsafe.Pointer, s string) unsafe.Pointer
 
 //go:linkname mapassign reflect.mapassign
 //go:noescape
-func mapassign(t *runtime.Type, m unsafe.Pointer, k, v unsafe.Pointer)
+func mapassign(t unsafe.Pointer, m unsafe.Pointer, k, v unsafe.Pointer)
 
-func (d *mapDecoder) mapassign(t *runtime.Type, m, k, v unsafe.Pointer) {
+func (d *mapDecoder) mapassign(t reflect.Type, m, k, v unsafe.Pointer) {
 	if d.canUseAssignFaststrType {
-		mapV := mapassign_faststr(t, m, *(*string)(k))
-		typedmemmove(d.valueType, mapV, v)
+		mapV := mapassign_faststr(runtime.TypePtr(t), m, *(*string)(k))
+		typedmemmove(runtime.TypePtr(d.valueType), mapV, v)
 	} else {
-		mapassign(t, m, k, v)
+		mapassign(runtime.TypePtr(t), m, k, v)
 	}
 }
 
@@ -85,7 +85,7 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 	}
 	mapValue := *(*unsafe.Pointer)(p)
 	if mapValue == nil {
-		mapValue = makemap(d.mapType, 0)
+		mapValue = makemap(runtime.TypePtr(d.mapType), 0)
 	}
 	s.cursor++
 	if s.skipWhiteSpace() == '}' {
@@ -94,7 +94,7 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 		return nil
 	}
 	for {
-		k := unsafe_New(d.keyType)
+		k := unsafe_New(runtime.TypePtr(d.keyType))
 		if err := d.keyDecoder.DecodeStream(s, depth, k); err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 			return errors.ErrExpected("colon after object key", s.totalOffset())
 		}
 		s.cursor++
-		v := unsafe_New(d.valueType)
+		v := unsafe_New(runtime.TypePtr(d.valueType))
 		if err := d.valueDecoder.DecodeStream(s, depth, v); err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := *(*unsafe.Pointer)(p)
 	if mapValue == nil {
-		mapValue = makemap(d.mapType, 0)
+		mapValue = makemap(runtime.TypePtr(d.mapType), 0)
 	}
 	if buf[cursor] == '}' {
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
@@ -157,7 +157,7 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		return cursor, nil
 	}
 	for {
-		k := unsafe_New(d.keyType)
+		k := unsafe_New(runtime.TypePtr(d.keyType))
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
 			return 0, err
@@ -167,7 +167,7 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 			return 0, errors.ErrExpected("colon after object key", cursor)
 		}
 		cursor++
-		v := unsafe_New(d.valueType)
+		v := unsafe_New(runtime.TypePtr(d.valueType))
 		valueCursor, err := d.valueDecoder.Decode(ctx, cursor, depth, v)
 		if err != nil {
 			return 0, err

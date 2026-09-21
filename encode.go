@@ -222,7 +222,7 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
 		return nil, err

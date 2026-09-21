@@ -73,7 +73,7 @@ func TestIfaceIndir(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			wantIndir := test.pointer == nil || dataWord(test.v) != test.pointer
-			if got := IfaceIndir(Type2RType(reflect.TypeOf(test.v))); got != wantIndir {
+			if got := IfaceIndir(reflect.TypeOf(test.v)); got != wantIndir {
 				t.Fatalf("IfaceIndir(%T) = %v, but the compiler stores it with indirect = %v", test.v, got, wantIndir)
 			}
 		})

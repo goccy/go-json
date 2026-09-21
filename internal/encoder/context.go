@@ -132,9 +132,13 @@ func (c *RuntimeContext) Init(p uintptr, codelen int) {
 	c.BaseIndent = 0
 }
 
-func (c *RuntimeContext) Ptr() uintptr {
+// Ptr returns the pointer to the slots of the pointers.
+// It is unsafe.Pointer, not uintptr, so that the address of a slot is calculated by unsafe.Add,
+// which the compiler folds into the addressing mode of the load / store of the slot.
+// What the slots hold stays uintptr: they are not seen by the GC, and the values don't escape.
+func (c *RuntimeContext) Ptr() unsafe.Pointer {
 	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
-	return uintptr(header.Data)
+	return header.Data
 }
 
 func TakeRuntimeContext() *RuntimeContext {

@@ -226,7 +226,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if curlen < newLen {
 				ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			ctxptr = ctx.Ptr() + ptrOffset // assign new ctxptr
+			ctxptr = unsafe.Add(ctx.Ptr(), ptrOffset) // assign new ctxptr
 
 			end := ifaceCodeSet.EndCode
 			store(ctxptr, c.Idx, ctx.InterfaceValueAddr(ifaceCodeSet, uintptr(ifacePtr), recursiveLevel))
@@ -245,7 +245,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 
 			codePtr := load(ctxptr, code.ElemIdx)
 			code = (*encoder.Opcode)(ptrToUnsafePtr(codePtr))
-			ctxptr = ctx.Ptr() + offset
+			ctxptr = unsafe.Add(ctx.Ptr(), offset)
 			ptrOffset = offset
 		case encoder.OpMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
@@ -505,7 +505,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if curlen < newLen {
 				ctx.Ptrs = append(ctx.Ptrs, make([]uintptr, newLen-curlen)...)
 			}
-			ctxptr = ctx.Ptr() + ptrOffset // assign new ctxptr
+			ctxptr = unsafe.Add(ctx.Ptr(), ptrOffset) // assign new ctxptr
 
 			store(ctxptr, c.Idx, ptr)
 			store(ctxptr, c.End.Next.Idx, oldOffset)
@@ -523,7 +523,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 
 			codePtr := load(ctxptr, code.ElemIdx)
 			code = (*encoder.Opcode)(ptrToUnsafePtr(codePtr))
-			ctxptr = ctx.Ptr() + offset
+			ctxptr = unsafe.Add(ctx.Ptr(), offset)
 			ptrOffset = offset
 		case encoder.OpStructPtrHead:
 			p := load(ctxptr, code.Idx)

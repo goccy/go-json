@@ -46,19 +46,16 @@ func errUnimplementedOp(op encoder.OpType) error {
 	return fmt.Errorf("encoder: opcode %s has not been implemented", op)
 }
 
-func load(base uintptr, idx uint32) uintptr {
-	addr := base + uintptr(idx)
-	return **(**uintptr)(unsafe.Pointer(&addr))
+func load(base unsafe.Pointer, idx uint32) uintptr {
+	return *(*uintptr)(unsafe.Add(base, idx))
 }
 
-func store(base uintptr, idx uint32, p uintptr) {
-	addr := base + uintptr(idx)
-	**(**uintptr)(unsafe.Pointer(&addr)) = p
+func store(base unsafe.Pointer, idx uint32, p uintptr) {
+	*(*uintptr)(unsafe.Add(base, idx)) = p
 }
 
-func loadNPtr(base uintptr, idx uint32, ptrNum uint8) uintptr {
-	addr := base + uintptr(idx)
-	p := **(**uintptr)(unsafe.Pointer(&addr))
+func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) uintptr {
+	p := *(*uintptr)(unsafe.Add(base, idx))
 	for i := uint8(0); i < ptrNum; i++ {
 		if p == 0 {
 			return 0
@@ -201,7 +198,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ uintptr)               {}
-func storeIndent(_ uintptr, _ *encoder.Opcode, _ uintptr)                                 {}
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)        {}
+func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

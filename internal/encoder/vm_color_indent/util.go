@@ -291,23 +291,3 @@ func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b 
 func appendMapKeyIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	return appendIndent(ctx, b, code.Indent)
 }
-
-// appendIntField and appendStringField encode a whole field of a struct.
-
-func appendIntField(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer, isEnd bool) []byte {
-	b = appendStructKey(ctx, code, b)
-	b = appendInt(ctx, b, p, code)
-	if isEnd {
-		return appendStructEnd(ctx, code, b)
-	}
-	return appendComma(ctx, b)
-}
-
-func appendStringField(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, s string, isEnd bool) []byte {
-	b = appendStructKey(ctx, code, b)
-	b = appendString(ctx, b, s)
-	if isEnd {
-		return appendStructEnd(ctx, code, b)
-	}
-	return appendComma(ctx, b)
-}

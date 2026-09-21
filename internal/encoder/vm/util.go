@@ -202,13 +202,3 @@ func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointe
 func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }
-
-// appendIntField and appendStringField encode a whole field of a struct by a call: see encoder.AppendIntField.
-
-func appendIntField(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer, isEnd bool) []byte {
-	return encoder.AppendIntField(b, p, code, isEnd)
-}
-
-func appendStringField(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, s string, isEnd bool) []byte {
-	return encoder.AppendStringField(ctx, b, s, code, isEnd)
-}

@@ -9,7 +9,8 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-const uintptrSize = 4 << (^uintptr(0) >> 63)
+// slotSize is the size of a slot of the VM.
+const slotSize = unsafe.Sizeof(encoder.Slot{})
 
 var (
 	appendInt           = encoder.AppendInt
@@ -48,68 +49,64 @@ func errUnimplementedOp(op encoder.OpType) error {
 	return fmt.Errorf("encoder (indent): opcode %s has not been implemented", op)
 }
 
-func load(base uintptr, idx uint32) uintptr {
-	addr := base + uintptr(idx)
-	return **(**uintptr)(unsafe.Pointer(&addr))
+// load / store are for the half of a slot for a pointer, and loadInt / storeInt are for the other half.
+// A pointer is stored as uintptr, which needs no write barrier: see encoder.Slot.
+
+func load(base unsafe.Pointer, idx uint32) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Add(base, idx))
 }
 
-func store(base uintptr, idx uint32, p uintptr) {
-	addr := base + uintptr(idx)
-	**(**uintptr)(unsafe.Pointer(&addr)) = p
+func store(base unsafe.Pointer, idx uint32, p unsafe.Pointer) {
+	*(*uintptr)(unsafe.Add(base, idx)) = uintptr(p)
 }
 
-func loadNPtr(base uintptr, idx uint32, ptrNum uint8) uintptr {
-	addr := base + uintptr(idx)
-	p := **(**uintptr)(unsafe.Pointer(&addr))
-	for i := uint8(0); i < ptrNum; i++ {
-		if p == 0 {
-			return 0
-		}
-		p = ptrToPtr(p)
-	}
-	return p
+func loadInt(base unsafe.Pointer, idx uint32) uintptr {
+	return *(*uintptr)(unsafe.Add(base, idx))
 }
 
-func ptrToUint64(p uintptr, bitSize uint8) uint64 {
+func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
+	*(*uintptr)(unsafe.Add(base, idx)) = v
+}
+
+func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
+	return ptrToNPtr(load(base, idx), ptrNum)
+}
+
+func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	switch bitSize {
 	case 8:
-		return (uint64)(**(**uint8)(unsafe.Pointer(&p)))
+		return uint64(*(*uint8)(p))
 	case 16:
-		return (uint64)(**(**uint16)(unsafe.Pointer(&p)))
+		return uint64(*(*uint16)(p))
 	case 32:
-		return (uint64)(**(**uint32)(unsafe.Pointer(&p)))
+		return uint64(*(*uint32)(p))
 	case 64:
-		return **(**uint64)(unsafe.Pointer(&p))
+		return *(*uint64)(p)
 	}
 	return 0
 }
-func ptrToFloat32(p uintptr) float32            { return **(**float32)(unsafe.Pointer(&p)) }
-func ptrToFloat64(p uintptr) float64            { return **(**float64)(unsafe.Pointer(&p)) }
-func ptrToBool(p uintptr) bool                  { return **(**bool)(unsafe.Pointer(&p)) }
-func ptrToBytes(p uintptr) []byte               { return **(**[]byte)(unsafe.Pointer(&p)) }
-func ptrToNumber(p uintptr) json.Number         { return **(**json.Number)(unsafe.Pointer(&p)) }
-func ptrToString(p uintptr) string              { return **(**string)(unsafe.Pointer(&p)) }
-func ptrToSlice(p uintptr) *runtime.SliceHeader { return *(**runtime.SliceHeader)(unsafe.Pointer(&p)) }
-func ptrToPtr(p uintptr) uintptr {
-	return uintptr(**(**unsafe.Pointer)(unsafe.Pointer(&p)))
-}
-func ptrToNPtr(p uintptr, ptrNum uint8) uintptr {
+func ptrToFloat32(p unsafe.Pointer) float32            { return *(*float32)(p) }
+func ptrToFloat64(p unsafe.Pointer) float64            { return *(*float64)(p) }
+func ptrToBool(p unsafe.Pointer) bool                  { return *(*bool)(p) }
+func ptrToBytes(p unsafe.Pointer) []byte               { return *(*[]byte)(p) }
+func ptrToNumber(p unsafe.Pointer) json.Number         { return *(*json.Number)(p) }
+func ptrToString(p unsafe.Pointer) string              { return *(*string)(p) }
+func ptrToSlice(p unsafe.Pointer) *runtime.SliceHeader { return (*runtime.SliceHeader)(p) }
+func ptrToPtr(p unsafe.Pointer) unsafe.Pointer         { return *(*unsafe.Pointer)(p) }
+func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
 	for i := uint8(0); i < ptrNum; i++ {
-		if p == 0 {
-			return 0
+		if p == nil {
+			return nil
 		}
 		p = ptrToPtr(p)
 	}
 	return p
 }
 
-func ptrToUnsafePtr(p uintptr) unsafe.Pointer {
-	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
-}
-func ptrToInterface(code *encoder.Opcode, p uintptr) interface{} {
+func ptrToInterface(code *encoder.Opcode, p unsafe.Pointer) interface{} {
 	return *(*interface{})(unsafe.Pointer(&emptyInterface{
 		typ: code.Type,
-		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
+		ptr: p,
 	}))
 }
 
@@ -213,12 +210,12 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendComma(ctx, b)
 }
 
-func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr uintptr) {
-	ctx.BaseIndent = uint32(load(ctxptr, code.Length))
+func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr unsafe.Pointer) {
+	ctx.BaseIndent = uint32(loadInt(ctxptr, code.Length))
 }
 
-func storeIndent(ctxptr uintptr, code *encoder.Opcode, indent uintptr) {
-	store(ctxptr, code.Length, indent)
+func storeIndent(ctxptr unsafe.Pointer, code *encoder.Opcode, indent uintptr) {
+	storeInt(ctxptr, code.Length, indent)
 }
 
 func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {

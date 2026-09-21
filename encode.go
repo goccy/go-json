@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -165,30 +166,6 @@ func marshal(v interface{}, optFuncs ...EncodeOptionFunc) ([]byte, error) {
 	return copied, nil
 }
 
-func marshalNoEscape(v interface{}) ([]byte, error) {
-	ctx := encoder.TakeRuntimeContext()
-
-	ctx.Option.Flag = 0
-	ctx.Option.Flag |= (encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option)
-
-	buf, err := encodeNoEscape(ctx, v)
-	if err != nil {
-		encoder.ReleaseRuntimeContext(ctx)
-		return nil, err
-	}
-
-	// this line exists to escape call of `runtime.makeslicecopy` .
-	// if use `make([]byte, len(buf)-1)` and `copy(copied, buf)`,
-	// dst buffer size and src buffer size are differrent.
-	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
-	buf = buf[:len(buf)-1]
-	copied := make([]byte, len(buf))
-	copy(copied, buf)
-
-	encoder.ReleaseRuntimeContext(ctx)
-	return copied, nil
-}
-
 func marshalIndent(v interface{}, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 
@@ -228,53 +205,21 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	p := ctx.ValueAddr(codeSet, uintptr(header.ptr))
-	if p == 0 {
+	p := ctx.ValueAddr(codeSet, header.ptr)
+	if p == nil {
 		// only a nil pointer has no address of the value.
 		b = encoder.AppendNull(ctx, b)
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
 	ctx.Init(p, codeSet.CodeLength)
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	buf, err := encodeRunCode(ctx, b, codeSet)
+	// the VM refers to the value by uintptr.
+	runtime.KeepAlive(v)
 	if err != nil {
 		return nil, err
 	}
-	ctx.Buf = buf
-	return buf, nil
-}
-
-func encodeNoEscape(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
-	b := ctx.Buf[:0]
-	if v == nil {
-		b = encoder.AppendNull(ctx, b)
-		b = encoder.AppendComma(ctx, b)
-		return b, nil
-	}
-	header := (*emptyInterface)(unsafe.Pointer(&v))
-	typ := header.typ
-
-	typeptr := uintptr(typ)
-	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
-	if err != nil {
-		return nil, err
-	}
-
-	p := ctx.ValueAddr(codeSet, uintptr(header.ptr))
-	if p == 0 {
-		// only a nil pointer has no address of the value.
-		b = encoder.AppendNull(ctx, b)
-		b = encoder.AppendComma(ctx, b)
-		return b, nil
-	}
-	ctx.Init(p, codeSet.CodeLength)
-	buf, err := encodeRunCode(ctx, b, codeSet)
-	if err != nil {
-		return nil, err
-	}
-
 	ctx.Buf = buf
 	return buf, nil
 }
@@ -295,8 +240,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return nil, err
 	}
 
-	p := ctx.ValueAddr(codeSet, uintptr(header.ptr))
-	if p == 0 {
+	p := ctx.ValueAddr(codeSet, header.ptr)
+	if p == nil {
 		// only a nil pointer has no address of the value.
 		b = encoder.AppendNull(ctx, b)
 		b = encoder.AppendCommaIndent(ctx, b)
@@ -304,8 +249,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 	}
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)
-
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
+	// the VM refers to the value by uintptr.
+	runtime.KeepAlive(v)
 
 	if err != nil {
 		return nil, err

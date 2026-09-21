@@ -59,31 +59,53 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() interface{} {
 			return &RuntimeContext{
-				Buf:      make([]byte, 0, bufSize),
-				Ptrs:     make([]uintptr, 128),
-				KeepRefs: make([]unsafe.Pointer, 0, 8),
-				Option:   &Option{},
+				Buf:    make([]byte, 0, bufSize),
+				Slots:  make([]uintptr, 128*slotWords),
+				Option: &Option{},
 			}
 		},
 	}
 )
 
+// Slot is the layout of a slot of the VM. The opcodes refer to a half of a slot by its offset from the head of
+// the frame: Ptr is for a pointer ( the address of a value, the context of a map, the opcode to return to ) and
+// Int is for the other values ( an index, a length, the offset of a frame, an indent ).
+//
+// The slots are in the heap, and both halves are stored as uintptr there: a store of a pointer to the heap goes
+// through the write barrier while the GC is marking, which made the encoding of a struct about 50% slower during
+// that time. So the GC doesn't see the slots, and what they refer to is kept alive by others:
+//   - the value passed to Marshal is kept alive by its caller, and so is everything reachable from it
+//   - the value copied from an interface value is referred to by RuntimeContext
+//   - the context of a map is referred to by RuntimeContext
+//
+// The opcodes are never freed.
+type Slot struct {
+	Ptr unsafe.Pointer
+	Int uintptr
+}
+
+// slotWords is the number of the words of a slot.
+const slotWords = 2
+
 type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
-	Ptrs       []uintptr
-	KeepRefs   []unsafe.Pointer
-	SeenPtr    []uintptr
+	Slots      []uintptr
+	SeenPtr    []unsafe.Pointer
 	BaseIndent uint32
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
+	// mapContext is the context of the map being encoded, which refers to the ones of the maps it is in.
+	mapContext *MapContext
+	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr and valueSlots.
+	nested bool
 	// topValue and valueSlots hold the values which are stored directly in an interface value:
 	// topValue is for the value passed to Marshal, and a slot per nesting level is for the values
 	// held by the interface values. A slot is never moved.
-	topValue   uintptr
-	valueSlots []*uintptr
+	topValue   unsafe.Pointer
+	valueSlots []*unsafe.Pointer
 }
 
 // ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value
@@ -93,15 +115,12 @@ type RuntimeContext struct {
 // for most of the types, but it is the value itself if the type is stored directly ( a pointer, a map,
 // a struct of a single pointer, ... ). Such a value is copied to the context, and the address of the copy
 // is returned.
-//
-// The copy is held as uintptr so that the value doesn't escape:
-// the caller has to keep the value alive while it is encoded.
-func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr {
+func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord unsafe.Pointer) unsafe.Pointer {
 	if codeSet.DataWordIsAddr {
 		return dataWord
 	}
 	c.topValue = dataWord
-	return uintptr(unsafe.Pointer(&c.topValue))
+	return unsafe.Pointer(&c.topValue)
 }
 
 // InterfaceValueAddr is ValueAddr for a value held by an interface value at the nesting level.
@@ -110,31 +129,46 @@ func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr
 // because a branch added to the VM changes the register allocation of the whole VM.
 //
 //go:noinline
-func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord uintptr, level int) uintptr {
+func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord unsafe.Pointer, level int) unsafe.Pointer {
 	if codeSet.DataWordIsAddr {
 		return dataWord
 	}
 	for len(c.valueSlots) <= level {
-		c.valueSlots = append(c.valueSlots, new(uintptr))
+		c.valueSlots = append(c.valueSlots, new(unsafe.Pointer))
 	}
 	slot := c.valueSlots[level]
 	*slot = dataWord
-	return uintptr(unsafe.Pointer(slot))
+	return unsafe.Pointer(slot)
 }
 
-func (c *RuntimeContext) Init(p uintptr, codelen int) {
-	if len(c.Ptrs) < codelen {
-		c.Ptrs = make([]uintptr, codelen)
+func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
+	if len(c.Slots) < codelen*slotWords {
+		c.Slots = make([]uintptr, codelen*slotWords)
 	}
-	c.Ptrs[0] = p
-	c.KeepRefs = c.KeepRefs[:0]
+	c.Slots[0] = uintptr(p)
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
 }
 
-func (c *RuntimeContext) Ptr() uintptr {
-	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Ptrs))
-	return uintptr(header.Data)
+// ReserveSlots makes the context have the slots of the frames up to the length.
+func (c *RuntimeContext) ReserveSlots(length uintptr) {
+	c.nested = true
+	if uintptr(len(c.Slots)) < length*slotWords {
+		c.growSlots(length)
+	}
+}
+
+//go:noinline
+func (c *RuntimeContext) growSlots(length uintptr) {
+	c.Slots = append(c.Slots, make([]uintptr, int(length)*slotWords-len(c.Slots))...)
+}
+
+// Ptr returns the pointer to the slots.
+// It is unsafe.Pointer, not uintptr, so that the address of a slot is calculated by unsafe.Add,
+// which the compiler folds into the addressing mode of the load / store of the slot.
+func (c *RuntimeContext) Ptr() unsafe.Pointer {
+	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Slots))
+	return header.Data
 }
 
 func TakeRuntimeContext() *RuntimeContext {
@@ -145,7 +179,22 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	// The context of a call must neither be kept by the pool nor be seen by the next call,
 	// which may not be given a context at all.
 	ctx.Option.Context = nil
+	ctx.releaseValues()
 	runtimeContextPool.Put(ctx)
+}
+
+// releaseValues clears every pointer to the values which were encoded, so that the pool doesn't keep them alive.
+func (c *RuntimeContext) releaseValues() {
+	c.topValue = nil
+	c.mapContext = nil
+	if c.nested {
+		// what only the frames of an interface value and of a recursive type use.
+		clear(c.SeenPtr[:cap(c.SeenPtr)])
+		for _, slot := range c.valueSlots {
+			*slot = nil
+		}
+		c.nested = false
+	}
 }
 
 // marshalerContext returns the context to call MarshalJSON(context.Context) with.

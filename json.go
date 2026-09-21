@@ -170,9 +170,13 @@ func Marshal(v interface{}) ([]byte, error) {
 	return MarshalWithOption(v)
 }
 
-// MarshalNoEscape returns the JSON encoding of v and doesn't escape v.
+// MarshalNoEscape returns the JSON encoding of v.
+//
+// Deprecated: Use Marshal. MarshalNoEscape used to keep v from escaping to the heap, but the encoder refers to v
+// by its address, which is not updated when the stack of the goroutine is copied while v is being encoded.
+// A value left on the stack was then read from the freed stack, so MarshalNoEscape is now the same as Marshal.
 func MarshalNoEscape(v interface{}) ([]byte, error) {
-	return marshalNoEscape(v)
+	return marshal(v)
 }
 
 // MarshalContext returns the JSON encoding of v with context.Context and EncodeOption.

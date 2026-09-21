@@ -94,9 +94,14 @@ type RuntimeContext struct {
 	Slots      []uintptr
 	SeenPtr    []unsafe.Pointer
 	BaseIndent uint32
-	Prefix     []byte
-	IndentStr  []byte
-	Option     *Option
+	// RecursiveLevel and SlotOffset are the state of the VM which only the opcodes of an interface value and of
+	// a recursive type use. They are here, not in the variables of the VM: the VM keeps its variables in the
+	// registers across the opcodes, and it has to restore every one of them after each call in an opcode.
+	RecursiveLevel int
+	SlotOffset     uintptr
+	Prefix         []byte
+	IndentStr      []byte
+	Option         *Option
 	// mapContext is the context of the map being encoded, which refers to the ones of the maps it is in.
 	mapContext *MapContext
 	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr and valueSlots.
@@ -152,6 +157,8 @@ func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
 	c.Slots[0] = uintptr(p)
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
+	c.RecursiveLevel = 0
+	c.SlotOffset = 0
 }
 
 // ReserveSlots makes the context have the slots of the frames up to the length.

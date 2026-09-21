@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,17 +253,33 @@ type Mapslice struct {
 	Items []MapItem
 }
 
-func (m *Mapslice) Len() int {
-	return len(m.Items)
+// Sort sorts the items by their keys.
+//
+// It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
+// the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
+func (m *Mapslice) Sort() {
+	items := m.Items
+	if len(items) > maxItemsOfInsertionSort {
+		slices.SortFunc(items, func(a, b MapItem) int {
+			return bytes.Compare(a.Key, b.Key)
+		})
+		return
+	}
+	for i := 1; i < len(items); i++ {
+		if bytes.Compare(items[i-1].Key, items[i].Key) <= 0 {
+			continue
+		}
+		item := items[i]
+		j := i
+		for ; j > 0 && bytes.Compare(items[j-1].Key, item.Key) > 0; j-- {
+			items[j] = items[j-1]
+		}
+		items[j] = item
+	}
 }
 
-func (m *Mapslice) Less(i, j int) bool {
-	return bytes.Compare(m.Items[i].Key, m.Items[j].Key) < 0
-}
-
-func (m *Mapslice) Swap(i, j int) {
-	m.Items[i], m.Items[j] = m.Items[j], m.Items[i]
-}
+// maxItemsOfInsertionSort is the number of the items up to which the insertion sort is faster.
+const maxItemsOfInsertionSort = 16
 
 //nolint:unused
 type mapIter struct {

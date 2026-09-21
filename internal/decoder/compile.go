@@ -25,7 +25,7 @@ func CompileToGetDecoder(typ unsafe.Pointer) (Decoder, error) {
 	}
 
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if dec := cachedDecoder[index].Load(); dec != nil {
+	if dec := cachedDecoder.Load(index); dec != nil {
 		return *dec, nil
 	}
 
@@ -33,7 +33,7 @@ func CompileToGetDecoder(typ unsafe.Pointer) (Decoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	cachedDecoder[index].Store(&dec)
+	cachedDecoder.Store(index, &dec)
 	return dec, nil
 }
 
@@ -41,7 +41,7 @@ var (
 	jsonNumberType   = reflect.TypeOf(json.Number(""))
 	typeAddr         *runtime.TypeAddr
 	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
-	cachedDecoder    []atomic.Pointer[Decoder]
+	cachedDecoder    *runtime.TypeCache[Decoder]
 	initOnce         sync.Once
 )
 
@@ -51,7 +51,7 @@ func initDecoder() {
 		if typeAddr == nil {
 			typeAddr = &runtime.TypeAddr{}
 		}
-		cachedDecoder = make([]atomic.Pointer[Decoder], typeAddr.AddrRange>>typeAddr.AddrShift+1)
+		cachedDecoder = runtime.NewTypeCache[Decoder](typeAddr.AddrRange>>typeAddr.AddrShift + 1)
 	})
 }
 

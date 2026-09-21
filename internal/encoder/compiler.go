@@ -23,7 +23,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 		return getFilteredCodeSetIfNeeded(ctx, codeSet)
 	}
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
+	if codeSet := cachedOpcodeSets.Load(index); codeSet != nil {
 		filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
 		if err != nil {
 			return nil, err
@@ -38,7 +38,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	if err != nil {
 		return nil, err
 	}
-	cachedOpcodeSets[index].Store(codeSet)
+	cachedOpcodeSets.Store(index, codeSet)
 	return filtered, nil
 }
 
@@ -49,14 +49,14 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr) (*OpcodeSet, error) {
 		return compileToGetCodeSetSlowPath(typeptr)
 	}
 	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
+	if codeSet := cachedOpcodeSets.Load(index); codeSet != nil {
 		return codeSet, nil
 	}
 	codeSet, err := newCompiler().compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
-	cachedOpcodeSets[index].Store(codeSet)
+	cachedOpcodeSets.Store(index, codeSet)
 	return codeSet, nil
 }
 
@@ -69,7 +69,7 @@ var (
 	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
-	cachedOpcodeSets       []atomic.Pointer[OpcodeSet]
+	cachedOpcodeSets       *runtime.TypeCache[OpcodeSet]
 	cachedOpcodeMap        unsafe.Pointer // map[uintptr]*OpcodeSet
 	typeAddr               *runtime.TypeAddr
 	initEncoderOnce        sync.Once
@@ -81,7 +81,7 @@ func initEncoder() {
 		if typeAddr == nil {
 			typeAddr = &runtime.TypeAddr{}
 		}
-		cachedOpcodeSets = make([]atomic.Pointer[OpcodeSet], typeAddr.AddrRange>>typeAddr.AddrShift+1)
+		cachedOpcodeSets = runtime.NewTypeCache[OpcodeSet](typeAddr.AddrRange>>typeAddr.AddrShift + 1)
 	})
 }
 

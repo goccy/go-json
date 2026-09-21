@@ -708,8 +708,36 @@ func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valu
 		fieldCodes = fieldCodes.Add(valueCodes...)
 	} else {
 		ctx.decIndex()
+		if splitStructHead {
+			return c.splitHeaderOpcodes(ctx, field, value)
+		}
 	}
 	return fieldCodes
+}
+
+// splitStructHead is an experiment: the head of a struct is an opcode of its own, followed by the opcode of
+// the first field, which is the same as the one of the other fields.
+const splitStructHead = true
+
+func (c *StructFieldCode) splitHeaderOpcodes(ctx *compileContext, field, value *Opcode) Opcodes {
+	head := &Opcode{
+		Op:         OpStructHead,
+		Idx:        field.Idx,
+		Flags:      field.Flags,
+		Type:       field.Type,
+		DisplayIdx: field.DisplayIdx,
+		Indent:     field.Indent,
+	}
+	field.Op = optimizeStructField(value, c.tag)
+	field.DisplayIdx++
+	ctx.incOpcodeIndex()
+	head.Next = field
+	head.NextField = field
+	return Opcodes{head, field}
+}
+
+func isSplitStructHead(codes Opcodes) bool {
+	return splitStructHead && len(codes) == 2 && codes[0].Op == OpStructHead && codes[0].Key == ""
 }
 
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
@@ -823,7 +851,11 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	if isFirstField {
 		codes := c.headerOpcodes(ctx, field, valueCodes)
 		if isEndField {
-			codes = c.addStructEndCode(ctx, codes)
+			if isSplitStructHead(codes) && isEnableStructEndOptimization(c.value) {
+				field.Op = field.Op.FieldToEnd()
+			} else {
+				codes = c.addStructEndCode(ctx, codes)
+			}
 		}
 		return codes
 	}

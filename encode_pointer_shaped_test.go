@@ -98,6 +98,24 @@ type pointerShapedSetHolder struct {
 	S pointerShapedSet `json:"s"`
 }
 
+// a map type which has MarshalText with a value receiver.
+type pointerShapedTextSet map[string]struct{}
+
+func (s pointerShapedTextSet) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("len=%d", len(s))), nil
+}
+
+type pointerShapedTextSetHolder struct {
+	S pointerShapedTextSet `json:"s"`
+	// the second field has opcodes different from the first one.
+	S2 pointerShapedTextSet `json:"s2"`
+}
+
+type pointerShapedSetFields struct {
+	A int              `json:"a"`
+	S pointerShapedSet `json:"s"`
+}
+
 // MarshalJSON with a pointer receiver.
 type pointerShapedPtrMarshaler struct {
 	A int
@@ -113,9 +131,6 @@ func TestEncodePointerShapedValue(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		v    interface{}
-		// skipIndent is set for a recursive type: the indent of a recursive type held by an interface value
-		// is wrong whether the value is pointer-shaped or not, which is not what this test is about.
-		skipIndent bool
 	}{
 		{name: "struct of pointer to struct starting with struct", v: pointerShapedBody{Payload: &pointerShapedDetail{I: pointerShapedItem{A: "a"}}}},
 		{name: "struct of nil pointer", v: pointerShapedBody{}},
@@ -128,8 +143,8 @@ func TestEncodePointerShapedValue(t *testing.T) {
 		{name: "omitempty pointer to non-zero int struct", v: pointerShapedOmitEmptyHolder{Child: &pointerShapedChild{Value: 1}}},
 		{name: "omitempty nil pointer", v: pointerShapedOmitEmptyHolder{}},
 		{name: "omitempty pointer to empty string struct", v: pointerShapedOmitEmptyStringHolder{Child: &pointerShapedStringChild{}}},
-		{name: "recursive struct", v: pointerShapedRecursive{Next: &pointerShapedRecursive{}}, skipIndent: true},
-		{name: "deeper recursive struct", v: pointerShapedRecursive{Next: &pointerShapedRecursive{Next: &pointerShapedRecursive{}}}, skipIndent: true},
+		{name: "recursive struct", v: pointerShapedRecursive{Next: &pointerShapedRecursive{}}},
+		{name: "deeper recursive struct", v: pointerShapedRecursive{Next: &pointerShapedRecursive{Next: &pointerShapedRecursive{}}}},
 		{name: "struct of map", v: pointerShapedMapHolder{M: map[string]int{"a": 1}}},
 		{name: "struct of nil map", v: pointerShapedMapHolder{}},
 		{name: "struct of pointer-shaped struct", v: pointerShapedNested{Holder: pointerShapedBody{Payload: &pointerShapedDetail{I: pointerShapedItem{A: "a"}}}}},
@@ -142,6 +157,19 @@ func TestEncodePointerShapedValue(t *testing.T) {
 		{name: "map of map of marshaler map", v: map[string]map[string]pointerShapedSet{"x": {"foo": {"a": struct{}{}}}}},
 		{name: "marshaler map", v: pointerShapedSet{"a": struct{}{}}},
 		{name: "struct of marshaler map", v: pointerShapedSetHolder{S: pointerShapedSet{"a": struct{}{}}}},
+		// encoding/json writes null only for a nil pointer: the marshaler of a nil map is called.
+		{name: "nil marshaler map", v: pointerShapedSet(nil)},
+		{name: "map of nil marshaler map", v: map[string]pointerShapedSet{"foo": nil}},
+		{name: "slice of nil marshaler map", v: []pointerShapedSet{nil, {"a": struct{}{}}}},
+		{name: "struct of nil marshaler map", v: pointerShapedSetHolder{}},
+		{name: "pointer to struct of nil marshaler map", v: &pointerShapedSetHolder{}},
+		{name: "second field of nil marshaler map", v: pointerShapedSetFields{A: 1}},
+		{name: "pointer to second field of nil marshaler map", v: &pointerShapedSetFields{A: 1}},
+		{name: "nil text marshaler map", v: pointerShapedTextSet(nil)},
+		{name: "map of nil text marshaler map", v: map[string]pointerShapedTextSet{"foo": nil}},
+		{name: "struct of nil text marshaler map", v: pointerShapedTextSetHolder{}},
+		{name: "pointer to struct of nil text marshaler map", v: &pointerShapedTextSetHolder{}},
+		{name: "struct of text marshaler map", v: pointerShapedTextSetHolder{S: pointerShapedTextSet{"a": struct{}{}}}},
 		{name: "value of pointer receiver marshaler", v: pointerShapedPtrMarshaler{A: 1}},
 		{name: "pointer to pointer receiver marshaler", v: &pointerShapedPtrMarshaler{A: 1}},
 		{name: "pointer to pointer to pointer receiver marshaler", v: func() **pointerShapedPtrMarshaler {
@@ -174,9 +202,6 @@ func TestEncodePointerShapedValue(t *testing.T) {
 					if string(got) != string(expected) {
 						t.Fatalf("%s ( call %d ): expected %s but got %s", placement.name, i, expected, got)
 					}
-				}
-				if test.skipIndent {
-					continue
 				}
 				gotIndent, err := json.MarshalIndent(placement.v, "", "  ")
 				if err != nil {

@@ -117,10 +117,13 @@ type OpcodeSet struct {
 type ValueShape uint
 
 const (
-	// ValueShapePointer is the type whose nil data word is a nil value: a pointer, a map, ...
+	// ValueShapePointer is the type whose nil data word is encoded as null: a pointer, a map, ...
 	ValueShapePointer ValueShape = iota
-	// ValueShapeAggregate is a struct or an array. If it is stored directly in an interface value
-	// ( it consists of a single pointer ), a nil data word is a value whose pointer is nil, not a nil value.
+	// ValueShapeAggregate is the type whose nil data word is a value to encode, if the type is stored directly
+	// in an interface value:
+	//   - a struct or an array which consists of a single pointer. The pointer is nil, not the value.
+	//   - a map which has a marshaler. encoding/json writes null instead of calling the marshaler
+	//     only for a nil pointer, so the marshaler of a nil map is called.
 	ValueShapeAggregate
 )
 
@@ -135,6 +138,17 @@ func ShapeOf(typ unsafe.Pointer) ValueShape {
 	switch runtime.TypeOfPtr(typ).Kind() {
 	case reflect.Struct, reflect.Array:
 		return ValueShapeAggregate
+	case reflect.Map:
+		// whether the type has a marshaler was decided when the type was compiled.
+		codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ))
+		if err != nil {
+			// the VM compiles the type right after this, and it reports the error.
+			return ValueShapeAggregate
+		}
+		switch codeSet.Code.Kind() {
+		case CodeKindMarshalJSON, CodeKindMarshalText:
+			return ValueShapeAggregate
+		}
 	}
 	return ValueShapePointer
 }
@@ -481,7 +495,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 		if !ok {
 			return AppendNull(ctx, b), nil
 		}
-		stdctx := ctx.Option.Context
+		stdctx := ctx.marshalerContext()
 		if ctx.Option.Flag&FieldQueryOption != 0 {
 			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
 		}
@@ -528,7 +542,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 		if !ok {
 			return AppendNull(ctx, b), nil
 		}
-		b, err := marshaler.MarshalJSON(ctx.Option.Context)
+		b, err := marshaler.MarshalJSON(ctx.marshalerContext())
 		if err != nil {
 			return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 		}
@@ -650,11 +664,10 @@ func IsNilForMarshaler(v interface{}) bool {
 		return rv.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return math.Float64bits(rv.Float()) == 0
-	case reflect.Interface, reflect.Map, reflect.Ptr, reflect.Func:
+	case reflect.Interface, reflect.Ptr, reflect.Func:
 		return rv.IsNil()
-	case reflect.Slice:
-		return rv.IsNil() || rv.Len() == 0
-	case reflect.String:
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		// the same as encoding/json: they are empty if the length is zero, even if they are not nil.
 		return rv.Len() == 0
 	}
 	return false

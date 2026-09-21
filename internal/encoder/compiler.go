@@ -137,6 +137,9 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 
 type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
+	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
+	// the struct of the object and the structs embedded in it, down to the one being compiled.
+	embeddingChain []uintptr
 }
 
 func newCompiler() *Compiler {
@@ -594,8 +597,19 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	if code, exists := c.structTypeToCode[typeptr]; exists {
 		derefCode := *code
 		derefCode.isRecursive = true
+		for _, embedding := range c.embeddingChain {
+			if embedding == typeptr {
+				// The struct is embedded in itself, directly or through the other embedded structs. All of its
+				// fields are hidden by the same fields of itself at the shallower depth of the same JSON
+				// object, as in encoding/json, so it has nothing to write.
+				derefCode.isHiddenByItself = true
+				break
+			}
+		}
 		return &derefCode, nil
 	}
+	c.embeddingChain = append(c.embeddingChain, typeptr)
+	defer func() { c.embeddingChain = c.embeddingChain[:len(c.embeddingChain)-1] }()
 	indirect := runtime.IfaceIndir(typ)
 	code := &StructCode{typ: typ, isPtr: isPtr, isIndirect: indirect}
 	c.structTypeToCode[typeptr] = code
@@ -604,6 +618,10 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	tags := c.typeToStructTags(typ)
 	fields := []*StructFieldCode{}
 	for i, tag := range tags {
+		if tag.IsOmitEmpty && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0 {
+			// an array of no elements is always empty, as in encoding/json.
+			continue
+		}
 		isOnlyOneFirstField := i == 0 && fieldNum == 1
 		field, err := c.structFieldCode(code, tag, isPtr, isOnlyOneFirstField)
 		if err != nil {
@@ -611,8 +629,11 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 		}
 		if field.isAnonymous {
 			structCode := field.getAnonymousStruct()
+			if structCode != nil && structCode.isHiddenByItself {
+				continue
+			}
 			if structCode != nil {
-				structCode.removeFieldsByTags(tags)
+				structCode.removeFieldsByTags(c.keyTags(tags))
 				if c.isAssignableIndirect(field, isPtr) {
 					if indirect {
 						structCode.isIndirect = true
@@ -663,10 +684,27 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		key:           tag.Key,
 		tag:           tag,
 		offset:        field.Offset,
-		isAnonymous:   field.Anonymous && !tag.IsTaggedKey && toElemType(fieldType).Kind() == reflect.Struct,
+		isAnonymous:   c.isEmbeddedStruct(tag),
 		isTaggedKey:   tag.IsTaggedKey,
 		isNilableType: c.isNilableType(fieldType),
-		isNilCheck:    true,
+		// The check writes null instead of calling the marshaler, which encoding/json does only for a nil
+		// pointer: the marshaler of a nil map is called. With omitempty the check is what decides that
+		// the field is empty, for every kind.
+		isNilCheck: tag.IsOmitEmpty || fieldType.Kind() == reflect.Ptr,
+	}
+	if !fieldCode.isAnonymous {
+		// the value of the field is not a part of the JSON object being compiled.
+		embeddingChain := c.embeddingChain
+		c.embeddingChain = nil
+		defer func() { c.embeddingChain = embeddingChain }()
+	}
+	if fieldCode.isAnonymous && tag.IsOmitEmpty {
+		// The fields of an embedded struct are written as the fields of the struct which embeds it, so there is
+		// nothing for omitempty of the embedded struct itself to omit, as in encoding/json. The opcode for
+		// omitempty would write the key of the embedded struct.
+		inlined := *tag
+		inlined.IsOmitEmpty = false
+		fieldCode.tag = &inlined
 	}
 	switch {
 	case c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
@@ -730,6 +768,25 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 // marshaler, which a pointer to the field never needs.
 func (c *Compiler) isNilCheckForAddrMarshaler(tag *runtime.StructTag) bool {
 	return tag.IsOmitEmpty
+}
+
+// isEmbeddedStruct reports whether the field is an embedded struct whose fields are written as the fields of
+// the struct which embeds it.
+func (c *Compiler) isEmbeddedStruct(tag *runtime.StructTag) bool {
+	return tag.Field.Anonymous && !tag.IsTaggedKey && toElemType(tag.Field.Type).Kind() == reflect.Struct
+}
+
+// keyTags returns the tags of the fields which are written with their own keys.
+// An embedded struct is not: its name is not a key, so it doesn't hide a field of the same name.
+func (c *Compiler) keyTags(tags runtime.StructTags) runtime.StructTags {
+	keyTags := make(runtime.StructTags, 0, len(tags))
+	for _, tag := range tags {
+		if c.isEmbeddedStruct(tag) {
+			continue
+		}
+		keyTags = append(keyTags, tag)
+	}
+	return keyTags
 }
 
 func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {
@@ -944,6 +1001,8 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		embedded bool
 	}
 	recursiveCodes := map[recursiveTarget]*CompiledCode{}
+	// maxFrameLength is the length of the longest frame which a recursive code is jumped from.
+	var maxFrameLength uintptr
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
@@ -993,17 +1052,35 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		// the slots of OpRecursiveEnd, so it is set after they are decided.
 		setTotalLengthToInterfaceOp(code)
 
+		// The frame of the recursive code has the slots up to the ones of OpRecursiveEnd
+		// ( the offset to return to, the opcode to return to and the indent to restore ),
+		// so its length is the last index + 1.
+		nextTotalLength := uintptr(code.TotalLength()) + 1
+		if maxFrameLength < nextTotalLength {
+			maxFrameLength = nextTotalLength
+		}
 		// extend length to alloc slot for elemIdx + length
-		curTotalLength := uintptr(recursive.TotalLength()) + 3
-		nextTotalLength := uintptr(totalLength) + 3
+		if curTotalLength := uintptr(recursive.TotalLength()) + 3; maxFrameLength < curTotalLength {
+			maxFrameLength = curTotalLength
+		}
 
 		compiled := recursive.Jmp
 		compiled.Code = code
-		compiled.CurLen = curTotalLength
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 
 		recursiveCodes[target] = compiled
+	}
+	// The new frame is allocated after the frame which the recursive code is jumped from, and CurLen is the
+	// length of that frame. The same CompiledCode is jumped to from the code of the top level and from every
+	// recursive code, including itself, so CurLen must not be less than any of those frames: otherwise the
+	// new frame overlaps the slots of OpRecursiveEnd of the frame it is jumped from, and the indent to
+	// restore is broken by a pointer.
+	for _, compiled := range recursiveCodes {
+		compiled.CurLen = maxFrameLength
+	}
+	for _, recursive := range *ctx.recursiveCodes {
+		recursive.Jmp.CurLen = maxFrameLength
 	}
 	return nil
 }

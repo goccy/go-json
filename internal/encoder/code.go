@@ -376,6 +376,8 @@ type StructCode struct {
 	disableIndirectConversion bool
 	isIndirect                bool
 	isRecursive               bool
+	// isHiddenByItself is whether the struct is a recursive one embedded in itself, which has nothing to write.
+	isHiddenByItself bool
 }
 
 func (c *StructCode) Kind() CodeKind {

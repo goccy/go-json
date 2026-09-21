@@ -130,9 +130,25 @@ func PtrTo(t *Type) *Type {
 	return Type2RType(reflect.PointerTo(RType2Type(t)))
 }
 
-//go:linkname IfaceIndir reflect.ifaceIndir
-//go:noescape
-func IfaceIndir(*Type) bool
+// IfaceIndir reports whether a value of the type is stored indirectly in an interface value:
+// the data word of the interface points to a copy of the value, instead of being the value itself.
+//
+// Which types are stored directly is decided by the compiler and the rule depends on the Go version
+// ( e.g. a struct of a zero-sized field and a pointer is direct since Go 1.26 ), so the rule is not
+// reimplemented here. Instead, a value whose first word is a known pointer is converted to an interface
+// value, and the data word tells how it was stored.
+func IfaceIndir(t *Type) bool {
+	typ := RType2Type(t)
+	if typ.Size() != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		// only a pointer-sized value fits in the data word.
+		return true
+	}
+	probe := unsafe.Pointer(new(uintptr))
+	v := reflect.New(typ)
+	*(*unsafe.Pointer)(v.UnsafePointer()) = probe
+	iface := v.Elem().Interface()
+	return (*emptyInterface)(unsafe.Pointer(&iface)).ptr != probe
+}
 
 type emptyInterface struct {
 	typ *Type

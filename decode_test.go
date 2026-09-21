@@ -4105,3 +4105,55 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+// Issue #568: case-insensitive key matching failed for structs with 17+ fields
+// because tryOptimize skips the bitmap path and decodeKey only did exact lookup.
+func TestIssue568(t *testing.T) {
+	type small struct {
+		F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15 string
+		Name                                                             bool `json:"name,omitempty"`
+	}
+	type large struct {
+		F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16 string
+		Name                                                                 bool `json:"name,omitempty"`
+	}
+	in := []byte(`{"Name": true}`)
+
+	var s small
+	if err := json.Unmarshal(in, &s); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Name {
+		t.Fatalf("small (16 fields): case-insensitive Name did not match")
+	}
+
+	var l large
+	if err := json.Unmarshal(in, &l); err != nil {
+		t.Fatal(err)
+	}
+	if !l.Name {
+		t.Fatalf("large (17 fields): case-insensitive Name did not match")
+	}
+
+	var stream large
+	if err := json.NewDecoder(bytes.NewReader(in)).Decode(&stream); err != nil {
+		t.Fatal(err)
+	}
+	if !stream.Name {
+		t.Fatalf("large stream: case-insensitive Name did not match")
+	}
+
+	// exact match still wins over a case-insensitive alias
+	type both struct {
+		F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16 string
+		Lower                                                                 string `json:"name"`
+		Exact                                                                 string `json:"Name"`
+	}
+	var b both
+	if err := json.Unmarshal([]byte(`{"Name":"exact","name":"lower"}`), &b); err != nil {
+		t.Fatal(err)
+	}
+	if b.Exact != "exact" || b.Lower != "lower" {
+		t.Fatalf("exact vs lower: Exact=%q Lower=%q", b.Exact, b.Lower)
+	}
+}

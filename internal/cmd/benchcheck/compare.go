@@ -1,15 +1,16 @@
 package main
 
 import (
+	"math"
 	"sort"
 )
 
 type status string
 
 const (
-	// statusOK means the benchmark reached the result of the base within the allowed attempts.
+	// statusOK means the benchmark is not slower than the base beyond the tolerance of a single benchmark.
 	statusOK status = "ok"
-	// statusRegressed means the benchmark never reached the result of the base.
+	// statusRegressed means the benchmark is slower than the base beyond the tolerance of a single benchmark.
 	statusRegressed status = "regressed"
 	// statusNew means the benchmark doesn't exist in the base, so there is nothing to compare.
 	statusNew status = "new"
@@ -20,86 +21,132 @@ type benchResult struct {
 	// Func is the top-level benchmark function which the benchmark belongs to.
 	Func   string `json:"func"`
 	Status status `json:"status"`
-	// BaseNs and HeadNs are the pair of the measurements in which HeadNs was the best relative to BaseNs.
+	// BaseNs and HeadNs are the fastest results of all the attempts.
+	// The noise of a measurement only makes it slower, so the fastest one is the closest to the real cost.
+	// Each side takes its own fastest result: if a pair measured in the same attempt were compared,
+	// a base which happened to be slow in an attempt would let a degraded head pass.
 	BaseNs   float64 `json:"baseNs"`
 	HeadNs   float64 `json:"headNs"`
 	Attempts int     `json:"attempts"`
+	// baseSeen is whether the base has reported the benchmark.
+	// It is not the same as BaseNs != 0: the testing package reports zero ns/op as well.
+	baseSeen bool
 }
 
-// comparison tracks, over multiple attempts, whether each benchmark reached the result of the base.
+// comparable reports whether the result has both sides to compare.
+// ns/op is zero if the testing package omitted it, and the ratio to zero can't be represented.
+func (r *benchResult) comparable() bool {
+	return r.baseSeen && r.BaseNs > 0 && r.HeadNs > 0
+}
+
+// deltaPercent returns how much slower the head is than the base, in percent.
+func (r *benchResult) deltaPercent() float64 {
+	return (r.HeadNs/r.BaseNs - 1) * 100
+}
+
+// comparison collects the results of the attempts and decides whether the head is degraded.
+//
+// A single benchmark is too noisy to be judged with a small tolerance: on a shared machine the same code
+// differs by several percent between two builds. So the head is judged by the mean of all the benchmarks,
+// whose noise is far smaller, with meanTolerance. A single benchmark is judged only with singleTolerance,
+// which is beyond the noise, because the mean can't notice the degradation of only a few benchmarks.
 type comparison struct {
-	tolerance float64
-	results   map[string]*benchResult
-	// compared is the set of the benchmarks whose result holds a measured pair.
-	compared map[string]struct{}
+	meanTolerance   float64
+	singleTolerance float64
+	results         map[string]*benchResult
 }
 
-func newComparison(tolerance float64) *comparison {
+func newComparison(meanTolerance, singleTolerance float64) *comparison {
 	return &comparison{
-		tolerance: tolerance,
-		results:   map[string]*benchResult{},
-		compared:  map[string]struct{}{},
+		meanTolerance:   meanTolerance,
+		singleTolerance: singleTolerance,
+		results:         map[string]*benchResult{},
 	}
-}
-
-// reached reports whether headNs is not slower than baseNs.
-// tolerance is the measurement noise ( in percent ) which is not treated as a degradation.
-func (c *comparison) reached(baseNs, headNs float64) bool {
-	return headNs <= baseNs*(1+c.tolerance/100)
-}
-
-// closerToBase reports whether the pair ( baseNs, headNs ) is better than ( otherBaseNs, otherHeadNs ),
-// that is, whether headNs/baseNs is less than otherHeadNs/otherBaseNs.
-// The ratios are compared without division, because ns/op can be zero.
-func closerToBase(baseNs, headNs, otherBaseNs, otherHeadNs float64) bool {
-	lhs, rhs := headNs*otherBaseNs, otherHeadNs*baseNs
-	if lhs != rhs {
-		return lhs < rhs
-	}
-	return headNs < otherHeadNs
 }
 
 // add records one attempt of the benchmark function fn:
 // base and head are the results of the base and of the working tree measured for the attempt.
-// The benchmarks which have already reached the base are not updated.
 func (c *comparison) add(fn string, base, head measurement) {
 	for name, headNs := range head {
 		result, exists := c.results[name]
 		if !exists {
-			result = &benchResult{Name: name, Func: fn, Status: statusRegressed}
+			result = &benchResult{Name: name, Func: fn, HeadNs: headNs}
 			c.results[name] = result
 		}
-		if result.Status != statusRegressed {
-			continue
-		}
 		result.Attempts++
-		baseNs, hasBase := base[name]
-		if !hasBase {
-			if !exists {
-				result.Status = statusNew
-				result.HeadNs = headNs
-			}
-			continue
-		}
-		_, compared := c.compared[name]
-		if !compared || closerToBase(baseNs, headNs, result.BaseNs, result.HeadNs) {
-			result.BaseNs = baseNs
+		if headNs < result.HeadNs {
 			result.HeadNs = headNs
-			c.compared[name] = struct{}{}
 		}
-		if c.reached(baseNs, headNs) {
-			result.Status = statusOK
+		if baseNs, hasBase := base[name]; hasBase {
+			if !result.baseSeen || baseNs < result.BaseNs {
+				result.BaseNs = baseNs
+			}
+			result.baseSeen = true
 		}
+		c.judge(result)
 	}
 }
 
-// pendingFuncs returns the benchmark functions
-// which have a benchmark that has not reached the result of the base yet.
+func (c *comparison) judge(result *benchResult) {
+	switch {
+	case !result.baseSeen:
+		result.Status = statusNew
+	case result.BaseNs == 0 && result.HeadNs > 0:
+		// the base was too fast to be measured and the head is not.
+		// The ratio can't be represented, so it is not a part of the mean either.
+		result.Status = statusRegressed
+	case result.comparable() && result.deltaPercent() > c.singleTolerance:
+		result.Status = statusRegressed
+	default:
+		result.Status = statusOK
+	}
+}
+
+// meanDeltaPercent returns how much slower the head is than the base on average, in percent.
+// It is the geometric mean of the ratios, which is the mean of how many times slower each benchmark is.
+func (c *comparison) meanDeltaPercent() float64 {
+	var (
+		sum   float64
+		count int
+	)
+	for _, result := range c.results {
+		if !result.comparable() {
+			continue
+		}
+		sum += math.Log(result.HeadNs / result.BaseNs)
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+	return (math.Exp(sum/float64(count)) - 1) * 100
+}
+
+// degraded reports whether the head is degraded: the mean is beyond its tolerance,
+// or a benchmark is beyond the tolerance of a single benchmark.
+func (c *comparison) degraded() bool {
+	if c.meanDeltaPercent() > c.meanTolerance {
+		return true
+	}
+	for _, result := range c.results {
+		if result.Status == statusRegressed {
+			return true
+		}
+	}
+	return false
+}
+
+// pendingFuncs returns the benchmark functions to measure again: nothing if the head is not degraded,
+// otherwise the ones which have a benchmark slower than the tolerance of the mean, which are what makes
+// the mean slow. Measuring them again gets rid of the noise, because the fastest result is kept.
 func (c *comparison) pendingFuncs() []string {
+	if !c.degraded() {
+		return nil
+	}
 	seen := map[string]struct{}{}
 	funcs := []string{}
 	for _, result := range c.results {
-		if result.Status != statusRegressed {
+		if !result.comparable() || result.deltaPercent() <= c.meanTolerance {
 			continue
 		}
 		if _, exists := seen[result.Func]; exists {

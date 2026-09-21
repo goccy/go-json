@@ -185,9 +185,11 @@ func (r *testRepo) check(tolerance float64) *outcome {
 	r.t.Helper()
 	c := &checker{
 		opt: &options{
-			config:    benchConfig{Dir: "benchmarks", Bench: ".", BenchTime: "1x", Rounds: r.layouts, Layouts: r.layouts},
-			attempts:  defaultAttempts,
-			tolerance: tolerance,
+			config:   benchConfig{Dir: "benchmarks", Bench: ".", BenchTime: "1x", Rounds: r.layouts, Layouts: r.layouts},
+			attempts: defaultAttempts,
+			// the tests slow the library down several times, which is beyond both of the tolerances.
+			tolerance:       tolerance,
+			singleTolerance: tolerance,
 		},
 		repo:  &repository{root: r.dir},
 		cache: &cache{dir: filepath.Join(r.dir, ".git", "benchcheck"), readable: true},

@@ -1,12 +1,16 @@
 // benchcheck detects performance degradation by comparing the benchmark results
 // of the current working tree with those of the base branch.
 //
-// A benchmark is treated as degraded if it never reaches the result of the base branch
-// within the allowed number of attempts. Every benchmark must reach it.
+// The working tree is treated as degraded if the mean of all the benchmarks is slower than the base beyond
+// the tolerance, or if a single benchmark is slower beyond the tolerance of a single benchmark. A single
+// benchmark of identical code differs by several percent on a shared machine, so its tolerance is large
+// and the mean, whose noise is far smaller, is what notices a small degradation.
 //
 // To make the comparison robust against the load of the machine changing over time,
 // the base and the working tree are measured alternately for each benchmark function.
-// An additional attempt measures both of them again for the benchmarks which have not reached the base.
+// While the working tree is degraded, an additional attempt measures both of them again for the benchmarks
+// which make the mean slow. The noise of a measurement only makes it slower, so the fastest result of all
+// the attempts is what is compared, for each side.
 //
 // The measured results are cached by commit hash:
 //   - the result of the base branch is reused as long as it is measured on the same machine.
@@ -42,19 +46,26 @@ const (
 	// the less the result depends on how well a single layout happens to fit the code.
 	defaultLayouts   = 4
 	defaultBenchTime = "300ms"
-	// defaultTolerance absorbs the run-to-run noise of identical code measured on the same machine.
-	defaultTolerance = 5.0
+	// defaultTolerance is for the mean of all the benchmarks. The mean of identical code measured
+	// on a shared machine stays within about 1.5%.
+	defaultTolerance = 3.0
+	// defaultSingleTolerance is for a single benchmark, which differs by up to about 8% for identical code
+	// on a shared machine even if the function layout is varied. It exists to notice the degradation of only
+	// a few benchmarks, which hardly moves the mean.
+	defaultSingleTolerance = 15.0
 )
 
 var errDegraded = errors.New("performance degradation detected")
 
 type options struct {
-	baseRef   string
-	config    benchConfig
-	attempts  int
-	tolerance float64
-	cacheDir  string
-	noCache   bool
+	baseRef  string
+	config   benchConfig
+	attempts int
+	// tolerance is for the mean of all the benchmarks, and singleTolerance is for a single benchmark.
+	tolerance       float64
+	singleTolerance float64
+	cacheDir        string
+	noCache         bool
 }
 
 func parseOptions() (*options, error) {
@@ -66,7 +77,8 @@ func parseOptions() (*options, error) {
 	flag.IntVar(&opt.config.Rounds, "rounds", defaultRounds, "number of rounds of a measurement: the fastest round is the result of the measurement")
 	flag.IntVar(&opt.config.Layouts, "layouts", defaultLayouts, "number of function layouts of the benchmark binary: the round N is measured with the layout N % layouts ( more than 1 requires Go 1.23 or later )")
 	flag.IntVar(&opt.attempts, "attempts", defaultAttempts, "max number of measurements to reach the result of the base")
-	flag.Float64Var(&opt.tolerance, "tolerance", defaultTolerance, "measurement noise ( in percent ) which is not treated as a degradation")
+	flag.Float64Var(&opt.tolerance, "tolerance", defaultTolerance, "how much slower ( in percent ) the mean of all the benchmarks may be")
+	flag.Float64Var(&opt.singleTolerance, "single-tolerance", defaultSingleTolerance, "how much slower ( in percent ) a single benchmark may be")
 	flag.StringVar(&opt.cacheDir, "cache-dir", "", "directory to store the results ( default: <git common dir>/benchcheck )")
 	flag.BoolVar(&opt.noCache, "no-cache", false, "ignore the cached results and measure again")
 	flag.Parse()
@@ -87,6 +99,9 @@ func parseOptions() (*options, error) {
 	}
 	if opt.tolerance < 0 {
 		return nil, fmt.Errorf("tolerance must not be negative: %v", opt.tolerance)
+	}
+	if opt.singleTolerance < 0 {
+		return nil, fmt.Errorf("single-tolerance must not be negative: %v", opt.singleTolerance)
 	}
 	return &opt, nil
 }
@@ -228,7 +243,7 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 }
 
 // measure runs the benchmarks until all of them reach the result of the base or the attempts are exhausted.
-func (c *checker) measure(ctx context.Context, out *outcome) ([]benchResult, error) {
+func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) {
 	m, err := currentMachine(ctx)
 	if err != nil {
 		return nil, err
@@ -260,7 +275,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) ([]benchResult, err
 		return nil, fmt.Errorf("no benchmark matched %q in %s", c.opt.config.Bench, c.benchDir)
 	}
 
-	cmp := newComparison(c.opt.tolerance)
+	cmp := newComparison(c.opt.tolerance, c.opt.singleTolerance)
 	for attempt := 1; attempt <= c.opt.attempts && len(funcs) != 0; attempt++ {
 		fmt.Printf("measure %d benchmark functions ( attempt %d/%d )\n", len(funcs), attempt, c.opt.attempts)
 		// the cached results are valid only for the first attempt:
@@ -295,7 +310,13 @@ func (c *checker) measure(ctx context.Context, out *outcome) ([]benchResult, err
 		}
 		funcs = cmp.pendingFuncs()
 	}
-	return cmp.sortedResults(), nil
+	return &measured{results: cmp.sortedResults(), meanDeltaPercent: cmp.meanDeltaPercent()}, nil
+}
+
+// measured is the result of the measurement of all the attempts.
+type measured struct {
+	results          []benchResult
+	meanDeltaPercent float64
 }
 
 // outcome is the result of a check.
@@ -324,7 +345,7 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 		return &outcome{}, nil
 	}
 
-	key := verdictKey{Config: c.opt.config, Attempts: c.opt.attempts, Tolerance: c.opt.tolerance}
+	key := verdictKey{Config: c.opt.config, Attempts: c.opt.attempts, Tolerance: c.opt.tolerance, SingleTolerance: c.opt.singleTolerance}
 	if !dirty {
 		cached, err := c.cache.loadVerdict(head, base, key)
 		if err != nil {
@@ -347,11 +368,11 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 	c.baseCommit = base
 
 	out := &outcome{}
-	results, err := c.measure(ctx, out)
+	result, err := c.measure(ctx, out)
 	if err != nil {
 		return nil, err
 	}
-	out.verdict = &verdict{Head: head, Base: base, Key: key, Benchmarks: results}
+	out.verdict = &verdict{Head: head, Base: base, Key: key, MeanDeltaPercent: result.meanDeltaPercent, Benchmarks: result.results}
 	if !dirty {
 		if err := c.cache.storeVerdict(out.verdict); err != nil {
 			return nil, err
@@ -390,13 +411,20 @@ func report(v *verdict) error {
 	if err := w.Flush(); err != nil {
 		return err
 	}
-	if len(regressed) == 0 {
-		fmt.Printf("OK: all benchmarks reached base %s ( tolerance %v%% )\n", v.Base, v.Key.Tolerance)
+	fmt.Printf("mean: %+.2f%% ( tolerance %v%% )\n", v.MeanDeltaPercent, v.Key.Tolerance)
+	meanDegraded := v.MeanDeltaPercent > v.Key.Tolerance
+	if !meanDegraded && len(regressed) == 0 {
+		fmt.Printf("OK: not degraded compared with base %s\n", v.Base)
 		return nil
 	}
-	fmt.Printf("FAIL: %d benchmarks never reached base %s within %d attempts ( tolerance %v%% )\n", len(regressed), v.Base, v.Key.Attempts, v.Key.Tolerance)
-	for _, name := range regressed {
-		fmt.Printf("  %s\n", name)
+	if meanDegraded {
+		fmt.Printf("FAIL: the mean of the benchmarks is slower than base %s beyond the tolerance\n", v.Base)
+	}
+	if len(regressed) != 0 {
+		fmt.Printf("FAIL: %d benchmarks are slower than base %s beyond the tolerance of a single benchmark ( %v%% )\n", len(regressed), v.Base, v.Key.SingleTolerance)
+		for _, name := range regressed {
+			fmt.Printf("  %s\n", name)
+		}
 	}
 	return errDegraded
 }

@@ -45,49 +45,101 @@ func TestParseBenchOutputSingleProc(t *testing.T) {
 	}
 }
 
+// statusesOf returns the statuses of the results by the name.
+func statusesOf(cmp *comparison) map[string]status {
+	statuses := map[string]status{}
+	for _, result := range cmp.sortedResults() {
+		statuses[result.Name] = result.Status
+	}
+	return statuses
+}
+
 func TestComparison(t *testing.T) {
-	cmp := newComparison(5)
+	t.Run("the fastest result of each side is compared", func(t *testing.T) {
+		cmp := newComparison(3, 15)
+		cmp.add("BenchmarkA", measurement{"BenchmarkA": 100}, measurement{"BenchmarkA": 130})
+		// the base happened to be slow in the second attempt: a degraded head must not pass with it.
+		cmp.add("BenchmarkA", measurement{"BenchmarkA": 500}, measurement{"BenchmarkA": 125})
+		want := []benchResult{{Name: "BenchmarkA", Func: "BenchmarkA", Status: statusRegressed, BaseNs: 100, HeadNs: 125, Attempts: 2, baseSeen: true}}
+		if got := cmp.sortedResults(); !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected results:\n got %+v\nwant %+v", got, want)
+		}
+		if !cmp.degraded() {
+			t.Fatal("degradation must be detected")
+		}
+	})
 
-	// the first attempt.
-	cmp.add("BenchmarkFast", measurement{"BenchmarkFast": 100}, measurement{"BenchmarkFast": 90})
-	cmp.add("BenchmarkNoise", measurement{"BenchmarkNoise": 100}, measurement{"BenchmarkNoise": 105})
-	cmp.add("BenchmarkNew", measurement{}, measurement{"BenchmarkNew": 10})
-	cmp.add("BenchmarkDegraded", measurement{"BenchmarkDegraded": 100}, measurement{"BenchmarkDegraded": 130})
-	cmp.add(
-		"BenchmarkSub",
-		measurement{"BenchmarkSub/ok": 100, "BenchmarkSub/recovered": 100},
-		measurement{"BenchmarkSub/ok": 100, "BenchmarkSub/recovered": 120},
-	)
-	if got, want := cmp.pendingFuncs(), []string{"BenchmarkDegraded", "BenchmarkSub"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected pending: got %v, want %v", got, want)
-	}
+	t.Run("noise of a single benchmark is not a degradation", func(t *testing.T) {
+		cmp := newComparison(3, 15)
+		// one benchmark is 8% slower and the others are as fast as the base: the mean is about +0.8%.
+		cmp.add("BenchmarkNoise", measurement{"BenchmarkNoise": 100}, measurement{"BenchmarkNoise": 108})
+		for _, name := range []string{"BenchmarkB", "BenchmarkC", "BenchmarkD", "BenchmarkE", "BenchmarkF", "BenchmarkG", "BenchmarkH", "BenchmarkI", "BenchmarkJ"} {
+			cmp.add(name, measurement{name: 100}, measurement{name: 100})
+		}
+		if cmp.degraded() {
+			t.Fatalf("must not be degraded: mean %+.2f%%", cmp.meanDeltaPercent())
+		}
+		if got := cmp.pendingFuncs(); len(got) != 0 {
+			t.Fatalf("nothing must be measured again: %v", got)
+		}
+	})
 
-	// the second attempt: the base is measured again together with the working tree.
-	cmp.add("BenchmarkDegraded", measurement{"BenchmarkDegraded": 110}, measurement{"BenchmarkDegraded": 132})
-	cmp.add(
-		"BenchmarkSub",
-		measurement{"BenchmarkSub/ok": 100, "BenchmarkSub/recovered": 120},
-		// the benchmark which has already reached the base must not be updated.
-		measurement{"BenchmarkSub/ok": 500, "BenchmarkSub/recovered": 125},
-	)
-	if got, want := cmp.pendingFuncs(), []string{"BenchmarkDegraded"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected pending: got %v, want %v", got, want)
-	}
+	t.Run("mean beyond the tolerance is a degradation", func(t *testing.T) {
+		cmp := newComparison(3, 15)
+		// every benchmark is 5% slower: none of them is beyond the tolerance of a single benchmark.
+		cmp.add("BenchmarkA", measurement{"BenchmarkA": 100}, measurement{"BenchmarkA": 105})
+		cmp.add("BenchmarkB", measurement{"BenchmarkB": 200}, measurement{"BenchmarkB": 210})
+		cmp.add("BenchmarkFast", measurement{"BenchmarkFast": 100}, measurement{"BenchmarkFast": 102})
+		if got, want := statusesOf(cmp), (map[string]status{"BenchmarkA": statusOK, "BenchmarkB": statusOK, "BenchmarkFast": statusOK}); !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected statuses: got %v, want %v", got, want)
+		}
+		if !cmp.degraded() {
+			t.Fatalf("degradation must be detected: mean %+.2f%%", cmp.meanDeltaPercent())
+		}
+		// only what makes the mean slow is measured again.
+		if got, want := cmp.pendingFuncs(), []string{"BenchmarkA", "BenchmarkB"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected pending: got %v, want %v", got, want)
+		}
+		// the noise is gone in the next attempt.
+		cmp.add("BenchmarkA", measurement{"BenchmarkA": 100}, measurement{"BenchmarkA": 100})
+		cmp.add("BenchmarkB", measurement{"BenchmarkB": 200}, measurement{"BenchmarkB": 201})
+		if cmp.degraded() {
+			t.Fatalf("must not be degraded: mean %+.2f%%", cmp.meanDeltaPercent())
+		}
+	})
 
-	// the third attempt.
-	cmp.add("BenchmarkDegraded", measurement{"BenchmarkDegraded": 100}, measurement{"BenchmarkDegraded": 125})
+	t.Run("degradation of a single benchmark is detected", func(t *testing.T) {
+		cmp := newComparison(3, 15)
+		cmp.add("BenchmarkDegraded", measurement{"BenchmarkDegraded": 100}, measurement{"BenchmarkDegraded": 130})
+		for _, name := range []string{"BenchmarkB", "BenchmarkC", "BenchmarkD", "BenchmarkE", "BenchmarkF", "BenchmarkG", "BenchmarkH", "BenchmarkI", "BenchmarkJ", "BenchmarkK", "BenchmarkL"} {
+			cmp.add(name, measurement{name: 100}, measurement{name: 100})
+		}
+		if mean := cmp.meanDeltaPercent(); mean > 3 {
+			t.Fatalf("the mean must be within the tolerance for this test: %+.2f%%", mean)
+		}
+		if got := statusesOf(cmp)["BenchmarkDegraded"]; got != statusRegressed {
+			t.Fatalf("unexpected status: %v", got)
+		}
+		if !cmp.degraded() {
+			t.Fatal("degradation must be detected")
+		}
+		if got, want := cmp.pendingFuncs(), []string{"BenchmarkDegraded"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected pending: got %v, want %v", got, want)
+		}
+	})
 
-	want := []benchResult{
-		{Name: "BenchmarkDegraded", Func: "BenchmarkDegraded", Status: statusRegressed, BaseNs: 110, HeadNs: 132, Attempts: 3},
-		{Name: "BenchmarkFast", Func: "BenchmarkFast", Status: statusOK, BaseNs: 100, HeadNs: 90, Attempts: 1},
-		{Name: "BenchmarkNew", Func: "BenchmarkNew", Status: statusNew, HeadNs: 10, Attempts: 1},
-		{Name: "BenchmarkNoise", Func: "BenchmarkNoise", Status: statusOK, BaseNs: 100, HeadNs: 105, Attempts: 1},
-		{Name: "BenchmarkSub/ok", Func: "BenchmarkSub", Status: statusOK, BaseNs: 100, HeadNs: 100, Attempts: 1},
-		{Name: "BenchmarkSub/recovered", Func: "BenchmarkSub", Status: statusOK, BaseNs: 120, HeadNs: 125, Attempts: 2},
-	}
-	if got := cmp.sortedResults(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected results:\n got %+v\nwant %+v", got, want)
-	}
+	t.Run("benchmark which the base doesn't have", func(t *testing.T) {
+		cmp := newComparison(3, 15)
+		cmp.add("BenchmarkNew", measurement{}, measurement{"BenchmarkNew": 10})
+		cmp.add("BenchmarkSub", measurement{"BenchmarkSub/a": 100}, measurement{"BenchmarkSub/a": 100, "BenchmarkSub/new": 1000})
+		want := map[string]status{"BenchmarkNew": statusNew, "BenchmarkSub/a": statusOK, "BenchmarkSub/new": statusNew}
+		if got := statusesOf(cmp); !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected statuses: got %v, want %v", got, want)
+		}
+		if cmp.degraded() {
+			t.Fatal("a new benchmark is not a degradation")
+		}
+	})
 }
 
 func TestCache(t *testing.T) {
@@ -165,19 +217,23 @@ func TestHashDir(t *testing.T) {
 }
 
 func TestComparisonWithZeroMeasurement(t *testing.T) {
-	cmp := newComparison(5)
+	cmp := newComparison(3, 15)
 	cmp.add("BenchmarkBothZero", measurement{"BenchmarkBothZero": 0}, measurement{"BenchmarkBothZero": 0})
 	cmp.add("BenchmarkZeroBase", measurement{"BenchmarkZeroBase": 0}, measurement{"BenchmarkZeroBase": 20})
 	cmp.add("BenchmarkZeroBase", measurement{"BenchmarkZeroBase": 0}, measurement{"BenchmarkZeroBase": 10})
 	cmp.add("BenchmarkZeroHead", measurement{"BenchmarkZeroHead": 10}, measurement{"BenchmarkZeroHead": 0})
 
 	want := []benchResult{
-		{Name: "BenchmarkBothZero", Func: "BenchmarkBothZero", Status: statusOK, Attempts: 1},
-		{Name: "BenchmarkZeroBase", Func: "BenchmarkZeroBase", Status: statusRegressed, BaseNs: 0, HeadNs: 10, Attempts: 2},
-		{Name: "BenchmarkZeroHead", Func: "BenchmarkZeroHead", Status: statusOK, BaseNs: 10, HeadNs: 0, Attempts: 1},
+		{Name: "BenchmarkBothZero", Func: "BenchmarkBothZero", Status: statusOK, Attempts: 1, baseSeen: true},
+		{Name: "BenchmarkZeroBase", Func: "BenchmarkZeroBase", Status: statusRegressed, BaseNs: 0, HeadNs: 10, Attempts: 2, baseSeen: true},
+		{Name: "BenchmarkZeroHead", Func: "BenchmarkZeroHead", Status: statusOK, BaseNs: 10, HeadNs: 0, Attempts: 1, baseSeen: true},
 	}
 	if got := cmp.sortedResults(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected results:\n got %+v\nwant %+v", got, want)
+	}
+	// the ratio to zero can't be represented, so such benchmarks are not a part of the mean.
+	if got := cmp.meanDeltaPercent(); got != 0 {
+		t.Fatalf("unexpected mean: %v", got)
 	}
 	if got := formatDelta(0, 10); got != "-" {
 		t.Fatalf("unexpected delta for zero base: %s", got)

@@ -2406,6 +2406,32 @@ func TestIssue324(t *testing.T) {
 	}
 }
 
+func TestCamelCaseField(t *testing.T) {
+	type T struct {
+		FieldA bool
+	}
+
+	type T2 struct {
+		FieldA bool `json:"fieldA"`
+	}
+
+	v := T{FieldA: true}
+	got, err := json.MarshalWithOption(v, json.EnableCamelCase())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v2 := T2{FieldA: true}
+	expected, err := json.Marshal(v2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(expected, got) {
+		t.Fatalf("failed to encode. expected %q but got %q", expected, got)
+	}
+}
+
 func TestIssue339(t *testing.T) {
 	type T1 struct {
 		*big.Int

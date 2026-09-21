@@ -97,6 +97,24 @@ func Benchmark_Encode_SmallStruct_GoJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_SmallStruct_GoJsonMarshalValue(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(*NewSmallPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_SmallStruct_GoJsonMarshalOf(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalOf(*NewSmallPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_SmallStructCached_EncodingJson(b *testing.B) {
 	cached := NewSmallPayload()
 	b.ReportAllocs()
@@ -263,6 +281,24 @@ func Benchmark_Encode_MediumStruct_GoJson(b *testing.B) {
 	}
 }
 
+func Benchmark_Encode_MediumStruct_GoJsonMarshalValue(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(*NewMediumPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_MediumStruct_GoJsonMarshalOf(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalOf(*NewMediumPayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_MediumStructCached_EncodingJson(b *testing.B) {
 	cached := NewMediumPayload()
 	b.ReportAllocs()
@@ -414,6 +450,24 @@ func Benchmark_Encode_LargeStruct_GoJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.Marshal(NewLargePayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStruct_GoJsonMarshalValue(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.Marshal(*NewLargePayload()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_LargeStruct_GoJsonMarshalOf(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalOf(*NewLargePayload()); err != nil {
 			b.Fatal(err)
 		}
 	}

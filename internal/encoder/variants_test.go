@@ -1,7 +1,10 @@
 package encoder
 
 import (
+	"bytes"
 	"math/bits"
+	"math/rand"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -318,5 +321,38 @@ func BenchmarkVariant_StringFlags(b *testing.B) {
 				}
 			})
 		}
+	}
+}
+
+// where the insertion sort of Mapslice.Sort stops being faster than slices.SortFunc, with keys which are random
+// in their content and in their length.
+func BenchmarkVariant_MapSort(b *testing.B) {
+	rnd := rand.New(rand.NewSource(1))
+	for _, n := range []int{2, 4, 8, 12, 16, 24, 32, 48, 64, 128} {
+		const sets = 64
+		keys := make([][]MapItem, sets)
+		for i := range keys {
+			keys[i] = make([]MapItem, n)
+			for j := range keys[i] {
+				key := make([]byte, 3+rnd.Intn(20))
+				for k := range key {
+					key[k] = byte('a' + rnd.Intn(26))
+				}
+				keys[i][j].Key = key
+			}
+		}
+		work := make([]MapItem, n)
+		b.Run("Insertion/"+strconv.Itoa(n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				copy(work, keys[i%sets])
+				insertionSortMapItems(work)
+			}
+		})
+		b.Run("SortFunc/"+strconv.Itoa(n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				copy(work, keys[i%sets])
+				slices.SortFunc(work, func(a, b MapItem) int { return bytes.Compare(a.Key, b.Key) })
+			}
+		})
 	}
 }

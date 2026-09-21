@@ -161,6 +161,7 @@ var comparedLibraries = map[string]struct{}{
 	"JsonIter":      {},
 	"SegmentioJson": {},
 	"Sonic":         {},
+	"SonicFastest":  {},
 	"SonicStd":      {},
 }
 

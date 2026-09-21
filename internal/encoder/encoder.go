@@ -265,6 +265,10 @@ func (m *Mapslice) Sort() {
 		})
 		return
 	}
+	insertionSortMapItems(items)
+}
+
+func insertionSortMapItems(items []MapItem) {
 	for i := 1; i < len(items); i++ {
 		if bytes.Compare(items[i-1].Key, items[i].Key) <= 0 {
 			continue
@@ -278,7 +282,9 @@ func (m *Mapslice) Sort() {
 	}
 }
 
-// maxItemsOfInsertionSort is the number of the items up to which the insertion sort is faster.
+// maxItemsOfInsertionSort is the number of the items up to which the insertion sort is used.
+// With keys which are random in their content and in their length, it is faster than slices.SortFunc up to
+// 24 items and slower from 32 items ( BenchmarkVariant_MapSort ).
 const maxItemsOfInsertionSort = 16
 
 //nolint:unused

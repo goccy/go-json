@@ -97,6 +97,10 @@ jobs:
         run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal'" || true
       - name: compare the encode benchmarks
         run: make bench-compare-encode
+      # sonic inlines the nested structs into the code of a type up to 3 levels by default.
+      # It is also measured with more levels, so that it is compared in the way which is the best for it.
+      - name: compare the encode benchmarks with sonic inlining more
+        run: SONIC_MAX_INLINE_DEPTH=10 make bench-compare-encode
       - name: measure the candidates of the optimizations
         run: make bench-variants
       - name: profile the encode benchmarks

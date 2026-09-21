@@ -13,6 +13,17 @@ import (
 
 const uintptrSize = 4 << (^uintptr(0) >> 63)
 
+// The offsets of the opcodes are in bytes from the head of the frame.
+const (
+	slotSize      = 2 * uintptrSize // the size of Slot.
+	slotIntOffset = uintptrSize     // the offset of Slot.Int.
+)
+
+var (
+	_ = [1]struct{}{}[unsafe.Sizeof(Slot{})-slotSize]
+	_ = [1]struct{}{}[unsafe.Offsetof(Slot{}.Int)-slotIntOffset]
+)
+
 type OpFlags uint16
 
 const (
@@ -312,8 +323,14 @@ func newOpCode(ctx *compileContext, typ reflect.Type, op OpType) *Opcode {
 	return newOpCodeWithNext(ctx, typ, op, newEndOp(ctx, typ))
 }
 
+// opcodeOffset returns the offset of the pointer of the slot.
 func opcodeOffset(idx int) uint32 {
-	return uint32(idx) * uintptrSize
+	return uint32(idx) * slotSize
+}
+
+// opcodeIntOffset returns the offset of the value of the slot which is not a pointer.
+func opcodeIntOffset(idx int) uint32 {
+	return opcodeOffset(idx) + slotIntOffset
 }
 
 func getCodeAddrByIdx(head *Opcode, idx uint32) *Opcode {
@@ -385,11 +402,18 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	copied := copyOpcode(code)
 	c := copied
 	c = ToEndCode(c)
-	c.Idx += uintptrSize
-	c.ElemIdx = c.Idx + uintptrSize
-	c.Length = c.Idx + 2*uintptrSize
+	c.Idx += slotSize
+	c.setEndSlots()
 	c.Op = OpInterfaceEnd
 	return copied
+}
+
+// setEndSlots decides the slots of the opcode which returns to the previous frame from its Idx:
+// Idx is for the opcode to return to, ElemIdx is for the offset of the previous frame and
+// Length is for the indent to restore.
+func (c *Opcode) setEndSlots() {
+	c.ElemIdx = c.Idx + slotSize + slotIntOffset
+	c.Length = c.Idx + 2*slotSize + slotIntOffset
 }
 
 func newOpCodeWithNext(ctx *compileContext, typ reflect.Type, op OpType, next *Opcode) *Opcode {
@@ -411,7 +435,7 @@ func (c *Opcode) TotalLength() int {
 	var idx int
 	code := c
 	for !code.IsEnd() {
-		maxIdx := int(code.MaxIdx() / uintptrSize)
+		maxIdx := int(code.MaxIdx() / slotSize)
 		if idx < maxIdx {
 			idx = maxIdx
 		}
@@ -420,7 +444,7 @@ func (c *Opcode) TotalLength() int {
 		}
 		code = code.IterNext()
 	}
-	maxIdx := int(code.MaxIdx() / uintptrSize)
+	maxIdx := int(code.MaxIdx() / slotSize)
 	if idx < maxIdx {
 		idx = maxIdx
 	}
@@ -432,15 +456,15 @@ func (c *Opcode) dumpHead(code *Opcode) string {
 	if code.Op.CodeType() == CodeArrayHead {
 		length = code.Length
 	} else {
-		length = code.Length / uintptrSize
+		length = code.Length / slotSize
 	}
 	return fmt.Sprintf(
 		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
-		code.ElemIdx/uintptrSize,
+		code.Idx/slotSize,
+		code.ElemIdx/slotSize,
 		length,
 	)
 }
@@ -451,7 +475,7 @@ func (c *Opcode) dumpMapHead(code *Opcode) string {
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
+		code.Idx/slotSize,
 	)
 }
 
@@ -461,7 +485,7 @@ func (c *Opcode) dumpMapEnd(code *Opcode) string {
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
+		code.Idx/slotSize,
 	)
 }
 
@@ -470,15 +494,15 @@ func (c *Opcode) dumpElem(code *Opcode) string {
 	if code.Op.CodeType() == CodeArrayElem {
 		length = code.Length
 	} else {
-		length = code.Length / uintptrSize
+		length = code.Length / slotSize
 	}
 	return fmt.Sprintf(
 		`[%03d]%s%s ([idx:%d][elemIdx:%d][length:%d][size:%d])`,
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
-		code.ElemIdx/uintptrSize,
+		code.Idx/slotSize,
+		code.ElemIdx/slotSize,
 		length,
 		code.Size,
 	)
@@ -490,7 +514,7 @@ func (c *Opcode) dumpField(code *Opcode) string {
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
+		code.Idx/slotSize,
 		code.DisplayKey,
 		code.Offset,
 	)
@@ -502,7 +526,7 @@ func (c *Opcode) dumpKey(code *Opcode) string {
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
+		code.Idx/slotSize,
 	)
 }
 
@@ -512,7 +536,7 @@ func (c *Opcode) dumpValue(code *Opcode) string {
 		code.DisplayIdx,
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
-		code.Idx/uintptrSize,
+		code.Idx/slotSize,
 	)
 }
 
@@ -550,7 +574,7 @@ func (c *Opcode) Dump() string {
 				code.DisplayIdx,
 				strings.Repeat("-", int(code.Indent)),
 				code.Op,
-				code.Idx/uintptrSize,
+				code.Idx/slotSize,
 			))
 			code = code.Next
 		}
@@ -642,9 +666,9 @@ func (c *Opcode) DumpDOT() string {
 func newSliceHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
-	elemIdx := opcodeOffset(ctx.ptrIndex)
+	elemIdx := opcodeIntOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
-	length := opcodeOffset(ctx.ptrIndex)
+	length := opcodeIntOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpSlice,
 		Type:       runtime.TypePtr(typ),
@@ -672,7 +696,7 @@ func newSliceElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, size 
 func newArrayHeaderCode(ctx *compileContext, typ reflect.Type, alen int) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
-	elemIdx := opcodeOffset(ctx.ptrIndex)
+	elemIdx := opcodeIntOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpArray,
 		Type:       runtime.TypePtr(typ),

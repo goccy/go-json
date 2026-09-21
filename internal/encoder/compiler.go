@@ -1043,9 +1043,8 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		totalLength := code.TotalLength()
 
 		// Idx, ElemIdx, Length must set after call TotalLength
-		lastCode.Idx = uint32((totalLength + 1) * uintptrSize)
-		lastCode.ElemIdx = lastCode.Idx + uintptrSize
-		lastCode.Length = lastCode.Idx + 2*uintptrSize
+		lastCode.Idx = opcodeOffset(totalLength + 1)
+		lastCode.setEndSlots()
 
 		// An interface in the recursive code allocates its frame after the frame it is in, which is
 		// the one of the recursive code, not of the code which jumps to it. The length must include

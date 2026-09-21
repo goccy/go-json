@@ -204,15 +204,14 @@ func encode(ctx *encoder.RuntimeContext, v interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	p := ctx.ValueAddr(codeSet, uintptr(header.ptr))
-	if p == 0 {
+	p := ctx.ValueAddr(codeSet, header.ptr)
+	if p == nil {
 		// only a nil pointer has no address of the value.
 		b = encoder.AppendNull(ctx, b)
 		b = encoder.AppendComma(ctx, b)
 		return b, nil
 	}
 	ctx.Init(p, codeSet.CodeLength)
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	buf, err := encodeRunCode(ctx, b, codeSet)
 	if err != nil {
@@ -238,8 +237,8 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 		return nil, err
 	}
 
-	p := ctx.ValueAddr(codeSet, uintptr(header.ptr))
-	if p == 0 {
+	p := ctx.ValueAddr(codeSet, header.ptr)
+	if p == nil {
 		// only a nil pointer has no address of the value.
 		b = encoder.AppendNull(ctx, b)
 		b = encoder.AppendCommaIndent(ctx, b)
@@ -247,8 +246,6 @@ func encodeIndent(ctx *encoder.RuntimeContext, v interface{}, prefix, indent str
 	}
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunIndentCode(ctx, b, codeSet, prefix, indent)
-
-	ctx.KeepRefs = append(ctx.KeepRefs, header.ptr)
 
 	if err != nil {
 		return nil, err

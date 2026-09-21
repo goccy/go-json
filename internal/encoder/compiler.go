@@ -148,11 +148,26 @@ func newCompiler() *Compiler {
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := runtime.TypeOfPtr(*(*unsafe.Pointer)(unsafe.Pointer(&typeptr)))
-	code, err := c.typeToCode(typ)
+	code, err := c.valueCode(typ)
 	if err != nil {
 		return nil, err
 	}
 	return c.codeToOpcodeSet(typ, code)
+}
+
+// valueCode returns the code for a value which is not addressable and whose address is given to the opcode:
+// the value passed to Marshal and the value held by an interface value.
+// It is the same as the value of a map, which is not addressable either.
+func (c *Compiler) valueCode(typ reflect.Type) (Code, error) {
+	code, err := c.mapValueCode(typ)
+	if err != nil {
+		return nil, err
+	}
+	if code.Kind() == CodeKindStruct {
+		structCode := code.(*StructCode)
+		structCode.enableIndirect()
+	}
+	return code, nil
 }
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {
@@ -187,81 +202,6 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		Code:                     code,
 		QueryCache:               map[string]*OpcodeSet{},
 	}, nil
-}
-
-func (c *Compiler) typeToCode(typ reflect.Type) (Code, error) {
-	switch {
-	case c.implementsMarshalJSON(typ):
-		return c.marshalJSONCode(typ)
-	case c.implementsMarshalText(typ):
-		return c.marshalTextCode(typ)
-	}
-
-	isPtr := false
-	orgType := typ
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-		isPtr = true
-	}
-	switch {
-	case c.implementsMarshalJSON(typ):
-		return c.marshalJSONCode(orgType)
-	case c.implementsMarshalText(typ):
-		return c.marshalTextCode(orgType)
-	}
-	switch typ.Kind() {
-	case reflect.Slice:
-		elem := typ.Elem()
-		if elem.Kind() == reflect.Uint8 {
-			p := reflect.PointerTo(elem)
-			if !c.implementsMarshalJSONType(p) && !p.Implements(marshalTextType) {
-				return c.bytesCode(typ, isPtr)
-			}
-		}
-		return c.sliceCode(typ)
-	case reflect.Map:
-		if isPtr {
-			return c.ptrCode(reflect.PointerTo(typ))
-		}
-		return c.mapCode(typ)
-	case reflect.Struct:
-		return c.structCode(typ, isPtr)
-	case reflect.Int:
-		return c.intCode(typ, isPtr)
-	case reflect.Int8:
-		return c.int8Code(typ, isPtr)
-	case reflect.Int16:
-		return c.int16Code(typ, isPtr)
-	case reflect.Int32:
-		return c.int32Code(typ, isPtr)
-	case reflect.Int64:
-		return c.int64Code(typ, isPtr)
-	case reflect.Uint, reflect.Uintptr:
-		return c.uintCode(typ, isPtr)
-	case reflect.Uint8:
-		return c.uint8Code(typ, isPtr)
-	case reflect.Uint16:
-		return c.uint16Code(typ, isPtr)
-	case reflect.Uint32:
-		return c.uint32Code(typ, isPtr)
-	case reflect.Uint64:
-		return c.uint64Code(typ, isPtr)
-	case reflect.Float32:
-		return c.float32Code(typ, isPtr)
-	case reflect.Float64:
-		return c.float64Code(typ, isPtr)
-	case reflect.String:
-		return c.stringCode(typ, isPtr)
-	case reflect.Bool:
-		return c.boolCode(typ, isPtr)
-	case reflect.Interface:
-		return c.interfaceCode(typ, isPtr)
-	default:
-		if isPtr && typ.Implements(marshalTextType) {
-			typ = orgType
-		}
-		return c.typeToCodeWithPtr(typ, isPtr)
-	}
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {
@@ -593,8 +533,9 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ reflect.Type) (Code, error) {
-	switch typ.Kind() {
-	case reflect.Map:
+	switch {
+	case typ.Kind() == reflect.Map && !c.implementsMarshalJSON(typ) && !c.implementsMarshalText(typ):
+		// a map which has a marshaler is encoded by the marshaler, not as a map.
 		return c.ptrCode(reflect.PointerTo(typ))
 	default:
 		code, err := c.typeToCodeWithPtr(typ, false)
@@ -942,6 +883,8 @@ func (c *Compiler) isPtrMarshalTextType(typ reflect.Type) bool {
 
 func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code) *Opcode {
 	codes := code.ToOpcode(ctx)
+	// the first opcode takes the address of the value, as the one of the value of a map does.
+	codes.First().Flags |= IndirectFlags
 	codes.Last().Next = newEndOp(ctx, typ)
 	c.linkRecursiveCode(ctx)
 	return codes.First()

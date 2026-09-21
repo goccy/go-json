@@ -3,7 +3,6 @@ package vm
 
 import (
 	"math"
-	"reflect"
 	"sort"
 	"unsafe"
 
@@ -194,7 +193,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ = iface.typ
 			}
 			if ifacePtr == nil {
-				isDirectedNil := typ != nil && encoder.TypeKind(typ) == reflect.Struct && !encoder.IfaceIndir(typ)
+				isDirectedNil := typ != nil && encoder.IsNilDataWordValue(typ)
 				if !isDirectedNil {
 					b = appendNullComma(ctx, b)
 					code = code.Next
@@ -230,7 +229,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			ctxptr = ctx.Ptr() + ptrOffset // assign new ctxptr
 
 			end := ifaceCodeSet.EndCode
-			store(ctxptr, c.Idx, uintptr(ifacePtr))
+			store(ctxptr, c.Idx, ctx.ValueAddr(ifaceCodeSet, uintptr(ifacePtr), recursiveLevel+1))
 			store(ctxptr, end.Idx, oldOffset)
 			store(ctxptr, end.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
 			storeIndent(ctxptr, end, uintptr(oldBaseIndent))
@@ -255,17 +254,17 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			store(ctxptr, code.Idx, ptrToPtr(p))
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpMarshalJSON:
 			p := load(ctxptr, code.Idx)
+			if p != 0 && (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
+				p = ptrToPtr(p)
+			}
 			if p == 0 {
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
-			}
-			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
-				p = ptrToPtr(p)
 			}
 			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
 			if err != nil {
@@ -280,18 +279,23 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			store(ctxptr, code.Idx, ptrToPtr(p))
+			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpMarshalText:
 			p := load(ctxptr, code.Idx)
+			if p != 0 && (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
+				p = ptrToPtr(p)
+				if p == 0 {
+					b = appendNullComma(ctx, b)
+					code = code.Next
+					break
+				}
+			}
 			if p == 0 {
 				b = append(b, `""`...)
 				b = appendComma(ctx, b)
 				code = code.Next
 				break
-			}
-			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
-				p = ptrToPtr(p)
 			}
 			bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
 			if err != nil {

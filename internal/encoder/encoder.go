@@ -109,14 +109,20 @@ type OpcodeSet struct {
 	cacheMu                  sync.RWMutex
 }
 
-// TypeKind returns the kind of the type given by the pointer to its type descriptor.
+// IsNilDataWordValue reports whether an interface value of the type whose data word is nil holds a value,
+// not a nil pointer: the type is a struct or an array stored directly in the interface value ( it consists
+// of a single pointer ), and the pointer is nil.
 //
-// TypeKind and IfaceIndir are functions of their own, not a part of the VM, because any code added to
-// the VM changes the register allocation of the whole VM.
+// IsNilDataWordValue and IfaceIndir are functions of their own, not a part of the VM, because any code
+// added to the VM changes the register allocation of the whole VM.
 //
 //go:noinline
-func TypeKind(typ unsafe.Pointer) reflect.Kind {
-	return runtime.TypeOfPtr(typ).Kind()
+func IsNilDataWordValue(typ unsafe.Pointer) bool {
+	switch runtime.TypeOfPtr(typ).Kind() {
+	case reflect.Struct, reflect.Array:
+		return !IfaceIndir(typ)
+	}
+	return false
 }
 
 // IfaceIndir reports whether a value of the type is stored indirectly in an interface value.

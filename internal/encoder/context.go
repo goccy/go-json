@@ -79,24 +79,36 @@ type RuntimeContext struct {
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
-	// valueSlots hold the values which are stored directly in an interface value.
-	// A slot per nesting level of the interface values is used, and it is never moved.
+	// topValue and valueSlots hold the values which are stored directly in an interface value:
+	// topValue is for the value passed to Marshal, and a slot per nesting level is for the values
+	// held by the interface values. A slot is never moved.
+	topValue   uintptr
 	valueSlots []*uintptr
 }
 
-// ValueAddr returns the address of the value which the data word of an interface value represents.
+// ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value
+// represents.
 //
 // The opcodes always take the address of a value. The data word of an interface value is the address
 // for most of the types, but it is the value itself if the type is stored directly ( a pointer, a map,
-// a struct of a single pointer, ... ). Such a value is copied to the slot of the nesting level,
-// and the address of the slot is returned.
+// a struct of a single pointer, ... ). Such a value is copied to the context, and the address of the copy
+// is returned.
 //
-// The slot holds the word as uintptr so that the value doesn't escape:
+// The copy is held as uintptr so that the value doesn't escape:
 // the caller has to keep the value alive while it is encoded.
-func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr, level int) uintptr {
+func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr {
 	if codeSet.IfaceIndir {
 		return dataWord
 	}
+	c.topValue = dataWord
+	return uintptr(unsafe.Pointer(&c.topValue))
+}
+
+// InterfaceValueAddr is ValueAddr for a value held by an interface value at the nesting level.
+// The caller checks OpcodeSet.IfaceIndir by itself, so that it is called only for the type stored directly.
+//
+//go:noinline
+func (c *RuntimeContext) InterfaceValueAddr(dataWord uintptr, level int) uintptr {
 	for len(c.valueSlots) <= level {
 		c.valueSlots = append(c.valueSlots, new(uintptr))
 	}

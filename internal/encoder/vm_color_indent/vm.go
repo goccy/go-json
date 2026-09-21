@@ -229,7 +229,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			ctxptr = ctx.Ptr() + ptrOffset // assign new ctxptr
 
 			end := ifaceCodeSet.EndCode
-			store(ctxptr, c.Idx, ctx.ValueAddr(ifaceCodeSet, uintptr(ifacePtr), recursiveLevel+1))
+			if ifaceCodeSet.IfaceIndir {
+				store(ctxptr, c.Idx, uintptr(ifacePtr))
+			} else {
+				store(ctxptr, c.Idx, ctx.InterfaceValueAddr(uintptr(ifacePtr), recursiveLevel))
+			}
 			store(ctxptr, end.Idx, oldOffset)
 			store(ctxptr, end.ElemIdx, uintptr(unsafe.Pointer(code.Next)))
 			storeIndent(ctxptr, end, uintptr(oldBaseIndent))

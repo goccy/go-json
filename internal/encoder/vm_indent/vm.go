@@ -3,12 +3,10 @@ package vm_indent
 
 import (
 	"math"
-	"reflect"
 	"sort"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
@@ -194,23 +192,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
-			// A nil data word is a value, not a nil pointer, only if the type is a struct stored directly
-			// in the interface value ( a struct of a single pointer whose value is nil ).
-			if ifacePtr == nil && (typ == nil || runtime.TypeOfPtr(typ).Kind() != reflect.Struct) {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))
-			if err != nil {
-				return nil, err
-			}
-			if ifacePtr == nil && ifaceCodeSet.IfaceIndir {
+			if ifacePtr == nil && !encoder.IsNilDataWordValue(ctx, typ) {
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
+			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))
+			if err != nil {
+				return nil, err
+			}
 
 			totalLength := uintptr(code.Length) + 3
 			nextTotalLength := uintptr(ifaceCodeSet.CodeLength) + 3

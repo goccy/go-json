@@ -109,6 +109,27 @@ type OpcodeSet struct {
 	cacheMu                  sync.RWMutex
 }
 
+// IsNilDataWordValue reports whether an interface value of the type whose data word is nil holds a value,
+// not a nil pointer: the type is a struct stored directly in the interface value ( a struct of a single
+// pointer ), and the pointer is nil.
+//
+// It is a function of its own, not a part of the VM, because it is rarely needed
+// and the code of the VM must be kept small.
+func IsNilDataWordValue(ctx *RuntimeContext, typ unsafe.Pointer) bool {
+	if typ == nil {
+		return false
+	}
+	if runtime.TypeOfPtr(typ).Kind() != reflect.Struct {
+		return false
+	}
+	codeSet, err := CompileToGetCodeSet(ctx, uintptr(typ))
+	if err != nil {
+		// the VM compiles the type right after this, and it reports the error.
+		return true
+	}
+	return !codeSet.IfaceIndir
+}
+
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
 	s.cacheMu.RLock()
 	codeSet := s.QueryCache[hash]

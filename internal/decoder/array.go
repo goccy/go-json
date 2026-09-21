@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -9,7 +10,7 @@ import (
 )
 
 type arrayDecoder struct {
-	elemType     *runtime.Type
+	elemType     reflect.Type
 	size         uintptr
 	valueDecoder Decoder
 	alen         int
@@ -18,9 +19,9 @@ type arrayDecoder struct {
 	zeroValue    unsafe.Pointer
 }
 
-func newArrayDecoder(dec Decoder, elemType *runtime.Type, alen int, structName, fieldName string) *arrayDecoder {
+func newArrayDecoder(dec Decoder, elemType reflect.Type, alen int, structName, fieldName string) *arrayDecoder {
 	// workaround to avoid checkptr errors. cannot use `*(*unsafe.Pointer)(unsafe_New(elemType))` directly.
-	zeroValuePtr := unsafe_New(elemType)
+	zeroValuePtr := unsafe_New(runtime.TypePtr(elemType))
 	zeroValue := **(**unsafe.Pointer)(unsafe.Pointer(&zeroValuePtr))
 	return &arrayDecoder{
 		valueDecoder: dec,

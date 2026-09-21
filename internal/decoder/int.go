@@ -6,18 +6,17 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 type intDecoder struct {
-	typ        *runtime.Type
+	typ        reflect.Type
 	kind       reflect.Kind
 	op         func(unsafe.Pointer, int64)
 	structName string
 	fieldName  string
 }
 
-func newIntDecoder(typ *runtime.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
+func newIntDecoder(typ reflect.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{
 		typ:        typ,
 		kind:       typ.Kind(),
@@ -30,7 +29,7 @@ func newIntDecoder(typ *runtime.Type, structName, fieldName string, op func(unsa
 func (d *intDecoder) typeError(buf []byte, offset int64) *errors.UnmarshalTypeError {
 	return &errors.UnmarshalTypeError{
 		Value:  fmt.Sprintf("number %s", string(buf)),
-		Type:   runtime.RType2Type(d.typ),
+		Type:   d.typ,
 		Struct: d.structName,
 		Field:  d.fieldName,
 		Offset: offset,

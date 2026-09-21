@@ -29,14 +29,14 @@ var (
 )
 
 type emptyInterface struct {
-	typ *runtime.Type
+	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
 type nonEmptyInterface struct {
 	itab *struct {
-		ityp *runtime.Type // static interface type
-		typ  *runtime.Type // dynamic concrete type
+		ityp unsafe.Pointer // static interface type
+		typ  unsafe.Pointer // dynamic concrete type
 		// unused fields...
 	}
 	ptr unsafe.Pointer

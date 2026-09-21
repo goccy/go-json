@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
@@ -9,12 +10,12 @@ import (
 
 type ptrDecoder struct {
 	dec        Decoder
-	typ        *runtime.Type
+	typ        reflect.Type
 	structName string
 	fieldName  string
 }
 
-func newPtrDecoder(dec Decoder, typ *runtime.Type, structName, fieldName string) *ptrDecoder {
+func newPtrDecoder(dec Decoder, typ reflect.Type, structName, fieldName string) *ptrDecoder {
 	return &ptrDecoder{
 		dec:        dec,
 		typ:        typ,
@@ -33,10 +34,10 @@ func (d *ptrDecoder) contentDecoder() Decoder {
 
 //nolint:golint
 //go:linkname unsafe_New reflect.unsafe_New
-func unsafe_New(*runtime.Type) unsafe.Pointer
+func unsafe_New(unsafe.Pointer) unsafe.Pointer
 
-func UnsafeNew(t *runtime.Type) unsafe.Pointer {
-	return unsafe_New(t)
+func UnsafeNew(t reflect.Type) unsafe.Pointer {
+	return unsafe_New(runtime.TypePtr(t))
 }
 
 func (d *ptrDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
@@ -52,7 +53,7 @@ func (d *ptrDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) erro
 	}
 	var newptr unsafe.Pointer
 	if *(*unsafe.Pointer)(p) == nil {
-		newptr = unsafe_New(d.typ)
+		newptr = unsafe_New(runtime.TypePtr(d.typ))
 		*(*unsafe.Pointer)(p) = newptr
 	} else {
 		newptr = *(*unsafe.Pointer)(p)
@@ -78,7 +79,7 @@ func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	}
 	var newptr unsafe.Pointer
 	if *(*unsafe.Pointer)(p) == nil {
-		newptr = unsafe_New(d.typ)
+		newptr = unsafe_New(runtime.TypePtr(d.typ))
 		*(*unsafe.Pointer)(p) = newptr
 	} else {
 		newptr = *(*unsafe.Pointer)(p)

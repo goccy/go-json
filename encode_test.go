@@ -2729,3 +2729,51 @@ func TestIssue459(t *testing.T) {
 	assertErr(t, err)
 	assertEq(t, "unexpected result", "{}", string(b))
 }
+
+// The data word of an interface value is nil both for a nil pointer and for a struct of a single pointer
+// whose pointer is nil. The former is null, and the latter is a value.
+func TestEncodeInterfaceValueWithNilDataWord(t *testing.T) {
+	type directStruct struct {
+		P *int
+	}
+	type directMapStruct struct {
+		M map[string]int
+	}
+	type nonEmptyInterface interface {
+		M()
+	}
+	for _, test := range []struct {
+		name     string
+		v        interface{}
+		expected string
+	}{
+		{"nil", nil, `[null]`},
+		{"nil pointer", (*int)(nil), `[null]`},
+		{"nil pointer to struct", (*directStruct)(nil), `[null]`},
+		{"nil pointer to unsupported type", (*chan int)(nil), `[null]`},
+		{"nil map", map[string]int(nil), `[null]`},
+		{"struct of nil pointer", directStruct{}, `[{"P":null}]`},
+		{"struct of nil map", directMapStruct{}, `[{"M":null}]`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for i := 0; i < 2; i++ {
+				got, err := json.Marshal([]interface{}{test.v})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(got) != test.expected {
+					t.Fatalf("call %d: expected %s but got %s", i, test.expected, got)
+				}
+			}
+		})
+	}
+	t.Run("non-empty interface of nil pointer", func(t *testing.T) {
+		got, err := json.Marshal(struct{ V nonEmptyInterface }{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if expected := `{"V":null}`; string(got) != expected {
+			t.Fatalf("expected %s but got %s", expected, got)
+		}
+	})
+}

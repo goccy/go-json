@@ -52,8 +52,8 @@ func AnalyzeTypeAddr() *TypeAddr {
 			isAligned32         = true
 		)
 		for i := 0; i < len(offset); i++ {
-			typ := (*Type)(rtypeOff(section, offset[i]))
-			addr := uintptr(unsafe.Pointer(typ))
+			typ := TypeOfPtr(rtypeOff(section, offset[i]))
+			addr := uintptr(TypePtr(typ))
 			if minAddr > addr {
 				minAddr = addr
 			}
@@ -61,7 +61,7 @@ func AnalyzeTypeAddr() *TypeAddr {
 				maxAddr = addr
 			}
 			if typ.Kind() == reflect.Ptr {
-				addr = uintptr(unsafe.Pointer(typ.Elem()))
+				addr = uintptr(TypePtr(typ.Elem()))
 				if minAddr > addr {
 					minAddr = addr
 				}

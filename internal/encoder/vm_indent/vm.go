@@ -8,7 +8,6 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
@@ -179,7 +178,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			ctx.SeenPtr = append(ctx.SeenPtr, p)
 			var (
-				typ      *runtime.Type
+				typ      unsafe.Pointer
 				ifacePtr unsafe.Pointer
 			)
 			up := ptrToUnsafePtr(p)
@@ -195,7 +194,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				typ = iface.typ
 			}
 			if ifacePtr == nil {
-				isDirectedNil := typ != nil && typ.Kind() == reflect.Struct && !runtime.IfaceIndir(typ)
+				isDirectedNil := typ != nil && encoder.TypeKind(typ) == reflect.Struct && !encoder.IfaceIndir(typ)
 				if !isDirectedNil {
 					b = appendNullComma(ctx, b)
 					code = code.Next
@@ -203,7 +202,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
-			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(unsafe.Pointer(typ)))
+			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))
 			if err != nil {
 				return nil, err
 			}

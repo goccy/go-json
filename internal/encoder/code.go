@@ -3,7 +3,6 @@ package encoder
 import (
 	"fmt"
 	"reflect"
-	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
 )
@@ -59,7 +58,7 @@ const (
 )
 
 type IntCode struct {
-	typ      *runtime.Type
+	typ      reflect.Type
 	bitSize  uint8
 	isString bool
 	isPtr    bool
@@ -89,7 +88,7 @@ func (c *IntCode) Filter(_ *FieldQuery) Code {
 }
 
 type UintCode struct {
-	typ      *runtime.Type
+	typ      reflect.Type
 	bitSize  uint8
 	isString bool
 	isPtr    bool
@@ -119,7 +118,7 @@ func (c *UintCode) Filter(_ *FieldQuery) Code {
 }
 
 type FloatCode struct {
-	typ     *runtime.Type
+	typ     reflect.Type
 	bitSize uint8
 	isPtr   bool
 }
@@ -155,7 +154,7 @@ func (c *FloatCode) Filter(_ *FieldQuery) Code {
 }
 
 type StringCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	isPtr bool
 }
 
@@ -164,7 +163,7 @@ func (c *StringCode) Kind() CodeKind {
 }
 
 func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
-	isJSONNumberType := c.typ == runtime.Type2RType(jsonNumberType)
+	isJSONNumberType := c.typ == jsonNumberType
 	var code *Opcode
 	if c.isPtr {
 		if isJSONNumberType {
@@ -188,7 +187,7 @@ func (c *StringCode) Filter(_ *FieldQuery) Code {
 }
 
 type BoolCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	isPtr bool
 }
 
@@ -213,7 +212,7 @@ func (c *BoolCode) Filter(_ *FieldQuery) Code {
 }
 
 type BytesCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	isPtr bool
 }
 
@@ -238,7 +237,7 @@ func (c *BytesCode) Filter(_ *FieldQuery) Code {
 }
 
 type SliceCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	value Code
 }
 
@@ -276,7 +275,7 @@ func (c *SliceCode) Filter(_ *FieldQuery) Code {
 }
 
 type ArrayCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	value Code
 }
 
@@ -321,7 +320,7 @@ func (c *ArrayCode) Filter(_ *FieldQuery) Code {
 }
 
 type MapCode struct {
-	typ   *runtime.Type
+	typ   reflect.Type
 	key   Code
 	value Code
 }
@@ -371,7 +370,7 @@ func (c *MapCode) Filter(_ *FieldQuery) Code {
 }
 
 type StructCode struct {
-	typ                       *runtime.Type
+	typ                       reflect.Type
 	fields                    []*StructFieldCode
 	isPtr                     bool
 	disableIndirectConversion bool
@@ -413,7 +412,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	//                        |__________|
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
-		recursive.Type = c.typ
+		recursive.Type = runtime.TypePtr(c.typ)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -455,7 +454,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		head := &Opcode{
 			Op:         OpStructHead,
 			Idx:        opcodeOffset(ctx.ptrIndex),
-			Type:       c.typ,
+			Type:       runtime.TypePtr(c.typ),
 			DisplayIdx: ctx.opcodeIndex,
 			Indent:     ctx.indent,
 		}
@@ -473,7 +472,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		ctx.incIndex()
 	}
 	ctx.decIndent()
-	ctx.structTypeToCodes[uintptr(unsafe.Pointer(c.typ))] = codes
+	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
 	return codes
 }
 
@@ -483,7 +482,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	//                        |__________|
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
-		recursive.Type = c.typ
+		recursive.Type = runtime.TypePtr(c.typ)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -518,7 +517,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		prevField = firstField
 		codes = codes.Add(fieldCodes...)
 	}
-	ctx.structTypeToCodes[uintptr(unsafe.Pointer(c.typ))] = codes
+	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
 	return codes
 }
 
@@ -598,7 +597,7 @@ func (c *StructCode) Filter(query *FieldQuery) Code {
 }
 
 type StructFieldCode struct {
-	typ                *runtime.Type
+	typ                reflect.Type
 	key                string
 	tag                *runtime.StructTag
 	value              Code
@@ -761,7 +760,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 		Flags:      c.flags(),
 		Key:        c.structKey(ctx),
 		Offset:     uint32(c.offset),
-		Type:       c.typ,
+		Type:       runtime.TypePtr(c.typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 		DisplayKey: c.key,
@@ -792,7 +791,7 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 		Flags:      c.flags() | AnonymousHeadFlags,
 		Key:        c.structKey(ctx),
 		Offset:     uint32(c.offset),
-		Type:       c.typ,
+		Type:       runtime.TypePtr(c.typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 		DisplayKey: c.key,
@@ -822,7 +821,7 @@ func isEnableStructEndOptimization(value Code) bool {
 }
 
 type InterfaceCode struct {
-	typ        *runtime.Type
+	typ        reflect.Type
 	fieldQuery *FieldQuery
 	isPtr      bool
 }
@@ -856,7 +855,7 @@ func (c *InterfaceCode) Filter(query *FieldQuery) Code {
 }
 
 type MarshalJSONCode struct {
-	typ                *runtime.Type
+	typ                reflect.Type
 	fieldQuery         *FieldQuery
 	isAddrForMarshaler bool
 	isNilableType      bool
@@ -896,7 +895,7 @@ func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
 }
 
 type MarshalTextCode struct {
-	typ                *runtime.Type
+	typ                reflect.Type
 	fieldQuery         *FieldQuery
 	isAddrForMarshaler bool
 	isNilableType      bool
@@ -931,7 +930,7 @@ func (c *MarshalTextCode) Filter(query *FieldQuery) Code {
 }
 
 type PtrCode struct {
-	typ    *runtime.Type
+	typ    reflect.Type
 	value  Code
 	ptrNum uint8
 }

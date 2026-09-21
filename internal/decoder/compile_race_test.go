@@ -20,7 +20,7 @@ func TestCompileToGetDecoder(t *testing.T) {
 
 	tests := []struct {
 		Name         string
-		Fn           func(typ *runtime.Type) (Decoder, error)
+		Fn           func(typ unsafe.Pointer) (Decoder, error)
 		RaceExpected bool
 	}{
 		{
@@ -73,7 +73,7 @@ func BenchmarkCompileToGetDecoder(b *testing.B) {
 
 	tests := []struct {
 		Name         string
-		Fn           func(typ *runtime.Type) (Decoder, error)
+		Fn           func(typ unsafe.Pointer) (Decoder, error)
 		RaceExpected bool
 	}{
 		{
@@ -120,9 +120,9 @@ func initEncoderPure() {
 	})
 }
 
-func CompileToGetDecoderNoRace(typ *runtime.Type) (Decoder, error) {
+func CompileToGetDecoderNoRace(typ unsafe.Pointer) (Decoder, error) {
 	initEncoderPure()
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	if typeptr > typeAddr.MaxTypeAddr {
 		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
@@ -132,7 +132,7 @@ func CompileToGetDecoderNoRace(typ *runtime.Type) (Decoder, error) {
 		return dec, nil
 	}
 
-	dec, err := compileHead(typ, map[uintptr]Decoder{})
+	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +142,9 @@ func CompileToGetDecoderNoRace(typ *runtime.Type) (Decoder, error) {
 
 var decMu_test sync.RWMutex
 
-func CompileToGetDecoderRace(typ *runtime.Type) (Decoder, error) {
+func CompileToGetDecoderRace(typ unsafe.Pointer) (Decoder, error) {
 	initEncoderPure()
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	if typeptr > typeAddr.MaxTypeAddr {
 		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
@@ -157,7 +157,7 @@ func CompileToGetDecoderRace(typ *runtime.Type) (Decoder, error) {
 	}
 	decMu_test.RUnlock()
 
-	dec, err := compileHead(typ, map[uintptr]Decoder{})
+	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +182,9 @@ func initDecoderAtomic() {
 	})
 }
 
-func CompileToGetDecoderAtomic(typ *runtime.Type) (Decoder, error) {
+func CompileToGetDecoderAtomic(typ unsafe.Pointer) (Decoder, error) {
 	initDecoderAtomic()
-	typeptr := uintptr(unsafe.Pointer(typ))
+	typeptr := uintptr(typ)
 	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
 		return compileToGetDecoderSlowPath(typeptr, typ)
 	}
@@ -194,7 +194,7 @@ func CompileToGetDecoderAtomic(typ *runtime.Type) (Decoder, error) {
 		return *dec, nil
 	}
 
-	dec, err := compileHead(typ, map[uintptr]Decoder{})
+	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}

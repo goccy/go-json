@@ -3,6 +3,7 @@ package encoder
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"unsafe"
@@ -39,15 +40,15 @@ type Opcode struct {
 	NumBitSize uint8
 	Flags      OpFlags
 
-	Type       *runtime.Type // go type
-	Jmp        *CompiledCode // for recursive call
-	FieldQuery *FieldQuery   // field query for Interface / MarshalJSON / MarshalText
-	ElemIdx    uint32        // offset to access array/slice elem
-	Length     uint32        // offset to access slice length or array length
-	Indent     uint32        // indent number
-	Size       uint32        // array/slice elem size
-	DisplayIdx uint32        // opcode index
-	DisplayKey string        // key text to display
+	Type       unsafe.Pointer // pointer to the type descriptor of go type
+	Jmp        *CompiledCode  // for recursive call
+	FieldQuery *FieldQuery    // field query for Interface / MarshalJSON / MarshalText
+	ElemIdx    uint32         // offset to access array/slice elem
+	Length     uint32         // offset to access slice length or array length
+	Indent     uint32         // indent number
+	Size       uint32         // array/slice elem size
+	DisplayIdx uint32         // opcode index
+	DisplayKey string         // key text to display
 }
 
 func (c *Opcode) Validate() error {
@@ -307,7 +308,7 @@ func (c *Opcode) ToFieldType(isString bool) OpType {
 	return OpStructField
 }
 
-func newOpCode(ctx *compileContext, typ *runtime.Type, op OpType) *Opcode {
+func newOpCode(ctx *compileContext, typ reflect.Type, op OpType) *Opcode {
 	return newOpCodeWithNext(ctx, typ, op, newEndOp(ctx, typ))
 }
 
@@ -391,18 +392,18 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	return copied
 }
 
-func newOpCodeWithNext(ctx *compileContext, typ *runtime.Type, op OpType, next *Opcode) *Opcode {
+func newOpCodeWithNext(ctx *compileContext, typ reflect.Type, op OpType, next *Opcode) *Opcode {
 	return &Opcode{
 		Op:         op,
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Next:       next,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 	}
 }
 
-func newEndOp(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newEndOp(ctx *compileContext, typ reflect.Type) *Opcode {
 	return newOpCodeWithNext(ctx, typ, OpEnd, nil)
 }
 
@@ -638,7 +639,7 @@ func (c *Opcode) DumpDOT() string {
 	return b.String()
 }
 
-func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newSliceHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
@@ -646,7 +647,7 @@ func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	length := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpSlice,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    elemIdx,
@@ -655,10 +656,10 @@ func newSliceHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
 	}
 }
 
-func newSliceElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, size uintptr) *Opcode {
+func newSliceElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpSliceElem,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -668,13 +669,13 @@ func newSliceElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, size
 	}
 }
 
-func newArrayHeaderCode(ctx *compileContext, typ *runtime.Type, alen int) *Opcode {
+func newArrayHeaderCode(ctx *compileContext, typ reflect.Type, alen int) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	elemIdx := opcodeOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpArray,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    elemIdx,
@@ -683,10 +684,10 @@ func newArrayHeaderCode(ctx *compileContext, typ *runtime.Type, alen int) *Opcod
 	}
 }
 
-func newArrayElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, length int, size uintptr) *Opcode {
+func newArrayElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, length int, size uintptr) *Opcode {
 	return &Opcode{
 		Op:         OpArrayElem,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		ElemIdx:    head.ElemIdx,
@@ -696,42 +697,42 @@ func newArrayElemCode(ctx *compileContext, typ *runtime.Type, head *Opcode, leng
 	}
 }
 
-func newMapHeaderCode(ctx *compileContext, typ *runtime.Type) *Opcode {
+func newMapHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	return &Opcode{
 		Op:         OpMap,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 	}
 }
 
-func newMapKeyCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapKeyCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapKey,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 	}
 }
 
-func newMapValueCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapValueCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapValue,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
 	}
 }
 
-func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode {
+func newMapEndCode(ctx *compileContext, typ reflect.Type, head *Opcode) *Opcode {
 	return &Opcode{
 		Op:         OpMapEnd,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        head.Idx,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
@@ -739,10 +740,10 @@ func newMapEndCode(ctx *compileContext, typ *runtime.Type, head *Opcode) *Opcode
 	}
 }
 
-func newRecursiveCode(ctx *compileContext, typ *runtime.Type, jmp *CompiledCode) *Opcode {
+func newRecursiveCode(ctx *compileContext, typ reflect.Type, jmp *CompiledCode) *Opcode {
 	return &Opcode{
 		Op:         OpRecursive,
-		Type:       typ,
+		Type:       runtime.TypePtr(typ),
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Next:       newEndOp(ctx, typ),
 		DisplayIdx: ctx.opcodeIndex,

@@ -94,7 +94,10 @@ func (t OpType) IsMultipleOpField() bool {
 }
 
 type OpcodeSet struct {
-	Type                     *runtime.Type
+	Type reflect.Type
+	// IfaceIndir is whether a value of Type is stored indirectly in an interface value.
+	// It is decided when the type is compiled, because deciding it is not cheap.
+	IfaceIndir               bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -104,6 +107,29 @@ type OpcodeSet struct {
 	Code                     Code
 	QueryCache               map[string]*OpcodeSet
 	cacheMu                  sync.RWMutex
+}
+
+// TypeKind returns the kind of the type given by the pointer to its type descriptor.
+//
+// TypeKind and IfaceIndir are functions of their own, not a part of the VM, because any code added to
+// the VM changes the register allocation of the whole VM.
+//
+//go:noinline
+func TypeKind(typ unsafe.Pointer) reflect.Kind {
+	return runtime.TypeOfPtr(typ).Kind()
+}
+
+// IfaceIndir reports whether a value of the type is stored indirectly in an interface value.
+// It is decided only once per type, when the type is compiled.
+//
+//go:noinline
+func IfaceIndir(typ unsafe.Pointer) bool {
+	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ))
+	if err != nil {
+		// the VM compiles the type right after this, and it reports the error.
+		return false
+	}
+	return codeSet.IfaceIndir
 }
 
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
@@ -194,7 +220,7 @@ func ErrUnsupportedValue(code *Opcode, ptr uintptr) *errors.UnsupportedValueErro
 	}))
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
-		Str:   fmt.Sprintf("encountered a cycle via %s", code.Type),
+		Str:   fmt.Sprintf("encountered a cycle via %s", runtime.TypeOfPtr(code.Type)),
 	}
 }
 
@@ -207,13 +233,13 @@ func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
 
 func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
 	return &errors.MarshalerError{
-		Type: runtime.RType2Type(code.Type),
+		Type: runtime.TypeOfPtr(code.Type),
 		Err:  err,
 	}
 }
 
 type emptyInterface struct {
-	typ *runtime.Type
+	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
@@ -297,7 +323,7 @@ func ReleaseMapContext(c *MapContext) {
 
 //go:linkname MapIterInit runtime.mapiterinit
 //go:noescape
-func MapIterInit(mapType *runtime.Type, m unsafe.Pointer, it *mapIter)
+func MapIterInit(mapType unsafe.Pointer, m unsafe.Pointer, it *mapIter)
 
 //go:linkname MapIterKey reflect.mapiterkey
 //go:noescape

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"fmt"
+	"reflect"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -14,12 +15,12 @@ import (
 )
 
 type unmarshalTextDecoder struct {
-	typ        *runtime.Type
+	typ        reflect.Type
 	structName string
 	fieldName  string
 }
 
-func newUnmarshalTextDecoder(typ *runtime.Type, structName, fieldName string) *unmarshalTextDecoder {
+func newUnmarshalTextDecoder(typ reflect.Type, structName, fieldName string) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{
 		typ:        typ,
 		structName: structName,
@@ -53,19 +54,19 @@ func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 		case '[':
 			return &errors.UnmarshalTypeError{
 				Value:  "array",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: s.totalOffset(),
 			}
 		case '{':
 			return &errors.UnmarshalTypeError{
 				Value:  "object",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: s.totalOffset(),
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return &errors.UnmarshalTypeError{
 				Value:  "number",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: s.totalOffset(),
 			}
 		case 'n':
@@ -82,7 +83,7 @@ func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 		dst = b
 	}
 	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(dst); err != nil {
@@ -106,19 +107,19 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		case '[':
 			return 0, &errors.UnmarshalTypeError{
 				Value:  "array",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: start,
 			}
 		case '{':
 			return 0, &errors.UnmarshalTypeError{
 				Value:  "object",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: start,
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			return 0, &errors.UnmarshalTypeError{
 				Value:  "number",
-				Type:   runtime.RType2Type(d.typ),
+				Type:   d.typ,
 				Offset: start,
 			}
 		case 'n':
@@ -133,7 +134,7 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		src = s
 	}
 	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
-		typ: d.typ,
+		typ: runtime.TypePtr(d.typ),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {

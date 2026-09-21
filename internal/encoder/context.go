@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 	"unsafe"
-
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 type compileContext struct {
@@ -53,8 +51,6 @@ func (c *compileContext) decPtrIndex() {
 
 const (
 	bufSize = 1024
-
-	maxSlotsToClearByLoop = 16
 )
 
 var (
@@ -62,7 +58,6 @@ var (
 		New: func() interface{} {
 			return &RuntimeContext{
 				Buf:    make([]byte, 0, bufSize),
-				Slots:  make([]Slot, 128),
 				Option: &Option{},
 			}
 		},
@@ -80,20 +75,23 @@ type Slot struct {
 	Int uintptr
 }
 
+// SlotsLength is the number of the slots which the VM has on the stack at a time.
+const SlotsLength = 32
+
+// Slots is the slots of the VM, which is a local variable of it: see Run.
+type Slots [SlotsLength]Slot
+
 type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
-	Slots      []Slot
 	SeenPtr    []unsafe.Pointer
 	BaseIndent uint32
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
-	// usedSlots is the number of the slots which may hold a pointer.
-	usedSlots int
-	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr and valueSlots.
-	nested bool
+	// usedValueSlots is whether valueSlots may hold a value.
+	usedValueSlots bool
 	// topValue and valueSlots hold the values which are stored directly in an interface value:
 	// topValue is for the value passed to Marshal, and a slot per nesting level is for the values
 	// held by the interface values. A slot is never moved.
@@ -131,39 +129,13 @@ func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord unsafe.
 	}
 	slot := c.valueSlots[level]
 	*slot = dataWord
+	c.usedValueSlots = true
 	return unsafe.Pointer(slot)
 }
 
-func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
-	if len(c.Slots) < codelen {
-		c.Slots = make([]Slot, codelen)
-	}
-	c.Slots[0].Ptr = p
-	c.usedSlots = codelen
+func (c *RuntimeContext) Init() {
 	c.SeenPtr = c.SeenPtr[:0]
 	c.BaseIndent = 0
-}
-
-// ReserveSlots makes the context have the slots of the frames up to the length.
-//
-//go:noinline
-func (c *RuntimeContext) ReserveSlots(length uintptr) {
-	n := int(length)
-	if len(c.Slots) < n {
-		c.Slots = append(c.Slots, make([]Slot, n-len(c.Slots))...)
-	}
-	if c.usedSlots < n {
-		c.usedSlots = n
-	}
-	c.nested = true
-}
-
-// Ptr returns the pointer to the slots.
-// It is unsafe.Pointer, not uintptr, so that the address of a slot is calculated by unsafe.Add,
-// which the compiler folds into the addressing mode of the load / store of the slot.
-func (c *RuntimeContext) Ptr() unsafe.Pointer {
-	header := (*runtime.SliceHeader)(unsafe.Pointer(&c.Slots))
-	return header.Data
 }
 
 func TakeRuntimeContext() *RuntimeContext {
@@ -180,23 +152,15 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 
 // releaseValues clears every pointer to the values which were encoded, so that the pool doesn't keep them alive.
 func (c *RuntimeContext) releaseValues() {
-	if slots := c.Slots[:c.usedSlots]; len(slots) <= maxSlotsToClearByLoop {
-		// a call to clear the memory costs more than the loop for a few slots.
-		for i := range slots {
-			slots[i].Ptr = nil
-		}
-	} else {
-		clear(slots)
-	}
-	c.usedSlots = 0
 	c.topValue = nil
-	if c.nested {
-		// what only the frames of an interface value and of a recursive type use.
+	if cap(c.SeenPtr) > 0 {
 		clear(c.SeenPtr[:cap(c.SeenPtr)])
+	}
+	if c.usedValueSlots {
 		for _, slot := range c.valueSlots {
 			*slot = nil
 		}
-		c.nested = false
+		c.usedValueSlots = false
 	}
 }
 

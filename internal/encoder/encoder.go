@@ -166,6 +166,14 @@ func IfaceIndir(typ unsafe.Pointer) bool {
 	return codeSet.IfaceIndir
 }
 
+// TopCode returns the code to encode a value passed to Marshal.
+func (s *OpcodeSet) TopCode(opt *Option) *Opcode {
+	if (opt.Flag & HTMLEscapeOption) != 0 {
+		return s.EscapeKeyCode
+	}
+	return s.NoescapeKeyCode
+}
+
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
 	s.cacheMu.RLock()
 	codeSet := s.QueryCache[hash]

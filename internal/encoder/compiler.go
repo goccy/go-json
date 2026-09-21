@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -221,6 +222,9 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	interfaceNoescapeKeyCode := copyToInterfaceOpcode(noescapeKeyCode)
 	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
 	codeLength := noescapeKeyCode.TotalLength()
+	if err := validateFrameLength(typ, codeLength+interfaceEndSlots); err != nil {
+		return nil, err
+	}
 	return &OpcodeSet{
 		Type:                     typ,
 		IfaceIndir:               runtime.IfaceIndir(typ),
@@ -234,6 +238,19 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		Code:                     code,
 		QueryCache:               map[string]*OpcodeSet{},
 	}, nil
+}
+
+// interfaceEndSlots is the number of the slots which a frame of an interface value has after the ones of the code.
+const interfaceEndSlots = 3
+
+// validateFrameLength reports a type whose frame doesn't fit in the slots of the VM, which are on the stack.
+// The fields of a struct share the slots, so the length of a frame depends only on how deep the arrays, the
+// slices, the maps and the structs are nested in the type without a pointer to a recursive type or an interface.
+func validateFrameLength(typ reflect.Type, length int) error {
+	if length > SlotsLength {
+		return fmt.Errorf("json: the values are nested too deeply in the type %s: it requires %d slots of %d", typ, length, SlotsLength)
+	}
+	return nil
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {
@@ -1063,6 +1080,9 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 			maxFrameLength = curTotalLength
 		}
 
+		if err := validateFrameLength(runtime.TypeOfPtr(recursive.Type), int(nextTotalLength)); err != nil {
+			return err
+		}
 		compiled := recursive.Jmp
 		compiled.Code = code
 		compiled.NextLen = nextTotalLength

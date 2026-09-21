@@ -43,24 +43,24 @@ func errUnimplementedOp(op encoder.OpType) error {
 // The slots of the VM are separated by what they hold: load / store are for the slots of the pointers,
 // which the GC sees, and loadInt / storeInt are for the slots of the other values ( an index, a length, ... ).
 
-func load(base unsafe.Pointer, idx uint32) unsafe.Pointer {
-	return *(*unsafe.Pointer)(unsafe.Add(base, idx))
+func load(slots *encoder.Slots, offset uintptr, idx uint32) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx)))
 }
 
-func store(base unsafe.Pointer, idx uint32, p unsafe.Pointer) {
-	*(*unsafe.Pointer)(unsafe.Add(base, idx)) = p
+func store(slots *encoder.Slots, offset uintptr, idx uint32, p unsafe.Pointer) {
+	*(*unsafe.Pointer)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx))) = p
 }
 
-func loadInt(base unsafe.Pointer, idx uint32) uintptr {
-	return *(*uintptr)(unsafe.Add(base, idx))
+func loadInt(slots *encoder.Slots, offset uintptr, idx uint32) uintptr {
+	return *(*uintptr)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx)))
 }
 
-func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
-	*(*uintptr)(unsafe.Add(base, idx)) = v
+func storeInt(slots *encoder.Slots, offset uintptr, idx uint32, v uintptr) {
+	*(*uintptr)(unsafe.Add(unsafe.Pointer(slots), offset+uintptr(idx))) = v
 }
 
-func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
-	return ptrToNPtr(load(base, idx), ptrNum)
+func loadNPtr(slots *encoder.Slots, offset uintptr, idx uint32, ptrNum uint8) unsafe.Pointer {
+	return ptrToNPtr(load(slots, offset, idx), ptrNum)
 }
 
 func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
@@ -265,7 +265,7 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)        {}
-func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
-func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
-func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }
+func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ *encoder.Slots, _ uintptr) {}
+func storeIndent(_ *encoder.Slots, _ uintptr, _ *encoder.Opcode, _ uintptr)                   {}
+func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte        { return b }
+func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte     { return b }

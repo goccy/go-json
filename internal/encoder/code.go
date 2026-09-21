@@ -258,10 +258,11 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	ctx.decIndent()
 
 	codes.First().Flags |= IndirectFlags
+	// the opcodes after the elements refer to the slots of the header, and they don't take a slot.
 	elemCode := newSliceElemCode(ctx, c.typ.Elem(), header, size)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 	end := newOpCode(ctx, c.typ, OpSliceEnd)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 	header.End = end
 	header.Next = codes.First()
 	codes.Last().Next = elemCode
@@ -300,11 +301,12 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 
 	codes.First().Flags |= IndirectFlags
 
+	// the opcodes after the elements refer to the slot of the header, and they don't take a slot.
 	elemCode := newArrayElemCode(ctx, elem, header, alen, size)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 
 	end := newOpCode(ctx, c.typ, OpArrayEnd)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 
 	header.End = end
 	header.Next = codes.First()
@@ -338,8 +340,9 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 
 	keyCodes := c.key.ToOpcode(ctx)
 
+	// the opcodes other than the header refer to the slot of the header, and they don't take a slot.
 	value := newMapValueCode(ctx, c.typ.Elem(), header)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 
 	ctx.incIndent()
 	valueCodes := c.value.ToOpcode(ctx)
@@ -348,10 +351,10 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	valueCodes.First().Flags |= IndirectFlags
 
 	key := newMapKeyCode(ctx, c.typ.Key(), header)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 
 	end := newMapEndCode(ctx, c.typ, header)
-	ctx.incIndex()
+	ctx.incOpcodeIndex()
 
 	header.Next = keyCodes.First()
 	keyCodes.Last().Next = value
@@ -417,6 +420,30 @@ func lastFieldOpcode(field *Opcode) *Opcode {
 	return field
 }
 
+// fieldSlots makes the fields of a struct share the slots.
+//
+// The slot of the first field holds the address of the struct, which every field refers to. The slots after it
+// are for the value of a field, and they are used only while that field is encoded, so every field takes the
+// same ones: the length of a frame depends on how deep the values are nested, not on how many fields there are.
+// The VM has the slots on the stack, so a frame has to be short.
+type fieldSlots struct {
+	structIndex int
+	isFirst     bool
+}
+
+func newFieldSlots(ctx *compileContext) *fieldSlots {
+	return &fieldSlots{structIndex: ctx.ptrIndex, isFirst: true}
+}
+
+// reuse is called before a field is compiled.
+func (s *fieldSlots) reuse(ctx *compileContext) {
+	if s.isFirst {
+		s.isFirst = false
+		return
+	}
+	ctx.ptrIndex = s.structIndex + 1
+}
+
 func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	// header => code => structField => code => end
 	//                        ^          |
@@ -431,9 +458,11 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes := Opcodes{}
 	var prevField *Opcode
 	ctx.incIndent()
+	fieldSlots := newFieldSlots(ctx)
 	for idx, field := range c.fields {
 		isFirstField := idx == 0
 		isEndField := idx == len(c.fields)-1
+		fieldSlots.reuse(ctx)
 		fieldCodes := field.ToOpcode(ctx, isFirstField, isEndField)
 		for _, code := range fieldCodes {
 			if c.isIndirect {
@@ -500,9 +529,11 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	}
 	codes := Opcodes{}
 	var prevField *Opcode
+	fieldSlots := newFieldSlots(ctx)
 	for idx, field := range c.fields {
 		isFirstField := idx == 0
 		isEndField := idx == len(c.fields)-1
+		fieldSlots.reuse(ctx)
 		fieldCodes := field.ToAnonymousOpcode(ctx, isFirstField, isEndField)
 		for _, code := range fieldCodes {
 			if c.isIndirect {

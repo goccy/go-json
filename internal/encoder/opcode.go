@@ -402,7 +402,9 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 	copied := copyOpcode(code)
 	c := copied
 	c = ToEndCode(c)
-	c.Idx += slotSize
+	// the slots to return to the previous frame are after every slot of the code:
+	// the slot of the end code is not the last one, because the fields of a struct share the slots.
+	c.Idx = opcodeOffset(copied.TotalLength())
 	c.setEndSlots()
 	c.Op = OpInterfaceEnd
 	return copied
@@ -663,9 +665,10 @@ func (c *Opcode) DumpDOT() string {
 	return b.String()
 }
 
+// newSliceHeaderCode takes two slots: the first one is for the address of the elements and the index,
+// and the next one is for the length.
 func newSliceHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
-	ctx.incPtrIndex()
 	elemIdx := opcodeIntOffset(ctx.ptrIndex)
 	ctx.incPtrIndex()
 	length := opcodeIntOffset(ctx.ptrIndex)
@@ -693,9 +696,9 @@ func newSliceElemCode(ctx *compileContext, typ reflect.Type, head *Opcode, size 
 	}
 }
 
+// newArrayHeaderCode takes a slot, which is for the address of the array and the index.
 func newArrayHeaderCode(ctx *compileContext, typ reflect.Type, alen int) *Opcode {
 	idx := opcodeOffset(ctx.ptrIndex)
-	ctx.incPtrIndex()
 	elemIdx := opcodeIntOffset(ctx.ptrIndex)
 	return &Opcode{
 		Op:         OpArray,

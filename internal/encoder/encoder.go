@@ -109,25 +109,27 @@ type OpcodeSet struct {
 	cacheMu                  sync.RWMutex
 }
 
-// IsNilDataWordValue reports whether an interface value of the type whose data word is nil holds a value,
-// not a nil pointer: the type is a struct stored directly in the interface value ( a struct of a single
-// pointer ), and the pointer is nil.
+// TypeKind returns the kind of the type given by the pointer to its type descriptor.
 //
-// It is a function of its own, not a part of the VM, because it is rarely needed
-// and the code of the VM must be kept small.
-func IsNilDataWordValue(ctx *RuntimeContext, typ unsafe.Pointer) bool {
-	if typ == nil {
-		return false
-	}
-	if runtime.TypeOfPtr(typ).Kind() != reflect.Struct {
-		return false
-	}
-	codeSet, err := CompileToGetCodeSet(ctx, uintptr(typ))
+// TypeKind and IfaceIndir are functions of their own, not a part of the VM, because any code added to
+// the VM changes the register allocation of the whole VM.
+//
+//go:noinline
+func TypeKind(typ unsafe.Pointer) reflect.Kind {
+	return runtime.TypeOfPtr(typ).Kind()
+}
+
+// IfaceIndir reports whether a value of the type is stored indirectly in an interface value.
+// It is decided only once per type, when the type is compiled.
+//
+//go:noinline
+func IfaceIndir(typ unsafe.Pointer) bool {
+	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ))
 	if err != nil {
 		// the VM compiles the type right after this, and it reports the error.
-		return true
+		return false
 	}
-	return !codeSet.IfaceIndir
+	return codeSet.IfaceIndir
 }
 
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {

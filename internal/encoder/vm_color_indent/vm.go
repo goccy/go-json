@@ -3,6 +3,7 @@ package vm_color_indent
 
 import (
 	"math"
+	"reflect"
 	"sort"
 	"unsafe"
 
@@ -192,10 +193,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				ifacePtr = iface.ptr
 				typ = iface.typ
 			}
-			if ifacePtr == nil && !encoder.IsNilDataWordValue(ctx, typ) {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
+			if ifacePtr == nil {
+				isDirectedNil := typ != nil && encoder.TypeKind(typ) == reflect.Struct && !encoder.IfaceIndir(typ)
+				if !isDirectedNil {
+					b = appendNullComma(ctx, b)
+					code = code.Next
+					break
+				}
 			}
 			ctx.KeepRefs = append(ctx.KeepRefs, up)
 			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))

@@ -42,6 +42,24 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	return filtered, nil
 }
 
+// compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
+func compileToGetUnfilteredCodeSet(typeptr uintptr) (*OpcodeSet, error) {
+	initEncoder()
+	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
+		return compileToGetCodeSetSlowPath(typeptr)
+	}
+	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
+	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
+		return codeSet, nil
+	}
+	codeSet, err := newCompiler().compile(typeptr)
+	if err != nil {
+		return nil, err
+	}
+	cachedOpcodeSets[index].Store(codeSet)
+	return codeSet, nil
+}
+
 type marshalerContext interface {
 	MarshalJSON(context.Context) ([]byte, error)
 }

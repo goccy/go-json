@@ -89,6 +89,8 @@ jobs:
           go-version: '1.27'
       - name: compare the encode benchmarks
         run: make bench-compare-encode
+      - name: measure the candidates of the optimizations
+        run: make bench-variants
       - name: profile the encode benchmarks
         run: make bench-profile-encode
 

@@ -91,22 +91,65 @@ var stringEscapes = [4]stringEscape{
 	},
 }
 
-// mask returns which bytes of the word may need an escape: the most significant bit of such a byte is set.
-// A byte after one to escape may be set too, because of the borrow of the subtractions.
-func (e *stringEscape) mask(n uint64) uint64 {
+// The functions below return the mask of the bytes of a word which may need an escape: the most significant bit
+// of such a byte is set. A byte after one to escape may be set too, because of the borrow of the subtractions.
+// A mask is made of parts, each of which is small enough to be inlined: a call for every word costs more than
+// the mask itself.
+//
+// `x - lsb` sets the most significant bit of a byte of x which is zero, and of one which already has it.
+// If UTF-8 is normalized, a byte which is not ASCII is looked at anyway, so the latter doesn't matter and the
+// loose masks are enough. Otherwise `&^ x` leaves only the former, so that a string which is not ASCII is not
+// taken for one to escape.
+
+// looseCommonMask is the mask of the control characters, '"', '\\' and the bytes which are not ASCII.
+func looseCommonMask(n uint64) uint64 {
+	return n | (n - lsb*0x20) | ((n ^ (lsb * '"')) - lsb) | ((n ^ (lsb * '\\')) - lsb)
+}
+
+// looseCharsMask is the mask of chars, and of the bytes which are not ASCII.
+func (e *stringEscape) looseCharsMask(n uint64) uint64 {
+	return ((n ^ e.chars[0]) - lsb) | ((n ^ e.chars[1]) - lsb) | ((n ^ e.chars[2]) - lsb)
+}
+
+// exactCommonMask is the mask of the control characters, '"' and '\\'.
+func exactCommonMask(n uint64) uint64 {
 	quote := n ^ (lsb * '"')
 	backslash := n ^ (lsb * '\\')
+	return ((n - lsb*0x20) &^ n) | ((quote - lsb) &^ quote) | ((backslash - lsb) &^ backslash)
+}
+
+// exactCharsMask is the mask of chars.
+func (e *stringEscape) exactCharsMask(n uint64) uint64 {
 	c0, c1, c2 := n^e.chars[0], n^e.chars[1], n^e.chars[2]
-	// `x - lsb` sets the most significant bit of a byte of x which is zero, and of one which already has it:
-	// `&^ x` leaves only the former. `n - lsb*0x20` does the same for a byte which is less than 0x20.
-	mask := ((n - lsb*0x20) &^ n) |
-		((quote - lsb) &^ quote) |
-		((backslash - lsb) &^ backslash) |
-		((c0 - lsb) &^ c0) |
-		((c1 - lsb) &^ c1) |
-		((c2 - lsb) &^ c2) |
-		(n & e.high)
-	return mask & msb
+	return ((c0 - lsb) &^ c0) | ((c1 - lsb) &^ c1) | ((c2 - lsb) &^ c2)
+}
+
+// hasEscape is whether a word of the string may have a byte to escape. The string is 8 bytes or longer.
+func (e *stringEscape) hasEscape(src unsafe.Pointer, n int) bool {
+	i := 0
+	if e.high != 0 {
+		for ; i+8 <= n; i += 8 {
+			if w := *(*uint64)(unsafe.Add(src, i)); (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0 {
+				return true
+			}
+		}
+		if i < n {
+			// the last word overlaps the previous one.
+			w := *(*uint64)(unsafe.Add(src, n-8))
+			return (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0
+		}
+		return false
+	}
+	for ; i+8 <= n; i += 8 {
+		if w := *(*uint64)(unsafe.Add(src, i)); (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0 {
+			return true
+		}
+	}
+	if i < n {
+		w := *(*uint64)(unsafe.Add(src, n-8))
+		return (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0
+	}
+	return false
 }
 
 // maxInlineCopySize is the size of the longest string which is copied without calling memmove.
@@ -138,6 +181,9 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	escape := &stringEscapes[index]
 
 	n := len(s)
+	if n == 0 {
+		return append(buf, '"', '"')
+	}
 	src := unsafe.Pointer(unsafe.StringData(s))
 	if n < 8 {
 		table := escape.table
@@ -146,17 +192,8 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 				return escape.appendEscaped(buf, s)
 			}
 		}
-	} else {
-		i := 0
-		for ; i+8 <= n; i += 8 {
-			if escape.mask(*(*uint64)(unsafe.Add(src, i))) != 0 {
-				return escape.appendEscaped(buf, s)
-			}
-		}
-		// the last word overlaps the previous one.
-		if i < n && escape.mask(*(*uint64)(unsafe.Add(src, n-8))) != 0 {
-			return escape.appendEscaped(buf, s)
-		}
+	} else if escape.hasEscape(src, n) {
+		return escape.appendEscaped(buf, s)
 	}
 
 	l := len(buf)

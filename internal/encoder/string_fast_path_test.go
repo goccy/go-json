@@ -81,3 +81,19 @@ func TestAppendStringGrowth(t *testing.T) {
 		t.Fatalf("unexpected length %d", len(buf))
 	}
 }
+
+func BenchmarkAppendString(b *testing.B) {
+	ctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption | NormalizeUTF8Option}}
+	for _, s := range []string{
+		"", "abc", "test42", "127.0.0.1", "user_agent_long", "de305d54-75b4-431b-adb2-eb6b9e546014",
+		strings.Repeat("abcdefghij", 10), strings.Repeat("abcdefghij", 100),
+	} {
+		s := s
+		b.Run(fmt.Sprint(len(s)), func(b *testing.B) {
+			buf := make([]byte, 0, 4096)
+			for i := 0; i < b.N; i++ {
+				buf = AppendString(ctx, buf[:0], s)
+			}
+		})
+	}
+}

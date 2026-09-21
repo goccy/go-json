@@ -105,10 +105,15 @@ func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr
 }
 
 // InterfaceValueAddr is ValueAddr for a value held by an interface value at the nesting level.
-// The caller checks OpcodeSet.IfaceIndir by itself, so that it is called only for the type stored directly.
+//
+// It is never inlined, and the VM doesn't check OpcodeSet.IfaceIndir by itself either,
+// because a branch added to the VM changes the register allocation of the whole VM.
 //
 //go:noinline
-func (c *RuntimeContext) InterfaceValueAddr(dataWord uintptr, level int) uintptr {
+func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord uintptr, level int) uintptr {
+	if codeSet.IfaceIndir {
+		return dataWord
+	}
 	for len(c.valueSlots) <= level {
 		c.valueSlots = append(c.valueSlots, new(uintptr))
 	}

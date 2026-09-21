@@ -109,20 +109,30 @@ type OpcodeSet struct {
 	cacheMu                  sync.RWMutex
 }
 
-// IsNilDataWordValue reports whether an interface value of the type whose data word is nil holds a value,
-// not a nil pointer: the type is a struct or an array stored directly in the interface value ( it consists
-// of a single pointer ), and the pointer is nil.
+// ValueShape classifies a type by what a nil data word of an interface value of the type means.
+type ValueShape uint
+
+const (
+	// ValueShapePointer is the type whose nil data word is a nil value: a pointer, a map, ...
+	ValueShapePointer ValueShape = iota
+	// ValueShapeAggregate is a struct or an array. If it is stored directly in an interface value
+	// ( it consists of a single pointer ), a nil data word is a value whose pointer is nil, not a nil value.
+	ValueShapeAggregate
+)
+
+// ShapeOf returns the shape of the type given by the pointer to its type descriptor.
 //
-// IsNilDataWordValue and IfaceIndir are functions of their own, not a part of the VM, because any code
-// added to the VM changes the register allocation of the whole VM.
+// ShapeOf and IfaceIndir are functions of their own, not a part of the VM, and the VM calls them in the
+// same form as it did before, because any change of the code of the VM changes the register allocation
+// of the whole VM.
 //
 //go:noinline
-func IsNilDataWordValue(typ unsafe.Pointer) bool {
+func ShapeOf(typ unsafe.Pointer) ValueShape {
 	switch runtime.TypeOfPtr(typ).Kind() {
 	case reflect.Struct, reflect.Array:
-		return !IfaceIndir(typ)
+		return ValueShapeAggregate
 	}
-	return false
+	return ValueShapePointer
 }
 
 // IfaceIndir reports whether a value of the type is stored indirectly in an interface value.
@@ -491,6 +501,11 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			rv = newV
 		}
 	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
 	v = rv.Interface()
 	var bb []byte
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -541,6 +556,11 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 			rv = newV
 		}
 	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
+	}
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
 	if !ok {
@@ -563,6 +583,11 @@ func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 			newV.Elem().Set(rv)
 			rv = newV
 		}
+	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
 	}
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)

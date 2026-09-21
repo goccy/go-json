@@ -106,6 +106,10 @@ type RuntimeContext struct {
 	// held by the interface values. A slot is never moved.
 	topValue   unsafe.Pointer
 	valueSlots []*unsafe.Pointer
+	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
+	// It is zeroed again after the encoding.
+	valueCodeSet *OpcodeSet
+	value        unsafe.Pointer
 }
 
 // ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value

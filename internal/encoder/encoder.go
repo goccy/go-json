@@ -110,7 +110,9 @@ type OpcodeSet struct {
 	EndCode                  *Opcode
 	Code                     Code
 	QueryCache               map[string]*OpcodeSet
-	cacheMu                  sync.RWMutex
+	// values is the pool of the values of Type in the heap, which MarshalOf copies its argument to.
+	values  sync.Pool
+	cacheMu sync.RWMutex
 }
 
 // ValueShape classifies a type by what a nil data word of an interface value of the type means.
@@ -164,6 +166,26 @@ func IfaceIndir(typ unsafe.Pointer) bool {
 		return false
 	}
 	return codeSet.IfaceIndir
+}
+
+// TakeValue returns the address of a zero value of Type in the heap.
+//
+// The runtime context keeps the value of the type it encoded last, because taking one from a sync.Pool costs
+// as much as a small allocation, and a runtime context is already taken from a pool.
+func (s *OpcodeSet) TakeValue(ctx *RuntimeContext) unsafe.Pointer {
+	if ctx.valueCodeSet == s {
+		return ctx.value
+	}
+	if ctx.valueCodeSet != nil {
+		ctx.valueCodeSet.values.Put(ctx.value)
+	}
+	ctx.valueCodeSet = s
+	if p := s.values.Get(); p != nil {
+		ctx.value = p.(unsafe.Pointer)
+	} else {
+		ctx.value = reflect.New(s.Type).UnsafePointer()
+	}
+	return ctx.value
 }
 
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {

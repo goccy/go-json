@@ -179,29 +179,17 @@ func Marshal(v interface{}) ([]byte, error) {
 
 ## Encoder
 
-### Do not escape arguments of `Marshal`
+### Encode a value without copying it to the heap by `MarshalOf`
 
-`json.Marshal` and `json.Unmarshal` receive `interface{}` value and they perform type determination dynamically to process.
-In normal case, you need to use the `reflect` library to determine the type dynamically, but since `reflect.Type` is defined as `interface`, when you call the method of `reflect.Type`, The reflect's argument is escaped.
+`json.Marshal` receives an `interface{}` value. A value which is not a pointer is copied to the heap when it is converted to an `interface{}` value, so `json.Marshal(v)` allocates the copy of `v` for every call, in addition to the result.
 
-Therefore, the arguments for `Marshal` and `Unmarshal` are always escaped to the heap.
-However, `go-json` can use the feature of `reflect.Type` while avoiding escaping.
+`json.MarshalOf[T]` receives the value by its type. It copies the value to a value in the heap which is reused, so the result is the only allocation.
 
-`reflect.Type` is defined as `interface`, but in reality `reflect.Type` is implemented only by the structure `rtype` defined in the `reflect` package.
-For this reason, to date `reflect.Type` is the same as `*reflect.rtype`.
+```go
+b, err := json.MarshalOf(v)
+```
 
-Therefore, by directly handling `*reflect.rtype`, which is an implementation of `reflect.Type`, it is possible to avoid escaping because it changes from `interface` to using `struct`.
-
-The technique for working with `*reflect.rtype` directly from `go-json` is implemented at [rtype.go](https://github.com/goccy/go-json/blob/master/internal/runtime/rtype.go)
-
-Also, the same technique is cut out as a library ( https://github.com/goccy/go-reflect )
-
-Initially this feature was the default behavior of `go-json`.
-But after careful testing, I found that I passed a large value to `json.Marshal()` and if the argument could not be assigned to the stack, it could not be properly escaped to the heap (a bug in the Go compiler).
-
-Therefore, this feature will be provided as an **optional** until this issue is resolved.
-
-To use it, add `NoEscape` like `MarshalNoEscape()`
+`MarshalNoEscape`, which left the value on the stack, is deprecated: the encoder refers to the value by its address, and the address gets invalid when the stack of the goroutine is moved. It is now the same as `Marshal`.
 
 ### Encoding using opcode sequence
 

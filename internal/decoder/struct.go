@@ -215,6 +215,8 @@ func decodeKeyCharByEscapedChar(buf []byte, cursor int64) ([]byte, int64, error)
 		return []byte{'\t'}, cursor, nil
 	case 'u':
 		return decodeKeyCharByUnicodeRune(buf, cursor)
+	case nul:
+		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 	}
 	return nil, cursor, nil
 }

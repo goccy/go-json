@@ -4105,3 +4105,25 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue604(t *testing.T) {
+	// A dangling escape at the end of an object key (e.g. `{"\`) must return an
+	// error, not silently advance the cursor past the buffer. Decoding it in a
+	// sequence with another malformed input used to panic with an out-of-range
+	// index because the key scanner over-read a reused (pooled) buffer.
+	type doc struct {
+		ID        string              `json:"id"`
+		Meta      map[string][]string `json:"meta"`
+		ContentMD string              `json:"contentMd"`
+	}
+	inputs := []string{
+		`[{"x":1},{"y":`, // unterminated array of objects
+		`{"\`,            // object key ending in a dangling escape
+	}
+	for i := 0; i < 20; i++ {
+		var d doc
+		if err := json.Unmarshal([]byte(inputs[i%len(inputs)]), &d); err == nil {
+			t.Fatalf("input %q: expected error, got nil", inputs[i%len(inputs)])
+		}
+	}
+}

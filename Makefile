@@ -38,7 +38,8 @@ golangci-lint: | $(BIN_DIR)
 generate:
 	go generate ./internal/...
 
-# Fails if any benchmark of go-json under ./benchmarks is degraded compared with the master branch.
+# Fails if the benchmarks of go-json under ./benchmarks are degraded compared with the master branch:
+# their mean is slower beyond -tolerance, or one of them is slower beyond -single-tolerance.
 # The benchmarks of the other libraries are never measured.
 # Options of internal/cmd/benchcheck can be passed by BENCH_CHECK_FLAGS.
 # e.g.) make bench-check BENCH_CHECK_FLAGS="-bench GoJson -no-cache"

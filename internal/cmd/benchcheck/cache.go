@@ -44,6 +44,8 @@ type verdictKey struct {
 	Config    benchConfig `json:"config"`
 	Attempts  int         `json:"attempts"`
 	Tolerance float64     `json:"tolerance"`
+	// SingleTolerance is the tolerance of a single benchmark, and Tolerance is the one of the mean.
+	SingleTolerance float64 `json:"singleTolerance"`
 }
 
 type baseline struct {
@@ -53,10 +55,12 @@ type baseline struct {
 }
 
 type verdict struct {
-	Head       string        `json:"head"`
-	Base       string        `json:"base"`
-	Key        verdictKey    `json:"key"`
-	Benchmarks []benchResult `json:"benchmarks"`
+	Head string     `json:"head"`
+	Base string     `json:"base"`
+	Key  verdictKey `json:"key"`
+	// MeanDeltaPercent is how much slower the head is than the base on average, in percent.
+	MeanDeltaPercent float64       `json:"meanDeltaPercent"`
+	Benchmarks       []benchResult `json:"benchmarks"`
 }
 
 type cache struct {

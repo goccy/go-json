@@ -3,6 +3,7 @@ package encoder
 import (
 	"fmt"
 	"reflect"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
 )
@@ -751,12 +752,23 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 	return codes
 }
 
+// KeyChunkSize is the size of the chunk which the VM copies a key by.
+const KeyChunkSize = 16
+
+// PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+// so that a chunk is copied from the key without reading the memory of others.
+func PaddedKey(key string) string {
+	buf := make([]byte, len(key)+KeyChunkSize)
+	copy(buf, key)
+	return unsafe.String(unsafe.SliceData(buf), len(key))
+}
+
 func (c *StructFieldCode) structKey(ctx *compileContext) string {
 	if ctx.escapeKey {
 		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
-		return fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
+		return PaddedKey(fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key))))
 	}
-	return fmt.Sprintf(`"%s":`, c.key)
+	return PaddedKey(fmt.Sprintf(`"%s":`, c.key))
 }
 
 func (c *StructFieldCode) flags() OpFlags {

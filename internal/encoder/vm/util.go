@@ -181,8 +181,18 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 
+// appendStructKey copies a key up to a chunk by a copy of a whole chunk, not by a call of memmove:
+// a call from the VM makes it spill and restore its variables, which costs more than the copy of a key.
+// The memory of a key has the bytes after it up to a chunk: see encoder.PaddedKey.
 func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	return append(b, code.Key...)
+	key := code.Key
+	n := len(b)
+	if len(key) <= encoder.KeyChunkSize && cap(b)-n >= encoder.KeyChunkSize {
+		b = b[:n+encoder.KeyChunkSize]
+		*(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(&b[n])) = *(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(key)))
+		return b[:n+len(key)]
+	}
+	return append(b, key...)
 }
 
 func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {

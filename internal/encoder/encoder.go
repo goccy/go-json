@@ -495,7 +495,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 		if !ok {
 			return AppendNull(ctx, b), nil
 		}
-		stdctx := ctx.Option.Context
+		stdctx := ctx.marshalerContext()
 		if ctx.Option.Flag&FieldQueryOption != 0 {
 			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
 		}
@@ -542,7 +542,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 		if !ok {
 			return AppendNull(ctx, b), nil
 		}
-		b, err := marshaler.MarshalJSON(ctx.Option.Context)
+		b, err := marshaler.MarshalJSON(ctx.marshalerContext())
 		if err != nil {
 			return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 		}

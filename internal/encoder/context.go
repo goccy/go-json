@@ -142,5 +142,17 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	// The context of a call must neither be kept by the pool nor be seen by the next call,
+	// which may not be given a context at all.
+	ctx.Option.Context = nil
 	runtimeContextPool.Put(ctx)
+}
+
+// marshalerContext returns the context to call MarshalJSON(context.Context) with.
+// It is never nil, also for a call which is not given a context.
+func (c *RuntimeContext) marshalerContext() context.Context {
+	if c.Option.Context == nil {
+		return context.Background()
+	}
+	return c.Option.Context
 }

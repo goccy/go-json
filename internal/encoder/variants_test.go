@@ -136,6 +136,56 @@ func appendStringReserved(buf []byte, s string) []byte {
 	return buf
 }
 
+// appendStringShortCopy scans as appendNormalizedHTMLString does ( by bytes under a word ), but it checks the
+// capacity once, writes the quotes directly and copies a string up to 16 bytes without calling memmove.
+func appendStringShortCopy(buf []byte, s string) []byte {
+	n := len(s)
+	l := len(buf)
+	if cap(buf)-l < n+2 {
+		buf = variantReserve(buf, n+2)
+	}
+	src := unsafe.Pointer(unsafe.StringData(s))
+	if n < 8 {
+		for i := 0; i < n; i++ {
+			if needEscapeHTMLNormalizeUTF8[*(*byte)(unsafe.Add(src, i))] {
+				return appendNormalizedHTMLString(buf, s)
+			}
+		}
+	} else {
+		i := 0
+		for ; i+8 <= n; i += 8 {
+			if escapeMaskHTML(*(*uint64)(unsafe.Add(src, i))) != 0 {
+				return appendNormalizedHTMLString(buf, s)
+			}
+		}
+		if i < n && escapeMaskHTML(*(*uint64)(unsafe.Add(src, n-8))) != 0 {
+			return appendNormalizedHTMLString(buf, s)
+		}
+	}
+	buf = buf[:l+n+2]
+	dst := unsafe.Pointer(unsafe.SliceData(buf[l:]))
+	*(*byte)(dst) = '"'
+	dst = unsafe.Add(dst, 1)
+	switch {
+	case n > 16:
+		copy(buf[l+1:], s)
+	case n >= 8:
+		// the two words overlap.
+		*(*uint64)(dst) = *(*uint64)(src)
+		*(*uint64)(unsafe.Add(dst, n-8)) = *(*uint64)(unsafe.Add(src, n-8))
+	case n >= 4:
+		*(*uint32)(dst) = *(*uint32)(src)
+		*(*uint32)(unsafe.Add(dst, n-4)) = *(*uint32)(unsafe.Add(src, n-4))
+	case n > 0:
+		// the first, the middle and the last byte are every byte of 1 to 3 bytes.
+		*(*byte)(dst) = *(*byte)(src)
+		*(*byte)(unsafe.Add(dst, n>>1)) = *(*byte)(unsafe.Add(src, n>>1))
+		*(*byte)(unsafe.Add(dst, n-1)) = *(*byte)(unsafe.Add(src, n-1))
+	}
+	*(*byte)(unsafe.Add(dst, n)) = '"'
+	return buf
+}
+
 //go:noinline
 func variantReserve(b []byte, n int) []byte {
 	grown := make([]byte, len(b), 2*cap(b)+n)
@@ -167,7 +217,7 @@ func appendKeyByChunks(b []byte, key string) []byte {
 
 var (
 	variantStrings = []string{
-		"abc", "active", "127.0.0.1", "user_agent_long", "de305d54-75b4-431b-adb2-eb6b9e546014",
+		"", "abc", "test42", "active", "127.0.0.1", "user_agent_long", "de305d54-75b4-431b-adb2-eb6b9e546014",
 		strings.Repeat("abcdefghij", 10), strings.Repeat("abcdefghij", 100),
 	}
 	variantKeys = []string{`"a":`, `"sid":`, `"user_agent":`, `"a_key_longer_than_a_chunk":`}
@@ -182,6 +232,7 @@ func BenchmarkVariant_String(b *testing.B) {
 			{"Current", appendNormalizedHTMLString},
 			{"ByWords", appendStringByWords},
 			{"Reserved", appendStringReserved},
+			{"ShortCopy", appendStringShortCopy},
 		} {
 			s, f := s, variant.f
 			b.Run(variant.name+"/"+strconv.Itoa(len(s)), func(b *testing.B) {
@@ -215,5 +266,34 @@ func BenchmarkVariant_Key(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+func TestVariantsEncodeTheSame(t *testing.T) {
+	var inputs []string
+	for length := 0; length <= 40; length++ {
+		inputs = append(inputs, strings.Repeat("a", length))
+		for pos := 0; pos < length; pos++ {
+			for _, c := range []byte{'"', '<', 0x01, 0xe3} {
+				b := []byte(strings.Repeat("b", length))
+				b[pos] = c
+				inputs = append(inputs, string(b))
+			}
+		}
+	}
+	for _, s := range inputs {
+		expected := string(appendNormalizedHTMLString([]byte("x"), s))
+		for name, f := range map[string]func([]byte, string) []byte{
+			"ByWords":   appendStringByWords,
+			"Reserved":  appendStringReserved,
+			"ShortCopy": appendStringShortCopy,
+		} {
+			// without and with the capacity.
+			for _, buf := range [][]byte{[]byte("x"), append(make([]byte, 0, 128), 'x')} {
+				if got := string(f(buf, s)); got != expected {
+					t.Fatalf("%s(%q): expected %s but got %s", name, s, expected, got)
+				}
+			}
+		}
 	}
 }

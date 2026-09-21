@@ -4105,3 +4105,40 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue427(t *testing.T) {
+	type Entity struct {
+		SomeField1  string
+		SomeField2  string
+		SomeField3  string
+		SomeField4  string
+		SomeField5  string
+		SomeField6  string
+		SomeField7  string
+		SomeField8  string
+		SomeField9  string
+		SomeField10 string
+		SomeField11 string
+		SomeField12 string
+		SomeField13 string
+		SomeField14 string
+		SomeField15 string
+		SomeField16 string
+		SomeField17 string
+	}
+	const src = `{"someField1":"v1","someField17":"v17"}`
+
+	var got Entity
+	if err := json.Unmarshal([]byte(src), &got); err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "unmarshal first field", "v1", got.SomeField1)
+	assertEq(t, "unmarshal last field", "v17", got.SomeField17)
+
+	var stream Entity
+	if err := json.NewDecoder(strings.NewReader(src)).Decode(&stream); err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "stream first field", "v1", stream.SomeField1)
+	assertEq(t, "stream last field", "v17", stream.SomeField17)
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/bytedance/sonic"
+	gojson "github.com/goccy/go-json"
 )
 
 // sonic.ConfigDefault doesn't escape HTML and doesn't sort the keys of a map, which go-json and encoding/json do.
@@ -311,4 +312,38 @@ func Benchmark_MarshalBigData_SonicStd(b *testing.B) {
 		}
 	})
 	b.SetBytes(int64(len(codeJSON)))
+}
+
+// likeSonicOptions are the options of go-json which make it do what sonic.ConfigDefault does:
+// the benchmarks of GoJsonLikeSonic are the ones to compare with the benchmarks of Sonic,
+// as the ones of GoJson are the ones to compare with the benchmarks of SonicStd.
+var likeSonicOptions = []gojson.EncodeOptionFunc{
+	gojson.DisableHTMLEscape(),
+	gojson.DisableNormalizeUTF8(),
+	gojson.UnorderedMap(),
+}
+
+func benchLikeSonic(b *testing.B, v interface{}) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(v, likeSonicOptions...); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Encode_SmallStructCached_GoJsonLikeSonic(b *testing.B) {
+	benchLikeSonic(b, NewSmallPayload())
+}
+
+func Benchmark_Encode_MediumStructCached_GoJsonLikeSonic(b *testing.B) {
+	benchLikeSonic(b, NewMediumPayload())
+}
+
+func Benchmark_Encode_LargeStructCached_GoJsonLikeSonic(b *testing.B) {
+	benchLikeSonic(b, NewLargePayload())
+}
+
+func Benchmark_Encode_MapInterface_GoJsonLikeSonic(b *testing.B) {
+	benchLikeSonic(b, benchMapValue())
 }

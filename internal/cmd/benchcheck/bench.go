@@ -160,6 +160,8 @@ var comparedLibraries = map[string]struct{}{
 	"Jettison":      {},
 	"JsonIter":      {},
 	"SegmentioJson": {},
+	"Sonic":         {},
+	"SonicStd":      {},
 }
 
 // isComparedLibraryBenchmark reports whether the benchmark function measures a library other than go-json.

@@ -75,6 +75,21 @@ jobs:
       - name: check performance degradation
         run: make bench-check BENCH_CHECK_FLAGS="-base origin/master"
 
+  bench-compare:
+    # It never fails by the result: it exists to read how go-json compares with sonic on amd64,
+    # where sonic compiles the encoder of a type to machine code.
+    name: Compare with sonic
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+      - name: compare the encode benchmarks
+        run: make bench-compare-encode
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

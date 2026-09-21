@@ -46,3 +46,9 @@ generate:
 .PHONY: bench-check
 bench-check:
 	go run ./internal/cmd/benchcheck $(BENCH_CHECK_FLAGS)
+
+# bench-compare-encode prints the encode benchmarks of go-json and of bytedance/sonic side by side.
+# SonicStd is sonic configured to do what encoding/json, and go-json, do ( escape HTML, sort the keys of a map ).
+.PHONY: bench-compare-encode
+bench-compare-encode:
+	cd benchmarks && go test -run '^$$' -bench '^Benchmark_(Encode|Marshal|EncodeBigData|MarshalBigData).*_(GoJson|Sonic|SonicStd)$$' -benchtime 300ms -count 3 .

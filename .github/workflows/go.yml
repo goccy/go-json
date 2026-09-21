@@ -95,6 +95,12 @@ jobs:
       - name: measure what the last commit changed
         if: github.event_name == 'pull_request'
         run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal'" || true
+      # Temporary: find why a decode benchmark got slower on amd64 after the cache of a type became a hash table.
+      - name: diagnose the decode benchmark
+        if: github.event_name == 'pull_request'
+        run: |
+          make bench-check BENCH_CHECK_FLAGS="-base c67027a -no-cache -bench 'Decode_LargeSlice|CodeUnmarshal$$'" || true
+          GOGC=800 make bench-check BENCH_CHECK_FLAGS="-base c67027a -no-cache -bench 'Decode_LargeSlice|CodeUnmarshal$$'" || true
       - name: compare the encode benchmarks
         run: make bench-compare-encode
       - name: measure the candidates of the optimizations

@@ -93,7 +93,9 @@ func TestEncodeEmbeddedStructWithOmitEmpty(t *testing.T) {
 		{"interface after embedded", struct{ embeddedThenOmitEmptyInterface }{embeddedThenOmitEmptyInterface{I: 1}}},
 		{"field after empty embedded", struct{ omitEmptyEmbeddedThenField }{omitEmptyEmbeddedThenField{Data: "hi"}}},
 		{"field after embedded", struct{ omitEmptyEmbeddedThenField }{omitEmptyEmbeddedThenField{embeddedOmitEmptyLeaf{"e"}, "hi"}}},
-		{"field after empty slice embedded", struct{ omitEmptySliceEmbeddedThenField }{omitEmptySliceEmbeddedThenField{ID: 1}}},
+		{"field after empty slice embedded", struct {
+			omitEmptySliceEmbeddedThenField
+		}{omitEmptySliceEmbeddedThenField{ID: 1}}},
 		{"empty embedded after field", struct{ fieldThenOmitEmptyEmbedded }{fieldThenOmitEmptyEmbedded{ID: 1}}},
 		{"empty embedded after empty field", struct{ fieldThenOmitEmptyEmbedded }{}},
 		{"embedded after field", struct{ fieldThenOmitEmptyEmbedded }{fieldThenOmitEmptyEmbedded{1, embeddedOmitEmptySliceLeaf{[]string{"d"}}}}},

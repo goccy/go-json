@@ -193,18 +193,24 @@ func (c *Compiler) valueCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {
-	noescapeKeyCode := c.codeToOpcode(&compileContext{
+	noescapeKeyCode, err := c.codeToOpcode(&compileContext{
 		structTypeToCodes: map[uintptr]Opcodes{},
 		recursiveCodes:    &Opcodes{},
 	}, typ, code)
+	if err != nil {
+		return nil, err
+	}
 	if err := noescapeKeyCode.Validate(); err != nil {
 		return nil, err
 	}
-	escapeKeyCode := c.codeToOpcode(&compileContext{
+	escapeKeyCode, err := c.codeToOpcode(&compileContext{
 		structTypeToCodes: map[uintptr]Opcodes{},
 		recursiveCodes:    &Opcodes{},
 		escapeKey:         true,
 	}, typ, code)
+	if err != nil {
+		return nil, err
+	}
 	noescapeKeyCode = copyOpcode(noescapeKeyCode)
 	escapeKeyCode = copyOpcode(escapeKeyCode)
 	setTotalLengthToInterfaceOp(noescapeKeyCode)
@@ -670,7 +676,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
 	case c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
@@ -680,7 +686,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
 	case isPtr && c.isPtrMarshalJSONType(fieldType):
@@ -692,7 +698,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 	case isPtr && c.isPtrMarshalTextType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalText() ([]byte, error)
@@ -702,7 +708,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		}
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
-		fieldCode.isNilCheck = false
+		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 	default:
 		code, err := c.typeToCodeWithPtr(fieldType, isPtr)
 		if err != nil {
@@ -715,6 +721,15 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.value = code
 	}
 	return fieldCode, nil
+}
+
+// isNilCheckForAddrMarshaler returns whether a field whose marshaler is called with its address is checked.
+//
+// The check is what decides that the field is empty for omitempty, by the kind of the value as encoding/json
+// does, so it is required for omitempty. Without omitempty it would write null instead of calling the
+// marshaler, which a pointer to the field never needs.
+func (c *Compiler) isNilCheckForAddrMarshaler(tag *runtime.StructTag) bool {
+	return tag.IsOmitEmpty
 }
 
 func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) bool {
@@ -912,23 +927,50 @@ func (c *Compiler) isPtrMarshalTextType(typ reflect.Type) bool {
 	return !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType)
 }
 
-func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code) *Opcode {
+func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code) (*Opcode, error) {
 	codes := code.ToOpcode(ctx)
 	// the first opcode takes the address of the value, as the one of the value of a map does.
 	codes.First().Flags |= IndirectFlags
 	codes.Last().Next = newEndOp(ctx, typ)
-	c.linkRecursiveCode(ctx)
-	return codes.First()
+	if err := c.linkRecursiveCode(ctx); err != nil {
+		return nil, err
+	}
+	return codes.First(), nil
 }
 
-func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
-	recursiveCodes := map[uintptr]*CompiledCode{}
-	for _, recursive := range *ctx.recursiveCodes {
-		typeptr := uintptr(recursive.Type)
-		codes := ctx.structTypeToCodes[typeptr]
-		if recursiveCode, ok := recursiveCodes[typeptr]; ok {
+func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
+	type recursiveTarget struct {
+		typeptr  uintptr
+		embedded bool
+	}
+	recursiveCodes := map[recursiveTarget]*CompiledCode{}
+	// the recursive codes may increase while they are linked, so the length is evaluated every time.
+	for i := 0; i < len(*ctx.recursiveCodes); i++ {
+		recursive := (*ctx.recursiveCodes)[i]
+		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded}
+		typeptr := target.typeptr
+		if recursiveCode, ok := recursiveCodes[target]; ok {
 			*recursive.Jmp = *recursiveCode
 			continue
+		}
+		codes, exists := ctx.structTypeToCodes[typeptr]
+		if target.embedded || !exists {
+			// structTypeToCodes has the opcodes of the struct itself, with the braces and the check of nil.
+			// - A recursive struct which is embedded jumps to the opcodes only of the fields.
+			// - A struct which has been compiled only as an embedded struct is not in structTypeToCodes.
+			// In both cases the opcodes to jump to are compiled here.
+			structCode, err := c.structCode(runtime.TypeOfPtr(recursive.Type), false)
+			if err != nil {
+				return err
+			}
+			structCode.enableIndirect()
+			if target.embedded {
+				codes = structCode.ToAnonymousOpcode(ctx)
+			} else {
+				codes = structCode.ToOpcode(ctx)
+			}
+			// the opcodes are copied up to the end, as the ones in the code which jumps to them are.
+			codes.Last().Next = newEndOp(ctx, runtime.TypeOfPtr(recursive.Type))
 		}
 
 		code := copyOpcode(codes.First())
@@ -946,6 +988,11 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
 		lastCode.ElemIdx = lastCode.Idx + uintptrSize
 		lastCode.Length = lastCode.Idx + 2*uintptrSize
 
+		// An interface in the recursive code allocates its frame after the frame it is in, which is
+		// the one of the recursive code, not of the code which jumps to it. The length must include
+		// the slots of OpRecursiveEnd, so it is set after they are decided.
+		setTotalLengthToInterfaceOp(code)
+
 		// extend length to alloc slot for elemIdx + length
 		curTotalLength := uintptr(recursive.TotalLength()) + 3
 		nextTotalLength := uintptr(totalLength) + 3
@@ -956,6 +1003,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) {
 		compiled.NextLen = nextTotalLength
 		compiled.Linked = true
 
-		recursiveCodes[typeptr] = compiled
+		recursiveCodes[target] = compiled
 	}
+	return nil
 }

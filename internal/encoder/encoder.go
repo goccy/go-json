@@ -170,6 +170,9 @@ type CompiledCode struct {
 	Linked  bool // whether recursive code already have linked
 	CurLen  uintptr
 	NextLen uintptr
+	// Embedded is whether the recursive struct is embedded in the struct which jumps to it.
+	// The code to jump to is only the fields of the struct then: it has neither the braces nor the check of nil.
+	Embedded bool
 }
 
 const StartDetectingCyclesAfter = 1000

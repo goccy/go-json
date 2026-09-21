@@ -640,3 +640,27 @@ func Benchmark_Indent_GoJson(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_EscapedStrings_GoJson(b *testing.B) {
+	payload := EscapedStringsFixture(100000)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		var escaped []EscapedStrings
+		if err := json.NewDecoder(bytes.NewReader(payload)).Decode(&escaped); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_EscapedStrings_EncodingJson(b *testing.B) {
+	payload := EscapedStringsFixture(100000)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		var escaped []EscapedStrings
+		if err := stdjson.NewDecoder(bytes.NewReader(payload)).Decode(&escaped); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

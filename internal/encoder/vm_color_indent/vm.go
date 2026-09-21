@@ -3265,9 +3265,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 		case encoder.OpStructFieldInt:
 			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
+			b = appendIntField(ctx, code, b, unsafe.Add(p, code.Offset), false)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyInt:
 			p := load(ctxptr, code.Idx)
@@ -3612,9 +3610,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = code.Next
 		case encoder.OpStructFieldString:
 			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
+			b = appendStringField(ctx, code, b, ptrToString(unsafe.Add(p, code.Offset)), false)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyString:
 			p := load(ctxptr, code.Idx)
@@ -4151,9 +4147,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = code.Next
 		case encoder.OpStructEndInt:
 			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendStructEnd(ctx, code, b)
+			b = appendIntField(ctx, code, b, unsafe.Add(p, code.Offset), true)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyInt:
 			p := load(ctxptr, code.Idx)
@@ -4531,9 +4525,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = code.Next
 		case encoder.OpStructEndString:
 			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendStructEnd(ctx, code, b)
+			b = appendStringField(ctx, code, b, ptrToString(unsafe.Add(p, code.Offset)), true)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyString:
 			p := load(ctxptr, code.Idx)

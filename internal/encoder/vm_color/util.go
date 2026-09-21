@@ -269,3 +269,23 @@ func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointe
 func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }
+
+// appendIntField and appendStringField encode a whole field of a struct.
+
+func appendIntField(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer, isEnd bool) []byte {
+	b = appendStructKey(ctx, code, b)
+	b = appendInt(ctx, b, p, code)
+	if isEnd {
+		return appendStructEnd(ctx, code, b)
+	}
+	return appendComma(ctx, b)
+}
+
+func appendStringField(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, s string, isEnd bool) []byte {
+	b = appendStructKey(ctx, code, b)
+	b = appendString(ctx, b, s)
+	if isEnd {
+		return appendStructEnd(ctx, code, b)
+	}
+	return appendComma(ctx, b)
+}

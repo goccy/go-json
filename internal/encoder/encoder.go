@@ -97,7 +97,11 @@ type OpcodeSet struct {
 	Type reflect.Type
 	// IfaceIndir is whether a value of Type is stored indirectly in an interface value.
 	// It is decided when the type is compiled, because deciding it is not cheap.
-	IfaceIndir               bool
+	IfaceIndir bool
+	// DataWordIsAddr is whether the data word of an interface value of Type is the address of the value
+	// which the opcodes take: the type is stored indirectly, or it is a pointer, which is the address of
+	// the value it points to.
+	DataWordIsAddr           bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -109,14 +113,30 @@ type OpcodeSet struct {
 	cacheMu                  sync.RWMutex
 }
 
-// TypeKind returns the kind of the type given by the pointer to its type descriptor.
+// ValueShape classifies a type by what a nil data word of an interface value of the type means.
+type ValueShape uint
+
+const (
+	// ValueShapePointer is the type whose nil data word is a nil value: a pointer, a map, ...
+	ValueShapePointer ValueShape = iota
+	// ValueShapeAggregate is a struct or an array. If it is stored directly in an interface value
+	// ( it consists of a single pointer ), a nil data word is a value whose pointer is nil, not a nil value.
+	ValueShapeAggregate
+)
+
+// ShapeOf returns the shape of the type given by the pointer to its type descriptor.
 //
-// TypeKind and IfaceIndir are functions of their own, not a part of the VM, because any code added to
-// the VM changes the register allocation of the whole VM.
+// ShapeOf and IfaceIndir are functions of their own, not a part of the VM, and the VM calls them in the
+// same form as it did before, because any change of the code of the VM changes the register allocation
+// of the whole VM.
 //
 //go:noinline
-func TypeKind(typ unsafe.Pointer) reflect.Kind {
-	return runtime.TypeOfPtr(typ).Kind()
+func ShapeOf(typ unsafe.Pointer) ValueShape {
+	switch runtime.TypeOfPtr(typ).Kind() {
+	case reflect.Struct, reflect.Array:
+		return ValueShapeAggregate
+	}
+	return ValueShapePointer
 }
 
 // IfaceIndir reports whether a value of the type is stored indirectly in an interface value.
@@ -421,16 +441,30 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	return b, nil
 }
 
+// addrForMarshaler returns the pointer to the value held by v, to call a marshaler with a pointer receiver.
+//
+// The VM makes v from the address of the value, so the data word of v is that address unless the type is
+// stored directly in an interface value. Only a pointer-sized type can be stored directly, so for the other
+// sizes the pointer is made from the data word: the marshaler is called with the original value, as
+// encoding/json does, and nothing is allocated. A pointer-sized value is copied, because its data word
+// may be the value itself.
+func addrForMarshaler(v interface{}, rv reflect.Value) reflect.Value {
+	if rv.CanAddr() {
+		return rv.Addr()
+	}
+	typ := rv.Type()
+	if typ.Size() != unsafe.Sizeof(unsafe.Pointer(nil)) {
+		return reflect.NewAt(typ, (*emptyInterface)(unsafe.Pointer(&v)).ptr)
+	}
+	newV := reflect.New(typ)
+	newV.Elem().Set(rv)
+	return newV
+}
+
 func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
+		rv = addrForMarshaler(v, rv)
 	}
 
 	if rv.Kind() == reflect.Ptr && rv.IsNil() {
@@ -477,13 +511,12 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
+		rv = addrForMarshaler(v, rv)
+	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
 	}
 	v = rv.Interface()
 	var bb []byte
@@ -527,13 +560,12 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
+		rv = addrForMarshaler(v, rv)
+	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
 	}
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
@@ -550,13 +582,12 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
-		if rv.CanAddr() {
-			rv = rv.Addr()
-		} else {
-			newV := reflect.New(rv.Type())
-			newV.Elem().Set(rv)
-			rv = newV
-		}
+		rv = addrForMarshaler(v, rv)
+	}
+	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
+	// so it is not known to be nil until here.
+	if rv.Kind() == reflect.Ptr && rv.IsNil() {
+		return AppendNull(ctx, b), nil
 	}
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)

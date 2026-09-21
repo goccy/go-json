@@ -399,11 +399,20 @@ func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
 	for firstField.Op == OpStructHead || firstField.Op == OpStructField {
 		firstField = firstField.Next
 	}
-	lastField := firstField
-	for lastField.NextField != nil {
-		lastField = lastField.NextField
+	return lastFieldOpcode(firstField)
+}
+
+// lastFieldOpcode returns the last field of the chain of the fields which starts from field.
+// If a field of the chain is an embedded struct, which is a head without a value followed by
+// the fields of the struct, the chain continues with those fields.
+func lastFieldOpcode(field *Opcode) *Opcode {
+	for field.NextField != nil {
+		field = field.NextField
+		for field.Flags&AnonymousHeadFlags != 0 && (field.Op == OpStructField || field.Op == OpStructHead) {
+			field = field.Next
+		}
 	}
-	return lastField
+	return field
 }
 
 func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
@@ -514,7 +523,9 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 				firstField.End = lastField
 			}
 		}
-		prevField = firstField
+		// the next field is linked from the last field of this one:
+		// if this field is an embedded struct, it is the last field of that struct, as ToOpcode does.
+		prevField = c.lastFieldCode(field, firstField)
 		codes = codes.Add(fieldCodes...)
 	}
 	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
@@ -700,10 +711,7 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 	for code.Op == OpStructField || code.Op == OpStructHead {
 		code = code.Next
 	}
-	for code.NextField != nil {
-		code = code.NextField
-	}
-	code.NextField = end
+	lastFieldOpcode(code).NextField = end
 
 	codes = codes.Add(end)
 	ctx.incOpcodeIndex()

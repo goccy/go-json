@@ -297,3 +297,26 @@ func TestVariantsEncodeTheSame(t *testing.T) {
 		}
 	}
 }
+
+// the four functions which AppendString chooses by the options must cost the same for a string without an escape.
+func BenchmarkVariant_StringFlags(b *testing.B) {
+	for _, s := range []string{"test42", "user_agent_long", "de305d54-75b4-431b-adb2-eb6b9e546014"} {
+		for _, variant := range []struct {
+			name string
+			f    func([]byte, string) []byte
+		}{
+			{"NormalizedHTML", appendNormalizedHTMLString},
+			{"HTML", appendHTMLString},
+			{"Normalized", appendNormalizedString},
+			{"Plain", appendString},
+		} {
+			s, f := s, variant.f
+			b.Run(variant.name+"/"+strconv.Itoa(len(s)), func(b *testing.B) {
+				buf := make([]byte, 0, 4096)
+				for i := 0; i < b.N; i++ {
+					buf = f(buf[:0], s)
+				}
+			})
+		}
+	}
+}

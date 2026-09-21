@@ -59,10 +59,11 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	bytes = append(bytes, nul)
 	oldBuf := ctx.Buf
 	ctx.Buf = bytes
-	if _, err := d.dec.Decode(ctx, 0, depth, p); err != nil {
+	_, err = d.dec.Decode(ctx, 0, depth, p)
+	ctx.Buf = oldBuf
+	if err != nil {
 		return 0, err
 	}
-	ctx.Buf = oldBuf
 	return c, nil
 }
 

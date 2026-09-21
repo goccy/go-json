@@ -4105,3 +4105,29 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+// Issue 604: alternating malformed payloads into a struct must not panic.
+// Decoder state (pooled RuntimeContext / bitmap key cursor) was leaking
+// across Unmarshal calls so a later short buffer was indexed out of range.
+func TestIssue604(t *testing.T) {
+	type doc struct {
+		ID        string              `json:"id"`
+		Meta      map[string][]string `json:"meta"`
+		ContentMD string              `json:"contentMd"`
+	}
+	inputs := []string{
+		`[{"x":1},{"y":`,
+		`{"\`,
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panic: %v", r)
+		}
+	}()
+	for i := 0; i < 20; i++ {
+		var d doc
+		if err := json.Unmarshal([]byte(inputs[i%len(inputs)]), &d); err == nil {
+			t.Errorf("Unmarshal(%q) succeeded, want error", inputs[i%len(inputs)])
+		}
+	}
+}

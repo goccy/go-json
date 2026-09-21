@@ -193,3 +193,56 @@ func TestEncodePointerShapedValue(t *testing.T) {
 		})
 	}
 }
+
+// addressRecorder records the receiver with which MarshalJSON is called.
+type addressRecorder struct {
+	A, B int
+}
+
+var recordedAddresses []*addressRecorder
+
+func (r *addressRecorder) MarshalJSON() ([]byte, error) {
+	recordedAddresses = append(recordedAddresses, r)
+	return []byte("1"), nil
+}
+
+type addressRecorderHolder struct {
+	R addressRecorder
+}
+
+// A marshaler with a pointer receiver is called with the address of the original value, not of a copy,
+// as encoding/json does.
+func TestEncodePointerReceiverMarshalerAddress(t *testing.T) {
+	value := &addressRecorder{}
+	elems := []addressRecorder{{}, {}}
+	holder := &addressRecorderHolder{}
+	for _, test := range []struct {
+		name     string
+		v        interface{}
+		expected []*addressRecorder
+	}{
+		{"pointer", value, []*addressRecorder{value}},
+		{"elements of slice", elems, []*addressRecorder{&elems[0], &elems[1]}},
+		{"field of pointer to struct", holder, []*addressRecorder{&holder.R}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, marshal := range []func(interface{}) ([]byte, error){
+				json.Marshal,
+				func(v interface{}) ([]byte, error) { return json.MarshalIndent(v, "", "  ") },
+			} {
+				recordedAddresses = nil
+				if _, err := marshal(test.v); err != nil {
+					t.Fatal(err)
+				}
+				if len(recordedAddresses) != len(test.expected) {
+					t.Fatalf("expected %d calls but got %d", len(test.expected), len(recordedAddresses))
+				}
+				for i, addr := range recordedAddresses {
+					if addr != test.expected[i] {
+						t.Fatalf("call %d: the marshaler was called with a copy %p, not with the original value %p", i, addr, test.expected[i])
+					}
+				}
+			}
+		})
+	}
+}

@@ -97,7 +97,7 @@ type RuntimeContext struct {
 // The copy is held as uintptr so that the value doesn't escape:
 // the caller has to keep the value alive while it is encoded.
 func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr {
-	if codeSet.IfaceIndir {
+	if codeSet.DataWordIsAddr {
 		return dataWord
 	}
 	c.topValue = dataWord
@@ -111,7 +111,7 @@ func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord uintptr) uintptr
 //
 //go:noinline
 func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord uintptr, level int) uintptr {
-	if codeSet.IfaceIndir {
+	if codeSet.DataWordIsAddr {
 		return dataWord
 	}
 	for len(c.valueSlots) <= level {

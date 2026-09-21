@@ -148,11 +148,33 @@ func newCompiler() *Compiler {
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := runtime.TypeOfPtr(*(*unsafe.Pointer)(unsafe.Pointer(&typeptr)))
+	if typ.Kind() == reflect.Ptr {
+		// a pointer is the address of a value, so the opcodes are the ones of the value it points to.
+		code, err := c.pointeeCode(typ.Elem())
+		if err != nil {
+			return nil, err
+		}
+		return c.codeToOpcodeSet(typ, code)
+	}
 	code, err := c.valueCode(typ)
 	if err != nil {
 		return nil, err
 	}
 	return c.codeToOpcodeSet(typ, code)
+}
+
+// pointeeCode returns the code for the value which a pointer points to.
+// It is addressable, as an element of a slice is.
+func (c *Compiler) pointeeCode(typ reflect.Type) (Code, error) {
+	code, err := c.listElemCode(typ)
+	if err != nil {
+		return nil, err
+	}
+	if code.Kind() == CodeKindStruct {
+		structCode := code.(*StructCode)
+		structCode.enableIndirect()
+	}
+	return code, nil
 }
 
 // valueCode returns the code for a value which is not addressable and whose address is given to the opcode:
@@ -193,6 +215,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	return &OpcodeSet{
 		Type:                     typ,
 		IfaceIndir:               runtime.IfaceIndir(typ),
+		DataWordIsAddr:           runtime.IfaceIndir(typ) || typ.Kind() == reflect.Ptr,
 		NoescapeKeyCode:          noescapeKeyCode,
 		EscapeKeyCode:            escapeKeyCode,
 		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,
@@ -472,10 +495,18 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 
 func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 	switch {
-	case c.implementsMarshalJSONType(typ) || c.implementsMarshalJSONType(reflect.PointerTo(typ)):
+	case c.isPtrMarshalJSONType(typ):
+		// The opcode takes the address of the element, which is the very pointer the marshaler is called with.
+		// So the opcode is the one of the pointer type, and neither a copy of the element nor reflect is needed.
+		ptrType := reflect.PointerTo(typ)
+		return &MarshalJSONCode{
+			typ:                ptrType,
+			isMarshalerContext: ptrType.Implements(marshalJSONContextType),
+		}, nil
+	case c.implementsMarshalJSONType(typ):
 		return c.marshalJSONCode(typ)
 	case !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
-		return c.marshalTextCode(typ)
+		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
 	case typ.Kind() == reflect.Map:
 		return c.ptrCode(reflect.PointerTo(typ))
 	default:

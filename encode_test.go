@@ -991,11 +991,11 @@ func TestMarshalerError(t *testing.T) {
 		want string
 	}{
 		{
-			json.NewMarshalerError(st, fmt.Errorf(errText), ""),
+			json.NewMarshalerError(st, fmt.Errorf("%s", errText), ""),
 			"json: error calling MarshalJSON for type " + st.String() + ": " + errText,
 		},
 		{
-			json.NewMarshalerError(st, fmt.Errorf(errText), "TestMarshalerError"),
+			json.NewMarshalerError(st, fmt.Errorf("%s", errText), "TestMarshalerError"),
 			"json: error calling TestMarshalerError for type " + st.String() + ": " + errText,
 		},
 	}

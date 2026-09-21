@@ -42,8 +42,13 @@ const maxReusedValueSize = 4096
 
 func encodeOf[T any](ctx *encoder.RuntimeContext, v *T) ([]byte, error) {
 	typ := reflect.TypeOf(v).Elem()
-	if typ.Kind() == reflect.Interface {
+	switch typ.Kind() {
+	case reflect.Interface:
 		// the type to encode is the one of the value which the interface value holds.
+		return encode(ctx, *v)
+	case reflect.Ptr, reflect.Map:
+		// the value is stored directly in an interface value, which needs no allocation.
+		// The other types stored directly are found by their code set below.
 		return encode(ctx, *v)
 	}
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(typ)))

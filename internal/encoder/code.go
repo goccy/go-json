@@ -490,7 +490,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	//                        ^          |
 	//                        |__________|
 	if c.isRecursive {
-		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
+		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true})
 		recursive.Type = runtime.TypePtr(c.typ)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
@@ -528,7 +528,8 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		prevField = c.lastFieldCode(field, firstField)
 		codes = codes.Add(fieldCodes...)
 	}
-	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
+	// The opcodes of an embedded struct are only the fields: they have neither the braces nor the check
+	// of nil. So they are not registered to structTypeToCodes, which is where a recursive code jumps to.
 	return codes
 }
 

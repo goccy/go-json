@@ -52,3 +52,11 @@ bench-check:
 .PHONY: bench-compare-encode
 bench-compare-encode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_(Encode|Marshal|EncodeBigData|MarshalBigData).*_(GoJson|Sonic|SonicStd)$$' -benchtime 300ms -count 3 .
+
+# bench-profile-encode prints where the CPU time of the encode benchmarks of go-json goes.
+.PHONY: bench-profile-encode
+bench-profile-encode:
+	cd benchmarks && for b in SmallStructCached MediumStructCached LargeStructCached MapInterface; do \
+		go test -run '^$$' -bench "^Benchmark_Encode_$${b}_GoJson$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
+		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5; \
+	done

@@ -111,9 +111,13 @@ type RuntimeContext struct {
 	// registers across the opcodes, and it has to restore every one of them after each call in an opcode.
 	RecursiveLevel int
 	SlotOffset     uintptr
-	Prefix         []byte
-	IndentStr      []byte
-	Option         *Option
+	// TailLevels is the number of the values of a recursive type which are being encoded in the current frame,
+	// one after the other as the last field of the previous, without a frame of their own: see
+	// EnterTailRecursive. Their braces are closed one by one when the last of them ends.
+	TailLevels uint32
+	Prefix     []byte
+	IndentStr  []byte
+	Option     *Option
 	// mapContext is the context of the map being encoded, which refers to the ones of the maps it is in.
 	mapContext *MapContext
 	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr and valueSlots.
@@ -173,6 +177,7 @@ func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
 	c.BaseIndent = 0
 	c.RecursiveLevel = 0
 	c.SlotOffset = 0
+	c.TailLevels = 0
 }
 
 // ReserveSlots makes the context have the slots of the frames up to the length.

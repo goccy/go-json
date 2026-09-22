@@ -671,3 +671,36 @@ func Benchmark_Indent_GoJson(b *testing.B) {
 		}
 	}
 }
+
+// A list of values of a recursive type, each the last field of the previous: encoded in one frame.
+type listNode struct {
+	Id   int       `json:"id"`
+	Name string    `json:"name"`
+	Next *listNode `json:"next"`
+}
+
+var linkedList = func() *listNode {
+	var head *listNode
+	for i := 100; i > 0; i-- {
+		head = &listNode{Id: i, Name: "node", Next: head}
+	}
+	return head
+}()
+
+func Benchmark_EncodeLinkedList_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(linkedList); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}
+
+func Benchmark_EncodeLinkedList_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := stdjson.Marshal(linkedList); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}

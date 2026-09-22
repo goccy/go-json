@@ -63,8 +63,10 @@ func (c *RuntimeContext) enterFrame(first, end, next *Opcode, p unsafe.Pointer, 
 	storeSlotPtr(base, first.Idx, p)
 	storeSlotPtr(base, end.Idx, unsafe.Pointer(next))
 	storeSlotInt(base, end.ElemIdx, oldOffset)
-	storeSlotInt(base, end.Length, uintptr(c.BaseIndent))
+	// the indent and the tail levels of the frame left are in one slot: both are small.
+	storeSlotInt(base, end.Length, uintptr(c.BaseIndent)|uintptr(c.TailLevels)<<32)
 	c.BaseIndent = indent
+	c.TailLevels = 0
 	c.RecursiveLevel++
 	return base
 }
@@ -158,7 +160,24 @@ func (c *RuntimeContext) LeaveFrame(end *Opcode) (*Opcode, unsafe.Pointer) {
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
 		c.SeenPtr = c.SeenPtr[:len(c.SeenPtr)-1]
 	}
-	c.BaseIndent = uint32(loadSlotInt(base, end.Length))
+	saved := loadSlotInt(base, end.Length)
+	c.BaseIndent = uint32(saved)
+	c.TailLevels = uint32(saved >> 32)
 	c.SlotOffset = loadSlotInt(base, end.ElemIdx)
 	return (*Opcode)(loadSlotPtr(base, end.Idx)), unsafe.Add(c.Ptr(), c.SlotOffset)
+}
+
+// The last field of a value of a recursive type may be a value of the same type: a list. Such a value is
+// encoded in the frame of the value it is the field of ( TailRecursiveFlags ): the slots of that value are not
+// needed any more, and the only thing left to do for it is to close its braces, which the end of the last
+// value of the list does for every value of the list. No frame is entered and left for a value of the list, so
+// the slots, the offsets and the opcode to return to are neither stored nor restored, and the end of a value
+// is not dispatched: that makes a list as cheap as a nest of values of different types. The VM does it inline,
+// as the functions here cost more than the inliner allows into it; the end opcode of the list has what the
+// indent is deeper by for a value of it.
+
+// RecordSeen records the value of a recursive type at p for the detection of cycles: the VM calls it before
+// it begins a value of a list, when the level is deep enough for the detection.
+func (c *RuntimeContext) RecordSeen(code *Opcode, p unsafe.Pointer) error {
+	return c.recordSeen(code, p)
 }

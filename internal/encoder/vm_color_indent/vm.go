@@ -539,6 +539,24 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpRecursive:
+			if code.Flags&encoder.TailRecursiveFlags != 0 {
+				// a value of a list, the last field of a value of the same type: encoded in this frame, with
+				// the braces of the value it is the field of closed at OpRecursiveEnd.
+				p := load(ctxptr, code.Idx)
+				if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
+					if err := ctx.RecordSeen(code, p); err != nil {
+						return nil, err
+					}
+				}
+				first := code.Jmp.Code
+				store(ctxptr, first.Idx, p)
+				// the end of the struct is next, then OpRecursiveEnd, which has what the indent is deeper by.
+				ctx.BaseIndent += code.Next.Next.Indent
+				ctx.TailLevels++
+				ctx.RecursiveLevel++
+				code = first
+				break
+			}
 			first, base, err := ctx.EnterRecursive(code, load(ctxptr, code.Idx))
 			if err != nil {
 				return nil, err
@@ -546,6 +564,15 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = first
 			ctxptr = base
 		case encoder.OpRecursiveEnd:
+			// the braces of the values of a list this value was the last field of, from the innermost.
+			for ; ctx.TailLevels > 0; ctx.TailLevels-- {
+				ctx.RecursiveLevel--
+				if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
+					ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
+				}
+				ctx.BaseIndent -= code.Indent
+				b = appendStructEndSkipLast(ctx, code.Next, b)
+			}
 			code, ctxptr = ctx.LeaveFrame(code)
 		case encoder.OpStructPtrHead:
 			p := load(ctxptr, code.Idx)

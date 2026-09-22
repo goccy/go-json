@@ -22,7 +22,7 @@ const (
 	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [240]string{
+var opTypeStrings = [235]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -253,16 +253,11 @@ var opTypeStrings = [240]string{
 	"StructFieldOmitEmpty",
 	"StructEnd",
 	"StructEndOmitEmpty",
-	"StructFieldInt3",
-	"StructFieldInt2",
-	"StructFieldUint3",
-	"StructFieldUint2",
-	"StructFieldFloat643",
-	"StructFieldFloat642",
-	"StructFieldString3",
-	"StructFieldString2",
-	"StructFieldBool3",
-	"StructFieldBool2",
+	"StructFieldIntRun",
+	"StructFieldUintRun",
+	"StructFieldFloat64Run",
+	"StructFieldStringRun",
+	"StructFieldBoolRun",
 }
 
 type OpType uint16
@@ -498,20 +493,15 @@ const (
 	OpStructFieldOmitEmpty                 OpType = 227
 	OpStructEnd                            OpType = 228
 	OpStructEndOmitEmpty                   OpType = 229
-	OpStructFieldInt3                      OpType = 230
-	OpStructFieldInt2                      OpType = 231
-	OpStructFieldUint3                     OpType = 232
-	OpStructFieldUint2                     OpType = 233
-	OpStructFieldFloat643                  OpType = 234
-	OpStructFieldFloat642                  OpType = 235
-	OpStructFieldString3                   OpType = 236
-	OpStructFieldString2                   OpType = 237
-	OpStructFieldBool3                     OpType = 238
-	OpStructFieldBool2                     OpType = 239
+	OpStructFieldIntRun                    OpType = 230
+	OpStructFieldUintRun                   OpType = 231
+	OpStructFieldFloat64Run                OpType = 232
+	OpStructFieldStringRun                 OpType = 233
+	OpStructFieldBoolRun                   OpType = 234
 )
 
 func (t OpType) String() string {
-	if int(t) >= 240 {
+	if int(t) >= 235 {
 		return ""
 	}
 	return opTypeStrings[int(t)]

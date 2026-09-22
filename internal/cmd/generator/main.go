@@ -218,14 +218,12 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 			})
 		}
 	}
-	// A run of fields of the same kind in a row is encoded by the opcode of the run, which falls through the
-	// cases of the shorter runs: the fields after the first are encoded without a dispatch. The opcodes come
+	// A run of fields of the same kind in a row is encoded by the opcode of the run, whose case encodes the
+	// fields one after the other: the fields after the first are encoded without a dispatch. The opcodes come
 	// after every other one, so that the offsets between the opcodes of a field, its omitempty and its end
 	// stay as they are.
 	for _, typ := range fieldRunTypes {
-		for _, n := range []string{"3", "2"} {
-			opTypes = append(opTypes, opType{Op: "StructField" + typ + n, Code: "StructField"})
-		}
+		opTypes = append(opTypes, opType{Op: "StructField" + typ + "Run", Code: "StructField"})
 	}
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {

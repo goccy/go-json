@@ -688,7 +688,7 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 		seenFieldNum int
 	)
 	firstWin := (s.Option.Flags & FirstWinOption) != 0
-	if firstWin {
+	if firstWin || s.DisallowDuplicateFields {
 		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
 	}
 	for {
@@ -720,6 +720,14 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 					}
 					seenFields[field.fieldIdx] = struct{}{}
 				}
+			} else if s.DisallowDuplicateFields {
+				if _, exists := seenFields[field.fieldIdx]; exists {
+					return fmt.Errorf("json: duplicate field %q", key)
+				}
+				if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+					return err
+				}
+				seenFields[field.fieldIdx] = struct{}{}
 			} else {
 				if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
 					return err

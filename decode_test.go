@@ -289,6 +289,61 @@ func Test_Decoder_DisallowUnknownFields(t *testing.T) {
 	}
 }
 
+func Test_Decoder_DisallowDuplicateFields(t *testing.T) {
+	type nested struct {
+		B int `json:"b"`
+	}
+	type payload struct {
+		A int    `json:"a"`
+		N nested `json:"n"`
+	}
+
+	t.Run("duplicate reports an error", func(t *testing.T) {
+		dec := json.NewDecoder(strings.NewReader(`{"a": 1, "a": 2}`))
+		dec.DisallowDuplicateFields()
+		var v payload
+		err := dec.Decode(&v)
+		if err == nil {
+			t.Fatal("expected duplicate field error")
+		}
+		if err.Error() != `json: duplicate field "a"` {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("duplicate in a nested object is caught", func(t *testing.T) {
+		dec := json.NewDecoder(strings.NewReader(`{"n": {"b": 1, "b": 2}}`))
+		dec.DisallowDuplicateFields()
+		var v payload
+		if err := dec.Decode(&v); err == nil {
+			t.Fatal("expected duplicate field error")
+		}
+	})
+
+	t.Run("distinct fields decode normally", func(t *testing.T) {
+		dec := json.NewDecoder(strings.NewReader(`{"a": 1, "n": {"b": 2}}`))
+		dec.DisallowDuplicateFields()
+		var v payload
+		if err := dec.Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		if v.A != 1 || v.N.B != 2 {
+			t.Fatalf("unexpected value: %+v", v)
+		}
+	})
+
+	t.Run("default keeps last-wins behavior", func(t *testing.T) {
+		dec := json.NewDecoder(strings.NewReader(`{"a": 1, "a": 2}`))
+		var v payload
+		if err := dec.Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		if v.A != 2 {
+			t.Fatalf("expected last value to win, got %d", v.A)
+		}
+	})
+}
+
 func Test_Decoder_EmptyObjectWithSpace(t *testing.T) {
 	dec := json.NewDecoder(strings.NewReader(`{"obj":{ }}`))
 	var v struct {

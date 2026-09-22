@@ -247,6 +247,14 @@ func (d *Decoder) DisallowUnknownFields() {
 	d.s.DisallowUnknownFields = true
 }
 
+// DisallowDuplicateFields causes the Decoder to return an error when the
+// destination is a struct and the input object contains more than one key that
+// maps to the same field. By default the last occurrence wins, matching
+// encoding/json.
+func (d *Decoder) DisallowDuplicateFields() {
+	d.s.DisallowDuplicateFields = true
+}
+
 func (d *Decoder) InputOffset() int64 {
 	return d.s.TotalOffset()
 }

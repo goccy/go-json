@@ -38,6 +38,7 @@ const (
 	MarshalerContextFlags  OpFlags = 1 << 8
 	NonEmptyInterfaceFlags OpFlags = 1 << 9
 	MapStringKeyFlags      OpFlags = 1 << 10 // the key of the map is a string, written by OpMapKey itself
+	TailRecursiveFlags     OpFlags = 1 << 11 // the recursive value is the last field of a value of its own type, encoded in its frame
 )
 
 type Opcode struct {

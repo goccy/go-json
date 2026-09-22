@@ -964,6 +964,29 @@ func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code
 	return codes.First(), nil
 }
 
+// markTailRecursion marks the opcodes of code, the code of a recursive struct, which encode a value of the same
+// type as its last field: such a value is encoded in the frame of the struct, without a frame of its own
+// ( RuntimeContext.EnterTailRecursive ), and the end of the struct closes the braces of the values one by one
+// when the last of them ends ( LeaveTailRecursive ), which is why the end opcode leads back to it.
+//
+// The opcodes of the struct which the code is copied from, the ones which are jumped to it from, are not
+// marked: the first value of the type in a frame enters a frame, so that the last value returns from it.
+func markTailRecursion(code, end *Opcode, compiled *CompiledCode) {
+	// the end of the struct is an opcode of its own only when the last field is not encoded by one opcode:
+	// then it is the end which closes the braces, and which a value in the last field is followed by.
+	if code.End.Op != OpStructEnd {
+		return
+	}
+	for c := code; !c.IsEnd(); c = c.IterNext() {
+		if (c.Op == OpRecursive || c.Op == OpRecursivePtr) && c.Jmp == compiled && c.Next == code.End {
+			c.Flags |= TailRecursiveFlags
+			// what the indent is deeper by for a value: LeaveTailRecursive takes it back.
+			end.Indent = c.Indent - (code.Indent - 1)
+		}
+	}
+	end.Next = code.End
+}
+
 func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	type recursiveTarget struct {
 		typeptr  uintptr
@@ -1008,6 +1031,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 
 		// OpRecursiveEnd must set before call TotalLength
 		code.End.Next = lastCode
+		markTailRecursion(code, lastCode, recursive.Jmp)
 
 		totalLength := code.TotalLength()
 

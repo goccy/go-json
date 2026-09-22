@@ -54,10 +54,6 @@ func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
 	*(*uintptr)(unsafe.Add(base, idx)) = v
 }
 
-func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
-	return ptrToNPtr(load(base, idx), ptrNum)
-}
-
 func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	switch bitSize {
 	case 8:
@@ -79,12 +75,12 @@ func ptrToNumber(p unsafe.Pointer) json.Number         { return *(*json.Number)(
 func ptrToString(p unsafe.Pointer) string              { return *(*string)(p) }
 func ptrToSlice(p unsafe.Pointer) *runtime.SliceHeader { return (*runtime.SliceHeader)(p) }
 func ptrToPtr(p unsafe.Pointer) unsafe.Pointer         { return *(*unsafe.Pointer)(p) }
+
+// ptrToNPtr follows the pointer ptrNum times, or up to a nil one. It is written to be inlined into Run,
+// which is a big function: only a function whose cost is 20 or less is inlined into it.
 func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
-	for i := uint8(0); i < ptrNum; i++ {
-		if p == nil {
-			return nil
-		}
-		p = ptrToPtr(p)
+	for ; ptrNum > 0 && p != nil; ptrNum-- {
+		p = *(*unsafe.Pointer)(p)
 	}
 	return p
 }

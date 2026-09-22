@@ -26,7 +26,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			code = code.Next
 			store(ctxptr, code.Idx, ptrToPtr(p))
 		case encoder.OpIntPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -39,7 +39,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpUintPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -64,7 +64,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpFloat32Ptr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNull(ctx, b)
 				b = appendComma(ctx, b)
@@ -78,7 +78,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpFloat64Ptr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -95,7 +95,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStringPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -108,7 +108,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpBoolPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -121,7 +121,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpBytesPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -134,7 +134,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpNumberPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -150,7 +150,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, bb)
 			code = code.Next
 		case encoder.OpInterfacePtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
@@ -239,7 +239,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendComma(ctx, bb)
 			code = code.Next
 		case encoder.OpSlicePtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.End.Next
@@ -282,7 +282,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.End.Next
 			}
 		case encoder.OpArrayPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.End.Next
@@ -321,7 +321,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.End.Next
 			}
 		case encoder.OpMapPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
 				b = appendNullComma(ctx, b)
 				code = code.End.Next

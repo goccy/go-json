@@ -696,6 +696,40 @@ func Benchmark_EncodeLinkedList_GoJson(b *testing.B) {
 	}
 }
 
+// the recursive field is the first of the node: the option puts it last, so that the list is encoded in
+// one frame.
+type listNodeNextFirst struct {
+	Next *listNodeNextFirst `json:"next"`
+	Id   int                `json:"id"`
+	Name string             `json:"name"`
+}
+
+var linkedListNextFirst = func() *listNodeNextFirst {
+	var head *listNodeNextFirst
+	for i := 100; i > 0; i-- {
+		head = &listNodeNextFirst{Next: head, Id: i, Name: "node"}
+	}
+	return head
+}()
+
+func Benchmark_EncodeLinkedListNextFirst_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(linkedListNextFirst); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}
+
+func Benchmark_EncodeLinkedListNextFirst_GoJsonOptimizedFieldOrder(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.MarshalWithOption(linkedListNextFirst, json.OptimizeFieldOrder()); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}
+
 func Benchmark_EncodeLinkedList_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

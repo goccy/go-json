@@ -207,6 +207,17 @@ func Benchmark_Encode_SmallStructCached_GoJson(b *testing.B) {
 	}
 }
 
+// the fields ordered by the encoder: the ints together, the strings together.
+func Benchmark_Encode_SmallStructCached_GoJsonOptimizedFieldOrder(b *testing.B) {
+	cached := NewSmallPayload()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := gojson.MarshalWithOption(cached, gojson.OptimizeFieldOrder()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func Benchmark_Encode_MediumStruct_EncodingJson(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

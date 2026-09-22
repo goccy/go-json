@@ -17,6 +17,18 @@ func UnorderedMap() EncodeOptionFunc {
 	}
 }
 
+// OptimizeFieldOrder lets the encoder order the fields of a struct as it encodes them fastest, instead of in
+// the order of the struct as encoding/json does: the fields of the same kind ( int, uint, float64, string, bool )
+// are put together, in the order of the first field of each kind, and are encoded without a dispatch between
+// them; and a field of the struct's own type, if there is one, is put last, so that a list of values is encoded
+// without a frame for each. The keys of the JSON object are the same, only their order differs, which a JSON
+// object doesn't define.
+func OptimizeFieldOrder() EncodeOptionFunc {
+	return func(opt *EncodeOption) {
+		opt.Flag |= encoder.OptimizeFieldOrderOption
+	}
+}
+
 // DisableHTMLEscape disables escaping of HTML characters ( '&', '<', '>' ) when encoding string.
 func DisableHTMLEscape() EncodeOptionFunc {
 	return func(opt *EncodeOption) {

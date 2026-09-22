@@ -13,7 +13,6 @@ import (
 var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
-	appendFloat32       = encoder.AppendFloat32
 	appendFloat64       = encoder.AppendFloat64
 	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
@@ -65,7 +64,22 @@ func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	}
 	return 0
 }
-func ptrToFloat32(p unsafe.Pointer) float32            { return *(*float32)(p) }
+func ptrToFloat32(p unsafe.Pointer) float32 { return *(*float32)(p) }
+
+// isInfOrNaN is whether the float is not finite, which encoding/json refuses: the exponent is all ones.
+// math.IsInf is not inlined into Run, which is a big function to the inliner; this is.
+func isInfOrNaN(v float64) bool {
+	const exponent = 0x7ff << 52
+	return math.Float64bits(v)&exponent == exponent
+}
+
+// appendFloat32 appends the float, or returns the error for one which is not finite as encoding/json does.
+func appendFloat32(ctx *encoder.RuntimeContext, b []byte, v float32) ([]byte, error) {
+	if isInfOrNaN(float64(v)) {
+		return nil, errUnsupportedFloat(float64(v))
+	}
+	return encoder.AppendFloat32(ctx, b, v), nil
+}
 func ptrToFloat64(p unsafe.Pointer) float64            { return *(*float64)(p) }
 func ptrToBool(p unsafe.Pointer) bool                  { return *(*bool)(p) }
 func ptrToBytes(p unsafe.Pointer) []byte               { return *(*[]byte)(p) }
@@ -208,10 +222,14 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 	case encoder.OpUint:
 		b = appendUint(ctx, b, p, code)
 	case encoder.OpFloat32:
-		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+		if err != nil {
+			return nil, err
+		}
+		b = bb
 	case encoder.OpFloat64:
 		v := ptrToFloat64(p)
-		if math.IsInf(v, 0) || math.IsNaN(v) {
+		if isInfOrNaN(v) {
 			return nil, errUnsupportedFloat(v)
 		}
 		b = appendFloat64(ctx, b, v)

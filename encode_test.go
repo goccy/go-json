@@ -1345,6 +1345,20 @@ var unsupportedValues = []interface{}{
 	math.NaN(),
 	math.Inf(-1),
 	math.Inf(1),
+	float32(math.NaN()),
+	float32(math.Inf(-1)),
+	float32(math.Inf(1)),
+	struct{ F float32 }{float32(math.Inf(1))},
+	struct {
+		F float32 `json:",omitempty"`
+	}{float32(math.NaN())},
+	struct{ F *float32 }{func() *float32 { f := float32(math.Inf(1)); return &f }()},
+	struct {
+		F float32 `json:",string"`
+	}{float32(math.Inf(-1))},
+	[]float32{float32(math.NaN())},
+	map[string]float32{"a": float32(math.Inf(1))},
+	[]interface{}{float32(math.Inf(1))},
 	pointerCycle,
 	pointerCycleIndirect,
 }
@@ -1357,6 +1371,9 @@ func TestUnsupportedValues(t *testing.T) {
 			}
 		} else {
 			t.Errorf("for %v, expected error", v)
+		}
+		if _, err := json.MarshalIndent(v, "", " "); err == nil {
+			t.Errorf("for %v with indent, expected error", v)
 		}
 	}
 }

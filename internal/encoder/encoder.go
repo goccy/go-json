@@ -252,45 +252,37 @@ func insertionSortMapItems(items []MapItem) {
 // 24 items and slower from 32 items ( BenchmarkVariant_MapSort ).
 const maxItemsOfInsertionSort = 16
 
-// mapIter is the iterator of a map of the runtime, as it was before Go 1.24, which the runtime still fills for
-// the users of mapiterinit: it keeps key and elem up to date with the entry, so they are read here without a
-// call, as the runtime allows ( see runtime/linkname_shim.go ).
-//
-//nolint:unused
-type mapIter struct {
-	key         unsafe.Pointer
-	elem        unsafe.Pointer
-	t           unsafe.Pointer
-	h           unsafe.Pointer
-	buckets     unsafe.Pointer
-	bptr        unsafe.Pointer
-	overflow    unsafe.Pointer
-	oldoverflow unsafe.Pointer
-	startBucket uintptr
-	offset      uint8
-	wrapped     bool
-	B           uint8
-	i           uint8
-	bucket      uintptr
-	checkBucket uintptr
-}
-
-// Key is the pointer to the key of the entry, or nil after the last one.
-func (it *mapIter) Key() unsafe.Pointer { return it.key }
-
-// Elem is the pointer to the value of the entry.
-func (it *mapIter) Elem() unsafe.Pointer { return it.elem }
-
+// MapContext is what the VM encodes a map from: the entries read from the map ( MapLayout.Collect ), and
+// the state of the entry being encoded.
 type MapContext struct {
 	// parent is the context of the map which this map is in.
 	parent *MapContext
-	Start  int
-	First  int
-	Idx    int
-	Slice  *Mapslice
-	Buf    []byte
+	layout *MapLayout
+	// Keys are the keys of the entries, for keys of a string kind; RawKeys are the bytes of the keys of another
+	// kind, keySize each; Values are the bytes of the values, valueSize each. The copies of the values may hold
+	// pointers which the GC doesn't see, as the slots of the VM do: the map holds the values while they are
+	// encoded.
+	Keys    []string
+	RawKeys []byte
+	Values  []byte
+	// Order is the entries sorted by their keys ( SortKeys ), for keys of a string kind; Sorted is whether
+	// the entries are encoded in that order.
+	Order  []int32
+	Sorted bool
 	Len    int
-	Iter   mapIter
+	Idx    int
+	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
+	// the order of their encoded keys after: Start is where the key or the value being written starts,
+	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.
+	Start int
+	First int
+	Slice *Mapslice
+	items []MapItem // what Slice.Items is made of, kept between the maps
+	Buf   []byte
+	// what the collector by reflect.MapIter works with: here so that nothing is allocated for a map.
+	iter       reflect.MapIter
+	keyIface   interface{}
+	valueIface interface{}
 }
 
 var mapContextPool = sync.Pool{
@@ -303,43 +295,36 @@ var mapContextPool = sync.Pool{
 
 // NewMapContext returns the context to encode a map, which the runtime context refers to until it is released:
 // the VM has it only in a slot, which the GC doesn't see.
-func NewMapContext(rctx *RuntimeContext, mapLen int, unorderedMap bool) *MapContext {
+func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx := mapContextPool.Get().(*MapContext)
 	ctx.parent = rctx.mapContext
 	rctx.mapContext = ctx
-	if !unorderedMap {
-		if len(ctx.Slice.Items) < mapLen {
-			ctx.Slice.Items = make([]MapItem, mapLen)
-		} else {
-			ctx.Slice.Items = ctx.Slice.Items[:mapLen]
-		}
-	}
 	ctx.Buf = ctx.Buf[:0]
 	ctx.Idx = 0
-	ctx.Len = mapLen
+	ctx.Sorted = false
+	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
+	ctx.Slice.Items = nil
 	return ctx
+}
+
+// SortByEncodedKeys makes the context put the entries in the order of their encoded keys, for a sorted map
+// whose keys are not of a string kind: the VM records the entries in Slice as it encodes them.
+func (c *MapContext) SortByEncodedKeys() {
+	if cap(c.items) < c.Len {
+		c.items = make([]MapItem, c.Len)
+	}
+	c.Slice.Items = c.items[:c.Len]
 }
 
 func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	// a map is always released before the maps it is in.
 	rctx.mapContext = c.parent
 	c.parent = nil
-	// the iterator refers to the map, which the pool must not keep alive.
-	c.Iter = mapIter{}
+	// the keys refer to the map, which the pool must not keep alive.
+	clear(c.Keys)
+	c.Keys = c.Keys[:0]
 	mapContextPool.Put(c)
 }
-
-//go:linkname MapIterInit runtime.mapiterinit
-//go:noescape
-func MapIterInit(mapType unsafe.Pointer, m unsafe.Pointer, it *mapIter)
-
-//go:linkname MapIterNext reflect.mapiternext
-//go:noescape
-func MapIterNext(it *mapIter)
-
-//go:linkname MapLen reflect.maplen
-//go:noescape
-func MapLen(m unsafe.Pointer) int
 
 func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {
 	if src == nil {

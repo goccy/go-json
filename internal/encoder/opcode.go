@@ -64,6 +64,7 @@ type Opcode struct {
 	Size       uint32              // array/slice elem size
 	DisplayIdx uint32              // opcode index
 	KeyChunk   *[KeyChunkSize]byte // the key and the padding after it, which the VM copies as a chunk
+	Map        *MapLayout          // how the entries of the map are read, for the opcode of a map
 }
 
 func (c *Opcode) Validate() error {
@@ -293,6 +294,7 @@ func copyOpcode(code *Opcode) *Opcode {
 			FieldQuery: c.FieldQuery,
 			DisplayIdx: c.DisplayIdx,
 			KeyChunk:   c.KeyChunk,
+			Map:        c.Map,
 			EmptyKind:  c.EmptyKind,
 			ElemIdx:    c.ElemIdx,
 			Length:     c.Length,
@@ -668,6 +670,7 @@ func newMapHeaderCode(ctx *compileContext, typ reflect.Type) *Opcode {
 	return &Opcode{
 		Op:         OpMap,
 		Type:       runtime.TypePtr(typ),
+		Map:        NewMapLayout(typ),
 		Idx:        idx,
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,

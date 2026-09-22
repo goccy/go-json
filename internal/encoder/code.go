@@ -551,32 +551,34 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	return codes
 }
 
-// fieldRunOps are, for the opcode of a field, the opcode of a run of such fields in a row.
-var fieldRunOps = map[OpType]OpType{
-	OpStructFieldInt:     OpStructFieldIntRun,
-	OpStructFieldUint:    OpStructFieldUintRun,
-	OpStructFieldFloat64: OpStructFieldFloat64Run,
-	OpStructFieldString:  OpStructFieldStringRun,
-	OpStructFieldBool:    OpStructFieldBoolRun,
+// fieldRunOps are, for the opcode of a field, the opcodes of a run of two and of three such fields in a row.
+var fieldRunOps = map[OpType][2]OpType{
+	OpStructFieldInt:     {OpStructFieldInt2, OpStructFieldInt3},
+	OpStructFieldUint:    {OpStructFieldUint2, OpStructFieldUint3},
+	OpStructFieldFloat64: {OpStructFieldFloat642, OpStructFieldFloat643},
+	OpStructFieldString:  {OpStructFieldString2, OpStructFieldString3},
+	OpStructFieldBool:    {OpStructFieldBool2, OpStructFieldBool3},
 }
 
-// markFieldRuns gives the first field of a run of fields of the same kind in a row the opcode of the run, with
-// the number of the fields as its Length: the VM encodes the fields after it without a dispatch. The fields
-// keep their opcodes; a run is never entered but at its first field, since only an omitted field is jumped over.
+// maxFieldRun is the number of the fields of a run.
+const maxFieldRun = 3
+
+// markFieldRuns gives the first field of a run of fields of the same kind in a row the opcode of the run: the
+// VM encodes the fields after it without a dispatch. The fields keep their opcodes, which the VM falls
+// through; a run is never entered but at its first field, since only an omitted field is jumped over.
 func markFieldRuns(codes Opcodes) {
 	for i := 0; i < len(codes); {
-		run, ok := fieldRunOps[codes[i].Op]
+		runs, ok := fieldRunOps[codes[i].Op]
 		if !ok {
 			i++
 			continue
 		}
 		n := 1
-		for i+n < len(codes) && codes[i+n].Op == codes[i].Op && codes[i+n-1].Next == codes[i+n] {
+		for i+n < len(codes) && n < maxFieldRun && codes[i+n].Op == codes[i].Op && codes[i+n-1].Next == codes[i+n] {
 			n++
 		}
 		if n > 1 {
-			codes[i].Op = run
-			codes[i].Length = uint32(n)
+			codes[i].Op = runs[n-2]
 		}
 		i += n
 	}

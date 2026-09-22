@@ -86,13 +86,24 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
-	if (ctx.Option.Flags & ContextOption) != 0 {
-		if err := v.(unmarshalerContext).UnmarshalJSON(ctx.Option.Context, dst); err != nil {
+	// Dispatch on the interface the value actually implements. Unmarshal
+	// (no context) used to type-assert json.Unmarshaler, which panics for
+	// UnmarshalerContext-only types; UnmarshalContext did the reverse for
+	// json.Unmarshaler-only types such as json.RawMessage.
+	switch v := v.(type) {
+	case unmarshalerContext:
+		var c context.Context
+		if (ctx.Option.Flags & ContextOption) != 0 {
+			c = ctx.Option.Context
+		} else {
+			c = context.Background()
+		}
+		if err := v.UnmarshalJSON(c, dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}
-	} else {
-		if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
+	case json.Unmarshaler:
+		if err := v.UnmarshalJSON(dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}

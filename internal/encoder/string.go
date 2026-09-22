@@ -198,6 +198,10 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 				return escape.appendEscaped(buf, s)
 			}
 		}
+	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
+		if found {
+			return escape.appendEscaped(buf, s)
+		}
 	} else if escape.hasLooseEscape(src, n) && (escape.high != 0 || escape.hasExactEscape(src, n)) {
 		// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
 		return escape.appendEscaped(buf, s)

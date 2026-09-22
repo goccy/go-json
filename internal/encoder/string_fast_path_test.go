@@ -86,7 +86,8 @@ func BenchmarkAppendString(b *testing.B) {
 	ctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption | NormalizeUTF8Option}}
 	for _, s := range []string{
 		"", "abc", "test42", "127.0.0.1", "user_agent_long", "de305d54-75b4-431b-adb2-eb6b9e546014",
-		strings.Repeat("abcdefghij", 10), strings.Repeat("abcdefghij", 100),
+		strings.Repeat("abcdefghij", 5), strings.Repeat("abcdefghij", 10), strings.Repeat("abcdefghij", 30),
+		strings.Repeat("abcdefghij", 100), strings.Repeat("abcdefghij", 1000),
 	} {
 		s := s
 		b.Run(fmt.Sprint(len(s)), func(b *testing.B) {

@@ -4105,3 +4105,26 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+// Issue 575: Unmarshal of a truncated object key ending in a backslash
+// must return a syntax error, not a checkptr/index panic.
+func TestIssue575(t *testing.T) {
+	type Envelope struct {
+		Hash     string          `json:"hash"`
+		PrevHash string          `json:"prev_hash"`
+		Data     json.RawMessage `json:"data"`
+		Seq      int64           `json:"seq"`
+		TsNs     int64           `json:"ts_ns"`
+		Kind     uint8           `json:"kind"`
+	}
+	for _, in := range [][]byte{
+		[]byte("{\"\\29\\"),
+		[]byte("{\"hAs\\"),
+	} {
+		var dst Envelope
+		err := json.Unmarshal(in, &dst)
+		if err == nil {
+			t.Errorf("Unmarshal(%q) succeeded, want error", in)
+		}
+	}
+}

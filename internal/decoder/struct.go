@@ -194,7 +194,13 @@ func decodeKeyCharByUnicodeRune(buf []byte, cursor int64) ([]byte, int64, error)
 }
 
 func decodeKeyCharByEscapedChar(buf []byte, cursor int64) ([]byte, int64, error) {
+	if cursor < 0 || cursor >= int64(len(buf)) {
+		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+	}
 	c := buf[cursor]
+	if c == nul {
+		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+	}
 	cursor++
 	switch c {
 	case '"':

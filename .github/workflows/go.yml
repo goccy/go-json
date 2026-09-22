@@ -64,14 +64,15 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
-      # A verdict is saved only when the job succeeds,
-      # so re-running a passed commit ends immediately and a failed commit is measured again.
+      # A verdict is saved only when the job succeeds, so a failed commit is measured again.
+      # The key has the attempt of the run: re-running the job measures again, on the machine it gets,
+      # because the machines of the CI differ and a single measurement is not conclusive.
       # The baseline is always measured in the same job because it is never shared between machines.
       - name: restore benchmark verdict
         uses: actions/cache@v6
         with:
           path: .git/benchcheck/verdict
-          key: benchcheck-verdict-${{ github.sha }}
+          key: benchcheck-verdict-${{ github.sha }}-${{ github.run_attempt }}
       - name: check performance degradation
         run: make bench-check BENCH_CHECK_FLAGS="-base origin/master"
 

@@ -165,83 +165,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			var (
-				typ      unsafe.Pointer
-				ifacePtr unsafe.Pointer
-			)
-			if code.Flags&encoder.NonEmptyInterfaceFlags != 0 {
-				iface := (*nonEmptyInterface)(p)
-				ifacePtr = iface.ptr
-				if iface.itab != nil {
-					typ = iface.itab.typ
-				}
-			} else {
-				iface := (*emptyInterface)(p)
-				ifacePtr = iface.ptr
-				typ = iface.typ
-			}
-			if ifacePtr == nil {
-				isDirectedNil := typ != nil && encoder.ShapeOf(typ) == encoder.ValueShapeAggregate && !encoder.IfaceIndir(typ)
-				if !isDirectedNil {
-					b = appendNullComma(ctx, b)
-					code = code.Next
-					break
-				}
-			}
-			// It is after every path which doesn't go into the value, so a record always has its OpInterfaceEnd.
-			// The values are recorded only after the nesting gets deep: a cycle keeps passing the same values,
-			// so it is still detected, and the values which are not nested deeply cost nothing.
-			if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
-				for _, seen := range ctx.SeenPtr {
-					if p == seen {
-						return nil, errUnsupportedValue(code, p)
-					}
-				}
-				ctx.SeenPtr = append(ctx.SeenPtr, p)
-			}
-			ifaceCodeSet, err := encoder.CompileToGetCodeSet(ctx, uintptr(typ))
+			first, base, scalar, err := ctx.EnterInterface(code, p)
 			if err != nil {
 				return nil, err
 			}
-
-			totalLength := uintptr(code.Length) + 3
-			nextTotalLength := uintptr(ifaceCodeSet.CodeLength) + 3
-
-			var c *encoder.Opcode
-			if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
-				c = ifaceCodeSet.InterfaceEscapeKeyCode
-			} else {
-				c = ifaceCodeSet.InterfaceNoescapeKeyCode
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
 			}
-			offsetNum := ctx.SlotOffset / slotSize
-			oldOffset := ctx.SlotOffset
-			ctx.SlotOffset += totalLength * slotSize
-			oldBaseIndent := ctx.BaseIndent
-			ctx.BaseIndent += code.Indent
-
-			ctx.ReserveSlots(offsetNum + totalLength + nextTotalLength)
-			ctxptr = unsafe.Add(ctx.Ptr(), ctx.SlotOffset) // assign new ctxptr
-
-			end := ifaceCodeSet.EndCode
-			store(ctxptr, c.Idx, ctx.InterfaceValueAddr(ifaceCodeSet, ifacePtr, ctx.RecursiveLevel))
-			store(ctxptr, end.Idx, unsafe.Pointer(code.Next))
-			storeInt(ctxptr, end.ElemIdx, oldOffset)
-			storeIndent(ctxptr, end, uintptr(oldBaseIndent))
-			code = c
-			ctx.RecursiveLevel++
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
 		case encoder.OpInterfaceEnd:
-			ctx.RecursiveLevel--
-
-			// restore ctxptr
-			offset := loadInt(ctxptr, code.ElemIdx)
-			restoreIndent(ctx, code, ctxptr)
-			if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
-				ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
-			}
-
-			code = (*encoder.Opcode)(load(ctxptr, code.Idx))
-			ctxptr = unsafe.Add(ctx.Ptr(), offset)
-			ctx.SlotOffset = offset
+			code, ctxptr = ctx.LeaveFrame(code)
 		case encoder.OpMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
 			if p == nil {
@@ -474,47 +419,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
 			fallthrough
 		case encoder.OpRecursive:
-			ptr := load(ctxptr, code.Idx)
-			if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
-				if ptr != nil {
-					for _, seen := range ctx.SeenPtr {
-						if ptr == seen {
-							return nil, errUnsupportedValue(code, ptr)
-						}
-					}
-				}
-				ctx.SeenPtr = append(ctx.SeenPtr, ptr)
+			first, base, err := ctx.EnterRecursive(code, load(ctxptr, code.Idx))
+			if err != nil {
+				return nil, err
 			}
-			c := code.Jmp.Code
-			offsetNum := ctx.SlotOffset / slotSize
-			oldOffset := ctx.SlotOffset
-			ctx.SlotOffset += code.Jmp.CurLen * slotSize
-			oldBaseIndent := ctx.BaseIndent
-			indentDiffFromTop := c.Indent - 1
-			ctx.BaseIndent += code.Indent - indentDiffFromTop
-
-			ctx.ReserveSlots(offsetNum + code.Jmp.CurLen + code.Jmp.NextLen)
-			ctxptr = unsafe.Add(ctx.Ptr(), ctx.SlotOffset) // assign new ctxptr
-
-			store(ctxptr, c.Idx, ptr)
-			store(ctxptr, c.End.Next.Idx, unsafe.Pointer(code.Next))
-			storeInt(ctxptr, c.End.Next.ElemIdx, oldOffset)
-			storeIndent(ctxptr, c.End.Next, uintptr(oldBaseIndent))
-			code = c
-			ctx.RecursiveLevel++
+			code = first
+			ctxptr = base
 		case encoder.OpRecursiveEnd:
-			ctx.RecursiveLevel--
-
-			// restore ctxptr
-			restoreIndent(ctx, code, ctxptr)
-			offset := loadInt(ctxptr, code.ElemIdx)
-			if ctx.RecursiveLevel > encoder.StartDetectingCyclesAfter {
-				ctx.SeenPtr = ctx.SeenPtr[:len(ctx.SeenPtr)-1]
-			}
-
-			code = (*encoder.Opcode)(load(ctxptr, code.Idx))
-			ctxptr = unsafe.Add(ctx.Ptr(), offset)
-			ctx.SlotOffset = offset
+			code, ctxptr = ctx.LeaveFrame(code)
 		case encoder.OpStructPtrHead:
 			p := load(ctxptr, code.Idx)
 			if p == nil {

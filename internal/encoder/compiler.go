@@ -14,7 +14,7 @@ import (
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	// A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 	// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
-	recent := &ctx.recentCodeSets[(typeptr>>recentCodeSetShift)%recentCodeSetsLength]
+	recent := &ctx.recentCodeSets[(uint64(typeptr)*runtime.TypeHashMultiplier)>>recentCodeSetHashShift]
 	if recent.typeptr == typeptr {
 		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
 	}
@@ -168,9 +168,21 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		InterfaceEscapeKeyCode:   interfaceEscapeKeyCode,
 		CodeLength:               codeLength,
 		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
+		Scalar:                   scalarOpcode(noescapeKeyCode),
 		Code:                     code,
 		QueryCache:               map[string]*OpcodeSet{},
 	}, nil
+}
+
+// scalarOpcode returns the opcode if the code is a single opcode of a scalar followed by the end, or nil.
+func scalarOpcode(code *Opcode) *Opcode {
+	switch code.Op {
+	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
+		if code.Next != nil && code.Next.Op == OpEnd {
+			return code
+		}
+	}
+	return nil
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {

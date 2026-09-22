@@ -3,14 +3,12 @@ package vm_indent
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/runtime"
 )
-
-// slotSize is the size of a slot of the VM.
-const slotSize = unsafe.Sizeof(encoder.Slot{})
 
 var (
 	appendInt           = encoder.AppendInt
@@ -22,7 +20,6 @@ var (
 	appendNumber        = encoder.AppendNumber
 	appendStructEnd     = encoder.AppendStructEndIndent
 	appendIndent        = encoder.AppendIndent
-	errUnsupportedValue = encoder.ErrUnsupportedValue
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit
 	mapiterkey          = encoder.MapIterKey
@@ -33,15 +30,6 @@ var (
 
 type emptyInterface struct {
 	typ unsafe.Pointer
-	ptr unsafe.Pointer
-}
-
-type nonEmptyInterface struct {
-	itab *struct {
-		ityp unsafe.Pointer // static interface type
-		typ  unsafe.Pointer // dynamic concrete type
-		// unused fields...
-	}
 	ptr unsafe.Pointer
 }
 
@@ -210,18 +198,46 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendComma(ctx, b)
 }
 
-func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr unsafe.Pointer) {
-	ctx.BaseIndent = uint32(loadInt(ctxptr, code.Length))
-}
-
-func storeIndent(ctxptr unsafe.Pointer, code *encoder.Opcode, indent uintptr) {
-	storeInt(ctxptr, code.Length, indent)
-}
-
 func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	return appendIndent(ctx, b, code.Indent+1)
 }
 
 func appendMapKeyIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	return appendIndent(ctx, b, code.Indent)
+}
+
+// appendScalar appends the value at p by the opcode of a scalar, with the comma: what the VM does for the opcode.
+// It is for a scalar held by an interface value, which is encoded without a frame.
+//
+//go:noinline
+func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p unsafe.Pointer) ([]byte, error) {
+	switch code.Op {
+	case encoder.OpInt:
+		b = appendInt(ctx, b, p, code)
+	case encoder.OpUint:
+		b = appendUint(ctx, b, p, code)
+	case encoder.OpFloat32:
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+	case encoder.OpFloat64:
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, errUnsupportedFloat(v)
+		}
+		b = appendFloat64(ctx, b, v)
+	case encoder.OpString:
+		b = appendString(ctx, b, ptrToString(p))
+	case encoder.OpBool:
+		b = appendBool(ctx, b, ptrToBool(p))
+	case encoder.OpBytes:
+		b = appendByteSlice(ctx, b, ptrToBytes(p))
+	case encoder.OpNumber:
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, err
+		}
+		b = bb
+	default:
+		return nil, errUnimplementedOp(code.Op)
+	}
+	return appendComma(ctx, b), nil
 }

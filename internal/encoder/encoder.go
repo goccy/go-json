@@ -252,6 +252,10 @@ func insertionSortMapItems(items []MapItem) {
 // 24 items and slower from 32 items ( BenchmarkVariant_MapSort ).
 const maxItemsOfInsertionSort = 16
 
+// mapIter is the iterator of a map of the runtime, as it was before Go 1.24, which the runtime still fills for
+// the users of mapiterinit: it keeps key and elem up to date with the entry, so they are read here without a
+// call, as the runtime allows ( see runtime/linkname_shim.go ).
+//
 //nolint:unused
 type mapIter struct {
 	key         unsafe.Pointer
@@ -270,6 +274,12 @@ type mapIter struct {
 	bucket      uintptr
 	checkBucket uintptr
 }
+
+// Key is the pointer to the key of the entry, or nil after the last one.
+func (it *mapIter) Key() unsafe.Pointer { return it.key }
+
+// Elem is the pointer to the value of the entry.
+func (it *mapIter) Elem() unsafe.Pointer { return it.elem }
 
 type MapContext struct {
 	// parent is the context of the map which this map is in.
@@ -322,10 +332,6 @@ func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 //go:linkname MapIterInit runtime.mapiterinit
 //go:noescape
 func MapIterInit(mapType unsafe.Pointer, m unsafe.Pointer, it *mapIter)
-
-//go:linkname MapIterKey reflect.mapiterkey
-//go:noescape
-func MapIterKey(it *mapIter) unsafe.Pointer
 
 //go:linkname MapIterNext reflect.mapiternext
 //go:noescape

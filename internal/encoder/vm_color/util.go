@@ -13,8 +13,6 @@ import (
 var (
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit
-	mapiterkey          = encoder.MapIterKey
-	mapitervalue        = encoder.MapIterValue
 	mapiternext         = encoder.MapIterNext
 	maplen              = encoder.MapLen
 )

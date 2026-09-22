@@ -353,7 +353,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				mapCtx.Start = len(b)
 				mapCtx.First = len(b)
 			}
-			key := mapiterkey(&mapCtx.Iter)
+			key := mapCtx.Iter.Key()
 			store(ctxptr, code.Next.Idx, key)
 			code = code.Next
 		case encoder.OpMapKey:
@@ -364,7 +364,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				if idx < mapCtx.Len {
 					b = appendMapKeyIndent(ctx, code, b)
 					mapCtx.Idx = int(idx)
-					key := mapiterkey(&mapCtx.Iter)
+					key := mapCtx.Iter.Key()
 					store(ctxptr, code.Next.Idx, key)
 					code = code.Next
 				} else {
@@ -377,7 +377,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				if idx < mapCtx.Len {
 					mapCtx.Idx = int(idx)
 					mapCtx.Start = len(b)
-					key := mapiterkey(&mapCtx.Iter)
+					key := mapCtx.Iter.Key()
 					store(ctxptr, code.Next.Idx, key)
 					code = code.Next
 				} else {
@@ -392,7 +392,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
 				mapCtx.Start = len(b)
 			}
-			value := mapitervalue(&mapCtx.Iter)
+			value := mapCtx.Iter.Elem()
 			store(ctxptr, code.Next.Idx, value)
 			mapiternext(&mapCtx.Iter)
 			code = code.Next

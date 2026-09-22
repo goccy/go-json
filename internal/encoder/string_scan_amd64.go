@@ -12,6 +12,9 @@ func xgetbv() (eax, edx uint32)
 //go:noescape
 func scanStringAVX2(p unsafe.Pointer, n int, chars uint64, high uint64) int
 
+//go:noescape
+func scanStringSSE(p unsafe.Pointer, n int, chars uint64, high uint64) int
+
 // hasAVX2 is whether the CPU and the OS support AVX2.
 var hasAVX2 = detectAVX2()
 

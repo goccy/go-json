@@ -113,3 +113,87 @@ found:
 	ADDQ   DI, AX
 	MOVQ   AX, ret+32(FP)
 	RET
+
+// func scanStringSSE(p unsafe.Pointer, n int, chars uint64, high uint64) int
+//
+// scanStringAVX2 with 128-bit registers, VEX encoded: a variant to find why the 256-bit one costs a fixed
+// time per call.
+TEXT ·scanStringSSE(SB), NOSPLIT, $8-40
+	MOVQ p+0(FP), SI
+	MOVQ n+8(FP), CX
+	MOVQ chars+16(FP), AX
+	MOVQ high+24(FP), R9
+
+	VPBROADCASTB c1f<>(SB), X8
+	VPBROADCASTB cquote<>(SB), X9
+	VPBROADCASTB cbslash<>(SB), X10
+	MOVQ AX, chars-8(SP)
+	VPBROADCASTB chars-8(SP), X11
+	VPBROADCASTB chars-7(SP), X12
+	VPBROADCASTB chars-6(SP), X13
+
+	XORL  R10, R10
+	TESTQ R9, R9
+	JEQ   nohigh16
+	MOVL  $0xffffffff, R10
+nohigh16:
+	XORQ  DI, DI
+	LEAQ  -16(CX), R11
+loop16:
+	VMOVDQU (SI)(DI*1), X0
+	VPMAXUB X8, X0, X1
+	VPCMPEQB X8, X1, X1
+	VPCMPEQB X9, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X10, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X11, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X12, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X13, X0, X2
+	VPOR     X2, X1, X1
+	VPMOVMSKB X1, AX
+	VPMOVMSKB X0, DX
+	ANDL      R10, DX
+	ORL       DX, AX
+	JNE       found16
+	ADDQ      $16, DI
+	CMPQ      DI, R11
+	JLT       loop16
+	CMPQ      DI, CX
+	JEQ       none16
+	MOVQ      R11, DI
+	VMOVDQU (SI)(DI*1), X0
+	VPMAXUB X8, X0, X1
+	VPCMPEQB X8, X1, X1
+	VPCMPEQB X9, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X10, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X11, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X12, X0, X2
+	VPOR     X2, X1, X1
+	VPCMPEQB X13, X0, X2
+	VPOR     X2, X1, X1
+	VPMOVMSKB X1, AX
+	VPMOVMSKB X0, DX
+	ANDL      R10, DX
+	ORL       DX, AX
+	JNE       found16
+none16:
+	MOVQ CX, ret+32(FP)
+	RET
+found16:
+	TZCNTL AX, AX
+	ADDQ   DI, AX
+	MOVQ   AX, ret+32(FP)
+	RET
+
+DATA c1f<>+0(SB)/1, $0x1f
+GLOBL c1f<>(SB), RODATA|NOPTR, $1
+DATA cquote<>+0(SB)/1, $0x22
+GLOBL cquote<>(SB), RODATA|NOPTR, $1
+DATA cbslash<>+0(SB)/1, $0x5c
+GLOBL cbslash<>(SB), RODATA|NOPTR, $1

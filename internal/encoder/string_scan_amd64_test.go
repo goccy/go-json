@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -58,6 +59,60 @@ func TestScanStringAVX2AtEndOfMemory(t *testing.T) {
 			s := string(mem[start:])
 			if got := scanStringAVX2(unsafe.Pointer(unsafe.StringData(s)), len(s), 0x262e3c, msb); got != len(s) {
 				t.Fatalf("%q: got %d", s, got)
+			}
+		}
+	}
+}
+
+// the scans alone, to find where the time of the SIMD scan goes.
+func BenchmarkScanString(b *testing.B) {
+	e := &stringEscapes[stringEscapeHTML|stringEscapeNormalize]
+	chars := uint64(uint8(e.chars[0])) | uint64(uint8(e.chars[1]))<<8 | uint64(uint8(e.chars[2]))<<16
+	for _, n := range []int{36, 100, 1000} {
+		s := strings.Repeat("a", n)
+		p := unsafe.Pointer(unsafe.StringData(s))
+		b.Run("Words/"+strconv.Itoa(n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if e.hasLooseEscape(p, n) {
+					b.Fatal("found")
+				}
+			}
+		})
+		if hasAVX2 {
+			b.Run("AVX2/"+strconv.Itoa(n), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					if scanStringAVX2(p, n, chars, e.high) != n {
+						b.Fatal("found")
+					}
+				}
+			})
+			b.Run("SSE/"+strconv.Itoa(n), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					if scanStringSSE(p, n, chars, e.high) != n {
+						b.Fatal("found")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestScanStringSSE(t *testing.T) {
+	if !hasAVX2 {
+		t.Skip("AVX2 is not supported")
+	}
+	e := &stringEscapes[stringEscapeHTML]
+	chars := uint64(uint8(e.chars[0])) | uint64(uint8(e.chars[1]))<<8 | uint64(uint8(e.chars[2]))<<16
+	for length := 16; length <= 70; length++ {
+		for pos := -1; pos < length; pos++ {
+			b := []byte(strings.Repeat("a", length))
+			expected := length
+			if pos >= 0 {
+				b[pos] = '<'
+				expected = pos
+			}
+			if got := scanStringSSE(unsafe.Pointer(&b[0]), length, chars, e.high); got != expected {
+				t.Fatalf("%q: expected %d but got %d", b, expected, got)
 			}
 		}
 	}

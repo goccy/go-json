@@ -20,6 +20,9 @@ type opType struct {
 	Code string
 }
 
+// fieldRunTypes are the kinds of a field which have the opcodes of a run: see internal/encoder.fieldRunOps.
+var fieldRunTypes = []string{"Int", "Uint", "Float64", "String", "Bool"}
+
 func createOpType(op, code string) opType {
 	return opType{
 		Op:   op,
@@ -213,6 +216,15 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 				Op:   op,
 				Code: "StructEnd",
 			})
+		}
+	}
+	// A run of fields of the same kind in a row is encoded by the opcode of the run, which falls through the
+	// cases of the shorter runs: the fields after the first are encoded without a dispatch. The opcodes come
+	// after every other one, so that the offsets between the opcodes of a field, its omitempty and its end
+	// stay as they are.
+	for _, typ := range fieldRunTypes {
+		for _, n := range []string{"3", "2"} {
+			opTypes = append(opTypes, opType{Op: "StructField" + typ + n, Code: "StructField"})
 		}
 	}
 	var b bytes.Buffer

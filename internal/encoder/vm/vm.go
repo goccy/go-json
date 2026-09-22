@@ -20,6 +20,149 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		switch code.Op {
 		default:
 			return nil, errUnimplementedOp(code.Op)
+		// The opcodes of a value of interface{} and of a map are first: the position of a case in the switch
+		// changes the layout of the code of the VM, and these were the ones to suffer from it.
+		case encoder.OpInterfacePtr:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpInterface:
+			p := load(ctxptr, code.Idx)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			first, base, scalar, err := ctx.EnterInterface(code, p)
+			if err != nil {
+				return nil, err
+			}
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
+		case encoder.OpInterfaceEnd:
+			code, ctxptr = ctx.LeaveFrame(code)
+		case encoder.OpMapPtr:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.End.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpMap:
+			p := load(ctxptr, code.Idx)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.End.Next
+				break
+			}
+			mlen := encoder.MapLen(p)
+			if mlen <= 0 {
+				b = appendEmptyObject(ctx, b)
+				code = code.End.Next
+				break
+			}
+			b = appendStructHead(ctx, b)
+			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
+			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
+			encoder.MapIterInit(code.Type, p, &mapCtx.Iter)
+			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
+			if !unorderedMap {
+				mapCtx.First = len(b)
+			}
+			// the first entry is begun as the others are, by the header: it has the next opcode and the flags
+			// of the key opcode.
+			mapCtx.Idx = -1
+			fallthrough
+		case encoder.OpMapKey:
+			// After an entry, or at the start with Idx -1: the next entry is begun, or the map is ended.
+			// A key of a string is written here, and the value of the entry is given to the opcode of the
+			// value: that saves the opcodes of the key and of the value for every entry. The key of another
+			// kind is given to its opcode, which OpMapValue follows.
+			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
+			idx := mapCtx.Idx
+			if !unorderedMap && idx >= 0 {
+				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:len(b)]
+			}
+			idx++
+			if idx == mapCtx.Len {
+				if unorderedMap {
+					b = appendObjectEnd(ctx, code, b)
+					encoder.ReleaseMapContext(ctx, mapCtx)
+					code = code.End.Next
+				} else {
+					code = code.End
+				}
+				break
+			}
+			mapCtx.Idx = idx
+			if unorderedMap {
+				b = appendMapKeyIndent(ctx, code, b)
+			} else {
+				mapCtx.Start = len(b)
+			}
+			if code.Flags&encoder.MapStringKeyFlags == 0 {
+				store(ctxptr, code.Next.Idx, mapCtx.Iter.Key())
+				code = code.Next
+				break
+			}
+			b = encoder.AppendString(ctx, b, *(*string)(mapCtx.Iter.Key()))
+			b = appendComma(ctx, b)
+			if unorderedMap {
+				b = appendColon(ctx, b)
+			} else {
+				mapCtx.Slice.Items[idx].Key = b[mapCtx.Start:len(b)]
+				mapCtx.Start = len(b)
+			}
+			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
+			encoder.MapIterNext(&mapCtx.Iter)
+			code = code.Next
+		case encoder.OpMapValue:
+			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
+				b = appendColon(ctx, b)
+			} else {
+				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
+				mapCtx.Start = len(b)
+			}
+			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
+			encoder.MapIterNext(&mapCtx.Iter)
+			code = code.Next
+		case encoder.OpMapEnd:
+			// this operation only used by sorted map.
+			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+			mapCtx.Slice.Sort()
+			buf := mapCtx.Buf
+			for _, item := range mapCtx.Slice.Items {
+				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
+			}
+			buf = appendMapEnd(ctx, code, buf)
+			b = b[:mapCtx.First]
+			b = append(b, buf...)
+			mapCtx.Buf = buf
+			encoder.ReleaseMapContext(ctx, mapCtx)
+			code = code.Next
 		case encoder.OpPtr:
 			p := load(ctxptr, code.Idx)
 			code = code.Next
@@ -256,44 +399,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendComma(ctx, bb)
 			code = code.Next
-		case encoder.OpInterfacePtr:
-			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpInterface:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			first, base, scalar, err := ctx.EnterInterface(code, p)
-			if err != nil {
-				return nil, err
-			}
-			if first == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			if scalar {
-				bb, err := appendScalar(ctx, b, first, base)
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-				code = code.Next
-				break
-			}
-			code = first
-			ctxptr = base
-		case encoder.OpInterfaceEnd:
-			code, ctxptr = ctx.LeaveFrame(code)
 		case encoder.OpMarshalJSONPtr:
 			p := load(ctxptr, code.Idx)
 			if p == nil {
@@ -427,109 +532,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendArrayEnd(ctx, code, b)
 				code = code.End.Next
 			}
-		case encoder.OpMapPtr:
-			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpMap:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			mlen := encoder.MapLen(p)
-			if mlen <= 0 {
-				b = appendEmptyObject(ctx, b)
-				code = code.End.Next
-				break
-			}
-			b = appendStructHead(ctx, b)
-			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
-			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
-			encoder.MapIterInit(code.Type, p, &mapCtx.Iter)
-			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
-			if !unorderedMap {
-				mapCtx.First = len(b)
-			}
-			// the first entry is begun as the others are, by the header: it has the next opcode and the flags
-			// of the key opcode.
-			mapCtx.Idx = -1
-			fallthrough
-		case encoder.OpMapKey:
-			// After an entry, or at the start with Idx -1: the next entry is begun, or the map is ended.
-			// A key of a string is written here, and the value of the entry is given to the opcode of the
-			// value: that saves the opcodes of the key and of the value for every entry. The key of another
-			// kind is given to its opcode, which OpMapValue follows.
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
-			idx := mapCtx.Idx
-			if !unorderedMap && idx >= 0 {
-				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:len(b)]
-			}
-			idx++
-			if idx == mapCtx.Len {
-				if unorderedMap {
-					b = appendObjectEnd(ctx, code, b)
-					encoder.ReleaseMapContext(ctx, mapCtx)
-					code = code.End.Next
-				} else {
-					code = code.End
-				}
-				break
-			}
-			mapCtx.Idx = idx
-			if unorderedMap {
-				b = appendMapKeyIndent(ctx, code, b)
-			} else {
-				mapCtx.Start = len(b)
-			}
-			if code.Flags&encoder.MapStringKeyFlags == 0 {
-				store(ctxptr, code.Next.Idx, mapCtx.Iter.Key())
-				code = code.Next
-				break
-			}
-			b = encoder.AppendString(ctx, b, *(*string)(mapCtx.Iter.Key()))
-			b = appendComma(ctx, b)
-			if unorderedMap {
-				b = appendColon(ctx, b)
-			} else {
-				mapCtx.Slice.Items[idx].Key = b[mapCtx.Start:len(b)]
-				mapCtx.Start = len(b)
-			}
-			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
-			encoder.MapIterNext(&mapCtx.Iter)
-			code = code.Next
-		case encoder.OpMapValue:
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
-				b = appendColon(ctx, b)
-			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
-				mapCtx.Start = len(b)
-			}
-			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
-			encoder.MapIterNext(&mapCtx.Iter)
-			code = code.Next
-		case encoder.OpMapEnd:
-			// this operation only used by sorted map.
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.Slice.Sort()
-			buf := mapCtx.Buf
-			for _, item := range mapCtx.Slice.Items {
-				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
-			}
-			buf = appendMapEnd(ctx, code, buf)
-			b = b[:mapCtx.First]
-			b = append(b, buf...)
-			mapCtx.Buf = buf
-			encoder.ReleaseMapContext(ctx, mapCtx)
-			code = code.Next
 		case encoder.OpRecursivePtr:
 			p := load(ctxptr, code.Idx)
 			if p == nil {
@@ -597,6 +599,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				store(ctxptr, code.Idx, p)
 			}
+		case encoder.OpStructFieldInt3:
+			// Three fields of the kind in a row, then two: the fields after the first are encoded without
+			// a dispatch, by falling through to the case of the field. The same for the other kinds below.
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldInt2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
 		case encoder.OpStructFieldInt:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -677,6 +695,20 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldUint3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldUint2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
 		case encoder.OpStructFieldUint:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -867,6 +899,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldFloat643:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+			if isInfOrNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encoder.AppendFloat64(ctx, b, v)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldFloat642:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+			if isInfOrNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = encoder.AppendFloat64(ctx, b, v)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
 		case encoder.OpStructFieldFloat64:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -976,6 +1030,20 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldString3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldString2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
 		case encoder.OpStructFieldString:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1047,6 +1115,20 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldBool3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldBool2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
 		case encoder.OpStructFieldBool:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)

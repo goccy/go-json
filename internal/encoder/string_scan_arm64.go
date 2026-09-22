@@ -15,8 +15,14 @@ const minSIMDScanLength = 16
 // hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD. The second result is false if
 // the string is short, and the string is not looked at.
 func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
+	return scanBytesSIMD(src, n, &e.tables)
+}
+
+// scanBytesSIMD is whether a byte of the n bytes at src is in the tables, by SIMD. The second result is false
+// if n is small, and the bytes are not looked at.
+func scanBytesSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (bool, bool) {
 	if n < minSIMDScanLength {
 		return false, false
 	}
-	return scanStringNEON(src, n, &e.tables) != 0, true
+	return scanStringNEON(src, n, tables) != 0, true
 }

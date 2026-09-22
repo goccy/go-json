@@ -71,7 +71,6 @@ func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 			}
 		case 'n':
 			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
 				return nil
 			}
 		}
@@ -124,7 +123,6 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 			}
 		case 'n':
 			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
 				return end, nil
 			}
 		}

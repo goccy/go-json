@@ -710,10 +710,39 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
 	return append(Opcodes{head}, codes...)
 }
 
+// isLongKey is whether the key of the field is longer than a chunk: then the field is not encoded by one opcode
+// with its value, but by the generic field opcode, which writes a key of any length, and the opcode of the value.
+func (c *StructFieldCode) isLongKey(field *Opcode) bool {
+	return len(field.Key) > KeyChunkSize
+}
+
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
 	value := valueCodes.First()
-	op := optimizeStructField(value, c.tag)
+	var op OpType
+	if c.isLongKey(field) {
+		op = OpStructField
+		if c.tag.IsOmitEmpty {
+			op = OpStructFieldOmitEmpty
+		}
+		if c.tag.IsString {
+			value.Op = value.Op.ToStringOp()
+		}
+		// the generic field opcode gives the opcode of the value the address of the field, while the opcode of
+		// a map takes the map: the map is followed from the address, as the value of a map or of a list is.
+		switch value.Op {
+		case OpMap:
+			value.Op = OpMapPtr
+			value.PtrNum = 1
+		case OpMapPtr:
+			value.PtrNum++
+		}
+	} else {
+		op = optimizeStructField(value, c.tag)
+	}
 	field.Op = op
+	if op == OpStructFieldOmitEmpty {
+		field.EmptyKind = emptyKindOf(c.typ)
+	}
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
 	}
@@ -751,8 +780,10 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 	return codes
 }
 
-// KeyChunkSize is the size of the chunk which the VM copies a key by.
-const KeyChunkSize = 16
+// KeyChunkSize is the size of the chunk which the VM copies a key by: a key up to it is written by the
+// opcode of its field, as a chunk. A longer key is written by the generic field opcode, and its value by the
+// opcode of the value.
+const KeyChunkSize = 32
 
 // PaddedKey returns the key whose memory has the bytes after it up to a chunk,
 // so that a chunk is copied from the key without reading the memory of others.
@@ -760,6 +791,84 @@ func PaddedKey(key string) string {
 	buf := make([]byte, len(key)+KeyChunkSize)
 	copy(buf, key)
 	return unsafe.String(unsafe.SliceData(buf), len(key))
+}
+
+// keyChunk returns the chunk at the start of a padded key.
+func keyChunk(paddedKey string) *[KeyChunkSize]byte {
+	return (*[KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
+}
+
+// EmptyKind is what makes the value of a field empty for omitempty, as encoding/json decides it by the kind
+// of the type of the field: false, 0, a nil pointer or interface value, or an empty array, slice, map or string.
+type EmptyKind uint8
+
+const (
+	EmptyNever EmptyKind = iota
+	EmptyNil             // a nil pointer or interface value: the first word is zero
+	EmptyBool
+	EmptyInt // an integer of NumBitSize bits which is 0
+	EmptyFloat32
+	EmptyFloat64
+	EmptyLen    // a string or a slice whose length is zero
+	EmptyMapLen // a map whose length is zero
+	EmptyAlways // an array of no element
+)
+
+// emptyKindOf returns what makes a value of the type empty.
+func emptyKindOf(typ reflect.Type) EmptyKind {
+	switch typ.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		return EmptyNil
+	case reflect.Bool:
+		return EmptyBool
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return EmptyInt
+	case reflect.Float32:
+		return EmptyFloat32
+	case reflect.Float64:
+		return EmptyFloat64
+	case reflect.String, reflect.Slice:
+		return EmptyLen
+	case reflect.Map:
+		return EmptyMapLen
+	case reflect.Array:
+		if typ.Len() == 0 {
+			return EmptyAlways
+		}
+	}
+	return EmptyNever
+}
+
+// IsEmptyField is whether the value at p, of a field whose kind of emptiness is kind, is empty for omitempty.
+func IsEmptyField(kind EmptyKind, bitSize uint8, p unsafe.Pointer) bool {
+	switch kind {
+	case EmptyNil:
+		return *(*unsafe.Pointer)(p) == nil
+	case EmptyBool:
+		return !*(*bool)(p)
+	case EmptyInt:
+		switch bitSize {
+		case 8:
+			return *(*uint8)(p) == 0
+		case 16:
+			return *(*uint16)(p) == 0
+		case 32:
+			return *(*uint32)(p) == 0
+		}
+		return *(*uint64)(p) == 0
+	case EmptyFloat32:
+		return *(*float32)(p) == 0
+	case EmptyFloat64:
+		return *(*float64)(p) == 0
+	case EmptyLen:
+		return (*runtime.SliceHeader)(p).Len == 0
+	case EmptyMapLen:
+		return MapLen(*(*unsafe.Pointer)(p)) == 0
+	case EmptyAlways:
+		return true
+	}
+	return false
 }
 
 func (c *StructFieldCode) structKey(ctx *compileContext) string {
@@ -811,21 +920,22 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	if isFirstField {
 		head = c.headOpcode(ctx, c.flags())
 	}
+	key := c.structKey(ctx)
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags(),
-		Key:        c.structKey(ctx),
+		Key:        key,
+		KeyChunk:   keyChunk(key),
 		Offset:     uint32(c.offset),
 		Type:       runtime.TypePtr(c.typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
-		DisplayKey: c.key,
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
-		if isEnableStructEndOptimization(c.value) {
+		if isEnableStructEndOptimization(c.value) && !c.isLongKey(field) {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)
@@ -842,15 +952,16 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	if isFirstField {
 		head = c.headOpcode(ctx, c.flags()|AnonymousHeadFlags)
 	}
+	key := c.structKey(ctx)
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags() | AnonymousHeadFlags,
-		Key:        c.structKey(ctx),
+		Key:        key,
+		KeyChunk:   keyChunk(key),
 		Offset:     uint32(c.offset),
 		Type:       runtime.TypePtr(c.typ),
 		DisplayIdx: ctx.opcodeIndex,
 		Indent:     ctx.indent,
-		DisplayKey: c.key,
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)

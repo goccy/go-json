@@ -176,6 +176,11 @@ func appendStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 	return append(b, ' ')
 }
 
+// appendLongStructKey appends a key of any length: every key is written by appendStructKey here.
+func appendLongStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return appendStructKey(ctx, code, b)
+}
+
 func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	if b[last-1] == '{' {

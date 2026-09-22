@@ -163,31 +163,35 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 
-// appendStructKey copies a key up to a chunk by a copy of a whole chunk, not by a call of memmove:
-// a call from the VM makes it spill and restore its variables, which costs more than the copy of a key.
-// The memory of a key has the bytes after it up to a chunk: see encoder.PaddedKey.
+// appendStructKey appends a key which is up to a chunk long, by two copies of a half chunk each: the key is
+// followed by its padding in memory ( encoder.PaddedKey ), and the length is cut back to the key after.
+// A copy of a half chunk is inlined by the compiler on amd64 and arm64; a call of memmove, or of this
+// function, makes the VM spill and restore its registers, which costs more than the copy of a key.
+//
+// Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+// this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
 func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	key := code.Key
-	n := len(b)
-	if len(key) <= encoder.KeyChunkSize && cap(b)-n >= encoder.KeyChunkSize {
-		b = b[:n+encoder.KeyChunkSize]
-		*(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(&b[n])) = *(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(key)))
-		return b[:n+len(key)]
-	}
-	return append(b, key...)
+	const half = encoder.KeyChunkSize / 2
+	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
+}
+
+// appendLongStructKey appends a key of any length.
+func appendLongStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return append(b, code.Key...)
 }
 
 func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	return append(b, '}', ',')
 }
 
-func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	last := len(b) - 1
-	if b[last] == ',' {
-		b[last] = '}'
-		return appendComma(ctx, b)
-	}
-	return appendStructEnd(ctx, code, b)
+// commaAtEnd is 1 for a comma: what appendStructEndSkipLast cuts from the end.
+var commaAtEnd = [256]uint8{',': 1}
+
+// appendStructEndSkipLast ends the struct, over the comma after its last field if there is one: there is none
+// after an empty struct or when every field is omitted. The comma is cut by a table, not a branch, so that
+// the function costs 18 to the inliner and is inlined into Run ( see appendStructKey ).
+func appendStructEndSkipLast(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	return append(b[:len(b)-int(commaAtEnd[b[len(b)-1]])], '}', ',')
 }
 
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }

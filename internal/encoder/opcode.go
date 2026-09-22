@@ -40,27 +40,28 @@ const (
 )
 
 type Opcode struct {
-	Op         OpType  // operation type
-	Idx        uint32  // offset to access ptr
-	Next       *Opcode // next opcode
-	End        *Opcode // array/slice/struct/map end
-	NextField  *Opcode // next struct field
-	Key        string  // struct field key
-	Offset     uint32  // offset size from struct header
-	PtrNum     uint8   // pointer number: e.g. double pointer is 2.
+	Op         OpType    // operation type
+	EmptyKind  EmptyKind // what makes the value of the field empty for omitempty, for the generic field opcode
+	Idx        uint32    // offset to access ptr
+	Next       *Opcode   // next opcode
+	End        *Opcode   // array/slice/struct/map end
+	NextField  *Opcode   // next struct field
+	Key        string    // struct field key
+	Offset     uint32    // offset size from struct header
+	PtrNum     uint8     // pointer number: e.g. double pointer is 2.
 	NumBitSize uint8
 	Flags      OpFlags
 
-	Type       unsafe.Pointer // pointer to the type descriptor of go type
-	Jmp        *CompiledCode  // for recursive call
-	Marshaler  *MarshalerCall // the method of the marshaler, for MarshalJSON and MarshalText
-	FieldQuery *FieldQuery    // field query for Interface / MarshalJSON / MarshalText
-	ElemIdx    uint32         // offset to access array/slice elem
-	Length     uint32         // offset to access slice length or array length
-	Indent     uint32         // indent number
-	Size       uint32         // array/slice elem size
-	DisplayIdx uint32         // opcode index
-	DisplayKey string         // key text to display
+	Type       unsafe.Pointer      // pointer to the type descriptor of go type
+	Jmp        *CompiledCode       // for recursive call
+	Marshaler  *MarshalerCall      // the method of the marshaler, for MarshalJSON and MarshalText
+	FieldQuery *FieldQuery         // field query for Interface / MarshalJSON / MarshalText
+	ElemIdx    uint32              // offset to access array/slice elem
+	Length     uint32              // offset to access slice length or array length
+	Indent     uint32              // indent number
+	Size       uint32              // array/slice elem size
+	DisplayIdx uint32              // opcode index
+	KeyChunk   *[KeyChunkSize]byte // the key and the padding after it, which the VM copies as a chunk
 }
 
 func (c *Opcode) Validate() error {
@@ -112,6 +113,41 @@ func (c *Opcode) MaxIdx() uint32 {
 		}
 	}
 	return maxIdx
+}
+
+// ToStringOp returns the opcode which encodes the value of t as a string, for the string option of a field.
+func (t OpType) ToStringOp() OpType {
+	switch t {
+	case OpInt:
+		return OpIntString
+	case OpUint:
+		return OpUintString
+	case OpFloat32:
+		return OpFloat32String
+	case OpFloat64:
+		return OpFloat64String
+	case OpBool:
+		return OpBoolString
+	case OpString:
+		return OpStringString
+	case OpNumber:
+		return OpNumberString
+	case OpIntPtr:
+		return OpIntPtrString
+	case OpUintPtr:
+		return OpUintPtrString
+	case OpFloat32Ptr:
+		return OpFloat32PtrString
+	case OpFloat64Ptr:
+		return OpFloat64PtrString
+	case OpBoolPtr:
+		return OpBoolPtrString
+	case OpStringPtr:
+		return OpStringPtrString
+	case OpNumberPtr:
+		return OpNumberPtrString
+	}
+	return t
 }
 
 func (c *Opcode) ToFieldType(isString bool) OpType {
@@ -254,7 +290,8 @@ func copyOpcode(code *Opcode) *Opcode {
 			Type:       c.Type,
 			FieldQuery: c.FieldQuery,
 			DisplayIdx: c.DisplayIdx,
-			DisplayKey: c.DisplayKey,
+			KeyChunk:   c.KeyChunk,
+			EmptyKind:  c.EmptyKind,
 			ElemIdx:    c.ElemIdx,
 			Length:     c.Length,
 			Size:       c.Size,
@@ -416,7 +453,7 @@ func (c *Opcode) dumpField(code *Opcode) string {
 		strings.Repeat("-", int(code.Indent)),
 		code.Op,
 		code.Idx/slotSize,
-		code.DisplayKey,
+		code.Key,
 		code.Offset,
 	)
 }

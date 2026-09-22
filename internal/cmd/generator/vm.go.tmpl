@@ -51,16 +51,116 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
 			b = appendComma(ctx, b)
 			code = code.Next
+		// The values as strings, for the keys of a map and for the string option of a field whose key is longer
+		// than a chunk: such a field is encoded by the generic field opcode and the opcode of its value.
+		case encoder.OpIntPtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
 		case encoder.OpIntString:
 			b = append(b, '"')
 			b = appendInt(ctx, b, load(ctxptr, code.Idx), code)
 			b = append(b, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
+		case encoder.OpUintPtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
 		case encoder.OpUintString:
 			b = append(b, '"')
 			b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
 			b = append(b, '"')
+			b = appendComma(ctx, b)
+			code = code.Next
+		case encoder.OpFloat32PtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpFloat32String:
+			b = append(b, '"')
+			b = appendFloat32(ctx, b, ptrToFloat32(load(ctxptr, code.Idx)))
+			b = append(b, '"')
+			b = appendComma(ctx, b)
+			code = code.Next
+		case encoder.OpFloat64PtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpFloat64String:
+			v := ptrToFloat64(load(ctxptr, code.Idx))
+			if math.IsInf(v, 0) || math.IsNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = append(b, '"')
+			b = appendFloat64(ctx, b, v)
+			b = append(b, '"')
+			b = appendComma(ctx, b)
+			code = code.Next
+		case encoder.OpBoolPtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpBoolString:
+			b = append(b, '"')
+			b = appendBool(ctx, b, ptrToBool(load(ctxptr, code.Idx)))
+			b = append(b, '"')
+			b = appendComma(ctx, b)
+			code = code.Next
+		case encoder.OpStringPtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpStringString:
+			b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(load(ctxptr, code.Idx)))))
+			b = appendComma(ctx, b)
+			code = code.Next
+		case encoder.OpNumberPtrString:
+			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
+			if p == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			store(ctxptr, code.Idx, p)
+			fallthrough
+		case encoder.OpNumberString:
+			b = append(b, '"')
+			bb, err := appendNumber(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
+			if err != nil {
+				return nil, err
+			}
+			b = append(bb, '"')
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpFloat32Ptr:
@@ -452,8 +552,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			code = code.Next
 		case encoder.OpStructField:
+			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
-				b = appendStructKey(ctx, code, b)
+				if len(code.Key) <= encoder.KeyChunkSize {
+					b = appendStructKey(ctx, code, b)
+				} else {
+					b = appendLongStructKey(ctx, code, b)
+				}
 			}
 			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
 			code = code.Next
@@ -461,10 +566,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldOmitEmpty:
 			p := load(ctxptr, code.Idx)
 			p = unsafe.Add(p, code.Offset)
-			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
+			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) {
 				code = code.NextField
 			} else {
-				b = appendStructKey(ctx, code, b)
+				if len(code.Key) <= encoder.KeyChunkSize {
+					b = appendStructKey(ctx, code, b)
+				} else {
+					b = appendLongStructKey(ctx, code, b)
+				}
 				code = code.Next
 				store(ctxptr, code.Idx, p)
 			}

@@ -925,6 +925,7 @@ func (c *MarshalJSONCode) Kind() CodeKind {
 func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx, c.typ, OpMarshalJSON)
 	code.FieldQuery = c.fieldQuery
+	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
 	}
@@ -938,6 +939,23 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 	ctx.incIndex()
 	return Opcodes{code}
+}
+
+// marshalerCall returns the direct call of the method, or nil if the method is called through the interface:
+// a value of the size of a pointer whose method is on the pointer is copied first, see addrForMarshaler.
+func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
+	recv := c.typ
+	if c.isAddrForMarshaler {
+		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
+			return nil
+		}
+		recv = reflect.PointerTo(c.typ)
+	}
+	iface := marshalJSONType
+	if c.isMarshalerContext {
+		iface = marshalJSONContextType
+	}
+	return newMarshalerCall(recv, iface)
 }
 
 func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
@@ -964,6 +982,7 @@ func (c *MarshalTextCode) Kind() CodeKind {
 func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx, c.typ, OpMarshalText)
 	code.FieldQuery = c.fieldQuery
+	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
 	}
@@ -974,6 +993,19 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 	ctx.incIndex()
 	return Opcodes{code}
+}
+
+// marshalerCall returns the direct call of the method, or nil if the method is called through the interface:
+// see MarshalJSONCode.marshalerCall.
+func (c *MarshalTextCode) marshalerCall() *MarshalerCall {
+	recv := c.typ
+	if c.isAddrForMarshaler {
+		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
+			return nil
+		}
+		recv = reflect.PointerTo(c.typ)
+	}
+	return newMarshalerCall(recv, marshalTextType)
 }
 
 func (c *MarshalTextCode) Filter(query *FieldQuery) Code {

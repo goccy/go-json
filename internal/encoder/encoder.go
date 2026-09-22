@@ -439,7 +439,46 @@ func addrForMarshaler(v interface{}, rv reflect.Value) reflect.Value {
 	return newV
 }
 
-func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+// AppendMarshalJSON appends what MarshalJSON of the value returns, compacted. p is the data word of the
+// interface value of the type of the opcode: the address of the value, or the pointer for a pointer type.
+func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	m := code.Marshaler
+	if m == nil {
+		return appendMarshalJSONByInterface(ctx, code, b, interfaceOf(code, p))
+	}
+	if m.nilIsNull && p == nil {
+		return AppendNull(ctx, b), nil
+	}
+	var bb []byte
+	var err error
+	if (code.Flags & MarshalerContextFlags) != 0 {
+		stdctx := ctx.marshalerContext()
+		if ctx.Option.Flag&FieldQueryOption != 0 {
+			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
+		}
+		bb, err = m.callContext(p, stdctx)
+	} else {
+		bb, err = m.call(p)
+	}
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+	}
+	marshalBuf := ctx.MarshalBuf[:0]
+	marshalBuf = append(append(marshalBuf, bb...), nul)
+	compactedBuf, err := compact(b, marshalBuf, (ctx.Option.Flag&HTMLEscapeOption) != 0)
+	if err != nil {
+		return nil, err
+	}
+	ctx.MarshalBuf = marshalBuf
+	return compactedBuf, nil
+}
+
+// interfaceOf returns the interface value of the type of the opcode whose data word is p.
+func interfaceOf(code *Opcode, p unsafe.Pointer) interface{} {
+	return *(*interface{})(unsafe.Pointer(&emptyInterface{typ: code.Type, ptr: p}))
+}
+
+func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -486,7 +525,28 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	return compactedBuf, nil
 }
 
-func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	m := code.Marshaler
+	if m == nil {
+		return appendMarshalJSONIndentByInterface(ctx, code, b, interfaceOf(code, p))
+	}
+	if m.nilIsNull && p == nil {
+		return AppendNull(ctx, b), nil
+	}
+	var bb []byte
+	var err error
+	if (code.Flags & MarshalerContextFlags) != 0 {
+		bb, err = m.callContext(p, ctx.marshalerContext())
+	} else {
+		bb, err = m.call(p)
+	}
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+	}
+	return appendIndentedMarshalJSON(ctx, code, b, bb)
+}
+
+func appendMarshalJSONIndentByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -519,6 +579,10 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 		}
 		bb = b
 	}
+	return appendIndentedMarshalJSON(ctx, code, b, bb)
+}
+
+func appendIndentedMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, bb []byte) ([]byte, error) {
 	marshalBuf := ctx.MarshalBuf[:0]
 	marshalBuf = append(append(marshalBuf, bb...), nul)
 	indentedBuf, err := doIndent(
@@ -529,13 +593,30 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, v inte
 		(ctx.Option.Flag&HTMLEscapeOption) != 0,
 	)
 	if err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+		return nil, &errors.MarshalerError{Type: runtime.TypeOfPtr(code.Type), Err: err}
 	}
 	ctx.MarshalBuf = marshalBuf
 	return indentedBuf, nil
 }
 
-func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+// AppendMarshalText appends what MarshalText of the value returns, as a string. p is the data word of the
+// interface value of the type of the opcode: the address of the value, or the pointer for a pointer type.
+func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	m := code.Marshaler
+	if m == nil {
+		return appendMarshalTextByInterface(ctx, code, b, interfaceOf(code, p))
+	}
+	if m.nilIsNull && p == nil {
+		return AppendNull(ctx, b), nil
+	}
+	bytes, err := m.call(p)
+	if err != nil {
+		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+	}
+	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -557,26 +638,9 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, v interface{
 	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
-	rv := reflect.ValueOf(v) // convert by dynamic interface type
-	if (code.Flags & AddrForMarshalerFlags) != 0 {
-		rv = addrForMarshaler(v, rv)
-	}
-	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
-	// so it is not known to be nil until here.
-	if rv.Kind() == reflect.Ptr && rv.IsNil() {
-		return AppendNull(ctx, b), nil
-	}
-	v = rv.Interface()
-	marshaler, ok := v.(encoding.TextMarshaler)
-	if !ok {
-		return AppendNull(ctx, b), nil
-	}
-	bytes, err := marshaler.MarshalText()
-	if err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
-	}
-	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
+// AppendMarshalTextIndent is AppendMarshalText: the text has no indent.
+func AppendMarshalTextIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	return AppendMarshalText(ctx, code, b, p)
 }
 
 func AppendNull(_ *RuntimeContext, b []byte) []byte {

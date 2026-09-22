@@ -206,7 +206,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				p = ptrToPtr(p)
 			}
-			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+			bb, err := appendMarshalJSON(ctx, code, b, p)
 			if err != nil {
 				return nil, err
 			}
@@ -232,7 +232,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
 				p = ptrToPtr(p)
 			}
-			bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+			bb, err := appendMarshalText(ctx, code, b, p)
 			if err != nil {
 				return nil, err
 			}
@@ -1112,7 +1112,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
 				b = appendNull(ctx, b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalJSON(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}
@@ -1136,7 +1136,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				break
 			}
 			b = appendStructKey(ctx, code, b)
-			bb, err := appendMarshalJSON(ctx, code, b, iface)
+			bb, err := appendMarshalJSON(ctx, code, b, p)
 			if err != nil {
 				return nil, err
 			}
@@ -1149,7 +1149,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalJSON(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}
@@ -1162,7 +1162,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalJSON(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}
@@ -1179,7 +1179,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
 				b = appendNull(ctx, b)
 			} else {
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalText(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}
@@ -1203,7 +1203,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				break
 			}
 			b = appendStructKey(ctx, code, b)
-			bb, err := appendMarshalText(ctx, code, b, iface)
+			bb, err := appendMarshalText(ctx, code, b, p)
 			if err != nil {
 				return nil, err
 			}
@@ -1216,7 +1216,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalText(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}
@@ -1229,7 +1229,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+				bb, err := appendMarshalText(ctx, code, b, p)
 				if err != nil {
 					return nil, err
 				}

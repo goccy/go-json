@@ -20,120 +20,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		switch code.Op {
 		default:
 			return nil, errUnimplementedOp(code.Op)
-		// The runs of fields of the same kind: the case of a run of three falls through the case of a run of two,
-		// which falls through the case of the field.
-		case encoder.OpStructFieldInt3:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldInt2:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldInt:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldUint3:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldUint2:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldUint:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldFloat643:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if isInfOrNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldFloat642:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if isInfOrNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldFloat64:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if isInfOrNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldString3:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldString2:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldBool3:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldBool2:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-			fallthrough
-		case encoder.OpStructFieldBool:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
 		case encoder.OpPtr:
 			p := load(ctxptr, code.Idx)
 			code = code.Next
@@ -711,6 +597,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				store(ctxptr, code.Idx, p)
 			}
+		case encoder.OpStructFieldInt3:
+			// Three fields of the kind in a row, then two: the fields after the first are encoded without
+			// a dispatch, by falling through to the case of the field. The same for the other kinds below.
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldInt2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldInt:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
 		case encoder.OpStructFieldOmitEmptyInt:
 			p := load(ctxptr, code.Idx)
 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
@@ -784,6 +692,26 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = append(b, '"')
 				b = appendComma(ctx, b)
 			}
+			code = code.Next
+		case encoder.OpStructFieldUint3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldUint2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldUint:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyUint:
 			p := load(ctxptr, code.Idx)
@@ -969,6 +897,38 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldFloat643:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+			if isInfOrNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = appendFloat64(ctx, b, v)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldFloat642:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+			if isInfOrNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = appendFloat64(ctx, b, v)
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldFloat64:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+			if isInfOrNaN(v) {
+				return nil, errUnsupportedFloat(v)
+			}
+			b = appendFloat64(ctx, b, v)
+			b = appendComma(ctx, b)
+			code = code.Next
 		case encoder.OpStructFieldOmitEmptyFloat64:
 			p := load(ctxptr, code.Idx)
 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
@@ -1068,6 +1028,26 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
+		case encoder.OpStructFieldString3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldString2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldString:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
 		case encoder.OpStructFieldOmitEmptyString:
 			p := load(ctxptr, code.Idx)
 			v := ptrToString(unsafe.Add(p, code.Offset))
@@ -1132,6 +1112,26 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
 				b = appendComma(ctx, b)
 			}
+			code = code.Next
+		case encoder.OpStructFieldBool3:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldBool2:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
+			code = code.Next
+			fallthrough
+		case encoder.OpStructFieldBool:
+			p := load(ctxptr, code.Idx)
+			b = appendStructKey(ctx, code, b)
+			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyBool:
 			p := load(ctxptr, code.Idx)

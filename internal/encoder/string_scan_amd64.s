@@ -19,94 +19,87 @@ TEXT ·xgetbv(SB), NOSPLIT, $0-8
 	MOVL DX, edx+4(FP)
 	RET
 
-// func scanStringAVX2(p unsafe.Pointer, n int, chars uint64, high uint64) int
+// MASK computes into Yd the mask of the bytes of Yx which may need an escape, using Yt as a temporary:
+// the lane of such a byte is not zero. See nibbleTables: Y8 is the table of the low nibbles in both halves,
+// Y9 the one of the high nibbles and Y10 has 0x0f in every lane.
 //
-// It returns the index of the first byte of the n bytes at p which may need an escape, or n. Such a byte is
-// a control character, '"', '\', one of the three characters in chars ( a byte each ), and a byte which is not
-// ASCII if high is not zero. n is 32 or more. The last block overlaps the previous one.
-TEXT ·scanStringAVX2(SB), NOSPLIT, $8-40
+// Only VEX instructions are used: a legacy SSE instruction, such as a move from a general register to an XMM
+// register, mixed with them cost about 500 ns per call.
+#define MASK(Yx, Yt, Yd) \
+	VPAND   Y10, Yx, Yt \
+	VPSRLW  $4, Yx, Yd \
+	VPAND   Y10, Yd, Yd \
+	VPSHUFB Yt, Y8, Yt \
+	VPSHUFB Yd, Y9, Yd \
+	VPAND   Yt, Yd, Yd
+
+// func scanStringAVX2(p unsafe.Pointer, n int, tables *nibbleTables) int
+//
+// It returns 1 if a byte of the n bytes at p may need an escape by the tables, or 0. n is 32 or more.
+// The blocks of 128 bytes are looked at first, then the blocks of 32 bytes, and the last block overlaps the
+// previous one.
+TEXT ·scanStringAVX2(SB), NOSPLIT, $0-32
 	MOVQ p+0(FP), SI
 	MOVQ n+8(FP), CX
-	MOVQ chars+16(FP), AX
-	MOVQ high+24(FP), R9
+	MOVQ tables+16(FP), AX
 
-	// the constants, a byte in every lane, from memory: a move from a general register is a legacy SSE
-	// instruction, and mixing it with the 256-bit instructions cost about 500 ns per call.
-	VPBROADCASTB c1f<>(SB), Y8      // 0x1f: a byte less than 0x20 is a control character
-	VPBROADCASTB cquote<>(SB), Y9
-	VPBROADCASTB cbslash<>(SB), Y10
-	MOVQ         AX, chars-8(SP)
-	VPBROADCASTB chars-8(SP), Y11   // chars[0]
-	VPBROADCASTB chars-7(SP), Y12   // chars[1]
-	VPBROADCASTB chars-6(SP), Y13   // chars[2]
+	VBROADCASTI128 (AX), Y8
+	VBROADCASTI128 16(AX), Y9
+	VPBROADCASTB   c0f<>(SB), Y10
 
-	// the mask of the lanes to keep from the sign bits: all or none.
-	XORL  R10, R10
-	TESTQ R9, R9
-	JEQ   nohigh
-	MOVL  $0xffffffff, R10
-nohigh:
-
-	XORQ  DI, DI                 // the index of the block
-	LEAQ  -32(CX), R11           // the index of the last block
-loop:
-	VMOVDQU (SI)(DI*1), Y0
-	VPMAXUB Y8, Y0, Y1
-	VPCMPEQB Y8, Y1, Y1          // x <= 0x1f
-	VPCMPEQB Y9, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y10, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y11, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y12, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y13, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPMOVMSKB Y1, AX
-	VPMOVMSKB Y0, DX             // the bytes which are not ASCII
-	ANDL      R10, DX
-	ORL       DX, AX
-	JNE       found
-	ADDQ      $32, DI
-	CMPQ      DI, R11
-	JLT       loop
+	MOVQ SI, DI                  // the address of the block
+	LEAQ -128(SI)(CX*1), R11     // the address of the last block of 128 bytes
+	CMPQ DI, R11
+	JGT  small
+loop128:
+	VMOVDQU (DI), Y0
+	VMOVDQU 32(DI), Y1
+	VMOVDQU 64(DI), Y2
+	VMOVDQU 96(DI), Y3
+	MASK(Y0, Y4, Y5)
+	MASK(Y1, Y4, Y6)
+	VPOR    Y6, Y5, Y5
+	MASK(Y2, Y4, Y6)
+	VPOR    Y6, Y5, Y5
+	MASK(Y3, Y4, Y6)
+	VPOR    Y6, Y5, Y5
+	VPMOVMSKB Y5, AX
+	TESTL   AX, AX
+	JNE     found
+	ADDQ    $128, DI
+	CMPQ    DI, R11
+	JLE     loop128
+small:
+	LEAQ -32(SI)(CX*1), R11      // the address of the last block of 32 bytes
+	CMPQ DI, R11
+	JGT  last
+loop32:
+	VMOVDQU (DI), Y0
+	MASK(Y0, Y4, Y5)
+	VPMOVMSKB Y5, AX
+	TESTL   AX, AX
+	JNE     found
+	ADDQ    $32, DI
+	CMPQ    DI, R11
+	JLE     loop32
+last:
 	// the last block, which overlaps the previous one unless the blocks ended exactly at n.
-	CMPQ      DI, CX
-	JEQ       none
-	MOVQ      R11, DI
-	VMOVDQU (SI)(DI*1), Y0
-	VPMAXUB Y8, Y0, Y1
-	VPCMPEQB Y8, Y1, Y1
-	VPCMPEQB Y9, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y10, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y11, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y12, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPCMPEQB Y13, Y0, Y2
-	VPOR     Y2, Y1, Y1
-	VPMOVMSKB Y1, AX
-	VPMOVMSKB Y0, DX
-	ANDL      R10, DX
-	ORL       DX, AX
-	JNE       found
+	LEAQ (SI)(CX*1), DX
+	CMPQ DI, DX
+	JEQ  none
+	VMOVDQU (R11), Y0
+	MASK(Y0, Y4, Y5)
+	VPMOVMSKB Y5, AX
+	TESTL   AX, AX
+	JNE     found
 none:
 	VZEROUPPER
-	MOVQ CX, ret+32(FP)
+	MOVQ $0, ret+24(FP)
 	RET
 found:
 	VZEROUPPER
-	TZCNTL AX, AX
-	ADDQ   DI, AX
-	MOVQ   AX, ret+32(FP)
+	MOVQ $1, ret+24(FP)
 	RET
 
-DATA c1f<>+0(SB)/1, $0x1f
-GLOBL c1f<>(SB), RODATA|NOPTR, $1
-DATA cquote<>+0(SB)/1, $0x22
-GLOBL cquote<>(SB), RODATA|NOPTR, $1
-DATA cbslash<>+0(SB)/1, $0x5c
-GLOBL cbslash<>(SB), RODATA|NOPTR, $1
+DATA c0f<>+0(SB)/1, $0x0f
+GLOBL c0f<>(SB), RODATA|NOPTR, $1

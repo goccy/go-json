@@ -10,7 +10,7 @@ func cpuid(eaxArg, ecxArg uint32) (eax, ebx, ecx, edx uint32)
 func xgetbv() (eax, edx uint32)
 
 //go:noescape
-func scanStringAVX2(p unsafe.Pointer, n int, chars uint64, high uint64) int
+func scanStringAVX2(p unsafe.Pointer, n int, tables *nibbleTables) int
 
 // hasAVX2 is whether the CPU and the OS support AVX2.
 var hasAVX2 = detectAVX2()
@@ -44,6 +44,5 @@ func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
 	if !hasAVX2 || n < minSIMDScanLength {
 		return false, false
 	}
-	chars := uint64(uint8(e.chars[0])) | uint64(uint8(e.chars[1]))<<8 | uint64(uint8(e.chars[2]))<<16
-	return scanStringAVX2(src, n, chars, e.high) < n, true
+	return scanStringAVX2(src, n, &e.tables) != 0, true
 }

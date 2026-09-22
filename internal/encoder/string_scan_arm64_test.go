@@ -7,10 +7,7 @@ import (
 	"unsafe"
 )
 
-func TestScanStringAVX2(t *testing.T) {
-	if !hasAVX2 {
-		t.Skip("AVX2 is not supported")
-	}
+func TestScanStringNEON(t *testing.T) {
 	special := []byte{0x00, 0x1f, '"', '\\', '<', '>', '&', 0x7f, 0x80, 0xe3, 0xff, '\n', ' ', '!', '#', '=', '?', '[', ']'}
 	for index := range stringEscapes {
 		e := &stringEscapes[index]
@@ -22,11 +19,11 @@ func TestScanStringAVX2(t *testing.T) {
 			}
 			return 0
 		}
-		for length := 32; length <= 130; length++ {
+		for length := 16; length <= 100; length++ {
 			base := strings.Repeat("a", length)
 			check := func(s string) {
 				t.Helper()
-				got := scanStringAVX2(unsafe.Pointer(unsafe.StringData(s)), len(s), &e.tables)
+				got := scanStringNEON(unsafe.Pointer(unsafe.StringData(s)), len(s), &e.tables)
 				if expected := expected(s); got != expected {
 					t.Fatalf("escape %d, %q: expected %d but got %d", index, s, expected, got)
 				}
@@ -37,10 +34,6 @@ func TestScanStringAVX2(t *testing.T) {
 					b := []byte(base)
 					b[pos] = c
 					check(string(b))
-					if pos+1 < length {
-						b[pos+1] = '"'
-						check(string(b))
-					}
 				}
 			}
 		}
@@ -48,15 +41,12 @@ func TestScanStringAVX2(t *testing.T) {
 }
 
 // The scan must not read out of the string.
-func TestScanStringAVX2AtEndOfMemory(t *testing.T) {
-	if !hasAVX2 {
-		t.Skip("AVX2 is not supported")
-	}
-	for length := 32; length <= 100; length++ {
+func TestScanStringNEONAtEndOfMemory(t *testing.T) {
+	for length := 16; length <= 80; length++ {
 		mem := []byte(strings.Repeat("a", length))
-		for start := 0; start+32 <= length; start++ {
+		for start := 0; start+16 <= length; start++ {
 			s := string(mem[start:])
-			if got := scanStringAVX2(unsafe.Pointer(unsafe.StringData(s)), len(s), &stringEscapes[stringEscapeHTML|stringEscapeNormalize].tables); got != 0 {
+			if got := scanStringNEON(unsafe.Pointer(unsafe.StringData(s)), len(s), &stringEscapes[stringEscapeHTML|stringEscapeNormalize].tables); got != 0 {
 				t.Fatalf("%q: got %d", s, got)
 			}
 		}
@@ -66,7 +56,7 @@ func TestScanStringAVX2AtEndOfMemory(t *testing.T) {
 // the scans alone: the one by words and the one by SIMD.
 func BenchmarkScanString(b *testing.B) {
 	e := &stringEscapes[stringEscapeHTML|stringEscapeNormalize]
-	for _, n := range []int{36, 100, 1000} {
+	for _, n := range []int{16, 36, 100, 1000} {
 		s := strings.Repeat("a", n)
 		p := unsafe.Pointer(unsafe.StringData(s))
 		b.Run("Words/"+strconv.Itoa(n), func(b *testing.B) {
@@ -76,14 +66,12 @@ func BenchmarkScanString(b *testing.B) {
 				}
 			}
 		})
-		if hasAVX2 {
-			b.Run("AVX2/"+strconv.Itoa(n), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					if scanStringAVX2(p, n, &e.tables) != 0 {
-						b.Fatal("found")
-					}
+		b.Run("NEON/"+strconv.Itoa(n), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				if scanStringNEON(p, n, &e.tables) != 0 {
+					b.Fatal("found")
 				}
-			})
-		}
+			}
+		})
 	}
 }

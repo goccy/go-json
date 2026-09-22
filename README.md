@@ -199,6 +199,19 @@ Which one to use depends on what is passed:
 
 `MarshalNoEscape`, which left the value on the stack, is deprecated: the encoder refers to the value by its address, and the address gets invalid when the stack of the goroutine is moved. It is now the same as `Marshal`.
 
+### Let the encoder order the fields of a struct by `OptimizeFieldOrder`
+
+`encoding/json` writes the fields of a struct in the order of the struct, and so does `go-json` by default. A JSON object doesn't define the order of its keys, so when the order doesn't matter to the reader of the JSON, the option `json.OptimizeFieldOrder()` lets the encoder order the fields as it encodes them fastest:
+
+```go
+b, err := json.MarshalWithOption(v, json.OptimizeFieldOrder())
+```
+
+- The fields of the same kind ( `int`, `uint`, `float64`, `string`, `bool` ) are put together, in the order of the first field of each kind, and are encoded without a dispatch of the VM between them ( see below ).
+- A field of the struct's own type ( the next node of a list ), if there is one, is put last, so that a list of values is encoded in one frame of the VM instead of one frame for each value.
+
+The keys are the same, only their order differs. The opcodes of a type are compiled for the option apart from the ones in the order of the struct, so the two can be used together.
+
 ### Encoding using opcode sequence
 
 I explained that you can use `typeptr` to call a pre-built process from type information.

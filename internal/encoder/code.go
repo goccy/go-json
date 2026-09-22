@@ -724,6 +724,37 @@ type StructFieldCode struct {
 	isMarshalerContext bool
 }
 
+// runKind returns the kind of the field if it is one which has the opcodes of a run ( fieldRunOps ): a field of
+// int, uint, float64, string or bool, not a pointer, without omitempty or the string option, and not embedded.
+func (c *StructFieldCode) runKind() (CodeKind, bool) {
+	if c.isAnonymous || c.tag.IsOmitEmpty || c.tag.IsString {
+		return 0, false
+	}
+	switch value := c.value.(type) {
+	case *IntCode:
+		return CodeKindInt, !value.isPtr && !value.isString
+	case *UintCode:
+		return CodeKindUint, !value.isPtr && !value.isString
+	case *FloatCode:
+		return CodeKindFloat, !value.isPtr && value.bitSize == 64
+	case *StringCode:
+		return CodeKindString, !value.isPtr && value.typ != jsonNumberType
+	case *BoolCode:
+		return CodeKindBool, !value.isPtr
+	}
+	return 0, false
+}
+
+// isRecursiveValueOf is whether the field is a value of typ, the struct it is a field of, or a pointer to one:
+// what markTailRecursion encodes without a frame when the field is the last.
+func (c *StructFieldCode) isRecursiveValueOf(typ reflect.Type) bool {
+	if c.isAnonymous {
+		return false
+	}
+	structCode := c.getStruct()
+	return structCode != nil && structCode.isRecursive && structCode.typ == typ
+}
+
 func (c *StructFieldCode) getStruct() *StructCode {
 	value := c.value
 	ptr, ok := value.(*PtrCode)

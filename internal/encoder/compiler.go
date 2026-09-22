@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
+	"sort"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -16,17 +17,24 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	if codeSet := ctx.recentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
-	recent := &ctx.recentCodeSets[recentCodeSetIndex(typeptr)]
-	if recent.typeptr == typeptr {
+	key := ctx.codeSetKey(typeptr)
+	recent := &ctx.recentCodeSets[recentCodeSetIndex(key)]
+	if recent.typeptr == key {
 		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
 	}
-	codeSet, err := compileToGetUnfilteredCodeSet(typeptr)
+	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
 		return nil, err
 	}
-	recent.typeptr = typeptr
+	recent.typeptr = key
 	recent.codeSet = codeSet
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
+}
+
+// codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose
+// lowest bit is free by the alignment of a type and is set when the fields are ordered by the encoder.
+func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
+	return typeptr | uintptr(c.Option.Flag&OptimizeFieldOrderOption)/uintptr(OptimizeFieldOrderOption)
 }
 
 // recentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
@@ -36,8 +44,9 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
 // This is inlined into the callers: the values of interface{} come through it one by one.
 func (c *RuntimeContext) recentCodeSet(typeptr uintptr) *OpcodeSet {
-	recent := &c.recentCodeSets[recentCodeSetIndex(typeptr)]
-	if recent.typeptr == typeptr && c.Option.Flag&ContextOption == 0 {
+	key := c.codeSetKey(typeptr)
+	recent := &c.recentCodeSets[recentCodeSetIndex(key)]
+	if recent.typeptr == key && c.Option.Flag&ContextOption == 0 {
 		return recent.codeSet
 	}
 	return nil
@@ -48,15 +57,20 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 }
 
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
-func compileToGetUnfilteredCodeSet(typeptr uintptr) (*OpcodeSet, error) {
-	if codeSet := cachedOpcodeSets.Load(typeptr); codeSet != nil {
+// The opcodes with the fields ordered by the encoder are cached apart from the ones in the order of the struct.
+func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*OpcodeSet, error) {
+	cache := &cachedOpcodeSets
+	if optimizeFieldOrder {
+		cache = &cachedOptimizedOpcodeSets
+	}
+	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := newCompiler(optimizeFieldOrder).compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
-	return cachedOpcodeSets.Store(typeptr, codeSet), nil
+	return cache.Store(typeptr, codeSet), nil
 }
 
 type marshalerContext interface {
@@ -69,6 +83,8 @@ var (
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
 	cachedOpcodeSets       runtime.TypeCache[OpcodeSet]
+	// cachedOptimizedOpcodeSets are the opcodes with the fields ordered by the encoder.
+	cachedOptimizedOpcodeSets runtime.TypeCache[OpcodeSet]
 )
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
@@ -84,7 +100,8 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 	if cacheCodeSet != nil {
 		return cacheCodeSet, nil
 	}
-	queryCodeSet, err := newCompiler().codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
+	// the fields of the code are already in their order: the compiler doesn't order them again.
+	queryCodeSet, err := newCompiler(false).codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
 	if err != nil {
 		return nil, err
 	}
@@ -94,14 +111,17 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 
 type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
+	// optimizeFieldOrder is whether the fields of a struct are ordered as they are encoded fastest.
+	optimizeFieldOrder bool
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
 }
 
-func newCompiler() *Compiler {
+func newCompiler(optimizeFieldOrder bool) *Compiler {
 	return &Compiler{
-		structTypeToCode: map[uintptr]*StructCode{},
+		structTypeToCode:   map[uintptr]*StructCode{},
+		optimizeFieldOrder: optimizeFieldOrder,
 	}
 }
 
@@ -630,11 +650,59 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	fieldMap := c.getFieldMap(fields)
 	duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
 	code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
+	if c.optimizeFieldOrder {
+		code.fields = orderFieldsForSpeed(code.fields, typ)
+	}
 	if !code.disableIndirectConversion && !indirect && isPtr {
 		code.enableIndirect()
 	}
 	delete(c.structTypeToCode, typeptr)
 	return code, nil
+}
+
+// orderFieldsForSpeed returns the fields in the order they are encoded fastest ( OptimizeFieldOrderOption ):
+// the fields of a kind which has the opcodes of a run ( fieldRunOps ) are put together, where the first field
+// of the kind is, so that a run is as long as it can be; and a field which is a value of the struct's own type,
+// if there is one, is put last, so that a list of values is encoded in one frame ( markTailRecursion ).
+// The other fields stay in their order.
+func orderFieldsForSpeed(fields []*StructFieldCode, typ reflect.Type) []*StructFieldCode {
+	recursive := -1
+	for i, field := range fields {
+		if field.isRecursiveValueOf(typ) {
+			if recursive >= 0 {
+				recursive = -1 // more than one: none of them is the last
+				break
+			}
+			recursive = i
+		}
+	}
+	// the order key of a field: where the first field of its kind is, or its own place.
+	keys := make([]int, len(fields))
+	firstOfKind := map[CodeKind]int{}
+	for i, field := range fields {
+		keys[i] = i
+		if i == recursive {
+			keys[i] = len(fields)
+			continue
+		}
+		if kind, ok := field.runKind(); ok {
+			if first, seen := firstOfKind[kind]; seen {
+				keys[i] = first
+			} else {
+				firstOfKind[kind] = i
+			}
+		}
+	}
+	order := make([]int, len(fields))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(i, j int) bool { return keys[order[i]] < keys[order[j]] })
+	ordered := make([]*StructFieldCode, len(fields))
+	for i, j := range order {
+		ordered[i] = fields[j]
+	}
+	return ordered
 }
 
 func toElemType(t reflect.Type) reflect.Type {

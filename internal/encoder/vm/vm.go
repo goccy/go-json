@@ -8,6 +8,8 @@ import (
 	"github.com/goccy/go-json/internal/encoder"
 )
 
+// Run encodes by the opcodes. Each opcode is a function, called through the table of the handlers:
+// the state of the VM is passed and returned in the registers.
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	ctxptr := ctx.Ptr()
 	var code *encoder.Opcode
@@ -16,2043 +18,2790 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 	} else {
 		code = codeSet.NoescapeKeyCode
 	}
-
 	for {
-		switch code.Op {
-		default:
-			return nil, errUnimplementedOp(code.Op)
-		case encoder.OpPtr:
-			p := load(ctxptr, code.Idx)
-			code = code.Next
-			store(ctxptr, code.Idx, ptrToPtr(p))
-		case encoder.OpIntPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpInt:
-			b = appendInt(ctx, b, load(ctxptr, code.Idx), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpUintPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpUint:
-			b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpIntString:
-			b = append(b, '"')
-			b = appendInt(ctx, b, load(ctxptr, code.Idx), code)
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpUintString:
-			b = append(b, '"')
-			b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpFloat32Ptr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-				b = appendComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpFloat32:
-			b = appendFloat32(ctx, b, ptrToFloat32(load(ctxptr, code.Idx)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpFloat64Ptr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpFloat64:
-			v := ptrToFloat64(load(ctxptr, code.Idx))
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStringPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpString:
-			b = appendString(ctx, b, ptrToString(load(ctxptr, code.Idx)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpBoolPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpBool:
-			b = appendBool(ctx, b, ptrToBool(load(ctxptr, code.Idx)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpBytesPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpBytes:
-			b = appendByteSlice(ctx, b, ptrToBytes(load(ctxptr, code.Idx)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpNumberPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpNumber:
-			bb, err := appendNumber(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpInterfacePtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpInterface:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			first, base, scalar, err := ctx.EnterInterface(code, p)
-			if err != nil {
-				return nil, err
-			}
-			if first == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			if scalar {
-				bb, err := appendScalar(ctx, b, first, base)
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-				code = code.Next
-				break
-			}
-			code = first
-			ctxptr = base
-		case encoder.OpInterfaceEnd:
-			code, ctxptr = ctx.LeaveFrame(code)
-		case encoder.OpMarshalJSONPtr:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
-			fallthrough
-		case encoder.OpMarshalJSON:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpMarshalTextPtr:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
-			fallthrough
-		case encoder.OpMarshalText:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = append(b, `""`...)
-				b = appendComma(ctx, b)
-				code = code.Next
-				break
-			}
-			if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpSlicePtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpSlice:
-			p := load(ctxptr, code.Idx)
-			slice := ptrToSlice(p)
-			if p == nil || slice.Data == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			storeInt(ctxptr, code.ElemIdx, 0)
-			storeInt(ctxptr, code.Length, uintptr(slice.Len))
-			store(ctxptr, code.Idx, slice.Data)
-			if slice.Len > 0 {
-				b = appendArrayHead(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, slice.Data)
-			} else {
-				b = appendEmptyArray(ctx, b)
-				code = code.End.Next
-			}
-		case encoder.OpSliceElem:
-			idx := loadInt(ctxptr, code.ElemIdx)
-			length := loadInt(ctxptr, code.Length)
-			idx++
-			if idx < length {
-				b = appendArrayElemIndent(ctx, code, b)
-				storeInt(ctxptr, code.ElemIdx, idx)
-				data := load(ctxptr, code.Idx)
-				size := uintptr(code.Size)
-				code = code.Next
-				store(ctxptr, code.Idx, unsafe.Add(data, idx*size))
-			} else {
-				b = appendArrayEnd(ctx, code, b)
-				code = code.End.Next
-			}
-		case encoder.OpArrayPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpArray:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			if code.Length > 0 {
-				b = appendArrayHead(ctx, code, b)
-				storeInt(ctxptr, code.ElemIdx, 0)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			} else {
-				b = appendEmptyArray(ctx, b)
-				code = code.End.Next
-			}
-		case encoder.OpArrayElem:
-			idx := loadInt(ctxptr, code.ElemIdx)
-			idx++
-			if idx < uintptr(code.Length) {
-				b = appendArrayElemIndent(ctx, code, b)
-				storeInt(ctxptr, code.ElemIdx, idx)
-				p := load(ctxptr, code.Idx)
-				size := uintptr(code.Size)
-				code = code.Next
-				store(ctxptr, code.Idx, unsafe.Add(p, idx*size))
-			} else {
-				b = appendArrayEnd(ctx, code, b)
-				code = code.End.Next
-			}
-		case encoder.OpMapPtr:
-			p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			store(ctxptr, code.Idx, p)
-			fallthrough
-		case encoder.OpMap:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.End.Next
-				break
-			}
-			mlen := maplen(p)
-			if mlen <= 0 {
-				b = appendEmptyObject(ctx, b)
-				code = code.End.Next
-				break
-			}
-			b = appendStructHead(ctx, b)
-			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
-			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
-			mapiterinit(code.Type, p, &mapCtx.Iter)
-			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
-			if unorderedMap {
-				b = appendMapKeyIndent(ctx, code.Next, b)
-			} else {
-				mapCtx.Start = len(b)
-				mapCtx.First = len(b)
-			}
+		var err error
+		b, code, ctxptr, err = handlers[code.Op](ctx, b, code, ctxptr)
+		if code == nil {
+			return b, err
+		}
+	}
+}
+
+func opUnimplemented(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	return nil, nil, nil, errUnimplementedOp(code.Op)
+}
+
+var handlers [256]func(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error)
+
+func init() {
+	handlers[encoder.OpPtr] = opPtr
+	handlers[encoder.OpIntPtr] = opIntPtr
+	handlers[encoder.OpInt] = opInt
+	handlers[encoder.OpUintPtr] = opUintPtr
+	handlers[encoder.OpUint] = opUint
+	handlers[encoder.OpIntString] = opIntString
+	handlers[encoder.OpUintString] = opUintString
+	handlers[encoder.OpFloat32Ptr] = opFloat32Ptr
+	handlers[encoder.OpFloat32] = opFloat32
+	handlers[encoder.OpFloat64Ptr] = opFloat64Ptr
+	handlers[encoder.OpFloat64] = opFloat64
+	handlers[encoder.OpStringPtr] = opStringPtr
+	handlers[encoder.OpString] = opString
+	handlers[encoder.OpBoolPtr] = opBoolPtr
+	handlers[encoder.OpBool] = opBool
+	handlers[encoder.OpBytesPtr] = opBytesPtr
+	handlers[encoder.OpBytes] = opBytes
+	handlers[encoder.OpNumberPtr] = opNumberPtr
+	handlers[encoder.OpNumber] = opNumber
+	handlers[encoder.OpInterfacePtr] = opInterfacePtr
+	handlers[encoder.OpInterface] = opInterface
+	handlers[encoder.OpInterfaceEnd] = opInterfaceEnd
+	handlers[encoder.OpMarshalJSONPtr] = opMarshalJSONPtr
+	handlers[encoder.OpMarshalJSON] = opMarshalJSON
+	handlers[encoder.OpMarshalTextPtr] = opMarshalTextPtr
+	handlers[encoder.OpMarshalText] = opMarshalText
+	handlers[encoder.OpSlicePtr] = opSlicePtr
+	handlers[encoder.OpSlice] = opSlice
+	handlers[encoder.OpSliceElem] = opSliceElem
+	handlers[encoder.OpArrayPtr] = opArrayPtr
+	handlers[encoder.OpArray] = opArray
+	handlers[encoder.OpArrayElem] = opArrayElem
+	handlers[encoder.OpMapPtr] = opMapPtr
+	handlers[encoder.OpMap] = opMap
+	handlers[encoder.OpMapKey] = opMapKey
+	handlers[encoder.OpMapValue] = opMapValue
+	handlers[encoder.OpMapEnd] = opMapEnd
+	handlers[encoder.OpRecursivePtr] = opRecursivePtr
+	handlers[encoder.OpRecursive] = opRecursive
+	handlers[encoder.OpRecursiveEnd] = opRecursiveEnd
+	handlers[encoder.OpStructPtrHead] = opStructPtrHead
+	handlers[encoder.OpStructHead] = opStructHead
+	handlers[encoder.OpStructField] = opStructField
+	handlers[encoder.OpStructFieldOmitEmpty] = opStructFieldOmitEmpty
+	handlers[encoder.OpStructFieldInt] = opStructFieldInt
+	handlers[encoder.OpStructFieldOmitEmptyInt] = opStructFieldOmitEmptyInt
+	handlers[encoder.OpStructFieldIntString] = opStructFieldIntString
+	handlers[encoder.OpStructFieldOmitEmptyIntString] = opStructFieldOmitEmptyIntString
+	handlers[encoder.OpStructFieldIntPtr] = opStructFieldIntPtr
+	handlers[encoder.OpStructFieldOmitEmptyIntPtr] = opStructFieldOmitEmptyIntPtr
+	handlers[encoder.OpStructFieldIntPtrString] = opStructFieldIntPtrString
+	handlers[encoder.OpStructFieldOmitEmptyIntPtrString] = opStructFieldOmitEmptyIntPtrString
+	handlers[encoder.OpStructFieldUint] = opStructFieldUint
+	handlers[encoder.OpStructFieldOmitEmptyUint] = opStructFieldOmitEmptyUint
+	handlers[encoder.OpStructFieldUintString] = opStructFieldUintString
+	handlers[encoder.OpStructFieldOmitEmptyUintString] = opStructFieldOmitEmptyUintString
+	handlers[encoder.OpStructFieldUintPtr] = opStructFieldUintPtr
+	handlers[encoder.OpStructFieldOmitEmptyUintPtr] = opStructFieldOmitEmptyUintPtr
+	handlers[encoder.OpStructFieldUintPtrString] = opStructFieldUintPtrString
+	handlers[encoder.OpStructFieldOmitEmptyUintPtrString] = opStructFieldOmitEmptyUintPtrString
+	handlers[encoder.OpStructFieldFloat32] = opStructFieldFloat32
+	handlers[encoder.OpStructFieldOmitEmptyFloat32] = opStructFieldOmitEmptyFloat32
+	handlers[encoder.OpStructFieldFloat32String] = opStructFieldFloat32String
+	handlers[encoder.OpStructFieldOmitEmptyFloat32String] = opStructFieldOmitEmptyFloat32String
+	handlers[encoder.OpStructFieldFloat32Ptr] = opStructFieldFloat32Ptr
+	handlers[encoder.OpStructFieldOmitEmptyFloat32Ptr] = opStructFieldOmitEmptyFloat32Ptr
+	handlers[encoder.OpStructFieldFloat32PtrString] = opStructFieldFloat32PtrString
+	handlers[encoder.OpStructFieldOmitEmptyFloat32PtrString] = opStructFieldOmitEmptyFloat32PtrString
+	handlers[encoder.OpStructFieldFloat64] = opStructFieldFloat64
+	handlers[encoder.OpStructFieldOmitEmptyFloat64] = opStructFieldOmitEmptyFloat64
+	handlers[encoder.OpStructFieldFloat64String] = opStructFieldFloat64String
+	handlers[encoder.OpStructFieldOmitEmptyFloat64String] = opStructFieldOmitEmptyFloat64String
+	handlers[encoder.OpStructFieldFloat64Ptr] = opStructFieldFloat64Ptr
+	handlers[encoder.OpStructFieldOmitEmptyFloat64Ptr] = opStructFieldOmitEmptyFloat64Ptr
+	handlers[encoder.OpStructFieldFloat64PtrString] = opStructFieldFloat64PtrString
+	handlers[encoder.OpStructFieldOmitEmptyFloat64PtrString] = opStructFieldOmitEmptyFloat64PtrString
+	handlers[encoder.OpStructFieldString] = opStructFieldString
+	handlers[encoder.OpStructFieldOmitEmptyString] = opStructFieldOmitEmptyString
+	handlers[encoder.OpStructFieldStringString] = opStructFieldStringString
+	handlers[encoder.OpStructFieldOmitEmptyStringString] = opStructFieldOmitEmptyStringString
+	handlers[encoder.OpStructFieldStringPtr] = opStructFieldStringPtr
+	handlers[encoder.OpStructFieldOmitEmptyStringPtr] = opStructFieldOmitEmptyStringPtr
+	handlers[encoder.OpStructFieldStringPtrString] = opStructFieldStringPtrString
+	handlers[encoder.OpStructFieldOmitEmptyStringPtrString] = opStructFieldOmitEmptyStringPtrString
+	handlers[encoder.OpStructFieldBool] = opStructFieldBool
+	handlers[encoder.OpStructFieldOmitEmptyBool] = opStructFieldOmitEmptyBool
+	handlers[encoder.OpStructFieldBoolString] = opStructFieldBoolString
+	handlers[encoder.OpStructFieldOmitEmptyBoolString] = opStructFieldOmitEmptyBoolString
+	handlers[encoder.OpStructFieldBoolPtr] = opStructFieldBoolPtr
+	handlers[encoder.OpStructFieldOmitEmptyBoolPtr] = opStructFieldOmitEmptyBoolPtr
+	handlers[encoder.OpStructFieldBoolPtrString] = opStructFieldBoolPtrString
+	handlers[encoder.OpStructFieldOmitEmptyBoolPtrString] = opStructFieldOmitEmptyBoolPtrString
+	handlers[encoder.OpStructFieldBytes] = opStructFieldBytes
+	handlers[encoder.OpStructFieldOmitEmptyBytes] = opStructFieldOmitEmptyBytes
+	handlers[encoder.OpStructFieldBytesPtr] = opStructFieldBytesPtr
+	handlers[encoder.OpStructFieldOmitEmptyBytesPtr] = opStructFieldOmitEmptyBytesPtr
+	handlers[encoder.OpStructFieldNumber] = opStructFieldNumber
+	handlers[encoder.OpStructFieldOmitEmptyNumber] = opStructFieldOmitEmptyNumber
+	handlers[encoder.OpStructFieldNumberString] = opStructFieldNumberString
+	handlers[encoder.OpStructFieldOmitEmptyNumberString] = opStructFieldOmitEmptyNumberString
+	handlers[encoder.OpStructFieldNumberPtr] = opStructFieldNumberPtr
+	handlers[encoder.OpStructFieldOmitEmptyNumberPtr] = opStructFieldOmitEmptyNumberPtr
+	handlers[encoder.OpStructFieldNumberPtrString] = opStructFieldNumberPtrString
+	handlers[encoder.OpStructFieldOmitEmptyNumberPtrString] = opStructFieldOmitEmptyNumberPtrString
+	handlers[encoder.OpStructFieldMarshalJSON] = opStructFieldMarshalJSON
+	handlers[encoder.OpStructFieldOmitEmptyMarshalJSON] = opStructFieldOmitEmptyMarshalJSON
+	handlers[encoder.OpStructFieldMarshalJSONPtr] = opStructFieldMarshalJSONPtr
+	handlers[encoder.OpStructFieldOmitEmptyMarshalJSONPtr] = opStructFieldOmitEmptyMarshalJSONPtr
+	handlers[encoder.OpStructFieldMarshalText] = opStructFieldMarshalText
+	handlers[encoder.OpStructFieldOmitEmptyMarshalText] = opStructFieldOmitEmptyMarshalText
+	handlers[encoder.OpStructFieldMarshalTextPtr] = opStructFieldMarshalTextPtr
+	handlers[encoder.OpStructFieldOmitEmptyMarshalTextPtr] = opStructFieldOmitEmptyMarshalTextPtr
+	handlers[encoder.OpStructFieldArray] = opStructFieldArray
+	handlers[encoder.OpStructFieldOmitEmptyArray] = opStructFieldOmitEmptyArray
+	handlers[encoder.OpStructFieldArrayPtr] = opStructFieldArrayPtr
+	handlers[encoder.OpStructFieldOmitEmptyArrayPtr] = opStructFieldOmitEmptyArrayPtr
+	handlers[encoder.OpStructFieldSlice] = opStructFieldSlice
+	handlers[encoder.OpStructFieldOmitEmptySlice] = opStructFieldOmitEmptySlice
+	handlers[encoder.OpStructFieldSlicePtr] = opStructFieldSlicePtr
+	handlers[encoder.OpStructFieldOmitEmptySlicePtr] = opStructFieldOmitEmptySlicePtr
+	handlers[encoder.OpStructFieldMap] = opStructFieldMap
+	handlers[encoder.OpStructFieldOmitEmptyMap] = opStructFieldOmitEmptyMap
+	handlers[encoder.OpStructFieldMapPtr] = opStructFieldMapPtr
+	handlers[encoder.OpStructFieldOmitEmptyMapPtr] = opStructFieldOmitEmptyMapPtr
+	handlers[encoder.OpStructFieldStruct] = opStructFieldStruct
+	handlers[encoder.OpStructFieldOmitEmptyStruct] = opStructFieldOmitEmptyStruct
+	handlers[encoder.OpStructEnd] = opStructEnd
+	handlers[encoder.OpStructEndInt] = opStructEndInt
+	handlers[encoder.OpStructEndOmitEmptyInt] = opStructEndOmitEmptyInt
+	handlers[encoder.OpStructEndIntString] = opStructEndIntString
+	handlers[encoder.OpStructEndOmitEmptyIntString] = opStructEndOmitEmptyIntString
+	handlers[encoder.OpStructEndIntPtr] = opStructEndIntPtr
+	handlers[encoder.OpStructEndOmitEmptyIntPtr] = opStructEndOmitEmptyIntPtr
+	handlers[encoder.OpStructEndIntPtrString] = opStructEndIntPtrString
+	handlers[encoder.OpStructEndOmitEmptyIntPtrString] = opStructEndOmitEmptyIntPtrString
+	handlers[encoder.OpStructEndUint] = opStructEndUint
+	handlers[encoder.OpStructEndOmitEmptyUint] = opStructEndOmitEmptyUint
+	handlers[encoder.OpStructEndUintString] = opStructEndUintString
+	handlers[encoder.OpStructEndOmitEmptyUintString] = opStructEndOmitEmptyUintString
+	handlers[encoder.OpStructEndUintPtr] = opStructEndUintPtr
+	handlers[encoder.OpStructEndOmitEmptyUintPtr] = opStructEndOmitEmptyUintPtr
+	handlers[encoder.OpStructEndUintPtrString] = opStructEndUintPtrString
+	handlers[encoder.OpStructEndOmitEmptyUintPtrString] = opStructEndOmitEmptyUintPtrString
+	handlers[encoder.OpStructEndFloat32] = opStructEndFloat32
+	handlers[encoder.OpStructEndOmitEmptyFloat32] = opStructEndOmitEmptyFloat32
+	handlers[encoder.OpStructEndFloat32String] = opStructEndFloat32String
+	handlers[encoder.OpStructEndOmitEmptyFloat32String] = opStructEndOmitEmptyFloat32String
+	handlers[encoder.OpStructEndFloat32Ptr] = opStructEndFloat32Ptr
+	handlers[encoder.OpStructEndOmitEmptyFloat32Ptr] = opStructEndOmitEmptyFloat32Ptr
+	handlers[encoder.OpStructEndFloat32PtrString] = opStructEndFloat32PtrString
+	handlers[encoder.OpStructEndOmitEmptyFloat32PtrString] = opStructEndOmitEmptyFloat32PtrString
+	handlers[encoder.OpStructEndFloat64] = opStructEndFloat64
+	handlers[encoder.OpStructEndOmitEmptyFloat64] = opStructEndOmitEmptyFloat64
+	handlers[encoder.OpStructEndFloat64String] = opStructEndFloat64String
+	handlers[encoder.OpStructEndOmitEmptyFloat64String] = opStructEndOmitEmptyFloat64String
+	handlers[encoder.OpStructEndFloat64Ptr] = opStructEndFloat64Ptr
+	handlers[encoder.OpStructEndOmitEmptyFloat64Ptr] = opStructEndOmitEmptyFloat64Ptr
+	handlers[encoder.OpStructEndFloat64PtrString] = opStructEndFloat64PtrString
+	handlers[encoder.OpStructEndOmitEmptyFloat64PtrString] = opStructEndOmitEmptyFloat64PtrString
+	handlers[encoder.OpStructEndString] = opStructEndString
+	handlers[encoder.OpStructEndOmitEmptyString] = opStructEndOmitEmptyString
+	handlers[encoder.OpStructEndStringString] = opStructEndStringString
+	handlers[encoder.OpStructEndOmitEmptyStringString] = opStructEndOmitEmptyStringString
+	handlers[encoder.OpStructEndStringPtr] = opStructEndStringPtr
+	handlers[encoder.OpStructEndOmitEmptyStringPtr] = opStructEndOmitEmptyStringPtr
+	handlers[encoder.OpStructEndStringPtrString] = opStructEndStringPtrString
+	handlers[encoder.OpStructEndOmitEmptyStringPtrString] = opStructEndOmitEmptyStringPtrString
+	handlers[encoder.OpStructEndBool] = opStructEndBool
+	handlers[encoder.OpStructEndOmitEmptyBool] = opStructEndOmitEmptyBool
+	handlers[encoder.OpStructEndBoolString] = opStructEndBoolString
+	handlers[encoder.OpStructEndOmitEmptyBoolString] = opStructEndOmitEmptyBoolString
+	handlers[encoder.OpStructEndBoolPtr] = opStructEndBoolPtr
+	handlers[encoder.OpStructEndOmitEmptyBoolPtr] = opStructEndOmitEmptyBoolPtr
+	handlers[encoder.OpStructEndBoolPtrString] = opStructEndBoolPtrString
+	handlers[encoder.OpStructEndOmitEmptyBoolPtrString] = opStructEndOmitEmptyBoolPtrString
+	handlers[encoder.OpStructEndBytes] = opStructEndBytes
+	handlers[encoder.OpStructEndOmitEmptyBytes] = opStructEndOmitEmptyBytes
+	handlers[encoder.OpStructEndBytesPtr] = opStructEndBytesPtr
+	handlers[encoder.OpStructEndOmitEmptyBytesPtr] = opStructEndOmitEmptyBytesPtr
+	handlers[encoder.OpStructEndNumber] = opStructEndNumber
+	handlers[encoder.OpStructEndOmitEmptyNumber] = opStructEndOmitEmptyNumber
+	handlers[encoder.OpStructEndNumberString] = opStructEndNumberString
+	handlers[encoder.OpStructEndOmitEmptyNumberString] = opStructEndOmitEmptyNumberString
+	handlers[encoder.OpStructEndNumberPtr] = opStructEndNumberPtr
+	handlers[encoder.OpStructEndOmitEmptyNumberPtr] = opStructEndOmitEmptyNumberPtr
+	handlers[encoder.OpStructEndNumberPtrString] = opStructEndNumberPtrString
+	handlers[encoder.OpStructEndOmitEmptyNumberPtrString] = opStructEndOmitEmptyNumberPtrString
+	handlers[encoder.OpEnd] = opEnd
+	for i := range handlers {
+		if handlers[i] == nil {
+			handlers[i] = opUnimplemented
+		}
+	}
+}
+
+func opPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	code = code.Next
+	store(ctxptr, code.Idx, ptrToPtr(p))
+	return b, code, ctxptr, nil
+}
+
+func opIntPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opInt(ctx, b, code, ctxptr)
+}
+
+func opInt(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendInt(ctx, b, load(ctxptr, code.Idx), code)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opUintPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opUint(ctx, b, code, ctxptr)
+}
+
+func opUint(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opIntString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = append(b, '"')
+	b = appendInt(ctx, b, load(ctxptr, code.Idx), code)
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opUintString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = append(b, '"')
+	b = appendUint(ctx, b, load(ctxptr, code.Idx), code)
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opFloat32Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+		b = appendComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opFloat32(ctx, b, code, ctxptr)
+}
+
+func opFloat32(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendFloat32(ctx, b, ptrToFloat32(load(ctxptr, code.Idx)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opFloat64Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opFloat64(ctx, b, code, ctxptr)
+}
+
+func opFloat64(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	v := ptrToFloat64(load(ctxptr, code.Idx))
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendFloat64(ctx, b, v)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStringPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opString(ctx, b, code, ctxptr)
+}
+
+func opString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendString(ctx, b, ptrToString(load(ctxptr, code.Idx)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opBoolPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opBool(ctx, b, code, ctxptr)
+}
+
+func opBool(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendBool(ctx, b, ptrToBool(load(ctxptr, code.Idx)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opBytesPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opBytes(ctx, b, code, ctxptr)
+}
+
+func opBytes(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendByteSlice(ctx, b, ptrToBytes(load(ctxptr, code.Idx)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opNumberPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opNumber(ctx, b, code, ctxptr)
+}
+
+func opNumber(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	bb, err := appendNumber(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opInterfacePtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opInterface(ctx, b, code, ctxptr)
+}
+
+func opInterface(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	first, base, scalar, err := ctx.EnterInterface(code, p)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if first == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	if scalar {
+		bb, err := appendScalar(ctx, b, first, base)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	code = first
+	ctxptr = base
+	return b, code, ctxptr, nil
+}
+
+func opInterfaceEnd(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	code, ctxptr = ctx.LeaveFrame(code)
+	return b, code, ctxptr, nil
+}
+
+func opMarshalJSONPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+	return opMarshalJSON(ctx, b, code, ctxptr)
+}
+
+func opMarshalJSON(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opMarshalTextPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+	return opMarshalText(ctx, b, code, ctxptr)
+}
+
+func opMarshalText(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = append(b, `""`...)
+		b = appendComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	if (code.Flags&encoder.IsNilableTypeFlags) != 0 && (code.Flags&encoder.IndirectFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opSlicePtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opSlice(ctx, b, code, ctxptr)
+}
+
+func opSlice(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	slice := ptrToSlice(p)
+	if p == nil || slice.Data == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	storeInt(ctxptr, code.ElemIdx, 0)
+	storeInt(ctxptr, code.Length, uintptr(slice.Len))
+	store(ctxptr, code.Idx, slice.Data)
+	if slice.Len > 0 {
+		b = appendArrayHead(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, slice.Data)
+	} else {
+		b = appendEmptyArray(ctx, b)
+		code = code.End.Next
+	}
+	return b, code, ctxptr, nil
+}
+
+func opSliceElem(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	idx := loadInt(ctxptr, code.ElemIdx)
+	length := loadInt(ctxptr, code.Length)
+	idx++
+	if idx < length {
+		b = appendArrayElemIndent(ctx, code, b)
+		storeInt(ctxptr, code.ElemIdx, idx)
+		data := load(ctxptr, code.Idx)
+		size := uintptr(code.Size)
+		code = code.Next
+		store(ctxptr, code.Idx, unsafe.Add(data, idx*size))
+	} else {
+		b = appendArrayEnd(ctx, code, b)
+		code = code.End.Next
+	}
+	return b, code, ctxptr, nil
+}
+
+func opArrayPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opArray(ctx, b, code, ctxptr)
+}
+
+func opArray(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	if code.Length > 0 {
+		b = appendArrayHead(ctx, code, b)
+		storeInt(ctxptr, code.ElemIdx, 0)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	} else {
+		b = appendEmptyArray(ctx, b)
+		code = code.End.Next
+	}
+	return b, code, ctxptr, nil
+}
+
+func opArrayElem(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	idx := loadInt(ctxptr, code.ElemIdx)
+	idx++
+	if idx < uintptr(code.Length) {
+		b = appendArrayElemIndent(ctx, code, b)
+		storeInt(ctxptr, code.ElemIdx, idx)
+		p := load(ctxptr, code.Idx)
+		size := uintptr(code.Size)
+		code = code.Next
+		store(ctxptr, code.Idx, unsafe.Add(p, idx*size))
+	} else {
+		b = appendArrayEnd(ctx, code, b)
+		code = code.End.Next
+	}
+	return b, code, ctxptr, nil
+}
+
+func opMapPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := loadNPtr(ctxptr, code.Idx, code.PtrNum)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, p)
+	return opMap(ctx, b, code, ctxptr)
+}
+
+func opMap(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	mlen := maplen(p)
+	if mlen <= 0 {
+		b = appendEmptyObject(ctx, b)
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	b = appendStructHead(ctx, b)
+	unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
+	mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
+	mapiterinit(code.Type, p, &mapCtx.Iter)
+	store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
+	if unorderedMap {
+		b = appendMapKeyIndent(ctx, code.Next, b)
+	} else {
+		mapCtx.Start = len(b)
+		mapCtx.First = len(b)
+	}
+	key := mapiterkey(&mapCtx.Iter)
+	store(ctxptr, code.Next.Idx, key)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opMapKey(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+	idx := mapCtx.Idx
+	idx++
+	if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
+		if idx < mapCtx.Len {
+			b = appendMapKeyIndent(ctx, code, b)
+			mapCtx.Idx = int(idx)
 			key := mapiterkey(&mapCtx.Iter)
 			store(ctxptr, code.Next.Idx, key)
 			code = code.Next
-		case encoder.OpMapKey:
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			idx := mapCtx.Idx
-			idx++
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
-				if idx < mapCtx.Len {
-					b = appendMapKeyIndent(ctx, code, b)
-					mapCtx.Idx = int(idx)
-					key := mapiterkey(&mapCtx.Iter)
-					store(ctxptr, code.Next.Idx, key)
-					code = code.Next
-				} else {
-					b = appendObjectEnd(ctx, code, b)
-					encoder.ReleaseMapContext(ctx, mapCtx)
-					code = code.End.Next
-				}
-			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:len(b)]
-				if idx < mapCtx.Len {
-					mapCtx.Idx = int(idx)
-					mapCtx.Start = len(b)
-					key := mapiterkey(&mapCtx.Iter)
-					store(ctxptr, code.Next.Idx, key)
-					code = code.Next
-				} else {
-					code = code.End
-				}
-			}
-		case encoder.OpMapValue:
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
-				b = appendColon(ctx, b)
-			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
-				mapCtx.Start = len(b)
-			}
-			value := mapitervalue(&mapCtx.Iter)
-			store(ctxptr, code.Next.Idx, value)
-			mapiternext(&mapCtx.Iter)
-			code = code.Next
-		case encoder.OpMapEnd:
-			// this operation only used by sorted map.
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.Slice.Sort()
-			buf := mapCtx.Buf
-			for _, item := range mapCtx.Slice.Items {
-				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
-			}
-			buf = appendMapEnd(ctx, code, buf)
-			b = b[:mapCtx.First]
-			b = append(b, buf...)
-			mapCtx.Buf = buf
+		} else {
+			b = appendObjectEnd(ctx, code, b)
 			encoder.ReleaseMapContext(ctx, mapCtx)
-			code = code.Next
-		case encoder.OpRecursivePtr:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				code = code.Next
-				break
-			}
-			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
-			fallthrough
-		case encoder.OpRecursive:
-			first, base, err := ctx.EnterRecursive(code, load(ctxptr, code.Idx))
-			if err != nil {
-				return nil, err
-			}
-			code = first
-			ctxptr = base
-		case encoder.OpRecursiveEnd:
-			code, ctxptr = ctx.LeaveFrame(code)
-		case encoder.OpStructPtrHead:
-			p := load(ctxptr, code.Idx)
-			if p == nil {
-				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNullComma(ctx, b)
-				}
-				code = code.End.Next
-				break
-			}
-			store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
-			fallthrough
-		case encoder.OpStructHead:
-			p := load(ctxptr, code.Idx)
-			if p == nil && ((code.Flags&encoder.IndirectFlags) != 0 || code.Next.Op == encoder.OpStructEnd) {
-				if code.Flags&encoder.AnonymousHeadFlags == 0 {
-					b = appendNullComma(ctx, b)
-				}
-				code = code.End.Next
-				break
-			}
-			if code.Flags&encoder.AnonymousHeadFlags == 0 {
-				b = appendStructHead(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructField:
-			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
-				b = appendStructKey(ctx, code, b)
-			}
-			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmpty:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
-				code = code.NextField
-			} else {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			}
-		case encoder.OpStructFieldInt:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyInt:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldIntString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyIntString:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldIntPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendInt(ctx, b, p, code)
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyIntPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendInt(ctx, b, p, code)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldIntPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(ctx, b, p, code)
-				b = append(b, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyIntPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendInt(ctx, b, p, code)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldUint:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyUint:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldUintString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyUintString:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldUintPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendUint(ctx, b, p, code)
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyUintPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendUint(ctx, b, p, code)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldUintPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(ctx, b, p, code)
-				b = append(b, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyUintPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendUint(ctx, b, p, code)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat32:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat32:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat32(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat32String:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat32String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat32(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, v)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat32Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat32Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat32PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = append(b, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat32PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat64:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat64:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat64(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat64String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendFloat64(ctx, b, v)
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat64String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat64Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNullComma(ctx, b)
-				code = code.Next
-				break
-			}
-			v := ptrToFloat64(p)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat64Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendFloat64(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldFloat64PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = append(b, '"')
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyFloat64PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToString(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldStringString:
-			p := load(ctxptr, code.Idx)
-			s := ptrToString(unsafe.Add(p, code.Offset))
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyStringString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToString(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldStringPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendString(ctx, b, ptrToString(p))
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyStringPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, ptrToString(p))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldStringPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyStringPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBool:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBool:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBool(unsafe.Add(p, code.Offset))
-			if v {
-				b = appendStructKey(ctx, code, b)
-				b = appendBool(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBoolString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = append(b, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBoolString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBool(unsafe.Add(p, code.Offset))
-			if v {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendBool(ctx, b, v)
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBoolPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendBool(ctx, b, ptrToBool(p))
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBoolPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBoolPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = append(b, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBoolPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = append(b, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBytes:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBytes:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBytes(unsafe.Add(p, code.Offset))
-			if len(v) > 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendByteSlice(ctx, b, v)
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldBytesPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendByteSlice(ctx, b, ptrToBytes(p))
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyBytesPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendByteSlice(ctx, b, ptrToBytes(p))
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldNumber:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyNumber:
-			p := load(ctxptr, code.Idx)
-			v := ptrToNumber(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendNumber(ctx, b, v)
-				if err != nil {
-					return nil, err
-				}
-				b = appendComma(ctx, bb)
-			}
-			code = code.Next
-		case encoder.OpStructFieldNumberString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
-			if err != nil {
-				return nil, err
-			}
-			b = append(bb, '"')
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyNumberString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToNumber(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, v)
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldNumberPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyNumberPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = appendComma(ctx, bb)
-			}
-			code = code.Next
-		case encoder.OpStructFieldNumberPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			b = appendStructKey(ctx, code, b)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyNumberPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-				b = appendComma(ctx, b)
-			}
-			code = code.Next
-		case encoder.OpStructFieldMarshalJSON:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			p = unsafe.Add(p, code.Offset)
-			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyMarshalJSON:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				code = code.NextField
-				break
-			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
-				code = code.NextField
-				break
-			}
-			b = appendStructKey(ctx, code, b)
-			bb, err := appendMarshalJSON(ctx, code, b, iface)
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpStructFieldMarshalJSONPtr:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyMarshalJSONPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = appendComma(ctx, bb)
-			}
-			code = code.Next
-		case encoder.OpStructFieldMarshalText:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			p = unsafe.Add(p, code.Offset)
-			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyMarshalText:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
-				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				code = code.NextField
-				break
-			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
-				code = code.NextField
-				break
-			}
-			b = appendStructKey(ctx, code, b)
-			bb, err := appendMarshalText(ctx, code, b, iface)
-			if err != nil {
-				return nil, err
-			}
-			b = appendComma(ctx, bb)
-			code = code.Next
-		case encoder.OpStructFieldMarshalTextPtr:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendComma(ctx, b)
-			code = code.Next
-		case encoder.OpStructFieldOmitEmptyMarshalTextPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
-				if err != nil {
-					return nil, err
-				}
-				b = appendComma(ctx, bb)
-			}
-			code = code.Next
-		case encoder.OpStructFieldArray:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyArray:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldArrayPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyArrayPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			} else {
-				code = code.NextField
-			}
-		case encoder.OpStructFieldSlice:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptySlice:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			slice := ptrToSlice(p)
-			if slice.Len == 0 {
-				code = code.NextField
-			} else {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			}
-		case encoder.OpStructFieldSlicePtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptySlicePtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			} else {
-				code = code.NextField
-			}
-		case encoder.OpStructFieldMap:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyMap:
-			p := load(ctxptr, code.Idx)
-			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			if p == nil || maplen(p) == 0 {
-				code = code.NextField
-			} else {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			}
-		case encoder.OpStructFieldMapPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			if p != nil {
-				p = ptrToNPtr(p, code.PtrNum)
-			}
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyMapPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			if p != nil {
-				p = ptrToNPtr(p, code.PtrNum)
-			}
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			} else {
-				code = code.NextField
-			}
-		case encoder.OpStructFieldStruct:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyStruct:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
-				code = code.NextField
-			} else {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			}
-		case encoder.OpStructEnd:
-			b = appendStructEndSkipLast(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndInt:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyInt:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndIntString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = append(b, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyIntString:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndIntPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendInt(ctx, b, p, code)
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyIntPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendInt(ctx, b, p, code)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndIntPtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendInt(ctx, b, p, code)
-				b = append(b, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyIntPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendInt(ctx, b, p, code)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndUint:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyUint:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndUintString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-			b = append(b, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyUintString:
-			p := load(ctxptr, code.Idx)
-			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
-			v := u64 & ((1 << code.NumBitSize) - 1)
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndUintPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendUint(ctx, b, p, code)
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyUintPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendUint(ctx, b, p, code)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndUintPtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendUint(ctx, b, p, code)
-				b = append(b, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyUintPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendUint(ctx, b, p, code)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat32:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat32:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat32(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat32String:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
-			b = append(b, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat32String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat32(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, v)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat32Ptr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat32Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat32PtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat32PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat32(ctx, b, ptrToFloat32(p))
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat64:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendStructKey(ctx, code, b)
-			b = appendFloat64(ctx, b, v)
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat64:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendStructKey(ctx, code, b)
-				b = appendFloat64(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat64String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendFloat64(ctx, b, v)
-			b = append(b, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat64String:
-			p := load(ctxptr, code.Idx)
-			v := ptrToFloat64(unsafe.Add(p, code.Offset))
-			if v != 0 {
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat64Ptr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-				b = appendStructEnd(ctx, code, b)
-				code = code.Next
-				break
-			}
-			v := ptrToFloat64(p)
-			if math.IsInf(v, 0) || math.IsNaN(v) {
-				return nil, errUnsupportedFloat(v)
-			}
-			b = appendFloat64(ctx, b, v)
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat64Ptr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendFloat64(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndFloat64PtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyFloat64PtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				v := ptrToFloat64(p)
-				if math.IsInf(v, 0) || math.IsNaN(v) {
-					return nil, errUnsupportedFloat(v)
-				}
-				b = append(b, '"')
-				b = appendFloat64(ctx, b, v)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToString(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndStringString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			s := ptrToString(unsafe.Add(p, code.Offset))
-			b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyStringString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToString(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndStringPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendString(ctx, b, ptrToString(p))
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyStringPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, ptrToString(p))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndStringPtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyStringPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBool:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBool:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBool(unsafe.Add(p, code.Offset))
-			if v {
-				b = appendStructKey(ctx, code, b)
-				b = appendBool(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBoolString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
-			b = append(b, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBoolString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBool(unsafe.Add(p, code.Offset))
-			if v {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendBool(ctx, b, v)
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBoolPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendBool(ctx, b, ptrToBool(p))
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBoolPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBoolPtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = append(b, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBoolPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				b = appendBool(ctx, b, ptrToBool(p))
-				b = append(b, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBytes:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBytes:
-			p := load(ctxptr, code.Idx)
-			v := ptrToBytes(unsafe.Add(p, code.Offset))
-			if len(v) > 0 {
-				b = appendStructKey(ctx, code, b)
-				b = appendByteSlice(ctx, b, v)
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndBytesPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = appendByteSlice(ctx, b, ptrToBytes(p))
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyBytesPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = appendByteSlice(ctx, b, ptrToBytes(p))
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndNumber:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
-			if err != nil {
-				return nil, err
-			}
-			b = appendStructEnd(ctx, code, bb)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyNumber:
-			p := load(ctxptr, code.Idx)
-			v := ptrToNumber(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendNumber(ctx, b, v)
-				if err != nil {
-					return nil, err
-				}
-				b = appendStructEnd(ctx, code, bb)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndNumberString:
-			p := load(ctxptr, code.Idx)
-			b = appendStructKey(ctx, code, b)
-			b = append(b, '"')
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
-			if err != nil {
-				return nil, err
-			}
-			b = append(bb, '"')
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyNumberString:
-			p := load(ctxptr, code.Idx)
-			v := ptrToNumber(unsafe.Add(p, code.Offset))
-			if v != "" {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, v)
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndNumberPtr:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = bb
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyNumberPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = appendStructEnd(ctx, code, bb)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpStructEndNumberPtrString:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p == nil {
-				b = appendNull(ctx, b)
-			} else {
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-			}
-			b = appendStructEnd(ctx, code, b)
-			code = code.Next
-		case encoder.OpStructEndOmitEmptyNumberPtrString:
-			p := load(ctxptr, code.Idx)
-			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, ptrToNumber(p))
-				if err != nil {
-					return nil, err
-				}
-				b = append(bb, '"')
-				b = appendStructEnd(ctx, code, b)
-			} else {
-				b = appendStructEndSkipLast(ctx, code, b)
-			}
-			code = code.Next
-		case encoder.OpEnd:
-			goto END
+			code = code.End.Next
+		}
+	} else {
+		mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:len(b)]
+		if idx < mapCtx.Len {
+			mapCtx.Idx = int(idx)
+			mapCtx.Start = len(b)
+			key := mapiterkey(&mapCtx.Iter)
+			store(ctxptr, code.Next.Idx, key)
+			code = code.Next
+		} else {
+			code = code.End
 		}
 	}
-END:
-	return b, nil
+	return b, code, ctxptr, nil
+}
+
+func opMapValue(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+	if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
+		b = appendColon(ctx, b)
+	} else {
+		mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
+		mapCtx.Start = len(b)
+	}
+	value := mapitervalue(&mapCtx.Iter)
+	store(ctxptr, code.Next.Idx, value)
+	mapiternext(&mapCtx.Iter)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opMapEnd(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	// this operation only used by sorted map.
+	mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+	mapCtx.Slice.Sort()
+	buf := mapCtx.Buf
+	for _, item := range mapCtx.Slice.Items {
+		buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
+	}
+	buf = appendMapEnd(ctx, code, buf)
+	b = b[:mapCtx.First]
+	b = append(b, buf...)
+	mapCtx.Buf = buf
+	encoder.ReleaseMapContext(ctx, mapCtx)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opRecursivePtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+	return opRecursive(ctx, b, code, ctxptr)
+}
+
+func opRecursive(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	first, base, err := ctx.EnterRecursive(code, load(ctxptr, code.Idx))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	code = first
+	ctxptr = base
+	return b, code, ctxptr, nil
+}
+
+func opRecursiveEnd(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	code, ctxptr = ctx.LeaveFrame(code)
+	return b, code, ctxptr, nil
+}
+
+func opStructPtrHead(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil {
+		if code.Flags&encoder.AnonymousHeadFlags == 0 {
+			b = appendNullComma(ctx, b)
+		}
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	store(ctxptr, code.Idx, ptrToNPtr(p, code.PtrNum))
+	return opStructHead(ctx, b, code, ctxptr)
+}
+
+func opStructHead(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	if p == nil && ((code.Flags&encoder.IndirectFlags) != 0 || code.Next.Op == encoder.OpStructEnd) {
+		if code.Flags&encoder.AnonymousHeadFlags == 0 {
+			b = appendNullComma(ctx, b)
+		}
+		code = code.End.Next
+		return b, code, ctxptr, nil
+	}
+	if code.Flags&encoder.AnonymousHeadFlags == 0 {
+		b = appendStructHead(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructField(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+		b = appendStructKey(ctx, code, b)
+	}
+	p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmpty(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
+		code = code.NextField
+	} else {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldInt(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyInt(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldIntString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyIntString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldIntPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendInt(ctx, b, p, code)
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyIntPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendInt(ctx, b, p, code)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldIntPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendInt(ctx, b, p, code)
+		b = append(b, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyIntPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendInt(ctx, b, p, code)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldUint(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyUint(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldUintString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyUintString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldUintPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendUint(ctx, b, p, code)
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyUintPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendUint(ctx, b, p, code)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldUintPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendUint(ctx, b, p, code)
+		b = append(b, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyUintPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendUint(ctx, b, p, code)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat32(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat32(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat32(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat32(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat32String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat32String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat32(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, v)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat32Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat32Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat32PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = append(b, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat32PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat64(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendFloat64(ctx, b, v)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat64(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat64(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat64String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendFloat64(ctx, b, v)
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat64String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat64Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNullComma(ctx, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	v := ptrToFloat64(p)
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendFloat64(ctx, b, v)
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat64Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendFloat64(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldFloat64PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = append(b, '"')
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyFloat64PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToString(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldStringString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	s := ptrToString(unsafe.Add(p, code.Offset))
+	b = appendStructKey(ctx, code, b)
+	b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyStringString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToString(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldStringPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendString(ctx, b, ptrToString(p))
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyStringPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, ptrToString(p))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldStringPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyStringPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBool(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBool(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBool(unsafe.Add(p, code.Offset))
+	if v {
+		b = appendStructKey(ctx, code, b)
+		b = appendBool(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBoolString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+	b = append(b, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBoolString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBool(unsafe.Add(p, code.Offset))
+	if v {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendBool(ctx, b, v)
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBoolPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendBool(ctx, b, ptrToBool(p))
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBoolPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBoolPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = append(b, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBoolPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = append(b, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBytes(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBytes(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBytes(unsafe.Add(p, code.Offset))
+	if len(v) > 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendByteSlice(ctx, b, v)
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldBytesPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendByteSlice(ctx, b, ptrToBytes(p))
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyBytesPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendByteSlice(ctx, b, ptrToBytes(p))
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldNumber(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyNumber(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToNumber(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendNumber(ctx, b, v)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendComma(ctx, bb)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldNumberString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = append(bb, '"')
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyNumberString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToNumber(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, v)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldNumberPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyNumberPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendComma(ctx, bb)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldNumberPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	b = appendStructKey(ctx, code, b)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyNumberPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+		b = appendComma(ctx, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMarshalJSON(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	p = unsafe.Add(p, code.Offset)
+	if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMarshalJSON(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
+		code = code.NextField
+		return b, code, ctxptr, nil
+	}
+	iface := ptrToInterface(code, p)
+	if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
+		code = code.NextField
+		return b, code, ctxptr, nil
+	}
+	b = appendStructKey(ctx, code, b)
+	bb, err := appendMarshalJSON(ctx, code, b, iface)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMarshalJSONPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMarshalJSONPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendMarshalJSON(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendComma(ctx, bb)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMarshalText(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	p = unsafe.Add(p, code.Offset)
+	if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMarshalText(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+		p = ptrToPtr(p)
+	}
+	if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
+		code = code.NextField
+		return b, code, ctxptr, nil
+	}
+	iface := ptrToInterface(code, p)
+	if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
+		code = code.NextField
+		return b, code, ctxptr, nil
+	}
+	b = appendStructKey(ctx, code, b)
+	bb, err := appendMarshalText(ctx, code, b, iface)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendComma(ctx, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMarshalTextPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendComma(ctx, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMarshalTextPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendMarshalText(ctx, code, b, ptrToInterface(code, p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendComma(ctx, bb)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldArray(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyArray(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldArrayPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyArrayPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	} else {
+		code = code.NextField
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldSlice(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptySlice(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	slice := ptrToSlice(p)
+	if slice.Len == 0 {
+		code = code.NextField
+	} else {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldSlicePtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptySlicePtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	} else {
+		code = code.NextField
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMap(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToPtr(unsafe.Add(p, code.Offset))
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMap(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToPtr(unsafe.Add(p, code.Offset))
+	if p == nil || maplen(p) == 0 {
+		code = code.NextField
+	} else {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldMapPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToPtr(unsafe.Add(p, code.Offset))
+	if p != nil {
+		p = ptrToNPtr(p, code.PtrNum)
+	}
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyMapPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToPtr(unsafe.Add(p, code.Offset))
+	if p != nil {
+		p = ptrToNPtr(p, code.PtrNum)
+	}
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	} else {
+		code = code.NextField
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldStruct(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	code = code.Next
+	store(ctxptr, code.Idx, p)
+	return b, code, ctxptr, nil
+}
+
+func opStructFieldOmitEmptyStruct(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = unsafe.Add(p, code.Offset)
+	if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
+		code = code.NextField
+	} else {
+		b = appendStructKey(ctx, code, b)
+		code = code.Next
+		store(ctxptr, code.Idx, p)
+	}
+	return b, code, ctxptr, nil
+}
+
+func opStructEnd(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructEndSkipLast(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndInt(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyInt(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndIntString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = append(b, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyIntString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndIntPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendInt(ctx, b, p, code)
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyIntPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendInt(ctx, b, p, code)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndIntPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendInt(ctx, b, p, code)
+		b = append(b, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyIntPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendInt(ctx, b, p, code)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndUint(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyUint(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndUintString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+	b = append(b, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyUintString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+	v := u64 & ((1 << code.NumBitSize) - 1)
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndUintPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendUint(ctx, b, p, code)
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyUintPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendUint(ctx, b, p, code)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndUintPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendUint(ctx, b, p, code)
+		b = append(b, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyUintPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendUint(ctx, b, p, code)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat32(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat32(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat32(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat32(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat32String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+	b = append(b, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat32String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat32(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, v)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat32Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat32Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat32PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = append(b, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat32PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat64(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendStructKey(ctx, code, b)
+	b = appendFloat64(ctx, b, v)
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat64(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendStructKey(ctx, code, b)
+		b = appendFloat64(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat64String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendFloat64(ctx, b, v)
+	b = append(b, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat64String(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToFloat64(unsafe.Add(p, code.Offset))
+	if v != 0 {
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat64Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+		b = appendStructEnd(ctx, code, b)
+		code = code.Next
+		return b, code, ctxptr, nil
+	}
+	v := ptrToFloat64(p)
+	if math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil, nil, nil, errUnsupportedFloat(v)
+	}
+	b = appendFloat64(ctx, b, v)
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat64Ptr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendFloat64(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndFloat64PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyFloat64PtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		v := ptrToFloat64(p)
+		if math.IsInf(v, 0) || math.IsNaN(v) {
+			return nil, nil, nil, errUnsupportedFloat(v)
+		}
+		b = append(b, '"')
+		b = appendFloat64(ctx, b, v)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToString(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndStringString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	s := ptrToString(unsafe.Add(p, code.Offset))
+	b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyStringString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToString(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndStringPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendString(ctx, b, ptrToString(p))
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyStringPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, ptrToString(p))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndStringPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyStringPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBool(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBool(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBool(unsafe.Add(p, code.Offset))
+	if v {
+		b = appendStructKey(ctx, code, b)
+		b = appendBool(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBoolString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+	b = append(b, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBoolString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBool(unsafe.Add(p, code.Offset))
+	if v {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendBool(ctx, b, v)
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBoolPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendBool(ctx, b, ptrToBool(p))
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBoolPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBoolPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = append(b, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBoolPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		b = appendBool(ctx, b, ptrToBool(p))
+		b = append(b, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBytes(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBytes(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToBytes(unsafe.Add(p, code.Offset))
+	if len(v) > 0 {
+		b = appendStructKey(ctx, code, b)
+		b = appendByteSlice(ctx, b, v)
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndBytesPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = appendByteSlice(ctx, b, ptrToBytes(p))
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyBytesPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = appendByteSlice(ctx, b, ptrToBytes(p))
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndNumber(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = appendStructEnd(ctx, code, bb)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyNumber(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToNumber(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendNumber(ctx, b, v)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendStructEnd(ctx, code, bb)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndNumberString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	b = appendStructKey(ctx, code, b)
+	b = append(b, '"')
+	bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b = append(bb, '"')
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyNumberString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	v := ptrToNumber(unsafe.Add(p, code.Offset))
+	if v != "" {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, v)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndNumberPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = bb
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyNumberPtr(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = appendStructEnd(ctx, code, bb)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndNumberPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	b = appendStructKey(ctx, code, b)
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p == nil {
+		b = appendNull(ctx, b)
+	} else {
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+	}
+	b = appendStructEnd(ctx, code, b)
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opStructEndOmitEmptyNumberPtrString(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	p := load(ctxptr, code.Idx)
+	p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+	if p != nil {
+		b = appendStructKey(ctx, code, b)
+		b = append(b, '"')
+		bb, err := appendNumber(ctx, b, ptrToNumber(p))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		b = append(bb, '"')
+		b = appendStructEnd(ctx, code, b)
+	} else {
+		b = appendStructEndSkipLast(ctx, code, b)
+	}
+	code = code.Next
+	return b, code, ctxptr, nil
+}
+
+func opEnd(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, ctxptr unsafe.Pointer) ([]byte, *encoder.Opcode, unsafe.Pointer, error) {
+	return b, nil, ctxptr, nil
 }

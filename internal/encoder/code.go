@@ -720,6 +720,7 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	field.NumBitSize = value.NumBitSize
 	field.PtrNum = value.PtrNum
 	field.FieldQuery = value.FieldQuery
+	field.Marshaler = value.Marshaler
 
 	fieldCodes := Opcodes{field}
 	if op.IsMultipleOpField() {

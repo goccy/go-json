@@ -463,9 +463,14 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
 	}
+	escape := (ctx.Option.Flag & HTMLEscapeOption) != 0
+	if out, ok := appendCompactOutput(b, bb, escape); ok {
+		// the output is compact and valid: it is copied as it is.
+		return out, nil
+	}
 	marshalBuf := ctx.MarshalBuf[:0]
 	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, (ctx.Option.Flag&HTMLEscapeOption) != 0)
+	compactedBuf, err := compact(b, marshalBuf, escape)
 	if err != nil {
 		return nil, err
 	}

@@ -344,6 +344,37 @@ func Benchmark_EncodeRawMessage_JsonIter(b *testing.B) {
 	})
 }
 
+// a raw message which holds a document: what a marshaler returns is validated and compacted.
+var rawMessageDocument = json.RawMessage("[" + strings.Repeat(`{"id":123456,"name":"alice","tags":["a","b","c"],"score":12.5,"active":true,"nested":{"x":1,"y":null}},`, 20) + `{"end":true}]`)
+
+func Benchmark_EncodeRawMessageDocument_GoJson(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(rawMessageDocument)))
+	m := struct {
+		A int
+		B json.RawMessage
+	}{B: rawMessageDocument}
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(&m); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}
+
+func Benchmark_EncodeRawMessageDocument_EncodingJson(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(rawMessageDocument)))
+	m := struct {
+		A int
+		B stdjson.RawMessage
+	}{B: stdjson.RawMessage(rawMessageDocument)}
+	for i := 0; i < b.N; i++ {
+		if _, err := stdjson.Marshal(&m); err != nil {
+			b.Fatal("Marshal:", err)
+		}
+	}
+}
+
 func Benchmark_EncodeRawMessage_GoJson(b *testing.B) {
 	b.ReportAllocs()
 

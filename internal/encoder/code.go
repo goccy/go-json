@@ -261,6 +261,7 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes.First().Flags |= IndirectFlags
 	// the opcodes after the elements refer to the slots of the header, and they don't take a slot.
 	elemCode := newSliceElemCode(ctx, c.typ.Elem(), header, size)
+	elemCode.Flags |= structElemFlags(codes.First())
 	ctx.incOpcodeIndex()
 	end := newOpCode(ctx, c.typ, OpSliceEnd)
 	ctx.incOpcodeIndex()
@@ -270,6 +271,16 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	elemCode.Next = codes.First()
 	elemCode.End = end
 	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
+}
+
+// structElemFlags returns StructElemFlags if the elements of a slice or an array are structs, or pointers to
+// structs, whose head is the first opcode of an element: the opcode of the element does what the head does,
+// which saves a dispatch of the VM per element.
+func structElemFlags(first *Opcode) OpFlags {
+	if first.Op == OpStructHead || first.Op == OpStructPtrHead {
+		return StructElemFlags
+	}
+	return 0
 }
 
 func (c *SliceCode) Filter(_ *FieldQuery) Code {
@@ -304,6 +315,7 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 
 	// the opcodes after the elements refer to the slot of the header, and they don't take a slot.
 	elemCode := newArrayElemCode(ctx, elem, header, alen, size)
+	elemCode.Flags |= structElemFlags(codes.First())
 	ctx.incOpcodeIndex()
 
 	end := newOpCode(ctx, c.typ, OpArrayEnd)

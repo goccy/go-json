@@ -39,6 +39,9 @@ const (
 	NonEmptyInterfaceFlags OpFlags = 1 << 9
 	// StringKeyFlags is set on the map opcodes whose key is a plain string: see MapCode.ToOpcode.
 	StringKeyFlags OpFlags = 1 << 10
+	// StructElemFlags is set on the opcode of an element of a slice or an array whose next opcode is the head
+	// of a struct: the element opcode does what the head does, and goes on with the first field.
+	StructElemFlags OpFlags = 1 << 11
 )
 
 type Opcode struct {

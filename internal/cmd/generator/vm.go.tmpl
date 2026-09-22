@@ -266,8 +266,23 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				storeInt(ctxptr, code.ElemIdx, idx)
 				data := load(ctxptr, code.Idx)
 				size := uintptr(code.Size)
+				p := unsafe.Add(data, idx*size)
+				isStruct := code.Flags&encoder.StructElemFlags != 0
 				code = code.Next
-				store(ctxptr, code.Idx, unsafe.Add(data, idx*size))
+				if isStruct {
+					// the element is a struct: what its head does is done here, and the head is skipped.
+					if code.Op == encoder.OpStructPtrHead {
+						p = ptrToNPtr(p, code.PtrNum)
+						if p == nil {
+							b = appendNullComma(ctx, b)
+							code = code.End.Next
+							break
+						}
+					}
+					b = appendStructHead(ctx, b)
+					code = code.Next
+				}
+				store(ctxptr, code.Idx, p)
 			} else {
 				b = appendArrayEnd(ctx, code, b)
 				code = code.End.Next
@@ -305,8 +320,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				storeInt(ctxptr, code.ElemIdx, idx)
 				p := load(ctxptr, code.Idx)
 				size := uintptr(code.Size)
+				p = unsafe.Add(p, idx*size)
+				isStruct := code.Flags&encoder.StructElemFlags != 0
 				code = code.Next
-				store(ctxptr, code.Idx, unsafe.Add(p, idx*size))
+				if isStruct {
+					if code.Op == encoder.OpStructPtrHead {
+						p = ptrToNPtr(p, code.PtrNum)
+						if p == nil {
+							b = appendNullComma(ctx, b)
+							code = code.End.Next
+							break
+						}
+					}
+					b = appendStructHead(ctx, b)
+					code = code.Next
+				}
+				store(ctxptr, code.Idx, p)
 			} else {
 				b = appendArrayEnd(ctx, code, b)
 				code = code.End.Next

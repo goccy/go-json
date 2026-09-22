@@ -56,6 +56,8 @@ type stringEscape struct {
 	high uint64
 	// table is whether a byte may need an escape.
 	table *[256]bool
+	// tables is table as the tables of the scan by SIMD.
+	tables nibbleTables
 	// appendEscaped appends a string which may have a byte to escape.
 	appendEscaped func(buf []byte, s string) []byte
 }
@@ -89,6 +91,12 @@ var stringEscapes = [4]stringEscape{
 		table:         &needEscapeHTMLNormalizeUTF8,
 		appendEscaped: appendNormalizedHTMLString,
 	},
+}
+
+func init() {
+	for i := range stringEscapes {
+		stringEscapes[i].tables = newNibbleTables(stringEscapes[i].table)
+	}
 }
 
 // The functions below return the mask of the bytes of a word which may need an escape: the most significant bit
@@ -197,6 +205,10 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 			if table[*(*byte)(unsafe.Add(src, i))] {
 				return escape.appendEscaped(buf, s)
 			}
+		}
+	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
+		if found {
+			return escape.appendEscaped(buf, s)
 		}
 	} else if escape.hasLooseEscape(src, n) && (escape.high != 0 || escape.hasExactEscape(src, n)) {
 		// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.

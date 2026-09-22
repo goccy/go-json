@@ -66,4 +66,4 @@ bench-profile-encode:
 # bench-variants measures the candidates of the optimizations against what is used now.
 .PHONY: bench-variants
 bench-variants:
-	go test -run '^$$' -bench 'BenchmarkVariant' -benchtime 300ms -count 2 ./internal/encoder/
+	go test -run '^$$' -bench 'BenchmarkVariant|BenchmarkAppendString|BenchmarkScanString' -benchtime 300ms -count 2 ./internal/encoder/

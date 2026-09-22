@@ -24,31 +24,21 @@ TEXT ·xgetbv(SB), NOSPLIT, $0-8
 // It returns the index of the first byte of the n bytes at p which may need an escape, or n. Such a byte is
 // a control character, '"', '\', one of the three characters in chars ( a byte each ), and a byte which is not
 // ASCII if high is not zero. n is 32 or more. The last block overlaps the previous one.
-TEXT ·scanStringAVX2(SB), NOSPLIT, $0-40
+TEXT ·scanStringAVX2(SB), NOSPLIT, $8-40
 	MOVQ p+0(FP), SI
 	MOVQ n+8(FP), CX
 	MOVQ chars+16(FP), AX
 	MOVQ high+24(FP), R9
 
-	// the constants, a byte in every lane.
-	MOVQ         $0x1f, DX
-	MOVQ         DX, X8
-	VPBROADCASTB X8, Y8          // 0x1f: a byte less than 0x20 is a control character
-	MOVQ         $'"', DX
-	MOVQ         DX, X9
-	VPBROADCASTB X9, Y9
-	MOVQ         $'\\', DX
-	MOVQ         DX, X10
-	VPBROADCASTB X10, Y10
-	MOVQ         AX, X11
-	VPBROADCASTB X11, Y11        // chars[0]
-	MOVQ         AX, DX
-	SHRQ         $8, DX
-	MOVQ         DX, X12
-	VPBROADCASTB X12, Y12        // chars[1]
-	SHRQ         $8, DX
-	MOVQ         DX, X13
-	VPBROADCASTB X13, Y13        // chars[2]
+	// the constants, a byte in every lane, from memory: a move from a general register is a legacy SSE
+	// instruction, and mixing it with the 256-bit instructions cost about 500 ns per call.
+	VPBROADCASTB c1f<>(SB), Y8      // 0x1f: a byte less than 0x20 is a control character
+	VPBROADCASTB cquote<>(SB), Y9
+	VPBROADCASTB cbslash<>(SB), Y10
+	MOVQ         AX, chars-8(SP)
+	VPBROADCASTB chars-8(SP), Y11   // chars[0]
+	VPBROADCASTB chars-7(SP), Y12   // chars[1]
+	VPBROADCASTB chars-6(SP), Y13   // chars[2]
 
 	// the mask of the lanes to keep from the sign bits: all or none.
 	XORL  R10, R10

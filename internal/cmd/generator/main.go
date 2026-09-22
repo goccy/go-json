@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/printer"
@@ -234,18 +235,52 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	return os.WriteFile(path, buf, 0644)
 }
 
+// encoderFunctions are the functions of the template which the plain VM has as they are in the encoder
+// package: the other VMs define them with their indent or their colors.
+var encoderFunctions = map[string]string{
+	"appendInt":       "AppendInt",
+	"appendUint":      "AppendUint",
+	"appendFloat64":   "AppendFloat64",
+	"appendString":    "AppendString",
+	"appendByteSlice": "AppendByteSlice",
+	"appendNumber":    "AppendNumber",
+}
+
+// callEncoderDirectly makes the calls of encoderFunctions calls of the encoder package: a call through a
+// function variable is a load and an indirect call, for every value the VM appends.
+func callEncoderDirectly(f *ast.File) {
+	ast.Inspect(f, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		ident, ok := call.Fun.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		if name, ok := encoderFunctions[ident.Name]; ok {
+			call.Fun = &ast.SelectorExpr{X: ast.NewIdent("encoder"), Sel: ast.NewIdent(name)}
+		}
+		return true
+	})
+}
+
 func generateVM() error {
 	file, err := os.ReadFile("vm.go.tmpl")
 	if err != nil {
 		return err
 	}
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "", string(file), parser.ParseComments)
-	if err != nil {
-		return err
-	}
 	for _, pkg := range []string{"vm", "vm_indent", "vm_color", "vm_color_indent"} {
+		// parsed for each package: the tree of the plain VM is changed.
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, "", string(file), parser.ParseComments)
+		if err != nil {
+			return err
+		}
 		f.Name.Name = pkg
+		if pkg == "vm" {
+			callEncoderDirectly(f)
+		}
 		var buf bytes.Buffer
 		printer.Fprint(&buf, fset, f)
 		path := filepath.Join(repoRoot(), "internal", "encoder", pkg, "vm.go")

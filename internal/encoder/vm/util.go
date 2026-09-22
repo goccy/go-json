@@ -10,6 +10,9 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+// The functions which the template calls as appendInt, appendString and so on are the ones of the encoder
+// package here, and the generator makes the VM call them directly: a call through a function variable is a load
+// and an indirect call, for every value the VM appends. appendScalar has them as variables for its own calls.
 var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint

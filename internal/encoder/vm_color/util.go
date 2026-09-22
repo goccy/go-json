@@ -189,14 +189,14 @@ func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte
 	return b
 }
 
-func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalJSON(ctx, code, b, v)
+func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	return encoder.AppendMarshalJSON(ctx, code, b, p)
 }
 
-func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
+func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
 	format := ctx.Option.ColorScheme.String
 	b = append(b, format.Header...)
-	bb, err := encoder.AppendMarshalText(ctx, code, b, v)
+	bb, err := encoder.AppendMarshalText(ctx, code, b, p)
 	if err != nil {
 		return nil, err
 	}

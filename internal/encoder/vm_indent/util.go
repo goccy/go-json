@@ -164,12 +164,12 @@ func appendObjectEnd(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 	return append(b, '}', ',', '\n')
 }
 
-func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalJSONIndent(ctx, code, b, v)
+func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	return encoder.AppendMarshalJSONIndent(ctx, code, b, p)
 }
 
-func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v interface{}) ([]byte, error) {
-	return encoder.AppendMarshalTextIndent(ctx, code, b, v)
+func appendMarshalText(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
+	return encoder.AppendMarshalTextIndent(ctx, code, b, p)
 }
 
 func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {

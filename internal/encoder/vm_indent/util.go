@@ -9,9 +9,6 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// slotSize is the size of a slot of the VM.
-const slotSize = unsafe.Sizeof(encoder.Slot{})
-
 var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
@@ -22,7 +19,6 @@ var (
 	appendNumber        = encoder.AppendNumber
 	appendStructEnd     = encoder.AppendStructEndIndent
 	appendIndent        = encoder.AppendIndent
-	errUnsupportedValue = encoder.ErrUnsupportedValue
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit
 	mapiterkey          = encoder.MapIterKey
@@ -33,15 +29,6 @@ var (
 
 type emptyInterface struct {
 	typ unsafe.Pointer
-	ptr unsafe.Pointer
-}
-
-type nonEmptyInterface struct {
-	itab *struct {
-		ityp unsafe.Pointer // static interface type
-		typ  unsafe.Pointer // dynamic concrete type
-		// unused fields...
-	}
 	ptr unsafe.Pointer
 }
 
@@ -208,14 +195,6 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 		b = append(b, '}')
 	}
 	return appendComma(ctx, b)
-}
-
-func restoreIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, ctxptr unsafe.Pointer) {
-	ctx.BaseIndent = uint32(loadInt(ctxptr, code.Length))
-}
-
-func storeIndent(ctxptr unsafe.Pointer, code *encoder.Opcode, indent uintptr) {
-	storeInt(ctxptr, code.Length, indent)
 }
 
 func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {

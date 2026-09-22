@@ -14,7 +14,7 @@ import (
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	// A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 	// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
-	recent := &ctx.recentCodeSets[(typeptr>>recentCodeSetShift)%recentCodeSetsLength]
+	recent := &ctx.recentCodeSets[(uint64(typeptr)*runtime.TypeHashMultiplier)>>recentCodeSetHashShift]
 	if recent.typeptr == typeptr {
 		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
 	}

@@ -64,7 +64,7 @@ func TestScanStringAVX2AtEndOfMemory(t *testing.T) {
 	}
 }
 
-// the scans alone, to find where the time of the SIMD scan goes.
+// the scans alone: the one by words and the one by SIMD.
 func BenchmarkScanString(b *testing.B) {
 	e := &stringEscapes[stringEscapeHTML|stringEscapeNormalize]
 	chars := uint64(uint8(e.chars[0])) | uint64(uint8(e.chars[1]))<<8 | uint64(uint8(e.chars[2]))<<16
@@ -86,34 +86,6 @@ func BenchmarkScanString(b *testing.B) {
 					}
 				}
 			})
-			b.Run("SSE/"+strconv.Itoa(n), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					if scanStringSSE(p, n, chars, e.high) != n {
-						b.Fatal("found")
-					}
-				}
-			})
-		}
-	}
-}
-
-func TestScanStringSSE(t *testing.T) {
-	if !hasAVX2 {
-		t.Skip("AVX2 is not supported")
-	}
-	e := &stringEscapes[stringEscapeHTML]
-	chars := uint64(uint8(e.chars[0])) | uint64(uint8(e.chars[1]))<<8 | uint64(uint8(e.chars[2]))<<16
-	for length := 16; length <= 70; length++ {
-		for pos := -1; pos < length; pos++ {
-			b := []byte(strings.Repeat("a", length))
-			expected := length
-			if pos >= 0 {
-				b[pos] = '<'
-				expected = pos
-			}
-			if got := scanStringSSE(unsafe.Pointer(&b[0]), length, chars, e.high); got != expected {
-				t.Fatalf("%q: expected %d but got %d", b, expected, got)
-			}
 		}
 	}
 }

@@ -60,7 +60,8 @@ bench-compare-encode:
 bench-profile-encode:
 	cd benchmarks && for b in SmallStructCached MediumStructCached LargeStructCached MapInterface; do \
 		go test -run '^$$' -bench "^Benchmark_Encode_$${b}_GoJson$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
-		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5; \
+		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5 && \
+		echo "--- by line" && go tool pprof -top -lines -nodecount=30 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +6; \
 	done
 
 # bench-variants measures the candidates of the optimizations against what is used now.

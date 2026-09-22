@@ -10,20 +10,17 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+// The functions which the template calls as appendInt, appendString and so on are the ones of the encoder
+// package here, and the generator makes the VM call them directly: a call through a function variable is a load
+// and an indirect call, for every value the VM appends. appendScalar has them as variables for its own calls.
 var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
-	appendFloat32       = encoder.AppendFloat32
 	appendFloat64       = encoder.AppendFloat64
 	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
-	mapiterinit         = encoder.MapIterInit
-	mapiterkey          = encoder.MapIterKey
-	mapitervalue        = encoder.MapIterValue
-	mapiternext         = encoder.MapIterNext
-	maplen              = encoder.MapLen
 )
 
 type emptyInterface struct {
@@ -54,10 +51,6 @@ func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
 	*(*uintptr)(unsafe.Add(base, idx)) = v
 }
 
-func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
-	return ptrToNPtr(load(base, idx), ptrNum)
-}
-
 func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	switch bitSize {
 	case 8:
@@ -71,7 +64,22 @@ func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	}
 	return 0
 }
-func ptrToFloat32(p unsafe.Pointer) float32            { return *(*float32)(p) }
+func ptrToFloat32(p unsafe.Pointer) float32 { return *(*float32)(p) }
+
+// isInfOrNaN is whether the float is not finite, which encoding/json refuses: the exponent is all ones.
+// math.IsInf is not inlined into Run, which is a big function to the inliner; this is.
+func isInfOrNaN(v float64) bool {
+	const exponent = 0x7ff << 52
+	return math.Float64bits(v)&exponent == exponent
+}
+
+// appendFloat32 appends the float, or returns the error for one which is not finite as encoding/json does.
+func appendFloat32(ctx *encoder.RuntimeContext, b []byte, v float32) ([]byte, error) {
+	if isInfOrNaN(float64(v)) {
+		return nil, errUnsupportedFloat(float64(v))
+	}
+	return encoder.AppendFloat32(ctx, b, v), nil
+}
 func ptrToFloat64(p unsafe.Pointer) float64            { return *(*float64)(p) }
 func ptrToBool(p unsafe.Pointer) bool                  { return *(*bool)(p) }
 func ptrToBytes(p unsafe.Pointer) []byte               { return *(*[]byte)(p) }
@@ -79,12 +87,12 @@ func ptrToNumber(p unsafe.Pointer) json.Number         { return *(*json.Number)(
 func ptrToString(p unsafe.Pointer) string              { return *(*string)(p) }
 func ptrToSlice(p unsafe.Pointer) *runtime.SliceHeader { return (*runtime.SliceHeader)(p) }
 func ptrToPtr(p unsafe.Pointer) unsafe.Pointer         { return *(*unsafe.Pointer)(p) }
+
+// ptrToNPtr follows the pointer ptrNum times, or up to a nil one. It is written to be inlined into Run,
+// which is a big function: only a function whose cost is 20 or less is inlined into it.
 func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
-	for i := uint8(0); i < ptrNum; i++ {
-		if p == nil {
-			return nil
-		}
-		p = ptrToPtr(p)
+	for ; ptrNum > 0 && p != nil; ptrNum-- {
+		p = *(*unsafe.Pointer)(p)
 	}
 	return p
 }
@@ -169,31 +177,35 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b, '{')
 }
 
-// appendStructKey copies a key up to a chunk by a copy of a whole chunk, not by a call of memmove:
-// a call from the VM makes it spill and restore its variables, which costs more than the copy of a key.
-// The memory of a key has the bytes after it up to a chunk: see encoder.PaddedKey.
+// appendStructKey appends a key which is up to a chunk long, by two copies of a half chunk each: the key is
+// followed by its padding in memory ( encoder.PaddedKey ), and the length is cut back to the key after.
+// A copy of a half chunk is inlined by the compiler on amd64 and arm64; a call of memmove, or of this
+// function, makes the VM spill and restore its registers, which costs more than the copy of a key.
+//
+// Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+// this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
 func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	key := code.Key
-	n := len(b)
-	if len(key) <= encoder.KeyChunkSize && cap(b)-n >= encoder.KeyChunkSize {
-		b = b[:n+encoder.KeyChunkSize]
-		*(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(&b[n])) = *(*[encoder.KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(key)))
-		return b[:n+len(key)]
-	}
-	return append(b, key...)
+	const half = encoder.KeyChunkSize / 2
+	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
+}
+
+// appendLongStructKey appends a key of any length.
+func appendLongStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return append(b, code.Key...)
 }
 
 func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
 	return append(b, '}', ',')
 }
 
-func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	last := len(b) - 1
-	if b[last] == ',' {
-		b[last] = '}'
-		return appendComma(ctx, b)
-	}
-	return appendStructEnd(ctx, code, b)
+// commaAtEnd is 1 for a comma: what appendStructEndSkipLast cuts from the end.
+var commaAtEnd = [256]uint8{',': 1}
+
+// appendStructEndSkipLast ends the struct, over the comma after its last field if there is one: there is none
+// after an empty struct or when every field is omitted. The comma is cut by a table, not a branch, so that
+// the function costs 18 to the inliner and is inlined into Run ( see appendStructKey ).
+func appendStructEndSkipLast(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
+	return append(b[:len(b)-int(commaAtEnd[b[len(b)-1]])], '}', ',')
 }
 
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
@@ -210,10 +222,14 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 	case encoder.OpUint:
 		b = appendUint(ctx, b, p, code)
 	case encoder.OpFloat32:
-		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+		if err != nil {
+			return nil, err
+		}
+		b = bb
 	case encoder.OpFloat64:
 		v := ptrToFloat64(p)
-		if math.IsInf(v, 0) || math.IsNaN(v) {
+		if isInfOrNaN(v) {
 			return nil, errUnsupportedFloat(v)
 		}
 		b = appendFloat64(ctx, b, v)

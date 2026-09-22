@@ -6,9 +6,10 @@ import (
 	"testing"
 )
 
-// AppendString handles a string which has nothing to escape by itself: by bytes under a word, by words with
-// the last one overlapping, and with a copy which depends on the length. Every length and every position of
-// a byte is compared with the function for the options, which is the one used for a string to escape.
+// AppendString handles a string which has nothing to escape by itself: by bytes under a half word, by a word
+// made of two overlapping halves under a word, by words with the last one overlapping, and with a copy which
+// depends on the length. Every length and every position of a byte is compared with the function for the
+// options, which is the one used for a string to escape.
 func TestAppendStringFastPath(t *testing.T) {
 	special := []string{
 		"\x00", "\x1f", " ", "!", `"`, "#", "&", "'", "/", "<", "=", ">", "?", "[", `\`, "]", "\x7f",

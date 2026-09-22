@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"math/bits"
 	"math/rand"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -353,6 +354,51 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 				copy(work, keys[i%sets])
 				slices.SortFunc(work, func(a, b MapItem) int { return bytes.Compare(a.Key, b.Key) })
 			}
+		})
+	}
+}
+
+// the iteration of a map: by the shims of the runtime for the users of mapiterinit, which allocate the
+// iterator, or by reflect.MapIter, which has the iterator in it and copies the key and the value into an
+// interface value which then points into the map.
+func BenchmarkVariant_MapIter(b *testing.B) {
+	for _, n := range []int{1, 5, 20} {
+		m := map[string]interface{}{}
+		for i := 0; i < n; i++ {
+			m["key"+strconv.Itoa(i)] = i
+		}
+		typ := reflect.TypeOf(m)
+		mp := *(*unsafe.Pointer)(unsafe.Pointer(&m))
+		typPtr := (*emptyInterface)(unsafe.Pointer(&typ)).ptr
+		b.Run("Shim/"+strconv.Itoa(n), func(b *testing.B) {
+			var it mapIter
+			var sum int
+			for i := 0; i < b.N; i++ {
+				it = mapIter{}
+				MapIterInit(typPtr, mp, &it)
+				for key := it.Key(); key != nil; key = it.Key() {
+					sum += len(*(*string)(key)) + int(uintptr(it.Elem())&1)
+					MapIterNext(&it)
+				}
+			}
+			_ = sum
+		})
+		b.Run("Reflect/"+strconv.Itoa(n), func(b *testing.B) {
+			var it reflect.MapIter
+			var key, value interface{}
+			kv := reflect.ValueOf(&key).Elem()
+			vv := reflect.ValueOf(&value).Elem()
+			mv := reflect.ValueOf(m)
+			var sum int
+			for i := 0; i < b.N; i++ {
+				it.Reset(mv)
+				for it.Next() {
+					kv.SetIterKey(&it)
+					vv.SetIterValue(&it)
+					sum += len(*(*string)((*emptyInterface)(unsafe.Pointer(&key)).ptr)) + int(uintptr((*emptyInterface)(unsafe.Pointer(&value)).ptr)&1)
+				}
+			}
+			_ = sum
 		})
 	}
 }

@@ -12,11 +12,6 @@ import (
 
 var (
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
-	mapiterinit         = encoder.MapIterInit
-	mapiterkey          = encoder.MapIterKey
-	mapitervalue        = encoder.MapIterValue
-	mapiternext         = encoder.MapIterNext
-	maplen              = encoder.MapLen
 )
 
 type emptyInterface struct {
@@ -47,10 +42,6 @@ func storeInt(base unsafe.Pointer, idx uint32, v uintptr) {
 	*(*uintptr)(unsafe.Add(base, idx)) = v
 }
 
-func loadNPtr(base unsafe.Pointer, idx uint32, ptrNum uint8) unsafe.Pointer {
-	return ptrToNPtr(load(base, idx), ptrNum)
-}
-
 func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	switch bitSize {
 	case 8:
@@ -64,7 +55,14 @@ func ptrToUint64(p unsafe.Pointer, bitSize uint8) uint64 {
 	}
 	return 0
 }
-func ptrToFloat32(p unsafe.Pointer) float32            { return *(*float32)(p) }
+func ptrToFloat32(p unsafe.Pointer) float32 { return *(*float32)(p) }
+
+// isInfOrNaN is whether the float is not finite, which encoding/json refuses: the exponent is all ones.
+// math.IsInf is not inlined into Run, which is a big function to the inliner; this is.
+func isInfOrNaN(v float64) bool {
+	const exponent = 0x7ff << 52
+	return math.Float64bits(v)&exponent == exponent
+}
 func ptrToFloat64(p unsafe.Pointer) float64            { return *(*float64)(p) }
 func ptrToBool(p unsafe.Pointer) bool                  { return *(*bool)(p) }
 func ptrToBytes(p unsafe.Pointer) []byte               { return *(*[]byte)(p) }
@@ -72,12 +70,12 @@ func ptrToNumber(p unsafe.Pointer) json.Number         { return *(*json.Number)(
 func ptrToString(p unsafe.Pointer) string              { return *(*string)(p) }
 func ptrToSlice(p unsafe.Pointer) *runtime.SliceHeader { return (*runtime.SliceHeader)(p) }
 func ptrToPtr(p unsafe.Pointer) unsafe.Pointer         { return *(*unsafe.Pointer)(p) }
+
+// ptrToNPtr follows the pointer ptrNum times, or up to a nil one. It is written to be inlined into Run,
+// which is a big function: only a function whose cost is 20 or less is inlined into it.
 func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
-	for i := uint8(0); i < ptrNum; i++ {
-		if p == nil {
-			return nil
-		}
-		p = ptrToPtr(p)
+	for ; ptrNum > 0 && p != nil; ptrNum-- {
+		p = *(*unsafe.Pointer)(p)
 	}
 	return p
 }
@@ -103,11 +101,15 @@ func appendUint(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer, code *e
 	return append(b, format.Footer...)
 }
 
-func appendFloat32(ctx *encoder.RuntimeContext, b []byte, v float32) []byte {
+// appendFloat32 appends the float, or returns the error for one which is not finite as encoding/json does.
+func appendFloat32(ctx *encoder.RuntimeContext, b []byte, v float32) ([]byte, error) {
+	if isInfOrNaN(float64(v)) {
+		return nil, errUnsupportedFloat(float64(v))
+	}
 	format := ctx.Option.ColorScheme.Float
 	b = append(b, format.Header...)
 	b = encoder.AppendFloat32(ctx, b, v)
-	return append(b, format.Footer...)
+	return append(b, format.Footer...), nil
 }
 
 func appendFloat64(ctx *encoder.RuntimeContext, b []byte, v float64) []byte {
@@ -244,6 +246,11 @@ func appendStructEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []b
 	return append(b, '}', ',')
 }
 
+// appendLongStructKey appends a key of any length: every key is written by appendStructKey here.
+func appendLongStructKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+	return appendStructKey(ctx, code, b)
+}
+
 func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	last := len(b) - 1
 	if b[last] == ',' {
@@ -267,10 +274,14 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 	case encoder.OpUint:
 		b = appendUint(ctx, b, p, code)
 	case encoder.OpFloat32:
-		b = appendFloat32(ctx, b, ptrToFloat32(p))
+		bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+		if err != nil {
+			return nil, err
+		}
+		b = bb
 	case encoder.OpFloat64:
 		v := ptrToFloat64(p)
-		if math.IsInf(v, 0) || math.IsNaN(v) {
+		if isInfOrNaN(v) {
 			return nil, errUnsupportedFloat(v)
 		}
 		b = appendFloat64(ctx, b, v)

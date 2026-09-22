@@ -1079,13 +1079,13 @@ var badFloatREs = []*regexp.Regexp{
 	re(`\.[0-9]+0(e|$)`),        // no trailing zero in fraction
 	re(`^-?(0|[0-9]{2,})\..*e`), // exponential notation must have normalized mantissa
 	re(`e[0-9]`),                // positive exponent must be signed
-	//re(`e[+-]0`),                // exponent must not have leading zeros
-	re(`e-[1-6]$`),             // not tiny enough for exponential notation
-	re(`e+(.|1.|20)$`),         // not big enough for exponential notation
-	re(`^-?0\.0000000`),        // too tiny, should use exponential notation
-	re(`^-?[0-9]{22}`),         // too big, should use exponential notation
-	re(`[1-9][0-9]{16}[1-9]`),  // too many significant digits in integer
-	re(`[1-9][0-9.]{17}[1-9]`), // too many significant digits in decimal
+	re(`e[+-]0`),                // exponent must not have leading zeros
+	re(`e-[1-6]$`),              // not tiny enough for exponential notation
+	re(`e+(.|1.|20)$`),          // not big enough for exponential notation
+	re(`^-?0\.0000000`),         // too tiny, should use exponential notation
+	re(`^-?[0-9]{22}`),          // too big, should use exponential notation
+	re(`[1-9][0-9]{16}[1-9]`),   // too many significant digits in integer
+	re(`[1-9][0-9.]{17}[1-9]`),  // too many significant digits in decimal
 	// below here for float32 only
 	re(`[1-9][0-9]{8}[1-9]`),  // too many significant digits in integer
 	re(`[1-9][0-9.]{9}[1-9]`), // too many significant digits in decimal
@@ -1345,6 +1345,20 @@ var unsupportedValues = []interface{}{
 	math.NaN(),
 	math.Inf(-1),
 	math.Inf(1),
+	float32(math.NaN()),
+	float32(math.Inf(-1)),
+	float32(math.Inf(1)),
+	struct{ F float32 }{float32(math.Inf(1))},
+	struct {
+		F float32 `json:",omitempty"`
+	}{float32(math.NaN())},
+	struct{ F *float32 }{func() *float32 { f := float32(math.Inf(1)); return &f }()},
+	struct {
+		F float32 `json:",string"`
+	}{float32(math.Inf(-1))},
+	[]float32{float32(math.NaN())},
+	map[string]float32{"a": float32(math.Inf(1))},
+	[]interface{}{float32(math.Inf(1))},
 	pointerCycle,
 	pointerCycleIndirect,
 }
@@ -1357,6 +1371,9 @@ func TestUnsupportedValues(t *testing.T) {
 			}
 		} else {
 			t.Errorf("for %v, expected error", v)
+		}
+		if _, err := json.MarshalIndent(v, "", " "); err == nil {
+			t.Errorf("for %v with indent, expected error", v)
 		}
 	}
 }

@@ -35,6 +35,23 @@ func (m mapMarshaler) MarshalJSON() ([]byte, error) {
 	return []byte(`"map"`), nil
 }
 
+// a struct of a single pointer is stored directly in an interface value: the method on the value takes the
+// pointer word itself.
+type directMarshaler struct{ P *int }
+
+func (d directMarshaler) MarshalJSON() ([]byte, error) {
+	if d.P == nil {
+		return []byte(`"direct nil"`), nil
+	}
+	return []byte(`"direct"`), nil
+}
+
+// the method is promoted from an embedded interface.
+type embeddedMarshaler struct {
+	stdjson.Marshaler
+	N int
+}
+
 type textMarshaler struct{ S string }
 
 func (t textMarshaler) MarshalText() ([]byte, error) { return []byte("text:" + t.S), nil }
@@ -71,6 +88,11 @@ func TestMarshalerCalledDirectly(t *testing.T) {
 		{"word with pointer receiver", wordPtrMarshaler(1)},
 		{"pointer to word", func() *wordPtrMarshaler { w := wordPtrMarshaler(1); return &w }()},
 		{"map with value receiver", mapMarshaler{"a": 1}},
+		{"direct struct with value receiver", directMarshaler{P: new(int)}},
+		{"direct struct with a nil pointer", directMarshaler{}},
+		{"pointer to direct struct", &directMarshaler{P: new(int)}},
+		{"promoted from an embedded interface", embeddedMarshaler{Marshaler: valueMarshaler{1}}},
+		{"pointer to promoted", &embeddedMarshaler{Marshaler: &ptrMarshaler{1}}},
 		{"nil map with value receiver", nilMap},
 		{"text", textMarshaler{"a"}},
 		{"pointer to text", &textMarshaler{"a"}},

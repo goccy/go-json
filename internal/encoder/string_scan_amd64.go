@@ -38,9 +38,9 @@ func detectAVX2() bool {
 // about as much as a few words of the scalar scan.
 const minSIMDScanLength = 32
 
-// hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD, or false and ok=false if the
-// CPU doesn't support it or the string is short.
-func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (found, ok bool) {
+// hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD. The second result is false if
+// the CPU doesn't support it or the string is short, and the string is not looked at.
+func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
 	if !hasAVX2 || n < minSIMDScanLength {
 		return false, false
 	}

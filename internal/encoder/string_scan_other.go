@@ -7,6 +7,6 @@ import (
 )
 
 // hasEscapeSIMD is not available: the string is scanned by words.
-func (e *stringEscape) hasEscapeSIMD(_ unsafe.Pointer, _ int) (found, ok bool) {
+func (e *stringEscape) hasEscapeSIMD(_ unsafe.Pointer, _ int) (bool, bool) {
 	return false, false
 }

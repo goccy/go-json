@@ -364,7 +364,7 @@ func AppendFloat32(_ *RuntimeContext, b []byte, v float32) []byte {
 			fmt = 'e'
 		}
 	}
-	return strconv.AppendFloat(b, f64, fmt, -1, 32)
+	return appendFloatOfFormat(b, f64, fmt, 32)
 }
 
 func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
@@ -376,7 +376,21 @@ func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
 			fmt = 'e'
 		}
 	}
-	return strconv.AppendFloat(b, v, fmt, -1, 64)
+	return appendFloatOfFormat(b, v, fmt, 64)
+}
+
+// appendFloatOfFormat appends the float in the format, as encoding/json does: the exponent of the 'e' format
+// has no leading zero, so 1e-07 is written as 1e-7.
+func appendFloatOfFormat(b []byte, v float64, fmt byte, bits int) []byte {
+	b = strconv.AppendFloat(b, v, fmt, -1, bits)
+	if fmt == 'e' {
+		n := len(b)
+		if n >= 4 && b[n-4] == 'e' && b[n-3] == '-' && b[n-2] == '0' {
+			b[n-2] = b[n-1]
+			b = b[:n-1]
+		}
+	}
+	return b
 }
 
 func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {

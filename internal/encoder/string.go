@@ -199,12 +199,19 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 		return append(buf, '"', '"')
 	}
 	src := unsafe.Pointer(unsafe.StringData(s))
-	if n < 8 {
+	if n < 4 {
 		table := escape.table
 		for i := 0; i < n; i++ {
 			if table[*(*byte)(unsafe.Add(src, i))] {
 				return escape.appendEscaped(buf, s)
 			}
+		}
+	} else if n < 8 {
+		// the two halves overlap, so that the word has every byte of the string and nothing else.
+		w := uint64(*(*uint32)(src)) | uint64(*(*uint32)(unsafe.Add(src, n-4)))<<32
+		if (looseCommonMask(w)|escape.looseCharsMask(w))&msb != 0 &&
+			(escape.high != 0 || (exactCommonMask(w)|escape.exactCharsMask(w))&msb != 0) {
+			return escape.appendEscaped(buf, s)
 		}
 	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
 		if found {

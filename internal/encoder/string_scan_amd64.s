@@ -63,8 +63,7 @@ loop128:
 	VPOR    Y6, Y5, Y5
 	MASK(Y3, Y4, Y6)
 	VPOR    Y6, Y5, Y5
-	VPMOVMSKB Y5, AX
-	TESTL   AX, AX
+	VPTEST  Y5, Y5
 	JNE     found
 	ADDQ    $128, DI
 	CMPQ    DI, R11
@@ -76,8 +75,7 @@ small:
 loop32:
 	VMOVDQU (DI), Y0
 	MASK(Y0, Y4, Y5)
-	VPMOVMSKB Y5, AX
-	TESTL   AX, AX
+	VPTEST  Y5, Y5
 	JNE     found
 	ADDQ    $32, DI
 	CMPQ    DI, R11
@@ -89,8 +87,7 @@ last:
 	JEQ  none
 	VMOVDQU (R11), Y0
 	MASK(Y0, Y4, Y5)
-	VPMOVMSKB Y5, AX
-	TESTL   AX, AX
+	VPTEST  Y5, Y5
 	JNE     found
 none:
 	VZEROUPPER

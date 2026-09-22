@@ -20,9 +20,6 @@ var (
 	appendStructEnd     = encoder.AppendStructEndIndent
 	appendIndent        = encoder.AppendIndent
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
-	mapiterinit         = encoder.MapIterInit
-	mapiternext         = encoder.MapIterNext
-	maplen              = encoder.MapLen
 )
 
 type emptyInterface struct {

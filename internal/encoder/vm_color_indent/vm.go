@@ -443,7 +443,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.End.Next
 				break
 			}
-			mlen := maplen(p)
+			mlen := encoder.MapLen(p)
 			if mlen <= 0 {
 				b = appendEmptyObject(ctx, b)
 				code = code.End.Next
@@ -452,7 +452,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			b = appendStructHead(ctx, b)
 			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
 			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
-			mapiterinit(code.Type, p, &mapCtx.Iter)
+			encoder.MapIterInit(code.Type, p, &mapCtx.Iter)
 			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
 			if unorderedMap {
 				b = appendMapKeyIndent(ctx, code.Next, b)
@@ -500,7 +500,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			value := mapCtx.Iter.Elem()
 			store(ctxptr, code.Next.Idx, value)
-			mapiternext(&mapCtx.Iter)
+			encoder.MapIterNext(&mapCtx.Iter)
 			code = code.Next
 		case encoder.OpMapEnd:
 			// this operation only used by sorted map.
@@ -1454,7 +1454,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldOmitEmptyMap:
 			p := load(ctxptr, code.Idx)
 			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			if p == nil || maplen(p) == 0 {
+			if p == nil || encoder.MapLen(p) == 0 {
 				code = code.NextField
 			} else {
 				b = appendStructKey(ctx, code, b)

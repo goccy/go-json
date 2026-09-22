@@ -18,9 +18,6 @@ var (
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
-	mapiterinit         = encoder.MapIterInit
-	mapiternext         = encoder.MapIterNext
-	maplen              = encoder.MapLen
 )
 
 type emptyInterface struct {

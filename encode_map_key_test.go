@@ -3,6 +3,7 @@ package json_test
 import (
 	"bytes"
 	stdjson "encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -65,5 +66,32 @@ func TestEncodeMapKeys(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type mapValueFails struct{}
+
+func (mapValueFails) MarshalJSON() ([]byte, error) { return nil, errors.New("fails") }
+
+// The elements of a map whose keys are sorted are encoded into a buffer of their own. An error in the middle
+// of a map, also of a nested one, must not break the encoding which follows with the same pooled context.
+func TestEncodeSortedMapAfterError(t *testing.T) {
+	broken := map[string]interface{}{"a": 1, "b": map[string]interface{}{"c": 2, "d": mapValueFails{}}, "e": 3}
+	fine := map[string]interface{}{"x": map[string]int{"z": 1, "y": 2}, "w": []interface{}{map[string]int{"b": 1, "a": 2}}}
+	expected, err := stdjson.Marshal(fine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 50; i++ {
+		if _, err := json.Marshal(broken); err == nil {
+			t.Fatal("expected an error")
+		}
+		got, err := json.Marshal(fine)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(expected, got) {
+			t.Fatalf("expected %s but got %s", expected, got)
+		}
 	}
 }

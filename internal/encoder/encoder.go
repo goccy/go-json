@@ -71,8 +71,11 @@ type OpcodeSet struct {
 	InterfaceEscapeKeyCode   *Opcode
 	CodeLength               int
 	EndCode                  *Opcode
-	Code                     Code
-	QueryCache               map[string]*OpcodeSet
+	// Scalar is the opcode of the value if the type is encoded by a single opcode of a scalar ( a number,
+	// a string, a bool, ... ), or nil. Such a value held by an interface value is encoded without a frame.
+	Scalar     *Opcode
+	Code       Code
+	QueryCache map[string]*OpcodeSet
 	// values is the pool of the values of Type in the heap, which MarshalOf copies its argument to.
 	values  sync.Pool
 	cacheMu sync.RWMutex

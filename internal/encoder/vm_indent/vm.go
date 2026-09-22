@@ -165,12 +165,21 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				break
 			}
-			first, base, err := ctx.EnterInterface(code, p)
+			first, base, scalar, err := ctx.EnterInterface(code, p)
 			if err != nil {
 				return nil, err
 			}
 			if first == nil {
 				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
 				code = code.Next
 				break
 			}

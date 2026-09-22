@@ -168,9 +168,21 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		InterfaceEscapeKeyCode:   interfaceEscapeKeyCode,
 		CodeLength:               codeLength,
 		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
+		Scalar:                   scalarOpcode(noescapeKeyCode),
 		Code:                     code,
 		QueryCache:               map[string]*OpcodeSet{},
 	}, nil
+}
+
+// scalarOpcode returns the opcode if the code is a single opcode of a scalar followed by the end, or nil.
+func scalarOpcode(code *Opcode) *Opcode {
+	switch code.Op {
+	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
+		if code.Next != nil && code.Next.Op == OpEnd {
+			return code
+		}
+	}
+	return nil
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {

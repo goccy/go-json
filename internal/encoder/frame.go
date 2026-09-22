@@ -73,8 +73,12 @@ func (c *RuntimeContext) enterFrame(first, end, next *Opcode, p unsafe.Pointer, 
 // code. It returns the first opcode of the frame and the base of its slots, or a nil opcode if the value is
 // nil, which the caller writes as null.
 //
+// If the value is a scalar, no frame is entered: it returns the opcode of the scalar, the address of the value
+// and true, and the caller encodes the value by the opcode in its own frame. It saves the frame and two
+// dispatches for the values which JSON has in a value of interface{}.
+//
 //go:noinline
-func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode, unsafe.Pointer, error) {
+func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode, unsafe.Pointer, bool, error) {
 	var typ, ifacePtr unsafe.Pointer
 	if code.Flags&NonEmptyInterfaceFlags != 0 {
 		iface := (*nonEmptyInterface)(p)
@@ -90,18 +94,22 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	if ifacePtr == nil {
 		isDirectedNil := typ != nil && ShapeOf(typ) == ValueShapeAggregate && !IfaceIndir(typ)
 		if !isDirectedNil {
-			return nil, nil, nil
-		}
-	}
-	// after every path which doesn't go into the value, so that a record always has its end.
-	if c.RecursiveLevel > StartDetectingCyclesAfter {
-		if err := c.recordSeen(code, p); err != nil {
-			return nil, nil, err
+			return nil, nil, false, nil
 		}
 	}
 	codeSet, err := CompileToGetCodeSet(c, uintptr(typ))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
+	}
+	if codeSet.Scalar != nil {
+		// a scalar is never stored directly in an interface value: the data word is its address.
+		return codeSet.Scalar, ifacePtr, true, nil
+	}
+	// after every path which doesn't go into the value, so that a record always has its end.
+	if c.RecursiveLevel > StartDetectingCyclesAfter {
+		if err := c.recordSeen(code, p); err != nil {
+			return nil, nil, false, err
+		}
 	}
 	var first *Opcode
 	if (c.Option.Flag & HTMLEscapeOption) != 0 {
@@ -112,7 +120,7 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	value := c.InterfaceValueAddr(codeSet, ifacePtr, c.RecursiveLevel)
 	base := c.enterFrame(first, codeSet.EndCode, code.Next, value,
 		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, c.BaseIndent+code.Indent)
-	return first, base, nil
+	return first, base, false, nil
 }
 
 // interfaceEndSlots is the number of the slots which a frame of an interface value has after the ones of

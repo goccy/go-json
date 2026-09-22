@@ -187,7 +187,7 @@ func TestEncodeLongKey(t *testing.T) {
 // a key which is longer than any chunk and is escaped: what a chunk can't hold.
 func TestEncodeVeryLongKey(t *testing.T) {
 	type veryLongKey struct {
-		A int    `json:"a_key_which_is_much_longer_than_a_chunk_of_the_VM_and_has_a_<tag>_and_a_\"quote\"_in_it_to_escape,omitempty"`
+		A int    `json:"a_key_which_is_much_longer_than_a_chunk_of_the_VM_and_has_a_<tag>_and_an_&_in_it_to_escape,omitempty"`
 		B string `json:"another_key_which_is_much_longer_than_a_chunk_of_the_VM_with_a_value_after_it_of_any_length"`
 	}
 	for _, v := range []interface{}{veryLongKey{}, veryLongKey{A: 1, B: strings.Repeat("x", 100)}} {

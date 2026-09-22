@@ -14,6 +14,19 @@ const (
 	initBufSize = 512
 )
 
+// Token() comma/colon elision state, matching encoding/json.Decoder.Token.
+const (
+	tokenTopValue = iota
+	tokenArrayStart
+	tokenArrayValue
+	tokenArrayComma
+	tokenObjectStart
+	tokenObjectKey
+	tokenObjectColon
+	tokenObjectValue
+	tokenObjectComma
+)
+
 type Stream struct {
 	buf                   []byte
 	bufSize               int64
@@ -26,6 +39,8 @@ type Stream struct {
 	UseNumber             bool
 	DisallowUnknownFields bool
 	Option                *Option
+	tokenState            int
+	tokenStack            []int
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -51,24 +66,97 @@ func (s *Stream) Buffered() io.Reader {
 	return bytes.NewReader(s.buf[s.cursor:])
 }
 
-func (s *Stream) PrepareForDecode() error {
+func (s *Stream) skipSpace() error {
 	for {
 		switch s.char() {
 		case ' ', '\t', '\r', '\n':
 			s.cursor++
-			continue
-		case ',', ':':
-			s.cursor++
-			return nil
 		case nul:
 			if s.read() {
 				continue
 			}
 			return io.EOF
+		default:
+			return nil
 		}
-		break
 	}
-	return nil
+}
+
+func (s *Stream) tokenValueAllowed() bool {
+	switch s.tokenState {
+	case tokenTopValue, tokenArrayStart, tokenArrayValue, tokenObjectValue:
+		return true
+	}
+	return false
+}
+
+func (s *Stream) TokenValueAllowed() bool { return s.tokenValueAllowed() }
+
+func (s *Stream) tokenValueEnd() {
+	switch s.tokenState {
+	case tokenArrayStart, tokenArrayValue:
+		s.tokenState = tokenArrayComma
+	case tokenObjectValue:
+		s.tokenState = tokenObjectComma
+	}
+}
+
+func (s *Stream) TokenValueEnd() { s.tokenValueEnd() }
+
+func quoteChar(c byte) string {
+	if c == '\'' {
+		return `'\''`
+	}
+	if c == '"' {
+		return `'"'`
+	}
+	q := strconv.Quote(string([]byte{c}))
+	return "'" + q[1:len(q)-1] + "'"
+}
+
+func (s *Stream) tokenError(c byte) error {
+	var context string
+	switch s.tokenState {
+	case tokenTopValue, tokenArrayStart, tokenArrayValue, tokenObjectValue:
+		context = " looking for beginning of value"
+	case tokenArrayComma:
+		context = " after array element"
+	case tokenObjectStart, tokenObjectKey:
+		context = " looking for beginning of object key string"
+	case tokenObjectColon:
+		context = " after object key"
+	case tokenObjectComma:
+		context = " after object key:value pair"
+	}
+	return errors.ErrSyntax("invalid character "+quoteChar(c)+context, s.totalOffset())
+}
+
+func (s *Stream) PrepareForDecode() error {
+	if err := s.skipSpace(); err != nil {
+		return err
+	}
+	switch s.tokenState {
+	case tokenArrayComma:
+		if s.char() != ',' {
+			return errors.ErrExpected("comma after array element", s.totalOffset())
+		}
+		s.cursor++
+		s.tokenState = tokenArrayValue
+		return nil
+	case tokenObjectColon:
+		if s.char() != ':' {
+			return errors.ErrExpected("colon after object key", s.totalOffset())
+		}
+		s.cursor++
+		s.tokenState = tokenObjectValue
+		return nil
+	default:
+		switch s.char() {
+		case ',', ':':
+			s.cursor++
+		}
+		return nil
+	}
 }
 
 func (s *Stream) totalOffset() int64 {
@@ -127,18 +215,92 @@ func (s *Stream) More() bool {
 
 func (s *Stream) Token() (interface{}, error) {
 	for {
+		if err := s.skipSpace(); err != nil {
+			if err == io.EOF {
+				return nil, io.EOF
+			}
+			return nil, err
+		}
 		c := s.char()
 		switch c {
-		case ' ', '\n', '\r', '\t':
+		case '[':
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
 			s.cursor++
-		case '{', '[', ']', '}':
+			s.tokenStack = append(s.tokenStack, s.tokenState)
+			s.tokenState = tokenArrayStart
+			return json.Delim('['), nil
+		case ']':
+			if s.tokenState != tokenArrayStart && s.tokenState != tokenArrayComma {
+				return nil, s.tokenError(c)
+			}
 			s.cursor++
-			return json.Delim(c), nil
-		case ',', ':':
+			s.tokenState = s.tokenStack[len(s.tokenStack)-1]
+			s.tokenStack = s.tokenStack[:len(s.tokenStack)-1]
+			s.tokenValueEnd()
+			return json.Delim(']'), nil
+		case '{':
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
 			s.cursor++
+			s.tokenStack = append(s.tokenStack, s.tokenState)
+			s.tokenState = tokenObjectStart
+			return json.Delim('{'), nil
+		case '}':
+			if s.tokenState != tokenObjectStart && s.tokenState != tokenObjectComma {
+				return nil, s.tokenError(c)
+			}
+			s.cursor++
+			s.tokenState = s.tokenStack[len(s.tokenStack)-1]
+			s.tokenStack = s.tokenStack[:len(s.tokenStack)-1]
+			s.tokenValueEnd()
+			return json.Delim('}'), nil
+		case ':':
+			if s.tokenState != tokenObjectColon {
+				return nil, s.tokenError(c)
+			}
+			s.cursor++
+			s.tokenState = tokenObjectValue
+			continue
+		case ',':
+			if s.tokenState == tokenArrayComma {
+				s.cursor++
+				s.tokenState = tokenArrayValue
+				continue
+			}
+			if s.tokenState == tokenObjectComma {
+				s.cursor++
+				s.tokenState = tokenObjectKey
+				continue
+			}
+			return nil, s.tokenError(c)
+		case '"':
+			if s.tokenState == tokenObjectStart || s.tokenState == tokenObjectKey {
+				b, err := stringBytes(s)
+				if err != nil {
+					return nil, err
+				}
+				s.tokenState = tokenObjectColon
+				return string(b), nil
+			}
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
+			b, err := stringBytes(s)
+			if err != nil {
+				return nil, err
+			}
+			s.tokenValueEnd()
+			return string(b), nil
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			bytes := floatBytes(s)
-			str := *(*string)(unsafe.Pointer(&bytes))
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
+			b := floatBytes(s)
+			str := *(*string)(unsafe.Pointer(&b))
+			s.tokenValueEnd()
 			if s.UseNumber {
 				return json.Number(str), nil
 			}
@@ -147,38 +309,42 @@ func (s *Stream) Token() (interface{}, error) {
 				return nil, err
 			}
 			return f64, nil
-		case '"':
-			bytes, err := stringBytes(s)
-			if err != nil {
-				return nil, err
-			}
-			return string(bytes), nil
 		case 't':
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
 			if err := trueBytes(s); err != nil {
 				return nil, err
 			}
+			s.tokenValueEnd()
 			return true, nil
 		case 'f':
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
 			if err := falseBytes(s); err != nil {
 				return nil, err
 			}
+			s.tokenValueEnd()
 			return false, nil
 		case 'n':
+			if !s.tokenValueAllowed() {
+				return nil, s.tokenError(c)
+			}
 			if err := nullBytes(s); err != nil {
 				return nil, err
 			}
+			s.tokenValueEnd()
 			return nil, nil
 		case nul:
 			if s.read() {
 				continue
 			}
-			goto END
+			return nil, io.EOF
 		default:
-			return nil, errors.ErrInvalidCharacter(s.char(), "token", s.totalOffset())
+			return nil, s.tokenError(c)
 		}
 	}
-END:
-	return nil, io.EOF
 }
 
 func (s *Stream) reset() {

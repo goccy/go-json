@@ -221,6 +221,9 @@ func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) 
 	if err := d.s.PrepareForDecode(); err != nil {
 		return err
 	}
+	if !d.s.TokenValueAllowed() {
+		return errors.ErrNotAtBeginningOfValue(d.s.TotalOffset())
+	}
 	s := d.s
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
@@ -228,6 +231,7 @@ func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) 
 	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
 		return err
 	}
+	s.TokenValueEnd()
 	s.Reset()
 	return nil
 }

@@ -454,43 +454,57 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
 			encoder.MapIterInit(code.Type, p, &mapCtx.Iter)
 			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
-			if unorderedMap {
-				b = appendMapKeyIndent(ctx, code.Next, b)
-			} else {
-				mapCtx.Start = len(b)
+			if !unorderedMap {
 				mapCtx.First = len(b)
 			}
-			key := mapCtx.Iter.Key()
-			store(ctxptr, code.Next.Idx, key)
-			code = code.Next
+			// the first entry is begun as the others are, by the header: it has the next opcode and the flags
+			// of the key opcode.
+			mapCtx.Idx = -1
+			fallthrough
 		case encoder.OpMapKey:
+			// After an entry, or at the start with Idx -1: the next entry is begun, or the map is ended.
+			// A key of a string is written here, and the value of the entry is given to the opcode of the
+			// value: that saves the opcodes of the key and of the value for every entry. The key of another
+			// kind is given to its opcode, which OpMapValue follows.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
 			idx := mapCtx.Idx
+			if !unorderedMap && idx >= 0 {
+				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:len(b)]
+			}
 			idx++
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
-				if idx < mapCtx.Len {
-					b = appendMapKeyIndent(ctx, code, b)
-					mapCtx.Idx = int(idx)
-					key := mapCtx.Iter.Key()
-					store(ctxptr, code.Next.Idx, key)
-					code = code.Next
-				} else {
+			if idx == mapCtx.Len {
+				if unorderedMap {
 					b = appendObjectEnd(ctx, code, b)
 					encoder.ReleaseMapContext(ctx, mapCtx)
 					code = code.End.Next
-				}
-			} else {
-				mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:len(b)]
-				if idx < mapCtx.Len {
-					mapCtx.Idx = int(idx)
-					mapCtx.Start = len(b)
-					key := mapCtx.Iter.Key()
-					store(ctxptr, code.Next.Idx, key)
-					code = code.Next
 				} else {
 					code = code.End
 				}
+				break
 			}
+			mapCtx.Idx = idx
+			if unorderedMap {
+				b = appendMapKeyIndent(ctx, code, b)
+			} else {
+				mapCtx.Start = len(b)
+			}
+			if code.Flags&encoder.MapStringKeyFlags == 0 {
+				store(ctxptr, code.Next.Idx, mapCtx.Iter.Key())
+				code = code.Next
+				break
+			}
+			b = appendString(ctx, b, *(*string)(mapCtx.Iter.Key()))
+			b = appendComma(ctx, b)
+			if unorderedMap {
+				b = appendColon(ctx, b)
+			} else {
+				mapCtx.Slice.Items[idx].Key = b[mapCtx.Start:len(b)]
+				mapCtx.Start = len(b)
+			}
+			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
+			encoder.MapIterNext(&mapCtx.Iter)
+			code = code.Next
 		case encoder.OpMapValue:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
@@ -499,8 +513,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
 				mapCtx.Start = len(b)
 			}
-			value := mapCtx.Iter.Elem()
-			store(ctxptr, code.Next.Idx, value)
+			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
 			encoder.MapIterNext(&mapCtx.Iter)
 			code = code.Next
 		case encoder.OpMapEnd:

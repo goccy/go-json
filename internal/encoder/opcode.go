@@ -37,6 +37,7 @@ const (
 	IsNilableTypeFlags     OpFlags = 1 << 7
 	MarshalerContextFlags  OpFlags = 1 << 8
 	NonEmptyInterfaceFlags OpFlags = 1 << 9
+	MapStringKeyFlags      OpFlags = 1 << 10 // the key of the map is a string, written by OpMapKey itself
 )
 
 type Opcode struct {

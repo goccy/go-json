@@ -12,8 +12,12 @@ func xgetbv() (eax, edx uint32)
 //go:noescape
 func scanStringAVX2(p unsafe.Pointer, n int, chars uint64, high uint64) int
 
+// scanStringSSE is a variant measured against scanStringAVX2, not used yet.
+//
 //go:noescape
 func scanStringSSE(p unsafe.Pointer, n int, chars uint64, high uint64) int
+
+var _ = scanStringSSE
 
 // hasAVX2 is whether the CPU and the OS support AVX2.
 var hasAVX2 = detectAVX2()

@@ -23,6 +23,14 @@ func TestAppendCompactOutput(t *testing.T) {
 		`[1 2]`, `{"a":1 "b":2}`, `tru`, `nul`, `truex`, `01`, `1.`, `.5`, `1e`, `1e+`, `-`, `--1`, `+1`, `"abc`,
 		`{"a":1}}`, `[1]]`, `{a:1}`, `{1:2}`, `[1]x`, "\x00", "\"\x01\"", strings.Repeat("[", 65) + strings.Repeat("]", 65),
 		`{"a":1}{"b":2}`, `1 2`, `"a" "b"`,
+		// an escape, alone or in a combination: the escapes are left to compact.
+		`"\"`, `"\`, `"\\"x`, `"\u00"`, `["\"]`, `{"\":1}`,
+		// commas and colons which are not in their places.
+		`[,]`, `[1,,2]`, `{"a":1,,"b":2}`, `{,}`, `{"a"::1}`, `{"a":1:2}`, `[1:2]`, `,`, `:`, `{"a",1}`, `["a":1]`,
+		// brackets which don't match.
+		`[}`, `{]`, `[{]}`, `{"a":[}`,
+		// values which are not values.
+		`[undefined]`, `[NaN]`, `[Infinity]`, `[.1]`, `[1.]`, `[1e5.0]`, `[0x1]`, `[1_000]`, `['a']`, `[True]`,
 	}
 	for _, escape := range []bool{false, true} {
 		for _, s := range accepted {
@@ -58,7 +66,10 @@ func TestAppendCompactOutput(t *testing.T) {
 // Every byte in every position of a valid document must give the same answer as compact:
 // accepted only if compact returns the document as it is.
 func TestAppendCompactOutputAgainstCompact(t *testing.T) {
-	docs := []string{`{"ab":[1,-2.5e3,"cd",true,null,{}],"e":{"f":[[]]}}`, `"abc def"`, `12345`, `[true,false]`}
+	docs := []string{
+		`{"ab":[1,-2.5e3,"cd",true,null,{}],"e":{"f":[[]]}}`, `"abc def"`, `12345`, `[true,false]`, `-0.5E+10`,
+		`{"":""}`, `[[[{"a":[]}]]]`, `{"a":1,"b":2}`, `[1,2,3]`, `null`,
+	}
 	for _, doc := range docs {
 		for pos := 0; pos < len(doc); pos++ {
 			for c := 0; c < 256; c++ {
@@ -70,6 +81,10 @@ func TestAppendCompactOutputAgainstCompact(t *testing.T) {
 					_, ok := appendCompactOutput(nil, b, escape)
 					if ok && !same {
 						t.Fatalf("escape=%v: %q is accepted but compact gives %q, %v", escape, b, compacted, err)
+					}
+					// what is accepted must be valid by encoding/json: the check must be as strict as it.
+					if ok && !stdjson.Valid(b) {
+						t.Fatalf("escape=%v: %q is accepted but not valid", escape, b)
 					}
 					// compact accepts a number which is not one of JSON, such as 02: the check doesn't.
 					if !ok && same && stdjson.Valid(b) && c < 0x80 && c >= 0x20 && c != '\\' && !(escape && (c == '<' || c == '>' || c == '&')) {
@@ -104,4 +119,34 @@ func BenchmarkCompactOutput(b *testing.B) {
 			}
 		})
 	}
+}
+
+// FuzzAppendCompactOutput checks that whatever is accepted is valid by encoding/json and is left as it is by
+// compact, so that the check is as strict as both.
+func FuzzAppendCompactOutput(f *testing.F) {
+	for _, s := range []string{`{"a":[1,"b",true,null,{"c":-1.5e3}]}`, `"x"`, `[]`, `0`, `{"k":"v","n":[1,2]}`, ` `, `[1,]`} {
+		f.Add([]byte(s), true)
+		f.Add([]byte(s), false)
+	}
+	f.Fuzz(func(t *testing.T, src []byte, escape bool) {
+		out, ok := appendCompactOutput([]byte("x"), src, escape)
+		if !ok {
+			return
+		}
+		if string(out) != "x"+string(src) {
+			t.Fatalf("escape=%v: %q is not copied as it is: %q", escape, src, out)
+		}
+		if !stdjson.Valid(src) {
+			t.Fatalf("escape=%v: %q is accepted but not valid", escape, src)
+		}
+		compacted, err := compact(nil, append(append([]byte(nil), src...), nul), escape)
+		if err != nil || !bytes.Equal(compacted, src) {
+			t.Fatalf("escape=%v: %q is accepted but compact gives %q, %v", escape, src, compacted, err)
+		}
+		// what encoding/json compacts must not be accepted either.
+		var buf bytes.Buffer
+		if stdjson.Compact(&buf, src) == nil && !bytes.Equal(buf.Bytes(), src) {
+			t.Fatalf("escape=%v: %q is accepted but encoding/json compacts it to %q", escape, src, buf.Bytes())
+		}
+	})
 }

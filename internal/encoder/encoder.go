@@ -209,6 +209,9 @@ type emptyInterface struct {
 type MapItem struct {
 	Key   []byte
 	Value []byte
+	// RawKey is the key as it is, if the key is a plain string. The items are sorted by it, as encoding/json
+	// sorts the keys: the order of the encoded keys differs from it when a key has a character to escape.
+	RawKey string
 }
 
 type Mapslice struct {
@@ -219,8 +222,18 @@ type Mapslice struct {
 //
 // It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
 // the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
-func (m *Mapslice) Sort() {
+func (m *Mapslice) Sort(byRawKey bool) {
 	items := m.Items
+	if byRawKey {
+		if len(items) > maxItemsOfInsertionSort {
+			slices.SortFunc(items, func(a, b MapItem) int {
+				return strings.Compare(a.RawKey, b.RawKey)
+			})
+			return
+		}
+		insertionSortMapItemsByRawKey(items)
+		return
+	}
 	if len(items) > maxItemsOfInsertionSort {
 		slices.SortFunc(items, func(a, b MapItem) int {
 			return bytes.Compare(a.Key, b.Key)
@@ -238,6 +251,20 @@ func insertionSortMapItems(items []MapItem) {
 		item := items[i]
 		j := i
 		for ; j > 0 && bytes.Compare(items[j-1].Key, item.Key) > 0; j-- {
+			items[j] = items[j-1]
+		}
+		items[j] = item
+	}
+}
+
+func insertionSortMapItemsByRawKey(items []MapItem) {
+	for i := 1; i < len(items); i++ {
+		if items[i-1].RawKey <= items[i].RawKey {
+			continue
+		}
+		item := items[i]
+		j := i
+		for ; j > 0 && items[j-1].RawKey > item.RawKey; j-- {
 			items[j] = items[j-1]
 		}
 		items[j] = item

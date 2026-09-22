@@ -204,3 +204,10 @@ func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b 
 func appendMapKeyIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
 	return appendIndent(ctx, b, code.Indent)
 }
+
+// appendMapKeyString appends the key of a map which is a plain string, with what follows it:
+// the same bytes as the opcode of a string and appendColon append.
+func appendMapKeyString(ctx *encoder.RuntimeContext, b []byte, key string) []byte {
+	b = appendString(ctx, b, key)
+	return append(b, ':', ' ')
+}

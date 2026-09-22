@@ -339,6 +339,33 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header := newMapHeaderCode(ctx, c.typ)
 	ctx.incIndex()
 
+	if c.isPlainStringKey() {
+		// header => value code => key => value code => ... => end
+		//
+		// The key is written by the header and by the key opcode themselves, with what the value opcode did
+		// ( the colon, the address of the value and the step of the iterator ): it saves two dispatches of
+		// the VM per element for the keys of the type which JSON has.
+		ctx.incIndent()
+		valueCodes := c.value.ToOpcode(ctx)
+		ctx.decIndent()
+		valueCodes.First().Flags |= IndirectFlags
+
+		key := newMapKeyCode(ctx, c.typ.Key(), header)
+		ctx.incOpcodeIndex()
+		end := newMapEndCode(ctx, c.typ, header)
+		ctx.incOpcodeIndex()
+
+		header.Flags |= StringKeyFlags
+		key.Flags |= StringKeyFlags
+		end.Flags |= StringKeyFlags
+		header.Next = valueCodes.First()
+		valueCodes.Last().Next = key
+		key.Next = valueCodes.First()
+		header.End = end
+		key.End = end
+		return Opcodes{header}.Add(valueCodes...).Add(key).Add(end)
+	}
+
 	keyCodes := c.key.ToOpcode(ctx)
 
 	// the opcodes other than the header refer to the slot of the header, and they don't take a slot.
@@ -367,6 +394,13 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	key.End = end
 	value.End = end
 	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
+}
+
+// isPlainStringKey is whether the key of the map is a string which is encoded as it is:
+// not a pointer, not json.Number, and not a type which has a marshaler.
+func (c *MapCode) isPlainStringKey() bool {
+	key, ok := c.key.(*StringCode)
+	return ok && !key.isPtr && key.typ != jsonNumberType
 }
 
 func (c *MapCode) Filter(_ *FieldQuery) Code {

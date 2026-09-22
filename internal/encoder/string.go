@@ -47,17 +47,188 @@ func stringToUint64Slice(s string) []uint64 {
 	}))
 }
 
-func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
-	if ctx.Option.Flag&HTMLEscapeOption != 0 {
-		if ctx.Option.Flag&NormalizeUTF8Option != 0 {
-			return appendNormalizedHTMLString(buf, s)
+// stringEscape is what decides whether a string has a byte to escape, for a combination of the options.
+type stringEscape struct {
+	// chars are three characters to escape in addition to the control characters, '"' and '\\',
+	// repeated in every byte of a word. They are '<', '>' and '&', or '"' for nothing more.
+	chars [3]uint64
+	// high is msb if a byte which is not ASCII is to be looked at, to normalize UTF-8, or 0.
+	high uint64
+	// table is whether a byte may need an escape.
+	table *[256]bool
+	// appendEscaped appends a string which may have a byte to escape.
+	appendEscaped func(buf []byte, s string) []byte
+}
+
+const (
+	stringEscapeNormalize = 1 << iota
+	stringEscapeHTML
+)
+
+// stringEscapes is indexed by the combination of stringEscapeNormalize and stringEscapeHTML.
+var stringEscapes = [4]stringEscape{
+	0: {
+		chars:         [3]uint64{lsb * '"', lsb * '"', lsb * '"'},
+		table:         &needEscape,
+		appendEscaped: appendString,
+	},
+	stringEscapeNormalize: {
+		chars:         [3]uint64{lsb * '"', lsb * '"', lsb * '"'},
+		high:          msb,
+		table:         &needEscapeNormalizeUTF8,
+		appendEscaped: appendNormalizedString,
+	},
+	stringEscapeHTML: {
+		chars:         [3]uint64{lsb * '<', lsb * '>', lsb * '&'},
+		table:         &needEscapeHTML,
+		appendEscaped: appendHTMLString,
+	},
+	stringEscapeHTML | stringEscapeNormalize: {
+		chars:         [3]uint64{lsb * '<', lsb * '>', lsb * '&'},
+		high:          msb,
+		table:         &needEscapeHTMLNormalizeUTF8,
+		appendEscaped: appendNormalizedHTMLString,
+	},
+}
+
+// The functions below return the mask of the bytes of a word which may need an escape: the most significant bit
+// of such a byte is set. A byte after one to escape may be set too, because of the borrow of the subtractions.
+// A mask is made of parts, each of which is small enough to be inlined: a call for every word costs more than
+// the mask itself.
+//
+// `x - lsb` sets the most significant bit of a byte of x which is zero, and of one which already has it.
+// If UTF-8 is normalized, a byte which is not ASCII is looked at anyway, so the latter doesn't matter and the
+// loose masks are enough. Otherwise `&^ x` leaves only the former, so that a string which is not ASCII is not
+// taken for one to escape.
+
+// looseCommonMask is the mask of the control characters, '"', '\\' and the bytes which are not ASCII.
+func looseCommonMask(n uint64) uint64 {
+	return n | (n - lsb*0x20) | ((n ^ (lsb * '"')) - lsb) | ((n ^ (lsb * '\\')) - lsb)
+}
+
+// looseCharsMask is the mask of chars, and of the bytes which are not ASCII.
+func (e *stringEscape) looseCharsMask(n uint64) uint64 {
+	return ((n ^ e.chars[0]) - lsb) | ((n ^ e.chars[1]) - lsb) | ((n ^ e.chars[2]) - lsb)
+}
+
+// exactCommonMask is the mask of the control characters, '"' and '\\'.
+func exactCommonMask(n uint64) uint64 {
+	quote := n ^ (lsb * '"')
+	backslash := n ^ (lsb * '\\')
+	return ((n - lsb*0x20) &^ n) | ((quote - lsb) &^ quote) | ((backslash - lsb) &^ backslash)
+}
+
+// exactCharsMask is the mask of chars.
+func (e *stringEscape) exactCharsMask(n uint64) uint64 {
+	c0, c1, c2 := n^e.chars[0], n^e.chars[1], n^e.chars[2]
+	return ((c0 - lsb) &^ c0) | ((c1 - lsb) &^ c1) | ((c2 - lsb) &^ c2)
+}
+
+// hasExactEscape is whether a word of the string has a byte to escape, not counting the bytes which are not
+// ASCII. The string is 8 bytes or longer.
+func (e *stringEscape) hasExactEscape(src unsafe.Pointer, n int) bool {
+	i := 0
+	for ; i+8 <= n; i += 8 {
+		if w := *(*uint64)(unsafe.Add(src, i)); (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0 {
+			return true
 		}
-		return appendHTMLString(buf, s)
+	}
+	if i < n {
+		w := *(*uint64)(unsafe.Add(src, n-8))
+		return (exactCommonMask(w)|e.exactCharsMask(w))&msb != 0
+	}
+	return false
+}
+
+// hasLooseEscape is whether a word of the string may have a byte to escape, or has a byte which is not ASCII.
+// The string is 8 bytes or longer. It is cheaper than hasExactEscape, and it is exact for a string of ASCII,
+// which most of the strings are.
+func (e *stringEscape) hasLooseEscape(src unsafe.Pointer, n int) bool {
+	i := 0
+	for ; i+8 <= n; i += 8 {
+		if w := *(*uint64)(unsafe.Add(src, i)); (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0 {
+			return true
+		}
+	}
+	if i < n {
+		// the last word overlaps the previous one.
+		w := *(*uint64)(unsafe.Add(src, n-8))
+		return (looseCommonMask(w)|e.looseCharsMask(w))&msb != 0
+	}
+	return false
+}
+
+// maxInlineCopySize is the size of the longest string which is copied without calling memmove.
+const maxInlineCopySize = 16
+
+// growForString returns buf which has the capacity to append n bytes, growing as append does.
+//
+//go:noinline
+func growForString(buf []byte, n int) []byte {
+	grown := make([]byte, len(buf), 2*cap(buf)+n)
+	copy(grown, buf)
+	return grown
+}
+
+// AppendString appends the string as a JSON string.
+//
+// Most of the strings have nothing to escape and are short, so that case is handled here: the capacity is
+// checked once, the string is looked at by words ( by bytes if it is shorter than a word ), and a short string
+// is copied by a few loads and stores instead of a call of memmove, which costs more than the copy itself.
+// A string which may have a byte to escape is left to the function for the options.
+func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+	index := 0
+	if ctx.Option.Flag&HTMLEscapeOption != 0 {
+		index = stringEscapeHTML
 	}
 	if ctx.Option.Flag&NormalizeUTF8Option != 0 {
-		return appendNormalizedString(buf, s)
+		index |= stringEscapeNormalize
 	}
-	return appendString(buf, s)
+	escape := &stringEscapes[index]
+
+	n := len(s)
+	if n == 0 {
+		return append(buf, '"', '"')
+	}
+	src := unsafe.Pointer(unsafe.StringData(s))
+	if n < 8 {
+		table := escape.table
+		for i := 0; i < n; i++ {
+			if table[*(*byte)(unsafe.Add(src, i))] {
+				return escape.appendEscaped(buf, s)
+			}
+		}
+	} else if escape.hasLooseEscape(src, n) && (escape.high != 0 || escape.hasExactEscape(src, n)) {
+		// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
+		return escape.appendEscaped(buf, s)
+	}
+
+	l := len(buf)
+	if cap(buf)-l < n+2 {
+		buf = growForString(buf, n+2)
+	}
+	buf = buf[:l+n+2]
+	dst := unsafe.Pointer(unsafe.SliceData(buf[l:]))
+	*(*byte)(dst) = '"'
+	dst = unsafe.Add(dst, 1)
+	switch {
+	case n > maxInlineCopySize:
+		copy(buf[l+1:], s)
+	case n >= 8:
+		// the two words overlap.
+		*(*uint64)(dst) = *(*uint64)(src)
+		*(*uint64)(unsafe.Add(dst, n-8)) = *(*uint64)(unsafe.Add(src, n-8))
+	case n >= 4:
+		*(*uint32)(dst) = *(*uint32)(src)
+		*(*uint32)(unsafe.Add(dst, n-4)) = *(*uint32)(unsafe.Add(src, n-4))
+	case n > 0:
+		// the first, the middle and the last byte are every byte of 1 to 3 bytes.
+		*(*byte)(dst) = *(*byte)(src)
+		*(*byte)(unsafe.Add(dst, n>>1)) = *(*byte)(unsafe.Add(src, n>>1))
+		*(*byte)(unsafe.Add(dst, n-1)) = *(*byte)(unsafe.Add(src, n-1))
+	}
+	*(*byte)(unsafe.Add(dst, n)) = '"'
+	return buf
 }
 
 func appendNormalizedHTMLString(buf []byte, s string) []byte {

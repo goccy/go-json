@@ -5,8 +5,6 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
-	"sync"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -14,50 +12,31 @@ import (
 )
 
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
-	initEncoder()
-	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
-		codeSet, err := compileToGetCodeSetSlowPath(typeptr)
-		if err != nil {
-			return nil, err
-		}
-		return getFilteredCodeSetIfNeeded(ctx, codeSet)
+	// A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
+	// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
+	recent := &ctx.recentCodeSets[(typeptr>>recentCodeSetShift)%recentCodeSetsLength]
+	if recent.typeptr == typeptr {
+		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
 	}
-	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
-		filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
-		if err != nil {
-			return nil, err
-		}
-		return filtered, nil
-	}
-	codeSet, err := newCompiler().compile(typeptr)
+	codeSet, err := compileToGetUnfilteredCodeSet(typeptr)
 	if err != nil {
 		return nil, err
 	}
-	filtered, err := getFilteredCodeSetIfNeeded(ctx, codeSet)
-	if err != nil {
-		return nil, err
-	}
-	cachedOpcodeSets[index].Store(codeSet)
-	return filtered, nil
+	recent.typeptr = typeptr
+	recent.codeSet = codeSet
+	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
 func compileToGetUnfilteredCodeSet(typeptr uintptr) (*OpcodeSet, error) {
-	initEncoder()
-	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
-		return compileToGetCodeSetSlowPath(typeptr)
-	}
-	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if codeSet := cachedOpcodeSets[index].Load(); codeSet != nil {
+	if codeSet := cachedOpcodeSets.Load(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
 	codeSet, err := newCompiler().compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
-	cachedOpcodeSets[index].Store(codeSet)
-	return codeSet, nil
+	return cachedOpcodeSets.Store(typeptr, codeSet), nil
 }
 
 type marshalerContext interface {
@@ -69,50 +48,8 @@ var (
 	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
-	cachedOpcodeSets       []atomic.Pointer[OpcodeSet]
-	cachedOpcodeMap        unsafe.Pointer // map[uintptr]*OpcodeSet
-	typeAddr               *runtime.TypeAddr
-	initEncoderOnce        sync.Once
+	cachedOpcodeSets       runtime.TypeCache[OpcodeSet]
 )
-
-func initEncoder() {
-	initEncoderOnce.Do(func() {
-		typeAddr = runtime.AnalyzeTypeAddr()
-		if typeAddr == nil {
-			typeAddr = &runtime.TypeAddr{}
-		}
-		cachedOpcodeSets = make([]atomic.Pointer[OpcodeSet], typeAddr.AddrRange>>typeAddr.AddrShift+1)
-	})
-}
-
-func loadOpcodeMap() map[uintptr]*OpcodeSet {
-	p := atomic.LoadPointer(&cachedOpcodeMap)
-	return *(*map[uintptr]*OpcodeSet)(unsafe.Pointer(&p))
-}
-
-func storeOpcodeSet(typ uintptr, set *OpcodeSet, m map[uintptr]*OpcodeSet) {
-	newOpcodeMap := make(map[uintptr]*OpcodeSet, len(m)+1)
-	newOpcodeMap[typ] = set
-
-	for k, v := range m {
-		newOpcodeMap[k] = v
-	}
-
-	atomic.StorePointer(&cachedOpcodeMap, *(*unsafe.Pointer)(unsafe.Pointer(&newOpcodeMap)))
-}
-
-func compileToGetCodeSetSlowPath(typeptr uintptr) (*OpcodeSet, error) {
-	opcodeMap := loadOpcodeMap()
-	if codeSet, exists := opcodeMap[typeptr]; exists {
-		return codeSet, nil
-	}
-	codeSet, err := newCompiler().compile(typeptr)
-	if err != nil {
-		return nil, err
-	}
-	storeOpcodeSet(typeptr, codeSet, opcodeMap)
-	return codeSet, nil
-}
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
 	if (ctx.Option.Flag & ContextOption) == 0 {

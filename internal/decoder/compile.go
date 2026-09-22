@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"unicode"
 	"unsafe"
 
@@ -18,74 +16,21 @@ import (
 // The type is given by the pointer to its type descriptor, which the caller reads from an interface value,
 // because reflect.Type is required only when the decoder is not cached yet.
 func CompileToGetDecoder(typ unsafe.Pointer) (Decoder, error) {
-	initDecoder()
 	typeptr := uintptr(typ)
-	if typeptr > typeAddr.MaxTypeAddr || typeptr < typeAddr.BaseTypeAddr {
-		return compileToGetDecoderSlowPath(typeptr, typ)
-	}
-
-	index := (typeptr - typeAddr.BaseTypeAddr) >> typeAddr.AddrShift
-	if dec := cachedDecoder[index].Load(); dec != nil {
+	if dec := cachedDecoder.Load(typeptr); dec != nil {
 		return *dec, nil
 	}
-
 	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
 	if err != nil {
 		return nil, err
 	}
-	cachedDecoder[index].Store(&dec)
-	return dec, nil
+	return *cachedDecoder.Store(typeptr, &dec), nil
 }
 
 var (
-	jsonNumberType   = reflect.TypeOf(json.Number(""))
-	typeAddr         *runtime.TypeAddr
-	cachedDecoderMap unsafe.Pointer // map[uintptr]decoder
-	cachedDecoder    []atomic.Pointer[Decoder]
-	initOnce         sync.Once
+	jsonNumberType = reflect.TypeOf(json.Number(""))
+	cachedDecoder  runtime.TypeCache[Decoder]
 )
-
-func initDecoder() {
-	initOnce.Do(func() {
-		typeAddr = runtime.AnalyzeTypeAddr()
-		if typeAddr == nil {
-			typeAddr = &runtime.TypeAddr{}
-		}
-		cachedDecoder = make([]atomic.Pointer[Decoder], typeAddr.AddrRange>>typeAddr.AddrShift+1)
-	})
-}
-
-func loadDecoderMap() map[uintptr]Decoder {
-	initDecoder()
-	p := atomic.LoadPointer(&cachedDecoderMap)
-	return *(*map[uintptr]Decoder)(unsafe.Pointer(&p))
-}
-
-func storeDecoder(typ uintptr, dec Decoder, m map[uintptr]Decoder) {
-	initDecoder()
-	newDecoderMap := make(map[uintptr]Decoder, len(m)+1)
-	newDecoderMap[typ] = dec
-
-	for k, v := range m {
-		newDecoderMap[k] = v
-	}
-
-	atomic.StorePointer(&cachedDecoderMap, *(*unsafe.Pointer)(unsafe.Pointer(&newDecoderMap)))
-}
-
-func compileToGetDecoderSlowPath(typeptr uintptr, typ unsafe.Pointer) (Decoder, error) {
-	decoderMap := loadDecoderMap()
-	if dec, exists := decoderMap[typeptr]; exists {
-		return dec, nil
-	}
-
-	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
-	if err != nil {
-		return nil, err
-	}
-	storeDecoder(typeptr, dec, decoderMap)
-	return dec, nil
-}
 
 func compileHead(typ reflect.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	// The kind is validated here, once per type, instead of for every call of the decoding functions:

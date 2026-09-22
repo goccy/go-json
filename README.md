@@ -329,31 +329,25 @@ The technique of implementing recursive processing with the `JMP` operation whil
 
 For more details, please refer to [the article](https://engineering.mercari.com/blog/entry/1599563768-081104c850) ( but Japanese only ).
 
-### Dispatch by typeptr from map to slice
+### Dispatch by typeptr without a lock
 
 When retrieving the data cached from the type information by `typeptr`, we usually use map.
 Map requires exclusive control, so use `sync.Map` for a naive implementation.
 
-However, this is slow, so it's a good idea to use the `atomic` package for exclusive control as implemented by `segmentio/encoding/json` ( https://github.com/segmentio/encoding/blob/master/json/codec.go#L41-L55 ).
+However, this is slow: as a result of profiling, `runtime.mapaccess2` accounted for a significant percentage of the execution time.
 
-This implementation slows down the set instead of speeding up the get, but it works well because of the nature of the library, it encodes much more for the same type.
+`go-json` looks up the cache in two steps, neither of which takes a lock:
 
-However, as a result of profiling, I noticed that `runtime.mapaccess2` accounts for a significant percentage of the execution time. So I thought if I could change the lookup from map to slice.
+1. The runtime context, which is taken from a pool for every call, remembers the opcodes of the types it encoded last. Most of the programs encode the same types again and again, so this is a load and a comparison in most cases.
+2. Otherwise a hash table with open addressing is looked up by the address of the type. An entry is written once ( the value, and then the key, by the `atomic` package ), and the table is replaced by a larger one when it gets half full, so a reader never waits for a writer. A value is stored only when a type is compiled for the first time.
 
-There is an API named `typelinks` defined in the `runtime` package that the `reflect` package uses internally.
-This allows you to get all the type information defined in the binary at runtime.
+An earlier version used a slice which had an element for every address a type of the program can be at, found by `typelinks` of the `runtime` package through `go:linkname`. It was replaced because it depended on the internals of the runtime, used memory in proportion to the size of the program, had to fall back to a map for a large program, and made the GC scan the whole slice in every cycle.
 
-The fact that all type information can be acquired means that by constructing slices in advance with the acquired total number of type information, it is possible to look up with the value of `typeptr` without worrying about out-of-range access.
-
-However, if there is too much type information, it will use a lot of memory, so by default we will only use this optimization if the slice size fits within **2Mib** .
-
-If this approach is not available, it will fall back to the `atomic` based process described above.
-
-If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/internal/runtime/type.go#L36-L100)
+If you want to know more, please refer to the implementation [here](https://github.com/goccy/go-json/blob/master/internal/runtime/type_cache.go)
 
 ## Decoder
 
-### Dispatch by typeptr from map to slice
+### Dispatch by typeptr without a lock
 
 Like the encoder, the decoder also uses typeptr to call the dedicated process.
 

@@ -46,3 +46,24 @@ generate:
 .PHONY: bench-check
 bench-check:
 	go run ./internal/cmd/benchcheck $(BENCH_CHECK_FLAGS)
+
+# bench-compare-encode prints the encode benchmarks of go-json and of bytedance/sonic side by side.
+# SonicStd is sonic configured to do what encoding/json, and go-json, do ( escape HTML, sort the keys of a map ),
+# and GoJsonLikeSonic is go-json configured to do what sonic does by default.
+# SonicFastest is sonic.ConfigFastest. SONIC_MAX_INLINE_DEPTH sets how deep sonic inlines the nested structs.
+.PHONY: bench-compare-encode
+bench-compare-encode:
+	cd benchmarks && go test -run '^$$' -bench '^Benchmark_(Encode|Marshal|EncodeBigData|MarshalBigData).*_(GoJson|GoJsonLikeSonic|Sonic|SonicFastest|SonicStd)$$' -benchtime 300ms -count 3 .
+
+# bench-profile-encode prints where the CPU time of the encode benchmarks of go-json goes.
+.PHONY: bench-profile-encode
+bench-profile-encode:
+	cd benchmarks && for b in SmallStructCached MediumStructCached LargeStructCached MapInterface; do \
+		go test -run '^$$' -bench "^Benchmark_Encode_$${b}_GoJson$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
+		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5; \
+	done
+
+# bench-variants measures the candidates of the optimizations against what is used now.
+.PHONY: bench-variants
+bench-variants:
+	go test -run '^$$' -bench 'BenchmarkVariant' -benchtime 300ms -count 2 ./internal/encoder/

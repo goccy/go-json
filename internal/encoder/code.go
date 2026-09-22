@@ -3,6 +3,7 @@ package encoder
 import (
 	"fmt"
 	"reflect"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
 )
@@ -675,14 +676,6 @@ func (c *StructFieldCode) getAnonymousStruct() *StructCode {
 	return c.getStruct()
 }
 
-func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
-	headType := code.ToHeaderType(tag.IsString)
-	if tag.IsOmitEmpty {
-		headType = headType.HeadToOmitEmptyHead()
-	}
-	return headType
-}
-
 func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
 	fieldType := code.ToFieldType(tag.IsString)
 	if tag.IsOmitEmpty {
@@ -691,24 +684,30 @@ func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
 	return fieldType
 }
 
-func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
-	value := valueCodes.First()
-	op := optimizeStructHeader(value, c.tag)
-	field.Op = op
-	if value.Flags&MarshalerContextFlags != 0 {
-		field.Flags |= MarshalerContextFlags
+// headOpcode returns the opcode of the head of the struct, which precedes the opcode of the first field.
+// It is made before the first field, so that it has the index before the ones of the field.
+//
+// The head is not fused with the first field: that made an opcode per type of a field for the head, which was
+// more than half of the VM, for a dispatch saved per struct. The head writes the brace, and the first field
+// is encoded by the same opcode as the other fields.
+func (c *StructFieldCode) headOpcode(ctx *compileContext, flags OpFlags) *Opcode {
+	head := &Opcode{
+		Op:         OpStructHead,
+		Idx:        opcodeOffset(ctx.ptrIndex),
+		Flags:      flags & AnonymousHeadFlags,
+		Type:       runtime.TypePtr(c.typ),
+		DisplayIdx: ctx.opcodeIndex,
+		Indent:     ctx.indent,
 	}
-	field.NumBitSize = value.NumBitSize
-	field.PtrNum = value.PtrNum
-	field.FieldQuery = value.FieldQuery
-	fieldCodes := Opcodes{field}
-	if op.IsMultipleOpHead() {
-		field.Next = value
-		fieldCodes = fieldCodes.Add(valueCodes...)
-	} else {
-		ctx.decIndex()
-	}
-	return fieldCodes
+	ctx.incOpcodeIndex()
+	return head
+}
+
+// withHead links the head to the opcodes of the first field.
+func withHead(head *Opcode, codes Opcodes) Opcodes {
+	head.Next = codes.First()
+	head.NextField = codes.First()
+	return append(Opcodes{head}, codes...)
 }
 
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
@@ -751,12 +750,23 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 	return codes
 }
 
+// KeyChunkSize is the size of the chunk which the VM copies a key by.
+const KeyChunkSize = 16
+
+// PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+// so that a chunk is copied from the key without reading the memory of others.
+func PaddedKey(key string) string {
+	buf := make([]byte, len(key)+KeyChunkSize)
+	copy(buf, key)
+	return unsafe.String(unsafe.SliceData(buf), len(key))
+}
+
 func (c *StructFieldCode) structKey(ctx *compileContext) string {
 	if ctx.escapeKey {
 		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
-		return fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key)))
+		return PaddedKey(fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key))))
 	}
-	return fmt.Sprintf(`"%s":`, c.key)
+	return PaddedKey(fmt.Sprintf(`"%s":`, c.key))
 }
 
 func (c *StructFieldCode) flags() OpFlags {
@@ -796,6 +806,10 @@ func (c *StructFieldCode) toValueOpcodes(ctx *compileContext) Opcodes {
 }
 
 func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	var head *Opcode
+	if isFirstField {
+		head = c.headOpcode(ctx, c.flags())
+	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags(),
@@ -808,13 +822,6 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
-	if isFirstField {
-		codes := c.headerOpcodes(ctx, field, valueCodes)
-		if isEndField {
-			codes = c.addStructEndCode(ctx, codes)
-		}
-		return codes
-	}
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
 		if isEnableStructEndOptimization(c.value) {
@@ -823,10 +830,17 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 			codes = c.addStructEndCode(ctx, codes)
 		}
 	}
+	if head != nil {
+		codes = withHead(head, codes)
+	}
 	return codes
 }
 
 func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	var head *Opcode
+	if isFirstField {
+		head = c.headOpcode(ctx, c.flags()|AnonymousHeadFlags)
+	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags() | AnonymousHeadFlags,
@@ -839,10 +853,11 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
-	if isFirstField {
-		return c.headerOpcodes(ctx, field, valueCodes)
+	codes := c.fieldOpcodes(ctx, field, valueCodes)
+	if head != nil {
+		codes = withHead(head, codes)
 	}
-	return c.fieldOpcodes(ctx, field, valueCodes)
+	return codes
 }
 
 func isEnableStructEndOptimization(value Code) bool {

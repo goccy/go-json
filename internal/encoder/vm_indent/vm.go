@@ -345,18 +345,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				mapCtx.First = len(b)
 			}
 			key := mapiterkey(&mapCtx.Iter)
-			if code.Flags&encoder.StringKeyFlags != 0 {
-				b = appendMapKeyString(ctx, b, ptrToString(key))
-				if !unorderedMap {
-					mapCtx.Slice.Items[0].Key = b[mapCtx.Start:len(b)]
-					mapCtx.Slice.Items[0].RawKey = ptrToString(key)
-					mapCtx.Start = len(b)
-				}
-				store(ctxptr, code.Next.Idx, mapitervalue(&mapCtx.Iter))
-				mapiternext(&mapCtx.Iter)
-			} else {
-				store(ctxptr, code.Next.Idx, key)
-			}
+			store(ctxptr, code.Next.Idx, key)
 			code = code.Next
 		case encoder.OpMapKey:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
@@ -367,13 +356,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					b = appendMapKeyIndent(ctx, code, b)
 					mapCtx.Idx = int(idx)
 					key := mapiterkey(&mapCtx.Iter)
-					if code.Flags&encoder.StringKeyFlags != 0 {
-						b = appendMapKeyString(ctx, b, ptrToString(key))
-						store(ctxptr, code.Next.Idx, mapitervalue(&mapCtx.Iter))
-						mapiternext(&mapCtx.Iter)
-					} else {
-						store(ctxptr, code.Next.Idx, key)
-					}
+					store(ctxptr, code.Next.Idx, key)
 					code = code.Next
 				} else {
 					b = appendObjectEnd(ctx, code, b)
@@ -386,16 +369,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					mapCtx.Idx = int(idx)
 					mapCtx.Start = len(b)
 					key := mapiterkey(&mapCtx.Iter)
-					if code.Flags&encoder.StringKeyFlags != 0 {
-						b = appendMapKeyString(ctx, b, ptrToString(key))
-						mapCtx.Slice.Items[idx].Key = b[mapCtx.Start:len(b)]
-						mapCtx.Slice.Items[idx].RawKey = ptrToString(key)
-						mapCtx.Start = len(b)
-						store(ctxptr, code.Next.Idx, mapitervalue(&mapCtx.Iter))
-						mapiternext(&mapCtx.Iter)
-					} else {
-						store(ctxptr, code.Next.Idx, key)
-					}
+					store(ctxptr, code.Next.Idx, key)
 					code = code.Next
 				} else {
 					code = code.End
@@ -416,7 +390,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapEnd:
 			// this operation only used by sorted map.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.Slice.Sort(code.Flags&encoder.StringKeyFlags != 0)
+			mapCtx.Slice.Sort()
 			buf := mapCtx.Buf
 			for _, item := range mapCtx.Slice.Items {
 				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)

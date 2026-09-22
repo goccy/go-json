@@ -197,10 +197,3 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }
-
-// appendMapKeyString appends the key of a map which is a plain string, with what follows it:
-// the same bytes as the opcode of a string and appendColon append.
-func appendMapKeyString(ctx *encoder.RuntimeContext, b []byte, key string) []byte {
-	b = appendString(ctx, b, key)
-	return append(b, ':')
-}

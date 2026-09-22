@@ -676,14 +676,6 @@ func (c *StructFieldCode) getAnonymousStruct() *StructCode {
 	return c.getStruct()
 }
 
-func optimizeStructHeader(code *Opcode, tag *runtime.StructTag) OpType {
-	headType := code.ToHeaderType(tag.IsString)
-	if tag.IsOmitEmpty {
-		headType = headType.HeadToOmitEmptyHead()
-	}
-	return headType
-}
-
 func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
 	fieldType := code.ToFieldType(tag.IsString)
 	if tag.IsOmitEmpty {
@@ -692,52 +684,30 @@ func optimizeStructField(code *Opcode, tag *runtime.StructTag) OpType {
 	return fieldType
 }
 
-func (c *StructFieldCode) headerOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
-	value := valueCodes.First()
-	op := optimizeStructHeader(value, c.tag)
-	field.Op = op
-	if value.Flags&MarshalerContextFlags != 0 {
-		field.Flags |= MarshalerContextFlags
-	}
-	field.NumBitSize = value.NumBitSize
-	field.PtrNum = value.PtrNum
-	field.FieldQuery = value.FieldQuery
-	fieldCodes := Opcodes{field}
-	if op.IsMultipleOpHead() {
-		field.Next = value
-		fieldCodes = fieldCodes.Add(valueCodes...)
-	} else {
-		ctx.decIndex()
-		if splitStructHead {
-			return c.splitHeaderOpcodes(ctx, field, value)
-		}
-	}
-	return fieldCodes
-}
-
-// splitStructHead is an experiment: the head of a struct is an opcode of its own, followed by the opcode of
-// the first field, which is the same as the one of the other fields.
-const splitStructHead = true
-
-func (c *StructFieldCode) splitHeaderOpcodes(ctx *compileContext, field, value *Opcode) Opcodes {
+// headOpcode returns the opcode of the head of the struct, which precedes the opcode of the first field.
+// It is made before the first field, so that it has the index before the ones of the field.
+//
+// The head is not fused with the first field: that made an opcode per type of a field for the head, which was
+// more than half of the VM, for a dispatch saved per struct. The head writes the brace, and the first field
+// is encoded by the same opcode as the other fields.
+func (c *StructFieldCode) headOpcode(ctx *compileContext, flags OpFlags) *Opcode {
 	head := &Opcode{
 		Op:         OpStructHead,
-		Idx:        field.Idx,
-		Flags:      field.Flags,
-		Type:       field.Type,
-		DisplayIdx: field.DisplayIdx,
-		Indent:     field.Indent,
+		Idx:        opcodeOffset(ctx.ptrIndex),
+		Flags:      flags & AnonymousHeadFlags,
+		Type:       runtime.TypePtr(c.typ),
+		DisplayIdx: ctx.opcodeIndex,
+		Indent:     ctx.indent,
 	}
-	field.Op = optimizeStructField(value, c.tag)
-	field.DisplayIdx++
 	ctx.incOpcodeIndex()
-	head.Next = field
-	head.NextField = field
-	return Opcodes{head, field}
+	return head
 }
 
-func isSplitStructHead(codes Opcodes) bool {
-	return splitStructHead && len(codes) == 2 && codes[0].Op == OpStructHead && codes[0].Key == ""
+// withHead links the head to the opcodes of the first field.
+func withHead(head *Opcode, codes Opcodes) Opcodes {
+	head.Next = codes.First()
+	head.NextField = codes.First()
+	return append(Opcodes{head}, codes...)
 }
 
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
@@ -836,6 +806,10 @@ func (c *StructFieldCode) toValueOpcodes(ctx *compileContext) Opcodes {
 }
 
 func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	var head *Opcode
+	if isFirstField {
+		head = c.headOpcode(ctx, c.flags())
+	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags(),
@@ -848,17 +822,6 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
-	if isFirstField {
-		codes := c.headerOpcodes(ctx, field, valueCodes)
-		if isEndField {
-			if isSplitStructHead(codes) && isEnableStructEndOptimization(c.value) {
-				field.Op = field.Op.FieldToEnd()
-			} else {
-				codes = c.addStructEndCode(ctx, codes)
-			}
-		}
-		return codes
-	}
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
 		if isEnableStructEndOptimization(c.value) {
@@ -867,10 +830,17 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 			codes = c.addStructEndCode(ctx, codes)
 		}
 	}
+	if head != nil {
+		codes = withHead(head, codes)
+	}
 	return codes
 }
 
 func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+	var head *Opcode
+	if isFirstField {
+		head = c.headOpcode(ctx, c.flags()|AnonymousHeadFlags)
+	}
 	field := &Opcode{
 		Idx:        opcodeOffset(ctx.ptrIndex),
 		Flags:      c.flags() | AnonymousHeadFlags,
@@ -883,10 +853,11 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	}
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
-	if isFirstField {
-		return c.headerOpcodes(ctx, field, valueCodes)
+	codes := c.fieldOpcodes(ctx, field, valueCodes)
+	if head != nil {
+		codes = withHead(head, codes)
 	}
-	return c.fieldOpcodes(ctx, field, valueCodes)
+	return codes
 }
 
 func isEnableStructEndOptimization(value Code) bool {

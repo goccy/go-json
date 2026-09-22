@@ -93,42 +93,15 @@ func (t OpType) CodeType() CodeType {
 }
 
 func (t OpType) HeadToPtrHead() OpType {
-  if strings.Index(t.String(), "PtrHead") > 0 {
-    return t
+  if t == OpStructHead {
+    return OpStructPtrHead
   }
-
-  idx := strings.Index(t.String(), "Head")
-  if idx == -1 {
-    return t
-  }
-  suffix := "PtrHead"+t.String()[idx+len("Head"):]
-
-  const toPtrOffset = 2
-  if strings.Contains(OpType(int(t) + toPtrOffset).String(), suffix) {
-    return OpType(int(t) + toPtrOffset)
-  }
-  return t
-}
-
-func (t OpType) HeadToOmitEmptyHead() OpType {
-  const toOmitEmptyOffset = 1
-  if strings.Contains(OpType(int(t) + toOmitEmptyOffset).String(), "OmitEmpty") {
-    return OpType(int(t) + toOmitEmptyOffset)
-  }
-
   return t
 }
 
 func (t OpType) PtrHeadToHead() OpType {
-  idx := strings.Index(t.String(), "PtrHead")
-  if idx == -1 {
-    return t
-  }
-  suffix := t.String()[idx+len("Ptr"):]
-
-  const toPtrOffset = 2
-  if strings.Contains(OpType(int(t) - toPtrOffset).String(), suffix) {
-    return OpType(int(t) - toPtrOffset)
+  if t == OpStructPtrHead {
+    return OpStructHead
   }
   return t
 }
@@ -206,26 +179,11 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 		typ := typ
 		opTypes = append(opTypes, createOpType(typ, "Op"))
 	}
-	for _, typ := range append(primitiveTypesUpper, "") {
-		for _, ptrOrNot := range []string{"", "Ptr"} {
-			for _, opt := range []string{"", "OmitEmpty"} {
-				ptrOrNot := ptrOrNot
-				opt := opt
-				typ := typ
-
-				op := fmt.Sprintf(
-					"Struct%sHead%s%s",
-					ptrOrNot,
-					opt,
-					typ,
-				)
-				opTypes = append(opTypes, opType{
-					Op:   op,
-					Code: "StructField",
-				})
-			}
-		}
-	}
+	// the head of a struct is an opcode of its own: it is followed by the opcode of the first field.
+	opTypes = append(opTypes,
+		opType{Op: "StructHead", Code: "StructField"},
+		opType{Op: "StructPtrHead", Code: "StructField"},
+	)
 	for _, typ := range append(primitiveTypesUpper, "") {
 		for _, opt := range []string{"", "OmitEmpty"} {
 			opt := opt

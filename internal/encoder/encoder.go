@@ -18,44 +18,6 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-func (t OpType) IsMultipleOpHead() bool {
-	switch t {
-	case OpStructHead:
-		return true
-	case OpStructHeadSlice:
-		return true
-	case OpStructHeadArray:
-		return true
-	case OpStructHeadMap:
-		return true
-	case OpStructHeadStruct:
-		return true
-	case OpStructHeadOmitEmpty:
-		return true
-	case OpStructHeadOmitEmptySlice:
-		return true
-	case OpStructHeadOmitEmptyArray:
-		return true
-	case OpStructHeadOmitEmptyMap:
-		return true
-	case OpStructHeadOmitEmptyStruct:
-		return true
-	case OpStructHeadSlicePtr:
-		return true
-	case OpStructHeadOmitEmptySlicePtr:
-		return true
-	case OpStructHeadArrayPtr:
-		return true
-	case OpStructHeadOmitEmptyArrayPtr:
-		return true
-	case OpStructHeadMapPtr:
-		return true
-	case OpStructHeadOmitEmptyMapPtr:
-		return true
-	}
-	return false
-}
-
 func (t OpType) IsMultipleOpField() bool {
 	switch t {
 	case OpStructField:

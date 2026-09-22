@@ -341,10 +341,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if unorderedMap {
 				b = appendMapKeyIndent(ctx, code.Next, b)
 			} else {
-				// the elements are encoded into the buffer of the map, and copied in their order when it ends.
-				mapCtx.Outer = b
-				b = mapCtx.Buf[:0]
-				mapCtx.Start = 0
+				mapCtx.Start = len(b)
+				mapCtx.First = len(b)
 			}
 			key := mapiterkey(&mapCtx.Iter)
 			if code.Flags&encoder.StringKeyFlags != 0 {
@@ -419,12 +417,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			// this operation only used by sorted map.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			mapCtx.Slice.Sort(code.Flags&encoder.StringKeyFlags != 0)
-			mapCtx.Buf = b
-			b = mapCtx.Outer
+			buf := mapCtx.Buf
 			for _, item := range mapCtx.Slice.Items {
-				b = appendMapKeyValue(ctx, code, b, item.Key, item.Value)
+				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
 			}
-			b = appendMapEnd(ctx, code, b)
+			buf = appendMapEnd(ctx, code, buf)
+			b = b[:mapCtx.First]
+			b = append(b, buf...)
+			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(ctx, mapCtx)
 			code = code.Next
 		case encoder.OpRecursivePtr:

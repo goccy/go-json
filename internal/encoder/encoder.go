@@ -298,17 +298,13 @@ type mapIter struct {
 type MapContext struct {
 	// parent is the context of the map which this map is in.
 	parent *MapContext
-	// Start is where the key or the value being encoded starts in Buf, if the keys are sorted.
-	Start int
-	Idx   int
-	Slice *Mapslice
-	// Buf is the buffer which the elements of the map are encoded into if the keys are sorted, and Outer is
-	// the buffer of the VM, which the elements are copied into in their order when the map ends: each byte of
-	// the map is written twice, not three times as it was with the elements encoded into the buffer of the VM.
-	Buf   []byte
-	Outer []byte
-	Len   int
-	Iter  mapIter
+	Start  int
+	First  int
+	Idx    int
+	Slice  *Mapslice
+	Buf    []byte
+	Len    int
+	Iter   mapIter
 }
 
 var mapContextPool = sync.Pool{
@@ -342,7 +338,6 @@ func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	// a map is always released before the maps it is in.
 	rctx.mapContext = c.parent
 	c.parent = nil
-	c.Outer = nil
 	// the iterator refers to the map, which the pool must not keep alive.
 	c.Iter = mapIter{}
 	mapContextPool.Put(c)

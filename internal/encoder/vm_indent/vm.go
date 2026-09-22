@@ -457,8 +457,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if unorderedMap {
 				b = appendMapKeyIndent(ctx, code.Next, b)
 			} else {
+				mapCtx.Start = len(b)
 				mapCtx.First = len(b)
-				mapCtx.Items[0].KeyStart = len(b)
 			}
 			key := mapCtx.Iter.Key()
 			store(ctxptr, code.Next.Idx, key)
@@ -480,10 +480,10 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					code = code.End.Next
 				}
 			} else {
-				mapCtx.Items[mapCtx.Idx].End = len(b)
+				mapCtx.Slice.Items[mapCtx.Idx].Value = b[mapCtx.Start:len(b)]
 				if idx < mapCtx.Len {
 					mapCtx.Idx = int(idx)
-					mapCtx.Items[idx].KeyStart = len(b)
+					mapCtx.Start = len(b)
 					key := mapCtx.Iter.Key()
 					store(ctxptr, code.Next.Idx, key)
 					code = code.Next
@@ -496,7 +496,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
 				b = appendColon(ctx, b)
 			} else {
-				mapCtx.Items[mapCtx.Idx].ValueStart = len(b)
+				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
+				mapCtx.Start = len(b)
 			}
 			value := mapCtx.Iter.Elem()
 			store(ctxptr, code.Next.Idx, value)
@@ -505,15 +506,14 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapEnd:
 			// this operation only used by sorted map.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.SortItems(b)
-			// the entries are copied out of the buffer as they are, and written back in their order.
-			first := mapCtx.First
-			buf := append(mapCtx.Buf[:0], b[first:]...)
-			b = b[:first]
-			for _, item := range mapCtx.Items {
-				b = appendMapEntry(ctx, code, b, buf[item.KeyStart-first:item.End-first], item.ValueStart-item.KeyStart)
+			mapCtx.Slice.Sort()
+			buf := mapCtx.Buf
+			for _, item := range mapCtx.Slice.Items {
+				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
 			}
-			b = appendMapEnd(ctx, code, b)
+			buf = appendMapEnd(ctx, code, buf)
+			b = b[:mapCtx.First]
+			b = append(b, buf...)
 			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(ctx, mapCtx)
 			code = code.Next

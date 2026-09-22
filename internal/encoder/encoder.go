@@ -209,39 +209,38 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
-// MapItem is where an entry of a sorted map is in the buffer, in which the entries are written as they come
-// and copied in their order after: the key, then the value up to the next entry. Positions, not slices of the
-// buffer, so that the items have no pointer for the VM to write with a barrier.
 type MapItem struct {
-	KeyStart   int
-	ValueStart int
-	End        int
+	Key   []byte
+	Value []byte
 }
 
-// SortItems sorts the entries of the map by their keys in b.
+type Mapslice struct {
+	Items []MapItem
+}
+
+// Sort sorts the items by their keys.
 //
 // It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
 // the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
-func (c *MapContext) SortItems(b []byte) {
-	items := c.Items
+func (m *Mapslice) Sort() {
+	items := m.Items
 	if len(items) > maxItemsOfInsertionSort {
-		slices.SortFunc(items, func(x, y MapItem) int {
-			return bytes.Compare(b[x.KeyStart:x.ValueStart], b[y.KeyStart:y.ValueStart])
+		slices.SortFunc(items, func(a, b MapItem) int {
+			return bytes.Compare(a.Key, b.Key)
 		})
 		return
 	}
-	insertionSortMapItems(b, items)
+	insertionSortMapItems(items)
 }
 
-func insertionSortMapItems(b []byte, items []MapItem) {
+func insertionSortMapItems(items []MapItem) {
 	for i := 1; i < len(items); i++ {
-		item := items[i]
-		key := b[item.KeyStart:item.ValueStart]
-		if bytes.Compare(b[items[i-1].KeyStart:items[i-1].ValueStart], key) <= 0 {
+		if bytes.Compare(items[i-1].Key, items[i].Key) <= 0 {
 			continue
 		}
+		item := items[i]
 		j := i
-		for ; j > 0 && bytes.Compare(b[items[j-1].KeyStart:items[j-1].ValueStart], key) > 0; j-- {
+		for ; j > 0 && bytes.Compare(items[j-1].Key, item.Key) > 0; j-- {
 			items[j] = items[j-1]
 		}
 		items[j] = item
@@ -253,6 +252,10 @@ func insertionSortMapItems(b []byte, items []MapItem) {
 // 24 items and slower from 32 items ( BenchmarkVariant_MapSort ).
 const maxItemsOfInsertionSort = 16
 
+// mapIter is the iterator of a map of the runtime, as it was before Go 1.24, which the runtime still fills for
+// the users of mapiterinit: it keeps key and elem up to date with the entry, so they are read here without a
+// call, as the runtime allows ( see runtime/linkname_shim.go ).
+//
 //nolint:unused
 type mapIter struct {
 	key         unsafe.Pointer
@@ -281,9 +284,10 @@ func (it *mapIter) Elem() unsafe.Pointer { return it.elem }
 type MapContext struct {
 	// parent is the context of the map which this map is in.
 	parent *MapContext
-	First  int // where the entries of a sorted map start in the buffer
+	Start  int
+	First  int
 	Idx    int
-	Items  []MapItem // the entries of a sorted map
+	Slice  *Mapslice
 	Buf    []byte
 	Len    int
 	Iter   mapIter
@@ -291,7 +295,9 @@ type MapContext struct {
 
 var mapContextPool = sync.Pool{
 	New: func() interface{} {
-		return &MapContext{}
+		return &MapContext{
+			Slice: &Mapslice{},
+		}
 	},
 }
 
@@ -302,10 +308,10 @@ func NewMapContext(rctx *RuntimeContext, mapLen int, unorderedMap bool) *MapCont
 	ctx.parent = rctx.mapContext
 	rctx.mapContext = ctx
 	if !unorderedMap {
-		if cap(ctx.Items) < mapLen {
-			ctx.Items = make([]MapItem, mapLen)
+		if len(ctx.Slice.Items) < mapLen {
+			ctx.Slice.Items = make([]MapItem, mapLen)
 		} else {
-			ctx.Items = ctx.Items[:mapLen]
+			ctx.Slice.Items = ctx.Slice.Items[:mapLen]
 		}
 	}
 	ctx.Buf = ctx.Buf[:0]

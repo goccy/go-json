@@ -331,31 +331,28 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 	rnd := rand.New(rand.NewSource(1))
 	for _, n := range []int{2, 4, 8, 12, 16, 24, 32, 48, 64, 128} {
 		const sets = 64
-		var buf []byte
-		items := make([][]MapItem, sets)
-		for i := range items {
-			items[i] = make([]MapItem, n)
-			for j := range items[i] {
-				start := len(buf)
-				for k := 3 + rnd.Intn(20); k > 0; k-- {
-					buf = append(buf, byte('a'+rnd.Intn(26)))
+		keys := make([][]MapItem, sets)
+		for i := range keys {
+			keys[i] = make([]MapItem, n)
+			for j := range keys[i] {
+				key := make([]byte, 3+rnd.Intn(20))
+				for k := range key {
+					key[k] = byte('a' + rnd.Intn(26))
 				}
-				items[i][j] = MapItem{KeyStart: start, ValueStart: len(buf), End: len(buf)}
+				keys[i][j].Key = key
 			}
 		}
 		work := make([]MapItem, n)
 		b.Run("Insertion/"+strconv.Itoa(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				copy(work, items[i%sets])
-				insertionSortMapItems(buf, work)
+				copy(work, keys[i%sets])
+				insertionSortMapItems(work)
 			}
 		})
 		b.Run("SortFunc/"+strconv.Itoa(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				copy(work, items[i%sets])
-				slices.SortFunc(work, func(x, y MapItem) int {
-					return bytes.Compare(buf[x.KeyStart:x.ValueStart], buf[y.KeyStart:y.ValueStart])
-				})
+				copy(work, keys[i%sets])
+				slices.SortFunc(work, func(a, b MapItem) int { return bytes.Compare(a.Key, b.Key) })
 			}
 		})
 	}

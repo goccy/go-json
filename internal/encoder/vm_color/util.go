@@ -178,13 +178,10 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return b
 }
 
-// appendMapEntry appends an entry of a sorted map, which is the key with its comma followed by the value,
-// with the colon in the place of the comma.
-func appendMapEntry(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, entry []byte, keyLen int) []byte {
-	n := len(b)
-	b = append(b, entry...)
-	b[n+keyLen-1] = ':'
-	return b
+func appendMapKeyValue(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
+	b = append(b, key[:len(key)-1]...)
+	b = append(b, ':')
+	return append(b, value...)
 }
 
 func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {

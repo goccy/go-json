@@ -274,6 +274,42 @@ func Test_Decoder_UseNumber(t *testing.T) {
 	assertEq(t, "json.Number", "json.Number", fmt.Sprintf("%T", v["a"]))
 }
 
+func Test_Decoder_Number_OutOfFloat64Range(t *testing.T) {
+	// A json.Number keeps the literal verbatim, so a number whose magnitude
+	// overflows float64 is still a valid json.Number and must decode without
+	// error, matching encoding/json. See
+	// https://github.com/goccy/go-json/issues/555.
+	valid := []string{"1e999", "-1e999", "1e-999", "1.7976931348623157e400", strings.Repeat("9", 400)}
+	for _, in := range valid {
+		var n json.Number
+		assertErr(t, json.Unmarshal([]byte(in), &n))
+		assertEq(t, "Unmarshal into json.Number", in, string(n))
+
+		var sn json.Number
+		assertErr(t, json.NewDecoder(strings.NewReader(in)).Decode(&sn))
+		assertEq(t, "Decoder.Decode into json.Number", in, string(sn))
+
+		// The common real-world trigger: a json.Number struct field.
+		var v struct {
+			N json.Number `json:"n"`
+		}
+		assertErr(t, json.Unmarshal([]byte(`{"n":`+in+`}`), &v))
+		assertEq(t, "Unmarshal into json.Number field", in, string(v.N))
+	}
+	// Genuinely malformed numbers must still be rejected on both paths.
+	invalid := []string{"1e2e3", "1e+-2", "1.2.3"}
+	for _, in := range invalid {
+		var n json.Number
+		if err := json.Unmarshal([]byte(in), &n); err == nil {
+			t.Fatalf("Unmarshal(%q) into json.Number: expected error, got %q", in, string(n))
+		}
+		var sn json.Number
+		if err := json.NewDecoder(strings.NewReader(in)).Decode(&sn); err == nil {
+			t.Fatalf("Decoder.Decode(%q) into json.Number: expected error, got %q", in, string(sn))
+		}
+	}
+}
+
 func Test_Decoder_DisallowUnknownFields(t *testing.T) {
 	dec := json.NewDecoder(strings.NewReader(`{"x": 1}`))
 	dec.DisallowUnknownFields()

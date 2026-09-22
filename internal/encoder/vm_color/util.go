@@ -9,11 +9,7 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// slotSize is the size of a slot of the VM.
-const slotSize = unsafe.Sizeof(encoder.Slot{})
-
 var (
-	errUnsupportedValue = encoder.ErrUnsupportedValue
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 	mapiterinit         = encoder.MapIterInit
 	mapiterkey          = encoder.MapIterKey
@@ -24,15 +20,6 @@ var (
 
 type emptyInterface struct {
 	typ unsafe.Pointer
-	ptr unsafe.Pointer
-}
-
-type nonEmptyInterface struct {
-	itab *struct {
-		ityp unsafe.Pointer // static interface type
-		typ  unsafe.Pointer // dynamic concrete type
-		// unused fields...
-	}
 	ptr unsafe.Pointer
 }
 
@@ -265,7 +252,5 @@ func appendStructEndSkipLast(ctx *encoder.RuntimeContext, code *encoder.Opcode, 
 	return appendStructEnd(ctx, code, b)
 }
 
-func restoreIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, _ unsafe.Pointer)        {}
-func storeIndent(_ unsafe.Pointer, _ *encoder.Opcode, _ uintptr)                          {}
 func appendMapKeyIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte    { return b }
 func appendArrayElemIndent(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte { return b }

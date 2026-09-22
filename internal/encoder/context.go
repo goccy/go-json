@@ -88,9 +88,10 @@ type Slot struct {
 const slotWords = 2
 
 const (
-	recentCodeSetsLength = 8
-	// the types are aligned at least by 32 bytes, and most of them are apart more than that.
-	recentCodeSetShift = 6
+	recentCodeSetsLength = 16
+	// the index of the recent opcodes of a type is the top bits of the product with an odd constant,
+	// which spreads the addresses of the types, which are close to each other, over the entries.
+	recentCodeSetHashShift = 64 - 4
 )
 
 type recentCodeSet struct {

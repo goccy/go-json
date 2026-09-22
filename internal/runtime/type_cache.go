@@ -37,10 +37,11 @@ type typeEntry[T any] struct {
 
 const (
 	minTypeTableBits = 6
-	// the multiplier of the Fibonacci hashing, which spreads the addresses, which are aligned and close
-	// to each other, over the table.
-	typeHashMultiplier = 0x9E3779B97F4A7C15
 )
+
+// TypeHashMultiplier is the multiplier of the Fibonacci hashing of the address of a type: the top bits of the
+// product spread the addresses, which are aligned and close to each other, over a table.
+const TypeHashMultiplier = 0x9E3779B97F4A7C15
 
 func newTypeTable[T any](bits uint) *typeTable[T] {
 	return &typeTable[T]{
@@ -50,7 +51,7 @@ func newTypeTable[T any](bits uint) *typeTable[T] {
 }
 
 func (t *typeTable[T]) index(typ uintptr) uintptr {
-	return uintptr((uint64(typ) * typeHashMultiplier) >> t.shift)
+	return uintptr((uint64(typ) * TypeHashMultiplier) >> t.shift)
 }
 
 // entry returns the entry of the index, which is always less than the length:

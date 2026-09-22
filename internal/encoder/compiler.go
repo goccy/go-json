@@ -11,10 +11,12 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+// CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new.
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
-	// A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
-	// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
-	recent := &ctx.recentCodeSets[(uint64(typeptr)*runtime.TypeHashMultiplier)>>recentCodeSetHashShift]
+	if codeSet := ctx.recentCodeSet(typeptr); codeSet != nil {
+		return codeSet, nil
+	}
+	recent := &ctx.recentCodeSets[recentCodeSetIndex(typeptr)]
 	if recent.typeptr == typeptr {
 		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
 	}
@@ -25,6 +27,24 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	recent.typeptr = typeptr
 	recent.codeSet = codeSet
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
+}
+
+// recentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
+// may filter the fields, or nil: then CompileToGetCodeSet is to be called.
+//
+// A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
+// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
+// This is inlined into the callers: the values of interface{} come through it one by one.
+func (c *RuntimeContext) recentCodeSet(typeptr uintptr) *OpcodeSet {
+	recent := &c.recentCodeSets[recentCodeSetIndex(typeptr)]
+	if recent.typeptr == typeptr && c.Option.Flag&ContextOption == 0 {
+		return recent.codeSet
+	}
+	return nil
+}
+
+func recentCodeSetIndex(typeptr uintptr) uint64 {
+	return (uint64(typeptr) * runtime.TypeHashMultiplier) >> recentCodeSetHashShift
 }
 
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.

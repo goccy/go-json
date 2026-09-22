@@ -97,9 +97,13 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 			return nil, nil, false, nil
 		}
 	}
-	codeSet, err := CompileToGetCodeSet(c, uintptr(typ))
-	if err != nil {
-		return nil, nil, false, err
+	codeSet := c.recentCodeSet(uintptr(typ))
+	if codeSet == nil {
+		var err error
+		codeSet, err = CompileToGetCodeSet(c, uintptr(typ))
+		if err != nil {
+			return nil, nil, false, err
+		}
 	}
 	if codeSet.Scalar != nil {
 		// a scalar is never stored directly in an interface value: the data word is its address.

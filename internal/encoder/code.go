@@ -339,6 +339,33 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header := newMapHeaderCode(ctx, c.typ)
 	ctx.incIndex()
 
+	if c.isStringKey() {
+		// header => value => key => end: the key of an entry is written by the header for the first entry and
+		// by OpMapKey for the others, which give the value to its opcode.
+		//                     ^         |
+		//                     |_________|
+		header.Flags |= MapStringKeyFlags
+
+		ctx.incIndent()
+		valueCodes := c.value.ToOpcode(ctx)
+		ctx.decIndent()
+		valueCodes.First().Flags |= IndirectFlags
+
+		key := newMapKeyCode(ctx, c.typ.Key(), header)
+		key.Flags |= MapStringKeyFlags
+		ctx.incOpcodeIndex()
+
+		end := newMapEndCode(ctx, c.typ, header)
+		ctx.incOpcodeIndex()
+
+		header.Next = valueCodes.First()
+		valueCodes.Last().Next = key
+		key.Next = valueCodes.First()
+		header.End = end
+		key.End = end
+		return Opcodes{header}.Add(valueCodes...).Add(key).Add(end)
+	}
+
 	keyCodes := c.key.ToOpcode(ctx)
 
 	// the opcodes other than the header refer to the slot of the header, and they don't take a slot.
@@ -367,6 +394,13 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	key.End = end
 	value.End = end
 	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
+}
+
+// isStringKey is whether the key of the map is a plain string, which OpMapKey writes itself: not a pointer,
+// not json.Number, and not a type with a marshaler, whose code is not a StringCode.
+func (c *MapCode) isStringKey() bool {
+	key, ok := c.key.(*StringCode)
+	return ok && !key.isPtr && key.typ != jsonNumberType
 }
 
 func (c *MapCode) Filter(_ *FieldQuery) Code {

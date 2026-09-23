@@ -53,11 +53,11 @@ func TestEncodeWhileStackIsCopied(t *testing.T) {
 	}
 	for _, test := range []struct {
 		name    string
-		marshal func(interface{}) ([]byte, error)
+		marshal func(any) ([]byte, error)
 	}{
 		{"Marshal", json.Marshal},
 		{"MarshalNoEscape", json.MarshalNoEscape},
-		{"MarshalIndent", func(v interface{}) ([]byte, error) { return json.MarshalIndent(v, "", "") }},
+		{"MarshalIndent", func(v any) ([]byte, error) { return json.MarshalIndent(v, "", "") }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.name == "MarshalIndent" {

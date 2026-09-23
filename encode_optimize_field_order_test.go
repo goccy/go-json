@@ -108,7 +108,7 @@ func TestEncodeOptimizeFieldOrder(t *testing.T) {
 	if keys := keysOf(t, indented); !reflect.DeepEqual(keys, wantKeys) {
 		t.Fatalf("keys with the option and an indent: %v", keys)
 	}
-	nested, err := json.MarshalWithOption(map[string]interface{}{"k": []interface{}{v}}, json.OptimizeFieldOrder())
+	nested, err := json.MarshalWithOption(map[string]any{"k": []any{v}}, json.OptimizeFieldOrder())
 	if err != nil {
 		t.Fatal(err)
 	}

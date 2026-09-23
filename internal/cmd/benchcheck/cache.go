@@ -69,7 +69,7 @@ type cache struct {
 	readable bool
 }
 
-func keyHash(key interface{}) (string, error) {
+func keyHash(key any) (string, error) {
 	b, err := json.Marshal(key)
 	if err != nil {
 		return "", err
@@ -95,7 +95,7 @@ func (c *cache) verdictPath(head, base string, key verdictKey) (string, error) {
 }
 
 // load reads the cached value into v. It returns false if the value is not cached.
-func (c *cache) load(path string, v interface{}) (bool, error) {
+func (c *cache) load(path string, v any) (bool, error) {
 	if !c.readable {
 		return false, nil
 	}
@@ -112,7 +112,7 @@ func (c *cache) load(path string, v interface{}) (bool, error) {
 	return true, nil
 }
 
-func (c *cache) store(path string, v interface{}) error {
+func (c *cache) store(path string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err

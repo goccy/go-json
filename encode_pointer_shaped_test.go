@@ -130,7 +130,7 @@ func TestEncodePointerShapedValue(t *testing.T) {
 	num := 1
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{name: "struct of pointer to struct starting with struct", v: pointerShapedBody{Payload: &pointerShapedDetail{I: pointerShapedItem{A: "a"}}}},
 		{name: "struct of nil pointer", v: pointerShapedBody{}},
@@ -182,12 +182,12 @@ func TestEncodePointerShapedValue(t *testing.T) {
 			// the same value must be encoded in the same way wherever it is placed.
 			for _, placement := range []struct {
 				name string
-				v    interface{}
+				v    any
 			}{
 				{"value", test.v},
 				{"pointer to interface", &test.v},
-				{"slice of interface", []interface{}{test.v}},
-				{"map of interface", map[string]interface{}{"k": test.v}},
+				{"slice of interface", []any{test.v}},
+				{"map of interface", map[string]any{"k": test.v}},
 			} {
 				expected, err := stdjson.Marshal(placement.v)
 				if err != nil {
@@ -243,7 +243,7 @@ func TestEncodePointerReceiverMarshalerAddress(t *testing.T) {
 	holder := &addressRecorderHolder{}
 	for _, test := range []struct {
 		name     string
-		v        interface{}
+		v        any
 		expected []*addressRecorder
 	}{
 		{"pointer", value, []*addressRecorder{value}},
@@ -251,9 +251,9 @@ func TestEncodePointerReceiverMarshalerAddress(t *testing.T) {
 		{"field of pointer to struct", holder, []*addressRecorder{&holder.R}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			for _, marshal := range []func(interface{}) ([]byte, error){
+			for _, marshal := range []func(any) ([]byte, error){
 				json.Marshal,
-				func(v interface{}) ([]byte, error) { return json.MarshalIndent(v, "", "  ") },
+				func(v any) ([]byte, error) { return json.MarshalIndent(v, "", "  ") },
 			} {
 				recordedAddresses = nil
 				if _, err := marshal(test.v); err != nil {

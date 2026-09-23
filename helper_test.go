@@ -9,14 +9,14 @@ func assertErr(t *testing.T, err error) {
 	}
 }
 
-func assertEq(t *testing.T, msg string, exp interface{}, act interface{}) {
+func assertEq(t *testing.T, msg string, exp any, act any) {
 	t.Helper()
 	if exp != act {
 		t.Fatalf("failed to test for %s. exp=[%v] but act=[%v]", msg, exp, act)
 	}
 }
 
-func assertNeq(t *testing.T, msg string, exp interface{}, act interface{}) {
+func assertNeq(t *testing.T, msg string, exp any, act any) {
 	t.Helper()
 	if exp == act {
 		t.Fatalf("failed to test for %s. expected value is not [%v] but got same value", msg, act)

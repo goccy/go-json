@@ -8,7 +8,7 @@ import (
 func TestDumpOpcode(t *testing.T) {
 	ctx := TakeRuntimeContext()
 	defer ReleaseRuntimeContext(ctx)
-	var v interface{} = 1
+	var v any = 1
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	typ := header.typ
 	typeptr := uintptr(unsafe.Pointer(typ))

@@ -66,7 +66,7 @@ type fieldRuns struct {
 }
 
 func TestEncodeFieldRuns(t *testing.T) {
-	values := []interface{}{
+	values := []any{
 		fieldRuns{},
 		&fieldRuns{},
 		fieldRuns{

@@ -20,11 +20,11 @@ type mapKeyText struct{ V int }
 func (k mapKeyText) MarshalText() ([]byte, error) { return []byte(strings.Repeat("t", k.V)), nil }
 
 func TestEncodeMapKeys(t *testing.T) {
-	values := []interface{}{
+	values := []any{
 		map[string]int{},
 		map[string]int{"": 0},
 		map[string]int{"b": 2, "a": 1, "c": 3},
-		map[string]interface{}{"a": 1, "b": 2.5, "c": "s", "d": nil, "e": []int{1}, "f": map[string]int{"x": 1}},
+		map[string]any{"a": 1, "b": 2.5, "c": "s", "d": nil, "e": []int{1}, "f": map[string]int{"x": 1}},
 		map[string]string{"k\"q": "v", "<html>": "&", "日本": "語", "\x00": "c"},
 		map[mapKeyString]int{"y": 1, "x": 2},
 		map[string]*int{"nil": nil},
@@ -64,13 +64,13 @@ func TestEncodeMapKeys(t *testing.T) {
 }
 
 func TestEncodeMapUnordered(t *testing.T) {
-	m := map[string]interface{}{"a": 1, "b": 2.5, "c": "s", "d": nil, "e": []int{1}, "f": map[string]int{"x": 1}}
+	m := map[string]any{"a": 1, "b": 2.5, "c": "s", "d": nil, "e": []int{1}, "f": map[string]int{"x": 1}}
 	got, err := json.MarshalWithOption(m, json.UnorderedMap())
 	if err != nil {
 		t.Fatal(err)
 	}
 	// every entry is written, in the order of the map: sorted here to compare.
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	if err := stdjson.Unmarshal(got, &decoded); err != nil {
 		t.Fatalf("%s: %v", got, err)
 	}

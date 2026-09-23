@@ -255,7 +255,7 @@ func Benchmark_MarshalBigData_SegmentioJson(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
-func benchMarshalBytes(n int, marshaler func(interface{}) ([]byte, error)) func(*testing.B) {
+func benchMarshalBytes(n int, marshaler func(any) ([]byte, error)) func(*testing.B) {
 	sample := []byte("hello world")
 	// Use a struct pointer, to avoid an allocation when passing it as an
 	// interface parameter to Marshal.
@@ -492,7 +492,7 @@ func BenchmarkDecoderStream(b *testing.B) {
 	var buf bytes.Buffer
 	dec := json.NewDecoder(&buf)
 	buf.WriteString(`"` + strings.Repeat("x", 1000000) + `"` + "\n\n\n")
-	var x interface{}
+	var x any
 	if err := dec.Decode(&x); err != nil {
 		b.Fatal("Decode:", err)
 	}

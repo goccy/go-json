@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
+	"slices"
 	"sort"
 	"unsafe"
 
@@ -601,14 +602,11 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	if code, exists := c.structTypeToCode[typeptr]; exists {
 		derefCode := *code
 		derefCode.isRecursive = true
-		for _, embedding := range c.embeddingChain {
-			if embedding == typeptr {
-				// The struct is embedded in itself, directly or through the other embedded structs. All of its
-				// fields are hidden by the same fields of itself at the shallower depth of the same JSON
-				// object, as in encoding/json, so it has nothing to write.
-				derefCode.isHiddenByItself = true
-				break
-			}
+		if slices.Contains(c.embeddingChain, typeptr) {
+			// The struct is embedded in itself, directly or through the other embedded structs. All of its
+			// fields are hidden by the same fields of itself at the shallower depth of the same JSON
+			// object, as in encoding/json, so it has nothing to write.
+			derefCode.isHiddenByItself = true
 		}
 		return &derefCode, nil
 	}

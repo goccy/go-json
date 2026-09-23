@@ -96,8 +96,8 @@ func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
 	return p
 }
 
-func ptrToInterface(code *encoder.Opcode, p unsafe.Pointer) interface{} {
-	return *(*interface{})(unsafe.Pointer(&emptyInterface{
+func ptrToInterface(code *encoder.Opcode, p unsafe.Pointer) any {
+	return *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: code.Type,
 		ptr: p,
 	}))

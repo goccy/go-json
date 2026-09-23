@@ -125,7 +125,7 @@ func (s *Stream) More() bool {
 	return true
 }
 
-func (s *Stream) Token() (interface{}, error) {
+func (s *Stream) Token() (any, error) {
 	for {
 		c := s.char()
 		switch c {

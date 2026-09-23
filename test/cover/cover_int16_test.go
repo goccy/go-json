@@ -31,7 +31,7 @@ func TestCoverInt16(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data interface{}
+		data any
 	}{
 		{
 			name: "Int16",

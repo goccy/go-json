@@ -13,9 +13,9 @@ import (
 // a slice of the type ) and after a cycle.
 
 type tailNode struct {
-	V    int         `json:"v"`
-	I    interface{} `json:"i,omitempty"`
-	Next *tailNode   `json:"next"`
+	V    int       `json:"v"`
+	I    any       `json:"i,omitempty"`
+	Next *tailNode `json:"next"`
 }
 
 type tailNodeOmitEmpty struct {
@@ -65,7 +65,7 @@ func TestEncodeTailRecursion(t *testing.T) {
 	for i := 3; i > 0; i-- {
 		first = &tailFirst{V: i, Next: first}
 	}
-	values := []interface{}{
+	values := []any{
 		(*tailNode)(nil),
 		&tailNode{},
 		newTailList(1),

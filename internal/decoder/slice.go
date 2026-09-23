@@ -44,7 +44,7 @@ func newSliceDecoder(dec Decoder, elemType reflect.Type, size uintptr, structNam
 		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
 		size:              size,
 		arrayPool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return &sliceHeader{
 					data: newArray(runtime.TypePtr(elemType), defaultSliceCapacity),
 					len:  0,
@@ -139,7 +139,7 @@ func (d *sliceDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(runtime.TypePtr(d.elemType), dst, src)
 				}
-				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
+				ep := unsafe.Add(data, uintptr(idx)*d.size)
 
 				// if srcLen is greater than idx, keep the original reference
 				if srcLen <= idx {
@@ -249,7 +249,7 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 					dst := sliceHeader{data: data, len: idx, cap: capacity}
 					copySlice(runtime.TypePtr(d.elemType), dst, src)
 				}
-				ep := unsafe.Pointer(uintptr(data) + uintptr(idx)*d.size)
+				ep := unsafe.Add(data, uintptr(idx)*d.size)
 				// if srcLen is greater than idx, keep the original reference
 				if srcLen <= idx {
 					if d.isElemPointerType {

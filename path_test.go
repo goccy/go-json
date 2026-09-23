@@ -82,7 +82,7 @@ func TestUnmarshalPath(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var v map[string]interface{}
+			var v map[string]any
 			if err := path.Unmarshal(src, &v); err == nil {
 				t.Fatal("expected error")
 			}
@@ -121,7 +121,7 @@ func TestUnmarshalPath(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var v map[string]interface{}
+			var v map[string]any
 			if err := path.Unmarshal(src, &v); err != nil {
 				t.Fatal(err)
 			}
@@ -163,7 +163,7 @@ func TestUnmarshalPath(t *testing.T) {
 
 func TestGetPath(t *testing.T) {
 	t.Run("selector", func(t *testing.T) {
-		var v interface{}
+		var v any
 		if err := json.Unmarshal([]byte(`{"a":{"b":10,"c":true},"b":"text"}`), &v); err != nil {
 			t.Fatal(err)
 		}
@@ -180,7 +180,7 @@ func TestGetPath(t *testing.T) {
 		}
 	})
 	t.Run("index", func(t *testing.T) {
-		var v interface{}
+		var v any
 		if err := json.Unmarshal([]byte(`{"a":[{"b":10,"c":true},{"b":"text"}]}`), &v); err != nil {
 			t.Fatal(err)
 		}
@@ -197,7 +197,7 @@ func TestGetPath(t *testing.T) {
 		}
 	})
 	t.Run("indexAll", func(t *testing.T) {
-		var v interface{}
+		var v any
 		if err := json.Unmarshal([]byte(`{"a":[{"b":1,"c":true},{"b":2},{"b":3}]}`), &v); err != nil {
 			t.Fatal(err)
 		}
@@ -214,7 +214,7 @@ func TestGetPath(t *testing.T) {
 		}
 	})
 	t.Run("recursive", func(t *testing.T) {
-		var v interface{}
+		var v any
 		if err := json.Unmarshal([]byte(`{"a":[{"b":1,"c":true},{"b":2},{"b":3}],"a2":{"b":4}}`), &v); err != nil {
 			t.Fatal(err)
 		}

@@ -128,7 +128,7 @@ type buffer struct {
 }
 
 var bufPool = sync.Pool{
-    New: func() interface{} {
+    New: func() any {
         return &buffer{data: make([]byte, 0, 1024)}
     },
 }
@@ -163,7 +163,7 @@ type emptyInterface struct {
 
 var typeToEncoder = map[uintptr]func(unsafe.Pointer)([]byte, error){}
 
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v any) ([]byte, error) {
     iface := (*emptyInterface)(unsafe.Pointer(&v)
     typeptr := uintptr(iface.typ)
     if enc, exists := typeToEncoder[typeptr]; exists {

@@ -57,7 +57,7 @@ const (
 
 var (
 	runtimeContextPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return &RuntimeContext{
 				Buf:    make([]byte, 0, bufSize),
 				Slots:  make([]uintptr, 128*slotWords),

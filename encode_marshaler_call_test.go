@@ -78,7 +78,7 @@ func TestMarshalerCalledDirectly(t *testing.T) {
 	var nilMap mapMarshaler
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"value receiver", valueMarshaler{1}},
 		{"pointer to value receiver", &valueMarshaler{1}},
@@ -117,7 +117,7 @@ func TestMarshalerCalledDirectly(t *testing.T) {
 		{"slice", []valueMarshaler{{1}, {2}}},
 		{"slice of pointer receiver", []ptrMarshaler{{1}, {2}}},
 		{"map value", map[string]ptrMarshaler{"a": {1}}},
-		{"interface", []interface{}{valueMarshaler{1}, &ptrMarshaler{1}, nilPtr, textMarshaler{"x"}}},
+		{"interface", []any{valueMarshaler{1}, &ptrMarshaler{1}, nilPtr, textMarshaler{"x"}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			expected, err := stdjson.Marshal(test.v)

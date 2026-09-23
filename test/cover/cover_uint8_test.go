@@ -31,7 +31,7 @@ func TestCoverUint8(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data interface{}
+		data any
 	}{
 		{
 			name: "Uint8",

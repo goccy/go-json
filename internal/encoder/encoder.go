@@ -180,7 +180,7 @@ type CompiledCode struct {
 const StartDetectingCyclesAfter = 1000
 
 func ErrUnsupportedValue(code *Opcode, ptr unsafe.Pointer) *errors.UnsupportedValueError {
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
+	v := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: code.Type,
 		ptr: ptr,
 	}))
@@ -280,8 +280,8 @@ type MapContext struct {
 	Buf   []byte
 	// what the collector by reflect.MapIter works with: here so that nothing is allocated for a map.
 	iter       reflect.MapIter
-	keyIface   interface{}
-	valueIface interface{}
+	keyIface   any
+	valueIface any
 }
 
 // NewMapContext returns the context to encode a map: the runtime context has one for each level of the maps
@@ -423,7 +423,7 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 // sizes the pointer is made from the data word: the marshaler is called with the original value, as
 // encoding/json does, and nothing is allocated. A pointer-sized value is copied, because its data word
 // may be the value itself.
-func addrForMarshaler(v interface{}, rv reflect.Value) reflect.Value {
+func addrForMarshaler(v any, rv reflect.Value) reflect.Value {
 	if rv.CanAddr() {
 		return rv.Addr()
 	}
@@ -476,11 +476,11 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 }
 
 // interfaceOf returns the interface value of the type of the opcode whose data word is p.
-func interfaceOf(code *Opcode, p unsafe.Pointer) interface{} {
-	return *(*interface{})(unsafe.Pointer(&emptyInterface{typ: code.Type, ptr: p}))
+func interfaceOf(code *Opcode, p unsafe.Pointer) any {
+	return *(*any)(unsafe.Pointer(&emptyInterface{typ: code.Type, ptr: p}))
 }
 
-func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v any) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -548,7 +548,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	return appendIndentedMarshalJSON(ctx, code, b, bb)
 }
 
-func appendMarshalJSONIndentByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+func appendMarshalJSONIndentByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v any) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -618,7 +618,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	return AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }
 
-func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v interface{}) ([]byte, error) {
+func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v any) ([]byte, error) {
 	rv := reflect.ValueOf(v) // convert by dynamic interface type
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
@@ -680,7 +680,7 @@ func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 	return b
 }
 
-func IsNilForMarshaler(v interface{}) bool {
+func IsNilForMarshaler(v any) bool {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
 	case reflect.Bool:

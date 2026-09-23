@@ -11,7 +11,7 @@ import (
 type lifetimeNode struct {
 	Name  string
 	Next  *lifetimeNode
-	Any   interface{}
+	Any   any
 	Map   map[string]*lifetimeNode
 	Slice []*lifetimeNode
 }
@@ -21,11 +21,11 @@ type lifetimeNode struct {
 func TestEncodedValueIsNotKeptAlive(t *testing.T) {
 	for _, test := range []struct {
 		name    string
-		marshal func(interface{}) ([]byte, error)
+		marshal func(any) ([]byte, error)
 	}{
 		{"Marshal", json.Marshal},
-		{"MarshalIndent", func(v interface{}) ([]byte, error) { return json.MarshalIndent(v, "", "  ") }},
-		{"Error", func(v interface{}) ([]byte, error) {
+		{"MarshalIndent", func(v any) ([]byte, error) { return json.MarshalIndent(v, "", "  ") }},
+		{"Error", func(v any) ([]byte, error) {
 			// the encoding stops at the last value, so the context still refers to the values.
 			values := v.(*lifetimeNode).Slice
 			values[len(values)-1].Any = make(chan int)

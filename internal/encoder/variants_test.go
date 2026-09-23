@@ -362,7 +362,7 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 // reflect.MapIter, which sets the key and the value to interface values.
 func BenchmarkVariant_MapIter(b *testing.B) {
 	for _, n := range []int{1, 5, 20} {
-		m := map[string]interface{}{}
+		m := map[string]any{}
 		for i := 0; i < n; i++ {
 			m["key"+strconv.Itoa(i)] = i
 		}

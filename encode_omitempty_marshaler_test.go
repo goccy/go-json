@@ -46,7 +46,7 @@ type omitEmptyPtrReceiverSingleField struct {
 func TestEncodeOmitEmptyWithPointerReceiverMarshaler(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"pointer to zero fields", &omitEmptyPtrReceiverFields{}},
 		{"pointer to fields", &omitEmptyPtrReceiverFields{S: "a", I: 1, St: omitEmptyPtrReceiverStruct{V: 1}, S2: "c"}},
@@ -142,7 +142,7 @@ func TestEncodeOmitEmptyWithTextMarshaler(t *testing.T) {
 	emptyStr := omitEmptyTextString("")
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"zero fields", omitEmptyTextFields{}},
 		{"pointer to zero fields", &omitEmptyTextFields{}},

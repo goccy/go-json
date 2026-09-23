@@ -389,7 +389,7 @@ var unescapeMap = [256]byte{
 }
 
 func unsafeAdd(ptr unsafe.Pointer, offset int) unsafe.Pointer {
-	return unsafe.Pointer(uintptr(ptr) + uintptr(offset))
+	return unsafe.Add(ptr, offset)
 }
 
 func unescapeString(buf []byte) int {

@@ -53,7 +53,7 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			s.cursor++
 			if s.skipWhiteSpace() == ']' {
 				for idx < d.alen {
-					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
 					idx++
 				}
 				s.cursor++
@@ -61,7 +61,7 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 			}
 			for {
 				if idx < d.alen {
-					if err := d.valueDecoder.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size)); err != nil {
+					if err := d.valueDecoder.DecodeStream(s, depth, unsafe.Add(p, uintptr(idx)*d.size)); err != nil {
 						return err
 					}
 				} else {
@@ -73,7 +73,7 @@ func (d *arrayDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 				switch s.skipWhiteSpace() {
 				case ']':
 					for idx < d.alen {
-						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+						*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
 						idx++
 					}
 					s.cursor++
@@ -129,7 +129,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {
 				for idx < d.alen {
-					*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+					*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
 					idx++
 				}
 				cursor++
@@ -137,7 +137,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			}
 			for {
 				if idx < d.alen {
-					c, err := d.valueDecoder.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+uintptr(idx)*d.size))
+					c, err := d.valueDecoder.Decode(ctx, cursor, depth, unsafe.Add(p, uintptr(idx)*d.size))
 					if err != nil {
 						return 0, err
 					}
@@ -154,7 +154,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				switch buf[cursor] {
 				case ']':
 					for idx < d.alen {
-						*(*unsafe.Pointer)(unsafe.Pointer(uintptr(p) + uintptr(idx)*d.size)) = d.zeroValue
+						*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
 						idx++
 					}
 					cursor++

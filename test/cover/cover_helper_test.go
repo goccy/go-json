@@ -43,7 +43,7 @@ func sliceptr(v []int) *[]int                 { return &v }
 func arrayptr(v [2]int) *[2]int               { return &v }
 func mapptr(v map[string]int) *map[string]int { return &v }
 
-func encodeByEncodingJSON(data interface{}, indent, escape bool) string {
+func encodeByEncodingJSON(data any, indent, escape bool) string {
 	var buf bytes.Buffer
 	enc := stdjson.NewEncoder(&buf)
 	enc.SetEscapeHTML(escape)

@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"encoding/binary"
 	"reflect"
 	"slices"
 	"strings"
@@ -168,32 +169,63 @@ func (c *MapContext) ValueAt(i int) unsafe.Pointer {
 }
 
 // SortKeys sorts the entries by their keys, which are strings, as encoding/json does: Order is the entries in
-// that order. The insertion sort is for the small maps, which most of the maps are ( see Mapslice.Sort ).
+// that order.
+//
+// A comparison of two keys is by their first eight bytes as one number first, which decides it for most of
+// the keys of a JSON object, and by the strings only when those are the same: a comparison of strings is a
+// call which costs more than the rest of a sort of a small map. The insertion sort is for the small maps,
+// which most of the maps are ( see Mapslice.Sort ).
 func (c *MapContext) SortKeys() {
 	n := len(c.Keys)
 	if cap(c.Order) < n {
 		c.Order = make([]int32, n)
+		c.prefixes = make([]uint64, n)
 	}
-	order := c.Order[:n]
-	for i := range order {
+	order, prefixes, keys := c.Order[:n], c.prefixes[:n], c.Keys
+	for i, key := range keys {
 		order[i] = int32(i)
+		prefixes[i] = keyPrefix(key)
 	}
-	keys := c.Keys
+	less := func(a, b int32) bool {
+		if prefixes[a] != prefixes[b] {
+			return prefixes[a] < prefixes[b]
+		}
+		return keys[a] < keys[b]
+	}
 	if n > maxItemsOfInsertionSort {
-		slices.SortFunc(order, func(a, b int32) int { return strings.Compare(keys[a], keys[b]) })
+		slices.SortFunc(order, func(a, b int32) int {
+			if prefixes[a] != prefixes[b] {
+				if prefixes[a] < prefixes[b] {
+					return -1
+				}
+				return 1
+			}
+			return strings.Compare(keys[a], keys[b])
+		})
 	} else {
 		for i := 1; i < n; i++ {
 			e := order[i]
-			key := keys[e]
-			if keys[order[i-1]] <= key {
+			if !less(e, order[i-1]) {
 				continue
 			}
 			j := i
-			for ; j > 0 && keys[order[j-1]] > key; j-- {
+			for ; j > 0 && less(e, order[j-1]); j-- {
 				order[j] = order[j-1]
 			}
 			order[j] = e
 		}
 	}
 	c.Order = order
+}
+
+// keyPrefix returns the first eight bytes of the key as a number which compares as the bytes do, with zeros
+// after a shorter key: a shorter key compares as less, as it should, unless the other has zeros there, and then
+// the strings are compared.
+func keyPrefix(key string) uint64 {
+	if len(key) >= 8 {
+		return binary.BigEndian.Uint64(unsafe.Slice(unsafe.StringData(key), 8))
+	}
+	var b [8]byte
+	copy(b[:], key)
+	return binary.BigEndian.Uint64(b[:])
 }

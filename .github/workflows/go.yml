@@ -95,7 +95,7 @@ jobs:
       # HEAD is the merge commit of the pull request, whose second parent is the head of the branch.
       - name: measure what the last commit changed
         if: github.event_name == 'pull_request'
-        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal'" || true
+        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal|Twitter'" || true
       - name: compare the encode benchmarks
         run: make bench-compare-encode
       # sonic inlines the nested structs into the code of a type up to 3 levels by default.

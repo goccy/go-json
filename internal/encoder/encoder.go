@@ -267,10 +267,11 @@ type MapContext struct {
 	Values  []byte
 	// Order is the entries sorted by their keys ( SortKeys ), for keys of a string kind; Sorted is whether
 	// the entries are encoded in that order.
-	Order  []int32
-	Sorted bool
-	Len    int
-	Idx    int
+	Order    []int32
+	prefixes []uint64 // the first bytes of the keys as numbers, while they are sorted
+	Sorted   bool
+	Len      int
+	Idx      int
 	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
 	// the order of their encoded keys after: Start is where the key or the value being written starts,
 	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.

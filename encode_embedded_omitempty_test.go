@@ -44,7 +44,7 @@ type embeddedThenOmitEmptyMap struct {
 
 type embeddedThenOmitEmptyInterface struct {
 	embeddedLeaf
-	I interface{} `json:"i,omitempty"`
+	I any `json:"i,omitempty"`
 }
 
 // the embedded struct whose only field is an empty omitempty field comes first.
@@ -81,7 +81,7 @@ func TestEncodeEmbeddedStructWithOmitEmpty(t *testing.T) {
 	reason := &embeddedReason{Code: "c"}
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"empty slice after embedded", struct{ embeddedThenOmitEmptySlice }{}},
 		{"slice after embedded", struct{ embeddedThenOmitEmptySlice }{embeddedThenOmitEmptySlice{A: []string{"x"}}}},
@@ -108,11 +108,11 @@ func TestEncodeEmbeddedStructWithOmitEmpty(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			for _, placement := range []struct {
 				name string
-				v    interface{}
+				v    any
 			}{
 				{"value", test.v},
 				{"pointer to interface", &test.v},
-				{"slice of interface", []interface{}{test.v}},
+				{"slice of interface", []any{test.v}},
 			} {
 				expected, err := stdjson.Marshal(placement.v)
 				if err != nil {

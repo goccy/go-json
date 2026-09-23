@@ -268,7 +268,7 @@ type (
 	recentType255 int
 )
 
-var recentTypes = []interface{}{
+var recentTypes = []any{
 	recentType0(0), recentType1(0), recentType2(0), recentType3(0),
 	recentType4(0), recentType5(0), recentType6(0), recentType7(0),
 	recentType8(0), recentType9(0), recentType10(0), recentType11(0),
@@ -335,7 +335,7 @@ var recentTypes = []interface{}{
 	recentType252(0), recentType253(0), recentType254(0), recentType255(0),
 }
 
-func typeptrOf(v interface{}) uintptr {
+func typeptrOf(v any) uintptr {
 	return uintptr((*emptyInterface)(unsafe.Pointer(&v)).typ)
 }
 

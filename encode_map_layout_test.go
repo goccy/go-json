@@ -31,7 +31,7 @@ type mapValueWithPointers struct {
 	P *int
 	S []string
 	M map[string]int
-	I interface{}
+	I any
 }
 
 type mapTextKey struct{ V int }
@@ -49,7 +49,7 @@ func mapOf[K comparable, V any](n int, key func(int) K, value func(int) V) map[K
 func TestEncodeMapLayouts(t *testing.T) {
 	one := 1
 	stringKey := func(i int) string { return "k" + strconv.Itoa(i*7919%1000) }
-	values := []interface{}{}
+	values := []any{}
 	for _, n := range []int{1, 2, 8, 9, 50, 1000} {
 		values = append(values,
 			mapOf(n, stringKey, func(i int) struct{} { return struct{}{} }),
@@ -60,7 +60,7 @@ func TestEncodeMapLayouts(t *testing.T) {
 			mapOf(n, stringKey, func(i int) float64 { return float64(i) + 0.5 }),
 			mapOf(n, stringKey, func(i int) mapValue12 { return mapValue12{int32(i), 2, 3} }),
 			mapOf(n, stringKey, func(i int) string { return strconv.Itoa(i) }),
-			mapOf(n, stringKey, func(i int) interface{} { return []interface{}{i, "s", nil}[i%3] }),
+			mapOf(n, stringKey, func(i int) any { return []any{i, "s", nil}[i%3] }),
 			mapOf(n, stringKey, func(i int) mapValueTwoWords { return mapValueTwoWords{i, "s"} }),
 			mapOf(n, stringKey, func(i int) [3]int { return [3]int{i, i, i} }),
 			mapOf(n, stringKey, func(i int) mapValueWithPointers {
@@ -73,7 +73,7 @@ func TestEncodeMapLayouts(t *testing.T) {
 			mapOf(n, func(i int) mapKeyString { return mapKeyString(stringKey(i)) }, func(i int) int { return i }),
 			mapOf(n, func(i int) int { return i - n/2 }, func(i int) string { return "v" }),
 			mapOf(n, func(i int) int64 { return int64(i) * 1000000000 }, func(i int) int { return i }),
-			mapOf(n, func(i int) uint8 { return uint8(i) }, func(i int) interface{} { return i }),
+			mapOf(n, func(i int) uint8 { return uint8(i) }, func(i int) any { return i }),
 			mapOf(n, func(i int) mapTextKey { return mapTextKey{i} }, func(i int) mapValueTwoWords { return mapValueTwoWords{i, "s"} }),
 		)
 	}
@@ -85,7 +85,7 @@ func TestEncodeMapLayouts(t *testing.T) {
 			N map[string]int `json:"n,omitempty"`
 			E map[int]int    `json:"e,omitempty"`
 		}{M: map[string]int{"a": 1}, N: map[string]int{}, E: map[int]int{}},
-		[]map[string]interface{}{{"a": map[string]interface{}{"b": []interface{}{map[string]int{"c": 1}}}}},
+		[]map[string]any{{"a": map[string]any{"b": []any{map[string]int{"c": 1}}}}},
 	)
 	for _, v := range values {
 		expected, err := stdjson.Marshal(v)

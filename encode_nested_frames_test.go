@@ -13,7 +13,7 @@ import (
 type nestedFrameNode struct {
 	Name  string
 	Tags  []string
-	Any   interface{}       `json:",omitempty"`
+	Any   any               `json:",omitempty"`
 	Next  *nestedFrameNode  `json:",omitempty"`
 	Kids  []nestedFrameNode `json:",omitempty"`
 	Attrs map[string]*nestedFrameNode
@@ -35,15 +35,15 @@ func nestedFrameTree(depth int) nestedFrameNode {
 	node := nestedFrameNode{Name: fmt.Sprint("tree", depth), Any: depth}
 	if depth > 0 {
 		node.Kids = []nestedFrameNode{nestedFrameTree(depth - 1), nestedFrameTree(depth - 1)}
-		node.Attrs = map[string]*nestedFrameNode{"attr": {Name: "leaf", Any: []interface{}{depth, "x"}}}
+		node.Attrs = map[string]*nestedFrameNode{"attr": {Name: "leaf", Any: []any{depth, "x"}}}
 	}
 	return node
 }
 
-func nestedFrameMap(depth int) interface{} {
-	var v interface{} = "leaf"
+func nestedFrameMap(depth int) any {
+	var v any = "leaf"
 	for i := 0; i < depth; i++ {
-		v = map[string]interface{}{"v": v, "list": []interface{}{i, nil, "s"}}
+		v = map[string]any{"v": v, "list": []any{i, nil, "s"}}
 	}
 	return v
 }
@@ -54,7 +54,7 @@ func nestedFrameMap(depth int) interface{} {
 func TestEncodeNestedFrames(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"recursive list", nestedFrameList(300)},
 		{"recursive tree", nestedFrameTree(8)},
@@ -114,7 +114,7 @@ func TestEncodeDeeplyNestedType(t *testing.T) {
 		{X: []nestedTypeLeaf{{M: map[string][]int{"a": {1, 2}, "b": nil}}, {}}},
 		{},
 	}}}}}}}}}
-	for _, v := range []interface{}{slices, structs} {
+	for _, v := range []any{slices, structs} {
 		expected, err := stdjson.Marshal(v)
 		if err != nil {
 			t.Fatal(err)

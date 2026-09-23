@@ -49,7 +49,7 @@ func TestCoverArray(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data interface{}
+		data any
 	}{
 		// HeadArrayZero
 		{

@@ -66,7 +66,7 @@ type embeddedShadowedOuter struct {
 func TestEncodeEmbeddedStruct(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"pointer with omitempty", embeddedPtrWithOmitEmpty{Foo: "f", embeddedTagTarget: &embeddedTagTarget{Bar: "b"}}},
 		{"nil pointer with omitempty", embeddedPtrWithOmitEmpty{Foo: "f"}},
@@ -144,10 +144,10 @@ func (n numberLiteralMarshaler) MarshalJSON() ([]byte, error) { return []byte(n.
 
 func TestEncodeNumberOutOfFloat64Range(t *testing.T) {
 	for _, literal := range []string{"1e400", "-1e400", "1e-400", "123456789012345678901234567890123456789012345678901234567890", "1.5"} {
-		for _, v := range []interface{}{
+		for _, v := range []any{
 			numberLiteralMarshaler{literal},
 			stdjson.RawMessage(literal),
-			map[string]interface{}{"n": numberLiteralMarshaler{literal}},
+			map[string]any{"n": numberLiteralMarshaler{literal}},
 		} {
 			expected, err := stdjson.Marshal(v)
 			if err != nil {
@@ -193,9 +193,9 @@ func TestEncodeContextIsNotKeptForNextCall(t *testing.T) {
 		if string(got) != `"value"` {
 			t.Fatalf("with context: got %s", got)
 		}
-		for _, marshal := range []func(interface{}) ([]byte, error){
+		for _, marshal := range []func(any) ([]byte, error){
 			json.Marshal,
-			func(v interface{}) ([]byte, error) { return json.MarshalIndent(v, "", " ") },
+			func(v any) ([]byte, error) { return json.MarshalIndent(v, "", " ") },
 		} {
 			got, err := marshal(contextValueMarshaler{})
 			if err != nil {

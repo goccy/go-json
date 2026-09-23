@@ -26,33 +26,33 @@ type unorderedMapKey string
 
 var unorderedMapEncoders = []struct {
 	name   string
-	encode func(v interface{}) ([]byte, error)
+	encode func(v any) ([]byte, error)
 }{
-	{"unordered", func(v interface{}) ([]byte, error) { return json.MarshalWithOption(v, json.UnorderedMap()) }},
-	{"unordered no escape", func(v interface{}) ([]byte, error) {
+	{"unordered", func(v any) ([]byte, error) { return json.MarshalWithOption(v, json.UnorderedMap()) }},
+	{"unordered no escape", func(v any) ([]byte, error) {
 		return json.MarshalWithOption(v, json.UnorderedMap(), json.DisableHTMLEscape(), json.DisableNormalizeUTF8())
 	}},
-	{"unordered indent", func(v interface{}) ([]byte, error) {
+	{"unordered indent", func(v any) ([]byte, error) {
 		return json.MarshalIndentWithOption(v, "", "  ", json.UnorderedMap())
 	}},
-	{"unordered colorized", func(v interface{}) ([]byte, error) {
+	{"unordered colorized", func(v any) ([]byte, error) {
 		return json.MarshalWithOption(v, json.UnorderedMap(), json.Colorize(json.DefaultColorScheme))
 	}},
-	{"unordered colorized indent", func(v interface{}) ([]byte, error) {
+	{"unordered colorized indent", func(v any) ([]byte, error) {
 		return json.MarshalIndentWithOption(v, "", "  ", json.UnorderedMap(), json.Colorize(json.DefaultColorScheme))
 	}},
 }
 
 // assertUnorderedMapsEqual encodes each value by every encoder of an unordered map and compares the object
 // with the one of encoding/json.
-func assertUnorderedMapsEqual(t *testing.T, values []interface{}) {
+func assertUnorderedMapsEqual(t *testing.T, values []any) {
 	t.Helper()
 	for _, value := range values {
 		expected, err := stdjson.Marshal(value)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var want interface{}
+		var want any
 		if err := stdjson.Unmarshal(expected, &want); err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func assertUnorderedMapsEqual(t *testing.T, values []interface{}) {
 			if err != nil {
 				t.Fatalf("%s: %T: %v", enc.name, value, err)
 			}
-			var got interface{}
+			var got any
 			if err := stdjson.Unmarshal(ansiEscapes.ReplaceAll(b, nil), &got); err != nil {
 				t.Fatalf("%s: %T: %v\n%s", enc.name, value, err, b)
 			}
@@ -75,30 +75,30 @@ func assertUnorderedMapsEqual(t *testing.T, values []interface{}) {
 func TestEncodeUnorderedMapOfInterfaces(t *testing.T) {
 	var nilPtr *int
 	one := 1
-	scalars := map[string]interface{}{
+	scalars := map[string]any{
 		"int": 1, "int8": int8(-2), "uint": uint(3), "float": 1.5, "float32": float32(2.5), "string": "s<>& ",
 		"bool": true, "nil": nil, "number": stdjson.Number("12.5"), "bytes": []byte("bytes"),
 	}
-	others := map[string]interface{}{
-		"map": map[string]interface{}{"a": 1, "b": map[string]interface{}{"c": nil}}, "slice": []interface{}{1, "s", nil},
+	others := map[string]any{
+		"map": map[string]any{"a": 1, "b": map[string]any{"c": nil}}, "slice": []any{1, "s", nil},
 		"struct": struct{ A int }{1}, "ptr": &one, "nilptr": nilPtr, "marshaler": unorderedMapMarshaler{1},
 		"ptrmarshaler": &unorderedMapMarshaler{2}, "ints": []int{1, 2}, "strings": map[string]string{"k": "v"},
-		"empty": map[string]interface{}{}, "emptyslice": []interface{}{},
+		"empty": map[string]any{}, "emptyslice": []any{},
 	}
-	both := map[string]interface{}{}
+	both := map[string]any{}
 	for k, v := range scalars {
 		both[k] = v
 	}
 	for k, v := range others {
 		both[k] = v
 	}
-	values := []interface{}{
-		scalars, others, both, map[string]interface{}{}, map[string]interface{}(nil),
-		map[unorderedMapKey]interface{}{"a": 1, "b": []int{2}},
-		[]map[string]interface{}{both, scalars},
+	values := []any{
+		scalars, others, both, map[string]any{}, map[string]any(nil),
+		map[unorderedMapKey]any{"a": 1, "b": []int{2}},
+		[]map[string]any{both, scalars},
 		struct {
-			M map[string]interface{}
-			N map[string]interface{} `json:",omitempty"`
+			M map[string]any
+			N map[string]any `json:",omitempty"`
 		}{M: both},
 	}
 	assertUnorderedMapsEqual(t, values)
@@ -109,7 +109,7 @@ type unorderedMapString string
 func TestEncodeUnorderedMapOfScalars(t *testing.T) {
 	stringKey := func(i int) string { return "k" + strconv.Itoa(i*7919%1000) }
 	one := 1
-	values := []interface{}{
+	values := []any{
 		map[string]string{}, map[string]string(nil), map[string]bool(nil),
 	}
 	for _, n := range []int{1, 2, 9, 100, 1000} {

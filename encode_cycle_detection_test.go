@@ -9,18 +9,18 @@ import (
 )
 
 type cycleDetectionHolder struct {
-	V interface{}
+	V any
 }
 
 type cycleDetectionNode struct {
 	Next *cycleDetectionNode
-	Any  interface{}
+	Any  any
 }
 
 // nestedInterfaceValue wraps the value by the slices of an interface value.
-func nestedInterfaceValue(depth int, v interface{}) interface{} {
+func nestedInterfaceValue(depth int, v any) any {
 	for i := 0; i < depth; i++ {
-		v = []interface{}{v}
+		v = []any{v}
 	}
 	return v
 }
@@ -32,10 +32,10 @@ func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 	shared := &cycleDetectionHolder{V: (*int)(nil)}
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"typed nil in interface", []*cycleDetectionHolder{shared, shared}},
-		{"value in interface", []interface{}{shared, shared}},
+		{"value in interface", []any{shared, shared}},
 		{"recursive type", []*cycleDetectionNode{{Any: shared}, {Any: shared}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -57,7 +57,7 @@ func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 
 func TestEncodeCycleNestedDeeply(t *testing.T) {
 	t.Run("interface", func(t *testing.T) {
-		cycle := []interface{}{nil}
+		cycle := []any{nil}
 		cycle[0] = cycle
 		for _, depth := range []int{0, 1100} {
 			if _, err := json.Marshal(nestedInterfaceValue(depth, cycle)); err == nil {

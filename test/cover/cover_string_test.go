@@ -37,7 +37,7 @@ func TestCoverString(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data interface{}
+		data any
 	}{
 		{
 			name: "PtrHeadStringComplicated",

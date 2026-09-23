@@ -20,7 +20,7 @@ type marshalOfStruct struct {
 	Name  string
 	Inner marshalOfInner
 	Ptr   *marshalOfInner
-	Any   interface{}
+	Any   any
 	Map   map[string]int
 	List  []marshalOfInner
 	Skip  string `json:"-"`
@@ -97,7 +97,7 @@ func TestMarshalOf(t *testing.T) {
 		List:  []marshalOfInner{inner, {}},
 		Skip:  "skip",
 	}
-	var nilAny interface{}
+	var nilAny any
 	var nilStringer fmt.Stringer
 	var nilPtr *marshalOfStruct
 	var nilMap map[string]int
@@ -123,7 +123,7 @@ func TestMarshalOf(t *testing.T) {
 	assertMarshalOf(t, "nil map", nilMap)
 	assertMarshalOf(t, "struct of a pointer", marshalOfSinglePointer{P: &n})
 	assertMarshalOf(t, "struct of a nil pointer", marshalOfSinglePointer{})
-	assertMarshalOf(t, "interface", interface{}(full))
+	assertMarshalOf(t, "interface", any(full))
 	assertMarshalOf(t, "nil interface", nilAny)
 	assertMarshalOf(t, "nil non-empty interface", nilStringer)
 	assertMarshalOf(t, "non-empty interface", fmt.Stringer(time.Second))

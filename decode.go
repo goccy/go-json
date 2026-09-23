@@ -24,7 +24,7 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
-func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 
@@ -52,7 +52,7 @@ func unmarshal(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
 	return validateEndBuf(src, cursor)
 }
 
-func unmarshalContext(ctx context.Context, data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 
@@ -113,7 +113,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	return paths, nil
 }
 
-func unmarshalNoEscape(data []byte, v interface{}, optFuncs ...DecodeOptionFunc) error {
+func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	src := make([]byte, len(data)+1) // append nul byte to the end
 	copy(src, data)
 
@@ -196,19 +196,19 @@ func (d *Decoder) Buffered() io.Reader {
 //
 // See the documentation for Unmarshal for details about
 // the conversion of JSON into a Go value.
-func (d *Decoder) Decode(v interface{}) error {
+func (d *Decoder) Decode(v any) error {
 	return d.DecodeWithOption(v)
 }
 
 // DecodeContext reads the next JSON-encoded value from its
 // input and stores it in the value pointed to by v with context.Context.
-func (d *Decoder) DecodeContext(ctx context.Context, v interface{}) error {
+func (d *Decoder) DecodeContext(ctx context.Context, v any) error {
 	d.s.Option.Flags |= decoder.ContextOption
 	d.s.Option.Context = ctx
 	return d.DecodeWithOption(v)
 }
 
-func (d *Decoder) DecodeWithOption(v interface{}, optFuncs ...DecodeOptionFunc) error {
+func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err

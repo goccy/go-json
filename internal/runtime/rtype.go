@@ -20,7 +20,7 @@ func TypePtr(t reflect.Type) unsafe.Pointer {
 // TypeOfPtr converts the pointer to the type descriptor to reflect.Type.
 // reflect.TypeOf reads only the type word of the interface value, so the data word is left nil.
 func TypeOfPtr(typ unsafe.Pointer) reflect.Type {
-	return reflect.TypeOf(*(*interface{})(unsafe.Pointer(&emptyInterface{typ: typ})))
+	return reflect.TypeOf(*(*any)(unsafe.Pointer(&emptyInterface{typ: typ})))
 }
 
 // IfaceIndir reports whether a value of the type is stored indirectly in an interface value:

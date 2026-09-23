@@ -57,7 +57,7 @@ type longKeys struct {
 	Array     [2]int               `json:"an_array_field_with_a_key_longer_than_a_chunk"`
 	Array0    [0]int               `json:"an_empty_array_field_with_a_key_longer_than_a_chunk"`
 	Map       map[string]int       `json:"a_map_field_with_a_key_longer_than_a_chunk"`
-	Interface interface{}          `json:"an_interface_field_with_a_key_longer_than_a_chunk"`
+	Interface any                  `json:"an_interface_field_with_a_key_longer_than_a_chunk"`
 	Struct    longKeyEmbedded      `json:"a_struct_field_with_a_key_longer_than_a_chunk"`
 	Ptr       *int                 `json:"a_pointer_field_with_a_key_longer_than_a_chunk"`
 	PtrStruct *longKeyEmbedded     `json:"a_struct_pointer_field_with_a_key_longer_than_a_chunk"`
@@ -88,7 +88,7 @@ type longKeysOmitEmpty struct {
 	Array     [2]int               `json:"an_array_field_with_a_key_longer_than_a_chunk,omitempty"`
 	Array0    [0]int               `json:"an_empty_array_field_with_a_key_longer_than_a_chunk,omitempty"`
 	Map       map[string]int       `json:"a_map_field_with_a_key_longer_than_a_chunk,omitempty"`
-	Interface interface{}          `json:"an_interface_field_with_a_key_longer_than_a_chunk,omitempty"`
+	Interface any                  `json:"an_interface_field_with_a_key_longer_than_a_chunk,omitempty"`
 	Struct    longKeyEmbedded      `json:"a_struct_field_with_a_key_longer_than_a_chunk,omitempty"`
 	Ptr       *int                 `json:"a_pointer_field_with_a_key_longer_than_a_chunk,omitempty"`
 	PtrStruct *longKeyEmbedded     `json:"a_struct_pointer_field_with_a_key_longer_than_a_chunk,omitempty"`
@@ -127,7 +127,7 @@ type keysAroundChunk struct {
 func TestEncodeLongKey(t *testing.T) {
 	one := 1
 	f := 1.5
-	values := []interface{}{
+	values := []any{
 		longKeys{},
 		&longKeys{},
 		longKeys{
@@ -190,7 +190,7 @@ func TestEncodeVeryLongKey(t *testing.T) {
 		A int    `json:"a_key_which_is_much_longer_than_a_chunk_of_the_VM_and_has_a_<tag>_and_an_&_in_it_to_escape,omitempty"`
 		B string `json:"another_key_which_is_much_longer_than_a_chunk_of_the_VM_with_a_value_after_it_of_any_length"`
 	}
-	for _, v := range []interface{}{veryLongKey{}, veryLongKey{A: 1, B: strings.Repeat("x", 100)}} {
+	for _, v := range []any{veryLongKey{}, veryLongKey{A: 1, B: strings.Repeat("x", 100)}} {
 		expected, _ := stdjson.Marshal(v)
 		got, err := json.Marshal(v)
 		if err != nil {

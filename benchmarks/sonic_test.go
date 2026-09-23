@@ -31,7 +31,7 @@ func init() {
 		reflect.TypeOf(NewMediumPayload()),
 		reflect.TypeOf(NewLargePayload()),
 		reflect.TypeOf(benchMapValue()),
-		reflect.TypeOf([]interface{}{}),
+		reflect.TypeOf([]any{}),
 		reflect.TypeOf(&codeStruct),
 	}
 	if err := sonic.PretouchMany(types, opts...); err != nil {
@@ -241,7 +241,7 @@ func Benchmark_Encode_MapInterface_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_Sonic(b *testing.B) {
-	v := []interface{}{1}
+	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(v); err != nil {
@@ -251,7 +251,7 @@ func Benchmark_Encode_Interface_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_SonicFastest(b *testing.B) {
-	v := []interface{}{1}
+	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(v); err != nil {
@@ -261,7 +261,7 @@ func Benchmark_Encode_Interface_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_SonicStd(b *testing.B) {
-	v := []interface{}{1}
+	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(v); err != nil {
@@ -501,7 +501,7 @@ var likeSonicOptions = []gojson.EncodeOptionFunc{
 	gojson.UnorderedMap(),
 }
 
-func benchLikeSonic(b *testing.B, v interface{}) {
+func benchLikeSonic(b *testing.B, v any) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := gojson.MarshalWithOption(v, likeSonicOptions...); err != nil {

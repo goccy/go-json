@@ -171,7 +171,7 @@ func (e *PathError) Error() string {
 	return fmt.Sprintf("json: invalid path format: %s", e.msg)
 }
 
-func ErrInvalidPath(msg string, args ...interface{}) *PathError {
+func ErrInvalidPath(msg string, args ...any) *PathError {
 	if len(args) != 0 {
 		return &PathError{msg: fmt.Sprintf(msg, args...)}
 	}

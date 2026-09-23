@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"slices"
 	"unsafe"
 )
 
@@ -43,10 +44,8 @@ func loadSlotInt(base unsafe.Pointer, idx uint32) uintptr {
 // values, so it is still detected, and the values which are not nested deeply cost nothing.
 func (c *RuntimeContext) recordSeen(code *Opcode, p unsafe.Pointer) error {
 	if p != nil {
-		for _, seen := range c.SeenPtr {
-			if p == seen {
-				return ErrUnsupportedValue(code, p)
-			}
+		if slices.Contains(c.SeenPtr, p) {
+			return ErrUnsupportedValue(code, p)
 		}
 	}
 	c.SeenPtr = append(c.SeenPtr, p)

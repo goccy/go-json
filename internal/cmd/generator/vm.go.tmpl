@@ -187,7 +187,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			byEncodedKeys := mapCtx.Slice.Items != nil
 			idx := mapCtx.Idx
 			if byEncodedKeys && idx >= 0 {
-				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:len(b)]
+				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:]
 			}
 			idx++
 			if idx == mapCtx.Len {
@@ -222,7 +222,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapValue:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			if mapCtx.Slice.Items != nil {
-				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
+				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:]
 				mapCtx.Start = len(b)
 			} else {
 				b = appendColon(ctx, b)
@@ -2454,7 +2454,7 @@ func appendMapAsRead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 		mapCtx.Len = 0
 		return mapScalarValueWriters[code.Map.ValueWords](ctx, code, b, p)
 	}
-	for k, v := range *(*map[string]interface{})(unsafe.Pointer(&p)) {
+	for k, v := range *(*map[string]any)(unsafe.Pointer(&p)) {
 		iface := (*emptyInterface)(unsafe.Pointer(&v))
 		var scalar *encoder.Opcode
 		// A value of interface{} which holds nothing is null. What holds a value whose data word is nil, such

@@ -82,7 +82,7 @@ func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Poi
 	if b, ok := unquoteBytes(dst); ok {
 		dst = b
 	}
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
+	v := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
@@ -133,7 +133,7 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	if s, ok := unquoteBytes(src); ok {
 		src = s
 	}
-	v := *(*interface{})(unsafe.Pointer(&emptyInterface{
+	v := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: runtime.TypePtr(d.typ),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))

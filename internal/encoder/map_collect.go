@@ -111,7 +111,7 @@ func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 	typPtr := runtime.TypePtr(typ)
 	return func(p unsafe.Pointer, c *MapContext) {
 		// the map as a value which is not addressable: SetIterKey copies the key of an addressable map.
-		var mapIface interface{}
+		var mapIface any
 		*(*emptyInterface)(unsafe.Pointer(&mapIface)) = emptyInterface{typ: typPtr, ptr: p}
 		m := reflect.ValueOf(mapIface)
 		key := reflect.ValueOf(&c.keyIface).Elem()
@@ -140,7 +140,7 @@ func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 
 // ifaceData returns the address of the value held by the interface value: the data word if the value is stored
 // in it, which is the case for a value of a pointer shape, or what the data word points to.
-func ifaceData(iface *interface{}, direct bool) unsafe.Pointer {
+func ifaceData(iface *any, direct bool) unsafe.Pointer {
 	data := &(*emptyInterface)(unsafe.Pointer(iface)).ptr
 	if direct {
 		return unsafe.Pointer(data)

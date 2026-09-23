@@ -711,7 +711,7 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 						return err
 					}
 				} else {
-					if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+					if err := field.dec.DecodeStream(s, depth, unsafe.Add(p, field.offset)); err != nil {
 						return err
 					}
 					seenFieldNum++
@@ -721,7 +721,7 @@ func (d *structDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 					seenFields[field.fieldIdx] = struct{}{}
 				}
 			} else {
-				if err := field.dec.DecodeStream(s, depth, unsafe.Pointer(uintptr(p)+field.offset)); err != nil {
+				if err := field.dec.DecodeStream(s, depth, unsafe.Add(p, field.offset)); err != nil {
 					return err
 				}
 			}
@@ -803,7 +803,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 					}
 					cursor = c
 				} else {
-					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
 					if err != nil {
 						return 0, err
 					}
@@ -815,7 +815,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 					seenFields[field.fieldIdx] = struct{}{}
 				}
 			} else {
-				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Pointer(uintptr(p)+field.offset))
+				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
 				if err != nil {
 					return 0, err
 				}

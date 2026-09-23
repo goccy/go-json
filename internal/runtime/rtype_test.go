@@ -7,7 +7,7 @@ import (
 )
 
 // dataWord returns the data word of the interface value.
-func dataWord(v interface{}) unsafe.Pointer {
+func dataWord(v any) unsafe.Pointer {
 	return (*emptyInterface)(unsafe.Pointer(&v)).ptr
 }
 
@@ -29,7 +29,7 @@ func TestIfaceIndir(t *testing.T) {
 			_ struct{}
 			p *int
 		}
-		ifaceStruct struct{ v interface{} }
+		ifaceStruct struct{ v any }
 	)
 	var (
 		n  = 1
@@ -43,7 +43,7 @@ func TestIfaceIndir(t *testing.T) {
 
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 		// pointer is the pointer which the value consists of, or nil if the value is not a single pointer.
 		pointer unsafe.Pointer
 	}{

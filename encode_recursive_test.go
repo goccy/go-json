@@ -11,67 +11,67 @@ import (
 // The frame must not overlap the one of the caller, whatever the struct has before the recursive field.
 
 type recursiveMapNode struct {
-	Meta     map[string]interface{} `json:"meta"`
-	Children []recursiveMapNode     `json:"children"`
+	Meta     map[string]any     `json:"meta"`
+	Children []recursiveMapNode `json:"children"`
 }
 
 type recursiveLeadingFieldsNode struct {
 	EvaluationPath string                       `json:"evaluationPath"`
 	SchemaLocation string                       `json:"schemaLocation"`
-	Annotations    map[string]interface{}       `json:"annotations"`
+	Annotations    map[string]any               `json:"annotations"`
 	Details        []recursiveLeadingFieldsNode `json:"details"`
 }
 
 type recursiveSliceOfInterfaceNode struct {
-	Alerts [][]interface{}
+	Alerts [][]any
 	Items  []recursiveSliceOfInterfaceNode
 }
 
 type recursiveInterfaceSliceNode struct {
-	Alerts []interface{}
+	Alerts []any
 	Items  []recursiveSliceOfInterfaceNode
 }
 
 type recursiveInterfaceNode struct {
-	Value    interface{}
+	Value    any
 	Children []recursiveInterfaceNode
 }
 
 type recursivePtrNode struct {
-	Meta map[string]interface{}
+	Meta map[string]any
 	Next *recursivePtrNode
 }
 
 func TestEncodeRecursiveStructWithInterface(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
-		{"map of interface in nested node", []recursiveMapNode{{Children: []recursiveMapNode{{Meta: map[string]interface{}{"a": 1}}}}}},
+		{"map of interface in nested node", []recursiveMapNode{{Children: []recursiveMapNode{{Meta: map[string]any{"a": 1}}}}}},
 		{"map of interface in every node", recursiveMapNode{
-			Meta: map[string]interface{}{"a": 1},
+			Meta: map[string]any{"a": 1},
 			Children: []recursiveMapNode{
-				{Meta: map[string]interface{}{"b": "x"}, Children: []recursiveMapNode{{Meta: map[string]interface{}{"c": true}}}},
-				{Meta: map[string]interface{}{"d": []interface{}{1, "y"}}},
+				{Meta: map[string]any{"b": "x"}, Children: []recursiveMapNode{{Meta: map[string]any{"c": true}}}},
+				{Meta: map[string]any{"d": []any{1, "y"}}},
 			},
 		}},
 		{"leading fields and map of interface", recursiveLeadingFieldsNode{
-			Details: []recursiveLeadingFieldsNode{{Annotations: map[string]interface{}{"description": "d"}}},
+			Details: []recursiveLeadingFieldsNode{{Annotations: map[string]any{"description": "d"}}},
 		}},
 		{"slice of slice of interface", recursiveSliceOfInterfaceNode{
-			Items: []recursiveSliceOfInterfaceNode{{Alerts: [][]interface{}{{2}}}},
+			Items: []recursiveSliceOfInterfaceNode{{Alerts: [][]any{{2}}}},
 		}},
 		{"slice of interface", recursiveInterfaceSliceNode{
-			Alerts: []interface{}{1},
-			Items:  []recursiveSliceOfInterfaceNode{{Alerts: [][]interface{}{{2, "a"}}}},
+			Alerts: []any{1},
+			Items:  []recursiveSliceOfInterfaceNode{{Alerts: [][]any{{2, "a"}}}},
 		}},
 		{"interface holding the recursive struct", recursiveInterfaceNode{
 			Value:    recursiveInterfaceNode{Value: 1},
-			Children: []recursiveInterfaceNode{{Value: map[string]interface{}{"k": recursiveInterfaceNode{Value: "v"}}}},
+			Children: []recursiveInterfaceNode{{Value: map[string]any{"k": recursiveInterfaceNode{Value: "v"}}}},
 		}},
 		{"pointer recursion with map of interface", &recursivePtrNode{
-			Meta: map[string]interface{}{"a": 1},
-			Next: &recursivePtrNode{Meta: map[string]interface{}{"b": map[string]interface{}{"c": 2}}, Next: &recursivePtrNode{}},
+			Meta: map[string]any{"a": 1},
+			Next: &recursivePtrNode{Meta: map[string]any{"b": map[string]any{"c": 2}}, Next: &recursivePtrNode{}},
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -135,7 +135,7 @@ type recursiveResLabel struct {
 func TestEncodeEmbeddedRecursiveStruct(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{"nil embedded pointer", &recursiveEmbeddedByPointer{}},
 		{"embedded pointer", &recursiveEmbeddedByPointer{&recursiveEmbeddedInner{}}},
@@ -195,7 +195,7 @@ type recursiveIndentMutualB struct {
 
 func TestEncodeDeepRecursiveStructWithIndent(t *testing.T) {
 	const maxDepth = 6
-	values := map[string][]interface{}{}
+	values := map[string][]any{}
 	for depth := 1; depth <= maxDepth; depth++ {
 		node := &recursiveIndentNode{}
 		tree := recursiveIndentTree{Name: "leaf"}
@@ -208,7 +208,7 @@ func TestEncodeDeepRecursiveStructWithIndent(t *testing.T) {
 		values["pointer"] = append(values["pointer"], node)
 		values["slice"] = append(values["slice"], tree)
 		values["mutual"] = append(values["mutual"], mutual)
-		values["in interface"] = append(values["in interface"], []interface{}{node, map[string]interface{}{"k": tree}})
+		values["in interface"] = append(values["in interface"], []any{node, map[string]any{"k": tree}})
 	}
 	for name, vs := range values {
 		t.Run(name, func(t *testing.T) {

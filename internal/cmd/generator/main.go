@@ -188,7 +188,9 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 		opType{Op: "StructHead", Code: "StructField"},
 		opType{Op: "StructPtrHead", Code: "StructField"},
 	)
-	for _, typ := range append(primitiveTypesUpper, "") {
+	// a field of interface{} has the opcodes of a field of its own, which encode the value as OpInterface does:
+	// the opcode of a value of interface{} is among the first ones, so it is not a primitive type here.
+	for _, typ := range append(primitiveTypesUpper, "Interface", "") {
 		for _, opt := range []string{"", "OmitEmpty"} {
 			opt := opt
 			typ := typ

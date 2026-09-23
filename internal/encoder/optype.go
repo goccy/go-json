@@ -22,7 +22,7 @@ const (
 	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [240]string{
+var opTypeStrings = [244]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -249,6 +249,10 @@ var opTypeStrings = [240]string{
 	"StructFieldOmitEmptyNumberPtrString",
 	"StructEndNumberPtrString",
 	"StructEndOmitEmptyNumberPtrString",
+	"StructFieldInterface",
+	"StructFieldOmitEmptyInterface",
+	"StructEndInterface",
+	"StructEndOmitEmptyInterface",
 	"StructField",
 	"StructFieldOmitEmpty",
 	"StructEnd",
@@ -494,24 +498,28 @@ const (
 	OpStructFieldOmitEmptyNumberPtrString  OpType = 223
 	OpStructEndNumberPtrString             OpType = 224
 	OpStructEndOmitEmptyNumberPtrString    OpType = 225
-	OpStructField                          OpType = 226
-	OpStructFieldOmitEmpty                 OpType = 227
-	OpStructEnd                            OpType = 228
-	OpStructEndOmitEmpty                   OpType = 229
-	OpStructFieldInt3                      OpType = 230
-	OpStructFieldInt2                      OpType = 231
-	OpStructFieldUint3                     OpType = 232
-	OpStructFieldUint2                     OpType = 233
-	OpStructFieldFloat643                  OpType = 234
-	OpStructFieldFloat642                  OpType = 235
-	OpStructFieldString3                   OpType = 236
-	OpStructFieldString2                   OpType = 237
-	OpStructFieldBool3                     OpType = 238
-	OpStructFieldBool2                     OpType = 239
+	OpStructFieldInterface                 OpType = 226
+	OpStructFieldOmitEmptyInterface        OpType = 227
+	OpStructEndInterface                   OpType = 228
+	OpStructEndOmitEmptyInterface          OpType = 229
+	OpStructField                          OpType = 230
+	OpStructFieldOmitEmpty                 OpType = 231
+	OpStructEnd                            OpType = 232
+	OpStructEndOmitEmpty                   OpType = 233
+	OpStructFieldInt3                      OpType = 234
+	OpStructFieldInt2                      OpType = 235
+	OpStructFieldUint3                     OpType = 236
+	OpStructFieldUint2                     OpType = 237
+	OpStructFieldFloat643                  OpType = 238
+	OpStructFieldFloat642                  OpType = 239
+	OpStructFieldString3                   OpType = 240
+	OpStructFieldString2                   OpType = 241
+	OpStructFieldBool3                     OpType = 242
+	OpStructFieldBool2                     OpType = 243
 )
 
 func (t OpType) String() string {
-	if int(t) >= 240 {
+	if int(t) >= 244 {
 		return ""
 	}
 	return opTypeStrings[int(t)]

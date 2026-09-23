@@ -63,6 +63,64 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			ctxptr = base
 		case encoder.OpInterfaceEnd:
 			code, ctxptr = ctx.LeaveFrame(code)
+		case encoder.OpStructFieldInterface:
+			// The field of a value of interface{}: the key, and then what OpInterface does for the value. A field
+			// of interface{} is nil in many a value, and it is null then, without a call. The cases are here, with
+			// the ones of a value of interface{}, not with the other fields: there they cost the small structs 3%.
+			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+			b = appendStructKey(ctx, code, b)
+			if *(*unsafe.Pointer)(p) == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			first, base, scalar, err := ctx.EnterInterface(code, p)
+			if err != nil {
+				return nil, err
+			}
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
+		case encoder.OpStructFieldOmitEmptyInterface:
+			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+			if *(*unsafe.Pointer)(p) == nil {
+				code = code.NextField
+				break
+			}
+			b = appendStructKey(ctx, code, b)
+			first, base, scalar, err := ctx.EnterInterface(code, p)
+			if err != nil {
+				return nil, err
+			}
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
 		case encoder.OpMapPtr:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {

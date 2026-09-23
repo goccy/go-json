@@ -10,7 +10,8 @@ import (
 type EncodeOption = encoder.Option
 type EncodeOptionFunc func(*EncodeOption)
 
-// UnorderedMap doesn't sort when encoding map type.
+// UnorderedMap doesn't sort when encoding map type: the entries of a map are written in an order which is not
+// specified, and which may differ from the order of a range over the map.
 func UnorderedMap() EncodeOptionFunc {
 	return func(opt *EncodeOption) {
 		opt.Flag |= encoder.UnorderedMapOption

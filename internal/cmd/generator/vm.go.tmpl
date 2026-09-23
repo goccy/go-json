@@ -81,23 +81,37 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			// keys are not strings is encoded as it comes and its entries are put in the order of their encoded
 			// keys at OpMapEnd.
 			mapCtx := encoder.NewMapContext(ctx)
-			if code.Map.Collect(p, mapCtx) == 0 {
+			if code.Flags&encoder.MapStringKeyFlags != 0 && code.Map.InterfaceValue && ctx.Option.Flag&encoder.UnorderedMapOption != 0 {
+				// the entries which hold a scalar are written as the map is read, and the context gets the others.
+				if encoder.MapLen(p) == 0 {
+					encoder.ReleaseMapContext(ctx, mapCtx)
+					b = appendEmptyObject(ctx, b)
+					code = code.End.Next
+					break
+				}
+				bb, err := appendMapScalarEntries(ctx, code, appendStructHead(ctx, b), p, mapCtx)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+			} else if code.Map.Collect(p, mapCtx) == 0 {
 				encoder.ReleaseMapContext(ctx, mapCtx)
 				b = appendEmptyObject(ctx, b)
 				code = code.End.Next
 				break
-			}
-			b = appendStructHead(ctx, b)
-			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) == 0 {
-				if code.Flags&encoder.MapStringKeyFlags != 0 {
-					mapCtx.SortKeys()
-					mapCtx.Sorted = true
-				} else {
-					mapCtx.SortByEncodedKeys()
-					mapCtx.First = len(b)
+			} else {
+				b = appendStructHead(ctx, b)
+				if (ctx.Option.Flag & encoder.UnorderedMapOption) == 0 {
+					if code.Flags&encoder.MapStringKeyFlags != 0 {
+						mapCtx.SortKeys()
+						mapCtx.Sorted = true
+					} else {
+						mapCtx.SortByEncodedKeys()
+						mapCtx.First = len(b)
+					}
 				}
 			}
+			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
 			// the first entry is begun as the others are, by the header: it has the next opcode and the flags
 			// of the key opcode.
 			mapCtx.Idx = -1
@@ -2360,5 +2374,54 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		}
 	}
 END:
+	return b, nil
+}
+
+// appendMapScalarEntries writes the entries of the map at p, whose keys are of a string kind and whose values
+// are of interface{}, which hold a scalar or nothing, and gives the other entries to the context, to be encoded
+// by the opcodes of their values from OpMapKey on. It is for a map whose entries are not sorted: their order is
+// not specified, so the scalars come first, and each of them costs neither a copy to the context nor the
+// opcodes of an entry, which is most of the entries of a JSON object held by a value of interface{}.
+//
+//go:noinline
+func appendMapScalarEntries(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer, mapCtx *encoder.MapContext) ([]byte, error) {
+	code.Map.Reset(mapCtx)
+	for k, v := range *(*map[string]interface{})(unsafe.Pointer(&p)) {
+		iface := (*emptyInterface)(unsafe.Pointer(&v))
+		var scalar *encoder.Opcode
+		// A value of interface{} which holds nothing is null. What holds a value whose data word is nil, such
+		// as a nil pointer, is left to OpInterface, which knows what is null and what is not.
+		if iface.typ != nil && iface.ptr != nil {
+			codeSet := ctx.RecentCodeSet(uintptr(iface.typ))
+			if codeSet == nil {
+				var err error
+				codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
+				if err != nil {
+					return nil, err
+				}
+			}
+			scalar = codeSet.Scalar
+		}
+		if iface.typ != nil && scalar == nil {
+			mapCtx.Keys = append(mapCtx.Keys, k)
+			mapCtx.Values = append(mapCtx.Values, unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v))...)
+			continue
+		}
+		b = appendMapKeyIndent(ctx, code, b)
+		b = appendString(ctx, b, k)
+		b = appendComma(ctx, b)
+		b = appendColon(ctx, b)
+		if scalar == nil {
+			b = appendNullComma(ctx, b)
+			continue
+		}
+		// the data word of the interface value is the address of the scalar, or the pointer to it.
+		bb, err := appendScalar(ctx, b, scalar, iface.ptr)
+		if err != nil {
+			return nil, err
+		}
+		b = bb
+	}
+	mapCtx.Len = len(mapCtx.Keys)
 	return b, nil
 }

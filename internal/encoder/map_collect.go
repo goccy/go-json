@@ -28,8 +28,12 @@ type MapLayout struct {
 	collect func(p unsafe.Pointer, c *MapContext)
 	// StringKey is whether the keys are of a string kind: then they are in MapContext.Keys.
 	StringKey bool
-	keySize   uintptr
-	valueSize uintptr
+	// InterfaceValue is whether the keys are of a string kind and the values are of interface{}: the map of a
+	// JSON object as a value of interface{}. The VM writes the entries of such a map which hold a scalar as
+	// it reads the map, when the entries are not sorted ( appendMapScalarEntries ).
+	InterfaceValue bool
+	keySize        uintptr
+	valueSize      uintptr
 }
 
 // mapValueWords is the number of the words of a value up to which a map is ranged over as a map of the same
@@ -47,6 +51,7 @@ func NewMapLayout(typ reflect.Type) *MapLayout {
 	if l.StringKey && words <= mapValueWords && (mapValueIsWords || l.valueSize%8 == 0) {
 		l.collect = stringKeyCollectors[words]
 		l.valueSize = words * 8
+		l.InterfaceValue = typ.Elem().Kind() == reflect.Interface && typ.Elem().NumMethod() == 0
 	} else {
 		l.collect = newReflectCollector(typ)
 	}
@@ -132,16 +137,21 @@ func ifaceData(iface *interface{}, direct bool) unsafe.Pointer {
 	return *data
 }
 
+// Reset empties the context for the entries of a map of the layout.
+func (l *MapLayout) Reset(c *MapContext) {
+	c.Keys, c.RawKeys, c.Values = c.Keys[:0], c.RawKeys[:0], c.Values[:0]
+	c.layout = l
+}
+
 // Collect reads the entries of the map at p into the context, and returns their number.
 func (l *MapLayout) Collect(p unsafe.Pointer, c *MapContext) int {
-	c.Keys, c.RawKeys, c.Values = c.Keys[:0], c.RawKeys[:0], c.Values[:0]
+	l.Reset(c)
 	l.collect(p, c)
 	if l.StringKey {
 		c.Len = len(c.Keys)
 	} else {
 		c.Len = len(c.RawKeys) / int(l.keySize)
 	}
-	c.layout = l
 	return c.Len
 }
 

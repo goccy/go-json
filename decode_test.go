@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io"
 	"math"
 	"math/big"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 	"unsafe"
 
@@ -3498,6 +3500,192 @@ func TestDecodeUnknownInterface(t *testing.T) {
 			t.Fatalf("failed to decode: %v", v)
 		}
 	})
+}
+
+func TestDecodeNumberNull(t *testing.T) {
+	type category struct {
+		ID       stdjson.Number `json:"id,number"`
+		ParentID stdjson.Number `json:"parent_id,number"`
+	}
+	type pointerField struct {
+		Number *stdjson.Number
+	}
+	number := stdjson.Number("42")
+	tests := []struct {
+		name    string
+		in      string
+		pre     interface{}
+		want    interface{}
+		wantErr bool
+	}{
+		{name: "zero", in: `null`, pre: stdjson.Number(""), want: stdjson.Number("")},
+		{name: "populated", in: " \t\r\nnull ", pre: number, want: number},
+		{name: "issue480", in: `{"id":"123","parent_id":null}`, pre: category{}, want: category{ID: "123"}},
+		{name: "populated-field", in: `{"parent_id":null,"id":"123"}`, pre: category{ParentID: "42"}, want: category{ID: "123", ParentID: "42"}},
+		{name: "pointer", in: `null`, pre: &number, want: (*stdjson.Number)(nil)},
+		{name: "nil-pointer", in: `null`, pre: (*stdjson.Number)(nil), want: (*stdjson.Number)(nil)},
+		{name: "pointer-field", in: `{"Number":null}`, pre: pointerField{Number: &number}, want: pointerField{}},
+		{name: "quoted-number", in: `"123"`, pre: number, want: stdjson.Number("123")},
+		{name: "number", in: `-1.25e+2`, pre: number, want: stdjson.Number("-1.25e+2")},
+		{name: "empty-string", in: `""`, pre: number, want: number, wantErr: true},
+		{name: "quoted-null", in: `"null"`, pre: number, want: number, wantErr: true},
+		{name: "incomplete-null-n", in: `n`, pre: number, want: number, wantErr: true},
+		{name: "incomplete-null-nu", in: `nu`, pre: number, want: number, wantErr: true},
+		{name: "incomplete-null", in: `nul`, pre: number, want: number, wantErr: true},
+		{name: "incomplete-null-whitespace", in: " \t\r\nnul ", pre: number, want: number, wantErr: true},
+		{name: "invalid-null", in: `nulk`, pre: number, want: number, wantErr: true},
+	}
+	for _, method := range []struct {
+		name      string
+		decode    func([]byte, interface{}) error
+		stdDecode func([]byte, interface{}) error
+	}{
+		{name: "unmarshal", decode: json.Unmarshal, stdDecode: stdjson.Unmarshal},
+		{
+			name: "stream",
+			decode: func(data []byte, v interface{}) error {
+				return json.NewDecoder(bytes.NewReader(data)).Decode(v)
+			},
+			stdDecode: func(data []byte, v interface{}) error {
+				return stdjson.NewDecoder(bytes.NewReader(data)).Decode(v)
+			},
+		},
+	} {
+		for _, tt := range tests {
+			t.Run(method.name+"/"+tt.name, func(t *testing.T) {
+				expected := reflect.New(reflect.TypeOf(tt.pre))
+				expected.Elem().Set(reflect.ValueOf(tt.pre))
+				if err := method.stdDecode([]byte(tt.in), expected.Interface()); (err != nil) != tt.wantErr {
+					t.Fatalf("encoding/json: error = %v, want error = %v", err, tt.wantErr)
+				}
+				if !reflect.DeepEqual(expected.Elem().Interface(), tt.want) {
+					t.Fatalf("encoding/json: got %#v, want %#v", expected.Elem().Interface(), tt.want)
+				}
+
+				got := reflect.New(reflect.TypeOf(tt.pre))
+				got.Elem().Set(reflect.ValueOf(tt.pre))
+				if err := method.decode([]byte(tt.in), got.Interface()); (err != nil) != tt.wantErr {
+					t.Fatalf("go-json: error = %v, want error = %v", err, tt.wantErr)
+				}
+				if !reflect.DeepEqual(got.Elem().Interface(), expected.Elem().Interface()) {
+					t.Fatalf("go-json: got %#v, encoding/json: %#v", got.Elem().Interface(), expected.Elem().Interface())
+				}
+			})
+		}
+	}
+	t.Run("unmarshal/trailing-value", func(t *testing.T) {
+		got, expected := stdjson.Number("42"), stdjson.Number("42")
+		if err := stdjson.Unmarshal([]byte(`null 123`), &expected); err == nil {
+			t.Fatal("encoding/json: expected an error for a trailing value")
+		}
+		if err := json.Unmarshal([]byte(`null 123`), &got); err == nil {
+			t.Fatal("go-json: expected an error for a trailing value")
+		}
+		if expected != "42" || got != expected {
+			t.Fatalf("got %q, encoding/json: %q, want 42", got, expected)
+		}
+	})
+}
+
+func TestDecodeNumberNullStream(t *testing.T) {
+	const input = " \nnull 123 null \"456\""
+	dec := json.NewDecoder(strings.NewReader(input))
+	stdDec := stdjson.NewDecoder(strings.NewReader(input))
+	got, expected := stdjson.Number("42"), stdjson.Number("42")
+	for i, want := range []stdjson.Number{"42", "123", "123", "456"} {
+		if err := stdDec.Decode(&expected); err != nil {
+			t.Fatalf("encoding/json: Decode %d: %v", i, err)
+		}
+		if expected != want {
+			t.Fatalf("encoding/json: Decode %d = %q, want %q", i, expected, want)
+		}
+		if err := dec.Decode(&got); err != nil {
+			t.Fatalf("go-json: Decode %d: %v", i, err)
+		}
+		if got != expected {
+			t.Fatalf("Decode %d: got %q, want %q", i, got, expected)
+		}
+		if dec.InputOffset() != stdDec.InputOffset() {
+			t.Fatalf("Decode %d: InputOffset = %d, want %d", i, dec.InputOffset(), stdDec.InputOffset())
+		}
+		rest, err := io.ReadAll(dec.Buffered())
+		if err != nil {
+			t.Fatal(err)
+		}
+		stdRest, err := io.ReadAll(stdDec.Buffered())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(rest, stdRest) {
+			t.Fatalf("Decode %d: Buffered = %q, want %q", i, rest, stdRest)
+		}
+	}
+	if err := stdDec.Decode(&expected); err != io.EOF {
+		t.Fatalf("encoding/json: final Decode: got %v, want EOF", err)
+	}
+	if err := dec.Decode(&got); err != io.EOF {
+		t.Fatalf("go-json: final Decode: got %v, want EOF", err)
+	}
+}
+
+func TestDecodeNumberNullShortRead(t *testing.T) {
+	for _, tt := range []struct {
+		in      string
+		wantErr bool
+	}{
+		{in: `null`},
+		{in: " \t\r\nnull "},
+		{in: `n`, wantErr: true},
+		{in: `nu`, wantErr: true},
+		{in: `nul`, wantErr: true},
+		{in: " \t\r\nnul ", wantErr: true},
+		{in: `nulk`, wantErr: true},
+		{in: `nxll`, wantErr: true},
+		{in: `nunl`, wantErr: true},
+	} {
+		t.Run(fmt.Sprintf("%q", tt.in), func(t *testing.T) {
+			input := tt.in
+			if !tt.wantErr {
+				input += " 123"
+			}
+			got, expected := stdjson.Number("42"), stdjson.Number("42")
+			dec := json.NewDecoder(iotest.OneByteReader(strings.NewReader(input)))
+			stdDec := stdjson.NewDecoder(iotest.OneByteReader(strings.NewReader(input)))
+			if err := stdDec.Decode(&expected); (err != nil) != tt.wantErr {
+				t.Fatalf("encoding/json: error = %v, want error = %v", err, tt.wantErr)
+			}
+			if err := dec.Decode(&got); (err != nil) != tt.wantErr {
+				t.Fatalf("go-json: error = %v, want error = %v", err, tt.wantErr)
+			}
+			if expected != "42" || got != expected {
+				t.Fatalf("got %q, encoding/json: %q, want 42", got, expected)
+			}
+			if tt.wantErr {
+				return
+			}
+			if dec.InputOffset() != stdDec.InputOffset() {
+				t.Fatalf("InputOffset = %d, want %d", dec.InputOffset(), stdDec.InputOffset())
+			}
+			if err := stdDec.Decode(&expected); err != nil {
+				t.Fatalf("encoding/json: next Decode: %v", err)
+			}
+			if err := dec.Decode(&got); err != nil {
+				t.Fatalf("go-json: next Decode: %v", err)
+			}
+			if expected != "123" || got != expected {
+				t.Fatalf("next Decode: got %q, encoding/json: %q, want 123", got, expected)
+			}
+			if dec.InputOffset() != stdDec.InputOffset() {
+				t.Fatalf("next InputOffset = %d, want %d", dec.InputOffset(), stdDec.InputOffset())
+			}
+			if err := stdDec.Decode(&expected); err != io.EOF {
+				t.Fatalf("encoding/json: final Decode: got %v, want EOF", err)
+			}
+			if err := dec.Decode(&got); err != io.EOF {
+				t.Fatalf("go-json: final Decode: got %v, want EOF", err)
+			}
+		})
+	}
 }
 
 func TestDecodeByteSliceNull(t *testing.T) {

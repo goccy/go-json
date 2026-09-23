@@ -29,6 +29,13 @@ func (d *numberDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	if err != nil {
 		return err
 	}
+	if bytes == nil {
+		// Recheck bytes supplied by stream refills before accepting null.
+		if err := validateNull(s.buf, s.cursor-4); err != nil {
+			return errors.ErrSyntax(err.Error(), s.totalOffset())
+		}
+		return nil
+	}
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
 		return errors.ErrSyntax(err.Error(), s.totalOffset())
 	}
@@ -41,6 +48,9 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	bytes, c, err := d.decodeByte(ctx.Buf, cursor)
 	if err != nil {
 		return 0, err
+	}
+	if bytes == nil {
+		return c, nil
 	}
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
 		return 0, errors.ErrSyntax(err.Error(), c)

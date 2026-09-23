@@ -847,6 +847,10 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
 	}
+	// the field of interface{} enters the value as the opcode of the value does: it needs to know the interface.
+	if value.Flags&NonEmptyInterfaceFlags != 0 {
+		field.Flags |= NonEmptyInterfaceFlags
+	}
 	field.NumBitSize = value.NumBitSize
 	field.PtrNum = value.PtrNum
 	field.FieldQuery = value.FieldQuery

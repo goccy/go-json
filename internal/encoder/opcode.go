@@ -155,6 +155,9 @@ func (t OpType) ToStringOp() OpType {
 
 func (c *Opcode) ToFieldType(isString bool) OpType {
 	switch c.Op {
+	case OpInterface:
+		// the string option is not for a value of interface{}.
+		return OpStructFieldInterface
 	case OpInt:
 		if isString {
 			return OpStructFieldIntString
@@ -323,7 +326,8 @@ func copyOpcode(code *Opcode) *Opcode {
 
 func setTotalLengthToInterfaceOp(code *Opcode) {
 	for c := code; !c.IsEnd(); {
-		if c.Op == OpInterface || c.Op == OpInterfacePtr {
+		switch c.Op {
+		case OpInterface, OpInterfacePtr, OpStructFieldInterface, OpStructFieldOmitEmptyInterface:
 			c.Length = uint32(code.TotalLength())
 		}
 		c = c.IterNext()

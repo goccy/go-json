@@ -1501,6 +1501,63 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = appendComma(ctx, bb)
 			code = code.Next
+		case encoder.OpStructFieldInterface:
+			// the field of a value of interface{}: the key, and then what OpInterface does for the value. A field
+			// of interface{} is nil in many a value, and it is null then, without a call.
+			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+			b = appendStructKey(ctx, code, b)
+			if *(*unsafe.Pointer)(p) == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			first, base, scalar, err := ctx.EnterInterface(code, p)
+			if err != nil {
+				return nil, err
+			}
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
+		case encoder.OpStructFieldOmitEmptyInterface:
+			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+			if *(*unsafe.Pointer)(p) == nil {
+				code = code.NextField
+				break
+			}
+			b = appendStructKey(ctx, code, b)
+			first, base, scalar, err := ctx.EnterInterface(code, p)
+			if err != nil {
+				return nil, err
+			}
+			if first == nil {
+				b = appendNullComma(ctx, b)
+				code = code.Next
+				break
+			}
+			if scalar {
+				bb, err := appendScalar(ctx, b, first, base)
+				if err != nil {
+					return nil, err
+				}
+				b = bb
+				code = code.Next
+				break
+			}
+			code = first
+			ctxptr = base
 		case encoder.OpStructFieldMarshalTextPtr:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)

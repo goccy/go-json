@@ -33,7 +33,10 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			fallthrough
 		case encoder.OpInterface:
 			p := load(ctxptr, code.Idx)
-			if p == nil {
+			// An interface value which holds nothing is null: its first word, the type or the itab, is nil.
+			// It is decided here, as a call costs more than the check: the fields of interface{} of a struct
+			// are nil in many a value.
+			if p == nil || *(*unsafe.Pointer)(p) == nil {
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break

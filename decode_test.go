@@ -337,6 +337,29 @@ func Test_UnmarshalText(t *testing.T) {
 		assertErr(t, json.Unmarshal([]byte(`"11"`), &v))
 		assertEq(t, "unmarshal", v.v, 11)
 	})
+	t.Run("null keeps value", func(t *testing.T) {
+		v := unmarshalText{v: 7}
+		assertErr(t, json.Unmarshal([]byte(`null`), &v))
+		assertEq(t, "unmarshal", v.v, 7)
+
+		s := unmarshalerText{A: "keep", B: "b"}
+		assertErr(t, json.Unmarshal([]byte(`null`), &s))
+		assertEq(t, "unmarshal", s.A, "keep")
+		assertEq(t, "unmarshal", s.B, "b")
+
+		var w struct {
+			N unmarshalText
+			L []unmarshalText
+		}
+		w.N.v = 3
+		assertErr(t, json.Unmarshal([]byte(`{"N":null,"L":[null]}`), &w))
+		assertEq(t, "unmarshal", w.N.v, 3)
+		assertEq(t, "unmarshal", len(w.L), 1)
+
+		s = unmarshalerText{A: "keep", B: "b"}
+		assertErr(t, json.NewDecoder(strings.NewReader(`null`)).Decode(&s))
+		assertEq(t, "unmarshal", s.A, "keep")
+	})
 }
 
 func Test_InvalidUnmarshalError(t *testing.T) {

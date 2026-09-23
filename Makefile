@@ -51,7 +51,7 @@ bench-check:
 # SonicStd is sonic configured to do what encoding/json, and go-json, do ( escape HTML, sort the keys of a map ),
 # and GoJsonLikeSonic is go-json configured to do what sonic does by default.
 # SonicFastest is sonic.ConfigFastest. SONIC_MAX_INLINE_DEPTH sets how deep sonic inlines the nested structs.
-# The Twitter benchmarks are the ones of sonic itself, with go-json beside it ( benchmarks/sonic_twitter_bench_test.go ).
+# The Twitter benchmarks are the ones of sonic itself, with go-json beside it ( benchmarks/sonic_bench_test.go, under the license of sonic ).
 .PHONY: bench-compare-encode
 bench-compare-encode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_(Encode|Marshal|EncodeBigData|MarshalBigData).*_(GoJson|GoJsonLikeSonic|Sonic|SonicFastest|SonicStd)$$' -benchtime 300ms -count 3 .

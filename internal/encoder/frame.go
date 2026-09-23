@@ -123,7 +123,13 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	} else {
 		first = codeSet.InterfaceNoescapeKeyCode
 	}
-	value := c.InterfaceValueAddr(codeSet, ifacePtr, c.RecursiveLevel)
+	// The opcodes take the address of the value. The data word of the interface value is the address for
+	// most of the types, and the value itself for a type of a pointer shape which is not a pointer, such as a
+	// map: then the address of the data word, in the interface value at p, is the address of the value.
+	value := ifacePtr
+	if !codeSet.DataWordIsAddr {
+		value = unsafe.Add(p, unsafe.Sizeof(uintptr(0)))
+	}
 	base := c.enterFrame(first, codeSet.EndCode, code.Next, value,
 		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, c.BaseIndent+code.Indent)
 	return first, base, false, nil

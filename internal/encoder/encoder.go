@@ -255,8 +255,6 @@ const maxItemsOfInsertionSort = 16
 // MapContext is what the VM encodes a map from: the entries read from the map ( MapLayout.Collect ), and
 // the state of the entry being encoded.
 type MapContext struct {
-	// parent is the context of the map which this map is in.
-	parent *MapContext
 	layout *MapLayout
 	// Keys are the keys of the entries, for keys of a string kind; RawKeys are the bytes of the keys of another
 	// kind, keySize each; Values are the bytes of the values, valueSize each. The copies of the values may hold
@@ -286,20 +284,15 @@ type MapContext struct {
 	valueIface interface{}
 }
 
-var mapContextPool = sync.Pool{
-	New: func() interface{} {
-		return &MapContext{
-			Slice: &Mapslice{},
-		}
-	},
-}
-
-// NewMapContext returns the context to encode a map, which the runtime context refers to until it is released:
-// the VM has it only in a slot, which the GC doesn't see.
+// NewMapContext returns the context to encode a map: the runtime context has one for each level of the maps
+// nested in each other, kept from a call to the next, and refers to it while the VM has it in a slot, which
+// the GC doesn't see.
 func NewMapContext(rctx *RuntimeContext) *MapContext {
-	ctx := mapContextPool.Get().(*MapContext)
-	ctx.parent = rctx.mapContext
-	rctx.mapContext = ctx
+	if rctx.mapDepth == len(rctx.mapContexts) {
+		rctx.mapContexts = append(rctx.mapContexts, &MapContext{Slice: &Mapslice{}})
+	}
+	ctx := rctx.mapContexts[rctx.mapDepth]
+	rctx.mapDepth++
 	ctx.Buf = ctx.Buf[:0]
 	ctx.Idx = 0
 	ctx.Sorted = false
@@ -319,12 +312,10 @@ func (c *MapContext) SortByEncodedKeys() {
 
 func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	// a map is always released before the maps it is in.
-	rctx.mapContext = c.parent
-	c.parent = nil
-	// the keys refer to the map, which the pool must not keep alive.
+	rctx.mapDepth--
+	// the keys refer to the map, which the context must not keep alive.
 	clear(c.Keys)
 	c.Keys = c.Keys[:0]
-	mapContextPool.Put(c)
 }
 
 func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {

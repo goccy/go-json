@@ -358,9 +358,8 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 	}
 }
 
-// the iteration of a map: by the shims of the runtime for the users of mapiterinit, which allocate the
-// iterator, or by reflect.MapIter, which has the iterator in it and copies the key and the value into an
-// interface value which then points into the map.
+// the reading of the entries of a map: by a range over the map as a map of the same layout, or by
+// reflect.MapIter, which sets the key and the value to interface values.
 func BenchmarkVariant_MapIter(b *testing.B) {
 	for _, n := range []int{1, 5, 20} {
 		m := map[string]interface{}{}
@@ -369,36 +368,24 @@ func BenchmarkVariant_MapIter(b *testing.B) {
 		}
 		typ := reflect.TypeOf(m)
 		mp := *(*unsafe.Pointer)(unsafe.Pointer(&m))
-		typPtr := (*emptyInterface)(unsafe.Pointer(&typ)).ptr
-		b.Run("Shim/"+strconv.Itoa(n), func(b *testing.B) {
-			var it mapIter
-			var sum int
-			for i := 0; i < b.N; i++ {
-				it = mapIter{}
-				MapIterInit(typPtr, mp, &it)
-				for key := it.Key(); key != nil; key = it.Key() {
-					sum += len(*(*string)(key)) + int(uintptr(it.Elem())&1)
-					MapIterNext(&it)
+		shape := NewMapLayout(typ)
+		byReflect := &MapLayout{collect: newReflectCollector(typ), StringKey: true, keySize: 16, valueSize: 16}
+		for _, variant := range []struct {
+			name   string
+			layout *MapLayout
+		}{{"Shape", shape}, {"Reflect", byReflect}} {
+			layout := variant.layout
+			b.Run(variant.name+"/"+strconv.Itoa(n), func(b *testing.B) {
+				c := &MapContext{}
+				var sum int
+				for i := 0; i < b.N; i++ {
+					layout.Collect(mp, c)
+					for j := 0; j < c.Len; j++ {
+						sum += len(c.Keys[j]) + int(uintptr(c.ValueAt(j))&1)
+					}
 				}
-			}
-			_ = sum
-		})
-		b.Run("Reflect/"+strconv.Itoa(n), func(b *testing.B) {
-			var it reflect.MapIter
-			var key, value interface{}
-			kv := reflect.ValueOf(&key).Elem()
-			vv := reflect.ValueOf(&value).Elem()
-			mv := reflect.ValueOf(m)
-			var sum int
-			for i := 0; i < b.N; i++ {
-				it.Reset(mv)
-				for it.Next() {
-					kv.SetIterKey(&it)
-					vv.SetIterValue(&it)
-					sum += len(*(*string)((*emptyInterface)(unsafe.Pointer(&key)).ptr)) + int(uintptr((*emptyInterface)(unsafe.Pointer(&value)).ptr)&1)
-				}
-			}
-			_ = sum
-		})
+				_ = sum
+			})
+		}
 	}
 }

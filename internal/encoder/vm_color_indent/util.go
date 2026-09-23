@@ -275,8 +275,10 @@ func appendArrayElemIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b 
 	return appendIndent(ctx, b, code.Indent+1)
 }
 
+// appendMapKeyIndent indents an entry of a map, whose opcode is the one of the map or of its key: one deeper
+// than the braces of the map, which appendObjectEnd indents by the same opcode.
 func appendMapKeyIndent(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
-	return appendIndent(ctx, b, code.Indent)
+	return appendIndent(ctx, b, code.Indent+1)
 }
 
 // appendScalar appends the value at p by the opcode of a scalar, with the comma: what the VM does for the opcode.

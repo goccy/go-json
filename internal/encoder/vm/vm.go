@@ -76,19 +76,27 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.End.Next
 				break
 			}
-			mlen := encoder.MapLen(p)
-			if mlen <= 0 {
+			// The entries are read from the map into the context first ( encoder.MapLayout ), and encoded from
+			// there: in the order of the map, or sorted by their keys when they are strings. A sorted map whose
+			// keys are not strings is encoded as it comes and its entries are put in the order of their encoded
+			// keys at OpMapEnd.
+			mapCtx := encoder.NewMapContext(ctx)
+			if code.Map.Collect(p, mapCtx) == 0 {
+				encoder.ReleaseMapContext(ctx, mapCtx)
 				b = appendEmptyObject(ctx, b)
 				code = code.End.Next
 				break
 			}
 			b = appendStructHead(ctx, b)
-			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
-			mapCtx := encoder.NewMapContext(ctx, mlen, unorderedMap)
-			encoder.MapIterInit(code.Type, p, &mapCtx.Iter)
 			store(ctxptr, code.Idx, unsafe.Pointer(mapCtx))
-			if !unorderedMap {
-				mapCtx.First = len(b)
+			if (ctx.Option.Flag & encoder.UnorderedMapOption) == 0 {
+				if code.Flags&encoder.MapStringKeyFlags != 0 {
+					mapCtx.SortKeys()
+					mapCtx.Sorted = true
+				} else {
+					mapCtx.SortByEncodedKeys()
+					mapCtx.First = len(b)
+				}
 			}
 			// the first entry is begun as the others are, by the header: it has the next opcode and the flags
 			// of the key opcode.
@@ -100,57 +108,53 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			// value: that saves the opcodes of the key and of the value for every entry. The key of another
 			// kind is given to its opcode, which OpMapValue follows.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			unorderedMap := (ctx.Option.Flag & encoder.UnorderedMapOption) != 0
+			byEncodedKeys := mapCtx.Slice.Items != nil
 			idx := mapCtx.Idx
-			if !unorderedMap && idx >= 0 {
+			if byEncodedKeys && idx >= 0 {
 				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:len(b)]
 			}
 			idx++
 			if idx == mapCtx.Len {
-				if unorderedMap {
+				if byEncodedKeys {
+					code = code.End
+				} else {
 					b = appendObjectEnd(ctx, code, b)
 					encoder.ReleaseMapContext(ctx, mapCtx)
 					code = code.End.Next
-				} else {
-					code = code.End
 				}
 				break
 			}
 			mapCtx.Idx = idx
-			if unorderedMap {
-				b = appendMapKeyIndent(ctx, code, b)
-			} else {
+			if byEncodedKeys {
 				mapCtx.Start = len(b)
+			} else {
+				b = appendMapKeyIndent(ctx, code, b)
 			}
 			if code.Flags&encoder.MapStringKeyFlags == 0 {
-				store(ctxptr, code.Next.Idx, mapCtx.Iter.Key())
+				store(ctxptr, code.Next.Idx, mapCtx.KeyAt(idx))
 				code = code.Next
 				break
 			}
-			b = encoder.AppendString(ctx, b, *(*string)(mapCtx.Iter.Key()))
-			b = appendComma(ctx, b)
-			if unorderedMap {
-				b = appendColon(ctx, b)
-			} else {
-				mapCtx.Slice.Items[idx].Key = b[mapCtx.Start:len(b)]
-				mapCtx.Start = len(b)
+			if mapCtx.Sorted {
+				idx = int(mapCtx.Order[idx])
 			}
-			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
-			encoder.MapIterNext(&mapCtx.Iter)
+			b = encoder.AppendString(ctx, b, mapCtx.Keys[idx])
+			b = appendComma(ctx, b)
+			b = appendColon(ctx, b)
+			store(ctxptr, code.Next.Idx, mapCtx.ValueAt(idx))
 			code = code.Next
 		case encoder.OpMapValue:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			if (ctx.Option.Flag & encoder.UnorderedMapOption) != 0 {
-				b = appendColon(ctx, b)
-			} else {
+			if mapCtx.Slice.Items != nil {
 				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:len(b)]
 				mapCtx.Start = len(b)
+			} else {
+				b = appendColon(ctx, b)
 			}
-			store(ctxptr, code.Next.Idx, mapCtx.Iter.Elem())
-			encoder.MapIterNext(&mapCtx.Iter)
+			store(ctxptr, code.Next.Idx, mapCtx.ValueAt(mapCtx.Idx))
 			code = code.Next
 		case encoder.OpMapEnd:
-			// this operation only used by sorted map.
+			// the entries of a sorted map whose keys are not strings, in the order of their encoded keys.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			mapCtx.Slice.Sort()
 			buf := mapCtx.Buf

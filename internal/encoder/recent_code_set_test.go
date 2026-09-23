@@ -370,7 +370,7 @@ func TestRecentCodeSetsHoldTwoTypesOfASet(t *testing.T) {
 	}
 	// the two types encoded last are in the set, and the one before them is evicted.
 	for i, typeptr := range typeptrs {
-		recent := ctx.recentCodeSet(typeptr)
+		recent := ctx.RecentCodeSet(typeptr)
 		if i == 0 {
 			if recent != nil {
 				t.Fatalf("the type encoded before the last two is still in the set")
@@ -384,7 +384,7 @@ func TestRecentCodeSetsHoldTwoTypesOfASet(t *testing.T) {
 	// two types encoded by turns stay: neither is compiled or looked up in the shared table again.
 	for i := 0; i < 4; i++ {
 		for _, typeptr := range typeptrs[1:] {
-			if ctx.recentCodeSet(typeptr) == nil {
+			if ctx.RecentCodeSet(typeptr) == nil {
 				t.Fatalf("type %#x was evicted by the other type of its set", typeptr)
 			}
 			if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {

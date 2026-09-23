@@ -14,7 +14,7 @@ import (
 
 // CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new.
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
-	if codeSet := ctx.recentCodeSet(typeptr); codeSet != nil {
+	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
 	key := ctx.codeSetKey(typeptr)
@@ -40,13 +40,13 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 	return typeptr | uintptr(c.Option.Flag&OptimizeFieldOrderOption)/uintptr(OptimizeFieldOrderOption)
 }
 
-// recentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
+// RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
 // may filter the fields, or nil: then CompileToGetCodeSet is to be called.
 //
 // A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
 // This is inlined into the callers: the values of interface{} come through it one by one.
-func (c *RuntimeContext) recentCodeSet(typeptr uintptr) *OpcodeSet {
+func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
 	if c.Option.Flag&ContextOption == 0 {
@@ -224,13 +224,20 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 
 // scalarOpcode returns the opcode if the code is a single opcode of a scalar followed by the end, or nil.
 func scalarOpcode(code *Opcode) *Opcode {
-	switch code.Op {
-	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
-		if code.Next != nil && code.Next.Op == OpEnd {
-			return code
-		}
+	if isScalarOp(code.Op) && code.Next != nil && code.Next.Op == OpEnd {
+		return code
 	}
 	return nil
+}
+
+// isScalarOp is whether the opcode writes a scalar from the address of its value, which appendScalar of the VMs
+// does for such an opcode wherever the value is.
+func isScalarOp(op OpType) bool {
+	switch op {
+	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
+		return true
+	}
+	return false
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {

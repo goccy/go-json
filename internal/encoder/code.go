@@ -350,6 +350,8 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 		valueCodes := c.value.ToOpcode(ctx)
 		ctx.decIndent()
 		valueCodes.First().Flags |= IndirectFlags
+		header.Map.ScalarValue = len(valueCodes) == 1 && isScalarOp(valueCodes.First().Op) &&
+			header.Map.ValueWords >= 0 && header.Map.ValueWords <= MapScalarValueWords
 
 		key := newMapKeyCode(ctx, c.typ.Key(), header)
 		key.Flags |= MapStringKeyFlags

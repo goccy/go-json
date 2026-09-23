@@ -88,16 +88,27 @@ type Slot struct {
 const slotWords = 2
 
 const (
-	recentCodeSetsLength = 16
-	// the index of the recent opcodes of a type is the top bits of the product with an odd constant,
-	// which spreads the addresses of the types, which are close to each other, over the entries.
+	// recentCodeSetSets is the number of the sets of the recent opcodes, of recentCodeSetWays entries each.
+	// The set of a type is the top bits of the product of its address with an odd constant, which spreads
+	// the addresses of the types, which are close to each other, over the sets.
+	recentCodeSetSets      = 16
 	recentCodeSetHashShift = 64 - 4
+	// recentCodeSetWays is the number of the types a set holds: the ones hashed to it which were encoded
+	// last. Two types encoded by turns, such as the type passed to Marshal and the type held by its values
+	// of interface{}, never evict each other then, whatever their addresses are. With one entry per set,
+	// they did whenever their addresses hashed to the same entry, which depends on where the binary has the
+	// types, and every Marshal of them cost two lookups of the table shared by every goroutine: 20% of the
+	// encoding of a small value, present or absent by the build.
+	recentCodeSetWays = 2
 )
 
 type recentCodeSet struct {
 	typeptr uintptr
 	codeSet *OpcodeSet
 }
+
+// recentCodeSetSet is the entries of a set, the one encoded last first.
+type recentCodeSetSet [recentCodeSetWays]recentCodeSet
 
 type RuntimeContext struct {
 	Context    context.Context
@@ -127,8 +138,8 @@ type RuntimeContext struct {
 	// topValue holds the value passed to Marshal when it is stored directly in its interface value: the
 	// interface value is an argument, whose address may change with the stack, so the value is copied here.
 	topValue unsafe.Pointer
-	// recentCodeSets are the opcodes of the types encoded last, indexed by the address of the type.
-	recentCodeSets [recentCodeSetsLength]recentCodeSet
+	// recentCodeSets are the opcodes of the types encoded last, in the sets indexed by the address of the type.
+	recentCodeSets [recentCodeSetSets]recentCodeSetSet
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet

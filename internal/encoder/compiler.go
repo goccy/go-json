@@ -18,16 +18,19 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 		return codeSet, nil
 	}
 	key := ctx.codeSetKey(typeptr)
-	recent := &ctx.recentCodeSets[recentCodeSetIndex(key)]
-	if recent.typeptr == key {
-		return getFilteredCodeSetIfNeeded(ctx, recent.codeSet)
+	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
+	for i := range set {
+		if set[i].typeptr == key {
+			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
+		}
 	}
 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
 		return nil, err
 	}
-	recent.typeptr = key
-	recent.codeSet = codeSet
+	// the type takes the first entry of its set, and the one encoded before it is kept in the second.
+	copy(set[1:], set[:])
+	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
@@ -45,9 +48,14 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 // This is inlined into the callers: the values of interface{} come through it one by one.
 func (c *RuntimeContext) recentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
-	recent := &c.recentCodeSets[recentCodeSetIndex(key)]
-	if recent.typeptr == key && c.Option.Flag&ContextOption == 0 {
-		return recent.codeSet
+	set := &c.recentCodeSets[recentCodeSetIndex(key)]
+	if c.Option.Flag&ContextOption == 0 {
+		if set[0].typeptr == key {
+			return set[0].codeSet
+		}
+		if set[1].typeptr == key {
+			return set[1].codeSet
+		}
 	}
 	return nil
 }

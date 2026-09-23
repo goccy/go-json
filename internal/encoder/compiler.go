@@ -224,13 +224,20 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 
 // scalarOpcode returns the opcode if the code is a single opcode of a scalar followed by the end, or nil.
 func scalarOpcode(code *Opcode) *Opcode {
-	switch code.Op {
-	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
-		if code.Next != nil && code.Next.Op == OpEnd {
-			return code
-		}
+	if isScalarOp(code.Op) && code.Next != nil && code.Next.Op == OpEnd {
+		return code
 	}
 	return nil
+}
+
+// isScalarOp is whether the opcode writes a scalar from the address of its value, which appendScalar of the VMs
+// does for such an opcode wherever the value is.
+func isScalarOp(op OpType) bool {
+	switch op {
+	case OpInt, OpUint, OpFloat32, OpFloat64, OpString, OpBool, OpBytes, OpNumber:
+		return true
+	}
+	return false
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {

@@ -28,13 +28,22 @@ type MapLayout struct {
 	collect func(p unsafe.Pointer, c *MapContext)
 	// StringKey is whether the keys are of a string kind: then they are in MapContext.Keys.
 	StringKey bool
-	// InterfaceValue is whether the keys are of a string kind and the values are of interface{}: the map of a
-	// JSON object as a value of interface{}. The VM writes the entries of such a map which hold a scalar as
-	// it reads the map, when the entries are not sorted ( appendMapScalarEntries ).
+	// A map whose entries are not sorted is written by the VM as it reads the map, when its keys are of a
+	// string kind and the values are written by one opcode of a scalar ( ScalarValue: the map is ranged over
+	// as a map of a value of ValueWords words, appendMapScalarValues ), or when the values are of interface{},
+	// the map of a JSON object as a value of interface{} ( InterfaceValue: the values which hold a scalar are
+	// written, and the others are read into the context, appendMapScalarEntries ).
+	ScalarValue    bool
 	InterfaceValue bool
-	keySize        uintptr
-	valueSize      uintptr
+	// ValueWords is the number of the words of a value when the map is ranged over as a map of the same layout,
+	// or -1 when it is read by reflect.
+	ValueWords int
+	keySize    uintptr
+	valueSize  uintptr
 }
+
+// MapScalarValueWords is the largest ValueWords of a value written by one opcode of a scalar: a slice of bytes.
+const MapScalarValueWords = 3
 
 // mapValueWords is the number of the words of a value up to which a map is ranged over as a map of the same
 // layout: a larger value is stored out of the map by the runtime, which changes the layout.
@@ -51,9 +60,11 @@ func NewMapLayout(typ reflect.Type) *MapLayout {
 	if l.StringKey && words <= mapValueWords && (mapValueIsWords || l.valueSize%8 == 0) {
 		l.collect = stringKeyCollectors[words]
 		l.valueSize = words * 8
+		l.ValueWords = int(words)
 		l.InterfaceValue = typ.Elem().Kind() == reflect.Interface && typ.Elem().NumMethod() == 0
 	} else {
 		l.collect = newReflectCollector(typ)
+		l.ValueWords = -1
 	}
 	return l
 }

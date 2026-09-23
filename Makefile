@@ -60,8 +60,8 @@ bench-compare-encode:
 # bench-profile-encode prints where the CPU time of the encode benchmarks of go-json goes.
 .PHONY: bench-profile-encode
 bench-profile-encode:
-	cd benchmarks && for b in SmallStructCached MediumStructCached LargeStructCached MapInterface; do \
-		go test -run '^$$' -bench "^Benchmark_Encode_$${b}_GoJson$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
+	cd benchmarks && for b in Encode_SmallStructCached_GoJson Encode_MediumStructCached_GoJson Encode_LargeStructCached_GoJson Encode_MapInterface_GoJson TwitterGeneric_GoJson TwitterGeneric_GoJsonLikeSonicFast TwitterParallelBinding_GoJson; do \
+		go test -run '^$$' -bench "^Benchmark_$${b}$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
 		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5 && \
 		echo "--- by line" && go tool pprof -top -lines -nodecount=30 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +6; \
 	done

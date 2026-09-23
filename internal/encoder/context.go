@@ -118,8 +118,10 @@ type RuntimeContext struct {
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
-	// mapContext is the context of the map being encoded, which refers to the ones of the maps it is in.
-	mapContext *MapContext
+	// mapContexts are the contexts of the maps nested in each other, one for each level, and mapDepth is the
+	// number of the maps being encoded.
+	mapContexts []*MapContext
+	mapDepth    int
 	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr.
 	nested bool
 	// topValue holds the value passed to Marshal when it is stored directly in its interface value: the
@@ -196,7 +198,7 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 // releaseValues clears every pointer to the values which were encoded, so that the pool doesn't keep them alive.
 func (c *RuntimeContext) releaseValues() {
 	c.topValue = nil
-	c.mapContext = nil
+	c.mapDepth = 0
 	if c.nested {
 		// what only the frames of an interface value and of a recursive type use.
 		clear(c.SeenPtr[:cap(c.SeenPtr)])

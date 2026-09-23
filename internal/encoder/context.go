@@ -120,13 +120,11 @@ type RuntimeContext struct {
 	Option     *Option
 	// mapContext is the context of the map being encoded, which refers to the ones of the maps it is in.
 	mapContext *MapContext
-	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr and valueSlots.
+	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr.
 	nested bool
-	// topValue and valueSlots hold the values which are stored directly in an interface value:
-	// topValue is for the value passed to Marshal, and a slot per nesting level is for the values
-	// held by the interface values. A slot is never moved.
-	topValue   unsafe.Pointer
-	valueSlots []*unsafe.Pointer
+	// topValue holds the value passed to Marshal when it is stored directly in its interface value: the
+	// interface value is an argument, whose address may change with the stack, so the value is copied here.
+	topValue unsafe.Pointer
 	// recentCodeSets are the opcodes of the types encoded last, indexed by the address of the type.
 	recentCodeSets [recentCodeSetsLength]recentCodeSet
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
@@ -148,24 +146,6 @@ func (c *RuntimeContext) ValueAddr(codeSet *OpcodeSet, dataWord unsafe.Pointer) 
 	}
 	c.topValue = dataWord
 	return unsafe.Pointer(&c.topValue)
-}
-
-// InterfaceValueAddr is ValueAddr for a value held by an interface value at the nesting level.
-//
-// It is never inlined, and the VM doesn't check OpcodeSet.IfaceIndir by itself either,
-// because a branch added to the VM changes the register allocation of the whole VM.
-//
-//go:noinline
-func (c *RuntimeContext) InterfaceValueAddr(codeSet *OpcodeSet, dataWord unsafe.Pointer, level int) unsafe.Pointer {
-	if codeSet.DataWordIsAddr {
-		return dataWord
-	}
-	for len(c.valueSlots) <= level {
-		c.valueSlots = append(c.valueSlots, new(unsafe.Pointer))
-	}
-	slot := c.valueSlots[level]
-	*slot = dataWord
-	return unsafe.Pointer(slot)
 }
 
 func (c *RuntimeContext) Init(p unsafe.Pointer, codelen int) {
@@ -220,9 +200,6 @@ func (c *RuntimeContext) releaseValues() {
 	if c.nested {
 		// what only the frames of an interface value and of a recursive type use.
 		clear(c.SeenPtr[:cap(c.SeenPtr)])
-		for _, slot := range c.valueSlots {
-			*slot = nil
-		}
 		c.nested = false
 	}
 }

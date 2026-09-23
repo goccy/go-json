@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"fmt"
 	"strconv"
 	"unsafe"
 
@@ -48,6 +49,65 @@ var (
 		']':  true,
 	}
 )
+
+// validNumber reports whether num is a valid JSON number literal per RFC 8259,
+// matching encoding/json's isValidNumber.
+//
+// The decoders delimit a number token by greedily consuming floatTable bytes
+// and then rely on strconv.ParseFloat for validation. ParseFloat is more
+// permissive than the JSON grammar: it accepts a leading zero (01, 007, 00.5),
+// a bare trailing dot (1., 1.e5), and a fraction with no integer part after a
+// sign (-.5). encoding/json rejects all of these, so go-json must too to stay
+// a drop-in replacement. This check runs only after ParseFloat has already
+// accepted the token, so it rejects nothing that was previously rejected; it
+// only closes the gap where ParseFloat is looser than JSON.
+func validNumber(num []byte) bool {
+	s := num
+	if len(s) > 0 && s[0] == '-' {
+		s = s[1:]
+	}
+
+	// int = "0" / ( digit1-9 *DIGIT )
+	if len(s) == 0 {
+		return false
+	}
+	switch {
+	case s[0] == '0':
+		s = s[1:]
+	case '1' <= s[0] && s[0] <= '9':
+		s = s[1:]
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	default:
+		return false
+	}
+
+	// frac = "." 1*DIGIT
+	if len(s) >= 2 && s[0] == '.' && '0' <= s[1] && s[1] <= '9' {
+		s = s[2:]
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	}
+
+	// exp = ("e" / "E") ["-" / "+"] 1*DIGIT
+	if len(s) >= 2 && (s[0] == 'e' || s[0] == 'E') {
+		s = s[1:]
+		if s[0] == '+' || s[0] == '-' {
+			s = s[1:]
+		}
+		if len(s) == 0 || s[0] < '0' || s[0] > '9' {
+			return false
+		}
+		s = s[1:]
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	}
+
+	return len(s) == 0
+}
 
 func floatBytes(s *Stream) []byte {
 	start := s.cursor
@@ -131,6 +191,9 @@ func (d *floatDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) er
 	if err != nil {
 		return errors.ErrSyntax(err.Error(), s.totalOffset())
 	}
+	if !validNumber(bytes) {
+		return errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", bytes), s.totalOffset())
+	}
 	d.op(p, f64)
 	return nil
 }
@@ -152,6 +215,9 @@ func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	f64, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, errors.ErrSyntax(err.Error(), cursor)
+	}
+	if !validNumber(bytes) {
+		return 0, errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", bytes), cursor)
 	}
 	d.op(p, f64)
 	return cursor, nil

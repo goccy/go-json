@@ -3,6 +3,7 @@ package decoder
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 	"unsafe"
@@ -247,128 +248,102 @@ LOOP:
 }
 
 func (s *Stream) skipObject(depth int64) error {
-	braceCount := 1
-	_, cursor, p := s.stat()
+	switch s.skipWhiteSpace() {
+	case '}':
+		s.cursor++
+		return nil
+	case ',':
+		s.cursor++
+	case nul:
+		return errors.ErrUnexpectedEndOfJSON("object of object", s.totalOffset())
+	default:
+		return errors.ErrExpected("comma after object element", s.totalOffset())
+	}
 	for {
-		switch char(p, cursor) {
-		case '{':
-			braceCount++
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
-			}
+		if err := s.skipObjectField(depth); err != nil {
+			return err
+		}
+		switch s.skipWhiteSpace() {
 		case '}':
-			braceCount--
-			depth--
-			if braceCount == 0 {
-				s.cursor = cursor + 1
-				return nil
-			}
-		case '[':
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
-			}
-		case ']':
-			depth--
-		case '"':
-			for {
-				cursor++
-				switch char(p, cursor) {
-				case '\\':
-					cursor++
-					if char(p, cursor) == nul {
-						s.cursor = cursor
-						if s.read() {
-							_, cursor, p = s.stat()
-							continue
-						}
-						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					goto SWITCH_OUT
-				case nul:
-					s.cursor = cursor
-					if s.read() {
-						_, cursor, p = s.statForRetry()
-						continue
-					}
-					return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
+			s.cursor++
+			return nil
+		case ',':
+			s.cursor++
+		case nul:
+			return errors.ErrUnexpectedEndOfJSON("object of object", s.totalOffset())
+		default:
+			return errors.ErrInvalidCharacter(s.char(), "object", s.totalOffset())
+		}
+	}
+}
+
+func (s *Stream) skipObjectValue(depth int64) error {
+	if s.skipWhiteSpace() == '}' {
+		s.cursor++
+		return nil
+	}
+	for {
+		if err := s.skipObjectField(depth); err != nil {
+			return err
+		}
+		switch s.skipWhiteSpace() {
+		case '}':
+			s.cursor++
+			return nil
+		case ',':
+			s.cursor++
+			if s.skipWhiteSpace() == nul {
+				return errors.ErrUnexpectedEndOfJSON("object of object", s.totalOffset())
 			}
 		case nul:
-			s.cursor = cursor
-			if s.read() {
-				_, cursor, p = s.stat()
-				continue
-			}
-			return errors.ErrUnexpectedEndOfJSON("object of object", cursor)
+			return errors.ErrUnexpectedEndOfJSON("object of object", s.totalOffset())
+		default:
+			return errors.ErrInvalidCharacter(s.char(), "object", s.totalOffset())
 		}
-	SWITCH_OUT:
-		cursor++
+	}
+}
+
+func (s *Stream) skipObjectField(depth int64) error {
+	switch s.skipWhiteSpace() {
+	case '"':
+		if err := s.skipString("string of object"); err != nil {
+			return err
+		}
+		if s.skipWhiteSpace() != ':' {
+			return errors.ErrExpected("colon after object key", s.totalOffset())
+		}
+		s.cursor++
+		return s.skipValue(depth)
+	case nul:
+		return errors.ErrUnexpectedEndOfJSON("object of object", s.totalOffset())
+	default:
+		return errors.ErrInvalidCharacter(s.char(), "object key", s.totalOffset())
 	}
 }
 
 func (s *Stream) skipArray(depth int64) error {
-	bracketCount := 1
-	_, cursor, p := s.stat()
+	if s.skipWhiteSpace() == ']' {
+		s.cursor++
+		return nil
+	}
 	for {
-		switch char(p, cursor) {
-		case '[':
-			bracketCount++
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
-			}
+		if err := s.skipValue(depth); err != nil {
+			return err
+		}
+		switch s.skipWhiteSpace() {
 		case ']':
-			bracketCount--
-			depth--
-			if bracketCount == 0 {
-				s.cursor = cursor + 1
-				return nil
-			}
-		case '{':
-			depth++
-			if depth > maxDecodeNestingDepth {
-				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
-			}
-		case '}':
-			depth--
-		case '"':
-			for {
-				cursor++
-				switch char(p, cursor) {
-				case '\\':
-					cursor++
-					if char(p, cursor) == nul {
-						s.cursor = cursor
-						if s.read() {
-							_, cursor, p = s.stat()
-							continue
-						}
-						return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					goto SWITCH_OUT
-				case nul:
-					s.cursor = cursor
-					if s.read() {
-						_, cursor, p = s.statForRetry()
-						continue
-					}
-					return errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
+			s.cursor++
+			return nil
+		case ',':
+			s.cursor++
+			if s.skipWhiteSpace() == nul {
+				return errors.ErrUnexpectedEndOfJSON("array of object", s.totalOffset())
 			}
 		case nul:
-			s.cursor = cursor
-			if s.read() {
-				_, cursor, p = s.stat()
-				continue
-			}
-			return errors.ErrUnexpectedEndOfJSON("array of object", cursor)
+			return errors.ErrUnexpectedEndOfJSON("array of object", s.totalOffset())
+		default:
+			return errors.ErrInvalidCharacter(s.char(), "array", s.totalOffset())
 		}
-	SWITCH_OUT:
-		cursor++
 	}
 }
 
@@ -387,52 +362,27 @@ func (s *Stream) skipValue(depth int64) error {
 			}
 			return errors.ErrUnexpectedEndOfJSON("value of object", s.totalOffset())
 		case '{':
+			if depth+1 > maxDecodeNestingDepth {
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
+			}
 			s.cursor = cursor + 1
-			return s.skipObject(depth + 1)
+			return s.skipObjectValue(depth + 1)
 		case '[':
+			if depth+1 > maxDecodeNestingDepth {
+				return errors.ErrExceededMaxDepth(s.char(), s.cursor)
+			}
 			s.cursor = cursor + 1
 			return s.skipArray(depth + 1)
 		case '"':
-			for {
-				cursor++
-				switch char(p, cursor) {
-				case '\\':
-					cursor++
-					if char(p, cursor) == nul {
-						s.cursor = cursor
-						if s.read() {
-							_, cursor, p = s.stat()
-							continue
-						}
-						return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())
-					}
-				case '"':
-					s.cursor = cursor + 1
-					return nil
-				case nul:
-					s.cursor = cursor
-					if s.read() {
-						_, cursor, p = s.statForRetry()
-						continue
-					}
-					return errors.ErrUnexpectedEndOfJSON("value of string", s.totalOffset())
-				}
-			}
+			s.cursor = cursor
+			return s.skipString("value of string")
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			for {
-				cursor++
-				c := char(p, cursor)
-				if floatTable[c] {
-					continue
-				} else if c == nul {
-					if s.read() {
-						_, cursor, p = s.stat()
-						continue
-					}
-				}
-				s.cursor = cursor
-				return nil
+			c, err := s.skipNumber(cursor)
+			if err != nil {
+				return err
 			}
+			s.cursor = c
+			return nil
 		case 't':
 			s.cursor = cursor
 			if err := trueBytes(s); err != nil {
@@ -453,6 +403,58 @@ func (s *Stream) skipValue(depth int64) error {
 			return nil
 		}
 		cursor++
+	}
+}
+
+func (s *Stream) skipString(context string) error {
+	_, cursor, p := s.stat()
+	for {
+		cursor++
+		switch char(p, cursor) {
+		case '\\':
+			cursor++
+			if char(p, cursor) == nul {
+				s.cursor = cursor
+				if s.read() {
+					_, cursor, p = s.stat()
+					continue
+				}
+				return errors.ErrUnexpectedEndOfJSON(context, s.totalOffset())
+			}
+		case '"':
+			s.cursor = cursor + 1
+			return nil
+		case nul:
+			s.cursor = cursor
+			if s.read() {
+				_, cursor, p = s.statForRetry()
+				continue
+			}
+			return errors.ErrUnexpectedEndOfJSON(context, s.totalOffset())
+		}
+	}
+}
+
+func (s *Stream) skipNumber(cursor int64) (int64, error) {
+	start := cursor
+	_, _, p := s.stat()
+	for {
+		cursor++
+		c := char(p, cursor)
+		if floatTable[c] {
+			continue
+		} else if c == nul {
+			s.cursor = start
+			if s.read() {
+				_, cursor, p = s.stat()
+				continue
+			}
+		}
+		num := s.buf[start:cursor]
+		if !validNumber(num) {
+			return 0, errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", num), s.offset+cursor)
+		}
+		return cursor, nil
 	}
 }
 

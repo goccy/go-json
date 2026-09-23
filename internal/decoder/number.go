@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"unsafe"
 
@@ -32,6 +33,9 @@ func (d *numberDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) e
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
 		return errors.ErrSyntax(err.Error(), s.totalOffset())
 	}
+	if !validNumber(bytes) {
+		return errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", bytes), s.totalOffset())
+	}
 	d.op(p, json.Number(string(bytes)))
 	s.reset()
 	return nil
@@ -44,6 +48,9 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	}
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
 		return 0, errors.ErrSyntax(err.Error(), c)
+	}
+	if !validNumber(bytes) {
+		return 0, errors.ErrSyntax(fmt.Sprintf("invalid number literal %q", bytes), c)
 	}
 	cursor = c
 	s := *(*string)(unsafe.Pointer(&bytes))

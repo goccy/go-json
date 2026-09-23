@@ -91,6 +91,18 @@ const (
 	// recentCodeSetSets is the number of the sets of the recent opcodes, of recentCodeSetWays entries each.
 	// The set of a type is the top bits of the product of its address with an odd constant, which spreads
 	// the addresses of the types, which are close to each other, over the sets.
+	//
+	// The shape of the table is by BenchmarkVariant_RecentCodeSets and by the encoding of values whose types
+	// are of the same set, on arm64 and on the amd64 machines of the CI:
+	//   - a lookup which hits costs the same whatever the number of the sets ( 16 to 128 ), and a miss
+	//     costs the lookup of the shared table on top: 4 ns on arm64, 8 ns on amd64;
+	//   - two entries per set cost the same as one when the first entry hits, and a third and a fourth
+	//     entry cost a nanosecond for every value of interface{} on arm64, whether they hit or not;
+	//   - more sets only make it rarer for three types encoded by turns to be of one set: it is the case
+	//     for some three of six types, which a document of map[string]interface{} has, in 8% of the
+	//     binaries with 16 sets and in 2% with 32. That is not worth the memory of every context: 64 sets,
+	//     1 KB, measured +1% on the whole on amd64, and 32 sets measured nothing.
+	// So the table is 256 B: 16 sets of two entries.
 	recentCodeSetSets      = 16
 	recentCodeSetHashShift = 64 - 4
 	// recentCodeSetWays is the number of the types a set holds: the ones hashed to it which were encoded
@@ -98,7 +110,8 @@ const (
 	// of interface{}, never evict each other then, whatever their addresses are. With one entry per set,
 	// they did whenever their addresses hashed to the same entry, which depends on where the binary has the
 	// types, and every Marshal of them cost two lookups of the table shared by every goroutine: 20% of the
-	// encoding of a small value, present or absent by the build.
+	// encoding of a small value, present or absent by the build. Three types of a set encoded by turns still
+	// evict each other, which costs those lookups, not the result.
 	recentCodeSetWays = 2
 )
 

@@ -12,6 +12,8 @@ const (
 	UseNumberOption
 	// DisallowUnknownFieldsOption makes an object key which matches no field of the struct an error.
 	DisallowUnknownFieldsOption
+	// NoCopyStringOption makes the decoded strings refer to the input instead of a copy of their bytes.
+	NoCopyStringOption
 )
 
 type Option struct {

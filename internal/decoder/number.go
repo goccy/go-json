@@ -32,10 +32,13 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
 		return 0, errors.ErrSyntax(err.Error(), c)
 	}
-	cursor = c
-	s := *(*string)(unsafe.Pointer(&bytes))
-	d.op(p, json.Number(s))
-	return cursor, nil
+	rawEnd := c
+	if buf := ctx.Buf; buf[c-1] == '"' {
+		// a number in a string: its bytes end before the quote
+		rawEnd = c - 1
+	}
+	d.op(p, json.Number(ctx.makeString(bytes, rawEnd)))
+	return c, nil
 }
 
 func (d *numberDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

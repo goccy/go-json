@@ -35,16 +35,14 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.
 }
 
 func (d *stringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeByte(ctx.Buf, cursor)
+	s, c, ok, err := d.decodeString(ctx, cursor)
 	if err != nil {
 		return 0, err
 	}
-	if bytes == nil {
-		return c, nil
+	if ok {
+		**(**string)(unsafe.Pointer(&p)) = s
 	}
-	cursor = c
-	**(**string)(unsafe.Pointer(&p)) = *(*string)(unsafe.Pointer(&bytes))
-	return cursor, nil
+	return c, nil
 }
 
 func (d *stringDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
@@ -95,17 +93,67 @@ func unicodeToRune(code []byte) rune {
 
 var runeErrBytes = []byte(string(utf8.RuneError))
 
+// The flags of a string which scanString found.
+const (
+	// stringEscaped is set if the string has an escape: its bytes are not the ones of the value.
+	stringEscaped = 1 << iota
+	// stringNonASCII is set if a byte of the string is not ASCII: the string may be invalid UTF-8.
+	stringNonASCII
+)
+
+// decodeByte returns the bytes of the string at cursor, decoded in place in buf, or nil for null.
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
+	literal, next, flags, err := d.scanString(buf, cursor)
+	if err != nil || literal == nil {
+		return literal, next, err
+	}
+	return decodeLiteral(literal, flags), next, nil
+}
+
+// decodeLiteral decodes the escapes of the literal in place, and replaces its invalid UTF-8.
+func decodeLiteral(literal []byte, flags uint8) []byte {
+	if flags&stringEscaped != 0 {
+		literal = literal[:unescapeTo(unsafe.Pointer(unsafe.SliceData(literal)), literal)]
+	}
+	if flags&stringNonASCII != 0 && !utf8.Valid(literal) {
+		literal = coerceUTF8(literal)
+	}
+	return literal
+}
+
+// decodeString returns the string at cursor as a value to store, and false for null.
+// An escaped string which is copied out of the buffer ( see makeString ) is decoded into its copy directly.
+func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
+	literal, next, flags, err := d.scanString(ctx.Buf, cursor)
+	if err != nil || literal == nil {
+		return "", next, false, err
+	}
+	if flags&stringEscaped != 0 && ctx.copiesStrings() && len(literal) <= maxArenaStringSize {
+		dst := ctx.reserveArena(len(literal))
+		n := unescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal)
+		decoded := dst[:n]
+		if flags&stringNonASCII != 0 && !utf8.Valid(decoded) {
+			return string(coerceUTF8(decoded)), next, true, nil
+		}
+		ctx.arena = ctx.arena[:len(ctx.arena)+n]
+		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
+	}
+	return ctx.makeString(decodeLiteral(literal, flags), next-1), next, true, nil
+}
+
+// scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and
+// its flags, or nil for null.
+func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, uint8, error) {
 	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
 			cursor++
 		case '[':
-			return nil, 0, d.errUnmarshalType("array", cursor)
+			return nil, 0, 0, d.errUnmarshalType("array", cursor)
 		case '{':
-			return nil, 0, d.errUnmarshalType("object", cursor)
+			return nil, 0, 0, d.errUnmarshalType("object", cursor)
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return nil, 0, d.errUnmarshalType("number", cursor)
+			return nil, 0, 0, d.errUnmarshalType("number", cursor)
 		case '"':
 			cursor++
 			start := cursor
@@ -139,33 +187,32 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 						cursor++
 					case 'u':
 						if cursor+5 >= buflen {
-							return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+							return nil, 0, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 						}
 						for i := int64(1); i <= 4; i++ {
 							c := char(b, cursor+i)
 							if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
-								return nil, 0, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
+								return nil, 0, 0, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
 							}
 						}
 						cursor += 5
 					default:
-						return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+						return nil, 0, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 					}
 				case '"':
-					literal := buf[start:cursor]
+					var flags uint8
 					if escaped > 0 {
-						literal = literal[:unescapeString(literal)]
+						flags |= stringEscaped
 					}
-					if high&msb != 0 && !utf8.Valid(literal) {
-						literal = coerceUTF8(literal)
+					if high&msb != 0 {
+						flags |= stringNonASCII
 					}
-					cursor++
-					return literal, cursor, nil
+					return buf[start:cursor], cursor + 1, flags, nil
 				case nul:
-					return nil, 0, errors.ErrUnexpectedEndOfJSON("string", cursor)
+					return nil, 0, 0, errors.ErrUnexpectedEndOfJSON("string", cursor)
 				default:
 					if c < 0x20 {
-						return nil, 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
+						return nil, 0, 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
 					}
 					high |= uint64(c)
 					cursor++
@@ -173,12 +220,12 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			}
 		case 'n':
 			if err := validateNull(buf, cursor); err != nil {
-				return nil, 0, err
+				return nil, 0, 0, err
 			}
 			cursor += 4
-			return nil, cursor, nil
+			return nil, cursor, 0, nil
 		default:
-			return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+			return nil, 0, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 		}
 	}
 }
@@ -198,11 +245,17 @@ func unsafeAdd(ptr unsafe.Pointer, offset int) unsafe.Pointer {
 	return unsafe.Add(ptr, offset)
 }
 
-func unescapeString(buf []byte) int {
+// unescapeTo decodes the escapes of the bytes of an escaped string into out, which may be the bytes themselves,
+// and returns the length of the result, which is at most the length of the bytes.
+func unescapeTo(out unsafe.Pointer, buf []byte) int {
 	p := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	end := unsafeAdd(p, len(buf))
-	src := unsafeAdd(p, bytes.IndexByte(buf, '\\'))
-	dst := src
+	first := bytes.IndexByte(buf, '\\')
+	if out != p {
+		copy(unsafe.Slice((*byte)(out), first), buf[:first])
+	}
+	src := unsafeAdd(p, first)
+	dst := unsafeAdd(out, first)
 	for src != end {
 		c := char(src, 0)
 		if c == '\\' {
@@ -254,7 +307,7 @@ func unescapeString(buf []byte) int {
 			dst = unsafeAdd(dst, 1)
 		}
 	}
-	return int(uintptr(dst) - uintptr(p))
+	return int(uintptr(dst) - uintptr(out))
 }
 
 // coerceUTF8 returns a copy of the literal in which every byte of an invalid UTF-8 sequence

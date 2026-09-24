@@ -57,6 +57,32 @@ func Benchmark_Decode_TwitterBinding_Unmarshal_GoJson(b *testing.B) {
 	benchDecode[TwitterStruct](b, []byte(TwitterJson), gojson.Unmarshal)
 }
 
+func Benchmark_Decode_TwitterBinding_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
+	data := []byte(TwitterJson)
+	b.SetBytes(int64(len(data)))
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var v TwitterStruct
+		if err := gojson.UnmarshalOf(data, &v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// GoJsonLikeSonic is go-json with the option which does what sonic does by default:
+// the strings refer to the input instead of copies.
+func Benchmark_Decode_TwitterBinding_Unmarshal_GoJsonLikeSonic(b *testing.B) {
+	benchDecode[TwitterStruct](b, []byte(TwitterJson), func(data []byte, v any) error {
+		return gojson.UnmarshalWithOption(data, v, gojson.DecodeNoCopyString())
+	})
+}
+
+func Benchmark_Decode_TwitterGeneric_Unmarshal_GoJsonLikeSonic(b *testing.B) {
+	benchDecode[any](b, []byte(TwitterJson), func(data []byte, v any) error {
+		return gojson.UnmarshalWithOption(data, v, gojson.DecodeNoCopyString())
+	})
+}
+
 func Benchmark_Decode_TwitterBinding_Unmarshal_Sonic(b *testing.B) {
 	benchDecode[TwitterStruct](b, []byte(TwitterJson), sonic.ConfigDefault.Unmarshal)
 }

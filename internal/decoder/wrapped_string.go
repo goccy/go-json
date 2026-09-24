@@ -37,12 +37,14 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		}
 		return c, nil
 	}
-	oldBuf := ctx.Buf
-	ctx.Buf = NewInput(bytes)
-	if _, err := d.dec.Decode(ctx, 0, depth, p); err != nil {
+	// The value is decoded from a copy of its bytes, which nothing else uses: its strings may refer to it.
+	oldBuf, oldOrigin := ctx.Buf, ctx.origin
+	ctx.Buf, ctx.origin = NewInput(bytes), nil
+	_, err = d.dec.Decode(ctx, 0, depth, p)
+	ctx.Buf, ctx.origin = oldBuf, oldOrigin
+	if err != nil {
 		return 0, err
 	}
-	ctx.Buf = oldBuf
 	return c, nil
 }
 

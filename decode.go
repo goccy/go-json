@@ -25,8 +25,6 @@ type emptyInterface struct {
 }
 
 func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
@@ -38,7 +36,7 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
-	ctx.Buf = src
+	src := ctx.SetInput(data)
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
@@ -53,8 +51,6 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
@@ -66,7 +62,7 @@ func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...Decod
 		decoder.ReleaseRuntimeContext(rctx)
 		return err
 	}
-	rctx.Buf = src
+	src := rctx.SetInput(data)
 	rctx.Option.Flags = 0
 	rctx.Option.Flags |= decoder.ContextOption
 	rctx.Option.Context = ctx
@@ -112,34 +108,6 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	return paths, nil
 }
 
-func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
-	header := (*emptyInterface)(unsafe.Pointer(&v))
-
-	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
-		return err
-	}
-	ctx := decoder.TakeRuntimeContext()
-	dec, err := ctx.DecoderOf(header.typ)
-	if err != nil {
-		decoder.ReleaseRuntimeContext(ctx)
-		return err
-	}
-	ctx.Buf = src
-	ctx.Option.Flags = 0
-	for _, optFunc := range optFuncs {
-		optFunc(ctx.Option)
-	}
-	cursor, err := dec.Decode(ctx, 0, 0, noescape(header.ptr))
-	if err != nil {
-		decoder.ReleaseRuntimeContext(ctx)
-		return err
-	}
-	decoder.ReleaseRuntimeContext(ctx)
-	return validateEndBuf(src, cursor)
-}
-
 func validateEndBuf(src []byte, cursor int64) error {
 	for {
 		switch src[cursor] {
@@ -154,13 +122,6 @@ func validateEndBuf(src []byte, cursor int64) error {
 			cursor+1,
 		)
 	}
-}
-
-//nolint:staticcheck
-//go:nosplit
-func noescape(p unsafe.Pointer) unsafe.Pointer {
-	x := uintptr(p)
-	return unsafe.Pointer(x ^ 0)
 }
 
 // validateType validates that the value is not nil.

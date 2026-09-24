@@ -254,11 +254,11 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
 		return c, nil
 	case '"':
-		s, c, err := d.stringDecoder.decodeByte(buf, cursor)
+		s, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return 0, err
 		}
-		**(**any)(unsafe.Pointer(&p)) = ctx.boxString(*(*string)(unsafe.Pointer(&s)))
+		**(**any)(unsafe.Pointer(&p)) = ctx.boxString(s)
 		return c, nil
 	case 't':
 		if err := validateTrue(buf, cursor); err != nil {
@@ -295,11 +295,11 @@ func decodeStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, m map[string]a
 		return cursor + 1, nil
 	}
 	for {
-		key, c, err := d.stringDecoder.decodeByte(buf, cursor)
+		key, c, ok, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return 0, err
 		}
-		if key == nil {
+		if !ok {
 			// null is not a key
 			return 0, errors.ErrSyntax("invalid character 'n' looking for beginning of object key string", skipWhiteSpace(buf, cursor)+1)
 		}
@@ -313,7 +313,7 @@ func decodeStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, m map[string]a
 			ctx.slot = nil
 			return 0, err
 		}
-		m[*(*string)(unsafe.Pointer(&key))] = ctx.slot
+		m[key] = ctx.slot
 		ctx.slot = nil
 		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {

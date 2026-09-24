@@ -413,6 +413,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	if firstWin {
 		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
 	}
+	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
 	for {
 		keyStart := cursor
 		c, field, err := d.keyDecoder(d, buf, cursor)
@@ -457,7 +458,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 				}
 				cursor = c
 			}
-		} else if (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0 {
+		} else if disallowUnknownFields {
 			key, _, err := d.stringDecoder.decodeByte(buf, skipWhiteSpace(buf, keyStart))
 			if err != nil {
 				return 0, err

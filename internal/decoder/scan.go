@@ -15,6 +15,8 @@ const (
 
 	// scanBlockSize is the number of the bytes the masks of a scan cover.
 	scanBlockSize = 64
+	// shortScanLength is the number of the bytes a scan looks at one by one before it works by blocks.
+	shortScanLength = 16
 )
 
 // NewInput returns the buffer which the decoders decode: a copy of the input followed by a nul byte,
@@ -61,36 +63,6 @@ func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
 	m.quote, m.backslash, m.open, m.closing = quote, backslash, open, closing
 }
 
-// scanBlockEnd computes the masks of the n bytes at p, the last of a buffer which has no room for
-// a whole block after them: by words while a word is readable, then byte by byte.
-func scanBlockEnd(p unsafe.Pointer, n int64, m *scanMasks) {
-	var quote, backslash, open, closing uint64
-	var i int64
-	for ; i+8 <= n; i += 8 {
-		w := *(*uint64)(unsafe.Add(p, i))
-		folded := w &^ bit5
-		shift := uint(i)
-		quote |= gatherMask(byteMask(w, '"')) << shift
-		backslash |= gatherMask(byteMask(w, '\\')) << shift
-		open |= gatherMask(byteMask(folded, '[')) << shift
-		closing |= gatherMask(byteMask(folded, ']')) << shift
-	}
-	for ; i < n; i++ {
-		bit := uint64(1) << uint(i)
-		switch *(*byte)(unsafe.Add(p, i)) {
-		case '"':
-			quote |= bit
-		case '\\':
-			backslash |= bit
-		case '{', '[':
-			open |= bit
-		case '}', ']':
-			closing |= bit
-		}
-	}
-	m.quote, m.backslash, m.open, m.closing = quote, backslash, open, closing
-}
-
 // gatherMask turns a mask of 0x80 bytes into the byte whose bit i is the byte i of the mask.
 func gatherMask(m uint64) uint64 {
 	return ((m >> 7) * 0x0102040810204080) >> 56
@@ -119,6 +91,12 @@ type compoundScanner struct {
 // A whole block is read at once where the capacity of the buffer has room for it.
 func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error) {
 	const evenBits = 0x5555555555555555
+	// A short value ends within a few bytes, which are looked at one by one: that costs less
+	// than the masks of a whole block.
+	pos, found, err := sc.scanBytes(buf, pos, min(pos+shortScanLength, lim))
+	if found || err != nil {
+		return pos, found, err
+	}
 	depth := sc.depth
 	var inString, prevEscaped uint64
 	if sc.inString {
@@ -130,19 +108,20 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 	base := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	readable := int64(cap(buf))
 	for pos < lim {
+		if pos+scanBlockSize > readable {
+			// The buffer has no room for a block: its last bytes are looked at one by one.
+			sc.depth, sc.inString, sc.escaped = depth, inString != 0, prevEscaped != 0
+			return sc.scanBytes(buf, pos, lim)
+		}
 		var m scanMasks
+		scanBlock(unsafe.Add(base, pos), &m)
 		n := lim - pos
-		if pos+scanBlockSize <= readable {
-			scanBlock(unsafe.Add(base, pos), &m)
-			if n < scanBlockSize {
-				valid := uint64(1)<<uint(n) - 1
-				m.quote &= valid
-				m.backslash &= valid
-				m.open &= valid
-				m.closing &= valid
-			}
-		} else {
-			scanBlockEnd(unsafe.Add(base, pos), min(n, scanBlockSize), &m)
+		if n < scanBlockSize {
+			valid := uint64(1)<<uint(n) - 1
+			m.quote &= valid
+			m.backslash &= valid
+			m.open &= valid
+			m.closing &= valid
 		}
 		// escaped has the bytes which follow an odd number of backslashes. A backslash which is
 		// itself escaped doesn't escape; a run of backslashes may go on in the next block ( the carry ).
@@ -201,12 +180,63 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 	return lim, false, nil
 }
 
+// scanBytes scans buf[pos:end] one byte at a time, as scan does by blocks.
+// A byte after a backslash is neither a quote nor a bracket, wherever it is.
+func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, error) {
+	depth, inString, escaped := sc.depth, sc.inString, sc.escaped
+	for pos < end {
+		c := buf[pos]
+		pos++
+		if escaped {
+			escaped = false
+			continue
+		}
+		if inString {
+			if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '\\':
+			escaped = true
+		case '{', '[':
+			depth++
+			if depth > sc.maxDepth {
+				return 0, false, errors.ErrExceededMaxDepth(c, pos-1)
+			}
+		case '}', ']':
+			depth--
+			if depth == 0 {
+				return pos, true, nil
+			}
+		}
+	}
+	sc.depth, sc.inString, sc.escaped = depth, inString, escaped
+	return pos, false, nil
+}
+
 // skipCompound returns the position after the end of the object or the array which is open at cursor:
 // depth brackets are open, nesting is how deep the value is nested in the input.
 // The buffer ends with a nul byte, which no value may reach.
 func skipCompound(buf []byte, cursor, depth, nesting int64) (int64, error) {
 	sc := compoundScanner{depth: depth, maxDepth: maxDecodeNestingDepth - nesting}
-	end, found, err := sc.scan(buf, cursor, int64(len(buf)))
+	lim := int64(len(buf))
+	var (
+		end   int64
+		found bool
+		err   error
+	)
+	if lim-cursor <= shortScanLength {
+		// a short buffer: byte by byte, without the calls of the scan by blocks
+		end, found, err = sc.scanBytes(buf, cursor, lim)
+	} else {
+		end, found, err = sc.scan(buf, cursor, lim)
+	}
 	if err != nil {
 		return 0, err
 	}

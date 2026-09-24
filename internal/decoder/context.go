@@ -298,7 +298,13 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			}
 			return end, nil
 		case '"':
-			// by the words of the string, as a string is decoded: a string which is skipped is validated too.
+			// A short string which ends in the word after its quote, with nothing to validate, is skipped
+			// by that word; any other is scanned as a string is decoded, and validated so.
+			if start := cursor + 1; start+8 <= int64(cap(buf)) {
+				if n := keyLengthInWord(load64(buf, start)); n < 8 && buf[start+int64(n)] == '"' {
+					return start + int64(n) + 1, nil
+				}
+			}
 			_, next, _, err := skipStringDecoder.scanString(buf, cursor)
 			if err != nil {
 				return 0, err

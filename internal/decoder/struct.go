@@ -96,11 +96,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		if err != nil {
 			return 0, err
 		}
-		cursor = skipWhiteSpace(buf, c)
-		if char(b, cursor) != ':' {
-			return 0, errors.ErrExpected("colon after object key", cursor)
-		}
-		cursor++
+		cursor = c
 		if cursor >= buflen {
 			return 0, errors.ErrExpected("object value after colon", cursor)
 		}
@@ -157,10 +153,10 @@ func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([]
 	return nil, 0, fmt.Errorf("json: struct decoder does not support decode path")
 }
 
-// decodeKey reads the key of an object at cursor, and returns its field or nil, and the position after it.
-// A key which matches no field is an error if disallowUnknownFields is set. It is a function of its own, so that
-// the loop of Decode keeps its values in the registers, and the key is not returned, which would take registers
-// of the loop too.
+// decodeKey reads the key of an object at cursor and the colon after it, and returns the field of the key or nil,
+// and the position after the colon. A key which matches no field is an error if disallowUnknownFields is set.
+// It is a function of its own, so that the loop of Decode keeps its values in the registers, and the key is not
+// returned, which would take registers of the loop too.
 func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] != '"' {
@@ -170,40 +166,52 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 	// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
 	// and a key near the end of a buffer which has no room after it, is scanned as a string.
 	if start := cursor + 1; start+16 <= int64(cap(buf)) {
+		keys := d.keys
 		w0 := load64(buf, start)
-		n := keyLengthInWord(w0)
-		var w1 uint64
-		if n == 8 {
-			w1 = load64(buf, start+8)
-			n = 8 + keyLengthInWord(w1)
-		}
-		if n < 16 && buf[start+int64(n)] == '"' {
-			next := start + int64(n) + 1
-			keys := d.keys
+		if special := specialKeyBytes(w0); special != 0 {
+			// A key of less than 8 bytes, which is most keys. The first entry of the table for it is looked at
+			// here: most keys are found in it. Its index is made from the bytes of the key before their fold, and
+			// so is computed while they are folded, and the mask of the bytes from the bits of the special byte.
+			n := bits.TrailingZeros64(special) / 8
+			if buf[start+int64(n)] != '"' {
+				return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+			}
+			m := (special ^ (special - 1)) >> 8
+			w0 &= m
+			fw := foldASCIIWord(w0)
+			e := &keys.entries[keys.index(w0|bit5&m, 0)]
 			var field *structFieldSet
-			if n < 8 {
-				// the words of the key, as keyWords makes them. The first entry of the folded key is looked at
-				// here: most keys are found in it. A key of less than 8 bytes has the second word 0, and so has
-				// an entry of its length.
-				w0 &= 1<<(uint(n)*8&63) - 1
-				fw := foldASCIIWord(w0)
-				e := &keys.entries[keys.index(fw, 0, n)]
-				if e.n == n && e.w0 == fw && e.unique != nil {
-					return e.unique, next, nil
-				}
-				if e.fields != nil && keys.hasLength(n) {
-					field = keys.findASCII(buf[start:start+int64(n)], w0, 0)
-				}
-			} else if keys.hasLength(n) {
+			if e.n == n && e.w0 == fw && e.unique != nil {
+				field = e.unique
+			} else if e.fields != nil && keys.hasLength(n) {
+				field = keys.findASCII(buf[start:start+int64(n)], w0, 0)
+			}
+			if field == nil && disallowUnknownFields {
+				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
+			}
+			c, err := colonAfterKey(buf, start+int64(n)+1)
+			return field, c, err
+		}
+		w1 := load64(buf, start+8)
+		n := 8 + keyLengthInWord(w1)
+		if n < 16 && buf[start+int64(n)] == '"' {
+			var field *structFieldSet
+			if keys.hasLength(n) {
 				w1 = load64(buf, start+int64(n)-8)
 				field = keys.findASCII(buf[start:start+int64(n)], w0, w1)
 			}
 			if field == nil && disallowUnknownFields {
 				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
 			}
-			return field, next, nil
+			c, err := colonAfterKey(buf, start+int64(n)+1)
+			return field, c, err
 		}
 	}
+	return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+}
+
+// decodeKeyByScan is decodeKey for any key, which it scans as a string.
+func (d *structDecoder) decodeKeyByScan(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
 	rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
 	if err != nil {
 		return nil, 0, err
@@ -212,7 +220,20 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 	if field == nil && disallowUnknownFields {
 		return nil, 0, unknownFieldError(key)
 	}
-	return field, next, nil
+	c, err := colonAfterKey(buf, next)
+	return field, c, err
+}
+
+// colonAfterKey returns the position after the colon which follows a key: at cursor, or after white space.
+func colonAfterKey(buf []byte, cursor int64) (int64, error) {
+	if buf[cursor] == ':' {
+		return cursor + 1, nil
+	}
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] != ':' {
+		return 0, errors.ErrExpected("colon after object key", cursor)
+	}
+	return cursor + 1, nil
 }
 
 func unknownFieldError(key []byte) error {
@@ -222,12 +243,17 @@ func unknownFieldError(key []byte) error {
 // keyLengthInWord returns the position in the word of the first byte which ends a simple key: a quote,
 // a backslash, a control character or a byte which is not ASCII, or 8 if the word has none.
 func keyLengthInWord(w uint64) int {
+	return bits.TrailingZeros64(specialKeyBytes(w)) / 8
+}
+
+// specialKeyBytes returns the word which has the top bit of the first byte of w which ends a simple key, and
+// maybe the top bits of bytes after it: a quote, a backslash, a control character or a byte which is not ASCII.
+func specialKeyBytes(w uint64) uint64 {
 	// Only the first such byte is looked for, so the masks may be wrong in the bytes after it, which saves
 	// instructions: a subtraction borrows from the next byte only at a byte which is found.
 	// A byte of a quote or a backslash is 0 in q or s, whose subtraction sets its top bit; the one of a control
 	// character sets the top bit of the subtraction of 0x20, and the one of a byte which is not ASCII is set.
 	q := w ^ ('"' * lsb)
 	s := w ^ ('\\' * lsb)
-	special := ((q - lsb) &^ q) | ((s - lsb) &^ s) | (w - 0x20*lsb) | w
-	return bits.TrailingZeros64(special&msb) / 8
+	return (((q - lsb) &^ q) | ((s - lsb) &^ s) | (w - 0x20*lsb) | w) & msb
 }

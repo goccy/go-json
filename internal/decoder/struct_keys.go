@@ -82,11 +82,21 @@ func keyWords(key []byte) (uint64, uint64) {
 	return w, 0
 }
 
-// index returns the first entry to look at for a folded key. The length is in the top byte, which is zero
-// in the first word of a key shorter than 8 bytes; the product spreads the keys, which differ in a few bits.
-func (k *structKeys) index(w0, w1 uint64, n int) int {
-	h := (w0 ^ bits.RotateLeft64(w1, 29) ^ uint64(n)<<56) * 0x9E3779B97F4A7C15
+// index returns the first entry to look at for a key whose words are w0 and w1, with the bit 5 of their bytes
+// set by hashWords: a letter of either case has the same index, so the index of a key is made from its bytes
+// before they are folded. The product spreads the keys, which differ in a few bits.
+func (k *structKeys) index(w0, w1 uint64) int {
+	h := (w0 ^ bits.RotateLeft64(w1, 29)) * 0x9E3779B97F4A7C15
 	return int(h >> k.shift)
+}
+
+// hashWords returns the words of a key of n bytes, or of its folded key, which index takes: the bit 5 of their
+// bytes set, which folding a letter doesn't change, and the bytes after the key zero.
+func hashWords(w0, w1 uint64, n int) (uint64, uint64) {
+	if n < 8 {
+		return (w0 | bit5) & (1<<(uint(n)*8&63) - 1), 0
+	}
+	return w0 | bit5, w1 | bit5
 }
 
 func (k *structKeys) insert(folded string, field *structFieldSet) {
@@ -94,7 +104,7 @@ func (k *structKeys) insert(folded string, field *structFieldSet) {
 	copy(b, folded)
 	w0, w1 := keyWords(b)
 	mask := len(k.entries) - 1
-	for i := k.index(w0, w1, len(folded)); ; i = (i + 1) & mask {
+	for i := k.index(hashWords(w0, w1, len(folded))); ; i = (i + 1) & mask {
 		if k.entries[i].fields == nil {
 			k.entries[i] = keyEntry{w0: w0, w1: w1, n: len(folded), folded: folded, unique: field, fields: []*structFieldSet{field}}
 			k.lengths |= 1 << uint(min(len(folded), 63))
@@ -108,7 +118,7 @@ func (k *structKeys) find(folded []byte) *keyEntry {
 	w0, w1 := keyWords(folded)
 	n := len(folded)
 	mask := len(k.entries) - 1
-	for i := k.index(w0, w1, n); ; i = (i + 1) & mask {
+	for i := k.index(hashWords(w0, w1, n)); ; i = (i + 1) & mask {
 		e := &k.entries[i]
 		if e.fields == nil {
 			return nil
@@ -136,9 +146,10 @@ func (e *keyEntry) field(key []byte) *structFieldSet {
 // findASCII returns the field of a key of ASCII without an escape, whose words are w0 and w1, or nil.
 func (k *structKeys) findASCII(key []byte, w0, w1 uint64) *structFieldSet {
 	n := len(key)
+	start := k.index(hashWords(w0, w1, n))
 	w0, w1 = foldASCIIWord(w0), foldASCIIWord(w1)
 	mask := len(k.entries) - 1
-	for i := k.index(w0, w1, n); ; i = (i + 1) & mask {
+	for i := start; ; i = (i + 1) & mask {
 		e := &k.entries[i]
 		if e.fields == nil {
 			return nil

@@ -216,6 +216,33 @@ func (k *structKeys) mayFold(key []byte) bool {
 	return true
 }
 
+// firstRuneMayFold reports whether the first rune of the key which is not ASCII may fold to a rune of a key, if
+// that rune begins in the first word of the key, w0, and else true: it tells mayFold for most keys, without a
+// call. The low byte of the rune is taken from its bytes as mayFold does, and a key which may not be valid
+// UTF-8 is left to mayFold.
+func (k *structKeys) firstRuneMayFold(key []byte, w0 uint64) bool {
+	high := w0 & msb
+	if high == 0 || k.hasRuneError {
+		return true
+	}
+	i := bits.TrailingZeros64(high) / 8
+	c := key[i]
+	size := 2
+	switch {
+	case c < 0xc0:
+		return true
+	case c >= 0xf0:
+		size = 4
+	case c >= 0xe0:
+		size = 3
+	}
+	if i+size > len(key) {
+		return true
+	}
+	low := key[i+size-2]&3<<6 | key[i+size-1]&0x3f
+	return k.foldRunes[low>>6]&(1<<(low&63)) != 0
+}
+
 // mayFoldDecoded is mayFold by the decoded runes.
 func (k *structKeys) mayFoldDecoded(key []byte) bool {
 	for i := 0; i < len(key); {

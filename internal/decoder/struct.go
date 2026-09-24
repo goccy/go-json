@@ -264,20 +264,30 @@ func (d *structDecoder) decodeKeyNotASCII(buf []byte, cursor int64, disallowUnkn
 	key := buf[start:end]
 	n := len(key)
 	keys := d.keys
+	// the words of the key, as keyWords makes them, read from the buffer
+	w0 := load64(buf, start)
+	var w1 uint64
+	if n < 8 {
+		w0 &= 1<<(uint(n)*8&63) - 1
+	} else {
+		w1 = load64(buf, end-8)
+	}
 	var field *structFieldSet
 	if keys.hasExactLength(n) {
-		// the words of the key, as keyWords makes them, read from the buffer
-		w0 := load64(buf, start)
-		var w1 uint64
-		if n < 8 {
-			w0 &= 1<<(uint(n)*8&63) - 1
-		} else {
-			w1 = load64(buf, end-8)
+		// the first entry of the key is looked at here: most keys are found in it.
+		h0, h1 := hashWords(w0, w1, n)
+		e := &keys.exact[indexOf(h0, h1, keys.exactShift)]
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && e.unique != nil && (n <= 16 || equalMiddleWords(key, e.folded)) {
+			return e.unique, end + 1, nil
 		}
-		field = keys.findExact(key, w0, w1)
+		if e.unique != nil {
+			field = keys.findExact(key, w0, w1)
+		}
 	}
 	if field == nil {
-		if keys.mayFold(key) {
+		// Most keys which are not the key of a field are told so by their first rune which is not ASCII, which
+		// folds to no rune of a key ( see mayFold ); the others are looked at rune by rune.
+		if keys.firstRuneMayFold(key, w0) && keys.mayFold(key) {
 			field, key = keys.lookup(key, stringInfo{firstEscape: -1, nonASCII: true})
 		} else if disallowUnknownFields {
 			key = decodeLiteral(key, stringInfo{firstEscape: -1, nonASCII: true})

@@ -163,6 +163,7 @@ var comparedLibraries = map[string]struct{}{
 	"Sonic":         {},
 	"SonicFastest":  {},
 	"SonicStd":      {},
+	"StdLib":        {},
 }
 
 // isComparedLibraryBenchmark reports whether the benchmark function measures a library other than go-json.

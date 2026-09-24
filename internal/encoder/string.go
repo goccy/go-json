@@ -25,6 +25,7 @@
 package encoder
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"unsafe"
 
@@ -290,8 +291,8 @@ ESCAPE_END:
 		c := s[j]
 
 		if !needEscapeHTMLNormalizeUTF8[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
+			// the bytes up to the next one which may need an escape are skipped by words
+			j = skipNormalizedHTML(s, j+1)
 			continue
 		}
 
@@ -415,8 +416,8 @@ ESCAPE_END:
 		c := s[j]
 
 		if !needEscapeHTML[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
+			// the bytes up to the next one which may need an escape are skipped by words
+			j = skipHTML(s, j+1)
 			continue
 		}
 
@@ -509,8 +510,8 @@ ESCAPE_END:
 		c := s[j]
 
 		if !needEscapeNormalizeUTF8[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
+			// the bytes up to the next one which may need an escape are skipped by words
+			j = skipNormalized(s, j+1)
 			continue
 		}
 
@@ -624,8 +625,8 @@ ESCAPE_END:
 		c := s[j]
 
 		if !needEscape[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
+			// the bytes up to the next one which may need an escape are skipped by words
+			j = skipPlain(s, j+1)
 			continue
 		}
 
@@ -671,4 +672,52 @@ ESCAPE_END:
 	}
 
 	return append(append(buf, s[i:]...), '"')
+}
+
+// The functions below return the position of the first byte from j which may need an escape, or of a byte of the
+// last seven bytes of the string, which are left to the byte by byte loop: the bytes before it are skipped a word
+// at a time. After the first escape of a string, most of its bytes are still plain: a text or a source code has an
+// escape every few dozen bytes, which a loop over its bytes one by one spends most of the time of the encoding in.
+// The masks are the ones of the options ( see stringEscapes ): the loose ones, which have the bytes which are not
+// ASCII, if UTF-8 is normalized, and else the exact ones, so that a text which is not ASCII is skipped too.
+
+func skipNormalizedHTML(s string, j int) int {
+	for ; j+8 <= len(s); j += 8 {
+		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
+		if m := (looseCommonMask(w) | ((w ^ (lsb * '<')) - lsb) | ((w ^ (lsb * '>')) - lsb) | ((w ^ (lsb * '&')) - lsb)) & msb; m != 0 {
+			return j + bits.TrailingZeros64(m)/8
+		}
+	}
+	return j
+}
+
+func skipHTML(s string, j int) int {
+	for ; j+8 <= len(s); j += 8 {
+		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
+		lt, gt, amp := w^(lsb*'<'), w^(lsb*'>'), w^(lsb*'&')
+		if m := (exactCommonMask(w) | ((lt - lsb) &^ lt) | ((gt - lsb) &^ gt) | ((amp - lsb) &^ amp)) & msb; m != 0 {
+			return j + bits.TrailingZeros64(m)/8
+		}
+	}
+	return j
+}
+
+func skipNormalized(s string, j int) int {
+	for ; j+8 <= len(s); j += 8 {
+		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
+		if m := looseCommonMask(w) & msb; m != 0 {
+			return j + bits.TrailingZeros64(m)/8
+		}
+	}
+	return j
+}
+
+func skipPlain(s string, j int) int {
+	for ; j+8 <= len(s); j += 8 {
+		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
+		if m := exactCommonMask(w) & msb; m != 0 {
+			return j + bits.TrailingZeros64(m)/8
+		}
+	}
+	return j
 }

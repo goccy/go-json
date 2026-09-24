@@ -166,9 +166,11 @@ func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([]
 // the loop of Decode keeps its values in the registers, and the key is not returned, which would take registers
 // of the loop too.
 func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
-	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] != '"' {
-		return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] != '"' {
+			return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+		}
 	}
 	// A key of ASCII without an escape is found by the words of the buffer, which may be read up to its capacity:
 	// the nul byte at its end stops a key before it. Any other key, and a key near the end of a buffer which has
@@ -190,7 +192,7 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 			fw := foldASCIIWord(w0)
 			e := &keys.entries[keys.index(w0|bit5&m, 0)]
 			var field *structFieldSet
-			if e.n == n && e.w0 == fw && e.unique != nil {
+			if e.short == fw {
 				field = e.unique
 			} else if e.fields != nil && keys.hasLength(n) {
 				field = keys.findASCII(buf[start:start+int64(n)], w0, 0)

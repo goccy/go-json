@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math/bits"
 	"unicode"
@@ -25,6 +26,10 @@ type structKeys struct {
 }
 
 type keyEntry struct {
+	// short is the word of the folded key if it is of less than 8 bytes, none of which is nul, and its field
+	// is the only one: a short key of ASCII whose folded word is the same is of that field, whatever its case.
+	// It is noShortKey for any other entry, which no such word is.
+	short uint64
 	// w0 and w1 are the words of the folded key, and n its length.
 	w0, w1 uint64
 	n      int
@@ -61,8 +66,19 @@ func newStructKeys(fields []*structFieldSet) *structKeys {
 		}
 		k.insert(folded, field)
 	}
+	for i := range k.entries {
+		e := &k.entries[i]
+		e.short = noShortKey
+		if e.unique != nil && e.n < 8 && !bytes.Contains(e.folded, []byte{0}) {
+			e.short = e.w0
+		}
+	}
 	return k
 }
+
+// noShortKey is the short word of an entry which a short key is not found by: a word of ASCII has no byte of
+// 0x80 or more.
+const noShortKey = ^uint64(0)
 
 // keyWords returns the words of a key: its first eight bytes and its last eight bytes, as little-endian
 // numbers, which are zero where the key is shorter. The capacity of the key is read past its length when it

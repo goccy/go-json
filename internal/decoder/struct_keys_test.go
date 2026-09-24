@@ -54,3 +54,28 @@ func TestKeyLengthInWord(t *testing.T) {
 		check()
 	}
 }
+
+func TestStructKeysShortWithNul(t *testing.T) {
+	// A key of a field with a nul byte is not found by a shorter key whose word is the same.
+	d := newStructDecoder("", "")
+	withNul := &structFieldSet{key: "a\x00"}
+	plain := &structFieldSet{key: "b"}
+	d.setFields([]*structFieldSet{withNul, plain})
+	for _, tc := range []struct {
+		in   string
+		want *structFieldSet
+	}{
+		{`"a":1`, nil},
+		{`"A":1`, nil},
+		{`"b":1`, plain},
+		{`"B":1`, plain},
+		{`"a\u0000":1`, withNul},
+	} {
+		buf := make([]byte, len(tc.in)+1, len(tc.in)+64)
+		copy(buf, tc.in)
+		field, _, err := d.decodeKey(buf, 0, false)
+		if err != nil || field != tc.want {
+			t.Fatalf("%s: got %v %v, want %v", tc.in, field, err, tc.want)
+		}
+	}
+}

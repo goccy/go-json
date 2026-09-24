@@ -2,12 +2,7 @@ package decoder
 
 import (
 	"fmt"
-	"math"
 	"math/bits"
-	"sort"
-	"strings"
-	"unicode"
-	"unicode/utf16"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -24,359 +19,41 @@ type structFieldSet struct {
 }
 
 type structDecoder struct {
-	fieldMap           map[string]*structFieldSet
+	// fields are the fields of the struct in their order, by their exact keys.
+	fields []*structFieldSet
+	keys   *structKeys
+	// fieldUniqueNameNum is the number of the fields which differ by their folded keys: under FirstWinOption,
+	// the rest of an object is skipped when every one of them was decoded.
 	fieldUniqueNameNum int
 	stringDecoder      *stringDecoder
 	structName         string
 	fieldName          string
-	isTriedOptimize    bool
-	keyBitmapUint8     [][256]uint8
-	keyBitmapUint16    [][256]uint16
-	sortedFieldSets    []*structFieldSet
-	keyDecoder         func(*structDecoder, []byte, int64) (int64, *structFieldSet, error)
 }
 
-var (
-	largeToSmallTable [256]byte
-)
-
-func init() {
-	for i := 0; i < 256; i++ {
-		c := i
-		if 'A' <= c && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		largeToSmallTable[i] = byte(c)
-	}
-}
-
-func toASCIILower(s string) string {
-	b := []byte(s)
-	for i := range b {
-		b[i] = largeToSmallTable[b[i]]
-	}
-	return string(b)
-}
-
-func newStructDecoder(structName, fieldName string, fieldMap map[string]*structFieldSet) *structDecoder {
+func newStructDecoder(structName, fieldName string) *structDecoder {
 	return &structDecoder{
-		fieldMap:      fieldMap,
+		keys:          newStructKeys(nil),
 		stringDecoder: newStringDecoder(structName, fieldName),
 		structName:    structName,
 		fieldName:     fieldName,
-		keyDecoder:    decodeKey,
 	}
 }
 
-const (
-	allowOptimizeMaxKeyLen   = 64
-	allowOptimizeMaxFieldLen = 16
-)
-
-func (d *structDecoder) tryOptimize() {
-	fieldUniqueNameMap := map[string]int{}
-	fieldIdx := -1
-	for k, v := range d.fieldMap {
-		lower := strings.ToLower(k)
-		idx, exists := fieldUniqueNameMap[lower]
-		if exists {
-			v.fieldIdx = idx
-		} else {
-			fieldIdx++
-			v.fieldIdx = fieldIdx
+// setFields sets the fields of the struct, which are in the order of the struct, and makes their tables.
+func (d *structDecoder) setFields(fields []*structFieldSet) {
+	d.fields = fields
+	d.keys = newStructKeys(fields)
+	indexByFolded := map[string]int{}
+	for _, field := range fields {
+		folded := string(appendFoldedKey(nil, []byte(field.key)))
+		idx, exists := indexByFolded[folded]
+		if !exists {
+			idx = len(indexByFolded)
+			indexByFolded[folded] = idx
 		}
-		fieldUniqueNameMap[lower] = fieldIdx
+		field.fieldIdx = idx
 	}
-	d.fieldUniqueNameNum = len(fieldUniqueNameMap)
-
-	if d.isTriedOptimize {
-		return
-	}
-	fieldMap := map[string]*structFieldSet{}
-	conflicted := map[string]struct{}{}
-	for k, v := range d.fieldMap {
-		key := strings.ToLower(k)
-		if key != k {
-			if key != toASCIILower(k) {
-				d.isTriedOptimize = true
-				return
-			}
-			// already exists same key (e.g. Hello and HELLO has same lower case key
-			if _, exists := conflicted[key]; exists {
-				d.isTriedOptimize = true
-				return
-			}
-			conflicted[key] = struct{}{}
-		}
-		if field, exists := fieldMap[key]; exists {
-			if field != v {
-				d.isTriedOptimize = true
-				return
-			}
-		}
-		fieldMap[key] = v
-	}
-
-	if len(fieldMap) > allowOptimizeMaxFieldLen {
-		d.isTriedOptimize = true
-		return
-	}
-
-	var maxKeyLen int
-	sortedKeys := []string{}
-	for key := range fieldMap {
-		keyLen := len(key)
-		if keyLen > allowOptimizeMaxKeyLen {
-			d.isTriedOptimize = true
-			return
-		}
-		if maxKeyLen < keyLen {
-			maxKeyLen = keyLen
-		}
-		sortedKeys = append(sortedKeys, key)
-	}
-	sort.Strings(sortedKeys)
-
-	// By allocating one extra capacity than `maxKeyLen`,
-	// it is possible to avoid the process of comparing the index of the key with the length of the bitmap each time.
-	bitmapLen := maxKeyLen + 1
-	if len(sortedKeys) <= 8 {
-		keyBitmap := make([][256]uint8, bitmapLen)
-		for i, key := range sortedKeys {
-			for j := 0; j < len(key); j++ {
-				c := key[j]
-				keyBitmap[j][c] |= (1 << uint(i))
-			}
-			d.sortedFieldSets = append(d.sortedFieldSets, fieldMap[key])
-		}
-		d.keyBitmapUint8 = keyBitmap
-		d.keyDecoder = decodeKeyByBitmapUint8
-	} else {
-		keyBitmap := make([][256]uint16, bitmapLen)
-		for i, key := range sortedKeys {
-			for j := 0; j < len(key); j++ {
-				c := key[j]
-				keyBitmap[j][c] |= (1 << uint(i))
-			}
-			d.sortedFieldSets = append(d.sortedFieldSets, fieldMap[key])
-		}
-		d.keyBitmapUint16 = keyBitmap
-		d.keyDecoder = decodeKeyByBitmapUint16
-	}
-}
-
-// decode from '\uXXXX'
-func decodeKeyCharByUnicodeRune(buf []byte, cursor int64) ([]byte, int64, error) {
-	const defaultOffset = 4
-	const surrogateOffset = 6
-
-	if cursor+defaultOffset >= int64(len(buf)) {
-		return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
-	}
-
-	r := unicodeToRune(buf[cursor : cursor+defaultOffset])
-	if utf16.IsSurrogate(r) {
-		cursor += defaultOffset
-		if cursor+surrogateOffset >= int64(len(buf)) || buf[cursor] != '\\' || buf[cursor+1] != 'u' {
-			return []byte(string(unicode.ReplacementChar)), cursor + defaultOffset - 1, nil
-		}
-		cursor += 2
-		r2 := unicodeToRune(buf[cursor : cursor+defaultOffset])
-		if r := utf16.DecodeRune(r, r2); r != unicode.ReplacementChar {
-			return []byte(string(r)), cursor + defaultOffset - 1, nil
-		}
-	}
-	return []byte(string(r)), cursor + defaultOffset - 1, nil
-}
-
-func decodeKeyCharByEscapedChar(buf []byte, cursor int64) ([]byte, int64, error) {
-	c := buf[cursor]
-	cursor++
-	switch c {
-	case '"':
-		return []byte{'"'}, cursor, nil
-	case '\\':
-		return []byte{'\\'}, cursor, nil
-	case '/':
-		return []byte{'/'}, cursor, nil
-	case 'b':
-		return []byte{'\b'}, cursor, nil
-	case 'f':
-		return []byte{'\f'}, cursor, nil
-	case 'n':
-		return []byte{'\n'}, cursor, nil
-	case 'r':
-		return []byte{'\r'}, cursor, nil
-	case 't':
-		return []byte{'\t'}, cursor, nil
-	case 'u':
-		return decodeKeyCharByUnicodeRune(buf, cursor)
-	}
-	return nil, cursor, nil
-}
-
-func decodeKeyByBitmapUint8(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
-	var (
-		curBit uint8 = math.MaxUint8
-	)
-	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
-	for {
-		switch char(b, cursor) {
-		case ' ', '\n', '\t', '\r':
-			cursor++
-		case '"':
-			cursor++
-			c := char(b, cursor)
-			switch c {
-			case '"':
-				cursor++
-				return cursor, nil, nil
-			case nul:
-				return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-			}
-			keyIdx := 0
-			bitmap := d.keyBitmapUint8
-			start := cursor
-			for {
-				c := char(b, cursor)
-				switch c {
-				case '"':
-					fieldSetIndex := bits.TrailingZeros8(curBit)
-					field := d.sortedFieldSets[fieldSetIndex]
-					keyLen := cursor - start
-					cursor++
-					if keyLen < field.keyLen {
-						// early match
-						return cursor, nil, nil
-					}
-					return cursor, field, nil
-				case nul:
-					return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-				case '\\':
-					cursor++
-					chars, nextCursor, err := decodeKeyCharByEscapedChar(buf, cursor)
-					if err != nil {
-						return 0, nil, err
-					}
-					for _, c := range chars {
-						curBit &= bitmap[keyIdx][largeToSmallTable[c]]
-						if curBit == 0 {
-							return decodeKeyNotFound(b, cursor)
-						}
-						keyIdx++
-					}
-					cursor = nextCursor
-				default:
-					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
-					if curBit == 0 {
-						return decodeKeyNotFound(b, cursor)
-					}
-					keyIdx++
-				}
-				cursor++
-			}
-		default:
-			return cursor, nil, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
-		}
-	}
-}
-
-func decodeKeyByBitmapUint16(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
-	var (
-		curBit uint16 = math.MaxUint16
-	)
-	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
-	for {
-		switch char(b, cursor) {
-		case ' ', '\n', '\t', '\r':
-			cursor++
-		case '"':
-			cursor++
-			c := char(b, cursor)
-			switch c {
-			case '"':
-				cursor++
-				return cursor, nil, nil
-			case nul:
-				return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-			}
-			keyIdx := 0
-			bitmap := d.keyBitmapUint16
-			start := cursor
-			for {
-				c := char(b, cursor)
-				switch c {
-				case '"':
-					fieldSetIndex := bits.TrailingZeros16(curBit)
-					field := d.sortedFieldSets[fieldSetIndex]
-					keyLen := cursor - start
-					cursor++
-					if keyLen < field.keyLen {
-						// early match
-						return cursor, nil, nil
-					}
-					return cursor, field, nil
-				case nul:
-					return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-				case '\\':
-					cursor++
-					chars, nextCursor, err := decodeKeyCharByEscapedChar(buf, cursor)
-					if err != nil {
-						return 0, nil, err
-					}
-					for _, c := range chars {
-						curBit &= bitmap[keyIdx][largeToSmallTable[c]]
-						if curBit == 0 {
-							return decodeKeyNotFound(b, cursor)
-						}
-						keyIdx++
-					}
-					cursor = nextCursor
-				default:
-					curBit &= bitmap[keyIdx][largeToSmallTable[c]]
-					if curBit == 0 {
-						return decodeKeyNotFound(b, cursor)
-					}
-					keyIdx++
-				}
-				cursor++
-			}
-		default:
-			return cursor, nil, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
-		}
-	}
-}
-
-func decodeKeyNotFound(b unsafe.Pointer, cursor int64) (int64, *structFieldSet, error) {
-	for {
-		cursor++
-		switch char(b, cursor) {
-		case '"':
-			cursor++
-			return cursor, nil, nil
-		case '\\':
-			cursor++
-			if char(b, cursor) == nul {
-				return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-			}
-		case nul:
-			return 0, nil, errors.ErrUnexpectedEndOfJSON("string", cursor)
-		}
-	}
-}
-
-func decodeKey(d *structDecoder, buf []byte, cursor int64) (int64, *structFieldSet, error) {
-	key, c, err := d.stringDecoder.decodeByte(buf, cursor)
-	if err != nil {
-		return 0, nil, err
-	}
-	cursor = c
-	k := *(*string)(unsafe.Pointer(&key))
-	field, exists := d.fieldMap[k]
-	if !exists {
-		return cursor, nil, nil
-	}
-	return cursor, field, nil
+	d.fieldUniqueNameNum = len(indexByFolded)
 }
 
 func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -415,10 +92,59 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	}
 	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
 	for {
-		keyStart := cursor
-		c, field, err := d.keyDecoder(d, buf, cursor)
-		if err != nil {
-			return 0, err
+		cursor = skipWhiteSpace(buf, cursor)
+		if char(b, cursor) != '"' {
+			return 0, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
+		}
+		var (
+			field *structFieldSet
+			key   []byte
+			c     int64
+		)
+		// A key of ASCII without an escape which ends within 16 bytes is found by the words of the buffer,
+		// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
+		// and a key near the end of a buffer which has no room after it, is scanned as a string.
+		if start := cursor + 1; start+16 <= int64(cap(buf)) {
+			w0 := load64(buf, start)
+			n := keyLengthInWord(w0)
+			var w1 uint64
+			if n == 8 {
+				w1 = load64(buf, start+8)
+				n = 8 + keyLengthInWord(w1)
+			}
+			if n < 16 && buf[start+int64(n)] == '"' {
+				key = buf[start : start+int64(n)]
+				// the words of the key, as keyWords makes them
+				if n < 8 {
+					w0 &= 1<<(8*uint(n)) - 1
+					w1 = 0
+				} else {
+					w1 = load64(buf, start+int64(n)-8)
+				}
+				if keys := d.keys; keys.hasLength(n) {
+					if n < 8 {
+						// the first entry of the folded key, looked at here: most keys are found in it.
+						fw := foldASCIIWord(w0)
+						e := &keys.entries[keys.index(fw, 0, n)]
+						if e.n == n && e.w0 == fw && e.w1 == 0 && len(e.fields) == 1 {
+							field = e.fields[0]
+						} else if e.fields != nil {
+							field = keys.findASCII(key, w0, w1)
+						}
+					} else {
+						field = keys.findASCII(key, w0, w1)
+					}
+				}
+				c = start + int64(n) + 1
+			}
+		}
+		if c == 0 {
+			rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
+			if err != nil {
+				return 0, err
+			}
+			field, key = d.keys.lookup(rawKey, info)
+			c = next
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if char(b, cursor) != ':' {
@@ -459,10 +185,6 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 				cursor = c
 			}
 		} else if disallowUnknownFields {
-			key, _, err := d.stringDecoder.decodeByte(buf, skipWhiteSpace(buf, keyStart))
-			if err != nil {
-				return 0, err
-			}
 			return 0, fmt.Errorf("json: unknown field %q", key)
 		} else {
 			c, err := skipValue(buf, cursor, depth)
@@ -485,4 +207,11 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 
 func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: struct decoder does not support decode path")
+}
+
+// keyLengthInWord returns the position in the word of the first byte which ends a simple key: a quote,
+// a backslash, a control character or a byte which is not ASCII, or 8 if the word has none.
+func keyLengthInWord(w uint64) int {
+	special := byteMask(w, '"') | byteMask(w, '\\') | hasLess(w, 0x20) | w&msb
+	return bits.TrailingZeros64(special) / 8
 }

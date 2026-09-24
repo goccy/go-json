@@ -1,0 +1,223 @@
+package decoder
+
+import (
+	"encoding/binary"
+	"math/bits"
+	"unicode"
+	"unicode/utf8"
+)
+
+// structKeys finds the field of a struct which an object key is decoded into, as encoding/json does:
+// the field whose key is the same, or else the first field whose key is the same by case folding.
+//
+// The fields are in a table keyed by their folded keys: the fields of a folded key are in one entry, so that
+// a key is looked up once, whether it matches a field exactly or by folding. A key is looked up by its length
+// and two words: its first eight bytes, and its last eight bytes, which overlap the first ones for a key
+// shorter than 16 bytes. These are all the bytes of a key of up to 16 bytes, so such a key is compared by the
+// two words only; a longer one is compared by its bytes as well. The words of a key of ASCII are folded in
+// place, eight bytes at a time, and only a key which is not ASCII is folded rune by rune.
+type structKeys struct {
+	entries []keyEntry
+	shift   uint
+	// lengths has the bit of the length of every folded key ( 63 for the longer keys ):
+	// a key of another length matches no field, which is known without a lookup.
+	lengths uint64
+}
+
+type keyEntry struct {
+	// w0 and w1 are the words of the folded key, and n its length.
+	w0, w1 uint64
+	n      int
+	folded string
+	// fields are the fields of the folded key in the order of the struct: the first one is the field of
+	// a key which matches none of them exactly.
+	fields []*structFieldSet
+}
+
+// hasLength reports whether a key of n bytes may match a field.
+func (k *structKeys) hasLength(n int) bool {
+	return k.lengths&(1<<uint(min(n, 63))) != 0
+}
+
+// newStructKeys makes the table of the fields, which are in the order of the struct.
+func newStructKeys(fields []*structFieldSet) *structKeys {
+	// the table is at most half full, so that a lookup ends after a few entries.
+	size := 8
+	for size < 2*len(fields) {
+		size *= 2
+	}
+	k := &structKeys{
+		entries: make([]keyEntry, size),
+		shift:   uint(64 - bits.TrailingZeros(uint(size))),
+	}
+	for _, field := range fields {
+		folded := appendFoldedKey(nil, []byte(field.key))
+		if e := k.find(folded); e != nil {
+			e.fields = append(e.fields, field)
+			continue
+		}
+		k.insert(string(folded), field)
+	}
+	return k
+}
+
+// keyWords returns the words of a key: its first eight bytes and its last eight bytes, as little-endian
+// numbers, which are zero where the key is shorter. The capacity of the key is read past its length when it
+// has room, which is the rest of the buffer of the input.
+func keyWords(key []byte) (uint64, uint64) {
+	n := len(key)
+	switch {
+	case n >= 8:
+		return binary.LittleEndian.Uint64(key), binary.LittleEndian.Uint64(key[n-8:])
+	case cap(key) >= 8:
+		return binary.LittleEndian.Uint64(key[:8]) & (1<<(8*uint(n)) - 1), 0
+	}
+	var w uint64
+	for i := n - 1; i >= 0; i-- {
+		w = w<<8 | uint64(key[i])
+	}
+	return w, 0
+}
+
+// index returns the first entry to look at for a folded key. The length is in the top byte, which is zero
+// in the first word of a key shorter than 8 bytes; the product spreads the keys, which differ in a few bits.
+func (k *structKeys) index(w0, w1 uint64, n int) int {
+	h := (w0 ^ bits.RotateLeft64(w1, 29) ^ uint64(n)<<56) * 0x9E3779B97F4A7C15
+	return int(h >> k.shift)
+}
+
+func (k *structKeys) insert(folded string, field *structFieldSet) {
+	b := make([]byte, len(folded), len(folded)+8)
+	copy(b, folded)
+	w0, w1 := keyWords(b)
+	mask := len(k.entries) - 1
+	for i := k.index(w0, w1, len(folded)); ; i = (i + 1) & mask {
+		if k.entries[i].fields == nil {
+			k.entries[i] = keyEntry{w0: w0, w1: w1, n: len(folded), folded: folded, fields: []*structFieldSet{field}}
+			k.lengths |= 1 << uint(min(len(folded), 63))
+			return
+		}
+	}
+}
+
+// find returns the entry of the folded key, or nil.
+func (k *structKeys) find(folded []byte) *keyEntry {
+	w0, w1 := keyWords(folded)
+	n := len(folded)
+	mask := len(k.entries) - 1
+	for i := k.index(w0, w1, n); ; i = (i + 1) & mask {
+		e := &k.entries[i]
+		if e.fields == nil {
+			return nil
+		}
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || e.folded == string(folded)) {
+			return e
+		}
+	}
+}
+
+// field returns the field of the key among the fields of its folded key: the one whose key is the same,
+// or the first one.
+func (e *keyEntry) field(key []byte) *structFieldSet {
+	if len(e.fields) == 1 {
+		return e.fields[0]
+	}
+	for _, field := range e.fields {
+		if field.key == string(key) {
+			return field
+		}
+	}
+	return e.fields[0]
+}
+
+// findASCII returns the field of a key of ASCII without an escape, whose words are w0 and w1, or nil.
+func (k *structKeys) findASCII(key []byte, w0, w1 uint64) *structFieldSet {
+	n := len(key)
+	w0, w1 = foldASCIIWord(w0), foldASCIIWord(w1)
+	mask := len(k.entries) - 1
+	for i := k.index(w0, w1, n); ; i = (i + 1) & mask {
+		e := &k.entries[i]
+		if e.fields == nil {
+			return nil
+		}
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || equalFoldedASCII(key, e.folded)) {
+			if len(e.fields) == 1 {
+				return e.fields[0]
+			}
+			return e.field(key)
+		}
+	}
+}
+
+// foldASCIIWord folds the bytes of a word of ASCII as encoding/json does: a lower case letter to upper case.
+func foldASCIIWord(w uint64) uint64 {
+	// the bytes are less than 0x80: adding to one never carries to the next.
+	ge := w + (0x80-'a')*lsb   // 0x80 in the bytes from 'a'
+	gt := w + (0x80-'z'-1)*lsb // 0x80 in the bytes after 'z'
+	lower := (ge &^ gt) & msb  // 0x80 in the lower case letters
+	return w &^ (lower >> 2)   // clear 0x20 of them
+}
+
+// equalFoldedASCII reports whether the key of ASCII folds to folded.
+func equalFoldedASCII(key []byte, folded string) bool {
+	if len(key) != len(folded) {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		if 'a' <= c && c <= 'z' {
+			c -= 'a' - 'A'
+		}
+		if c != folded[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// lookup returns the field of the key, or nil, and the key, which is decoded in place if it is escaped.
+func (k *structKeys) lookup(key []byte, info stringInfo) (*structFieldSet, []byte) {
+	if info.firstEscape < 0 && !info.nonASCII {
+		if !k.hasLength(len(key)) {
+			return nil, key
+		}
+		w0, w1 := keyWords(key)
+		return k.findASCII(key, w0, w1), key
+	}
+	key = decodeLiteral(key, info)
+	var arr [64]byte
+	if e := k.find(appendFoldedKey(arr[:0], key)); e != nil {
+		return e.field(key), key
+	}
+	return nil, key
+}
+
+// appendFoldedKey appends the key folded as encoding/json folds a key to compare it case insensitively:
+// a lower case ASCII letter to upper case, and any other rune to the smallest rune which folds to it.
+func appendFoldedKey(out, key []byte) []byte {
+	for i := 0; i < len(key); {
+		if c := key[i]; c < utf8.RuneSelf {
+			if 'a' <= c && c <= 'z' {
+				c -= 'a' - 'A'
+			}
+			out = append(out, c)
+			i++
+			continue
+		}
+		r, n := utf8.DecodeRune(key[i:])
+		out = utf8.AppendRune(out, foldRune(r))
+		i += n
+	}
+	return out
+}
+
+// foldRune returns the smallest rune of the fold set of r.
+func foldRune(r rune) rune {
+	for {
+		r2 := unicode.SimpleFold(r)
+		if r2 <= r {
+			return r2
+		}
+		r = r2
+	}
+}

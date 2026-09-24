@@ -82,14 +82,6 @@ var (
 	}
 )
 
-func unicodeToRune(code []byte) rune {
-	var r rune
-	for i := 0; i < len(code); i++ {
-		r = r*16 + rune(hexToInt[code[i]])
-	}
-	return r
-}
-
 var runeErrBytes = []byte(string(utf8.RuneError))
 
 // stringInfo is what scanString found in a string.

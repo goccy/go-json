@@ -105,12 +105,16 @@ const (
 	maxArenaStringSize = 512
 )
 
+// inputPadding is the number of the bytes the buffer of the input has after its nul byte, which the decoders
+// may read: the words of an object key are read from any byte of the buffer ( see structDecoder.Decode ).
+const inputPadding = 16
+
 // SetInput copies data to the buffer of the context, followed by a nul byte which ends every scan,
 // and makes it the buffer to decode.
 func (ctx *RuntimeContext) SetInput(data []byte) []byte {
 	n := len(data) + 1
-	if cap(ctx.input) < n {
-		ctx.input = make([]byte, n)
+	if cap(ctx.input) < n+inputPadding {
+		ctx.input = make([]byte, n, n+inputPadding)
 	}
 	buf := ctx.input[:n]
 	copy(buf, data)

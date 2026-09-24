@@ -4105,3 +4105,31 @@ func TestIssue429(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue609(t *testing.T) {
+	// Truncated object key of invalid UTF-8 past the initial stream buffer
+	// used to panic in Decoder (buf grown via append without updating bufSize).
+	data := append([]byte(`{"`), bytes.Repeat([]byte{0xae}, 1024)...)
+
+	var v any
+	err := json.NewDecoder(bytes.NewReader(data)).Decode(&v)
+	if err == nil {
+		t.Fatal("expected syntax error, got nil")
+	}
+
+	var v2 any
+	if err := json.Unmarshal(data, &v2); err == nil {
+		t.Fatal("Unmarshal: expected syntax error, got nil")
+	}
+
+	// Complete object with a long invalid-UTF-8 key must not panic either.
+	complete := append([]byte(`{"`), bytes.Repeat([]byte{0xae}, 1024)...)
+	complete = append(complete, []byte(`":1}`)...)
+	var m map[string]any
+	if err := json.NewDecoder(bytes.NewReader(complete)).Decode(&m); err != nil {
+		t.Fatalf("complete object: %v", err)
+	}
+	if len(m) != 1 {
+		t.Fatalf("complete object: got %d keys, want 1", len(m))
+	}
+}

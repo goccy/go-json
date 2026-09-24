@@ -190,6 +190,9 @@ func (s *Stream) reset() {
 
 func (s *Stream) readBuf() []byte {
 	if s.filledBuffer {
+		if curLen := int64(len(s.buf)); s.bufSize < curLen {
+			s.bufSize = curLen
+		}
 		s.bufSize *= 2
 		remainBuf := s.buf
 		s.buf = make([]byte, s.bufSize)

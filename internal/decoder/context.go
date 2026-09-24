@@ -24,6 +24,60 @@ type RuntimeContext struct {
 	// A slot of a slab is never written again once an interface value refers to it.
 	floats  []float64
 	strings []string
+	// recentDecoders are the decoders of the types decoded last, in the sets indexed by the address of the type.
+	// Only the contexts of the pool have them: a Decoder has a context of its own, which it would allocate
+	// with them for every stream.
+	recentDecoders *[recentDecoderSets]recentDecoderSet
+}
+
+const (
+	// recentDecoderSets is the number of the sets of the recent decoders, of recentDecoderWays entries each,
+	// as the recent opcodes of the encoder: the set of a type is the top bits of the product of its address
+	// with an odd constant, and a set holds the two types hashed to it which were decoded last, so that the
+	// type passed to Unmarshal and a type held by its values of interface{} never evict each other.
+	recentDecoderSets      = 16
+	recentDecoderHashShift = 64 - 4
+	recentDecoderWays      = 2
+)
+
+type recentDecoder struct {
+	typeptr uintptr
+	dec     Decoder
+}
+
+// recentDecoderSet is the entries of a set, the one decoded last first.
+type recentDecoderSet [recentDecoderWays]recentDecoder
+
+// DecoderOf returns the decoder of the type, compiling it if the type is new.
+//
+// A runtime context remembers the decoders of the types it decoded last: the same types are decoded again
+// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
+// The first entry of the set is looked at here, which is inlined into the callers; the rest in lookupDecoder.
+func (ctx *RuntimeContext) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
+	if ctx.recentDecoders == nil {
+		return CompileToGetDecoder(typ)
+	}
+	set := &ctx.recentDecoders[(uint64(uintptr(typ))*runtime.TypeHashMultiplier)>>recentDecoderHashShift]
+	if set[0].typeptr == uintptr(typ) {
+		return set[0].dec, nil
+	}
+	return lookupDecoder(set, typ)
+}
+
+// lookupDecoder returns the decoder of the type from the second entry of its set, or from the shared table,
+// compiling it if the type is new. A decoder found in the shared table takes the first entry of the set,
+// and the one decoded before it is kept in the second.
+func lookupDecoder(set *recentDecoderSet, typ unsafe.Pointer) (Decoder, error) {
+	if set[1].typeptr == uintptr(typ) {
+		return set[1].dec, nil
+	}
+	dec, err := CompileToGetDecoder(typ)
+	if err != nil {
+		return nil, err
+	}
+	set[1] = set[0]
+	set[0] = recentDecoder{typeptr: uintptr(typ), dec: dec}
+	return dec, nil
 }
 
 // boxSlabSize is the number of the values a slab of floats or strings holds.
@@ -62,7 +116,8 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
 			return &RuntimeContext{
-				Option: &Option{},
+				Option:         &Option{},
+				recentDecoders: &[recentDecoderSets]recentDecoderSet{},
 			}
 		},
 	}

@@ -32,11 +32,12 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	ctx := decoder.TakeRuntimeContext()
+	dec, err := ctx.DecoderOf(header.typ)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
-	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
@@ -59,11 +60,12 @@ func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...Decod
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	rctx := decoder.TakeRuntimeContext()
+	dec, err := rctx.DecoderOf(header.typ)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(rctx)
 		return err
 	}
-	rctx := decoder.TakeRuntimeContext()
 	rctx.Buf = src
 	rctx.Option.Flags = 0
 	rctx.Option.Flags |= decoder.ContextOption
@@ -118,12 +120,12 @@ func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	ctx := decoder.TakeRuntimeContext()
+	dec, err := ctx.DecoderOf(header.typ)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
-
-	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
@@ -162,7 +164,7 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 }
 
 // validateType validates that the value is not nil.
-// Whether the type is a pointer is validated by decoder.CompileToGetDecoder, once per type.
+// Whether the type is a pointer is validated when its decoder is compiled, once per type.
 func validateType(typ unsafe.Pointer, p uintptr) error {
 	if typ == nil || p == 0 {
 		return &InvalidUnmarshalError{Type: runtime.TypeOfPtr(typ)}
@@ -210,7 +212,7 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 		return err
 	}
 
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	dec, err := d.s.DecoderOf(header.typ)
 	if err != nil {
 		return err
 	}

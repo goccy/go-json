@@ -211,7 +211,7 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 		**(**any)(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	}
-	decoder, err := CompileToGetDecoder(runtime.TypePtr(typ))
+	decoder, err := ctx.DecoderOf(runtime.TypePtr(typ))
 	if err != nil {
 		return 0, err
 	}

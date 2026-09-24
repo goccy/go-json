@@ -59,7 +59,26 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			cursor++
 			continue
 		case '{', '[':
-			return skipCompound(buf, cursor+1, 1, depth)
+			// as skipCompound does, without its call
+			sc := compoundScanner{depth: 1, maxDepth: maxDecodeNestingDepth - depth}
+			lim := int64(len(buf))
+			var (
+				end   int64
+				found bool
+				err   error
+			)
+			if lim-cursor <= scanBlockSize {
+				end, found, err = sc.scanBytes(buf, cursor+1, lim)
+			} else {
+				end, found, err = sc.scan(buf, cursor+1, lim)
+			}
+			if err != nil {
+				return 0, err
+			}
+			if !found {
+				return 0, errors.ErrUnexpectedEndOfJSON("object or array", end)
+			}
+			return end, nil
 		case '"':
 			for {
 				cursor++

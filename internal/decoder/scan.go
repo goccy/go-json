@@ -183,27 +183,36 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 // scanBytes scans buf[pos:end] one byte at a time, as scan does by blocks.
 // A byte after a backslash is neither a quote nor a bracket, wherever it is.
 func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, error) {
-	depth, inString, escaped := sc.depth, sc.inString, sc.escaped
-	for pos < end {
-		c := buf[pos]
+	if pos >= end {
+		return pos, false, nil
+	}
+	depth, inString := sc.depth, sc.inString
+	if sc.escaped {
+		sc.escaped = false
 		pos++
-		if escaped {
-			escaped = false
-			continue
-		}
+	}
+	for pos < end {
 		if inString {
-			if c == '\\' {
-				escaped = true
-			} else if c == '"' {
-				inString = false
+			for pos < end {
+				c := buf[pos]
+				pos++
+				if c == '"' {
+					inString = false
+					break
+				}
+				if c == '\\' {
+					pos++
+				}
 			}
 			continue
 		}
+		c := buf[pos]
+		pos++
 		switch c {
 		case '"':
 			inString = true
 		case '\\':
-			escaped = true
+			pos++
 		case '{', '[':
 			depth++
 			if depth > sc.maxDepth {
@@ -215,6 +224,11 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 				return pos, true, nil
 			}
 		}
+	}
+	// A backslash as the last byte escapes the byte after end.
+	escaped := pos > end
+	if escaped {
+		pos = end
 	}
 	sc.depth, sc.inString, sc.escaped = depth, inString, escaped
 	return pos, false, nil
@@ -231,7 +245,7 @@ func skipCompound(buf []byte, cursor, depth, nesting int64) (int64, error) {
 		found bool
 		err   error
 	)
-	if lim-cursor <= shortScanLength {
+	if lim-cursor <= scanBlockSize {
 		// a short buffer: byte by byte, without the calls of the scan by blocks
 		end, found, err = sc.scanBytes(buf, cursor, lim)
 	} else {

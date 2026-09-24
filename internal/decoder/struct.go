@@ -92,59 +92,9 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	}
 	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
 	for {
-		cursor = skipWhiteSpace(buf, cursor)
-		if char(b, cursor) != '"' {
-			return 0, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
-		}
-		var (
-			field *structFieldSet
-			key   []byte
-			c     int64
-		)
-		// A key of ASCII without an escape which ends within 16 bytes is found by the words of the buffer,
-		// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
-		// and a key near the end of a buffer which has no room after it, is scanned as a string.
-		if start := cursor + 1; start+16 <= int64(cap(buf)) {
-			w0 := load64(buf, start)
-			n := keyLengthInWord(w0)
-			var w1 uint64
-			if n == 8 {
-				w1 = load64(buf, start+8)
-				n = 8 + keyLengthInWord(w1)
-			}
-			if n < 16 && buf[start+int64(n)] == '"' {
-				key = buf[start : start+int64(n)]
-				// the words of the key, as keyWords makes them
-				if n < 8 {
-					w0 &= 1<<(8*uint(n)) - 1
-					w1 = 0
-				} else {
-					w1 = load64(buf, start+int64(n)-8)
-				}
-				if keys := d.keys; keys.hasLength(n) {
-					if n < 8 {
-						// the first entry of the folded key, looked at here: most keys are found in it.
-						fw := foldASCIIWord(w0)
-						e := &keys.entries[keys.index(fw, 0, n)]
-						if e.n == n && e.w0 == fw && e.w1 == 0 && len(e.fields) == 1 {
-							field = e.fields[0]
-						} else if e.fields != nil {
-							field = keys.findASCII(key, w0, w1)
-						}
-					} else {
-						field = keys.findASCII(key, w0, w1)
-					}
-				}
-				c = start + int64(n) + 1
-			}
-		}
-		if c == 0 {
-			rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
-			if err != nil {
-				return 0, err
-			}
-			field, key = d.keys.lookup(rawKey, info)
-			c = next
+		field, key, c, err := d.decodeKey(buf, cursor)
+		if err != nil {
+			return 0, err
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if char(b, cursor) != ':' {
@@ -207,6 +157,60 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 
 func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: struct decoder does not support decode path")
+}
+
+// decodeKey reads the key of an object at cursor, and returns its field or nil, the key, which is decoded
+// in place if it is escaped, and the position after it. It is a function of its own, so that the loop of
+// Decode keeps its values in the registers.
+func (d *structDecoder) decodeKey(buf []byte, cursor int64) (*structFieldSet, []byte, int64, error) {
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] != '"' {
+		return nil, nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+	}
+	// A key of ASCII without an escape which ends within 16 bytes is found by the words of the buffer,
+	// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
+	// and a key near the end of a buffer which has no room after it, is scanned as a string.
+	if start := cursor + 1; start+16 <= int64(cap(buf)) {
+		w0 := load64(buf, start)
+		n := keyLengthInWord(w0)
+		var w1 uint64
+		if n == 8 {
+			w1 = load64(buf, start+8)
+			n = 8 + keyLengthInWord(w1)
+		}
+		if n < 16 && buf[start+int64(n)] == '"' {
+			key := buf[start : start+int64(n)]
+			// the words of the key, as keyWords makes them
+			if n < 8 {
+				w0 &= 1<<(8*uint(n)) - 1
+				w1 = 0
+			} else {
+				w1 = load64(buf, start+int64(n)-8)
+			}
+			var field *structFieldSet
+			if keys := d.keys; keys.hasLength(n) {
+				if n < 8 {
+					// the first entry of the folded key, looked at here: most keys are found in it.
+					fw := foldASCIIWord(w0)
+					e := &keys.entries[keys.index(fw, 0, n)]
+					if e.n == n && e.w0 == fw && e.w1 == 0 && len(e.fields) == 1 {
+						field = e.fields[0]
+					} else if e.fields != nil {
+						field = keys.findASCII(key, w0, w1)
+					}
+				} else {
+					field = keys.findASCII(key, w0, w1)
+				}
+			}
+			return field, key, start + int64(n) + 1, nil
+		}
+	}
+	rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	field, key := d.keys.lookup(rawKey, info)
+	return field, key, next, nil
 }
 
 // keyLengthInWord returns the position in the word of the first byte which ends a simple key: a quote,

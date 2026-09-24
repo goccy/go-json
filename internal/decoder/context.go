@@ -99,7 +99,7 @@ const (
 	// of the strings: a chunk is twice as large as the previous one, so that a context which decodes a few
 	// short strings, as the one of a Decoder made for a small value, allocates little.
 	minArenaChunkSize = 64
-	arenaChunkSize    = 4096
+	arenaChunkSize    = 16384
 	// maxArenaStringSize is the length of the longest string which is copied to the arena:
 	// a longer one gets an allocation of its own, which it alone keeps alive.
 	maxArenaStringSize = 512

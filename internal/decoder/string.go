@@ -92,11 +92,16 @@ type stringInfo struct {
 	firstEscape int
 	// nonASCII is whether a byte of the string is not ASCII: the string may be invalid UTF-8.
 	nonASCII bool
+	// rest is set by scanString when it stops at a long run of plain bytes, which scanStringRest continues.
+	rest bool
 }
 
 // decodeByte returns the bytes of the string at cursor, decoded in place in buf, or nil for null.
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	literal, next, info, err := d.scanString(buf, cursor)
+	if info.rest {
+		literal, next, info, err = d.scanStringRest(buf, literal, next, info)
+	}
 	if err != nil || literal == nil {
 		return literal, next, err
 	}
@@ -118,6 +123,9 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 // An escaped string which is copied out of the buffer ( see makeString ) is decoded into its copy directly.
 func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
 	literal, next, info, err := d.scanString(ctx.Buf, cursor)
+	if info.rest {
+		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, next, info)
+	}
 	if err != nil || literal == nil {
 		return "", next, false, err
 	}
@@ -136,6 +144,11 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 
 // scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and
 // what it found in it, or nil for null.
+//
+// Most strings are short, and scanned by its loop, which calls nothing so that it keeps its values in the
+// registers. After 64 bytes of plain bytes, it stops and returns the bytes of the string so far, the position it
+// stopped at and what it found so far, with rest set: the caller continues the scan by scanStringRest, which
+// scans the runs of plain bytes of a long string by SIMD where the CPU has it.
 func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, stringInfo, error) {
 	for {
 		switch buf[cursor] {
@@ -158,12 +171,10 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			for {
 				// The words with nothing to look at are skipped eight bytes at a time: a word is read only where
 				// the buffer has room for it, so that its end is scanned byte by byte. After eight words, the rest
-				// of a long string is left to scanStringRest, which scans its runs of plain bytes by SIMD where
-				// the CPU has it: the call is made in place of a return, so that this loop, which most strings
-				// end in, keeps its values in the registers.
+				// of a long string is left to scanStringRest ( see scanString ).
 				for words := 0; cursor+8 <= buflen; words++ {
 					if words == 8 && hasStringSIMD {
-						return d.scanStringRest(buf, start, cursor, firstEscape, high)
+						return buf[start:cursor], cursor, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0, rest: true}, nil
 					}
 					w := load64(buf, cursor)
 					if special := keyEndBytes(w); special != 0 {
@@ -223,10 +234,17 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 	}
 }
 
-// scanStringRest is scanString for the rest of a long string from cursor, whose first bytes it scanned: the
-// runs of plain bytes are scanned by SIMD ( see indexStringSpecial ), and a run near the end of the buffer by
-// words. The escapes are validated as scanString does.
-func (d *stringDecoder) scanStringRest(buf []byte, start, cursor, firstEscape int64, high uint64) ([]byte, int64, stringInfo, error) {
+// scanStringRest continues the scan of a long string from where scanString stopped, which returned the bytes
+// of the string so far, the position it stopped at and what it found so far: the runs of plain bytes are scanned
+// by SIMD ( see indexStringSpecial ), and a run near the end of the buffer by words. The escapes are validated as
+// scanString does.
+func (d *stringDecoder) scanStringRest(buf, literal []byte, cursor int64, info stringInfo) ([]byte, int64, stringInfo, error) {
+	start := cursor - int64(len(literal))
+	firstEscape := int64(info.firstEscape)
+	var high uint64
+	if info.nonASCII {
+		high = msb
+	}
 	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	buflen := int64(len(buf))
 	for {

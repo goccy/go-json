@@ -304,7 +304,10 @@ func skipString(buf []byte, cursor int64) (int64, error) {
 			return start + int64(n) + 1, nil
 		}
 	}
-	_, next, _, err := skipStringDecoder.scanString(buf, cursor)
+	literal, next, info, err := skipStringDecoder.scanString(buf, cursor)
+	if info.rest {
+		_, next, _, err = skipStringDecoder.scanStringRest(buf, literal, next, info)
+	}
 	if err != nil {
 		return 0, err
 	}

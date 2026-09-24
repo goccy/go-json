@@ -23,9 +23,11 @@ type structKeys struct {
 	// lengths has the bit of the length of every folded key ( 63 for the longer keys ):
 	// a key of another length matches no field, which is known without a lookup.
 	lengths uint64
-	// exact is a table of the keys which are not ASCII, by their bytes as they are ( see findExact ).
-	exact      []keyEntry
-	exactShift uint
+	// exact is a table of the keys which are not ASCII, by their bytes as they are ( see findExact ), and
+	// exactLengths has the bit of the length of every such key, as lengths does for the folded keys.
+	exact        []keyEntry
+	exactShift   uint
+	exactLengths uint64
 	// foldRunes has a bit for every rune which is not ASCII and which folds to a rune of a folded key, by the
 	// low byte of the rune ( see mayFold ).
 	foldRunes [4]uint64
@@ -113,16 +115,16 @@ func (k *structKeys) makeExact(fields []*structFieldSet) {
 		for i := indexOf(h0, h1, k.exactShift); ; i = (i + 1) & mask {
 			if k.exact[i].unique == nil {
 				k.exact[i] = keyEntry{w0: w0, w1: w1, n: len(key), folded: key, unique: field}
+				k.exactLengths |= 1 << (uint(min(len(key), 63)) & 63)
 				break
 			}
 		}
 	}
 }
 
-// findExact returns the field whose key is the same as the key, which is not ASCII, or nil. The table of the
-// keys which are not ASCII is not nil.
-func (k *structKeys) findExact(key []byte) *structFieldSet {
-	w0, w1 := keyWords(key)
+// findExact returns the field whose key is the same as the key, which is not ASCII and is in a buffer which
+// has room for a word after it, or nil. w0 and w1 are the words of the key as keyWords makes them.
+func (k *structKeys) findExact(key []byte, w0, w1 uint64) *structFieldSet {
 	n := len(key)
 	mask := len(k.exact) - 1
 	h0, h1 := hashWords(w0, w1, n)
@@ -131,10 +133,30 @@ func (k *structKeys) findExact(key []byte) *structFieldSet {
 		if e.unique == nil {
 			return nil
 		}
-		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || string(e.folded) == string(key)) {
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || equalMiddleWords(key, e.folded)) {
 			return e.unique
 		}
 	}
+}
+
+// hasExactLength reports whether a key of n bytes which is not ASCII may be the same as the key of a field.
+func (k *structKeys) hasExactLength(n int) bool {
+	return k.exactLengths&(1<<(uint(min(n, 63))&63)) != 0
+}
+
+// equalMiddleWords reports whether two keys of the same length of more than 16 bytes, whose first and last eight
+// bytes are known to be the same, have the same words between them.
+func equalMiddleWords(a, b []byte) bool {
+	n := len(a)
+	if n != len(b) {
+		return false
+	}
+	for i := 8; i < n-8; i += 8 {
+		if binary.LittleEndian.Uint64(a[i:]) != binary.LittleEndian.Uint64(b[i:]) {
+			return false
+		}
+	}
+	return true
 }
 
 // makeFoldRunes sets the bits of the runes which are not ASCII and fold to a rune of a key: the runes of the

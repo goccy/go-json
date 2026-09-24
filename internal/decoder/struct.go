@@ -262,10 +262,19 @@ func (d *structDecoder) decodeKeyNotASCII(buf []byte, cursor int64, disallowUnkn
 		return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
 	}
 	key := buf[start:end]
+	n := len(key)
 	keys := d.keys
 	var field *structFieldSet
-	if keys.exact != nil {
-		field = keys.findExact(key)
+	if keys.hasExactLength(n) {
+		// the words of the key, as keyWords makes them, read from the buffer
+		w0 := load64(buf, start)
+		var w1 uint64
+		if n < 8 {
+			w0 &= 1<<(uint(n)*8&63) - 1
+		} else {
+			w1 = load64(buf, end-8)
+		}
+		field = keys.findExact(key, w0, w1)
 	}
 	if field == nil {
 		if keys.mayFold(key) {

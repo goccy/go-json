@@ -1,15 +1,61 @@
 package decoder
 
 import (
+	"reflect"
 	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 type RuntimeContext struct {
 	Buf    []byte
 	Option *Option
+	// slot is where a value of interface{} is decoded before it is put into a map or a slice.
+	// The decoders of the values nested in it use it too: each of them takes the value out of it
+	// before the next value is decoded, and puts its own value into it only at its end.
+	slot any
+	// anyStack holds the elements of the arrays being decoded into []interface{}: an array pushes
+	// its elements above the ones of the arrays it is nested in, and pops them at its end.
+	anyStack []any
+	// floats and strings are the slabs in which the numbers and the strings decoded into interface{}
+	// are kept, so that an interface value refers to them without an allocation of its own.
+	// A slot of a slab is never written again once an interface value refers to it.
+	floats  []float64
+	strings []string
+}
+
+// boxSlabSize is the number of the values a slab of floats or strings holds.
+const boxSlabSize = 32
+
+var (
+	float64TypePtr = runtime.TypePtr(reflect.TypeOf(float64(0)))
+	stringTypePtr  = runtime.TypePtr(reflect.TypeOf(""))
+)
+
+// boxFloat returns f as an interface value, which refers to a slot of the slab of floats.
+func (ctx *RuntimeContext) boxFloat(f float64) any {
+	if len(ctx.floats) == cap(ctx.floats) {
+		ctx.floats = make([]float64, 0, boxSlabSize)
+	}
+	ctx.floats = append(ctx.floats, f)
+	return *(*any)(unsafe.Pointer(&emptyInterface{typ: float64TypePtr, ptr: unsafe.Pointer(&ctx.floats[len(ctx.floats)-1])}))
+}
+
+// boxString returns s as an interface value, which refers to a slot of the slab of strings.
+func (ctx *RuntimeContext) boxString(s string) any {
+	if len(ctx.strings) == cap(ctx.strings) {
+		ctx.strings = make([]string, 0, boxSlabSize)
+	}
+	ctx.strings = append(ctx.strings, s)
+	return *(*any)(unsafe.Pointer(&emptyInterface{typ: stringTypePtr, ptr: unsafe.Pointer(&ctx.strings[len(ctx.strings)-1])}))
+}
+
+// popAny removes the elements of anyStack from base, clearing them so that the stack keeps nothing alive.
+func (ctx *RuntimeContext) popAny(base int) {
+	clear(ctx.anyStack[base:])
+	ctx.anyStack = ctx.anyStack[:base]
 }
 
 var (
@@ -27,6 +73,13 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
+	// Nothing of the call is kept: the input is referred to by the decoded strings.
+	ctx.Buf = nil
+	ctx.slot = nil
+	ctx.popAny(0)
+	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
+	// the input of a previous call alive. The slab of floats refers to nothing and is kept.
+	ctx.strings = nil
 	runtimeContextPool.Put(ctx)
 }
 

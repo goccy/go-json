@@ -9,61 +9,42 @@ import (
 )
 
 type mapDecoder struct {
-	mapType                 reflect.Type
-	keyType                 reflect.Type
-	valueType               reflect.Type
-	canUseAssignFaststrType bool
-	keyDecoder              Decoder
-	valueDecoder            Decoder
-	structName              string
-	fieldName               string
+	mapType   reflect.Type
+	keyType   reflect.Type
+	valueType reflect.Type
+	// mapTypePtr, keyPtrType and valuePtrType are the type descriptors of the map, of *K and of *V.
+	mapTypePtr   unsafe.Pointer
+	keyPtrType   unsafe.Pointer
+	valuePtrType unsafe.Pointer
+	// isStringAnyMap is whether the map is a map[string]interface{}, which is decoded without reflect.
+	isStringAnyMap bool
+	keyDecoder     Decoder
+	valueDecoder   Decoder
+	structName     string
+	fieldName      string
 }
 
 func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, valueType reflect.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
+	_, isIfaceValue := valueDec.(*interfaceDecoder)
 	return &mapDecoder{
-		mapType:                 mapType,
-		keyDecoder:              keyDec,
-		keyType:                 keyType,
-		canUseAssignFaststrType: canUseAssignFaststrType(keyType, valueType),
-		valueType:               valueType,
-		valueDecoder:            valueDec,
-		structName:              structName,
-		fieldName:               fieldName,
+		mapType:        mapType,
+		keyDecoder:     keyDec,
+		keyType:        keyType,
+		valueType:      valueType,
+		mapTypePtr:     runtime.TypePtr(mapType),
+		keyPtrType:     ptrTypeOf(keyType),
+		valuePtrType:   ptrTypeOf(valueType),
+		isStringAnyMap: mapType == interfaceMapType && isIfaceValue,
+		valueDecoder:   valueDec,
+		structName:     structName,
+		fieldName:      fieldName,
 	}
 }
 
-const (
-	mapMaxElemSize = 128
-)
-
-// See detail: https://github.com/goccy/go-json/pull/283
-func canUseAssignFaststrType(key reflect.Type, value reflect.Type) bool {
-	indirectElem := value.Size() > mapMaxElemSize
-	if indirectElem {
-		return false
-	}
-	return key.Kind() == reflect.String
-}
-
-//go:linkname makemap reflect.makemap
-func makemap(unsafe.Pointer, int) unsafe.Pointer
-
-//nolint:golint
-//go:linkname mapassign_faststr runtime.mapassign_faststr
-//go:noescape
-func mapassign_faststr(t unsafe.Pointer, m unsafe.Pointer, s string) unsafe.Pointer
-
-//go:linkname mapassign reflect.mapassign
-//go:noescape
-func mapassign(t unsafe.Pointer, m unsafe.Pointer, k, v unsafe.Pointer)
-
-func (d *mapDecoder) mapassign(t reflect.Type, m, k, v unsafe.Pointer) {
-	if d.canUseAssignFaststrType {
-		mapV := mapassign_faststr(runtime.TypePtr(t), m, *(*string)(k))
-		typedmemmove(runtime.TypePtr(d.valueType), mapV, v)
-	} else {
-		mapassign(runtime.TypePtr(t), m, k, v)
-	}
+// mapValue returns the reflect.Value of the map m.
+func (d *mapDecoder) mapValue(m unsafe.Pointer) reflect.Value {
+	// A map is a pointer in an interface value.
+	return reflect.ValueOf(*(*any)(unsafe.Pointer(&emptyInterface{typ: d.mapTypePtr, ptr: m})))
 }
 
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -90,19 +71,37 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	default:
 		return 0, errors.ErrExpected("{ character for map value", cursor)
 	}
+	if d.isStringAnyMap {
+		m := *(*map[string]any)(p)
+		if m == nil {
+			m = map[string]any{}
+		}
+		c, err := decodeStringAnyMap(ctx, d.valueDecoder.(*interfaceDecoder), m, cursor, depth)
+		if err != nil {
+			return 0, err
+		}
+		*(*map[string]any)(p) = m
+		return c, nil
+	}
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := *(*unsafe.Pointer)(p)
 	if mapValue == nil {
-		mapValue = makemap(runtime.TypePtr(d.mapType), 0)
+		mapValue = reflect.MakeMapWithSize(d.mapType, 0).UnsafePointer()
 	}
 	if buf[cursor] == '}' {
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 		cursor++
 		return cursor, nil
 	}
+	// The key and the value of every entry are decoded into the same zero values,
+	// which reflect.Value.SetMapIndex copies into the map.
+	k := newValue(d.keyType)
+	v := newValue(d.valueType)
+	mv := d.mapValue(mapValue)
+	kv := valueAt(d.keyPtrType, k)
+	vv := valueAt(d.valuePtrType, v)
 	for {
-		k := unsafe_New(runtime.TypePtr(d.keyType))
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
 			return 0, err
@@ -112,12 +111,13 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 			return 0, errors.ErrExpected("colon after object key", cursor)
 		}
 		cursor++
-		v := unsafe_New(runtime.TypePtr(d.valueType))
 		valueCursor, err := d.valueDecoder.Decode(ctx, cursor, depth, v)
 		if err != nil {
 			return 0, err
 		}
-		d.mapassign(d.mapType, mapValue, k, v)
+		mv.SetMapIndex(kv, vv)
+		kv.SetZero()
+		vv.SetZero()
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue

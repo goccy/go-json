@@ -267,7 +267,7 @@ func compileArray(typ reflect.Type, structName, fieldName string, structTypeToDe
 	if err != nil {
 		return nil, err
 	}
-	return newArrayDecoder(decoder, elem, typ.Len(), structName, fieldName), nil
+	return newArrayDecoder(decoder, typ, structName, fieldName), nil
 }
 
 func compileMap(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {

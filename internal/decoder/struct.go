@@ -96,11 +96,15 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		if err != nil {
 			return 0, err
 		}
-		cursor = skipWhiteSpace(buf, c)
-		if char(b, cursor) != ':' {
-			return 0, errors.ErrExpected("colon after object key", cursor)
+		if char(b, c) == ':' {
+			cursor = c + 1
+		} else {
+			cursor = skipWhiteSpace(buf, c)
+			if char(b, cursor) != ':' {
+				return 0, errors.ErrExpected("colon after object key", cursor)
+			}
+			cursor++
 		}
-		cursor++
 		if cursor >= buflen {
 			return 0, errors.ErrExpected("object value after colon", cursor)
 		}

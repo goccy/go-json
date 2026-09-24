@@ -3,7 +3,9 @@ package decoder
 import (
 	"bytes"
 	"fmt"
+	"math/bits"
 	"reflect"
+	"strconv"
 	"unicode/utf8"
 	"unsafe"
 
@@ -108,10 +110,27 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			cursor++
 			start := cursor
 			b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+			buflen := int64(len(buf))
 			escaped := 0
-			nonASCII := false
+			// high accumulates the bytes of the string: it is not zero if one of them is not ASCII.
+			var high uint64
 			for {
-				switch c := char(b, cursor); c {
+				// The words with nothing to look at are skipped eight bytes at a time: a word is read
+				// only where the buffer has room for it, so that its end is scanned byte by byte.
+				for cursor+8 <= buflen {
+					w := load64(buf, cursor)
+					special := byteMask(w, '"') | byteMask(w, '\\') | hasLess(w, 0x20)
+					if special != 0 {
+						i := int64(bits.TrailingZeros64(special) / 8)
+						high |= w & msb & (1<<(uint(i)*8) - 1)
+						cursor += i
+						break
+					}
+					high |= w & msb
+					cursor += 8
+				}
+				c := char(b, cursor)
+				switch c {
 				case '\\':
 					escaped++
 					cursor++
@@ -119,7 +138,6 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 					case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
 						cursor++
 					case 'u':
-						buflen := int64(len(buf))
 						if cursor+5 >= buflen {
 							return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 						}
@@ -133,13 +151,12 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 					default:
 						return nil, 0, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
 					}
-					continue
 				case '"':
 					literal := buf[start:cursor]
 					if escaped > 0 {
 						literal = literal[:unescapeString(literal)]
 					}
-					if nonASCII && !utf8.Valid(literal) {
+					if high&msb != 0 && !utf8.Valid(literal) {
 						literal = coerceUTF8(literal)
 					}
 					cursor++
@@ -147,11 +164,12 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 				case nul:
 					return nil, 0, errors.ErrUnexpectedEndOfJSON("string", cursor)
 				default:
-					if c >= utf8.RuneSelf {
-						nonASCII = true
+					if c < 0x20 {
+						return nil, 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
 					}
+					high |= uint64(c)
+					cursor++
 				}
-				cursor++
 			}
 		case 'n':
 			if err := validateNull(buf, cursor); err != nil {
@@ -253,4 +271,22 @@ func coerceUTF8(literal []byte) []byte {
 		i += size
 	}
 	return out
+}
+
+// hasLess returns the word whose byte is 0x80 where the byte of w is less than n, which is at most 128,
+// exactly for the lowest such byte: a byte above it may be marked wrongly by a borrow.
+func hasLess(w, n uint64) uint64 {
+	return (w - n*lsb) & ^w & msb
+}
+
+// quoteChar formats c as a quoted character literal, as encoding/json does in its errors.
+func quoteChar(c byte) string {
+	if c == '\'' {
+		return `'\''`
+	}
+	if c == '"' {
+		return `'"'`
+	}
+	s := strconv.Quote(string(c))
+	return "'" + s[1:len(s)-1] + "'"
 }

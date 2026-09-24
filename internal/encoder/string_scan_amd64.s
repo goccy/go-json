@@ -1,24 +1,5 @@
 #include "textflag.h"
 
-// func cpuid(eaxArg, ecxArg uint32) (eax, ebx, ecx, edx uint32)
-TEXT ·cpuid(SB), NOSPLIT, $0-24
-	MOVL eaxArg+0(FP), AX
-	MOVL ecxArg+4(FP), CX
-	CPUID
-	MOVL AX, eax+8(FP)
-	MOVL BX, ebx+12(FP)
-	MOVL CX, ecx+16(FP)
-	MOVL DX, edx+20(FP)
-	RET
-
-// func xgetbv() (eax, edx uint32)
-TEXT ·xgetbv(SB), NOSPLIT, $0-8
-	MOVL $0, CX
-	XGETBV
-	MOVL AX, eax+0(FP)
-	MOVL DX, edx+4(FP)
-	RET
-
 // MASK computes into Yd the mask of the bytes of Yx which may need an escape, using Yt as a temporary:
 // the lane of such a byte is not zero. See nibbleTables: Y8 is the table of the low nibbles in both halves,
 // Y9 the one of the high nibbles and Y10 has 0x0f in every lane.

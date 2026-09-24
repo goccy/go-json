@@ -12,11 +12,12 @@ import (
 )
 
 const (
+	// initBufSize is the size of the buffer of a new stream.
 	initBufSize = 512
 	// bufPadding is the number of the bytes kept free after the data in the buffer of a stream:
-	// one for the nul byte which ends the value being decoded, and the rest so that a decoder
-	// may read eight bytes at once from any byte of the value.
-	bufPadding = 8
+	// one for the nul byte which ends the value being decoded, the rest so that a scan reads
+	// a whole block from any byte of the value.
+	bufPadding = scanBlockSize
 )
 
 // Stream reads the values of a JSON text from an io.Reader one by one.
@@ -85,9 +86,9 @@ func (s *Stream) grow() {
 	remain := s.length - s.cursor
 	size := int64(len(s.buf)) - bufPadding
 	if remain*2 > size {
-		// The data which is not consumed yet fills more than half of the buffer:
-		// it is a value larger than the buffer.
-		size *= 2
+		// The data which is not consumed yet fills more than half of the buffer: it is a value
+		// larger than the buffer, which is grown faster so that it is copied fewer times.
+		size *= 4
 	}
 	if r, ok := s.r.(interface{ Len() int }); ok {
 		// The reader knows how much is left ( bytes.Reader, strings.Reader, bytes.Buffer ):

@@ -25,8 +25,7 @@ type emptyInterface struct {
 }
 
 func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -53,8 +52,7 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -90,8 +88,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	if path.path.RootSelectorOnly {
 		return [][]byte{data}, nil
 	}
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
@@ -114,8 +111,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 }
 
 func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 

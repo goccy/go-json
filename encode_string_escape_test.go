@@ -11,14 +11,13 @@ import (
 )
 
 // randomTextString returns a random string of valid UTF-8 with runs of plain bytes of every length between the
-// bytes which need an escape by one option or another. It has no backspace and no form feed, which go-json
-// escapes as \u0008 and \u000c, and encoding/json as \b and \f since Go 1.22.
+// bytes which need an escape by one option or another.
 func randomTextString(r *rand.Rand, n int) string {
 	var b strings.Builder
 	for i := 0; i < n; i++ {
 		switch k := r.Intn(24); {
 		case k == 0:
-			b.WriteString([]string{"\n", "\r", "\t", `"`, `\`, "\x00", "\x1f", "\x7f"}[r.Intn(8)])
+			b.WriteString([]string{"\n", "\r", "\t", `"`, `\`, "\x00", "\x1f", "\x7f", "\b", "\f"}[r.Intn(10)])
 		case k == 1:
 			b.WriteString([]string{"<", ">", "&"}[r.Intn(3)])
 		case k == 2:

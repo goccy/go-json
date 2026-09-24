@@ -36,10 +36,11 @@ var float64pow10 = [...]float64{
 	1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
 }
 
-// parseFloatFast parses the number at cursor, as the JSON grammar has it, when it is exactly the float64
-// of its mantissa times or divided by a power of ten which a float64 holds exactly: then the result is
-// correctly rounded, as by strconv.ParseFloat ( Clinger's fast path ). It returns false for any other number,
-// or anything which is not a number by the grammar, which the caller parses as it did before.
+// parseFloatFast parses the number at cursor, as the JSON grammar has it, when its mantissa has at most 19
+// digits: the float64 of a mantissa of at most 53 bits times or divided by a power of ten which a float64 holds
+// exactly is correctly rounded as it is ( Clinger's fast path ), and any other is multiplied by the power of ten
+// from a table ( mulPow10 ). The result is the one of strconv.ParseFloat. It returns false for a number which
+// is not decided so, or anything which is not a number by the grammar, which the caller parses as it did before.
 func parseFloatFast(buf []byte, cursor int64) (float64, int64, bool) {
 	neg := buf[cursor] == '-'
 	if neg {
@@ -53,19 +54,25 @@ func parseFloatFast(buf []byte, cursor int64) (float64, int64, bool) {
 	if buf[cursor] == '.' {
 		cursor++
 		start := cursor
+		if mantissa == 0 {
+			// the zeros before the first digit which is not zero are not digits of the mantissa
+			digits = 0
+		}
 		for {
 			d := buf[cursor] - '0'
 			if d > 9 {
 				break
 			}
 			mantissa = mantissa*10 + uint64(d)
+			if mantissa != 0 {
+				digits++
+			}
 			cursor++
 		}
 		fraction := int(cursor - start)
 		if fraction == 0 {
 			return 0, 0, false
 		}
-		digits += fraction
 		exp = -fraction
 	}
 	if c := buf[cursor]; c == 'e' || c == 'E' {
@@ -98,14 +105,22 @@ func parseFloatFast(buf []byte, cursor int64) (float64, int64, bool) {
 		}
 		exp += e
 	}
-	if digits > maxUint64Digits || mantissa > 1<<53 || exp < -22 || exp > 22 {
+	if digits > maxUint64Digits {
 		return 0, 0, false
 	}
-	f := float64(mantissa)
-	if exp < 0 {
-		f /= float64pow10[-exp]
+	var f float64
+	if mantissa <= 1<<53 && exp >= -22 && exp <= 22 {
+		f = float64(mantissa)
+		if exp < 0 {
+			f /= float64pow10[-exp]
+		} else {
+			f *= float64pow10[exp]
+		}
 	} else {
-		f *= float64pow10[exp]
+		var ok bool
+		if f, ok = mulPow10(mantissa, exp); !ok {
+			return 0, 0, false
+		}
 	}
 	if neg {
 		f = -f

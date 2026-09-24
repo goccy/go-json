@@ -114,7 +114,8 @@ const inputPadding = 16
 func (ctx *RuntimeContext) SetInput(data []byte) []byte {
 	n := len(data) + 1
 	if cap(ctx.input) < n+inputPadding {
-		ctx.input = make([]byte, n, n+inputPadding)
+		// at least a cache line, which the buffer of another context doesn't share: it is written for every call.
+		ctx.input = make([]byte, n, max(n+inputPadding, cacheLineSize))
 	}
 	buf := ctx.input[:n]
 	copy(buf, data)
@@ -218,13 +219,26 @@ func (ctx *RuntimeContext) popAny(base int) {
 	ctx.anyStack = ctx.anyStack[:base]
 }
 
+// cacheLineSize is the size of the cache lines the contexts are kept apart by: 128 bytes, which is the line of
+// the Apple M processors and two lines of amd64, whose adjacent lines are fetched together.
+const cacheLineSize = 128
+
+// pooledContext is a context of the pool with its option, in one allocation which fills its cache lines: the
+// contexts of the goroutines which decode at the same time are written for every call, so a context which
+// shared a cache line with another made each goroutine wait for the other.
+type pooledContext struct {
+	ctx RuntimeContext
+	opt Option
+	_   [cacheLineSize - (unsafe.Sizeof(RuntimeContext{})+unsafe.Sizeof(Option{}))%cacheLineSize]byte
+}
+
 var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
-			return &RuntimeContext{
-				Option:         &Option{},
-				recentDecoders: &[recentDecoderSets]recentDecoderSet{},
-			}
+			c := &pooledContext{}
+			c.ctx.Option = &c.opt
+			c.ctx.recentDecoders = &[recentDecoderSets]recentDecoderSet{}
+			return &c.ctx
 		},
 	}
 )
@@ -270,6 +284,23 @@ func skipWhiteSpace(buf []byte, cursor int64) int64 {
 // skipStringDecoder scans the strings which skipValue skips.
 var skipStringDecoder = newStringDecoder("", "")
 
+// skipString returns the position after the string at cursor. A short string which ends in the word after its
+// quote, with nothing to validate, is skipped by that word; any other is scanned as a string is decoded, and
+// validated so. It is a function of its own, so that the code of skipValue for the other values is the same
+// whatever a string takes.
+func skipString(buf []byte, cursor int64) (int64, error) {
+	if start := cursor + 1; start+8 <= int64(cap(buf)) {
+		if n := keyLengthInWord(load64(buf, start)); n < 8 && buf[start+int64(n)] == '"' {
+			return start + int64(n) + 1, nil
+		}
+	}
+	_, next, _, err := skipStringDecoder.scanString(buf, cursor)
+	if err != nil {
+		return 0, err
+	}
+	return next, nil
+}
+
 func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 	for {
 		switch buf[cursor] {
@@ -298,18 +329,7 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			}
 			return end, nil
 		case '"':
-			// A short string which ends in the word after its quote, with nothing to validate, is skipped
-			// by that word; any other is scanned as a string is decoded, and validated so.
-			if start := cursor + 1; start+8 <= int64(cap(buf)) {
-				if n := keyLengthInWord(load64(buf, start)); n < 8 && buf[start+int64(n)] == '"' {
-					return start + int64(n) + 1, nil
-				}
-			}
-			_, next, _, err := skipStringDecoder.scanString(buf, cursor)
-			if err != nil {
-				return 0, err
-			}
-			return next, nil
+			return skipString(buf, cursor)
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			for {
 				cursor++

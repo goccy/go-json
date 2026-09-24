@@ -101,11 +101,7 @@ var (
 )
 
 func init() {
-	for _, typ := range []reflect.Type{reflect.TypeOf([]ShortKeys{}), reflect.TypeOf([]MediumKeys{}), reflect.TypeOf([]LongKeys{}), reflect.TypeOf([]NonASCIIKeys{})} {
-		if err := sonic.Pretouch(typ); err != nil {
-			panic(err)
-		}
-	}
+	sonicTypes = append(sonicTypes, reflect.TypeOf([]ShortKeys{}), reflect.TypeOf([]MediumKeys{}), reflect.TypeOf([]LongKeys{}), reflect.TypeOf([]NonASCIIKeys{}))
 }
 
 func benchDecodeOf[T any](b *testing.B, data []byte) {
@@ -133,10 +129,12 @@ func Benchmark_Decode_ShortKeys_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_ShortKeys_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]ShortKeys](b, shortKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_ShortKeys_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]ShortKeys](b, shortKeysFixture, sonic.ConfigStd.Unmarshal)
 }
 
@@ -153,10 +151,12 @@ func Benchmark_Decode_MediumKeys_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_MediumKeys_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]MediumKeys](b, mediumKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_MediumKeys_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]MediumKeys](b, mediumKeysFixture, sonic.ConfigStd.Unmarshal)
 }
 
@@ -173,10 +173,12 @@ func Benchmark_Decode_LongKeys_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_LongKeys_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]LongKeys](b, longKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_LongKeys_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]LongKeys](b, longKeysFixture, sonic.ConfigStd.Unmarshal)
 }
 
@@ -193,10 +195,12 @@ func Benchmark_Decode_NonASCIIKeys_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_NonASCIIKeys_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_NonASCIIKeys_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, sonic.ConfigStd.Unmarshal)
 }
 
@@ -211,6 +215,7 @@ func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_GoJson(b *testing.B) {
 }
 
 func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]ShortKeys](b, nonASCIIKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
 
@@ -219,6 +224,7 @@ func Benchmark_Decode_ShortKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testi
 }
 
 func Benchmark_Decode_ShortKeys_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]ShortKeys](b, shortKeysFixture)
 }
 
@@ -227,6 +233,7 @@ func Benchmark_Decode_MediumKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *test
 }
 
 func Benchmark_Decode_MediumKeys_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]MediumKeys](b, mediumKeysFixture)
 }
 
@@ -235,6 +242,7 @@ func Benchmark_Decode_LongKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testin
 }
 
 func Benchmark_Decode_LongKeys_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]LongKeys](b, longKeysFixture)
 }
 
@@ -243,6 +251,7 @@ func Benchmark_Decode_NonASCIIKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *te
 }
 
 func Benchmark_Decode_NonASCIIKeys_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]NonASCIIKeys](b, nonASCIIKeysFixture)
 }
 
@@ -251,5 +260,6 @@ func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_GoJsonUnmarshalOfNoCopyStrin
 }
 
 func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]ShortKeys](b, nonASCIIKeysFixture)
 }

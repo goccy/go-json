@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/bytedance/sonic"
@@ -15,31 +16,43 @@ import (
 
 // sonic is measured in the way which is the best for it, so that the comparison is fair:
 //
-//   - Every type to encode is compiled before the benchmarks by sonic.Pretouch. SONIC_MAX_INLINE_DEPTH sets how
+//   - Every type is compiled before the first benchmark of sonic by sonic.Pretouch ( see pretouchSonic ). SONIC_MAX_INLINE_DEPTH sets how
 //     deep the nested structs are inlined into the code of a type ( the default of sonic is 3 ).
 //   - Sonic is sonic.ConfigDefault, which doesn't escape HTML, doesn't normalize UTF-8 and doesn't sort the keys
 //     of a map. GoJsonLikeSonic is go-json with the options which do the same.
 //   - SonicFastest is sonic.ConfigFastest, which also skips the validation of what a marshaler returns.
 //   - SonicStd is sonic.ConfigStd, which does what encoding/json and go-json do by default.
-func init() {
-	opts := []option.CompileOption{option.WithCompileRecursiveDepth(10)}
-	if depth, err := strconv.Atoi(os.Getenv("SONIC_MAX_INLINE_DEPTH")); err == nil {
-		opts = append(opts, option.WithCompileMaxInlineDepth(depth))
-	}
-	types := []reflect.Type{
-		reflect.TypeOf(NewSmallPayload()),
-		reflect.TypeOf(NewMediumPayload()),
-		reflect.TypeOf(NewLargePayload()),
-		reflect.TypeOf(benchMapValue()),
-		reflect.TypeOf([]any{}),
-		reflect.TypeOf(&codeStruct),
-	}
-	if err := sonic.PretouchMany(types, opts...); err != nil {
-		panic(err)
-	}
+//
+// sonicTypes are the types of the benchmarks, which sonic compiles before its first benchmark: the files of the
+// benchmarks add theirs in their init.
+var sonicTypes = []reflect.Type{
+	reflect.TypeOf(NewSmallPayload()),
+	reflect.TypeOf(NewMediumPayload()),
+	reflect.TypeOf(NewLargePayload()),
+	reflect.TypeOf(benchMapValue()),
+	reflect.TypeOf([]any{}),
+	reflect.TypeOf(&codeStruct),
+}
+
+var sonicPretouched sync.Once
+
+// pretouchSonic compiles every type of sonicTypes by sonic.Pretouch, once, before the first benchmark of sonic
+// in the process. It is not done in init: a process which runs only the benchmarks of go-json, as the ones of
+// benchcheck do, would spend the time of the compilation at every start.
+func pretouchSonic() {
+	sonicPretouched.Do(func() {
+		opts := []option.CompileOption{option.WithCompileRecursiveDepth(10)}
+		if depth, err := strconv.Atoi(os.Getenv("SONIC_MAX_INLINE_DEPTH")); err == nil {
+			opts = append(opts, option.WithCompileMaxInlineDepth(depth))
+		}
+		if err := sonic.PretouchMany(sonicTypes, opts...); err != nil {
+			panic(err)
+		}
+	})
 }
 
 func Benchmark_Encode_SmallStruct_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(NewSmallPayload()); err != nil {
@@ -49,6 +62,7 @@ func Benchmark_Encode_SmallStruct_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_SmallStruct_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(NewSmallPayload()); err != nil {
@@ -58,6 +72,7 @@ func Benchmark_Encode_SmallStruct_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_SmallStruct_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(NewSmallPayload()); err != nil {
@@ -67,6 +82,7 @@ func Benchmark_Encode_SmallStruct_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_SmallStructCached_Sonic(b *testing.B) {
+	pretouchSonic()
 	cached := NewSmallPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -77,6 +93,7 @@ func Benchmark_Encode_SmallStructCached_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_SmallStructCached_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	cached := NewSmallPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -87,6 +104,7 @@ func Benchmark_Encode_SmallStructCached_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_SmallStructCached_SonicStd(b *testing.B) {
+	pretouchSonic()
 	cached := NewSmallPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -97,6 +115,7 @@ func Benchmark_Encode_SmallStructCached_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStruct_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(NewMediumPayload()); err != nil {
@@ -106,6 +125,7 @@ func Benchmark_Encode_MediumStruct_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStruct_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(NewMediumPayload()); err != nil {
@@ -115,6 +135,7 @@ func Benchmark_Encode_MediumStruct_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStruct_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(NewMediumPayload()); err != nil {
@@ -124,6 +145,7 @@ func Benchmark_Encode_MediumStruct_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStructCached_Sonic(b *testing.B) {
+	pretouchSonic()
 	cached := NewMediumPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -134,6 +156,7 @@ func Benchmark_Encode_MediumStructCached_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStructCached_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	cached := NewMediumPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -144,6 +167,7 @@ func Benchmark_Encode_MediumStructCached_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_MediumStructCached_SonicStd(b *testing.B) {
+	pretouchSonic()
 	cached := NewMediumPayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -154,6 +178,7 @@ func Benchmark_Encode_MediumStructCached_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStruct_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(NewLargePayload()); err != nil {
@@ -163,6 +188,7 @@ func Benchmark_Encode_LargeStruct_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStruct_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(NewLargePayload()); err != nil {
@@ -172,6 +198,7 @@ func Benchmark_Encode_LargeStruct_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStruct_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(NewLargePayload()); err != nil {
@@ -181,6 +208,7 @@ func Benchmark_Encode_LargeStruct_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStructCached_Sonic(b *testing.B) {
+	pretouchSonic()
 	cached := NewLargePayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -191,6 +219,7 @@ func Benchmark_Encode_LargeStructCached_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStructCached_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	cached := NewLargePayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -201,6 +230,7 @@ func Benchmark_Encode_LargeStructCached_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_LargeStructCached_SonicStd(b *testing.B) {
+	pretouchSonic()
 	cached := NewLargePayload()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -211,6 +241,7 @@ func Benchmark_Encode_LargeStructCached_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_MapInterface_Sonic(b *testing.B) {
+	pretouchSonic()
 	v := benchMapValue()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -221,6 +252,7 @@ func Benchmark_Encode_MapInterface_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_MapInterface_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	v := benchMapValue()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -231,6 +263,7 @@ func Benchmark_Encode_MapInterface_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_MapInterface_SonicStd(b *testing.B) {
+	pretouchSonic()
 	v := benchMapValue()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -241,6 +274,7 @@ func Benchmark_Encode_MapInterface_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_Sonic(b *testing.B) {
+	pretouchSonic()
 	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -251,6 +285,7 @@ func Benchmark_Encode_Interface_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -261,6 +296,7 @@ func Benchmark_Encode_Interface_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_Interface_SonicStd(b *testing.B) {
+	pretouchSonic()
 	v := []any{1}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -271,6 +307,7 @@ func Benchmark_Encode_Interface_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_Bool_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	var buf bytes.Buffer
 	enc := sonic.ConfigDefault.NewEncoder(&buf)
@@ -282,6 +319,7 @@ func Benchmark_Encode_Bool_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_Bool_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	var buf bytes.Buffer
 	enc := sonic.ConfigFastest.NewEncoder(&buf)
@@ -293,6 +331,7 @@ func Benchmark_Encode_Bool_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_Bool_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	var buf bytes.Buffer
 	enc := sonic.ConfigStd.NewEncoder(&buf)
@@ -304,6 +343,7 @@ func Benchmark_Encode_Bool_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Marshal_Bool_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(true); err != nil {
@@ -313,6 +353,7 @@ func Benchmark_Marshal_Bool_Sonic(b *testing.B) {
 }
 
 func Benchmark_Marshal_Bool_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(true); err != nil {
@@ -322,6 +363,7 @@ func Benchmark_Marshal_Bool_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Marshal_Bool_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(true); err != nil {
@@ -331,6 +373,7 @@ func Benchmark_Marshal_Bool_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_Int_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigDefault.Marshal(1); err != nil {
@@ -340,6 +383,7 @@ func Benchmark_Encode_Int_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_Int_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigFastest.Marshal(1); err != nil {
@@ -349,6 +393,7 @@ func Benchmark_Encode_Int_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_Int_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := sonic.ConfigStd.Marshal(1); err != nil {
@@ -358,6 +403,7 @@ func Benchmark_Encode_Int_SonicStd(b *testing.B) {
 }
 
 func Benchmark_Encode_MarshalJSON_Sonic(b *testing.B) {
+	pretouchSonic()
 	v := &marshaler{}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -368,6 +414,7 @@ func Benchmark_Encode_MarshalJSON_Sonic(b *testing.B) {
 }
 
 func Benchmark_Encode_MarshalJSON_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	v := &marshaler{}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -378,6 +425,7 @@ func Benchmark_Encode_MarshalJSON_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_Encode_MarshalJSON_SonicStd(b *testing.B) {
+	pretouchSonic()
 	v := &marshaler{}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -388,6 +436,7 @@ func Benchmark_Encode_MarshalJSON_SonicStd(b *testing.B) {
 }
 
 func Benchmark_EncodeBigData_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -406,6 +455,7 @@ func Benchmark_EncodeBigData_Sonic(b *testing.B) {
 }
 
 func Benchmark_EncodeBigData_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -424,6 +474,7 @@ func Benchmark_EncodeBigData_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_EncodeBigData_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -442,6 +493,7 @@ func Benchmark_EncodeBigData_SonicStd(b *testing.B) {
 }
 
 func Benchmark_MarshalBigData_Sonic(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -459,6 +511,7 @@ func Benchmark_MarshalBigData_Sonic(b *testing.B) {
 }
 
 func Benchmark_MarshalBigData_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()
@@ -476,6 +529,7 @@ func Benchmark_MarshalBigData_SonicFastest(b *testing.B) {
 }
 
 func Benchmark_MarshalBigData_SonicStd(b *testing.B) {
+	pretouchSonic()
 	b.ReportAllocs()
 	if codeJSON == nil {
 		b.StopTimer()

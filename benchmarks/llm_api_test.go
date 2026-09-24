@@ -462,9 +462,7 @@ func init() {
 		ResponsesRequest{}, Response{}, ResponseStreamEvent{},
 		MessagesRequest{}, MessagesResponse{}, MessageStreamEvent{},
 	} {
-		if err := sonic.Pretouch(reflect.TypeOf(v)); err != nil {
-			panic(err)
-		}
+		sonicTypes = append(sonicTypes, reflect.TypeOf(v))
 	}
 }
 
@@ -582,10 +580,12 @@ func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_GoJsonUnmarshalOf(b *testin
 }
 
 func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[ChatCompletionResponse](b, openAIChatResponseJSON, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[ChatCompletionResponse](b, openAIChatResponseJSON, sonic.ConfigStd.Unmarshal)
 }
 
@@ -602,10 +602,12 @@ func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_GoJsonUnmarshalOf(b *
 }
 
 func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[ChatCompletionStreamResponse](b, openAIChatStream, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[ChatCompletionStreamResponse](b, openAIChatStream, sonic.ConfigStd.Unmarshal)
 }
 
@@ -622,10 +624,12 @@ func Benchmark_Encode_OpenAIChatCompletionRequest_GoJsonLikeSonic(b *testing.B) 
 }
 
 func Benchmark_Encode_OpenAIChatCompletionRequest_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIChatRequest, sonic.ConfigDefault.Marshal)
 }
 
 func Benchmark_Encode_OpenAIChatCompletionRequest_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIChatRequest, sonic.ConfigStd.Marshal)
 }
 
@@ -644,10 +648,12 @@ func Benchmark_Decode_OpenAIResponse_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_OpenAIResponse_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[Response](b, openAIResponsesResponseJSON, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_OpenAIResponse_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[Response](b, openAIResponsesResponseJSON, sonic.ConfigStd.Unmarshal)
 }
 
@@ -664,10 +670,12 @@ func Benchmark_Decode_OpenAIResponseStream_Unmarshal_GoJsonUnmarshalOf(b *testin
 }
 
 func Benchmark_Decode_OpenAIResponseStream_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[ResponseStreamEvent](b, openAIResponsesStream, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_OpenAIResponseStream_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[ResponseStreamEvent](b, openAIResponsesStream, sonic.ConfigStd.Unmarshal)
 }
 
@@ -684,10 +692,12 @@ func Benchmark_Encode_OpenAIResponseRequest_GoJsonLikeSonic(b *testing.B) {
 }
 
 func Benchmark_Encode_OpenAIResponseRequest_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIResponsesRequest, sonic.ConfigDefault.Marshal)
 }
 
 func Benchmark_Encode_OpenAIResponseRequest_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIResponsesRequest, sonic.ConfigStd.Marshal)
 }
 
@@ -706,10 +716,12 @@ func Benchmark_Decode_AnthropicMessage_Unmarshal_GoJsonUnmarshalOf(b *testing.B)
 }
 
 func Benchmark_Decode_AnthropicMessage_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[MessagesResponse](b, anthropicResponseJSON, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_AnthropicMessage_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[MessagesResponse](b, anthropicResponseJSON, sonic.ConfigStd.Unmarshal)
 }
 
@@ -726,10 +738,12 @@ func Benchmark_Decode_AnthropicMessageStream_Unmarshal_GoJsonUnmarshalOf(b *test
 }
 
 func Benchmark_Decode_AnthropicMessageStream_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[MessageStreamEvent](b, anthropicStream, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_AnthropicMessageStream_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStream[MessageStreamEvent](b, anthropicStream, sonic.ConfigStd.Unmarshal)
 }
 
@@ -746,10 +760,12 @@ func Benchmark_Encode_AnthropicMessageRequest_GoJsonLikeSonic(b *testing.B) {
 }
 
 func Benchmark_Encode_AnthropicMessageRequest_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, anthropicRequest, sonic.ConfigDefault.Marshal)
 }
 
 func Benchmark_Encode_AnthropicMessageRequest_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, anthropicRequest, sonic.ConfigStd.Marshal)
 }
 
@@ -800,6 +816,7 @@ func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_GoJsonUnmarshalOfNoCopyStri
 }
 
 func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[ChatCompletionResponse](b, openAIChatResponseJSON)
 }
 
@@ -808,6 +825,7 @@ func Benchmark_Decode_OpenAIResponse_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *
 }
 
 func Benchmark_Decode_OpenAIResponse_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[Response](b, openAIResponsesResponseJSON)
 }
 
@@ -816,6 +834,7 @@ func Benchmark_Decode_AnthropicMessage_Unmarshal_GoJsonUnmarshalOfNoCopyString(b
 }
 
 func Benchmark_Decode_AnthropicMessage_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[MessagesResponse](b, anthropicResponseJSON)
 }
 
@@ -824,6 +843,7 @@ func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_GoJsonUnmarshalOfNoCo
 }
 
 func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStreamSonicFastest[ChatCompletionStreamResponse](b, openAIChatStream)
 }
 
@@ -832,6 +852,7 @@ func Benchmark_Decode_OpenAIResponseStream_Unmarshal_GoJsonUnmarshalOfNoCopyStri
 }
 
 func Benchmark_Decode_OpenAIResponseStream_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStreamSonicFastest[ResponseStreamEvent](b, openAIResponsesStream)
 }
 
@@ -840,17 +861,21 @@ func Benchmark_Decode_AnthropicMessageStream_Unmarshal_GoJsonUnmarshalOfNoCopySt
 }
 
 func Benchmark_Decode_AnthropicMessageStream_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeStreamSonicFastest[MessageStreamEvent](b, anthropicStream)
 }
 
 func Benchmark_Encode_OpenAIChatCompletionRequest_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIChatRequest, sonic.ConfigFastest.Marshal)
 }
 
 func Benchmark_Encode_OpenAIResponseRequest_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, openAIResponsesRequest, sonic.ConfigFastest.Marshal)
 }
 
 func Benchmark_Encode_AnthropicMessageRequest_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchEncode(b, anthropicRequest, sonic.ConfigFastest.Marshal)
 }

@@ -226,11 +226,7 @@ var (
 )
 
 func init() {
-	for _, typ := range []reflect.Type{reflect.TypeOf([]*GitHubIssue{}), reflect.TypeOf(GitHubGraphQLIssues{})} {
-		if err := sonic.Pretouch(typ); err != nil {
-			panic(err)
-		}
-	}
+	sonicTypes = append(sonicTypes, reflect.TypeOf([]*GitHubIssue{}), reflect.TypeOf(GitHubGraphQLIssues{}))
 }
 
 func TestGitHubPayloads(t *testing.T) {
@@ -273,10 +269,12 @@ func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_GitHubREST_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]*GitHubIssue](b, githubRESTIssues, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_GitHubREST_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[[]*GitHubIssue](b, githubRESTIssues, sonic.ConfigStd.Unmarshal)
 }
 
@@ -293,10 +291,12 @@ func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 }
 
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, sonic.ConfigStd.Unmarshal)
 }
 
@@ -305,6 +305,7 @@ func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *test
 }
 
 func Benchmark_Decode_GitHubREST_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[[]*GitHubIssue](b, githubRESTIssues)
 }
 
@@ -313,5 +314,6 @@ func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *t
 }
 
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[GitHubGraphQLIssues](b, githubGraphQLIssues)
 }

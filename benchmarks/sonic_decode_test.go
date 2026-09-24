@@ -35,26 +35,32 @@ func benchDecode[T any](b *testing.B, data []byte, unmarshal func([]byte, any) e
 }
 
 func Benchmark_Decode_SmallStruct_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[SmallPayload](b, SmallFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_SmallStruct_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[SmallPayload](b, SmallFixture, sonic.ConfigStd.Unmarshal)
 }
 
 func Benchmark_Decode_MediumStruct_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[MediumPayload](b, MediumFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_MediumStruct_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[MediumPayload](b, MediumFixture, sonic.ConfigStd.Unmarshal)
 }
 
 func Benchmark_Decode_LargeStruct_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[LargePayload](b, LargeFixture, sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_LargeStruct_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[LargePayload](b, LargeFixture, sonic.ConfigStd.Unmarshal)
 }
 
@@ -93,10 +99,12 @@ func Benchmark_Decode_TwitterGeneric_Unmarshal_GoJsonLikeSonic(b *testing.B) {
 }
 
 func Benchmark_Decode_TwitterBinding_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[TwitterStruct](b, []byte(TwitterJson), sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_TwitterBinding_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[TwitterStruct](b, []byte(TwitterJson), sonic.ConfigStd.Unmarshal)
 }
 
@@ -109,10 +117,12 @@ func Benchmark_Decode_TwitterGeneric_Unmarshal_GoJson(b *testing.B) {
 }
 
 func Benchmark_Decode_TwitterGeneric_Unmarshal_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchDecode[any](b, []byte(TwitterJson), sonic.ConfigDefault.Unmarshal)
 }
 
 func Benchmark_Decode_TwitterGeneric_Unmarshal_SonicStd(b *testing.B) {
+	pretouchSonic()
 	benchDecode[any](b, []byte(TwitterJson), sonic.ConfigStd.Unmarshal)
 }
 
@@ -145,14 +155,17 @@ func benchDecodeNoCopy[T any](b *testing.B, data []byte) {
 }
 
 func Benchmark_Decode_SmallStruct_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[SmallPayload](b, SmallFixture)
 }
 
 func Benchmark_Decode_MediumStruct_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[MediumPayload](b, MediumFixture)
 }
 
 func Benchmark_Decode_LargeStruct_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[LargePayload](b, LargeFixture)
 }
 
@@ -161,9 +174,11 @@ func Benchmark_Decode_TwitterBinding_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *
 }
 
 func Benchmark_Decode_TwitterBinding_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[TwitterStruct](b, []byte(TwitterJson))
 }
 
 func Benchmark_Decode_TwitterGeneric_Unmarshal_SonicFastest(b *testing.B) {
+	pretouchSonic()
 	benchDecodeSonicFastest[any](b, []byte(TwitterJson))
 }

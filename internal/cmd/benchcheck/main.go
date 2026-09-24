@@ -77,6 +77,7 @@ func parseOptions() (*options, error) {
 	flag.IntVar(&opt.config.Rounds, "rounds", defaultRounds, "number of rounds of a measurement: the fastest round is the result of the measurement")
 	flag.IntVar(&opt.config.Layouts, "layouts", defaultLayouts, "number of function layouts of the benchmark binary: the round N is measured with the layout N % layouts ( more than 1 requires Go 1.23 or later )")
 	flag.IntVar(&opt.attempts, "attempts", defaultAttempts, "max number of measurements to reach the result of the base")
+	flag.StringVar(&opt.config.Group, "group", "", "encode or decode: measure only the benchmarks of the group, whose mean is judged apart from the other group ( default: both, in one mean )")
 	shard := flag.String("shard", "", "i/n: measure only the i-th of n parts of the benchmark functions ( 0 <= i < n ), so that n machines measure all of them in parallel. The mean is the one of the part")
 	flag.Float64Var(&opt.tolerance, "tolerance", defaultTolerance, "how much slower ( in percent ) the mean of all the benchmarks may be")
 	flag.Float64Var(&opt.singleTolerance, "single-tolerance", defaultSingleTolerance, "how much slower ( in percent ) a single benchmark may be")
@@ -85,6 +86,11 @@ func parseOptions() (*options, error) {
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return nil, fmt.Errorf("unexpected arguments: %s", strings.Join(flag.Args(), " "))
+	}
+	switch opt.config.Group {
+	case "", groupEncode, groupDecode:
+	default:
+		return nil, fmt.Errorf("group must be %s or %s: %q", groupEncode, groupDecode, opt.config.Group)
 	}
 	opt.config.Shards = 1
 	if *shard != "" {
@@ -284,7 +290,10 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 	if len(funcs) == 0 {
 		return nil, fmt.Errorf("no benchmark matched %q in %s", c.opt.config.Bench, c.benchDir)
 	}
-	funcs = shardFuncs(funcs, c.opt.config.Shard, c.opt.config.Shards)
+	funcs = shardFuncs(groupFuncs(funcs, c.opt.config.Group), c.opt.config.Shard, c.opt.config.Shards)
+	if len(funcs) == 0 {
+		return nil, fmt.Errorf("no benchmark of the group %q in the shard %d/%d", c.opt.config.Group, c.opt.config.Shard, c.opt.config.Shards)
+	}
 
 	cmp := newComparison(c.opt.tolerance, c.opt.singleTolerance)
 	for attempt := 1; attempt <= c.opt.attempts && len(funcs) != 0; attempt++ {
@@ -488,6 +497,20 @@ func shardFuncs(funcs []string, shard, shards int) []string {
 	var part []string
 	for i, fn := range sorted {
 		if i%shards == shard {
+			part = append(part, fn)
+		}
+	}
+	return part
+}
+
+// groupFuncs returns the functions of the group, or all of them for no group.
+func groupFuncs(funcs []string, group string) []string {
+	if group == "" {
+		return funcs
+	}
+	var part []string
+	for _, fn := range funcs {
+		if benchmarkGroup(fn) == group {
 			part = append(part, fn)
 		}
 	}

@@ -161,6 +161,7 @@ var comparedLibraries = map[string]struct{}{
 	"JsonIter":      {},
 	"SegmentioJson": {},
 	"Sonic":         {},
+	"SonicFast":     {},
 	"SonicFastest":  {},
 	"SonicStd":      {},
 	"StdLib":        {},
@@ -179,6 +180,26 @@ func isComparedLibraryBenchmark(name string) bool {
 	}
 	_, exists := comparedLibraries[name[i+1:]]
 	return exists
+}
+
+// The groups of the benchmarks, whose means are judged apart: a change of the decoder moves only the decode
+// benchmarks, which are fewer than the encode ones, so in a mean of both it would count for less than one of
+// the encoder.
+const (
+	groupEncode = "encode"
+	groupDecode = "decode"
+)
+
+// benchmarkGroup returns the group of the benchmark function.
+//
+// A test binary identifies a benchmark only by its function name, so the group can't be carried by anything
+// else: a benchmark of decoding has Decode or Unmarshal in its name ( BenchmarkCodeDecoder, Benchmark_Decode_*,
+// BenchmarkUnmarshal* ), and every other one is a benchmark of encoding.
+func benchmarkGroup(name string) string {
+	if strings.Contains(name, "Decode") || strings.Contains(name, "Unmarshal") {
+		return groupDecode
+	}
+	return groupEncode
 }
 
 // funcs returns the names of the top-level benchmark functions of go-json matched by pattern.

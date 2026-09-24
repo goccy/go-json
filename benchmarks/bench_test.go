@@ -586,7 +586,7 @@ func BenchmarkUnmarshalInt64(b *testing.B) {
 	})
 }
 
-func BenchmarkIssue10335(b *testing.B) {
+func BenchmarkUnmarshalIssue10335(b *testing.B) {
 	b.ReportAllocs()
 	j := []byte(`{"a":{ }}`)
 	b.RunParallel(func(pb *testing.PB) {
@@ -599,7 +599,7 @@ func BenchmarkIssue10335(b *testing.B) {
 	})
 }
 
-func BenchmarkUnmapped(b *testing.B) {
+func BenchmarkUnmarshalUnmapped(b *testing.B) {
 	b.ReportAllocs()
 	j := []byte(`{"s": "hello", "y": 2, "o": {"x": 0}, "a": [1, 99, {"x": 1}]}`)
 	b.RunParallel(func(pb *testing.PB) {

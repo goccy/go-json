@@ -52,14 +52,22 @@ jobs:
         run: |
           make lint
   bench:
-    # The benchmark functions are measured in three parts, one by each job, so that the check ends within
-    # a few minutes: a part has the benchmarks of every kind ( see -shard of internal/cmd/benchcheck ).
-    name: Benchmark (${{ matrix.shard }}/3)
+    # The benchmarks are measured by parts, one by each job, so that the check ends within a few minutes.
+    # The decode and the encode benchmarks are apart, so that each group is judged by a mean of its own:
+    # in a mean of both, a change of the decoder would count for less than one of the encoder, whose
+    # benchmarks are more. The encode ones are in two parts of every kind ( see -shard of internal/cmd/benchcheck ).
+    name: Benchmark (${{ matrix.part }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [ 0, 1, 2 ]
+        include:
+          - part: decode
+            flags: -group decode
+          - part: encode 0/2
+            flags: -group encode -shard 0/2
+          - part: encode 1/2
+            flags: -group encode -shard 1/2
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -81,19 +89,25 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .git/benchcheck/verdict
-          key: benchcheck-verdict-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          key: benchcheck-verdict-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.part }}
       - name: check performance degradation
-        run: make bench-check BENCH_CHECK_FLAGS="-base origin/master -shard ${{ matrix.shard }}/3"
+        run: make bench-check BENCH_CHECK_FLAGS="-base origin/master ${{ matrix.flags }}"
 
   bench-last-commit:
-    # It never fails by the result: it measures what the last commit of a pull request changed, in three parts.
+    # It never fails by the result: it measures what the last commit of a pull request changed, by parts.
     if: github.event_name == 'pull_request'
-    name: Measure the last commit (${{ matrix.shard }}/3)
+    name: Measure the last commit (${{ matrix.part }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [ 0, 1, 2 ]
+        include:
+          - part: decode
+            flags: -group decode
+          - part: encode 0/2
+            flags: -group encode -shard 0/2
+          - part: encode 1/2
+            flags: -group encode -shard 1/2
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -110,7 +124,7 @@ jobs:
       # The machines of the CI differ, so a commit is compared with its parent on the same machine.
       # HEAD is the merge commit of the pull request, whose second parent is the head of the branch.
       - name: measure what the last commit changed
-        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal|Twitter|Decode_' -shard ${{ matrix.shard }}/3" || true
+        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal|Twitter|Decode|Unmarshal' ${{ matrix.flags }}" || true
 
   bench-compare:
     # It never fails by the result: it exists to read how go-json compares with sonic on amd64,

@@ -263,3 +263,27 @@ func TestShardFuncs(t *testing.T) {
 		t.Fatalf("one shard has %d functions", len(got))
 	}
 }
+
+func TestBenchmarkGroup(t *testing.T) {
+	for name, want := range map[string]string{
+		"BenchmarkCodeDecoder":                          groupDecode,
+		"BenchmarkUnmarshalFloat64":                     groupDecode,
+		"BenchmarkUnmarshalUnmapped":                    groupDecode,
+		"Benchmark_Decode_SmallStruct_Unmarshal_GoJson": groupDecode,
+		"Benchmark_Encode_SmallStruct_GoJson":           groupEncode,
+		"Benchmark_MarshalBytes_GoJson":                 groupEncode,
+		"Benchmark_Compact_GoJson":                      groupEncode,
+		"BenchmarkCodeEncoder":                          groupEncode,
+	} {
+		if got := benchmarkGroup(name); got != want {
+			t.Errorf("%s: got %s, want %s", name, got, want)
+		}
+	}
+	funcs := []string{"Benchmark_Encode_A_GoJson", "Benchmark_Decode_A_GoJson", "BenchmarkUnmarshalX"}
+	if got := groupFuncs(funcs, groupDecode); len(got) != 2 {
+		t.Fatalf("decode: %v", got)
+	}
+	if got := groupFuncs(funcs, ""); len(got) != 3 {
+		t.Fatalf("no group: %v", got)
+	}
+}

@@ -231,13 +231,14 @@ type nonASCIIKeys struct {
 	Lower    string `json:"ärger"`
 	K        string `json:"k"`
 	Mixed    string `json:"user_名前_id"`
-	Invalid  string `json:"bad\xffkey"`
 	Accented string `json:"café"`
 }
 
 func TestStructKeyNotASCII(t *testing.T) {
 	// A key which is not ASCII is found by its bytes when it is the same as the key of a field, which wins over
-	// a match by case folding, and else by case folding as encoding/json does.
+	// a match by case folding, and else by case folding as encoding/json does. A key which is not valid UTF-8 is
+	// of no field. No tag here is invalid UTF-8: encoding/json takes such a tag as the name of its field up to
+	// Go 1.26, and as it is from Go 1.27.
 	compareStructKeys[nonASCIIKeys](t, []string{
 		`{"番号":1,"名前":"a"}`, `{"番号 ":1}`, `{"番":1}`, `{"未知のキー":1,"名前":"b"}`,
 		`{"とても長いフィールドの名前です":"l"}`, `{"とても長いフィールドの名でした":"t"}`, `{"とても長いフィールドの名前でした":"none"}`,

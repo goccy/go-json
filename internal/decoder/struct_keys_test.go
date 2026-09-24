@@ -105,11 +105,12 @@ func TestStructKeysMayFold(t *testing.T) {
 		if got, want := k.mayFold(key), k.mayFoldDecoded(key); got != want {
 			t.Fatalf("%q: got %v, want %v", key, got, want)
 		}
-		// the check of the first rune never rejects a key which may fold
+		// no check rejects a key which folds to a key of a field
 		var w [8]byte
 		copy(w[:], key)
-		if k.mayFold(key) && !k.firstRuneMayFold(key, binary.LittleEndian.Uint64(w[:])) {
-			t.Fatalf("%q: rejected by its first rune", key)
+		w0 := binary.LittleEndian.Uint64(w[:])
+		if k.find(appendFoldedKey(nil, key)) != nil && !(k.leadMayFold(w0) && k.firstRuneMayFold(key, w0) && k.mayFold(key)) {
+			t.Fatalf("%q: the key of a field is rejected", key)
 		}
 	}
 	// a key of runes which fold to a key may be of it

@@ -31,6 +31,8 @@ type structKeys struct {
 	// foldRunes has a bit for every rune which is not ASCII and which folds to a rune of a folded key, by the
 	// low byte of the rune ( see mayFold ).
 	foldRunes [4]uint64
+	// foldLeads has a bit for the first byte of the encoding of every rune of foldRunes ( see leadMayFold ).
+	foldLeads [4]uint64
 	// hasRuneError is set if a key has utf8.RuneError, which a byte of an object key which is not valid UTF-8
 	// is replaced by.
 	hasRuneError bool
@@ -170,6 +172,8 @@ func (k *structKeys) makeFoldRunes(fields []*structFieldSet) {
 			for f := r; ; {
 				if f >= utf8.RuneSelf {
 					k.foldRunes[f&0xff>>6] |= 1 << (uint(f) & 63)
+					lead := utf8.AppendRune(nil, f)[0]
+					k.foldLeads[lead>>6] |= 1 << (lead & 63)
 				}
 				if f = unicode.SimpleFold(f); f == r {
 					break
@@ -214,6 +218,18 @@ func (k *structKeys) mayFold(key []byte) bool {
 		i += size
 	}
 	return true
+}
+
+// leadMayFold reports whether the first byte of the key which is not ASCII, if it is in the first word of the
+// key, w0, may be the first byte of a rune which folds to a rune of a key, and else true. It is the cheapest
+// check, which needs no load: most keys which are of no field are told so by it.
+func (k *structKeys) leadMayFold(w0 uint64) bool {
+	high := w0 & msb
+	if high == 0 || k.hasRuneError {
+		return true
+	}
+	lead := byte(w0 >> (uint(bits.TrailingZeros64(high)) - 7))
+	return k.foldLeads[lead>>6]&(1<<(lead&63)) != 0
 }
 
 // firstRuneMayFold reports whether the first rune of the key which is not ASCII may fold to a rune of a key, if

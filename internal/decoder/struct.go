@@ -287,7 +287,7 @@ func (d *structDecoder) decodeKeyNotASCII(buf []byte, cursor int64, disallowUnkn
 	if field == nil {
 		// Most keys which are not the key of a field are told so by their first rune which is not ASCII, which
 		// folds to no rune of a key ( see mayFold ); the others are looked at rune by rune.
-		if keys.firstRuneMayFold(key, w0) && keys.mayFold(key) {
+		if keys.leadMayFold(w0) && keys.firstRuneMayFold(key, w0) && keys.mayFold(key) {
 			field, key = keys.lookup(key, stringInfo{firstEscape: -1, nonASCII: true})
 		} else if disallowUnknownFields {
 			key = decodeLiteral(key, stringInfo{firstEscape: -1, nonASCII: true})

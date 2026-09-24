@@ -302,8 +302,8 @@ func (d *structDecoder) decodeKeyNotASCII(buf []byte, cursor int64, disallowUnkn
 // decodeKeyByScan is decodeKey for any key, which it scans as a string.
 func (d *structDecoder) decodeKeyByScan(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
 	rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
-	if info.rest {
-		rawKey, next, info, err = d.stringDecoder.scanStringRest(buf, rawKey, next, info)
+	if next < 0 {
+		rawKey, next, info, err = d.stringDecoder.scanStringRest(buf, rawKey, -next-1, info)
 	}
 	if err != nil {
 		return nil, 0, err

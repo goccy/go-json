@@ -92,15 +92,13 @@ type stringInfo struct {
 	firstEscape int
 	// nonASCII is whether a byte of the string is not ASCII: the string may be invalid UTF-8.
 	nonASCII bool
-	// rest is set by scanString when it stops at a long run of plain bytes, which scanStringRest continues.
-	rest bool
 }
 
 // decodeByte returns the bytes of the string at cursor, decoded in place in buf, or nil for null.
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	literal, next, info, err := d.scanString(buf, cursor)
-	if info.rest {
-		literal, next, info, err = d.scanStringRest(buf, literal, next, info)
+	if next < 0 {
+		literal, next, info, err = d.scanStringRest(buf, literal, -next-1, info)
 	}
 	if err != nil || literal == nil {
 		return literal, next, err
@@ -123,8 +121,8 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 // An escaped string which is copied out of the buffer ( see makeString ) is decoded into its copy directly.
 func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
 	literal, next, info, err := d.scanString(ctx.Buf, cursor)
-	if info.rest {
-		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, next, info)
+	if next < 0 {
+		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, -next-1, info)
 	}
 	if err != nil || literal == nil {
 		return "", next, false, err
@@ -146,9 +144,10 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 // what it found in it, or nil for null.
 //
 // Most strings are short, and scanned by its loop, which calls nothing so that it keeps its values in the
-// registers. After 64 bytes of plain bytes, it stops and returns the bytes of the string so far, the position it
-// stopped at and what it found so far, with rest set: the caller continues the scan by scanStringRest, which
-// scans the runs of plain bytes of a long string by SIMD where the CPU has it.
+// registers. After 64 bytes of plain bytes, it stops and returns the bytes of the string so far, -1 minus the
+// position it stopped at, and what it found so far: the caller continues the scan by scanStringRest, which scans
+// the runs of plain bytes of a long string by SIMD where the CPU has it. The position is negative so that the
+// result has no field more, whose return every string would pay for.
 func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, stringInfo, error) {
 	for {
 		switch buf[cursor] {
@@ -174,7 +173,7 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 				// of a long string is left to scanStringRest ( see scanString ).
 				for words := 0; cursor+8 <= buflen; words++ {
 					if words == 8 && hasStringSIMD {
-						return buf[start:cursor], cursor, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0, rest: true}, nil
+						return buf[start:cursor], -cursor - 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
 					}
 					w := load64(buf, cursor)
 					if special := keyEndBytes(w); special != 0 {

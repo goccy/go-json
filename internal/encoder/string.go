@@ -288,7 +288,7 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
 	// is looked at here, which is where the escape of a short string is.
 	j := 0
-	if hasEscapeLoop && valLen >= 32 {
+	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML|stringEscapeNormalize])
 		i = j
@@ -306,7 +306,7 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
 			// which are not worth a call
 			j++
-			if hasEscapeLoop && valLen-j >= 32 {
+			if valLen-j >= 32 && hasEscapeLoop {
 				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
 				buf = append(buf, s[i:j]...)
 				var n int
@@ -409,7 +409,7 @@ func appendHTMLString(buf []byte, s string) []byte {
 	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
 	// is looked at here, which is where the escape of a short string is.
 	j := 0
-	if hasEscapeLoop && valLen >= 32 {
+	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML])
 		i = j
@@ -427,7 +427,7 @@ func appendHTMLString(buf []byte, s string) []byte {
 			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
 			// which are not worth a call
 			j++
-			if hasEscapeLoop && valLen-j >= 32 {
+			if valLen-j >= 32 && hasEscapeLoop {
 				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
 				buf = append(buf, s[i:j]...)
 				var n int
@@ -502,7 +502,7 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
 	// is looked at here, which is where the escape of a short string is.
 	j := 0
-	if hasEscapeLoop && valLen >= 32 {
+	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeNormalize])
 		i = j
@@ -520,7 +520,7 @@ func appendNormalizedString(buf []byte, s string) []byte {
 			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
 			// which are not worth a call
 			j++
-			if hasEscapeLoop && valLen-j >= 32 {
+			if valLen-j >= 32 && hasEscapeLoop {
 				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
 				buf = append(buf, s[i:j]...)
 				var n int
@@ -616,7 +616,7 @@ func appendString(buf []byte, s string) []byte {
 	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
 	// is looked at here, which is where the escape of a short string is.
 	j := 0
-	if hasEscapeLoop && valLen >= 32 {
+	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[0])
 		i = j
@@ -634,7 +634,7 @@ func appendString(buf []byte, s string) []byte {
 			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
 			// which are not worth a call
 			j++
-			if hasEscapeLoop && valLen-j >= 32 {
+			if valLen-j >= 32 && hasEscapeLoop {
 				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
 				buf = append(buf, s[i:j]...)
 				var n int

@@ -133,11 +133,13 @@ ifound:
 
 // func escapeStringAVX2(dst, src unsafe.Pointer, n int, tables *nibbleTables, seqs *[256]uint64) (consumed, written int)
 //
-// It appends the n bytes at src to dst, escaped, 32 bytes at a time: a block is stored to dst as it is, and dst
-// is advanced to the first byte of it which may need an escape by the tables, whose escape, the sequence of seqs
-// of the byte ( see escapeSequences ), is stored after it. It stops at a byte whose sequence is 0, which the
-// caller escapes, or when fewer than 32 bytes remain, and returns the numbers of the bytes it read and wrote. dst
-// has room for 6*n+32 bytes: a byte is escaped in 6 bytes at most, and a block is stored whole.
+// It appends the n bytes at src to dst, escaped, 32 bytes at a time: a block is stored to dst as it is, and the
+// bytes of it which may need an escape by the tables are found by one mask. For each of them in order, dst is
+// advanced to it, its escape, the sequence of seqs of the byte ( see escapeSequences ), is stored, and the rest of
+// the block is stored again after it from src, 32 bytes, which is why that is done only while 32 bytes of src
+// remain from there. It stops at a byte whose sequence is 0, which the caller escapes, or when fewer than 32 bytes
+// remain, and returns the numbers of the bytes it read and wrote. dst has room for 6*n+32 bytes: a byte is
+// escaped in 6 bytes at most, and 32 bytes are stored at a time.
 TEXT ·escapeStringAVX2(SB), NOSPLIT, $0-56
 	MOVQ dst+0(FP), DI
 	MOVQ src+8(FP), SI
@@ -154,35 +156,55 @@ TEXT ·escapeStringAVX2(SB), NOSPLIT, $0-56
 	MOVQ DI, R13                 // the start of dst
 	LEAQ (SI)(CX*1), R11         // the end of src
 eloop:
-	LEAQ    32(SI), DX
-	CMPQ    DX, R11
+	LEAQ    32(SI), R10          // the end of the block
+	CMPQ    R10, R11
 	JGT     edone
 	VMOVDQU (SI), Y0
 	VMOVDQU Y0, (DI)
 	MASK(Y0, Y4, Y5)
-	VPTEST  Y5, Y5
-	JNE     eescape
-	ADDQ    $32, SI
-	ADDQ    $32, DI
-	JMP     eloop
-eescape:
 	// the lanes which are zero are the ones of the bytes which need no escape.
 	VPCMPEQB  Y11, Y5, Y5
 	VPMOVMSKB Y5, DX
 	NOTL      DX
-	BSFL      DX, DX
-	ADDQ      DX, SI
-	ADDQ      DX, DI
-	MOVBLZX   (SI), AX
-	MOVQ      (R9)(AX*8), BX
-	TESTQ     BX, BX
-	JEQ       edone
-	// the sequence, whose length is in the top byte: the bytes after it are written over.
-	MOVQ      BX, (DI)
-	SHRQ      $56, BX
-	ADDQ      BX, DI
-	INCQ      SI
+	TESTL     DX, DX
+	JNE       eescape
+	MOVQ      R10, SI
+	ADDQ      $32, DI
 	JMP       eloop
+eescape:
+	MOVQ SI, R14                 // the address of the bit 0 of the mask
+ebyte:
+	// dst is advanced over the bytes before the one to escape, which are stored already.
+	BSFL    DX, CX
+	LEAQ    (R14)(CX*1), AX
+	MOVQ    AX, BX
+	SUBQ    SI, BX
+	ADDQ    BX, DI
+	MOVQ    AX, SI
+	MOVBLZX (SI), AX
+	MOVQ    (R9)(AX*8), BX
+	TESTQ   BX, BX
+	JEQ     edone
+	// the sequence, whose length is in the top byte: the bytes after it are written over.
+	MOVQ    BX, (DI)
+	SHRQ    $56, BX
+	ADDQ    BX, DI
+	INCQ    SI
+	// the rest of the block is stored again after the escape, from src, if 32 bytes of src remain.
+	LEAQ    32(SI), AX
+	CMPQ    AX, R11
+	JGT     edone
+	VMOVDQU (SI), Y1
+	VMOVDQU Y1, (DI)
+	LEAL    -1(DX), AX
+	ANDL    AX, DX
+	JNE     ebyte
+	// the rest of the block needs no escape.
+	MOVQ    R10, BX
+	SUBQ    SI, BX
+	ADDQ    BX, DI
+	MOVQ    R10, SI
+	JMP     eloop
 edone:
 	VZEROUPPER
 	SUBQ R12, SI

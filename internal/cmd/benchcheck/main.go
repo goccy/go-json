@@ -77,6 +77,7 @@ func parseOptions() (*options, error) {
 	flag.IntVar(&opt.config.Rounds, "rounds", defaultRounds, "number of rounds of a measurement: the fastest round is the result of the measurement")
 	flag.IntVar(&opt.config.Layouts, "layouts", defaultLayouts, "number of function layouts of the benchmark binary: the round N is measured with the layout N % layouts ( more than 1 requires Go 1.23 or later )")
 	flag.IntVar(&opt.attempts, "attempts", defaultAttempts, "max number of measurements to reach the result of the base")
+	shard := flag.String("shard", "", "i/n: measure only the i-th of n parts of the benchmark functions ( 0 <= i < n ), so that n machines measure all of them in parallel. The mean is the one of the part")
 	flag.Float64Var(&opt.tolerance, "tolerance", defaultTolerance, "how much slower ( in percent ) the mean of all the benchmarks may be")
 	flag.Float64Var(&opt.singleTolerance, "single-tolerance", defaultSingleTolerance, "how much slower ( in percent ) a single benchmark may be")
 	flag.StringVar(&opt.cacheDir, "cache-dir", "", "directory to store the results ( default: <git common dir>/benchcheck )")
@@ -84,6 +85,15 @@ func parseOptions() (*options, error) {
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return nil, fmt.Errorf("unexpected arguments: %s", strings.Join(flag.Args(), " "))
+	}
+	opt.config.Shards = 1
+	if *shard != "" {
+		if _, err := fmt.Sscanf(*shard, "%d/%d", &opt.config.Shard, &opt.config.Shards); err != nil {
+			return nil, fmt.Errorf("shard must be i/n: %q", *shard)
+		}
+		if opt.config.Shards < 1 || opt.config.Shard < 0 || opt.config.Shard >= opt.config.Shards {
+			return nil, fmt.Errorf("shard must be i/n with 0 <= i < n: %q", *shard)
+		}
 	}
 	if opt.config.Rounds < 1 {
 		return nil, fmt.Errorf("rounds must be greater than zero: %d", opt.config.Rounds)
@@ -274,6 +284,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 	if len(funcs) == 0 {
 		return nil, fmt.Errorf("no benchmark matched %q in %s", c.opt.config.Bench, c.benchDir)
 	}
+	funcs = shardFuncs(funcs, c.opt.config.Shard, c.opt.config.Shards)
 
 	cmp := newComparison(c.opt.tolerance, c.opt.singleTolerance)
 	for attempt := 1; attempt <= c.opt.attempts && len(funcs) != 0; attempt++ {
@@ -463,4 +474,22 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+// shardFuncs returns the functions of the shard-th of shards parts. The functions are dealt to the parts in
+// the order of their names, one by one: the benchmarks of a kind, whose names are next to each other, are in
+// every part, so that the parts take about as long as each other.
+func shardFuncs(funcs []string, shard, shards int) []string {
+	if shards <= 1 {
+		return funcs
+	}
+	sorted := append([]string(nil), funcs...)
+	sort.Strings(sorted)
+	var part []string
+	for i, fn := range sorted {
+		if i%shards == shard {
+			part = append(part, fn)
+		}
+	}
+	return part
 }

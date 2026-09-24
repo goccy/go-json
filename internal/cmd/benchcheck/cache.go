@@ -18,6 +18,9 @@ type benchConfig struct {
 	BenchTime string `json:"benchTime"`
 	Rounds    int    `json:"rounds"`
 	Layouts   int    `json:"layouts"`
+	// Shard and Shards select the benchmark functions measured: see shardFuncs.
+	Shard  int `json:"shard"`
+	Shards int `json:"shards"`
 }
 
 // machine identifies the environment in which a measurement is comparable with another one.

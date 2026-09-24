@@ -52,8 +52,14 @@ jobs:
         run: |
           make lint
   bench:
-    name: Benchmark
+    # The benchmark functions are measured in three parts, one by each job, so that the check ends within
+    # a few minutes: a part has the benchmarks of every kind ( see -shard of internal/cmd/benchcheck ).
+    name: Benchmark (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2 ]
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -64,6 +70,9 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
       # A verdict is saved only when the job succeeds, so a failed commit is measured again.
       # The key has the attempt of the run: re-running the job measures again, on the machine it gets,
       # because the machines of the CI differ and a single measurement is not conclusive.
@@ -72,15 +81,19 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .git/benchcheck/verdict
-          key: benchcheck-verdict-${{ github.sha }}-${{ github.run_attempt }}
+          key: benchcheck-verdict-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.shard }}
       - name: check performance degradation
-        run: make bench-check BENCH_CHECK_FLAGS="-base origin/master"
+        run: make bench-check BENCH_CHECK_FLAGS="-base origin/master -shard ${{ matrix.shard }}/3"
 
-  bench-compare:
-    # It never fails by the result: it exists to read how go-json compares with sonic on amd64,
-    # where sonic compiles the encoder of a type to machine code.
-    name: Compare with sonic
+  bench-last-commit:
+    # It never fails by the result: it measures what the last commit of a pull request changed, in three parts.
+    if: github.event_name == 'pull_request'
+    name: Measure the last commit (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2 ]
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -91,25 +104,47 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
       # The machines of the CI differ, so a commit is compared with its parent on the same machine.
       # HEAD is the merge commit of the pull request, whose second parent is the head of the branch.
       - name: measure what the last commit changed
-        if: github.event_name == 'pull_request'
-        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal|Twitter|Decode_'" || true
-      - name: compare the encode benchmarks
-        run: make bench-compare-encode
-      # sonic inlines the nested structs into the code of a type up to 3 levels by default.
-      # It is also measured with more levels, so that it is compared in the way which is the best for it.
-      - name: compare the encode benchmarks with sonic inlining more
-        run: SONIC_MAX_INLINE_DEPTH=10 make bench-compare-encode
-      - name: compare the decode benchmarks
-        run: make bench-compare-decode
-      - name: measure the candidates of the optimizations
-        run: make bench-variants
-      - name: profile the encode benchmarks
-        run: make bench-profile-encode
-      - name: profile the decode benchmarks
-        run: make bench-profile-decode
+        run: make bench-check BENCH_CHECK_FLAGS="-base HEAD^2~1 -no-cache -bench 'Encode_|Marshal|Twitter|Decode_' -shard ${{ matrix.shard }}/3" || true
+
+  bench-compare:
+    # It never fails by the result: it exists to read how go-json compares with sonic on amd64,
+    # where sonic compiles the encoder of a type to machine code. Each task is a job of its own.
+    name: Compare with sonic (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: encode
+            run: make bench-compare-encode
+          # sonic inlines the nested structs into the code of a type up to 3 levels by default.
+          # It is also measured with more levels, so that it is compared in the way which is the best for it.
+          - name: encode, sonic inlining more
+            run: SONIC_MAX_INLINE_DEPTH=10 make bench-compare-encode
+          - name: decode
+            run: make bench-compare-decode && make bench-profile-decode
+          - name: profile encode
+            run: make bench-profile-encode
+          - name: candidates of the optimizations
+            run: make bench-variants
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
 
   coverage:
     name: Coverage

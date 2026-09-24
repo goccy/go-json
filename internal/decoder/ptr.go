@@ -40,30 +40,6 @@ func UnsafeNew(t reflect.Type) unsafe.Pointer {
 	return unsafe_New(runtime.TypePtr(t))
 }
 
-func (d *ptrDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	if s.skipWhiteSpace() == nul {
-		s.read()
-	}
-	if s.char() == 'n' {
-		if err := nullBytes(s); err != nil {
-			return err
-		}
-		*(*unsafe.Pointer)(p) = nil
-		return nil
-	}
-	var newptr unsafe.Pointer
-	if *(*unsafe.Pointer)(p) == nil {
-		newptr = unsafe_New(runtime.TypePtr(d.typ))
-		*(*unsafe.Pointer)(p) = newptr
-	} else {
-		newptr = *(*unsafe.Pointer)(p)
-	}
-	if err := d.dec.DecodeStream(s, depth, newptr); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)

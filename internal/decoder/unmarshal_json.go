@@ -35,41 +35,6 @@ func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
 	}
 }
 
-func (d *unmarshalJSONDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	s.skipWhiteSpace()
-	start := s.cursor
-	if err := s.skipValue(depth); err != nil {
-		return err
-	}
-	src := s.buf[start:s.cursor]
-	dst := make([]byte, len(src))
-	copy(dst, src)
-
-	v := *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: runtime.TypePtr(d.typ),
-		ptr: p,
-	}))
-	switch v := v.(type) {
-	case unmarshalerContext:
-		var ctx context.Context
-		if (s.Option.Flags & ContextOption) != 0 {
-			ctx = s.Option.Context
-		} else {
-			ctx = context.Background()
-		}
-		if err := v.UnmarshalJSON(ctx, dst); err != nil {
-			d.annotateError(s.cursor, err)
-			return err
-		}
-	case json.Unmarshaler:
-		if err := v.UnmarshalJSON(dst); err != nil {
-			d.annotateError(s.cursor, err)
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
@@ -86,13 +51,20 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
-	if (ctx.Option.Flags & ContextOption) != 0 {
-		if err := v.(unmarshalerContext).UnmarshalJSON(ctx.Option.Context, dst); err != nil {
+	// The method is chosen by what the type implements, not by the entry point:
+	// json.Unmarshal may meet a type with the context method and UnmarshalContext one without it.
+	switch v := v.(type) {
+	case unmarshalerContext:
+		c := ctx.Option.Context
+		if (ctx.Option.Flags&ContextOption) == 0 || c == nil {
+			c = context.Background()
+		}
+		if err := v.UnmarshalJSON(c, dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}
-	} else {
-		if err := v.(json.Unmarshaler).UnmarshalJSON(dst); err != nil {
+	case json.Unmarshaler:
+		if err := v.UnmarshalJSON(dst); err != nil {
 			d.annotateError(cursor, err)
 			return 0, err
 		}

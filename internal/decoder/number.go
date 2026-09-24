@@ -24,19 +24,6 @@ func newNumberDecoder(structName, fieldName string, op func(unsafe.Pointer, json
 	}
 }
 
-func (d *numberDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	bytes, err := d.decodeStreamByte(s)
-	if err != nil {
-		return err
-	}
-	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
-		return errors.ErrSyntax(err.Error(), s.totalOffset())
-	}
-	d.op(p, json.Number(string(bytes)))
-	s.reset()
-	return nil
-}
-
 func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeByte(ctx.Buf, cursor)
 	if err != nil {
@@ -62,38 +49,6 @@ func (d *numberDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([]
 	return [][]byte{bytes}, c, nil
 }
 
-func (d *numberDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
-	start := s.cursor
-	for {
-		switch s.char() {
-		case ' ', '\n', '\t', '\r':
-			s.cursor++
-			continue
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return floatBytes(s), nil
-		case 'n':
-			if err := nullBytes(s); err != nil {
-				return nil, err
-			}
-			return nil, nil
-		case '"':
-			return d.stringDecoder.decodeStreamByte(s)
-		case nul:
-			if s.read() {
-				continue
-			}
-			goto ERROR
-		default:
-			goto ERROR
-		}
-	}
-ERROR:
-	if s.cursor == start {
-		return nil, errors.ErrInvalidBeginningOfValue(s.char(), s.totalOffset())
-	}
-	return nil, errors.ErrUnexpectedEndOfJSON("json.Number", s.totalOffset())
-}
-
 func (d *numberDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	for {
 		switch buf[cursor] {
@@ -116,8 +71,10 @@ func (d *numberDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 			return nil, cursor, nil
 		case '"':
 			return d.stringDecoder.decodeByte(buf, cursor)
-		default:
+		case nul:
 			return nil, 0, errors.ErrUnexpectedEndOfJSON("json.Number", cursor)
+		default:
+			return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor+1)
 		}
 	}
 }

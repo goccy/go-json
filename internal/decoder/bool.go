@@ -16,40 +16,6 @@ func newBoolDecoder(structName, fieldName string) *boolDecoder {
 	return &boolDecoder{structName: structName, fieldName: fieldName}
 }
 
-func (d *boolDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	c := s.skipWhiteSpace()
-	for {
-		switch c {
-		case 't':
-			if err := trueBytes(s); err != nil {
-				return err
-			}
-			**(**bool)(unsafe.Pointer(&p)) = true
-			return nil
-		case 'f':
-			if err := falseBytes(s); err != nil {
-				return err
-			}
-			**(**bool)(unsafe.Pointer(&p)) = false
-			return nil
-		case 'n':
-			if err := nullBytes(s); err != nil {
-				return err
-			}
-			return nil
-		case nul:
-			if s.read() {
-				c = s.char()
-				continue
-			}
-			goto ERROR
-		}
-		break
-	}
-ERROR:
-	return errors.ErrUnexpectedEndOfJSON("bool", s.totalOffset())
-}
-
 func (d *boolDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)

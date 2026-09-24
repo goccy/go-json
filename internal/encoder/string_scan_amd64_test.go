@@ -5,10 +5,12 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 func TestScanStringAVX2(t *testing.T) {
-	if !hasAVX2 {
+	if !runtime.HasAVX2 {
 		t.Skip("AVX2 is not supported")
 	}
 	special := []byte{0x00, 0x1f, '"', '\\', '<', '>', '&', 0x7f, 0x80, 0xe3, 0xff, '\n', ' ', '!', '#', '=', '?', '[', ']'}
@@ -49,7 +51,7 @@ func TestScanStringAVX2(t *testing.T) {
 
 // The scan must not read out of the string.
 func TestScanStringAVX2AtEndOfMemory(t *testing.T) {
-	if !hasAVX2 {
+	if !runtime.HasAVX2 {
 		t.Skip("AVX2 is not supported")
 	}
 	for length := 32; length <= 100; length++ {
@@ -76,7 +78,7 @@ func BenchmarkScanString(b *testing.B) {
 				}
 			}
 		})
-		if hasAVX2 {
+		if runtime.HasAVX2 {
 			b.Run("AVX2/"+strconv.Itoa(n), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					if scanStringAVX2(p, n, &e.tables) != 0 {

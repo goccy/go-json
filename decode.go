@@ -25,8 +25,7 @@ type emptyInterface struct {
 }
 
 func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -53,8 +52,7 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -90,8 +88,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	if path.path.RootSelectorOnly {
 		return [][]byte{data}, nil
 	}
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	ctx := decoder.TakeRuntimeContext()
 	ctx.Buf = src
@@ -114,8 +111,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 }
 
 func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := make([]byte, len(data)+1) // append nul byte to the end
-	copy(src, data)
+	src := decoder.NewInput(data)
 
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
@@ -218,18 +214,11 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	if err != nil {
 		return err
 	}
-	if err := d.s.PrepareForDecode(); err != nil {
-		return err
-	}
 	s := d.s
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
-	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
-		return err
-	}
-	s.Reset()
-	return nil
+	return s.Decode(dec, header.ptr)
 }
 
 func (d *Decoder) More() bool {
@@ -244,7 +233,7 @@ func (d *Decoder) Token() (Token, error) {
 // is a struct and the input contains object keys which do not match any
 // non-ignored, exported fields in the destination.
 func (d *Decoder) DisallowUnknownFields() {
-	d.s.DisallowUnknownFields = true
+	d.s.Option.Flags |= decoder.DisallowUnknownFieldsOption
 }
 
 func (d *Decoder) InputOffset() int64 {
@@ -254,5 +243,5 @@ func (d *Decoder) InputOffset() int64 {
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a
 // Number instead of as a float64.
 func (d *Decoder) UseNumber() {
-	d.s.UseNumber = true
+	d.s.Option.Flags |= decoder.UseNumberOption
 }

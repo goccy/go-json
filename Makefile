@@ -57,6 +57,23 @@ bench-compare-encode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_(Encode|Marshal|EncodeBigData|MarshalBigData).*_(GoJson|GoJsonLikeSonic|Sonic|SonicFastest|SonicStd)$$' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Twitter' -benchtime 300ms -count 3 .
 
+# bench-compare-decode prints the decode benchmarks of go-json and of bytedance/sonic side by side.
+# Sonic is sonic.ConfigDefault and SonicStd is sonic.ConfigStd, which validates the strings as encoding/json does.
+# The Twitter benchmarks decode the payload of sonic's own benchmarks ( benchmarks/sonic_bench_test.go ).
+.PHONY: bench-compare-decode
+bench-compare-decode:
+	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(Small|Medium|Large)Struct_Unmarshal_(GoJson|Sonic|SonicStd)$$' -benchtime 300ms -count 3 .
+	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_Twitter' -benchtime 300ms -count 3 .
+
+# bench-profile-decode prints where the CPU time of the decode benchmarks of go-json goes.
+.PHONY: bench-profile-decode
+bench-profile-decode:
+	cd benchmarks && for b in Decode_SmallStruct_Unmarshal_GoJson Decode_MediumStruct_Unmarshal_GoJson Decode_LargeStruct_Unmarshal_GoJson Decode_TwitterBinding_Unmarshal_GoJson Decode_TwitterGeneric_Unmarshal_GoJson Decode_LargeStruct_Stream_GoJson; do \
+		go test -run '^$$' -bench "^Benchmark_$$b$$" -benchtime 3s -cpuprofile /tmp/$$b.prof -o /tmp/bench.test . > /dev/null && \
+		echo "=== $$b" && go tool pprof -top -nodecount=22 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +5 && \
+		echo "--- by line" && go tool pprof -top -lines -nodecount=30 /tmp/bench.test /tmp/$$b.prof 2>/dev/null | tail -n +6; \
+	done
+
 # bench-profile-encode prints where the CPU time of the encode benchmarks of go-json goes.
 .PHONY: bench-profile-encode
 bench-profile-encode:

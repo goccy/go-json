@@ -7,6 +7,7 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"image"
 	"math"
 	"math/big"
@@ -1304,7 +1305,7 @@ var unmarshalTests = []unmarshalTest{
 		ptr: new(struct {
 			A json.Number `json:",string"`
 		}),
-		err: fmt.Errorf(`json: json.Number unexpected end of JSON input`),
+		err: fmt.Errorf(`invalid character 'i' looking for beginning of value`),
 	},
 	{
 		in:  `{"A":"invalid"}`, // 147
@@ -2760,13 +2761,13 @@ func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 		err error
 	}{{
 		in:  `1 false null :`,
-		err: json.NewSyntaxError("invalid character '\x00' looking for beginning of value", 14),
+		err: io.ErrUnexpectedEOF,
 	}, {
 		in:  `1 [] [,]`,
 		err: json.NewSyntaxError("invalid character ',' looking for beginning of value", 6),
 	}, {
 		in:  `1 [] [true:]`,
-		err: json.NewSyntaxError("json: slice unexpected end of JSON input", 10),
+		err: json.NewSyntaxError("json: invalid character : as slice", 10),
 	}, {
 		in:  `1  {}    {"x"=}`,
 		err: json.NewSyntaxError("expected colon after object key", 13),

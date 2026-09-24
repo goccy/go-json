@@ -29,6 +29,8 @@ type keyEntry struct {
 	w0, w1 uint64
 	n      int
 	folded string
+	// unique is the field of the folded key if it is the only one, which a key matches whichever its case.
+	unique *structFieldSet
 	// fields are the fields of the folded key in the order of the struct: the first one is the field of
 	// a key which matches none of them exactly.
 	fields []*structFieldSet
@@ -36,7 +38,7 @@ type keyEntry struct {
 
 // hasLength reports whether a key of n bytes may match a field.
 func (k *structKeys) hasLength(n int) bool {
-	return k.lengths&(1<<uint(min(n, 63))) != 0
+	return k.lengths&(1<<(uint(min(n, 63))&63)) != 0
 }
 
 // newStructKeys makes the table of the fields, which are in the order of the struct.
@@ -54,6 +56,7 @@ func newStructKeys(fields []*structFieldSet) *structKeys {
 		folded := appendFoldedKey(nil, []byte(field.key))
 		if e := k.find(folded); e != nil {
 			e.fields = append(e.fields, field)
+			e.unique = nil
 			continue
 		}
 		k.insert(string(folded), field)
@@ -93,7 +96,7 @@ func (k *structKeys) insert(folded string, field *structFieldSet) {
 	mask := len(k.entries) - 1
 	for i := k.index(w0, w1, len(folded)); ; i = (i + 1) & mask {
 		if k.entries[i].fields == nil {
-			k.entries[i] = keyEntry{w0: w0, w1: w1, n: len(folded), folded: folded, fields: []*structFieldSet{field}}
+			k.entries[i] = keyEntry{w0: w0, w1: w1, n: len(folded), folded: folded, unique: field, fields: []*structFieldSet{field}}
 			k.lengths |= 1 << uint(min(len(folded), 63))
 			return
 		}

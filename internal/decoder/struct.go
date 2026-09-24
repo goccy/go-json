@@ -92,7 +92,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 	}
 	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
 	for {
-		field, key, c, err := d.decodeKey(buf, cursor)
+		field, c, err := d.decodeKey(buf, cursor, disallowUnknownFields)
 		if err != nil {
 			return 0, err
 		}
@@ -134,8 +134,6 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 				}
 				cursor = c
 			}
-		} else if disallowUnknownFields {
-			return 0, fmt.Errorf("json: unknown field %q", key)
 		} else {
 			c, err := skipValue(buf, cursor, depth)
 			if err != nil {
@@ -159,13 +157,14 @@ func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([]
 	return nil, 0, fmt.Errorf("json: struct decoder does not support decode path")
 }
 
-// decodeKey reads the key of an object at cursor, and returns its field or nil, the key, which is decoded
-// in place if it is escaped, and the position after it. It is a function of its own, so that the loop of
-// Decode keeps its values in the registers.
-func (d *structDecoder) decodeKey(buf []byte, cursor int64) (*structFieldSet, []byte, int64, error) {
+// decodeKey reads the key of an object at cursor, and returns its field or nil, and the position after it.
+// A key which matches no field is an error if disallowUnknownFields is set. It is a function of its own, so that
+// the loop of Decode keeps its values in the registers, and the key is not returned, which would take registers
+// of the loop too.
+func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] != '"' {
-		return nil, nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+		return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 	}
 	// A key of ASCII without an escape which ends within 16 bytes is found by the words of the buffer,
 	// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
@@ -179,43 +178,56 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64) (*structFieldSet, []
 			n = 8 + keyLengthInWord(w1)
 		}
 		if n < 16 && buf[start+int64(n)] == '"' {
-			key := buf[start : start+int64(n)]
-			// the words of the key, as keyWords makes them
-			if n < 8 {
-				w0 &= 1<<(8*uint(n)) - 1
-				w1 = 0
-			} else {
-				w1 = load64(buf, start+int64(n)-8)
-			}
+			next := start + int64(n) + 1
+			keys := d.keys
 			var field *structFieldSet
-			if keys := d.keys; keys.hasLength(n) {
-				if n < 8 {
-					// the first entry of the folded key, looked at here: most keys are found in it.
-					fw := foldASCIIWord(w0)
-					e := &keys.entries[keys.index(fw, 0, n)]
-					if e.n == n && e.w0 == fw && e.w1 == 0 && len(e.fields) == 1 {
-						field = e.fields[0]
-					} else if e.fields != nil {
-						field = keys.findASCII(key, w0, w1)
-					}
-				} else {
-					field = keys.findASCII(key, w0, w1)
+			if n < 8 {
+				// the words of the key, as keyWords makes them. The first entry of the folded key is looked at
+				// here: most keys are found in it. A key of less than 8 bytes has the second word 0, and so has
+				// an entry of its length.
+				w0 &= 1<<(uint(n)*8&63) - 1
+				fw := foldASCIIWord(w0)
+				e := &keys.entries[keys.index(fw, 0, n)]
+				if e.n == n && e.w0 == fw && e.unique != nil {
+					return e.unique, next, nil
 				}
+				if e.fields != nil && keys.hasLength(n) {
+					field = keys.findASCII(buf[start:start+int64(n)], w0, 0)
+				}
+			} else if keys.hasLength(n) {
+				w1 = load64(buf, start+int64(n)-8)
+				field = keys.findASCII(buf[start:start+int64(n)], w0, w1)
 			}
-			return field, key, start + int64(n) + 1, nil
+			if field == nil && disallowUnknownFields {
+				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
+			}
+			return field, next, nil
 		}
 	}
 	rawKey, next, info, err := d.stringDecoder.scanString(buf, cursor)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, 0, err
 	}
 	field, key := d.keys.lookup(rawKey, info)
-	return field, key, next, nil
+	if field == nil && disallowUnknownFields {
+		return nil, 0, unknownFieldError(key)
+	}
+	return field, next, nil
+}
+
+func unknownFieldError(key []byte) error {
+	return fmt.Errorf("json: unknown field %q", key)
 }
 
 // keyLengthInWord returns the position in the word of the first byte which ends a simple key: a quote,
 // a backslash, a control character or a byte which is not ASCII, or 8 if the word has none.
 func keyLengthInWord(w uint64) int {
-	special := byteMask(w, '"') | byteMask(w, '\\') | hasLess(w, 0x20) | w&msb
-	return bits.TrailingZeros64(special) / 8
+	// Only the first such byte is looked for, so the masks may be wrong in the bytes after it, which saves
+	// instructions: a subtraction borrows from the next byte only at a byte which is found.
+	// A byte of a quote or a backslash is 0 in q or s, whose subtraction sets its top bit; the one of a control
+	// character sets the top bit of the subtraction of 0x20, and the one of a byte which is not ASCII is set.
+	q := w ^ ('"' * lsb)
+	s := w ^ ('\\' * lsb)
+	special := ((q - lsb) &^ q) | ((s - lsb) &^ s) | (w - 0x20*lsb) | w
+	return bits.TrailingZeros64(special&msb) / 8
 }

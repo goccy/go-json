@@ -276,6 +276,11 @@ func (s *Stream) scanLiteral() (int64, error) {
 	}
 }
 
+// DecoderOf returns the decoder of the type, from the recent decoders of the context of the stream.
+func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
+	return s.ctx.DecoderOf(typ)
+}
+
 // Decode decodes the next value of the stream into p by dec.
 func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
 	if err := s.prepare(); err != nil {

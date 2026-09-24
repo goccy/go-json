@@ -282,15 +282,21 @@ func Unmarshal(data []byte, v any) error {
 // in the value pointed to by v. If you implement the UnmarshalerContext interface,
 // call it with ctx as an argument.
 func UnmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	return unmarshalContext(ctx, data, v)
+	return unmarshalContext(ctx, data, v, optFuncs...)
 }
 
 func UnmarshalWithOption(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 	return unmarshal(data, v, optFuncs...)
 }
 
+// UnmarshalNoEscape parses the JSON-encoded data and stores the result in the value pointed to by v.
+//
+// Deprecated: Use UnmarshalOf, which lets the value stay on the stack of the caller. UnmarshalNoEscape used to
+// keep v from escaping to the heap, but the decoder refers to v by its address, which is not updated when the
+// stack of the goroutine is copied while v is being decoded, so UnmarshalNoEscape is now the same as
+// UnmarshalWithOption.
 func UnmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	return unmarshalNoEscape(data, v, optFuncs...)
+	return unmarshal(data, v, optFuncs...)
 }
 
 // A Token holds a value of one of these types:

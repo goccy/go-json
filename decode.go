@@ -25,19 +25,18 @@ type emptyInterface struct {
 }
 
 func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	ctx := decoder.TakeRuntimeContext()
+	dec, err := ctx.DecoderOf(header.typ)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
-	ctx := decoder.TakeRuntimeContext()
-	ctx.Buf = src
+	src := ctx.SetInput(data)
 	ctx.Option.Flags = 0
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
@@ -52,19 +51,18 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
 	header := (*emptyInterface)(unsafe.Pointer(&v))
 
 	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
 		return err
 	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	rctx := decoder.TakeRuntimeContext()
+	dec, err := rctx.DecoderOf(header.typ)
 	if err != nil {
+		decoder.ReleaseRuntimeContext(rctx)
 		return err
 	}
-	rctx := decoder.TakeRuntimeContext()
-	rctx.Buf = src
+	src := rctx.SetInput(data)
 	rctx.Option.Flags = 0
 	rctx.Option.Flags |= decoder.ContextOption
 	rctx.Option.Context = ctx
@@ -110,34 +108,6 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	return paths, nil
 }
 
-func unmarshalNoEscape(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
-	src := decoder.NewInput(data)
-
-	header := (*emptyInterface)(unsafe.Pointer(&v))
-
-	if err := validateType(header.typ, uintptr(header.ptr)); err != nil {
-		return err
-	}
-	dec, err := decoder.CompileToGetDecoder(header.typ)
-	if err != nil {
-		return err
-	}
-
-	ctx := decoder.TakeRuntimeContext()
-	ctx.Buf = src
-	ctx.Option.Flags = 0
-	for _, optFunc := range optFuncs {
-		optFunc(ctx.Option)
-	}
-	cursor, err := dec.Decode(ctx, 0, 0, noescape(header.ptr))
-	if err != nil {
-		decoder.ReleaseRuntimeContext(ctx)
-		return err
-	}
-	decoder.ReleaseRuntimeContext(ctx)
-	return validateEndBuf(src, cursor)
-}
-
 func validateEndBuf(src []byte, cursor int64) error {
 	for {
 		switch src[cursor] {
@@ -154,15 +124,8 @@ func validateEndBuf(src []byte, cursor int64) error {
 	}
 }
 
-//nolint:staticcheck
-//go:nosplit
-func noescape(p unsafe.Pointer) unsafe.Pointer {
-	x := uintptr(p)
-	return unsafe.Pointer(x ^ 0)
-}
-
 // validateType validates that the value is not nil.
-// Whether the type is a pointer is validated by decoder.CompileToGetDecoder, once per type.
+// Whether the type is a pointer is validated when its decoder is compiled, once per type.
 func validateType(typ unsafe.Pointer, p uintptr) error {
 	if typ == nil || p == 0 {
 		return &InvalidUnmarshalError{Type: runtime.TypeOfPtr(typ)}
@@ -210,7 +173,7 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 		return err
 	}
 
-	dec, err := decoder.CompileToGetDecoder(header.typ)
+	dec, err := d.s.DecoderOf(header.typ)
 	if err != nil {
 		return err
 	}

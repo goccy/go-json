@@ -83,11 +83,21 @@ func Benchmark_Decode_SmallStruct_Unmarshal_GoJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonNoEscape(b *testing.B) {
+func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		result := SmallPayload{}
-		if err := gojson.UnmarshalNoEscape(SmallFixture, &result); err != nil {
+		if err := gojson.UnmarshalOf(SmallFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := SmallPayload{}
+		if err := gojson.UnmarshalOf(SmallFixture, &result, gojson.DecodeNoCopyString()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -224,11 +234,21 @@ func Benchmark_Decode_MediumStruct_Unmarshal_GoJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Decode_MediumStruct_Unmarshal_GoJsonNoEscape(b *testing.B) {
+func Benchmark_Decode_MediumStruct_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		result := MediumPayload{}
-		if err := gojson.UnmarshalNoEscape(MediumFixture, &result); err != nil {
+		if err := gojson.UnmarshalOf(MediumFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_MediumStruct_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := MediumPayload{}
+		if err := gojson.UnmarshalOf(MediumFixture, &result, gojson.DecodeNoCopyString()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -365,11 +385,21 @@ func Benchmark_Decode_LargeStruct_Unmarshal_GoJson(b *testing.B) {
 	}
 }
 
-func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonNoEscape(b *testing.B) {
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		result := LargePayload{}
-		if err := gojson.UnmarshalNoEscape(LargeFixture, &result); err != nil {
+		if err := gojson.UnmarshalOf(LargeFixture, &result); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := LargePayload{}
+		if err := gojson.UnmarshalOf(LargeFixture, &result, gojson.DecodeNoCopyString()); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -389,11 +419,11 @@ func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonFirstWinMode(b *testing.B) {
 	}
 }
 
-func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonNoEscapeFirstWinMode(b *testing.B) {
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonUnmarshalOfFirstWinMode(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		result := LargePayload{}
-		if err := gojson.UnmarshalNoEscape(
+		if err := gojson.UnmarshalOf(
 			LargeFixture,
 			&result,
 			gojson.DecodeFieldPriorityFirstWin(),

@@ -24,6 +24,162 @@ type RuntimeContext struct {
 	// A slot of a slab is never written again once an interface value refers to it.
 	floats  []float64
 	strings []string
+	// input is the buffer which the input of Unmarshal is copied to, followed by a nul byte. It is reused by
+	// the calls: nothing decoded refers to it, because the decoded strings are copied out of it ( makeString ).
+	input []byte
+	// origin is the input of the call when Buf is the reused copy of it, at the same offsets: the decoded strings
+	// are copied, or refer to origin under NoCopyStringOption. It is nil when Buf is never written again after the
+	// value is decoded, as the buffer of a stream: the strings refer to Buf then.
+	origin []byte
+	// arena is where the bytes of the decoded strings are copied to. A string refers to a part of it which is
+	// never written again, so the arena is kept from a call to the next, as the slab of floats.
+	arena []byte
+	// value is a zero value of the type valueType in the heap, which UnmarshalOf decodes into
+	// before it copies the result to the value of the caller.
+	valueType unsafe.Pointer
+	value     unsafe.Pointer
+	// recentDecoders are the decoders of the types decoded last, in the sets indexed by the address of the type.
+	// Only the contexts of the pool have them: a Decoder has a context of its own, which it would allocate
+	// with them for every stream.
+	recentDecoders *[recentDecoderSets]recentDecoderSet
+}
+
+const (
+	// recentDecoderSets is the number of the sets of the recent decoders, of recentDecoderWays entries each,
+	// as the recent opcodes of the encoder: the set of a type is the top bits of the product of its address
+	// with an odd constant, and a set holds the two types hashed to it which were decoded last, so that the
+	// type passed to Unmarshal and a type held by its values of interface{} never evict each other.
+	recentDecoderSets      = 16
+	recentDecoderHashShift = 64 - 4
+	recentDecoderWays      = 2
+)
+
+type recentDecoder struct {
+	typeptr uintptr
+	dec     Decoder
+}
+
+// recentDecoderSet is the entries of a set, the one decoded last first.
+type recentDecoderSet [recentDecoderWays]recentDecoder
+
+// DecoderOf returns the decoder of the type, compiling it if the type is new.
+//
+// A runtime context remembers the decoders of the types it decoded last: the same types are decoded again
+// and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
+// The first entry of the set is looked at here, which is inlined into the callers; the rest in lookupDecoder.
+func (ctx *RuntimeContext) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
+	if ctx.recentDecoders == nil {
+		return CompileToGetDecoder(typ)
+	}
+	set := &ctx.recentDecoders[(uint64(uintptr(typ))*runtime.TypeHashMultiplier)>>recentDecoderHashShift]
+	if set[0].typeptr == uintptr(typ) {
+		return set[0].dec, nil
+	}
+	return lookupDecoder(set, typ)
+}
+
+// lookupDecoder returns the decoder of the type from the second entry of its set, or from the shared table,
+// compiling it if the type is new. A decoder found in the shared table takes the first entry of the set,
+// and the one decoded before it is kept in the second.
+func lookupDecoder(set *recentDecoderSet, typ unsafe.Pointer) (Decoder, error) {
+	if set[1].typeptr == uintptr(typ) {
+		return set[1].dec, nil
+	}
+	dec, err := CompileToGetDecoder(typ)
+	if err != nil {
+		return nil, err
+	}
+	set[1] = set[0]
+	set[0] = recentDecoder{typeptr: uintptr(typ), dec: dec}
+	return dec, nil
+}
+
+const (
+	// minArenaChunkSize and arenaChunkSize are the sizes of the first and of the largest chunks of the arena
+	// of the strings: a chunk is twice as large as the previous one, so that a context which decodes a few
+	// short strings, as the one of a Decoder made for a small value, allocates little.
+	minArenaChunkSize = 64
+	arenaChunkSize    = 16384
+	// maxArenaStringSize is the length of the longest string which is copied to the arena:
+	// a longer one gets an allocation of its own, which it alone keeps alive.
+	maxArenaStringSize = 512
+)
+
+// SetInput copies data to the buffer of the context, followed by a nul byte which ends every scan,
+// and makes it the buffer to decode.
+func (ctx *RuntimeContext) SetInput(data []byte) []byte {
+	n := len(data) + 1
+	if cap(ctx.input) < n {
+		ctx.input = make([]byte, n)
+	}
+	buf := ctx.input[:n]
+	copy(buf, data)
+	buf[len(data)] = nul
+	ctx.Buf = buf
+	ctx.origin = data
+	return buf
+}
+
+// makeString returns the string of lit, which the string decoder returned from Buf: lit is either a part
+// of Buf, which is reused by the next call, or a new slice of its own ( an invalid UTF-8 sequence was replaced ).
+// rawEnd is the position in Buf after the bytes lit was decoded from: lit is escaped if they are more.
+//
+// Only the buffer of Unmarshal is reused ( origin is its input ): the strings are copied out of it, or refer to
+// the input under NoCopyStringOption. The other buffers, as the one of a stream, are never written again after
+// a value is decoded, so the strings refer to them.
+func (ctx *RuntimeContext) makeString(lit []byte, rawEnd int64) string {
+	if len(lit) == 0 {
+		return ""
+	}
+	if ctx.origin == nil {
+		return unsafe.String(unsafe.SliceData(lit), len(lit))
+	}
+	if (ctx.Option.Flags & NoCopyStringOption) != 0 {
+		return ctx.referString(lit, rawEnd)
+	}
+	return ctx.copyString(lit)
+}
+
+// referString returns a string which refers to the input, if it has the bytes of lit, without a copy.
+func (ctx *RuntimeContext) referString(lit []byte, rawEnd int64) string {
+	base := uintptr(unsafe.Pointer(unsafe.SliceData(ctx.Buf)))
+	p := uintptr(unsafe.Pointer(unsafe.SliceData(lit)))
+	if p < base || p >= base+uintptr(len(ctx.Buf)) {
+		// a slice of its own
+		return unsafe.String(unsafe.SliceData(lit), len(lit))
+	}
+	off := int64(p - base)
+	if off+int64(len(lit)) != rawEnd {
+		// the escapes were decoded in Buf: the input has other bytes there
+		return ctx.copyString(lit)
+	}
+	return unsafe.String(&ctx.origin[off], len(lit))
+}
+
+// copiesStrings reports whether the decoded strings are copied out of Buf ( see makeString ).
+func (ctx *RuntimeContext) copiesStrings() bool {
+	return ctx.origin != nil && (ctx.Option.Flags&NoCopyStringOption) == 0
+}
+
+// reserveArena returns n bytes of the arena after its end, which a string may be written to:
+// the caller extends the arena by the length of the string it wrote.
+func (ctx *RuntimeContext) reserveArena(n int) []byte {
+	if cap(ctx.arena)-len(ctx.arena) < n {
+		size := min(max(2*cap(ctx.arena), minArenaChunkSize), arenaChunkSize)
+		ctx.arena = make([]byte, 0, max(size, n))
+	}
+	return ctx.arena[len(ctx.arena) : len(ctx.arena)+n]
+}
+
+// copyString returns a copy of lit, in the arena unless it is long.
+func (ctx *RuntimeContext) copyString(lit []byte) string {
+	if len(lit) > maxArenaStringSize {
+		return string(lit)
+	}
+	dst := ctx.reserveArena(len(lit))
+	copy(dst, lit)
+	ctx.arena = ctx.arena[:len(ctx.arena)+len(lit)]
+	return unsafe.String(unsafe.SliceData(dst), len(lit))
 }
 
 // boxSlabSize is the number of the values a slab of floats or strings holds.
@@ -62,7 +218,8 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
 			return &RuntimeContext{
-				Option: &Option{},
+				Option:         &Option{},
+				recentDecoders: &[recentDecoderSets]recentDecoderSet{},
 			}
 		},
 	}
@@ -73,8 +230,9 @@ func TakeRuntimeContext() *RuntimeContext {
 }
 
 func ReleaseRuntimeContext(ctx *RuntimeContext) {
-	// Nothing of the call is kept: the input is referred to by the decoded strings.
+	// Nothing of the call is kept: the input of the caller may be referred to by the decoded strings.
 	ctx.Buf = nil
+	ctx.origin = nil
 	ctx.slot = nil
 	ctx.popAny(0)
 	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
@@ -229,4 +387,32 @@ func validateNull(buf []byte, cursor int64) error {
 		return errors.ErrInvalidCharacter(buf[cursor+3], "null", cursor+3)
 	}
 	return nil
+}
+
+// valuePools are the zero values of every type which UnmarshalOf decoded, besides the one a context keeps.
+var valuePools runtime.TypeCache[sync.Pool]
+
+// TakeValue returns the address of a zero value of typ in the heap, which the context keeps for the next call
+// with the same type. typ is given as its type descriptor too, which is how it is looked up.
+func (ctx *RuntimeContext) TakeValue(typ reflect.Type, typeptr unsafe.Pointer) unsafe.Pointer {
+	if ctx.valueType == typeptr {
+		return ctx.value
+	}
+	if ctx.valueType != nil {
+		valuePool(ctx.valueType).Put(ctx.value)
+	}
+	ctx.valueType = typeptr
+	if v := valuePool(typeptr).Get(); v != nil {
+		ctx.value = v.(unsafe.Pointer)
+	} else {
+		ctx.value = newValue(typ)
+	}
+	return ctx.value
+}
+
+func valuePool(typeptr unsafe.Pointer) *sync.Pool {
+	if pool := valuePools.Load(uintptr(typeptr)); pool != nil {
+		return pool
+	}
+	return valuePools.Store(uintptr(typeptr), &sync.Pool{})
 }

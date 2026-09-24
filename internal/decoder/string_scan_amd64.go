@@ -6,6 +6,9 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
+// hasStringSIMD is whether indexStringSpecial scans: whether the CPU has AVX2.
+var hasStringSIMD = runtime.HasAVX2
+
 //go:noescape
 func indexStringSpecialAVX2(p unsafe.Pointer, n int) (index int, high uint64)
 

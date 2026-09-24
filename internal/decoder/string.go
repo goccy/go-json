@@ -158,15 +158,12 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			for {
 				// The words with nothing to look at are skipped eight bytes at a time: a word is read only where
 				// the buffer has room for it, so that its end is scanned byte by byte. After eight words, the rest
-				// of a long run of plain bytes is scanned by SIMD where the CPU has it, whose call is not worth a
-				// shorter run: the nul byte at the end of the buffer stops the scan.
+				// of a long string is left to scanStringRest, which scans its runs of plain bytes by SIMD where
+				// the CPU has it: the call is made in place of a return, so that this loop, which most strings
+				// end in, keeps its values in the registers.
 				for words := 0; cursor+8 <= buflen; words++ {
-					if words == 8 {
-						if i, h, ok := indexStringSpecial(unsafe.Add(b, cursor), int(buflen-cursor)); ok {
-							high |= h
-							cursor += int64(i)
-							break
-						}
+					if words == 8 && hasStringSIMD {
+						return d.scanStringRest(buf, start, cursor, firstEscape, high)
 					}
 					w := load64(buf, cursor)
 					if special := keyEndBytes(w); special != 0 {
@@ -222,6 +219,67 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			return nil, cursor, stringInfo{}, nil
 		default:
 			return nil, 0, stringInfo{}, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+		}
+	}
+}
+
+// scanStringRest is scanString for the rest of a long string from cursor, whose first bytes it scanned: the
+// runs of plain bytes are scanned by SIMD ( see indexStringSpecial ), and a run near the end of the buffer by
+// words. The escapes are validated as scanString does.
+func (d *stringDecoder) scanStringRest(buf []byte, start, cursor, firstEscape int64, high uint64) ([]byte, int64, stringInfo, error) {
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	buflen := int64(len(buf))
+	for {
+		if i, h, ok := indexStringSpecial(unsafe.Add(b, cursor), int(buflen-cursor)); ok {
+			high |= h
+			cursor += int64(i)
+		} else {
+			for cursor+8 <= buflen {
+				w := load64(buf, cursor)
+				if special := keyEndBytes(w); special != 0 {
+					i := int64(bits.TrailingZeros64(special) / 8)
+					high |= w & msb & (1<<(uint(i)*8&63) - 1)
+					cursor += i
+					break
+				}
+				high |= w & msb
+				cursor += 8
+			}
+		}
+		c := char(b, cursor)
+		switch c {
+		case '\\':
+			if firstEscape < 0 {
+				firstEscape = cursor - start
+			}
+			cursor++
+			switch char(b, cursor) {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				cursor++
+			case 'u':
+				if cursor+5 >= buflen {
+					return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+				}
+				for i := int64(1); i <= 4; i++ {
+					c := char(b, cursor+i)
+					if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+						return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
+					}
+				}
+				cursor += 5
+			default:
+				return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+			}
+		case '"':
+			return buf[start:cursor], cursor + 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
+		case nul:
+			return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("string", cursor)
+		default:
+			if c < 0x20 {
+				return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
+			}
+			high |= uint64(c)
+			cursor++
 		}
 	}
 }

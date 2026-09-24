@@ -62,3 +62,25 @@ func TestDecodeEscapedStrings(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeLongStringsMalformed(t *testing.T) {
+	// A long string, whose rest is scanned apart ( see scanStringRest ), is valid or not as encoding/json has it,
+	// whatever follows its runs of plain bytes.
+	plain := strings.Repeat("abcdefgh", 12)
+	for _, tail := range []string{`"`, `\n"`, `\u00e9"`, `\ud83d\ude00"`, `\q"`, "\x01\"", `\u12"`, `\u12zz"`, `\`, ``, `é"`, "\xff\""} {
+		for _, n := range []int{64, 65, 70, 96} {
+			in := `"` + plain[:n] + tail
+			for _, doc := range []string{in, `{"k":` + in + `}`, `[` + in + `,1]`} {
+				var want, got any
+				errStd := stdjson.Unmarshal([]byte(doc), &want)
+				err := json.Unmarshal([]byte(doc), &got)
+				if (errStd == nil) != (err == nil) {
+					t.Fatalf("%q: encoding/json: %v, go-json: %v", doc, errStd, err)
+				}
+				if errStd == nil && fmt.Sprint(got) != fmt.Sprint(want) {
+					t.Fatalf("%q:\n got %q\nwant %q", doc, got, want)
+				}
+			}
+		}
+	}
+}

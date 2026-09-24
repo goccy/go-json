@@ -263,8 +263,9 @@ func unescapeTo(out unsafe.Pointer, buf []byte, first int) int {
 	for src != end {
 		// The bytes up to the next backslash are copied eight at a time, from the words which are all in the
 		// string: a word is written only when it has no backslash, so that the string decoded in place, whose
-		// bytes are written before the ones read, is written over the bytes already read only.
-		for uintptr(src)+8 <= uintptr(end) {
+		// bytes are written before the ones read, is written over the bytes already read only. An escape which
+		// follows another one is decoded without a word.
+		for *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end) {
 			w := binary.LittleEndian.Uint64((*[8]byte)(src)[:])
 			if backslash := firstByteMask(w, '\\'); backslash != 0 {
 				n := bits.TrailingZeros64(backslash) / 8

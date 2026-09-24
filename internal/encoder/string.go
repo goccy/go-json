@@ -252,14 +252,26 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
-	j := skipNormalizedHTML(s, 0)
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
+	// is looked at here, which is where the escape of a short string is.
+	j := 0
+	if valLen >= 8 {
+		if m := maskNormalizedHTML(firstWord(s)); m != 0 {
+			j = bits.TrailingZeros64(m) / 8
+		} else {
+			j = skipNormalizedHTML(s, 8)
+		}
+	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeHTMLNormalizeUTF8[c] {
-			// the bytes up to the next one which may need an escape are skipped by words
-			j = skipNormalizedHTML(s, j+1)
+			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
+			// which are not worth a call
+			j++
+			if valLen-j >= 8 {
+				j = skipNormalizedHTML(s, j)
+			}
 			continue
 		}
 
@@ -350,14 +362,26 @@ func appendHTMLString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
-	j := skipHTML(s, 0)
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
+	// is looked at here, which is where the escape of a short string is.
+	j := 0
+	if valLen >= 8 {
+		if m := maskHTML(firstWord(s)); m != 0 {
+			j = bits.TrailingZeros64(m) / 8
+		} else {
+			j = skipHTML(s, 8)
+		}
+	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeHTML[c] {
-			// the bytes up to the next one which may need an escape are skipped by words
-			j = skipHTML(s, j+1)
+			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
+			// which are not worth a call
+			j++
+			if valLen-j >= 8 {
+				j = skipHTML(s, j)
+			}
 			continue
 		}
 
@@ -420,14 +444,26 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
-	j := skipNormalized(s, 0)
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
+	// is looked at here, which is where the escape of a short string is.
+	j := 0
+	if valLen >= 8 {
+		if m := maskNormalized(firstWord(s)); m != 0 {
+			j = bits.TrailingZeros64(m) / 8
+		} else {
+			j = skipNormalized(s, 8)
+		}
+	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeNormalizeUTF8[c] {
-			// the bytes up to the next one which may need an escape are skipped by words
-			j = skipNormalized(s, j+1)
+			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
+			// which are not worth a call
+			j++
+			if valLen-j >= 8 {
+				j = skipNormalized(s, j)
+			}
 			continue
 		}
 
@@ -511,14 +547,26 @@ func appendString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
-	j := skipPlain(s, 0)
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
+	// is looked at here, which is where the escape of a short string is.
+	j := 0
+	if valLen >= 8 {
+		if m := maskPlain(firstWord(s)); m != 0 {
+			j = bits.TrailingZeros64(m) / 8
+		} else {
+			j = skipPlain(s, 8)
+		}
+	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscape[c] {
-			// the bytes up to the next one which may need an escape are skipped by words
-			j = skipPlain(s, j+1)
+			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
+			// which are not worth a call
+			j++
+			if valLen-j >= 8 {
+				j = skipPlain(s, j)
+			}
 			continue
 		}
 
@@ -579,7 +627,7 @@ func skipNormalizedHTML(s string, j int) int {
 	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := (looseCommonMask(w) | ((w ^ (lsb * '<')) - lsb) | ((w ^ (lsb * '>')) - lsb) | ((w ^ (lsb * '&')) - lsb)) & msb; m != 0 {
+		if m := maskNormalizedHTML(w); m != 0 {
 			return j + bits.TrailingZeros64(m)/8
 		}
 	}
@@ -592,8 +640,7 @@ func skipHTML(s string, j int) int {
 	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		lt, gt, amp := w^(lsb*'<'), w^(lsb*'>'), w^(lsb*'&')
-		if m := (exactCommonMask(w) | ((lt - lsb) &^ lt) | ((gt - lsb) &^ gt) | ((amp - lsb) &^ amp)) & msb; m != 0 {
+		if m := maskHTML(w); m != 0 {
 			return j + bits.TrailingZeros64(m)/8
 		}
 	}
@@ -606,7 +653,7 @@ func skipNormalized(s string, j int) int {
 	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := looseCommonMask(w) & msb; m != 0 {
+		if m := maskNormalized(w); m != 0 {
 			return j + bits.TrailingZeros64(m)/8
 		}
 	}
@@ -619,9 +666,34 @@ func skipPlain(s string, j int) int {
 	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := exactCommonMask(w) & msb; m != 0 {
+		if m := maskPlain(w); m != 0 {
 			return j + bits.TrailingZeros64(m)/8
 		}
 	}
 	return j
+}
+
+// The masks of a word of the options: the top bit of the first byte which may need an escape is set, and maybe
+// the ones of the bytes after it ( see looseCommonMask ). They are small enough to be inlined.
+
+func maskNormalizedHTML(w uint64) uint64 {
+	return (looseCommonMask(w) | ((w ^ (lsb * '<')) - lsb) | ((w ^ (lsb * '>')) - lsb) | ((w ^ (lsb * '&')) - lsb)) & msb
+}
+
+func maskHTML(w uint64) uint64 {
+	lt, gt, amp := w^(lsb*'<'), w^(lsb*'>'), w^(lsb*'&')
+	return (exactCommonMask(w) | ((lt - lsb) &^ lt) | ((gt - lsb) &^ gt) | ((amp - lsb) &^ amp)) & msb
+}
+
+func maskNormalized(w uint64) uint64 {
+	return looseCommonMask(w) & msb
+}
+
+func maskPlain(w uint64) uint64 {
+	return exactCommonMask(w) & msb
+}
+
+// firstWord returns the first eight bytes of the string, which has eight bytes or more, as a little-endian word.
+func firstWord(s string) uint64 {
+	return binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s), 8))
 }

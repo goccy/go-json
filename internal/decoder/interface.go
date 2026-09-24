@@ -240,6 +240,10 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		if (ctx.Option.Flags & UseNumberOption) != 0 {
 			return d.numberDecoder.Decode(ctx, cursor, depth, p)
 		}
+		if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] {
+			**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+			return next, nil
+		}
 		num, c, err := d.floatDecoder.decodeByte(buf, cursor)
 		if err != nil {
 			return 0, err

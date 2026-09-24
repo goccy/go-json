@@ -11,10 +11,11 @@ import (
 	gojson "github.com/goccy/go-json"
 )
 
-// The decode benchmarks of the key length: three structs of the same fields and values whose keys differ in
-// length only, of less than 8 bytes, of 8 to 15 bytes and of 16 to 31 bytes, each decoded from an array of
-// objects. The keys of real payloads are of every one of these lengths: in the responses of the GitHub API,
-// of Kubernetes, of Stripe and of Twitter, 40 to 60% of the keys are of 8 to 15 bytes and 5 to 30% longer.
+// The decode benchmarks of the keys: structs of the same fields and values whose keys differ only, each decoded
+// from an array of objects. The keys of ShortKeys are of less than 8 bytes, the ones of MediumKeys of 8 to 15
+// bytes and the ones of LongKeys of 16 to 31 bytes. The keys of real payloads are of every one of these
+// lengths: in the responses of the GitHub API, of Kubernetes, of Stripe and of Twitter, 40 to 60% of the keys
+// are of 8 to 15 bytes and 5 to 30% longer. The keys of NonASCIIKeys are Japanese words.
 
 type ShortKeys struct {
 	ID     int    `json:"id"`
@@ -61,6 +62,21 @@ type LongKeys struct {
 	Issues int    `json:"web_commit_signoff_required"`
 }
 
+type NonASCIIKeys struct {
+	ID     int    `json:"番号"`
+	Name   string `json:"名前"`
+	Type   string `json:"種類"`
+	State  string `json:"状態"`
+	Count  int    `json:"件数"`
+	Email  string `json:"メールアドレス"`
+	URL    string `json:"ウェブサイト"`
+	Size   int    `json:"大きさ"`
+	Title  string `json:"表題"`
+	Forks  int    `json:"複製数"`
+	Owner  string `json:"所有者"`
+	Issues int    `json:"課題数"`
+}
+
 // keyLengthFixture returns the JSON of an array of objects of the struct type, by its tags.
 func keyLengthFixture(typ reflect.Type) []byte {
 	values := []string{`12345`, `"go-json"`, `"public"`, `"clean"`, `42`, `"gopher@example.com"`,
@@ -78,13 +94,14 @@ func keyLengthFixture(typ reflect.Type) []byte {
 }
 
 var (
-	shortKeysFixture  = keyLengthFixture(reflect.TypeOf(ShortKeys{}))
-	mediumKeysFixture = keyLengthFixture(reflect.TypeOf(MediumKeys{}))
-	longKeysFixture   = keyLengthFixture(reflect.TypeOf(LongKeys{}))
+	shortKeysFixture    = keyLengthFixture(reflect.TypeOf(ShortKeys{}))
+	mediumKeysFixture   = keyLengthFixture(reflect.TypeOf(MediumKeys{}))
+	longKeysFixture     = keyLengthFixture(reflect.TypeOf(LongKeys{}))
+	nonASCIIKeysFixture = keyLengthFixture(reflect.TypeOf(NonASCIIKeys{}))
 )
 
 func init() {
-	for _, typ := range []reflect.Type{reflect.TypeOf([]ShortKeys{}), reflect.TypeOf([]MediumKeys{}), reflect.TypeOf([]LongKeys{})} {
+	for _, typ := range []reflect.Type{reflect.TypeOf([]ShortKeys{}), reflect.TypeOf([]MediumKeys{}), reflect.TypeOf([]LongKeys{}), reflect.TypeOf([]NonASCIIKeys{})} {
 		if err := sonic.Pretouch(typ); err != nil {
 			panic(err)
 		}
@@ -161,4 +178,38 @@ func Benchmark_Decode_LongKeys_Unmarshal_Sonic(b *testing.B) {
 
 func Benchmark_Decode_LongKeys_Unmarshal_SonicStd(b *testing.B) {
 	benchDecode[[]LongKeys](b, longKeysFixture, sonic.ConfigStd.Unmarshal)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_EncodingJson(b *testing.B) {
+	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, stdjson.Unmarshal)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_GoJson(b *testing.B) {
+	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, gojson.Unmarshal)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_GoJsonUnmarshalOf(b *testing.B) {
+	benchDecodeOf[[]NonASCIIKeys](b, nonASCIIKeysFixture)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_Sonic(b *testing.B) {
+	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, sonic.ConfigDefault.Unmarshal)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_SonicStd(b *testing.B) {
+	benchDecode[[]NonASCIIKeys](b, nonASCIIKeysFixture, sonic.ConfigStd.Unmarshal)
+}
+
+// UnknownNonASCIIKeys decodes the objects of NonASCIIKeys into ShortKeys, whose keys are ASCII: every key is of
+// no field, and is skipped.
+func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_EncodingJson(b *testing.B) {
+	benchDecode[[]ShortKeys](b, nonASCIIKeysFixture, stdjson.Unmarshal)
+}
+
+func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_GoJson(b *testing.B) {
+	benchDecode[[]ShortKeys](b, nonASCIIKeysFixture, gojson.Unmarshal)
+}
+
+func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_Sonic(b *testing.B) {
+	benchDecode[[]ShortKeys](b, nonASCIIKeysFixture, sonic.ConfigDefault.Unmarshal)
 }

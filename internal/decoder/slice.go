@@ -6,22 +6,19 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
-)
-
-var (
-	sliceType = reflect.TypeOf((*sliceHeader)(nil)).Elem()
-	nilSlice  = unsafe.Pointer(&sliceHeader{})
 )
 
 type sliceDecoder struct {
-	elemType          reflect.Type
-	isElemPointerType bool
-	valueDecoder      Decoder
-	size              uintptr
-	arrayPool         sync.Pool
-	structName        string
-	fieldName         string
+	elemType reflect.Type
+	// slicePtrType is the type descriptor of the pointer to the slice.
+	slicePtrType unsafe.Pointer
+	valueDecoder Decoder
+	size         uintptr
+	// bufPool holds the buffers into which the elements are decoded before the length of the slice is known.
+	// A buffer in the pool has only zero values, so that an element is decoded into a zero value.
+	bufPool    sync.Pool
+	structName string
+	fieldName  string
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -33,23 +30,26 @@ type sliceHeader struct {
 	cap  int
 }
 
+// sliceBuf is a buffer of the elements of a slice, allocated and grown by reflect.Value.Grow,
+// so that its memory has the type of the elements.
+type sliceBuf struct {
+	hdr sliceHeader
+}
+
 const (
-	defaultSliceCapacity = 2
+	// defaultSliceCapacity is the capacity of a new buffer of the elements.
+	defaultSliceCapacity = 4
 )
 
 func newSliceDecoder(dec Decoder, elemType reflect.Type, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
-		valueDecoder:      dec,
-		elemType:          elemType,
-		isElemPointerType: elemType.Kind() == reflect.Ptr || elemType.Kind() == reflect.Map,
-		size:              size,
-		arrayPool: sync.Pool{
+		valueDecoder: dec,
+		elemType:     elemType,
+		slicePtrType: ptrTypeOf(reflect.SliceOf(elemType)),
+		size:         size,
+		bufPool: sync.Pool{
 			New: func() any {
-				return &sliceHeader{
-					data: newArray(runtime.TypePtr(elemType), defaultSliceCapacity),
-					len:  0,
-					cap:  defaultSliceCapacity,
-				}
+				return &sliceBuf{}
 			},
 		},
 		structName: structName,
@@ -57,35 +57,59 @@ func newSliceDecoder(dec Decoder, elemType reflect.Type, size uintptr, structNam
 	}
 }
 
-func (d *sliceDecoder) newSlice(src *sliceHeader) *sliceHeader {
-	slice := d.arrayPool.Get().(*sliceHeader)
-	if src.len > 0 {
-		// copy original elem
-		if slice.cap < src.cap {
-			data := newArray(runtime.TypePtr(d.elemType), src.cap)
-			slice = &sliceHeader{data: data, len: src.len, cap: src.cap}
-		} else {
-			slice.len = src.len
-		}
-		copySlice(runtime.TypePtr(d.elemType), *slice, *src)
-	} else {
-		slice.len = 0
+// sliceValue returns the reflect.Value of the slice whose header is at p.
+func (d *sliceDecoder) sliceValue(p *sliceHeader) reflect.Value {
+	return valueAt(d.slicePtrType, unsafe.Pointer(p))
+}
+
+// grow makes the capacity of the buffer n or more, keeping its first length elements.
+// The elements after them are zero values.
+func (d *sliceDecoder) grow(buf *sliceBuf, length, n int) {
+	if n <= buf.hdr.cap {
+		return
 	}
-	return slice
+	buf.hdr.len = length
+	if n < defaultSliceCapacity {
+		n = defaultSliceCapacity
+	}
+	// The capacity grows as the one of append does: the elements are copied a few times at most.
+	d.sliceValue(&buf.hdr).Grow(n - length)
 }
 
-func (d *sliceDecoder) releaseSlice(p *sliceHeader) {
-	d.arrayPool.Put(p)
+// takeBuf returns a buffer which has a copy of the elements of the slice at dst,
+// into which the elements are decoded: an element of the slice is decoded into its existing value.
+func (d *sliceDecoder) takeBuf(dst *sliceHeader) *sliceBuf {
+	buf := d.bufPool.Get().(*sliceBuf)
+	if dst.len > 0 {
+		d.grow(buf, 0, dst.len)
+		buf.hdr.len = dst.len
+		reflect.Copy(d.sliceValue(&buf.hdr), d.sliceValue(dst))
+	}
+	return buf
 }
 
-//go:linkname copySlice reflect.typedslicecopy
-func copySlice(elemType unsafe.Pointer, dst, src sliceHeader) int
+// releaseBuf clears the first n elements of the buffer, which are all it may have used,
+// and puts it back to the pool: it keeps nothing the decoded value refers to.
+func (d *sliceDecoder) releaseBuf(buf *sliceBuf, n int) {
+	if n > 0 {
+		buf.hdr.len = n
+		d.sliceValue(&buf.hdr).Clear()
+	}
+	buf.hdr.len = 0
+	d.bufPool.Put(buf)
+}
 
-//go:linkname newArray reflect.unsafe_NewArray
-func newArray(unsafe.Pointer, int) unsafe.Pointer
-
-//go:linkname typedmemmove reflect.typedmemmove
-func typedmemmove(t unsafe.Pointer, dst, src unsafe.Pointer)
+// store copies the n elements of the buffer to the slice at dst: into its array when it has room
+// for them, or else into a new array of their length.
+func (d *sliceDecoder) store(dst *sliceHeader, buf *sliceBuf, n int) {
+	if dst.cap < n {
+		*dst = sliceHeader{}
+		d.sliceValue(dst).Grow(n)
+	}
+	dst.len = n
+	buf.hdr.len = n
+	reflect.Copy(d.sliceValue(dst), d.sliceValue(&buf.hdr))
+}
 
 func (d *sliceDecoder) errNumber(offset int64) *errors.UnmarshalTypeError {
 	return &errors.UnmarshalTypeError{
@@ -114,71 +138,43 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				return 0, err
 			}
 			cursor += 4
-			typedmemmove(runtime.TypePtr(sliceType), p, nilSlice)
+			*(*sliceHeader)(p) = sliceHeader{}
 			return cursor, nil
 		case '[':
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
+			dst := (*sliceHeader)(p)
 			if buf[cursor] == ']' {
-				dst := (*sliceHeader)(p)
 				if dst.data == nil {
-					dst.data = newArray(runtime.TypePtr(d.elemType), 0)
+					dst.data = unsafe.Pointer(&zeroBase)
 				} else {
 					dst.len = 0
 				}
 				cursor++
 				return cursor, nil
 			}
+			elems := d.takeBuf(dst)
+			srcLen := dst.len
 			idx := 0
-			slice := d.newSlice((*sliceHeader)(p))
-			srcLen := slice.len
-			capacity := slice.cap
-			data := slice.data
 			for {
-				if capacity <= idx {
-					src := sliceHeader{data: data, len: idx, cap: capacity}
-					capacity *= 2
-					data = newArray(runtime.TypePtr(d.elemType), capacity)
-					dst := sliceHeader{data: data, len: idx, cap: capacity}
-					copySlice(runtime.TypePtr(d.elemType), dst, src)
-				}
-				ep := unsafe.Add(data, uintptr(idx)*d.size)
-				// if srcLen is greater than idx, keep the original reference
-				if srcLen <= idx {
-					if d.isElemPointerType {
-						**(**unsafe.Pointer)(unsafe.Pointer(&ep)) = nil // initialize elem pointer
-					} else {
-						// assign new element to the slice
-						typedmemmove(runtime.TypePtr(d.elemType), ep, unsafe_New(runtime.TypePtr(d.elemType)))
-					}
-				}
+				d.grow(elems, idx, idx+1)
+				ep := unsafe.Add(elems.hdr.data, uintptr(idx)*d.size)
 				c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
 				if err != nil {
+					d.releaseBuf(elems, max(idx+1, srcLen))
 					return 0, err
 				}
-				cursor = c
-				cursor = skipWhiteSpace(buf, cursor)
+				cursor = skipWhiteSpace(buf, c)
 				switch buf[cursor] {
 				case ']':
-					slice.cap = capacity
-					slice.len = idx + 1
-					slice.data = data
-					dst := (*sliceHeader)(p)
-					dst.len = idx + 1
-					if dst.len > dst.cap {
-						dst.data = newArray(runtime.TypePtr(d.elemType), dst.len)
-						dst.cap = dst.len
-					}
-					copySlice(runtime.TypePtr(d.elemType), *dst, *slice)
-					d.releaseSlice(slice)
+					d.store(dst, elems, idx+1)
+					d.releaseBuf(elems, max(idx+1, srcLen))
 					cursor++
 					return cursor, nil
 				case ',':
 					idx++
 				default:
-					slice.cap = capacity
-					slice.data = data
-					d.releaseSlice(slice)
+					d.releaseBuf(elems, max(idx+1, srcLen))
 					return 0, errors.ErrInvalidCharacter(buf[cursor], "slice", cursor)
 				}
 				cursor++

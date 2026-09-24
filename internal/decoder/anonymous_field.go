@@ -3,8 +3,6 @@ package decoder
 import (
 	"reflect"
 	"unsafe"
-
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 type anonymousFieldDecoder struct {
@@ -23,7 +21,7 @@ func newAnonymousFieldDecoder(structType reflect.Type, offset uintptr, dec Decod
 
 func (d *anonymousFieldDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	if *(*unsafe.Pointer)(p) == nil {
-		*(*unsafe.Pointer)(p) = unsafe_New(runtime.TypePtr(d.structType))
+		*(*unsafe.Pointer)(p) = newValue(d.structType)
 	}
 	p = *(*unsafe.Pointer)(p)
 	return d.dec.Decode(ctx, cursor, depth, unsafe.Add(p, d.offset))

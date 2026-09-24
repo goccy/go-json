@@ -6,31 +6,37 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 type arrayDecoder struct {
-	elemType     reflect.Type
+	elemType reflect.Type
+	// arrayPtrType is the type descriptor of the pointer to the array.
+	arrayPtrType unsafe.Pointer
 	size         uintptr
 	valueDecoder Decoder
 	alen         int
 	structName   string
 	fieldName    string
-	zeroValue    unsafe.Pointer
 }
 
-func newArrayDecoder(dec Decoder, elemType reflect.Type, alen int, structName, fieldName string) *arrayDecoder {
-	// workaround to avoid checkptr errors. cannot use `*(*unsafe.Pointer)(unsafe_New(elemType))` directly.
-	zeroValuePtr := unsafe_New(runtime.TypePtr(elemType))
-	zeroValue := **(**unsafe.Pointer)(unsafe.Pointer(&zeroValuePtr))
+func newArrayDecoder(dec Decoder, arrayType reflect.Type, structName, fieldName string) *arrayDecoder {
+	elemType := arrayType.Elem()
 	return &arrayDecoder{
 		valueDecoder: dec,
 		elemType:     elemType,
+		arrayPtrType: ptrTypeOf(arrayType),
 		size:         elemType.Size(),
-		alen:         alen,
+		alen:         arrayType.Len(),
 		structName:   structName,
 		fieldName:    fieldName,
-		zeroValue:    zeroValue,
+	}
+}
+
+// zeroFrom sets the elements of the array at p from idx to the end to their zero value,
+// as encoding/json does for the elements the JSON array has not.
+func (d *arrayDecoder) zeroFrom(p unsafe.Pointer, idx int) {
+	if idx < d.alen {
+		valueAt(d.arrayPtrType, p).Slice(idx, d.alen).Clear()
 	}
 }
 
@@ -57,10 +63,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {
-				for idx < d.alen {
-					*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
-					idx++
-				}
+				d.zeroFrom(p, idx)
 				cursor++
 				return cursor, nil
 			}
@@ -82,10 +85,7 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				cursor = skipWhiteSpace(buf, cursor)
 				switch buf[cursor] {
 				case ']':
-					for idx < d.alen {
-						*(*unsafe.Pointer)(unsafe.Add(p, uintptr(idx)*d.size)) = d.zeroValue
-						idx++
-					}
+					d.zeroFrom(p, idx)
 					cursor++
 					return cursor, nil
 				case ',':

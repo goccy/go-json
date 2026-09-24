@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -222,37 +223,43 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 	cursor = skipWhiteSpace(buf, cursor)
 	switch buf[cursor] {
 	case '{':
-		var v map[string]any
-		ptr := unsafe.Pointer(&v)
-		cursor, err := d.mapDecoder.Decode(ctx, cursor, depth, ptr)
+		depth++
+		if depth > maxDecodeNestingDepth {
+			return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+		}
+		m := map[string]any{}
+		cursor, err := decodeStringAnyMap(ctx, d, m, cursor, depth)
 		if err != nil {
 			return 0, err
 		}
-		**(**any)(unsafe.Pointer(&p)) = v
+		**(**any)(unsafe.Pointer(&p)) = m
 		return cursor, nil
 	case '[':
-		var v []any
-		ptr := unsafe.Pointer(&v)
-		cursor, err := d.sliceDecoder.Decode(ctx, cursor, depth, ptr)
-		if err != nil {
-			return 0, err
-		}
-		**(**any)(unsafe.Pointer(&p)) = v
-		return cursor, nil
+		return d.decodeAnySlice(ctx, cursor, depth, p)
 	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		if (ctx.Option.Flags & UseNumberOption) != 0 {
 			return d.numberDecoder.Decode(ctx, cursor, depth, p)
 		}
-		return d.floatDecoder.Decode(ctx, cursor, depth, p)
-	case '"':
-		var v string
-		ptr := unsafe.Pointer(&v)
-		cursor, err := d.stringDecoder.Decode(ctx, cursor, depth, ptr)
+		num, c, err := d.floatDecoder.decodeByte(buf, cursor)
 		if err != nil {
 			return 0, err
 		}
-		**(**any)(unsafe.Pointer(&p)) = v
-		return cursor, nil
+		if !validEndNumberChar[buf[c]] {
+			return 0, errors.ErrUnexpectedEndOfJSON("float", c)
+		}
+		f, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&num)), 64)
+		if err != nil {
+			return 0, errors.ErrSyntax(err.Error(), c)
+		}
+		**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+		return c, nil
+	case '"':
+		s, c, err := d.stringDecoder.decodeByte(buf, cursor)
+		if err != nil {
+			return 0, err
+		}
+		**(**any)(unsafe.Pointer(&p)) = ctx.boxString(*(*string)(unsafe.Pointer(&s)))
+		return c, nil
 	case 't':
 		if err := validateTrue(buf, cursor); err != nil {
 			return 0, err
@@ -276,6 +283,89 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		return cursor, nil
 	}
 	return cursor, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+}
+
+// decodeStringAnyMap decodes the object at cursor into m, a map[string]interface{}, by the assignment of Go:
+// the values are decoded as interface{} by d. depth counts the object already.
+func decodeStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, m map[string]any, cursor, depth int64) (int64, error) {
+	buf := ctx.Buf
+	cursor++ // '{'
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == '}' {
+		return cursor + 1, nil
+	}
+	for {
+		key, c, err := d.stringDecoder.decodeByte(buf, cursor)
+		if err != nil {
+			return 0, err
+		}
+		if key == nil {
+			// null is not a key
+			return 0, errors.ErrSyntax("invalid character 'n' looking for beginning of object key string", skipWhiteSpace(buf, cursor)+1)
+		}
+		cursor = skipWhiteSpace(buf, c)
+		if buf[cursor] != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		cursor++
+		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
+		if err != nil {
+			ctx.slot = nil
+			return 0, err
+		}
+		m[*(*string)(unsafe.Pointer(&key))] = ctx.slot
+		ctx.slot = nil
+		cursor = skipWhiteSpace(buf, c)
+		switch buf[cursor] {
+		case '}':
+			return cursor + 1, nil
+		case ',':
+			cursor++
+		default:
+			return 0, errors.ErrExpected("comma after object value", cursor)
+		}
+	}
+}
+
+// decodeAnySlice decodes the array at cursor as a []interface{}: the elements are pushed to the stack
+// of the context, and copied into a slice of their number at the end of the array.
+func (d *interfaceDecoder) decodeAnySlice(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	depth++
+	if depth > maxDecodeNestingDepth {
+		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+	}
+	cursor++ // '['
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == ']' {
+		**(**any)(unsafe.Pointer(&p)) = []any{}
+		return cursor + 1, nil
+	}
+	base := len(ctx.anyStack)
+	for {
+		c, err := d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
+		if err != nil {
+			ctx.slot = nil
+			ctx.popAny(base)
+			return 0, err
+		}
+		ctx.anyStack = append(ctx.anyStack, ctx.slot)
+		ctx.slot = nil
+		cursor = skipWhiteSpace(buf, c)
+		switch buf[cursor] {
+		case ']':
+			elems := make([]any, len(ctx.anyStack)-base)
+			copy(elems, ctx.anyStack[base:])
+			ctx.popAny(base)
+			**(**any)(unsafe.Pointer(&p)) = elems
+			return cursor + 1, nil
+		case ',':
+			cursor++
+		default:
+			ctx.popAny(base)
+			return 0, errors.ErrInvalidCharacter(buf[cursor], "slice", cursor)
+		}
+	}
 }
 
 func NewPathDecoder() Decoder {

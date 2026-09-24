@@ -40,11 +40,16 @@ const (
 	// A measurement consists of multiple short rounds rather than a single long run,
 	// because the fastest round is hardly affected by the temporary load of the machine.
 	// Every layout is measured once by default.
-	defaultRounds = 4
+	defaultRounds = 8
 	// defaultLayouts is the number of the function layouts with which a benchmark is measured.
 	// The fastest layout of each side is compared, so the more layouts are measured,
 	// the less the result depends on how well a single layout happens to fit the code.
-	defaultLayouts   = 4
+	//
+	// The layouts and the rounds are by -calibrate on the machines of the CI ( 37 decode benchmarks, two
+	// machines for each setting ): identical code linked with other layouts differs by at most 2.4%, 1.8% at
+	// the 90th percentile, with 8 layouts of 300ms; 4 layouts left up to 5.8%, and more rounds of the same
+	// layouts gained nothing, since how the functions are laid out moves a benchmark more than the load does.
+	defaultLayouts   = 8
 	defaultBenchTime = "300ms"
 	// defaultTolerance is for the mean of all the benchmarks. The mean of identical code measured
 	// on a shared machine stays within about 1.5%.

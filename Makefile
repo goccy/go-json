@@ -47,6 +47,13 @@ generate:
 bench-check:
 	go run ./internal/cmd/benchcheck $(BENCH_CHECK_FLAGS)
 
+# bench-calibrate measures the benchmarks of HEAD against themselves, linked with other function layouts,
+# and prints how much the results of identical code differ: the noise which bench-check has to see beyond.
+# e.g.) make bench-calibrate BENCH_CHECK_FLAGS="-group decode"
+.PHONY: bench-calibrate
+bench-calibrate:
+	go run ./internal/cmd/benchcheck -calibrate -attempts 1 $(BENCH_CHECK_FLAGS)
+
 # bench-compare-encode prints the encode benchmarks of go-json and of bytedance/sonic side by side.
 # SonicStd is sonic configured to do what encoding/json, and go-json, do ( escape HTML, sort the keys of a map ),
 # and GoJsonLikeSonic is go-json configured to do what sonic does by default.

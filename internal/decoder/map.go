@@ -74,13 +74,17 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	if d.isStringAnyMap {
 		m := *(*map[string]any)(p)
 		if m == nil {
-			m = map[string]any{}
+			m, c, err := decodeNewStringAnyMap(ctx, d.valueDecoder.(*interfaceDecoder), cursor, depth)
+			if err != nil {
+				return 0, err
+			}
+			*(*map[string]any)(p) = m
+			return c, nil
 		}
 		c, err := decodeStringAnyMap(ctx, d.valueDecoder.(*interfaceDecoder), m, cursor, depth)
 		if err != nil {
 			return 0, err
 		}
-		*(*map[string]any)(p) = m
 		return c, nil
 	}
 	cursor++

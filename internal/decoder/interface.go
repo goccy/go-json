@@ -227,8 +227,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		if depth > maxDecodeNestingDepth {
 			return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
 		}
-		m := map[string]any{}
-		cursor, err := decodeStringAnyMap(ctx, d, m, cursor, depth)
+		m, cursor, err := decodeNewStringAnyMap(ctx, d, cursor, depth)
 		if err != nil {
 			return 0, err
 		}
@@ -327,6 +326,66 @@ func decodeStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, m map[string]a
 			cursor++
 		default:
 			return 0, errors.ErrExpected("comma after object value", cursor)
+		}
+	}
+}
+
+// decodeNewStringAnyMap decodes the object at cursor into a new map[string]interface{}. The entries are pushed
+// to the stacks of the context, and put into a map of their number at the end of the object: a map filled
+// entry by entry grows and moves its entries several times on the way, which took more time than the
+// entries themselves. A key which is repeated is put later, so that the last one wins as in a map filled in
+// order.
+func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, depth int64) (map[string]any, int64, error) {
+	buf := ctx.Buf
+	cursor++ // '{'
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] == '}' {
+		return map[string]any{}, cursor + 1, nil
+	}
+	base, keyBase := len(ctx.anyStack), len(ctx.keyStack)
+	fail := func(err error) (map[string]any, int64, error) {
+		ctx.slot = nil
+		ctx.popAny(base)
+		ctx.popKeys(keyBase)
+		return nil, 0, err
+	}
+	for {
+		key, c, ok, err := d.stringDecoder.decodeString(ctx, cursor)
+		if err != nil {
+			return fail(err)
+		}
+		if !ok {
+			// null is not a key
+			return fail(errors.ErrSyntax("invalid character 'n' looking for beginning of object key string", skipWhiteSpace(buf, cursor)+1))
+		}
+		cursor = skipWhiteSpace(buf, c)
+		if buf[cursor] != ':' {
+			return fail(errors.ErrExpected("colon after object key", cursor))
+		}
+		cursor++
+		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
+		if err != nil {
+			return fail(err)
+		}
+		// the key and the value are pushed together, after the value, whose own entries are popped already.
+		ctx.keyStack = append(ctx.keyStack, key)
+		ctx.anyStack = append(ctx.anyStack, ctx.slot)
+		ctx.slot = nil
+		cursor = skipWhiteSpace(buf, c)
+		switch buf[cursor] {
+		case '}':
+			keys, values := ctx.keyStack[keyBase:], ctx.anyStack[base:]
+			m := make(map[string]any, len(keys))
+			for i, key := range keys {
+				m[key] = values[i]
+			}
+			ctx.popAny(base)
+			ctx.popKeys(keyBase)
+			return m, cursor + 1, nil
+		case ',':
+			cursor++
+		default:
+			return fail(errors.ErrExpected("comma after object value", cursor))
 		}
 	}
 }

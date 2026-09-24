@@ -17,8 +17,11 @@ type RuntimeContext struct {
 	// before the next value is decoded, and puts its own value into it only at its end.
 	slot any
 	// anyStack holds the elements of the arrays being decoded into []interface{}: an array pushes
-	// its elements above the ones of the arrays it is nested in, and pops them at its end.
+	// its elements above the ones of the arrays it is nested in, and pops them at its end. The objects
+	// being decoded into new maps of map[string]interface{} push their values there too, and their keys to
+	// keyStack, so that a map is made of the size of its object ( see decodeNewStringAnyMap ).
 	anyStack []any
+	keyStack []string
 	// floats and strings are the slabs in which the numbers and the strings decoded into interface{}
 	// are kept, so that an interface value refers to them without an allocation of its own.
 	// A slot of a slab is never written again once an interface value refers to it.
@@ -219,6 +222,12 @@ func (ctx *RuntimeContext) popAny(base int) {
 	ctx.anyStack = ctx.anyStack[:base]
 }
 
+// popKeys removes the keys of keyStack from base, clearing them so that the stack keeps nothing alive.
+func (ctx *RuntimeContext) popKeys(base int) {
+	clear(ctx.keyStack[base:])
+	ctx.keyStack = ctx.keyStack[:base]
+}
+
 // cacheLineSize is the size of the cache lines the contexts are kept apart by: 128 bytes, which is the line of
 // the Apple M processors and two lines of amd64, whose adjacent lines are fetched together.
 const cacheLineSize = 128
@@ -253,6 +262,7 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	ctx.origin = nil
 	ctx.slot = nil
 	ctx.popAny(0)
+	ctx.popKeys(0)
 	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
 	// the input of a previous call alive. The slab of floats refers to nothing and is kept.
 	ctx.strings = nil

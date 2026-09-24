@@ -96,7 +96,11 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		if err != nil {
 			return 0, err
 		}
-		cursor = c
+		cursor = skipWhiteSpace(buf, c)
+		if char(b, cursor) != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		cursor++
 		if cursor >= buflen {
 			return 0, errors.ErrExpected("object value after colon", cursor)
 		}
@@ -153,10 +157,10 @@ func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([]
 	return nil, 0, fmt.Errorf("json: struct decoder does not support decode path")
 }
 
-// decodeKey reads the key of an object at cursor and the colon after it, and returns the field of the key or nil,
-// and the position after the colon. A key which matches no field is an error if disallowUnknownFields is set.
-// It is a function of its own, so that the loop of Decode keeps its values in the registers, and the key is not
-// returned, which would take registers of the loop too.
+// decodeKey reads the key of an object at cursor, and returns its field or nil, and the position after it.
+// A key which matches no field is an error if disallowUnknownFields is set. It is a function of its own, so that
+// the loop of Decode keeps its values in the registers, and the key is not returned, which would take registers
+// of the loop too.
 func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] != '"' {
@@ -189,8 +193,7 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 			if field == nil && disallowUnknownFields {
 				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
 			}
-			c, err := colonAfterKey(buf, start+int64(n)+1)
-			return field, c, err
+			return field, start + int64(n) + 1, nil
 		}
 		w1 := load64(buf, start+8)
 		n := 8 + keyLengthInWord(w1)
@@ -203,8 +206,7 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 			if field == nil && disallowUnknownFields {
 				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
 			}
-			c, err := colonAfterKey(buf, start+int64(n)+1)
-			return field, c, err
+			return field, start + int64(n) + 1, nil
 		}
 	}
 	return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
@@ -220,20 +222,7 @@ func (d *structDecoder) decodeKeyByScan(buf []byte, cursor int64, disallowUnknow
 	if field == nil && disallowUnknownFields {
 		return nil, 0, unknownFieldError(key)
 	}
-	c, err := colonAfterKey(buf, next)
-	return field, c, err
-}
-
-// colonAfterKey returns the position after the colon which follows a key: at cursor, or after white space.
-func colonAfterKey(buf []byte, cursor int64) (int64, error) {
-	if buf[cursor] == ':' {
-		return cursor + 1, nil
-	}
-	cursor = skipWhiteSpace(buf, cursor)
-	if buf[cursor] != ':' {
-		return 0, errors.ErrExpected("colon after object key", cursor)
-	}
-	return cursor + 1, nil
+	return field, next, nil
 }
 
 func unknownFieldError(key []byte) error {

@@ -87,7 +87,8 @@ var stringEscapes = [4]stringEscape{
 // appendEscapedSIMD ): the bytes of the escape of a byte, in the order of a little-endian word, and its length in
 // the top byte. They are the ones of the appendString functions. A byte which is not ASCII is 0: it is left to
 // the caller, which escapes it if UTF-8 is normalized.
-var escapeSequences = func() (seqs [256]uint64) {
+var escapeSequences = func() [256]uint64 {
+	var seqs [256]uint64
 	for c := 0; c < 0x80; c++ {
 		var seq string
 		switch c {

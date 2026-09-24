@@ -157,8 +157,17 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			var high uint64
 			for {
 				// The words with nothing to look at are skipped eight bytes at a time: a word is read
-				// only where the buffer has room for it, so that its end is scanned byte by byte.
-				for cursor+8 <= buflen {
+				// only where the buffer has room for it, so that its end is scanned byte by byte. After two
+				// words, the rest of a long string is scanned by SIMD where the CPU has it: the nul byte at the
+				// end of the buffer stops the scan.
+				for words := 0; cursor+8 <= buflen; words++ {
+					if words == 2 {
+						if i, h, ok := indexStringSpecial(unsafe.Add(b, cursor), int(buflen-cursor)); ok {
+							high |= h
+							cursor += int64(i)
+							break
+						}
+					}
 					w := load64(buf, cursor)
 					if special := keyEndBytes(w); special != 0 {
 						i := int64(bits.TrailingZeros64(special) / 8)

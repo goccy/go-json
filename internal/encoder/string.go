@@ -28,8 +28,6 @@ import (
 	"encoding/binary"
 	"math/bits"
 	"unsafe"
-
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -38,15 +36,6 @@ const (
 )
 
 var hex = "0123456789abcdef"
-
-// unsafe.Slice is not used here because it adds the overflow / nil checks to this hot path.
-func stringToUint64Slice(s string) []uint64 {
-	return *(*[]uint64)(unsafe.Pointer(&runtime.SliceHeader{
-		Data: unsafe.Pointer(unsafe.StringData(s)),
-		Len:  len(s) / 8,
-		Cap:  len(s) / 8,
-	}))
-}
 
 // stringEscape is what decides whether a string has a byte to escape, for a combination of the options.
 type stringEscape struct {
@@ -94,9 +83,14 @@ var stringEscapes = [4]stringEscape{
 	},
 }
 
+// escapeTables are the tables of stringEscapes, which the functions of the escapes refer to by this array:
+// stringEscapes refers to the functions, so they can't refer to it.
+var escapeTables [4]*nibbleTables
+
 func init() {
 	for i := range stringEscapes {
 		stringEscapes[i].tables = newNibbleTables(stringEscapes[i].table)
+		escapeTables[i] = &stringEscapes[i].tables
 	}
 }
 
@@ -257,36 +251,9 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	var (
-		i, j int
-	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb) |
-				((n ^ (lsb * '<')) - lsb) |
-				((n ^ (lsb * '>')) - lsb) |
-				((n ^ (lsb * '&')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeHTMLNormalizeUTF8[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		// no found any escape characters.
-		return append(append(buf, s...), '"')
-	}
-ESCAPE_END:
+	var i int
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
+	j := skipNormalizedHTML(s, 0)
 	for j < valLen {
 		c := s[j]
 
@@ -382,36 +349,9 @@ func appendHTMLString(buf []byte, s string) []byte {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	var (
-		i, j int
-	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb) |
-				((n ^ (lsb * '<')) - lsb) |
-				((n ^ (lsb * '>')) - lsb) |
-				((n ^ (lsb * '&')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeHTML[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		// no found any escape characters.
-		return append(append(buf, s...), '"')
-	}
-ESCAPE_END:
+	var i int
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
+	j := skipHTML(s, 0)
 	for j < valLen {
 		c := s[j]
 
@@ -479,33 +419,9 @@ func appendNormalizedString(buf []byte, s string) []byte {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	var (
-		i, j int
-	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		valLen := len(s)
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscapeNormalizeUTF8[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		return append(append(buf, s...), '"')
-	}
-ESCAPE_END:
+	var i int
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
+	j := skipNormalized(s, 0)
 	for j < valLen {
 		c := s[j]
 
@@ -594,33 +510,9 @@ func appendString(buf []byte, s string) []byte {
 		return append(buf, `""`...)
 	}
 	buf = append(buf, '"')
-	var (
-		i, j int
-	)
-	if valLen >= 8 {
-		chunks := stringToUint64Slice(s)
-		for _, n := range chunks {
-			// combine masks before checking for the MSB of each byte. We include
-			// `n` in the mask to check whether any of the *input* byte MSBs were
-			// set (i.e. the byte was outside the ASCII range).
-			mask := n | (n - (lsb * 0x20)) |
-				((n ^ (lsb * '"')) - lsb) |
-				((n ^ (lsb * '\\')) - lsb)
-			if (mask & msb) != 0 {
-				j = bits.TrailingZeros64(mask&msb) / 8
-				goto ESCAPE_END
-			}
-		}
-		valLen := len(s)
-		for i := len(chunks) * 8; i < valLen; i++ {
-			if needEscape[s[i]] {
-				j = i
-				goto ESCAPE_END
-			}
-		}
-		return append(append(buf, s...), '"')
-	}
-ESCAPE_END:
+	var i int
+	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD
+	j := skipPlain(s, 0)
 	for j < valLen {
 		c := s[j]
 
@@ -675,13 +567,16 @@ ESCAPE_END:
 }
 
 // The functions below return the position of the first byte from j which may need an escape, or of a byte of the
-// last seven bytes of the string, which are left to the byte by byte loop: the bytes before it are skipped a word
-// at a time. After the first escape of a string, most of its bytes are still plain: a text or a source code has an
+// last seven bytes of the string, which are left to the byte by byte loop: the bytes before it are skipped by
+// SIMD where the CPU has it and the rest is long enough ( see indexEscapeSIMD ), and else a word at a time. After the first escape of a string, most of its bytes are still plain: a text or a source code has an
 // escape every few dozen bytes, which a loop over its bytes one by one spends most of the time of the encoding in.
 // The masks are the ones of the options ( see stringEscapes ): the loose ones, which have the bytes which are not
 // ASCII, if UTF-8 is normalized, and else the exact ones, so that a text which is not ASCII is skipped too.
 
 func skipNormalizedHTML(s string, j int) int {
+	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeHTML|stringEscapeNormalize]); ok {
+		return j + k
+	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
 		if m := (looseCommonMask(w) | ((w ^ (lsb * '<')) - lsb) | ((w ^ (lsb * '>')) - lsb) | ((w ^ (lsb * '&')) - lsb)) & msb; m != 0 {
@@ -692,6 +587,9 @@ func skipNormalizedHTML(s string, j int) int {
 }
 
 func skipHTML(s string, j int) int {
+	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeHTML]); ok {
+		return j + k
+	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
 		lt, gt, amp := w^(lsb*'<'), w^(lsb*'>'), w^(lsb*'&')
@@ -703,6 +601,9 @@ func skipHTML(s string, j int) int {
 }
 
 func skipNormalized(s string, j int) int {
+	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeNormalize]); ok {
+		return j + k
+	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
 		if m := looseCommonMask(w) & msb; m != 0 {
@@ -713,6 +614,9 @@ func skipNormalized(s string, j int) int {
 }
 
 func skipPlain(s string, j int) int {
+	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[0]); ok {
+		return j + k
+	}
 	for ; j+8 <= len(s); j += 8 {
 		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
 		if m := exactCommonMask(w) & msb; m != 0 {

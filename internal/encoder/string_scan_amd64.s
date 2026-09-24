@@ -79,5 +79,57 @@ found:
 	MOVQ $1, ret+24(FP)
 	RET
 
+// func indexEscapeAVX2(p unsafe.Pointer, n int, tables *nibbleTables) int
+//
+// It returns the index of the first byte of the n bytes at p which may need an escape by the tables, or n if
+// there is none. n is 32 or more. The blocks of 32 bytes are looked at in order, and the last block overlaps the
+// previous one.
+TEXT ·indexEscapeAVX2(SB), NOSPLIT, $0-32
+	MOVQ p+0(FP), SI
+	MOVQ n+8(FP), CX
+	MOVQ tables+16(FP), AX
+
+	VBROADCASTI128 (AX), Y8
+	VBROADCASTI128 16(AX), Y9
+	VPBROADCASTB   c0f<>(SB), Y10
+	VPXOR          Y11, Y11, Y11
+
+	MOVQ SI, DI                  // the address of the block
+	LEAQ -32(SI)(CX*1), R11      // the address of the last block
+iloop:
+	CMPQ DI, R11
+	JGT  ilast
+	VMOVDQU (DI), Y0
+	MASK(Y0, Y4, Y5)
+	VPTEST  Y5, Y5
+	JNE     ifound
+	ADDQ    $32, DI
+	JMP     iloop
+ilast:
+	// the last block, which overlaps the previous one unless the blocks ended exactly at n.
+	LEAQ (SI)(CX*1), DX
+	CMPQ DI, DX
+	JEQ  inone
+	MOVQ R11, DI
+	VMOVDQU (DI), Y0
+	MASK(Y0, Y4, Y5)
+	VPTEST  Y5, Y5
+	JNE     ifound
+inone:
+	VZEROUPPER
+	MOVQ CX, ret+24(FP)
+	RET
+ifound:
+	// the lanes which are zero are the ones of the bytes which need no escape.
+	VPCMPEQB  Y11, Y5, Y5
+	VPMOVMSKB Y5, DX
+	NOTL      DX
+	BSFL      DX, DX
+	SUBQ      SI, DI
+	ADDQ      DX, DI
+	VZEROUPPER
+	MOVQ      DI, ret+24(FP)
+	RET
+
 DATA c0f<>+0(SB)/1, $0x0f
 GLOBL c0f<>(SB), RODATA|NOPTR, $1

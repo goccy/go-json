@@ -267,6 +267,9 @@ func skipWhiteSpace(buf []byte, cursor int64) int64 {
 	return cursor
 }
 
+// skipStringDecoder scans the strings which skipValue skips.
+var skipStringDecoder = newStringDecoder("", "")
+
 func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 	for {
 		switch buf[cursor] {
@@ -295,20 +298,12 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			}
 			return end, nil
 		case '"':
-			for {
-				cursor++
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-					if buf[cursor] == nul {
-						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					return cursor + 1, nil
-				case nul:
-					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
+			// by the words of the string, as a string is decoded: a string which is skipped is validated too.
+			_, next, _, err := skipStringDecoder.scanString(buf, cursor)
+			if err != nil {
+				return 0, err
 			}
+			return next, nil
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			for {
 				cursor++

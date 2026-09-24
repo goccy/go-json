@@ -213,3 +213,43 @@ func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_GoJson(b *testing.B) {
 func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_Sonic(b *testing.B) {
 	benchDecode[[]ShortKeys](b, nonASCIIKeysFixture, sonic.ConfigDefault.Unmarshal)
 }
+
+func Benchmark_Decode_ShortKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]ShortKeys](b, shortKeysFixture)
+}
+
+func Benchmark_Decode_ShortKeys_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]ShortKeys](b, shortKeysFixture)
+}
+
+func Benchmark_Decode_MediumKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]MediumKeys](b, mediumKeysFixture)
+}
+
+func Benchmark_Decode_MediumKeys_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]MediumKeys](b, mediumKeysFixture)
+}
+
+func Benchmark_Decode_LongKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]LongKeys](b, longKeysFixture)
+}
+
+func Benchmark_Decode_LongKeys_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]LongKeys](b, longKeysFixture)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]NonASCIIKeys](b, nonASCIIKeysFixture)
+}
+
+func Benchmark_Decode_NonASCIIKeys_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]NonASCIIKeys](b, nonASCIIKeysFixture)
+}
+
+func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]ShortKeys](b, nonASCIIKeysFixture)
+}
+
+func Benchmark_Decode_UnknownNonASCIIKeys_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]ShortKeys](b, nonASCIIKeysFixture)
+}

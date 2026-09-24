@@ -143,6 +143,12 @@ jobs:
             run: SONIC_MAX_INLINE_DEPTH=10 make bench-compare-encode
           - name: decode
             run: make bench-compare-decode && make bench-profile-decode
+          # sonic has two decoders on amd64, which the environment chooses: the JIT one by default, and optdec.
+          # It is measured with each, and with its faster decoding of maps, so that it is compared at its best.
+          - name: decode, sonic optdec
+            run: SONIC_USE_OPTDEC=1 make bench-compare-decode
+          - name: decode, sonic fastmap
+            run: SONIC_USE_FASTMAP=1 make bench-compare-decode
           - name: profile encode
             run: make bench-profile-encode
           - name: candidates of the optimizations

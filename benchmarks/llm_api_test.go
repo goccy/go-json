@@ -752,3 +752,105 @@ func Benchmark_Encode_AnthropicMessageRequest_Sonic(b *testing.B) {
 func Benchmark_Encode_AnthropicMessageRequest_SonicStd(b *testing.B) {
 	benchEncode(b, anthropicRequest, sonic.ConfigStd.Marshal)
 }
+
+// ---------------------------------------------------------------- the fastest configurations ( see sonic_decode_test.go )
+
+// benchDecodeStreamSonicFastest decodes every event of a stream by sonic at its fastest, as strings.
+func benchDecodeStreamSonicFastest[T any](b *testing.B, events [][]byte) {
+	strs := make([]string, len(events))
+	n := 0
+	for i, e := range events {
+		strs[i] = string(e)
+		n += len(e)
+	}
+	b.SetBytes(int64(n))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, e := range strs {
+			var v T
+			if err := sonic.ConfigFastest.UnmarshalFromString(e, &v); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+// benchDecodeStreamNoCopy decodes every event of a stream by go-json at its fastest.
+func benchDecodeStreamNoCopy[T any](b *testing.B, events [][]byte) {
+	n := 0
+	for _, e := range events {
+		n += len(e)
+	}
+	b.SetBytes(int64(n))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, e := range events {
+			var v T
+			if err := gojson.UnmarshalOf(e, &v, gojson.DecodeNoCopyString()); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[ChatCompletionResponse](b, openAIChatResponseJSON)
+}
+
+func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[ChatCompletionResponse](b, openAIChatResponseJSON)
+}
+
+func Benchmark_Decode_OpenAIResponse_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[Response](b, openAIResponsesResponseJSON)
+}
+
+func Benchmark_Decode_OpenAIResponse_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[Response](b, openAIResponsesResponseJSON)
+}
+
+func Benchmark_Decode_AnthropicMessage_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[MessagesResponse](b, anthropicResponseJSON)
+}
+
+func Benchmark_Decode_AnthropicMessage_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[MessagesResponse](b, anthropicResponseJSON)
+}
+
+func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeStreamNoCopy[ChatCompletionStreamResponse](b, openAIChatStream)
+}
+
+func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeStreamSonicFastest[ChatCompletionStreamResponse](b, openAIChatStream)
+}
+
+func Benchmark_Decode_OpenAIResponseStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeStreamNoCopy[ResponseStreamEvent](b, openAIResponsesStream)
+}
+
+func Benchmark_Decode_OpenAIResponseStream_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeStreamSonicFastest[ResponseStreamEvent](b, openAIResponsesStream)
+}
+
+func Benchmark_Decode_AnthropicMessageStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeStreamNoCopy[MessageStreamEvent](b, anthropicStream)
+}
+
+func Benchmark_Decode_AnthropicMessageStream_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeStreamSonicFastest[MessageStreamEvent](b, anthropicStream)
+}
+
+func Benchmark_Encode_OpenAIChatCompletionRequest_SonicFastest(b *testing.B) {
+	benchEncode(b, openAIChatRequest, sonic.ConfigFastest.Marshal)
+}
+
+func Benchmark_Encode_OpenAIResponseRequest_SonicFastest(b *testing.B) {
+	benchEncode(b, openAIResponsesRequest, sonic.ConfigFastest.Marshal)
+}
+
+func Benchmark_Encode_AnthropicMessageRequest_SonicFastest(b *testing.B) {
+	benchEncode(b, anthropicRequest, sonic.ConfigFastest.Marshal)
+}

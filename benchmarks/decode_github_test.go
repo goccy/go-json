@@ -299,3 +299,19 @@ func Benchmark_Decode_GitHubGraphQL_Unmarshal_Sonic(b *testing.B) {
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicStd(b *testing.B) {
 	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, sonic.ConfigStd.Unmarshal)
 }
+
+func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[[]*GitHubIssue](b, githubRESTIssues)
+}
+
+func Benchmark_Decode_GitHubREST_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[[]*GitHubIssue](b, githubRESTIssues)
+}
+
+func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
+	benchDecodeNoCopy[GitHubGraphQLIssues](b, githubGraphQLIssues)
+}
+
+func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicFastest(b *testing.B) {
+	benchDecodeSonicFastest[GitHubGraphQLIssues](b, githubGraphQLIssues)
+}

@@ -131,5 +131,65 @@ ifound:
 	MOVQ      DI, ret+24(FP)
 	RET
 
+// func escapeStringAVX2(dst, src unsafe.Pointer, n int, tables *nibbleTables, seqs *[256]uint64) (consumed, written int)
+//
+// It appends the n bytes at src to dst, escaped, 32 bytes at a time: a block is stored to dst as it is, and dst
+// is advanced to the first byte of it which may need an escape by the tables, whose escape, the sequence of seqs
+// of the byte ( see escapeSequences ), is stored after it. It stops at a byte whose sequence is 0, which the
+// caller escapes, or when fewer than 32 bytes remain, and returns the numbers of the bytes it read and wrote. dst
+// has room for 6*n+32 bytes: a byte is escaped in 6 bytes at most, and a block is stored whole.
+TEXT ·escapeStringAVX2(SB), NOSPLIT, $0-56
+	MOVQ dst+0(FP), DI
+	MOVQ src+8(FP), SI
+	MOVQ n+16(FP), CX
+	MOVQ tables+24(FP), AX
+	MOVQ seqs+32(FP), R9
+
+	VBROADCASTI128 (AX), Y8
+	VBROADCASTI128 16(AX), Y9
+	VPBROADCASTB   c0f<>(SB), Y10
+	VPXOR          Y11, Y11, Y11
+
+	MOVQ SI, R12                 // the start of src
+	MOVQ DI, R13                 // the start of dst
+	LEAQ (SI)(CX*1), R11         // the end of src
+eloop:
+	LEAQ    32(SI), DX
+	CMPQ    DX, R11
+	JGT     edone
+	VMOVDQU (SI), Y0
+	VMOVDQU Y0, (DI)
+	MASK(Y0, Y4, Y5)
+	VPTEST  Y5, Y5
+	JNE     eescape
+	ADDQ    $32, SI
+	ADDQ    $32, DI
+	JMP     eloop
+eescape:
+	// the lanes which are zero are the ones of the bytes which need no escape.
+	VPCMPEQB  Y11, Y5, Y5
+	VPMOVMSKB Y5, DX
+	NOTL      DX
+	BSFL      DX, DX
+	ADDQ      DX, SI
+	ADDQ      DX, DI
+	MOVBLZX   (SI), AX
+	MOVQ      (R9)(AX*8), BX
+	TESTQ     BX, BX
+	JEQ       edone
+	// the sequence, whose length is in the top byte: the bytes after it are written over.
+	MOVQ      BX, (DI)
+	SHRQ      $56, BX
+	ADDQ      BX, DI
+	INCQ      SI
+	JMP       eloop
+edone:
+	VZEROUPPER
+	SUBQ R12, SI
+	MOVQ SI, consumed+40(FP)
+	SUBQ R13, DI
+	MOVQ DI, written+48(FP)
+	RET
+
 DATA c0f<>+0(SB)/1, $0x0f
 GLOBL c0f<>(SB), RODATA|NOPTR, $1

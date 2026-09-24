@@ -21,3 +21,11 @@ func scanBytesSIMD(_ unsafe.Pointer, _ int, _ *nibbleTables) (bool, bool) {
 func indexEscapeSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (int, bool) {
 	return 0, false
 }
+
+// hasEscapeLoop is false: the loop of the escapes by SIMD is of amd64 only ( see string_scan_amd64.go ).
+const hasEscapeLoop = false
+
+// appendEscapedSIMD appends nothing: it is never called on this architecture.
+func appendEscapedSIMD(buf []byte, _ string, _ *nibbleTables) ([]byte, int) {
+	return buf, 0
+}

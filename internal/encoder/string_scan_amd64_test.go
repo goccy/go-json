@@ -121,3 +121,36 @@ func TestIndexEscapeAVX2(t *testing.T) {
 		}
 	}
 }
+
+func TestAppendEscapedSIMD(t *testing.T) {
+	// The functions of the escapes append the same bytes with the loop of the escapes by SIMD as without it, for
+	// strings of every length with bytes to escape by every option anywhere, including a string which is not
+	// valid UTF-8.
+	if !runtime.HasAVX2 {
+		t.Skip("AVX2 is not supported")
+	}
+	defer func() { hasEscapeLoop = true }()
+	r := rand.New(rand.NewSource(1))
+	pieces := []string{"a", "Z", "0", " ", "\n", "\r", "\t", "\"", "\\", "\x00", "\x08", "\x0c", "\x1f", "\x7f", "<", ">", "&", "é", "あ", "😀", "\u2028", "\u2029", "\xff", "\xe3\x81"}
+	for n := 0; n < 3000; n++ {
+		var b strings.Builder
+		for k := r.Intn(n%400 + 1); k > 0; k-- {
+			if r.Intn(6) == 0 {
+				b.WriteString(pieces[r.Intn(len(pieces))])
+			} else {
+				b.WriteByte(byte('a' + r.Intn(26)))
+			}
+		}
+		s := b.String()
+		for index := range stringEscapes {
+			e := &stringEscapes[index]
+			hasEscapeLoop = false
+			want := e.appendEscaped([]byte("prefix"), s)
+			hasEscapeLoop = true
+			got := e.appendEscaped([]byte("prefix"), s)
+			if string(got) != string(want) {
+				t.Fatalf("%d %q:\n got %q\nwant %q", index, s, got, want)
+			}
+		}
+	}
+}

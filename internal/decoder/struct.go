@@ -217,14 +217,18 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 		}
 		key := buf[start:end]
 		n := len(key)
-		w1 := load64(buf, end-8)
-		fw0, fw1 := foldASCIIWord(w0), foldASCIIWord(w1)
-		e := &keys.entries[keys.index(w0|bit5, w1|bit5)]
 		var field *structFieldSet
-		if e.n == n && e.w0 == fw0 && e.w1 == fw1 && e.unique != nil && (n <= 16 || equalFoldedASCII(key, e.folded)) {
-			field = e.unique
-		} else if e.fields != nil && keys.hasLength(n) {
-			field = keys.findASCII(key, w0, w1)
+		// A key of a length which no field has, which is a key of no field in most objects of such a length,
+		// is not looked up.
+		if keys.hasLength(n) {
+			w1 := load64(buf, end-8)
+			fw0, fw1 := foldASCIIWord(w0), foldASCIIWord(w1)
+			e := &keys.entries[keys.index(w0|bit5, w1|bit5)]
+			if e.n == n && e.w0 == fw0 && e.w1 == fw1 && e.unique != nil && (n <= 16 || equalFoldedASCII(key, e.folded)) {
+				field = e.unique
+			} else if e.fields != nil {
+				field = keys.findASCII(key, w0, w1)
+			}
 		}
 		if field == nil && disallowUnknownFields {
 			return nil, 0, unknownFieldError(key)

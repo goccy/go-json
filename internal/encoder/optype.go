@@ -22,7 +22,7 @@ const (
 	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [244]string{
+var opTypeStrings = [245]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -257,6 +257,7 @@ var opTypeStrings = [244]string{
 	"StructFieldOmitEmpty",
 	"StructEnd",
 	"StructEndOmitEmpty",
+	"StructFieldOmitZero",
 	"StructFieldInt3",
 	"StructFieldInt2",
 	"StructFieldUint3",
@@ -506,20 +507,21 @@ const (
 	OpStructFieldOmitEmpty                 OpType = 231
 	OpStructEnd                            OpType = 232
 	OpStructEndOmitEmpty                   OpType = 233
-	OpStructFieldInt3                      OpType = 234
-	OpStructFieldInt2                      OpType = 235
-	OpStructFieldUint3                     OpType = 236
-	OpStructFieldUint2                     OpType = 237
-	OpStructFieldFloat643                  OpType = 238
-	OpStructFieldFloat642                  OpType = 239
-	OpStructFieldString3                   OpType = 240
-	OpStructFieldString2                   OpType = 241
-	OpStructFieldBool3                     OpType = 242
-	OpStructFieldBool2                     OpType = 243
+	OpStructFieldOmitZero                  OpType = 234
+	OpStructFieldInt3                      OpType = 235
+	OpStructFieldInt2                      OpType = 236
+	OpStructFieldUint3                     OpType = 237
+	OpStructFieldUint2                     OpType = 238
+	OpStructFieldFloat643                  OpType = 239
+	OpStructFieldFloat642                  OpType = 240
+	OpStructFieldString3                   OpType = 241
+	OpStructFieldString2                   OpType = 242
+	OpStructFieldBool3                     OpType = 243
+	OpStructFieldBool2                     OpType = 244
 )
 
 func (t OpType) String() string {
-	if int(t) >= 244 {
+	if int(t) >= 245 {
 		return ""
 	}
 	return opTypeStrings[int(t)]

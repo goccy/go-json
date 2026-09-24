@@ -220,6 +220,12 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 			})
 		}
 	}
+	// a field with the omitzero option is encoded by the generic field opcode with a zero check, whichever
+	// the kind of the value is. It comes after every per-type one, so that the offsets between the opcodes
+	// of a field, its omitempty and its end stay as they are.
+	opTypes = append(opTypes,
+		opType{Op: "StructFieldOmitZero", Code: "StructField"},
+	)
 	// A run of fields of the same kind in a row is encoded by the opcode of the run, which falls through the
 	// cases of the shorter runs: the fields after the first are encoded without a dispatch. The opcodes come
 	// after every other one, so that the offsets between the opcodes of a field, its omitempty and its end

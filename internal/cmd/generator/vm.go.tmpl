@@ -706,6 +706,21 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.Next
 				store(ctxptr, code.Idx, p)
 			}
+		case encoder.OpStructFieldOmitZero:
+			// the field is encoded only when it is not the zero value of its type: the tag of omitzero.
+			p := load(ctxptr, code.Idx)
+			p = unsafe.Add(p, code.Offset)
+			if encoder.IsZeroForOmitZero(code, p) {
+				code = code.NextField
+			} else {
+				if len(code.Key) <= encoder.KeyChunkSize {
+					b = appendStructKey(ctx, code, b)
+				} else {
+					b = appendLongStructKey(ctx, code, b)
+				}
+				code = code.Next
+				store(ctxptr, code.Idx, p)
+			}
 		case encoder.OpStructFieldInt3:
 			// Three fields of the kind in a row, then two: the fields after the first are encoded without
 			// a dispatch, by falling through to the case of the field. The same for the other kinds below.

@@ -40,26 +40,6 @@ func newBytesDecoder(typ reflect.Type, structName string, fieldName string) *byt
 	}
 }
 
-func (d *bytesDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	bytes, err := d.decodeStreamBinary(s, depth, p)
-	if err != nil {
-		return err
-	}
-	if bytes == nil {
-		s.reset()
-		return nil
-	}
-	decodedLen := base64.StdEncoding.DecodedLen(len(bytes))
-	buf := make([]byte, decodedLen)
-	n, err := base64.StdEncoding.Decode(buf, bytes)
-	if err != nil {
-		return err
-	}
-	*(*[]byte)(p) = buf[:n]
-	s.reset()
-	return nil
-}
-
 func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	bytes, c, err := d.decodeBinary(ctx, cursor, depth, p)
 	if err != nil {
@@ -81,21 +61,6 @@ func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 
 func (d *bytesDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: []byte decoder does not support decode path")
-}
-
-func (d *bytesDecoder) decodeStreamBinary(s *Stream, depth int64, p unsafe.Pointer) ([]byte, error) {
-	c := s.skipWhiteSpace()
-	if c == '[' {
-		if d.sliceDecoder == nil {
-			return nil, &errors.UnmarshalTypeError{
-				Type:   d.typ,
-				Offset: s.totalOffset(),
-			}
-		}
-		err := d.sliceDecoder.DecodeStream(s, depth, p)
-		return nil, err
-	}
-	return d.stringDecoder.decodeStreamByte(s)
 }
 
 func (d *bytesDecoder) decodeBinary(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) ([]byte, int64, error) {

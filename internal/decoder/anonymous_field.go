@@ -21,14 +21,6 @@ func newAnonymousFieldDecoder(structType reflect.Type, offset uintptr, dec Decod
 	}
 }
 
-func (d *anonymousFieldDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	if *(*unsafe.Pointer)(p) == nil {
-		*(*unsafe.Pointer)(p) = unsafe_New(runtime.TypePtr(d.structType))
-	}
-	p = *(*unsafe.Pointer)(p)
-	return d.dec.DecodeStream(s, depth, unsafe.Add(p, d.offset))
-}
-
 func (d *anonymousFieldDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	if *(*unsafe.Pointer)(p) == nil {
 		*(*unsafe.Pointer)(p) = unsafe_New(runtime.TypePtr(d.structType))

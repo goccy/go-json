@@ -66,61 +66,6 @@ func (d *mapDecoder) mapassign(t reflect.Type, m, k, v unsafe.Pointer) {
 	}
 }
 
-func (d *mapDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return errors.ErrExceededMaxDepth(s.char(), s.cursor)
-	}
-
-	switch s.skipWhiteSpace() {
-	case 'n':
-		if err := nullBytes(s); err != nil {
-			return err
-		}
-		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = nil
-		return nil
-	case '{':
-	default:
-		return errors.ErrExpected("{ character for map value", s.totalOffset())
-	}
-	mapValue := *(*unsafe.Pointer)(p)
-	if mapValue == nil {
-		mapValue = makemap(runtime.TypePtr(d.mapType), 0)
-	}
-	s.cursor++
-	if s.skipWhiteSpace() == '}' {
-		*(*unsafe.Pointer)(p) = mapValue
-		s.cursor++
-		return nil
-	}
-	for {
-		k := unsafe_New(runtime.TypePtr(d.keyType))
-		if err := d.keyDecoder.DecodeStream(s, depth, k); err != nil {
-			return err
-		}
-		s.skipWhiteSpace()
-		if !s.equalChar(':') {
-			return errors.ErrExpected("colon after object key", s.totalOffset())
-		}
-		s.cursor++
-		v := unsafe_New(runtime.TypePtr(d.valueType))
-		if err := d.valueDecoder.DecodeStream(s, depth, v); err != nil {
-			return err
-		}
-		d.mapassign(d.mapType, mapValue, k, v)
-		s.skipWhiteSpace()
-		if s.equalChar('}') {
-			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
-			s.cursor++
-			return nil
-		}
-		if !s.equalChar(',') {
-			return errors.ErrExpected("comma after object value", s.totalOffset())
-		}
-		s.cursor++
-	}
-}
-
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	depth++

@@ -42,57 +42,6 @@ var (
 	nullbytes = []byte(`null`)
 )
 
-func (d *unmarshalTextDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	s.skipWhiteSpace()
-	start := s.cursor
-	if err := s.skipValue(depth); err != nil {
-		return err
-	}
-	src := s.buf[start:s.cursor]
-	if len(src) > 0 {
-		switch src[0] {
-		case '[':
-			return &errors.UnmarshalTypeError{
-				Value:  "array",
-				Type:   d.typ,
-				Offset: s.totalOffset(),
-			}
-		case '{':
-			return &errors.UnmarshalTypeError{
-				Value:  "object",
-				Type:   d.typ,
-				Offset: s.totalOffset(),
-			}
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return &errors.UnmarshalTypeError{
-				Value:  "number",
-				Type:   d.typ,
-				Offset: s.totalOffset(),
-			}
-		case 'n':
-			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
-				return nil
-			}
-		}
-	}
-	dst := make([]byte, len(src))
-	copy(dst, src)
-
-	if b, ok := unquoteBytes(dst); ok {
-		dst = b
-	}
-	v := *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: runtime.TypePtr(d.typ),
-		ptr: p,
-	}))
-	if err := v.(encoding.TextUnmarshaler).UnmarshalText(dst); err != nil {
-		d.annotateError(s.cursor, err)
-		return err
-	}
-	return nil
-}
-
 func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)

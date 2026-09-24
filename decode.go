@@ -218,18 +218,11 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	if err != nil {
 		return err
 	}
-	if err := d.s.PrepareForDecode(); err != nil {
-		return err
-	}
 	s := d.s
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
-	if err := dec.DecodeStream(s, 0, header.ptr); err != nil {
-		return err
-	}
-	s.Reset()
-	return nil
+	return s.Decode(dec, header.ptr)
 }
 
 func (d *Decoder) More() bool {
@@ -244,7 +237,7 @@ func (d *Decoder) Token() (Token, error) {
 // is a struct and the input contains object keys which do not match any
 // non-ignored, exported fields in the destination.
 func (d *Decoder) DisallowUnknownFields() {
-	d.s.DisallowUnknownFields = true
+	d.s.Option.Flags |= decoder.DisallowUnknownFieldsOption
 }
 
 func (d *Decoder) InputOffset() int64 {
@@ -254,5 +247,5 @@ func (d *Decoder) InputOffset() int64 {
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a
 // Number instead of as a float64.
 func (d *Decoder) UseNumber() {
-	d.s.UseNumber = true
+	d.s.Option.Flags |= decoder.UseNumberOption
 }

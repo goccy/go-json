@@ -49,49 +49,6 @@ var (
 	}
 )
 
-func floatBytes(s *Stream) []byte {
-	start := s.cursor
-	for {
-		s.cursor++
-		if floatTable[s.char()] {
-			continue
-		} else if s.char() == nul {
-			if s.read() {
-				s.cursor-- // for retry current character
-				continue
-			}
-		}
-		break
-	}
-	return s.buf[start:s.cursor]
-}
-
-func (d *floatDecoder) decodeStreamByte(s *Stream) ([]byte, error) {
-	for {
-		switch s.char() {
-		case ' ', '\n', '\t', '\r':
-			s.cursor++
-			continue
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return floatBytes(s), nil
-		case 'n':
-			if err := nullBytes(s); err != nil {
-				return nil, err
-			}
-			return nil, nil
-		case nul:
-			if s.read() {
-				continue
-			}
-			goto ERROR
-		default:
-			goto ERROR
-		}
-	}
-ERROR:
-	return nil, errors.ErrUnexpectedEndOfJSON("float", s.totalOffset())
-}
-
 func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	for {
 		switch buf[cursor] {
@@ -116,23 +73,6 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 			return nil, 0, errors.ErrUnexpectedEndOfJSON("float", cursor)
 		}
 	}
-}
-
-func (d *floatDecoder) DecodeStream(s *Stream, depth int64, p unsafe.Pointer) error {
-	bytes, err := d.decodeStreamByte(s)
-	if err != nil {
-		return err
-	}
-	if bytes == nil {
-		return nil
-	}
-	str := *(*string)(unsafe.Pointer(&bytes))
-	f64, err := strconv.ParseFloat(str, 64)
-	if err != nil {
-		return errors.ErrSyntax(err.Error(), s.totalOffset())
-	}
-	d.op(p, f64)
-	return nil
 }
 
 func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {

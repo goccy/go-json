@@ -66,6 +66,8 @@ type options struct {
 	singleTolerance float64
 	cacheDir        string
 	noCache         bool
+	// calibrate measures HEAD against itself, to tell how much the measurement of identical code differs.
+	calibrate bool
 }
 
 func parseOptions() (*options, error) {
@@ -83,6 +85,7 @@ func parseOptions() (*options, error) {
 	flag.Float64Var(&opt.singleTolerance, "single-tolerance", defaultSingleTolerance, "how much slower ( in percent ) a single benchmark may be")
 	flag.StringVar(&opt.cacheDir, "cache-dir", "", "directory to store the results ( default: <git common dir>/benchcheck )")
 	flag.BoolVar(&opt.noCache, "no-cache", false, "ignore the cached results and measure again")
+	flag.BoolVar(&opt.calibrate, "calibrate", false, "measure HEAD against itself, the head linked with other layouts than the base, and print how much the results differ: the noise of the measurement which a comparison has to exceed ( never cached )")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return nil, fmt.Errorf("unexpected arguments: %s", strings.Join(flag.Args(), " "))
@@ -190,10 +193,10 @@ func (c *checker) baseSuite(ctx context.Context) (*suite, error) {
 	if err != nil {
 		return nil, err
 	}
-	base, err := buildSuite(ctx, c.benchDir, modFile, c.tmpDir, "base", c.opt.config.Layouts)
+	base, err := buildSuite(ctx, c.benchDir, modFile, c.tmpDir, "base", c.opt.config.Layouts, 0)
 	if err != nil {
 		fmt.Printf("benchmarks of the working tree can't be built with base %s: use the benchmarks of the base\n", c.baseCommit)
-		base, err = buildSuite(ctx, filepath.Join(baseDir, c.opt.config.Dir), "", c.tmpDir, "base", c.opt.config.Layouts)
+		base, err = buildSuite(ctx, filepath.Join(baseDir, c.opt.config.Dir), "", c.tmpDir, "base", c.opt.config.Layouts, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -279,7 +282,12 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 	}
 
 	fmt.Println("build benchmarks for working tree")
-	head, err := buildSuite(ctx, c.benchDir, "", c.tmpDir, "head", c.opt.config.Layouts)
+	// A calibration links the head with other layouts than the base, as a change of the code moves the functions.
+	headSeedOffset := 0
+	if c.opt.calibrate {
+		headSeedOffset = c.opt.config.Layouts
+	}
+	head, err := buildSuite(ctx, c.benchDir, "", c.tmpDir, "head", c.opt.config.Layouts, headSeedOffset)
 	if err != nil {
 		return nil, err
 	}
@@ -356,17 +364,20 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 	if err != nil {
 		return nil, err
 	}
+	if c.opt.calibrate {
+		base = head
+	}
 	dirty, err := c.repo.dirty(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if head == base && !dirty {
+	if head == base && !dirty && !c.opt.calibrate {
 		fmt.Printf("HEAD is the base commit %s: nothing to compare\n", base)
 		return &outcome{}, nil
 	}
 
 	key := verdictKey{Config: c.opt.config, Attempts: c.opt.attempts, Tolerance: c.opt.tolerance, SingleTolerance: c.opt.singleTolerance}
-	if !dirty {
+	if !dirty && !c.opt.calibrate {
 		cached, err := c.cache.loadVerdict(head, base, key)
 		if err != nil {
 			return nil, err
@@ -393,7 +404,7 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 		return nil, err
 	}
 	out.verdict = &verdict{Head: head, Base: base, Key: key, MeanDeltaPercent: result.meanDeltaPercent, Benchmarks: result.results}
-	if !dirty {
+	if !dirty && !c.opt.calibrate {
 		if err := c.cache.storeVerdict(out.verdict); err != nil {
 			return nil, err
 		}
@@ -409,7 +420,43 @@ func (c *checker) run(ctx context.Context) error {
 	if out.verdict == nil {
 		return nil
 	}
+	if c.opt.calibrate {
+		reportCalibration(out.verdict)
+		return nil
+	}
 	return report(out.verdict)
+}
+
+// reportCalibration prints the results of identical code and how much they differ: the mean, the 90th
+// percentile and the largest of the differences, whichever side is slower.
+func reportCalibration(v *verdict) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "benchmark	base ns/op	head ns/op	delta")
+	var deltas []float64
+	for _, result := range v.Benchmarks {
+		if result.Status != statusOK && result.Status != statusRegressed {
+			continue
+		}
+		fmt.Fprintf(w, "%s	%.2f	%.2f	%s\n", result.Name, result.BaseNs, result.HeadNs, formatDelta(result.BaseNs, result.HeadNs))
+		if result.BaseNs != 0 {
+			d := (result.HeadNs - result.BaseNs) / result.BaseNs * 100
+			if d < 0 {
+				d = -d
+			}
+			deltas = append(deltas, d)
+		}
+	}
+	_ = w.Flush()
+	if len(deltas) == 0 {
+		return
+	}
+	sort.Float64s(deltas)
+	var sum float64
+	for _, d := range deltas {
+		sum += d
+	}
+	fmt.Printf("calibration: %d benchmarks, mean |delta| %.2f%%, p90 %.2f%%, max %.2f%%, mean of the deltas %+.2f%%\n",
+		len(deltas), sum/float64(len(deltas)), deltas[len(deltas)*9/10], deltas[len(deltas)-1], v.MeanDeltaPercent)
 }
 
 func report(v *verdict) error {

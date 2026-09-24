@@ -109,13 +109,15 @@ type suite struct {
 // The layout 0 is the default one of the linker, and the others are randomized by the linker
 // with the layout number as the seed ( -randlayout, supported since Go 1.23 ).
 // Only the first build compiles the packages: the rest are linked from the build cache.
-func buildSuite(ctx context.Context, dir, modFile, outDir, name string, layouts int) (*suite, error) {
+//
+// The layout N is linked with the seed N + seedOffset of -randlayout ( the seed 0 is the layout of the linker ).
+func buildSuite(ctx context.Context, dir, modFile, outDir, name string, layouts, seedOffset int) (*suite, error) {
 	s := &suite{dir: dir}
 	for layout := 0; layout < layouts; layout++ {
 		binary := binaryPath(outDir, fmt.Sprintf("%s.layout%d.test", name, layout))
 		args := []string{"test", "-c", "-o", binary}
-		if layout != 0 {
-			args = append(args, "-ldflags", "-randlayout="+strconv.Itoa(layout))
+		if seed := layout + seedOffset; seed != 0 {
+			args = append(args, "-ldflags", "-randlayout="+strconv.Itoa(seed))
 		}
 		if modFile != "" {
 			args = append(args, "-modfile", modFile)

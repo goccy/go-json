@@ -156,49 +156,27 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			// high accumulates the bytes of the string: it is not zero if one of them is not ASCII.
 			var high uint64
 			for {
-				// The words with nothing to look at are skipped sixteen bytes at a time, two words: a word is
-				// read only where the buffer has room for it, so that its end is scanned byte by byte. After
-				// 64 bytes, the rest of a long run of plain bytes is scanned by SIMD where the CPU has it, whose
-				// call is not worth a shorter run: the nul byte at the end of the buffer stops the scan.
-				for pairs := 0; ; pairs++ {
-					if pairs == 4 {
+				// The words with nothing to look at are skipped eight bytes at a time: a word is read only where
+				// the buffer has room for it, so that its end is scanned byte by byte. After eight words, the rest
+				// of a long run of plain bytes is scanned by SIMD where the CPU has it, whose call is not worth a
+				// shorter run: the nul byte at the end of the buffer stops the scan.
+				for words := 0; cursor+8 <= buflen; words++ {
+					if words == 8 {
 						if i, h, ok := indexStringSpecial(unsafe.Add(b, cursor), int(buflen-cursor)); ok {
 							high |= h
 							cursor += int64(i)
 							break
 						}
 					}
-					if cursor+16 > buflen {
-						for cursor+8 <= buflen {
-							w := load64(buf, cursor)
-							if special := keyEndBytes(w); special != 0 {
-								i := int64(bits.TrailingZeros64(special) / 8)
-								high |= w & msb & (1<<(uint(i)*8&63) - 1)
-								cursor += i
-								break
-							}
-							high |= w & msb
-							cursor += 8
-						}
-						break
-					}
-					w0, w1 := load64(buf, cursor), load64(buf, cursor+8)
-					s0, s1 := keyEndBytes(w0), keyEndBytes(w1)
-					if s0|s1 == 0 {
-						high |= (w0 | w1) & msb
-						cursor += 16
-						continue
-					}
-					if s0 != 0 {
-						i := int64(bits.TrailingZeros64(s0) / 8)
-						high |= w0 & msb & (1<<(uint(i)*8&63) - 1)
+					w := load64(buf, cursor)
+					if special := keyEndBytes(w); special != 0 {
+						i := int64(bits.TrailingZeros64(special) / 8)
+						high |= w & msb & (1<<(uint(i)*8&63) - 1)
 						cursor += i
 						break
 					}
-					i := int64(bits.TrailingZeros64(s1) / 8)
-					high |= w0&msb | w1&msb&(1<<(uint(i)*8&63)-1)
-					cursor += 8 + i
-					break
+					high |= w & msb
+					cursor += 8
 				}
 				c := char(b, cursor)
 				switch c {

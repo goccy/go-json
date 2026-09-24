@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"math/rand"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -43,6 +44,24 @@ func TestIndexStringSpecialAVX2(t *testing.T) {
 			index, high := indexStringSpecialAVX2(unsafe.Pointer(&buf[0]), n)
 			if index != wantIndex || (high != 0) != wantHigh {
 				t.Fatalf("%q: got %d %v, want %d %v", buf[:n], index, high != 0, wantIndex, wantHigh)
+			}
+		}
+	}
+}
+
+func TestIndexStringSpecialHigh(t *testing.T) {
+	// The bytes which are not ASCII before the special byte are told in the form of the scan by words: msb.
+	if !runtime.HasAVX2 {
+		t.Skip("AVX2 is not supported")
+	}
+	for n := 32; n <= 100; n++ {
+		for pos := 0; pos < n-1; pos++ {
+			buf := []byte(strings.Repeat("a", n))
+			buf[pos] = 0xff
+			buf[n-1] = '"'
+			_, high, ok := indexStringSpecial(unsafe.Pointer(&buf[0]), n)
+			if !ok || high&msb == 0 {
+				t.Fatalf("%d %d: got %x", n, pos, high)
 			}
 		}
 	}

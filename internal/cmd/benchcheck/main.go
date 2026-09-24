@@ -360,12 +360,13 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 	if err != nil {
 		return nil, err
 	}
-	base, err := c.repo.baseCommit(ctx, c.opt.baseRef)
-	if err != nil {
-		return nil, err
-	}
-	if c.opt.calibrate {
-		base = head
+	// A calibration compares HEAD with itself: it has no base branch to find.
+	base := head
+	if !c.opt.calibrate {
+		base, err = c.repo.baseCommit(ctx, c.opt.baseRef)
+		if err != nil {
+			return nil, err
+		}
 	}
 	dirty, err := c.repo.dirty(ctx)
 	if err != nil {

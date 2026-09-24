@@ -23,6 +23,15 @@ type structKeys struct {
 	// lengths has the bit of the length of every folded key ( 63 for the longer keys ):
 	// a key of another length matches no field, which is known without a lookup.
 	lengths uint64
+	// exact is a table of the keys which are not ASCII, by their bytes as they are ( see findExact ).
+	exact      []keyEntry
+	exactShift uint
+	// foldRunes has a bit for every rune which is not ASCII and which folds to a rune of a folded key, by the
+	// low byte of the rune ( see mayFold ).
+	foldRunes [4]uint64
+	// hasRuneError is set if a key has utf8.RuneError, which a byte of an object key which is not valid UTF-8
+	// is replaced by.
+	hasRuneError bool
 }
 
 type keyEntry struct {
@@ -66,6 +75,8 @@ func newStructKeys(fields []*structFieldSet) *structKeys {
 		}
 		k.insert(folded, field)
 	}
+	k.makeExact(fields)
+	k.makeFoldRunes(fields)
 	for i := range k.entries {
 		e := &k.entries[i]
 		e.short = noShortKey
@@ -74,6 +85,138 @@ func newStructKeys(fields []*structFieldSet) *structKeys {
 		}
 	}
 	return k
+}
+
+// makeExact makes the table of the keys which are not ASCII, by their bytes as they are. A key which is not
+// valid UTF-8 is not in it: an object key which is not valid UTF-8 is decoded with its bytes replaced first.
+func (k *structKeys) makeExact(fields []*structFieldSet) {
+	var keys []*structFieldSet
+	for _, field := range fields {
+		if !isASCII(field.key) && utf8.ValidString(field.key) {
+			keys = append(keys, field)
+		}
+	}
+	if len(keys) == 0 {
+		return
+	}
+	size := 8
+	for size < 2*len(keys) {
+		size *= 2
+	}
+	k.exact = make([]keyEntry, size)
+	k.exactShift = uint(64 - bits.TrailingZeros(uint(size)))
+	for _, field := range keys {
+		key := []byte(field.key)
+		w0, w1 := keyWords(key)
+		h0, h1 := hashWords(w0, w1, len(key))
+		mask := len(k.exact) - 1
+		for i := indexOf(h0, h1, k.exactShift); ; i = (i + 1) & mask {
+			if k.exact[i].unique == nil {
+				k.exact[i] = keyEntry{w0: w0, w1: w1, n: len(key), folded: key, unique: field}
+				break
+			}
+		}
+	}
+}
+
+// findExact returns the field whose key is the same as the key, which is not ASCII, or nil. The table of the
+// keys which are not ASCII is not nil.
+func (k *structKeys) findExact(key []byte) *structFieldSet {
+	w0, w1 := keyWords(key)
+	n := len(key)
+	mask := len(k.exact) - 1
+	h0, h1 := hashWords(w0, w1, n)
+	for i := indexOf(h0, h1, k.exactShift); ; i = (i + 1) & mask {
+		e := &k.exact[i]
+		if e.unique == nil {
+			return nil
+		}
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || string(e.folded) == string(key)) {
+			return e.unique
+		}
+	}
+}
+
+// makeFoldRunes sets the bits of the runes which are not ASCII and fold to a rune of a key: the runes of the
+// fold orbits of the runes of the keys, which include the Kelvin sign for K and the long s for S.
+func (k *structKeys) makeFoldRunes(fields []*structFieldSet) {
+	for _, field := range fields {
+		for _, r := range field.key {
+			if r == utf8.RuneError {
+				k.hasRuneError = true
+			}
+			for f := r; ; {
+				if f >= utf8.RuneSelf {
+					k.foldRunes[f&0xff>>6] |= 1 << (uint(f) & 63)
+				}
+				if f = unicode.SimpleFold(f); f == r {
+					break
+				}
+			}
+		}
+	}
+}
+
+// mayFold reports whether a key which is not ASCII may be of a field by case folding: every rune of it which
+// is not ASCII folds to a rune of a key, which is told by the low byte of the rune. The low byte is taken from
+// the last two bytes of the encoding of the rune, which is not decoded. A key which is not valid UTF-8 has its
+// invalid bytes replaced by utf8.RuneError, so it may be of a field only if a key has utf8.RuneError: then
+// the runes are decoded.
+func (k *structKeys) mayFold(key []byte) bool {
+	if k.hasRuneError {
+		return k.mayFoldDecoded(key)
+	}
+	n := len(key)
+	for i := 0; i < n; {
+		c := key[i]
+		if c < utf8.RuneSelf {
+			i++
+			continue
+		}
+		size := 2
+		switch {
+		case c < 0xc0:
+			return false // a continuation byte without a first byte: not valid UTF-8
+		case c >= 0xf0:
+			size = 4
+		case c >= 0xe0:
+			size = 3
+		}
+		if i+size > n {
+			return false
+		}
+		low := key[i+size-2]&3<<6 | key[i+size-1]&0x3f
+		if k.foldRunes[low>>6]&(1<<(low&63)) == 0 {
+			return false
+		}
+		i += size
+	}
+	return true
+}
+
+// mayFoldDecoded is mayFold by the decoded runes.
+func (k *structKeys) mayFoldDecoded(key []byte) bool {
+	for i := 0; i < len(key); {
+		if key[i] < utf8.RuneSelf {
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRune(key[i:])
+		if k.foldRunes[r&0xff>>6]&(1<<(uint(r)&63)) == 0 {
+			return false
+		}
+		i += size
+	}
+	return true
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // noShortKey is the short word of an entry which a short key is not found by: a word of ASCII has no byte of
@@ -102,8 +245,12 @@ func keyWords(key []byte) (uint64, uint64) {
 // set by hashWords: a letter of either case has the same index, so the index of a key is made from its bytes
 // before they are folded. The product spreads the keys, which differ in a few bits.
 func (k *structKeys) index(w0, w1 uint64) int {
+	return indexOf(w0, w1, k.shift)
+}
+
+func indexOf(w0, w1 uint64, shift uint) int {
 	h := (w0 ^ bits.RotateLeft64(w1, 29)) * 0x9E3779B97F4A7C15
-	return int(h >> k.shift)
+	return int(h >> shift)
 }
 
 // hashWords returns the words of a key of n bytes, or of its folded key, which index takes: the bit 5 of their

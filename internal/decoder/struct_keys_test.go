@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"testing"
+	"unicode/utf8"
 )
 
 // keyLengthInWordByBytes is keyLengthInWord byte by byte.
@@ -76,6 +77,39 @@ func TestStructKeysShortWithNul(t *testing.T) {
 		field, _, err := d.decodeKey(buf, 0, false)
 		if err != nil || field != tc.want {
 			t.Fatalf("%s: got %v %v, want %v", tc.in, field, err, tc.want)
+		}
+	}
+}
+
+func TestStructKeysMayFold(t *testing.T) {
+	// mayFold tells by the bytes of a key what mayFoldDecoded tells by its runes, for a key of valid UTF-8.
+	var fields []*structFieldSet
+	for _, key := range []string{"k", "s", "名前", "Ärger", "ſ", "Ωmega", "𝔸x"} {
+		fields = append(fields, &structFieldSet{key: key})
+	}
+	k := newStructKeys(fields)
+	if k.hasRuneError {
+		t.Fatal("no key has utf8.RuneError")
+	}
+	r := rand.New(rand.NewSource(1))
+	runes := []rune{'a', 'K', 'S', 'K', 'ſ', '名', '前', '後', 'Ä', 'ä', 'Ω', 'ω', 'Ω', '𝔸', '𝔹', 'é', 'ÿ', 'Ā'}
+	for i := 0; i < 100000; i++ {
+		var key []byte
+		for j := r.Intn(4) + 1; j > 0; j-- {
+			if r.Intn(4) == 0 {
+				key = utf8.AppendRune(key, rune(r.Intn(0x10ffff)))
+			} else {
+				key = utf8.AppendRune(key, runes[r.Intn(len(runes))])
+			}
+		}
+		if got, want := k.mayFold(key), k.mayFoldDecoded(key); got != want {
+			t.Fatalf("%q: got %v, want %v", key, got, want)
+		}
+	}
+	// a key of runes which fold to a key may be of it
+	for _, key := range []string{"K", "ſ", "名前", "äRGER", "Ωmega", "𝔸X"} {
+		if !k.mayFold([]byte(key)) {
+			t.Fatalf("%q: not found", key)
 		}
 	}
 }

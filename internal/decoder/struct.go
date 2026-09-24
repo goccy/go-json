@@ -185,7 +185,7 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 			// so is computed while they are folded, and the mask of the bytes from the bits of the special byte.
 			n := bits.TrailingZeros64(special) / 8
 			if buf[start+int64(n)] != '"' {
-				return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+				return d.decodeKeyNotASCII(buf, cursor, disallowUnknownFields)
 			}
 			m := (special ^ (special - 1)) >> 8
 			w0 &= m
@@ -215,7 +215,7 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 		}
 		end += int64(bits.TrailingZeros64(special) / 8)
 		if buf[end] != '"' {
-			return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+			return d.decodeKeyNotASCII(buf, cursor, disallowUnknownFields)
 		}
 		key := buf[start:end]
 		n := len(key)
@@ -238,6 +238,46 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 		return field, end + 1, nil
 	}
 	return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+}
+
+// decodeKeyNotASCII is decodeKey for a key which has a byte which is not ASCII, or an escape. A key without an
+// escape is read word by word too, and looked up by its bytes as they are among the keys which are not ASCII
+// first: a key is usually the same as the key of its field, which it is found by whatever the fold of its runes,
+// because a key which is the same wins over the others. Any other key is folded rune by rune if its runes may
+// fold to the ones of a key, and else is of no field. A key with an escape is scanned as a string.
+func (d *structDecoder) decodeKeyNotASCII(buf []byte, cursor int64, disallowUnknownFields bool) (*structFieldSet, int64, error) {
+	start := cursor + 1
+	end := start
+	for {
+		if end+8 > int64(cap(buf)) {
+			return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+		}
+		if special := keyEndBytes(load64(buf, end)); special != 0 {
+			end += int64(bits.TrailingZeros64(special) / 8)
+			break
+		}
+		end += 8
+	}
+	if buf[end] != '"' {
+		return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+	}
+	key := buf[start:end]
+	keys := d.keys
+	var field *structFieldSet
+	if keys.exact != nil {
+		field = keys.findExact(key)
+	}
+	if field == nil {
+		if keys.mayFold(key) {
+			field, key = keys.lookup(key, stringInfo{firstEscape: -1, nonASCII: true})
+		} else if disallowUnknownFields {
+			key = decodeLiteral(key, stringInfo{firstEscape: -1, nonASCII: true})
+		}
+	}
+	if field == nil && disallowUnknownFields {
+		return nil, 0, unknownFieldError(key)
+	}
+	return field, end + 1, nil
 }
 
 // decodeKeyByScan is decodeKey for any key, which it scans as a string.
@@ -273,4 +313,14 @@ func specialKeyBytes(w uint64) uint64 {
 	q := w ^ ('"' * lsb)
 	s := w ^ ('\\' * lsb)
 	return (((q - lsb) &^ q) | ((s - lsb) &^ s) | (w - 0x20*lsb) | w) & msb
+}
+
+// keyEndBytes is specialKeyBytes for a key which may have bytes which are not ASCII: it has the top bit of the
+// first byte of w which is a quote, a backslash or a control character, and maybe of bytes after it.
+func keyEndBytes(w uint64) uint64 {
+	// a byte of 0x80 or more is none of them: its top bit is cleared from the subtractions, which don't borrow
+	// from the next byte at such a byte.
+	q := w ^ ('"' * lsb)
+	s := w ^ ('\\' * lsb)
+	return (((q - lsb) &^ q) | ((s - lsb) &^ s) | ((w - 0x20*lsb) &^ w)) & msb
 }

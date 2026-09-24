@@ -221,3 +221,52 @@ func TestStructKeyLongDifferInTheMiddle(t *testing.T) {
 		`{"Prefix01_First_Middle_And_More_Suffix01":"c"}`,
 	})
 }
+
+type nonASCIIKeys struct {
+	Number   int    `json:"番号"`
+	Name     string `json:"名前"`
+	Long     string `json:"とても長いフィールドの名前です"`
+	LongToo  string `json:"とても長いフィールドの名でした"`
+	Upper    string `json:"Ärger"`
+	Lower    string `json:"ärger"`
+	K        string `json:"k"`
+	Mixed    string `json:"user_名前_id"`
+	Invalid  string `json:"bad\xffkey"`
+	Accented string `json:"café"`
+}
+
+func TestStructKeyNotASCII(t *testing.T) {
+	// A key which is not ASCII is found by its bytes when it is the same as the key of a field, which wins over
+	// a match by case folding, and else by case folding as encoding/json does.
+	compareStructKeys[nonASCIIKeys](t, []string{
+		`{"番号":1,"名前":"a"}`, `{"番号 ":1}`, `{"番":1}`, `{"未知のキー":1,"名前":"b"}`,
+		`{"とても長いフィールドの名前です":"l"}`, `{"とても長いフィールドの名でした":"t"}`, `{"とても長いフィールドの名前でした":"none"}`,
+		`{"Ärger":"u"}`, `{"ärger":"l"}`, `{"ÄRGER":"u"}`, `{"äRGER":"l"}`,
+		`{"K":"kelvin"}`, `{"K":"upper"}`,
+		`{"user_名前_id":"m"}`, `{"USER_名前_ID":"m"}`,
+		"{\"bad\xffkey\":\"i\"}", `{"bad�key":"i"}`,
+		`{"café":"c"}`, `{"CAFÉ":"c"}`, `{"café":"c"}`, `{"café`,
+	})
+}
+
+type asciiFoldKeys struct {
+	K    string `json:"k"`
+	S    string `json:"s"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+func TestStructKeyNotASCIIFoldsToASCII(t *testing.T) {
+	// A key of runes which are not ASCII, as they are and not escaped, matches an ASCII key which they fold to:
+	// the Kelvin sign folds to K and the long s to S. Other keys which are not ASCII match none.
+	compareStructKeys[asciiFoldKeys](t, []string{
+		"{\"K\":\"kelvin\"}", "{\"ſ\":\"long s\"}", "{\"Kind\":\"kind\"}", "{\"KKind\":\"none\"}",
+		"{\"nāme\":\"none\"}", "{\"名前\":\"none\",\"name\":\"n\"}", "{\"na\xffme\":\"none\"}",
+	})
+	var v asciiFoldKeys
+	dec := json.NewDecoder(strings.NewReader("{\"名\xff前\":1}"))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&v); err == nil || !strings.Contains(err.Error(), "名�前") {
+		t.Fatalf("got %v", err)
+	}
+}

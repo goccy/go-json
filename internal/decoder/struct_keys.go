@@ -11,10 +11,10 @@ import (
 // the field whose key is the same, or else the first field whose key is the same by case folding.
 //
 // The fields are in a table keyed by their folded keys: the fields of a folded key are in one entry, so that
-// a key is looked up once, whether it matches a field exactly or by folding. A key is looked up by its length
-// and two words: its first eight bytes, and its last eight bytes, which overlap the first ones for a key
-// shorter than 16 bytes. These are all the bytes of a key of up to 16 bytes, so such a key is compared by the
-// two words only; a longer one is compared by its bytes as well. The words of a key of ASCII are folded in
+// a key is looked up once, whether it matches a field exactly or by folding. A key is looked up by two words:
+// its first eight bytes, and its last eight bytes, which overlap the first ones for a key shorter than 16 bytes.
+// These are all the bytes of a key of up to 16 bytes, so such a key is compared by its length and the two words
+// only; a longer one is compared by the words between them as well. The words of a key of ASCII are folded in
 // place, eight bytes at a time, and only a key which is not ASCII is folded rune by rune.
 type structKeys struct {
 	entries []keyEntry
@@ -28,7 +28,7 @@ type keyEntry struct {
 	// w0 and w1 are the words of the folded key, and n its length.
 	w0, w1 uint64
 	n      int
-	folded string
+	folded []byte
 	// unique is the field of the folded key if it is the only one, which a key matches whichever its case.
 	unique *structFieldSet
 	// fields are the fields of the folded key in the order of the struct: the first one is the field of
@@ -59,7 +59,7 @@ func newStructKeys(fields []*structFieldSet) *structKeys {
 			e.unique = nil
 			continue
 		}
-		k.insert(string(folded), field)
+		k.insert(folded, field)
 	}
 	return k
 }
@@ -99,10 +99,8 @@ func hashWords(w0, w1 uint64, n int) (uint64, uint64) {
 	return w0 | bit5, w1 | bit5
 }
 
-func (k *structKeys) insert(folded string, field *structFieldSet) {
-	b := make([]byte, len(folded), len(folded)+8)
-	copy(b, folded)
-	w0, w1 := keyWords(b)
+func (k *structKeys) insert(folded []byte, field *structFieldSet) {
+	w0, w1 := keyWords(folded)
 	mask := len(k.entries) - 1
 	for i := k.index(hashWords(w0, w1, len(folded))); ; i = (i + 1) & mask {
 		if k.entries[i].fields == nil {
@@ -123,7 +121,7 @@ func (k *structKeys) find(folded []byte) *keyEntry {
 		if e.fields == nil {
 			return nil
 		}
-		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || e.folded == string(folded)) {
+		if e.n == n && e.w0 == w0 && e.w1 == w1 && (n <= 16 || string(e.folded) == string(folded)) {
 			return e
 		}
 	}
@@ -172,17 +170,15 @@ func foldASCIIWord(w uint64) uint64 {
 	return w &^ (lower >> 2)   // clear 0x20 of them
 }
 
-// equalFoldedASCII reports whether the key of ASCII folds to folded.
-func equalFoldedASCII(key []byte, folded string) bool {
-	if len(key) != len(folded) {
+// equalFoldedASCII reports whether the key of ASCII, of more than 16 bytes, folds to folded, whose first and
+// last eight bytes are known to be the ones of the key folded: the words between them are compared.
+func equalFoldedASCII(key, folded []byte) bool {
+	n := len(key)
+	if n != len(folded) {
 		return false
 	}
-	for i := 0; i < len(key); i++ {
-		c := key[i]
-		if 'a' <= c && c <= 'z' {
-			c -= 'a' - 'A'
-		}
-		if c != folded[i] {
+	for i := 8; i < n-8; i += 8 {
+		if foldASCIIWord(binary.LittleEndian.Uint64(key[i:])) != binary.LittleEndian.Uint64(folded[i:]) {
 			return false
 		}
 	}

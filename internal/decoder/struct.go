@@ -170,13 +170,14 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 	if buf[cursor] != '"' {
 		return nil, 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 	}
-	// A key of ASCII without an escape which ends within 16 bytes is found by the words of the buffer,
-	// which may be read up to its capacity: the nul byte at its end stops a key before it. Any other key,
-	// and a key near the end of a buffer which has no room after it, is scanned as a string.
+	// A key of ASCII without an escape is found by the words of the buffer, which may be read up to its capacity:
+	// the nul byte at its end stops a key before it. Any other key, and a key near the end of a buffer which has
+	// no room after it, is scanned as a string.
 	if start := cursor + 1; start+16 <= int64(cap(buf)) {
 		keys := d.keys
 		w0 := load64(buf, start)
-		if special := specialKeyBytes(w0); special != 0 {
+		special := specialKeyBytes(w0)
+		if special != 0 {
 			// A key of less than 8 bytes, which is most keys. The first entry of the table for it is looked at
 			// here: most keys are found in it. Its index is made from the bytes of the key before their fold, and
 			// so is computed while they are folded, and the mask of the bytes from the bits of the special byte.
@@ -199,19 +200,36 @@ func (d *structDecoder) decodeKey(buf []byte, cursor int64, disallowUnknownField
 			}
 			return field, start + int64(n) + 1, nil
 		}
-		w1 := load64(buf, start+8)
-		n := 8 + keyLengthInWord(w1)
-		if n < 16 && buf[start+int64(n)] == '"' {
-			var field *structFieldSet
-			if keys.hasLength(n) {
-				w1 = load64(buf, start+int64(n)-8)
-				field = keys.findASCII(buf[start:start+int64(n)], w0, w1)
+		// A key of 8 bytes or more, whose end is looked for word by word. It is looked up by its first and last
+		// words, as a short key is.
+		end := start + 8
+		special = specialKeyBytes(load64(buf, end))
+		for special == 0 {
+			end += 8
+			if end+8 > int64(cap(buf)) {
+				return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
 			}
-			if field == nil && disallowUnknownFields {
-				return nil, 0, unknownFieldError(buf[start : start+int64(n)])
-			}
-			return field, start + int64(n) + 1, nil
+			special = specialKeyBytes(load64(buf, end))
 		}
+		end += int64(bits.TrailingZeros64(special) / 8)
+		if buf[end] != '"' {
+			return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
+		}
+		key := buf[start:end]
+		n := len(key)
+		w1 := load64(buf, end-8)
+		fw0, fw1 := foldASCIIWord(w0), foldASCIIWord(w1)
+		e := &keys.entries[keys.index(w0|bit5, w1|bit5)]
+		var field *structFieldSet
+		if e.n == n && e.w0 == fw0 && e.w1 == fw1 && e.unique != nil && (n <= 16 || equalFoldedASCII(key, e.folded)) {
+			field = e.unique
+		} else if e.fields != nil && keys.hasLength(n) {
+			field = keys.findASCII(key, w0, w1)
+		}
+		if field == nil && disallowUnknownFields {
+			return nil, 0, unknownFieldError(key)
+		}
+		return field, end + 1, nil
 	}
 	return d.decodeKeyByScan(buf, cursor, disallowUnknownFields)
 }

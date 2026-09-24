@@ -161,10 +161,16 @@ func TestStructKeyUnknownFields(t *testing.T) {
 
 func TestStructKeyEveryLength(t *testing.T) {
 	// A struct with a key of every length around the words the keys are read by, decoded from the middle and
-	// from the end of the input, through Unmarshal and through a Decoder.
+	// from the end of the input, through Unmarshal and through a Decoder. A key differs from the others of its
+	// length in its last byte, and "x" appended or its last byte removed makes a key of another field or of none.
 	var fields []reflect.StructField
 	var keys []string
-	for n := 1; n <= 24; n++ {
+	lengths := []int{}
+	for n := 1; n <= 40; n++ {
+		lengths = append(lengths, n)
+	}
+	lengths = append(lengths, 47, 48, 49, 62, 63, 64, 65, 100)
+	for _, n := range lengths {
 		key := strings.Repeat("k", n-1) + string(rune('A'+n%26))
 		keys = append(keys, key)
 		fields = append(fields, reflect.StructField{
@@ -198,4 +204,20 @@ func TestStructKeyEveryLength(t *testing.T) {
 			}
 		}
 	}
+}
+
+type middleKeys struct {
+	A string `json:"prefix01_first_middle_suffix01"`
+	B string `json:"prefix01_other_middle_suffix01"`
+	C string `json:"prefix01_first_middle_and_more_suffix01"`
+}
+
+func TestStructKeyLongDifferInTheMiddle(t *testing.T) {
+	// Keys of more than 16 bytes whose first and last eight bytes are the same match by the bytes between them.
+	compareStructKeys[middleKeys](t, []string{
+		`{"prefix01_first_middle_suffix01":"a"}`, `{"prefix01_other_middle_suffix01":"b"}`,
+		`{"PREFIX01_OTHER_MIDDLE_SUFFIX01":"b"}`, `{"prefix01_third_middle_suffix01":"none"}`,
+		`{"prefix01_first_middle_and_more_suffix01":"c"}`, `{"prefix01_first_middle_and_less_suffix01":"none"}`,
+		`{"Prefix01_First_Middle_And_More_Suffix01":"c"}`,
+	})
 }

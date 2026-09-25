@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"math/bits"
 	"reflect"
 	"sync"
 	"unsafe"
@@ -294,16 +295,41 @@ func skipWhiteSpace(buf []byte, cursor int64) int64 {
 // skipStringDecoder scans the strings which skipValue skips.
 var skipStringDecoder = newStringDecoder("", "")
 
-// skipString returns the position after the string at cursor. A short string which ends in the word after its
-// quote, with nothing to validate, is skipped by that word; any other is scanned as a string is decoded, and
-// validated so. It is a function of its own, so that the code of skipValue for the other values is the same
-// whatever a string takes.
+// skipString returns the position after the string at cursor. A string without an escape is skipped word by
+// word up to its quote, where the buffer has room for the words ( the nul byte at its end stops them ), and, where the CPU has a SIMD scan, for its
+// first 64 bytes, after which the rest of a long string is scanned by SIMD ( see scanStringRest ). Any other
+// string is scanned as a string is decoded, and validated so. It is a function of its own, so that the code of
+// skipValue for the other values is the same whatever a string takes.
 func skipString(buf []byte, cursor int64) (int64, error) {
-	if start := cursor + 1; start+8 <= int64(cap(buf)) {
-		if n := keyLengthInWord(load64(buf, start)); n < 8 && buf[start+int64(n)] == '"' {
-			return start + int64(n) + 1, nil
+	start := cursor + 1
+	wordsEnd := int64(len(buf))
+	if hasStringSIMD {
+		wordsEnd = min(wordsEnd, start+64)
+	}
+	c := start
+	for ; c+8 <= wordsEnd; c += 8 {
+		if special := keyEndBytes(load64(buf, c)); special != 0 {
+			c += int64(bits.TrailingZeros64(special) / 8)
+			if buf[c] == '"' {
+				return c + 1, nil
+			}
+			// an escape or a byte which is not valid in a string
+			return skipStringByScan(buf, cursor)
 		}
 	}
+	if c+8 > int64(len(buf)) {
+		// the end of the buffer, whose last bytes are scanned as a string
+		return skipStringByScan(buf, cursor)
+	}
+	_, next, _, err := skipStringDecoder.scanStringRest(buf, buf[start:c], c, stringInfo{firstEscape: -1})
+	if err != nil {
+		return 0, err
+	}
+	return next, nil
+}
+
+// skipStringByScan is skipString for any string, which it scans as a string is decoded.
+func skipStringByScan(buf []byte, cursor int64) (int64, error) {
 	literal, next, info, err := skipStringDecoder.scanString(buf, cursor)
 	if next < 0 {
 		_, next, _, err = skipStringDecoder.scanStringRest(buf, literal, -next-1, info)

@@ -167,14 +167,17 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			firstEscape := int64(-1)
 			// high accumulates the bytes of the string: it is not zero if one of them is not ASCII.
 			var high uint64
+			// The words are read up to wordsEnd: the end of the buffer, or, where the CPU has a SIMD scan, 64
+			// bytes after the start, after which the rest of a long string is left to scanStringRest ( see
+			// scanString ). It is looked at once for a string, not for every word.
+			wordsEnd := buflen
+			if hasStringSIMD {
+				wordsEnd = min(buflen, start+64)
+			}
 			for {
 				// The words with nothing to look at are skipped eight bytes at a time: a word is read only where
-				// the buffer has room for it, so that its end is scanned byte by byte. After eight words, the rest
-				// of a long string is left to scanStringRest ( see scanString ).
-				for words := 0; cursor+8 <= buflen; words++ {
-					if words == 8 && hasStringSIMD {
-						return buf[start:cursor], -cursor - 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
-					}
+				// the buffer has room for it, so that its end is scanned byte by byte.
+				for cursor+8 <= wordsEnd {
 					w := load64(buf, cursor)
 					if special := keyEndBytes(w); special != 0 {
 						i := int64(bits.TrailingZeros64(special) / 8)
@@ -216,6 +219,10 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 				default:
 					if c < 0x20 {
 						return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
+					}
+					if wordsEnd != buflen {
+						// the words stopped at wordsEnd, not at a byte to look at
+						return buf[start:cursor], -cursor - 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
 					}
 					high |= uint64(c)
 					cursor++

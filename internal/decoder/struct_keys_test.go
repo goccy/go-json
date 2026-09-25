@@ -2,23 +2,25 @@ package decoder
 
 import (
 	"encoding/binary"
+	"math/bits"
 	"math/rand"
 	"testing"
 	"unicode/utf8"
 )
 
-// keyLengthInWordByBytes is keyLengthInWord byte by byte.
-func keyLengthInWordByBytes(w uint64) int {
+// firstByteOf returns the position in the word of its first byte which is special, or 8 if it has none.
+func firstByteOf(w uint64, special func(c byte) bool) int {
 	for i := 0; i < 8; i++ {
-		c := byte(w >> (8 * i))
-		if c == '"' || c == '\\' || c < 0x20 || c >= 0x80 {
+		if special(byte(w >> (8 * i))) {
 			return i
 		}
 	}
 	return 8
 }
 
-func TestKeyLengthInWord(t *testing.T) {
+func TestKeyEndMasks(t *testing.T) {
+	// The first byte of the masks is the first byte which ends a simple key ( specialKeyBytes ) or a string
+	// ( keyEndBytes ): the bytes after it may be wrong.
 	// Every byte at every position, followed and preceded by random bytes, and random words whose bytes are
 	// mostly the ones of keys.
 	r := rand.New(rand.NewSource(1))
@@ -26,8 +28,15 @@ func TestKeyLengthInWord(t *testing.T) {
 	check := func() {
 		t.Helper()
 		w := binary.LittleEndian.Uint64(b[:])
-		if got, want := keyLengthInWord(w), keyLengthInWordByBytes(w); got != want {
-			t.Fatalf("%q: got %d, want %d", b[:], got, want)
+		if got, want := bits.TrailingZeros64(specialKeyBytes(w))/8, firstByteOf(w, func(c byte) bool {
+			return c == '"' || c == '\\' || c < 0x20 || c >= 0x80
+		}); got != want {
+			t.Fatalf("specialKeyBytes %q: got %d, want %d", b[:], got, want)
+		}
+		if got, want := bits.TrailingZeros64(keyEndBytes(w))/8, firstByteOf(w, func(c byte) bool {
+			return c == '"' || c == '\\' || c < 0x20
+		}); got != want {
+			t.Fatalf("keyEndBytes %q: got %d, want %d", b[:], got, want)
 		}
 	}
 	for pos := 0; pos < 8; pos++ {

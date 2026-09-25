@@ -84,3 +84,37 @@ func TestDecodeLongStringsMalformed(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeSkippedStrings(t *testing.T) {
+	// The strings of the keys of no field are skipped: they are validated as encoding/json does, whatever their
+	// length and wherever an escape, a control character or a byte which is not ASCII is in them. Each is
+	// decoded from a buffer of its own and from a stream, which have different ends.
+	type target struct {
+		A int `json:"a"`
+	}
+	specials := []string{`\n`, `é`, `😀`, "\x01", "é", "\xff", `\x`, `\u12`}
+	for n := 0; n < 140; n++ {
+		for pos := -1; pos < n; pos++ {
+			for _, special := range specials {
+				s := strings.Repeat("a", n)
+				if pos >= 0 {
+					s = s[:pos] + special + s[pos:]
+				} else if special != specials[0] {
+					continue
+				}
+				for _, doc := range []string{`{"unknown":"` + s + `","a":1}`, `{"a":1,"unknown":"` + s + `"}`} {
+					var want, got, gotStream target
+					wantErr := stdjson.Unmarshal([]byte(doc), &want)
+					gotErr := json.Unmarshal([]byte(doc), &got)
+					streamErr := json.NewDecoder(strings.NewReader(doc)).Decode(&gotStream)
+					if (gotErr != nil) != (wantErr != nil) || (streamErr != nil) != (wantErr != nil) {
+						t.Fatalf("%q: got the errors %v and %v, want %v", doc, gotErr, streamErr, wantErr)
+					}
+					if wantErr == nil && (got != want || gotStream != want) {
+						t.Fatalf("%q: got %+v and %+v, want %+v", doc, got, gotStream, want)
+					}
+				}
+			}
+		}
+	}
+}

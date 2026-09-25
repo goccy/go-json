@@ -319,12 +319,6 @@ func unknownFieldError(key []byte) error {
 	return fmt.Errorf("json: unknown field %q", key)
 }
 
-// keyLengthInWord returns the position in the word of the first byte which ends a simple key: a quote,
-// a backslash, a control character or a byte which is not ASCII, or 8 if the word has none.
-func keyLengthInWord(w uint64) int {
-	return bits.TrailingZeros64(specialKeyBytes(w)) / 8
-}
-
 // specialKeyBytes returns the word which has the top bit of the first byte of w which ends a simple key, and
 // maybe the top bits of bytes after it: a quote, a backslash, a control character or a byte which is not ASCII.
 func specialKeyBytes(w uint64) uint64 {

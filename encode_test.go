@@ -2011,8 +2011,16 @@ func TestIssue235(t *testing.T) {
 }
 
 func TestEncodeMapKeyTypeInterface(t *testing.T) {
-	if _, err := json.Marshal(map[any]any{"a": 1}); err == nil {
-		t.Fatal("expected error")
+	// A map whose keys are of interface{} is refused, or encoded, as encoding/json of the Go it is built with
+	// does ( see TestEncodeMapInterfaceKeys ).
+	v := map[any]any{"a": 1}
+	want, wantErr := stdjson.Marshal(v)
+	got, err := json.Marshal(v)
+	if (err == nil) != (wantErr == nil) {
+		t.Fatalf("got the error %v, want %v", err, wantErr)
+	}
+	if err == nil && string(got) != string(want) {
+		t.Fatalf("got %s, want %s", got, want)
 	}
 }
 

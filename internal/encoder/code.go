@@ -1190,6 +1190,9 @@ type MarshalTextCode struct {
 	fieldQuery         *FieldQuery
 	isAddrForMarshaler bool
 	isNilableType      bool
+	// isInterfaceMapKey is whether the code is the one of the key of a map of an interface type, whose name is
+	// of the dynamic value of the key ( see appendInterfaceMapKey ).
+	isInterfaceMapKey bool
 }
 
 func (c *MarshalTextCode) Kind() CodeKind {
@@ -1199,6 +1202,13 @@ func (c *MarshalTextCode) Kind() CodeKind {
 func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx, c.typ, OpMarshalText)
 	code.FieldQuery = c.fieldQuery
+	if c.isInterfaceMapKey {
+		// the opcode is given the address of the key, whose name AppendMarshalText makes without a marshaler.
+		code.Flags |= InterfaceMapKeyFlags
+		code.Flags &= ^IsNilableTypeFlags
+		ctx.incIndex()
+		return Opcodes{code}
+	}
 	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
@@ -1231,6 +1241,7 @@ func (c *MarshalTextCode) Filter(query *FieldQuery) Code {
 		fieldQuery:         query,
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
+		isInterfaceMapKey:  c.isInterfaceMapKey,
 	}
 }
 

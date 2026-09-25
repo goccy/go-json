@@ -15,6 +15,8 @@ type bytesDecoder struct {
 	stringDecoder *stringDecoder
 	structName    string
 	fieldName     string
+	// sliceType is the type of the slice, which the type errors report.
+	sliceType reflect.Type
 }
 
 func byteUnmarshalerSliceDecoder(typ reflect.Type, structName string, fieldName string) Decoder {
@@ -33,6 +35,7 @@ func byteUnmarshalerSliceDecoder(typ reflect.Type, structName string, fieldName 
 func newBytesDecoder(typ reflect.Type, structName string, fieldName string) *bytesDecoder {
 	return &bytesDecoder{
 		typ:           typ,
+		sliceType:     reflect.SliceOf(typ),
 		sliceDecoder:  byteUnmarshalerSliceDecoder(typ, structName, fieldName),
 		stringDecoder: newStringDecoder(structName, fieldName),
 		structName:    structName,
@@ -41,8 +44,13 @@ func newBytesDecoder(typ reflect.Type, structName string, fieldName string) *byt
 }
 
 func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	cursor = skipWhiteSpace(ctx.Buf, cursor)
+	start := cursor
 	bytes, c, err := d.decodeBinary(ctx, cursor, depth, p)
 	if err != nil {
+		if c := ctx.Buf[cursor]; c != '[' && isOtherValue(c, stringValue) {
+			return ctx.skipTypeError(cursor, depth, d.sliceType)
+		}
 		return 0, err
 	}
 	if bytes == nil {
@@ -53,7 +61,8 @@ func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	b := make([]byte, decodedLen)
 	n, err := base64.StdEncoding.Decode(b, bytes)
 	if err != nil {
-		return 0, err
+		ctx.base64Error(start, cursor, d.sliceType, err)
+		return cursor, nil
 	}
 	*(*[]byte)(p) = b[:n]
 	return cursor, nil

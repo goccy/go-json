@@ -20,6 +20,9 @@ type mapDecoder struct {
 	isStringAnyMap bool
 	keyDecoder     Decoder
 	valueDecoder   Decoder
+	// keyUnsupported is set for a map whose keys encoding/json of the Go version doesn't decode ( see
+	// mapKeySupported ): an object is a type error.
+	keyUnsupported bool
 	structName     string
 	fieldName      string
 }
@@ -36,6 +39,7 @@ func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, v
 		valuePtrType:   ptrTypeOf(valueType),
 		isStringAnyMap: mapType == interfaceMapType && isIfaceValue,
 		valueDecoder:   valueDec,
+		keyUnsupported: !mapKeySupported(keyType, keyDec),
 		structName:     structName,
 		fieldName:      fieldName,
 	}
@@ -45,6 +49,23 @@ func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, v
 func (d *mapDecoder) mapValue(m unsafe.Pointer) reflect.Value {
 	// A map is a pointer in an interface value.
 	return reflect.ValueOf(*(*any)(unsafe.Pointer(&emptyInterface{typ: d.mapTypePtr, ptr: m})))
+}
+
+// dropEntry decodes the value of the entry whose key is before cursor into v, which is then zeroed with the key,
+// and returns the position after the value.
+func (d *mapDecoder) dropEntry(ctx *RuntimeContext, cursor, depth int64, v unsafe.Pointer, kv, vv reflect.Value) (int64, error) {
+	buf := ctx.Buf
+	cursor = skipWhiteSpace(buf, cursor)
+	if buf[cursor] != ':' {
+		return 0, errors.ErrExpected("colon after object key", cursor)
+	}
+	c, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
+	if err != nil {
+		return 0, err
+	}
+	kv.SetZero()
+	vv.SetZero()
+	return skipWhiteSpace(buf, c), nil
 }
 
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -69,7 +90,13 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		return cursor, nil
 	case '{':
 	default:
+		if isOtherValue(buf[cursor], objectValue) {
+			return ctx.skipTypeError(cursor, depth-1, d.mapType)
+		}
 		return 0, errors.ErrExpected("{ character for map value", cursor)
+	}
+	if d.keyUnsupported {
+		return ctx.unsupportedMapKeys(d, cursor, depth-1, p)
 	}
 	if d.isStringAnyMap {
 		m := *(*map[string]any)(p)
@@ -108,7 +135,23 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	for {
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
-			return 0, err
+			if err != errMapKeyType {
+				return 0, err
+			}
+			// a key of another type: the value is decoded, and the entry is dropped
+			cursor, err = d.dropEntry(ctx, keyCursor, depth, v, kv, vv)
+			if err != nil {
+				return 0, err
+			}
+			if buf[cursor] == '}' {
+				**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
+				return cursor + 1, nil
+			}
+			if buf[cursor] != ',' {
+				return 0, errors.ErrExpected("comma after object value", cursor)
+			}
+			cursor++
+			continue
 		}
 		cursor = skipWhiteSpace(buf, keyCursor)
 		if buf[cursor] != ':' {

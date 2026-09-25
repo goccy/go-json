@@ -42,12 +42,17 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 		optFunc(ctx.Option)
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
+	if err == nil {
+		// a type error is returned only when the whole input is valid, as encoding/json does
+		if err = validateEndBuf(src, cursor); err == nil && ctx.HasTypeError() {
+			err = typeErrorOf(ctx, dec, header.typ)
+		}
+	}
 	if err != nil {
-		decoder.ReleaseRuntimeContext(ctx)
-		return err
+		ctx.DiscardTypeError()
 	}
 	decoder.ReleaseRuntimeContext(ctx)
-	return validateEndBuf(src, cursor)
+	return err
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
@@ -70,12 +75,17 @@ func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...Decod
 		optFunc(rctx.Option)
 	}
 	cursor, err := dec.Decode(rctx, 0, 0, header.ptr)
+	if err == nil {
+		// a type error is returned only when the whole input is valid, as encoding/json does
+		if err = validateEndBuf(src, cursor); err == nil && rctx.HasTypeError() {
+			err = typeErrorOf(rctx, dec, header.typ)
+		}
+	}
 	if err != nil {
-		decoder.ReleaseRuntimeContext(rctx)
-		return err
+		rctx.DiscardTypeError()
 	}
 	decoder.ReleaseRuntimeContext(rctx)
-	return validateEndBuf(src, cursor)
+	return err
 }
 
 var (
@@ -106,6 +116,14 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 		return nil, err
 	}
 	return paths, nil
+}
+
+// typeErrorOf returns the type error of the decoding of the value of the pointer type typ which dec decoded. It
+// is not inlined, so that the functions which decode keep the size they had: a type error is rare.
+//
+//go:noinline
+func typeErrorOf(ctx *decoder.RuntimeContext, dec decoder.Decoder, typ unsafe.Pointer) error {
+	return ctx.TypeError(dec, runtime.TypeOfPtr(typ), 0, 0)
 }
 
 func validateEndBuf(src []byte, cursor int64) error {
@@ -181,7 +199,7 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
-	return s.Decode(dec, header.ptr)
+	return s.Decode(dec, header.typ, header.ptr)
 }
 
 func (d *Decoder) More() bool {

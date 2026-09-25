@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	"bytes"
 	"encoding"
 	"fmt"
 	"reflect"
@@ -51,32 +50,13 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		return 0, err
 	}
 	src := buf[start:end]
-	if len(src) > 0 {
-		switch src[0] {
-		case '[':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "array",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case '{':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "object",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "number",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case 'n':
-			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
-				return end, nil
-			}
-		}
+	switch c := src[0]; {
+	case c == 'n':
+		*(*unsafe.Pointer)(p) = nil
+		return end, nil
+	case c != '"':
+		// a value of another kind than a string, which is a type error
+		return ctx.textUnmarshalerKindError(start, depth, d.typ)
 	}
 
 	if s, ok := unquoteBytes(src); ok {

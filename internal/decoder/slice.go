@@ -19,6 +19,8 @@ type sliceDecoder struct {
 	bufPool    sync.Pool
 	structName string
 	fieldName  string
+	// typ is the type of the slice, which the type errors report.
+	typ reflect.Type
 }
 
 // If use reflect.SliceHeader, data type is uintptr.
@@ -43,6 +45,7 @@ const (
 
 func newSliceDecoder(dec Decoder, elemType reflect.Type, size uintptr, structName, fieldName string) *sliceDecoder {
 	return &sliceDecoder{
+		typ:          reflect.SliceOf(elemType),
 		valueDecoder: dec,
 		elemType:     elemType,
 		slicePtrType: ptrTypeOf(reflect.SliceOf(elemType)),
@@ -111,16 +114,6 @@ func (d *sliceDecoder) store(dst *sliceHeader, buf *sliceBuf, n int) {
 	reflect.Copy(d.sliceValue(dst), d.sliceValue(&buf.hdr))
 }
 
-func (d *sliceDecoder) errNumber(offset int64) *errors.UnmarshalTypeError {
-	return &errors.UnmarshalTypeError{
-		Value:  "number",
-		Type:   reflect.SliceOf(d.elemType),
-		Struct: d.structName,
-		Field:  d.fieldName,
-		Offset: offset,
-	}
-}
-
 func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	depth++
@@ -179,9 +172,10 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				}
 				cursor++
 			}
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return 0, d.errNumber(cursor)
 		default:
+			if isOtherValue(buf[cursor], arrayValue) {
+				return ctx.skipTypeError(cursor, depth-1, d.typ)
+			}
 			return 0, errors.ErrUnexpectedEndOfJSON("slice", cursor)
 		}
 	}
@@ -259,7 +253,7 @@ func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 				cursor++
 			}
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return nil, 0, d.errNumber(cursor)
+			return nil, 0, &errors.UnmarshalTypeError{Value: "number", Type: d.typ, Offset: cursor}
 		default:
 			return nil, 0, errors.ErrUnexpectedEndOfJSON("slice", cursor)
 		}

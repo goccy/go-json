@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -281,8 +282,10 @@ func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 	return s.ctx.DecoderOf(typ)
 }
 
-// Decode decodes the next value of the stream into p by dec.
-func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
+// Decode decodes the next value of the stream into p, of the pointer type typ, by dec.
+func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error {
+	// the end of the previous value, in the whole input
+	prevEnd := s.offset + s.cursor
 	if err := s.prepare(); err != nil {
 		return err
 	}
@@ -293,6 +296,9 @@ func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
 	ctx := s.ctx
 	ctx.Option = s.Option
 	var cursor int64
+	// typeErr is the first type error of the value, which is returned after the stream goes on after it, as the
+	// one of encoding/json does.
+	var typeErr error
 	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
 		// The end of the value is known exactly: a nul byte is put there while the value is decoded,
 		// so that the decoder never reads the next value, whatever it makes of a malformed one.
@@ -301,18 +307,31 @@ func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
 		s.buf[end] = nul
 		ctx.Buf = s.buf[:end+1]
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
+		if err == nil && ctx.HasTypeError() {
+			// the type error is made while the value is ended by the nul byte, which its path is walked to
+			typeErr = ctx.TypeError(dec, runtime.TypeOfPtr(typ), s.cursor, StreamOffsetBase(prevEnd, s.offset+s.cursor)-s.offset)
+		}
 		s.buf[end] = saved
 	} else {
 		// true, false and null end at the first byte which can't belong to them, and the decoder
 		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
 		ctx.Buf = s.buf[:s.length+1]
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
+		if err == nil && ctx.HasTypeError() {
+			typeErr = ctx.TypeError(dec, runtime.TypeOfPtr(typ), s.cursor, StreamOffsetBase(prevEnd, s.offset+s.cursor)-s.offset)
+		}
 	}
 	ctx.Buf = nil
 	if err != nil {
+		// a type error before a syntax error is not kept for the next value
+		ctx.typeError = nil
 		return s.totalOffsetError(err)
 	}
 	s.cursor = cursor
+	if typeErr != nil {
+		// its offset is relative to the value ( see StreamOffsetBase )
+		return typeErr
+	}
 	return nil
 }
 

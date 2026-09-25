@@ -2,7 +2,6 @@ package decoder
 
 import (
 	"encoding/json"
-	"strconv"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -25,20 +24,73 @@ func newNumberDecoder(structName, fieldName string, op func(unsafe.Pointer, json
 }
 
 func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	bytes, c, err := d.decodeByte(ctx.Buf, cursor)
+	buf := ctx.Buf
+	cursor = skipWhiteSpace(buf, cursor)
+	start := cursor
+	switch c := buf[cursor]; {
+	case c == '-' || c-'0' <= 9:
+		end, err := numberEnd(buf, cursor)
+		if err != nil {
+			return 0, err
+		}
+		d.op(p, json.Number(ctx.makeString(buf[cursor:end], end)))
+		return end, nil
+	case c == '"', c == 'n':
+	case isOtherValue(c, numberValue):
+		return ctx.numberKindError(cursor, depth, jsonNumberType)
+	}
+	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err
 	}
-	if _, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&bytes)), 64); err != nil {
-		return 0, errors.ErrSyntax(err.Error(), c)
+	if bytes == nil {
+		// null, which is ignored
+		return c, nil
 	}
-	rawEnd := c
-	if buf := ctx.Buf; buf[c-1] == '"' {
-		// a number in a string: its bytes end before the quote
-		rawEnd = c - 1
+	if !isValidNumber(bytes) {
+		return ctx.numberStringError(start, c, jsonNumberType)
 	}
-	d.op(p, json.Number(ctx.makeString(bytes, rawEnd)))
+	// a number in a string: its bytes end before the quote
+	d.op(p, json.Number(ctx.makeString(bytes, c-1)))
 	return c, nil
+}
+
+// isValidNumber reports whether b is a number by the grammar of the JSON numbers.
+func isValidNumber(b []byte) bool {
+	i := 0
+	if i < len(b) && b[i] == '-' {
+		i++
+	}
+	digits := func() int {
+		n := 0
+		for i < len(b) && b[i]-'0' <= 9 {
+			i++
+			n++
+		}
+		return n
+	}
+	switch {
+	case i < len(b) && b[i] == '0':
+		i++
+	case digits() == 0:
+		return false
+	}
+	if i < len(b) && b[i] == '.' {
+		i++
+		if digits() == 0 {
+			return false
+		}
+	}
+	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
+		i++
+		if i < len(b) && (b[i] == '+' || b[i] == '-') {
+			i++
+		}
+		if digits() == 0 {
+			return false
+		}
+	}
+	return i == len(b)
 }
 
 func (d *numberDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

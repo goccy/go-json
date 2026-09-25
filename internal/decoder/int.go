@@ -26,16 +26,6 @@ func newIntDecoder(typ reflect.Type, structName, fieldName string, op func(unsaf
 	}
 }
 
-func (d *intDecoder) typeError(buf []byte, offset int64) *errors.UnmarshalTypeError {
-	return &errors.UnmarshalTypeError{
-		Value:  fmt.Sprintf("number %s", string(buf)),
-		Type:   d.typ,
-		Struct: d.structName,
-		Field:  d.fieldName,
-		Offset: offset,
-	}
-}
-
 func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
@@ -53,20 +43,23 @@ func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		if cursor > start {
 			return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in numeric literal", quoteChar(buf[cursor])), cursor+1)
 		}
-		return 0, d.typeError([]byte{buf[cursor]}, cursor)
+		// a value of another kind
+		return ctx.skipTypeError(cursor, depth, d.typ)
 	}
 	u, next, digits := parseDigits(buf, cursor)
 	if isFloatContinuation(buf[next]) || digits > maxUint64Digits {
 		// a number which is not an integer, or too large for any integer
-		end := next
-		for floatTable[buf[end]] {
-			end++
+		end, err := numberEnd(buf, start)
+		if err != nil {
+			return 0, err
 		}
-		return 0, d.typeError(buf[start:end], end)
+		ctx.numberTypeError(start, end, d.typ)
+		return end, nil
 	}
 	neg := cursor > start
 	if (neg && u > 1<<63) || (!neg && u > 1<<63-1) {
-		return 0, d.typeError(buf[start:next], next)
+		ctx.numberTypeError(start, next, d.typ)
+		return next, nil
 	}
 	i64 := int64(u)
 	if neg {
@@ -75,15 +68,18 @@ func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	switch d.kind {
 	case reflect.Int8:
 		if i64 < -1*(1<<7) || (1<<7) <= i64 {
-			return 0, d.typeError(buf[start:next], next)
+			ctx.numberTypeError(start, next, d.typ)
+			return next, nil
 		}
 	case reflect.Int16:
 		if i64 < -1*(1<<15) || (1<<15) <= i64 {
-			return 0, d.typeError(buf[start:next], next)
+			ctx.numberTypeError(start, next, d.typ)
+			return next, nil
 		}
 	case reflect.Int32:
 		if i64 < -1*(1<<31) || (1<<31) <= i64 {
-			return 0, d.typeError(buf[start:next], next)
+			ctx.numberTypeError(start, next, d.typ)
+			return next, nil
 		}
 	}
 	d.op(p, i64)

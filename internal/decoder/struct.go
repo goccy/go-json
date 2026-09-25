@@ -3,6 +3,7 @@ package decoder
 import (
 	"fmt"
 	"math/bits"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -28,6 +29,12 @@ type structDecoder struct {
 	stringDecoder      *stringDecoder
 	structName         string
 	fieldName          string
+	// typ is the struct type, and typeName its name, which the type errors report.
+	typ      reflect.Type
+	typeName string
+	// embedded are the names of the embedded fields which the fields are promoted through, from the struct, which
+	// only the type errors report ( see typeErrorPath ).
+	embedded map[*structFieldSet][]string
 }
 
 func newStructDecoder(structName, fieldName string) *structDecoder {
@@ -74,6 +81,9 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		return cursor, nil
 	case '{':
 	default:
+		if isOtherValue(char(b, cursor), objectValue) {
+			return ctx.skipTypeError(cursor, depth-1, d.typ)
+		}
 		return 0, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
 	}
 	cursor++

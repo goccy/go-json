@@ -15,12 +15,15 @@ import (
 type stringDecoder struct {
 	structName string
 	fieldName  string
+	// typ is the type of the string, which the type errors report.
+	typ reflect.Type
 }
 
 func newStringDecoder(structName, fieldName string) *stringDecoder {
 	return &stringDecoder{
 		structName: structName,
 		fieldName:  fieldName,
+		typ:        reflect.TypeOf(""),
 	}
 }
 
@@ -37,6 +40,9 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.
 func (d *stringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	s, c, ok, err := d.decodeString(ctx, cursor)
 	if err != nil {
+		if isOtherValue(ctx.Buf[skipWhiteSpace(ctx.Buf, cursor)], stringValue) {
+			return ctx.skipTypeError(cursor, depth, d.typ)
+		}
 		return 0, err
 	}
 	if ok {

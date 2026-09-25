@@ -1,6 +1,8 @@
 package decoder
 
 import (
+	"math"
+	"reflect"
 	"strconv"
 	"unsafe"
 
@@ -11,10 +13,22 @@ type floatDecoder struct {
 	op         func(unsafe.Pointer, float64)
 	structName string
 	fieldName  string
+	// is32 is set for a float32, whose range is checked: a number out of it is a type error.
+	is32 bool
+	// typ is the type of the value, which the type errors report.
+	typ reflect.Type
 }
 
 func newFloatDecoder(structName, fieldName string, op func(unsafe.Pointer, float64)) *floatDecoder {
-	return &floatDecoder{op: op, structName: structName, fieldName: fieldName}
+	return &floatDecoder{op: op, structName: structName, fieldName: fieldName, typ: reflect.TypeOf(float64(0))}
+}
+
+// overflowsFloat32 reports whether f is out of the range of a float32, as reflect.Value.OverflowFloat does.
+func overflowsFloat32(f float64) bool {
+	if f < 0 {
+		f = -f
+	}
+	return math.MaxFloat32 < f && f <= math.MaxFloat64
 }
 
 var (
@@ -79,27 +93,37 @@ func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
 	if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] {
+		if d.is32 && overflowsFloat32(f) {
+			ctx.numberTypeError(cursor, next, d.typ)
+			return next, nil
+		}
 		d.op(p, f)
 		return next, nil
 	}
-	bytes, c, err := d.decodeByte(buf, cursor)
-	if err != nil {
-		return 0, err
+	switch c := buf[cursor]; {
+	case c == 'n':
+		if err := validateNull(buf, cursor); err != nil {
+			return 0, err
+		}
+		return cursor + 4, nil
+	case c == '-' || c-'0' <= 9:
+		end, err := numberEnd(buf, cursor)
+		if err != nil {
+			return 0, err
+		}
+		b := buf[cursor:end]
+		f, parseErr := strconv.ParseFloat(*(*string)(unsafe.Pointer(&b)), 64)
+		// a number of the grammar which ParseFloat fails is out of the range of float64
+		if inRange := parseErr == nil && !(d.is32 && overflowsFloat32(f)); !inRange {
+			ctx.numberTypeError(cursor, end, d.typ)
+			return end, nil
+		}
+		d.op(p, f)
+		return end, nil
+	case isOtherValue(c, numberValue):
+		return ctx.skipTypeError(cursor, depth, d.typ)
 	}
-	if bytes == nil {
-		return c, nil
-	}
-	cursor = c
-	if !validEndNumberChar[buf[cursor]] {
-		return 0, errors.ErrUnexpectedEndOfJSON("float", cursor)
-	}
-	s := *(*string)(unsafe.Pointer(&bytes))
-	f64, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0, errors.ErrSyntax(err.Error(), cursor)
-	}
-	d.op(p, f64)
-	return cursor, nil
+	return 0, errors.ErrUnexpectedEndOfJSON("float", cursor)
 }
 
 func (d *floatDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

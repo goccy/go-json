@@ -198,12 +198,14 @@ func Test_Decoder(t *testing.T) {
 			assertEq(t, "any", v.F, nil)
 			assertEq(t, "nilfunc", true, v.G == nil)
 		})
-		t.Run("struct.pointer must be nil", func(t *testing.T) {
-			var v struct {
+		t.Run("struct.pointer as encoding/json", func(t *testing.T) {
+			// the pointer is set to a zero value before the type error of the value, as encoding/json does
+			var v, want struct {
 				A *int
 			}
 			json.Unmarshal([]byte(`{"a": "alpha"}`), &v)
-			assertEq(t, "struct.A", v.A, (*int)(nil))
+			stdjson.Unmarshal([]byte(`{"a": "alpha"}`), &want)
+			assertEq(t, "struct.A", want.A == nil, v.A == nil)
 		})
 	})
 	t.Run("interface", func(t *testing.T) {
@@ -787,15 +789,15 @@ var unmarshalTests = []unmarshalTest{
 	{in: `"g-clef: \uD834\uDD1E"`, ptr: new(string), out: "g-clef: \U0001D11E"},       // 10
 	{in: `"invalid: \uD834x\uDD1E"`, ptr: new(string), out: "invalid: \uFFFDx\uFFFD"}, // 11
 	{in: "null", ptr: new(any), out: nil},                                             // 12
-	{in: `{"X": [1,2,3], "Y": 4}`, ptr: new(T), out: T{Y: 4}, err: &json.UnmarshalTypeError{"array", reflect.TypeOf(""), 7, "T", "X"}},                            // 13
-	{in: `{"X": 23}`, ptr: new(T), out: T{}, err: &json.UnmarshalTypeError{"number", reflect.TypeOf(""), 8, "T", "X"}}, {in: `{"x": 1}`, ptr: new(tx), out: tx{}}, // 14
+	{in: `{"X": [1,2,3], "Y": 4}`, ptr: new(T), out: T{Y: 4}, err: &json.UnmarshalTypeError{Value: "array", Type: reflect.TypeOf(""), Offset: 7, Struct: "T", Field: "X"}},                            // 13
+	{in: `{"X": 23}`, ptr: new(T), out: T{}, err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(""), Offset: 8, Struct: "T", Field: "X"}}, {in: `{"x": 1}`, ptr: new(tx), out: tx{}}, // 14
 	{in: `{"x": 1}`, ptr: new(tx), out: tx{}}, // 15, 16
-	{in: `{"x": 1}`, ptr: new(tx), err: fmt.Errorf("json: unknown field \"x\""), disallowUnknownFields: true},                      // 17
-	{in: `{"S": 23}`, ptr: new(W), out: W{}, err: &json.UnmarshalTypeError{"number", reflect.TypeOf(SS("")), 0, "W", "S"}},         // 18
-	{in: `{"F1":1,"F2":2,"F3":3}`, ptr: new(V), out: V{F1: float64(1), F2: int32(2), F3: json.Number("3")}},                        // 19
-	{in: `{"F1":1,"F2":2,"F3":3}`, ptr: new(V), out: V{F1: json.Number("1"), F2: int32(2), F3: json.Number("3")}, useNumber: true}, // 20
-	{in: `{"k1":1,"k2":"s","k3":[1,2.0,3e-3],"k4":{"kk1":"s","kk2":2}}`, ptr: new(any), out: ifaceNumAsFloat64},                    // 21
-	{in: `{"k1":1,"k2":"s","k3":[1,2.0,3e-3],"k4":{"kk1":"s","kk2":2}}`, ptr: new(any), out: ifaceNumAsNumber, useNumber: true},    // 22
+	{in: `{"x": 1}`, ptr: new(tx), err: fmt.Errorf("json: unknown field \"x\""), disallowUnknownFields: true},                                                  // 17
+	{in: `{"S": 23}`, ptr: new(W), out: W{}, err: &json.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(SS("")), Offset: 0, Struct: "W", Field: "S"}}, // 18
+	{in: `{"F1":1,"F2":2,"F3":3}`, ptr: new(V), out: V{F1: float64(1), F2: int32(2), F3: json.Number("3")}},                                                    // 19
+	{in: `{"F1":1,"F2":2,"F3":3}`, ptr: new(V), out: V{F1: json.Number("1"), F2: int32(2), F3: json.Number("3")}, useNumber: true},                             // 20
+	{in: `{"k1":1,"k2":"s","k3":[1,2.0,3e-3],"k4":{"kk1":"s","kk2":2}}`, ptr: new(any), out: ifaceNumAsFloat64},                                                // 21
+	{in: `{"k1":1,"k2":"s","k3":[1,2.0,3e-3],"k4":{"kk1":"s","kk2":2}}`, ptr: new(any), out: ifaceNumAsNumber, useNumber: true},                                // 22
 
 	// raw values with whitespace
 	{in: "\n true ", ptr: new(bool), out: true},                  // 23
@@ -815,11 +817,11 @@ var unmarshalTests = []unmarshalTest{
 	{in: `{"alphabet": "xyz"}`, ptr: new(U), err: fmt.Errorf("json: unknown field \"alphabet\""), disallowUnknownFields: true},                 // 34
 
 	// syntax errors
-	{in: `{"X": "foo", "Y"}`, err: json.NewSyntaxError("invalid character '}' after object key", 17)},                                              // 35
-	{in: `[1, 2, 3+]`, err: json.NewSyntaxError("invalid character '+' after array element", 9)},                                                   // 36
-	{in: `{"X":12x}`, err: json.NewSyntaxError("invalid character 'x' after object key:value pair", 8), useNumber: true},                           // 37
-	{in: `[2, 3`, err: json.NewSyntaxError("unexpected end of JSON input", 5)},                                                                     // 38
-	{in: `{"F3": -}`, ptr: new(V), out: V{F3: json.Number("-")}, err: json.NewSyntaxError("strconv.ParseFloat: parsing \"-\": invalid syntax", 9)}, // 39
+	{in: `{"X": "foo", "Y"}`, err: json.NewSyntaxError("invalid character '}' after object key", 17)},                                     // 35
+	{in: `[1, 2, 3+]`, err: json.NewSyntaxError("invalid character '+' after array element", 9)},                                          // 36
+	{in: `{"X":12x}`, err: json.NewSyntaxError("invalid character 'x' after object key:value pair", 8), useNumber: true},                  // 37
+	{in: `[2, 3`, err: json.NewSyntaxError("unexpected end of JSON input", 5)},                                                            // 38
+	{in: `{"F3": -}`, ptr: new(V), out: V{F3: json.Number("-")}, err: json.NewSyntaxError("invalid character '}' in numeric literal", 9)}, // 39
 
 	// raw value errors
 	{in: "\x01 42", err: json.NewSyntaxError("invalid character '\\x01' looking for beginning of value", 1)},         // 40
@@ -1864,8 +1866,24 @@ func TestUnmarshal(t *testing.T) {
 			if tt.disallowUnknownFields {
 				dec.DisallowUnknownFields()
 			}
-			if err := dec.Decode(v.Interface()); !equalError(err, tt.err) {
-				t.Errorf("#%d: %v, want %v", i, err, tt.err)
+			// An error which is not a syntax error is the one of encoding/json of the running Go, whose messages
+			// differ by its version; a syntax error is the one of the test.
+			wantErr := tt.err
+			stdDec := stdjson.NewDecoder(bytes.NewReader(in))
+			if tt.useNumber {
+				stdDec.UseNumber()
+			}
+			if tt.disallowUnknownFields {
+				stdDec.DisallowUnknownFields()
+			}
+			var syntaxErr *stdjson.SyntaxError
+			var ownErr *json.UnmarshalTypeError
+			if err := stdDec.Decode(reflect.New(typ).Interface()); err != nil && !errors.As(err, &syntaxErr) && !errors.As(err, &ownErr) {
+				// an error of go-json which a method returns is not the one of encoding/json
+				wantErr = err
+			}
+			if err := dec.Decode(v.Interface()); !equalError(err, wantErr) {
+				t.Errorf("#%d: %v, want %v", i, err, wantErr)
 				return
 			} else if err != nil {
 				return
@@ -2036,13 +2054,13 @@ var wrongStringTests = []wrongStringTest{
 // If people misuse the ,string modifier, the error message should be
 // helpful, telling the user that they're doing it wrong.
 func TestErrorMessageFromMisusedString(t *testing.T) {
+	// The errors of the misuses of the string option are the ones of encoding/json of the running Go.
 	for n, tt := range wrongStringTests {
-		r := strings.NewReader(tt.in)
-		var s WrongString
-		err := json.NewDecoder(r).Decode(&s)
-		got := fmt.Sprintf("%v", err)
-		if got != tt.err {
-			t.Errorf("%d. got err = %q, want %q", n, got, tt.err)
+		var s, stdS WrongString
+		err := json.NewDecoder(strings.NewReader(tt.in)).Decode(&s)
+		want := stdjson.NewDecoder(strings.NewReader(tt.in)).Decode(&stdS)
+		if fmt.Sprint(err) != fmt.Sprint(want) {
+			t.Errorf("%d. got err = %q, want %q", n, fmt.Sprint(err), fmt.Sprint(want))
 		}
 	}
 }
@@ -2545,6 +2563,7 @@ var invalidUnmarshalTextTests = []struct {
 }
 
 func TestInvalidUnmarshalText(t *testing.T) {
+	// The errors are the ones of encoding/json of the running Go.
 	buf := []byte(`123`)
 	for _, tt := range invalidUnmarshalTextTests {
 		err := json.Unmarshal(buf, tt.v)
@@ -2552,8 +2571,9 @@ func TestInvalidUnmarshalText(t *testing.T) {
 			t.Errorf("Unmarshal expecting error, got nil")
 			continue
 		}
-		if got := err.Error(); got != tt.want {
-			t.Errorf("Unmarshal = %q; want %q", got, tt.want)
+		want := stdjson.Unmarshal(buf, tt.v)
+		if got := err.Error(); want == nil || got != want.Error() {
+			t.Errorf("Unmarshal = %q; want %v", got, want)
 		}
 	}
 }

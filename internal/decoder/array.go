@@ -17,11 +17,14 @@ type arrayDecoder struct {
 	alen         int
 	structName   string
 	fieldName    string
+	// typ is the type of the array, which the type errors report.
+	typ reflect.Type
 }
 
 func newArrayDecoder(dec Decoder, arrayType reflect.Type, structName, fieldName string) *arrayDecoder {
 	elemType := arrayType.Elem()
 	return &arrayDecoder{
+		typ:          arrayType,
 		valueDecoder: dec,
 		elemType:     elemType,
 		arrayPtrType: ptrTypeOf(arrayType),
@@ -96,6 +99,9 @@ func (d *arrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				}
 			}
 		default:
+			if isOtherValue(buf[cursor], arrayValue) {
+				return ctx.skipTypeError(cursor, depth-1, d.typ)
+			}
 			return 0, errors.ErrUnexpectedEndOfJSON("array", cursor)
 		}
 	}

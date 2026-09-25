@@ -49,12 +49,10 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 	if err == nil {
 		// a type error is returned only when the whole input is valid, as encoding/json does
 		if err = validateEndBuf(src, cursor); err == nil && ctx.HasTypeError() {
-			err = typeErrorOf(ctx, dec, runtime.TypePtr(ptrType))
+			err = ctx.TypeError(dec, ptrType, 0, 0)
 		}
 	}
-	if err != nil {
-		ctx.DiscardTypeError()
-	}
+	ctx.DiscardTypeError()
 	// What was decoded before an error is stored too, as Unmarshal does.
 	*v = *(*T)(p)
 	// the pool must not keep what the value refers to alive.

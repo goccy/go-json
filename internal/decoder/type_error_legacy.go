@@ -32,10 +32,7 @@ func newTypeError(p *pendingTypeError, path []typeErrorStep, _ reflect.Type) *er
 			continue
 		}
 		e.Struct = step.structName
-		if embeddedFieldNames {
-			names = append(names, step.embedded...)
-		}
-		names = append(names, step.name)
+		names = append(append(names, step.embedded...), step.name)
 	}
 	e.Field = strings.Join(names, ".")
 	return e

@@ -38,11 +38,32 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.
 }
 
 func (d *stringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if buf := ctx.Buf; buf[cursor] != '"' {
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] != '"' {
+			return d.decodeOther(ctx, cursor, depth, p)
+		}
+	}
 	s, c, ok, err := d.decodeString(ctx, cursor)
 	if err != nil {
-		if isOtherValue(ctx.Buf[skipWhiteSpace(ctx.Buf, cursor)], stringValue) {
-			return ctx.skipTypeError(cursor, depth, d.typ)
-		}
+		return 0, err
+	}
+	if ok {
+		**(**string)(unsafe.Pointer(&p)) = s
+	}
+	return c, nil
+}
+
+// decodeOther decodes the value at cursor, which is not a string: null, or a value of another kind, which is a
+// type error. It is a function of its own, so that Decode keeps nothing across its call of decodeString.
+//
+//go:noinline
+func (d *stringDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if isOtherValue(ctx.Buf[cursor], stringValue) && ctx.Buf[cursor] != 'n' {
+		return ctx.skipTypeError(cursor, depth, d.typ)
+	}
+	s, c, ok, err := d.decodeString(ctx, cursor)
+	if err != nil {
 		return 0, err
 	}
 	if ok {

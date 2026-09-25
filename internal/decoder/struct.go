@@ -81,10 +81,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		return cursor, nil
 	case '{':
 	default:
-		if isOtherValue(char(b, cursor), objectValue) {
-			return ctx.skipTypeError(cursor, depth-1, d.typ)
-		}
-		return 0, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
+		return d.decodeOther(ctx, cursor, depth-1)
 	}
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)
@@ -323,6 +320,17 @@ func (d *structDecoder) decodeKeyByScan(buf []byte, cursor int64, disallowUnknow
 		return nil, 0, unknownFieldError(key)
 	}
 	return field, next, nil
+}
+
+// decodeOther skips the value at cursor, which is not an object: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *structDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if c := ctx.Buf[cursor]; isOtherValue(c, objectValue) {
+		return ctx.skipTypeError(cursor, depth, d.typ)
+	}
+	return 0, errors.ErrInvalidBeginningOfValue(ctx.Buf[cursor], cursor)
 }
 
 func unknownFieldError(key []byte) error {

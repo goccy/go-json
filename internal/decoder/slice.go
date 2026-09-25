@@ -173,12 +173,20 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				cursor++
 			}
 		default:
-			if isOtherValue(buf[cursor], arrayValue) {
-				return ctx.skipTypeError(cursor, depth-1, d.typ)
-			}
-			return 0, errors.ErrUnexpectedEndOfJSON("slice", cursor)
+			return d.decodeOther(ctx, cursor, depth-1)
 		}
 	}
+}
+
+// decodeOther skips the value at cursor, which is not an array: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *sliceDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if isOtherValue(ctx.Buf[cursor], arrayValue) {
+		return ctx.skipTypeError(cursor, depth, d.typ)
+	}
+	return 0, errors.ErrUnexpectedEndOfJSON("slice", cursor)
 }
 
 func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

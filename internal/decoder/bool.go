@@ -44,7 +44,15 @@ func (d *boolDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.
 		cursor += 4
 		return cursor, nil
 	}
-	if isOtherValue(buf[cursor], boolValue) {
+	return d.decodeOther(ctx, cursor, depth)
+}
+
+// decodeOther skips the value at cursor, which is not a bool: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *boolDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if isOtherValue(ctx.Buf[cursor], boolValue) {
 		return ctx.skipTypeError(cursor, depth, d.typ)
 	}
 	return 0, errors.ErrUnexpectedEndOfJSON("bool", cursor)

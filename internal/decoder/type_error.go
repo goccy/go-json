@@ -275,7 +275,10 @@ func (d *structDecoder) typeErrorChild(buf []byte, cursor int64, p *pendingTypeE
 			if field == nil {
 				return typeErrorStep{}, nil, 0, false
 			}
-			step := typeErrorStep{structName: d.typeName, embedded: d.embedded[field], name: field.key, isField: true}
+			step := typeErrorStep{structName: d.typeName, name: field.key, isField: true}
+			if embeddedFieldNames {
+				step.embedded = d.embedded[field]
+			}
 			return step, field.dec, cursor, true
 		}
 		cursor = skipWhiteSpace(buf, end)

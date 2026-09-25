@@ -100,6 +100,16 @@ func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		d.op(p, f)
 		return next, nil
 	}
+	return d.decodeSlow(ctx, cursor, depth, p)
+}
+
+// decodeSlow decodes the value at cursor which the fast parse doesn't: null, a number which it can't parse, a
+// number out of the range of the type, which is a type error, or a value of another kind, which is a type error
+// too. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *floatDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
 	switch c := buf[cursor]; {
 	case c == 'n':
 		if err := validateNull(buf, cursor); err != nil {

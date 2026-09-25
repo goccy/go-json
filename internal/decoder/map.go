@@ -51,21 +51,62 @@ func (d *mapDecoder) mapValue(m unsafe.Pointer) reflect.Value {
 	return reflect.ValueOf(*(*any)(unsafe.Pointer(&emptyInterface{typ: d.mapTypePtr, ptr: m})))
 }
 
-// dropEntry decodes the value of the entry whose key is before cursor into v, which is then zeroed with the key,
-// and returns the position after the value.
-func (d *mapDecoder) dropEntry(ctx *RuntimeContext, cursor, depth int64, v unsafe.Pointer, kv, vv reflect.Value) (int64, error) {
+// decodeEntries decodes the entries of the object from cursor into the map, whose keys and values are decoded into
+// k and v, as Decode does, but the entries whose keys are of another type ( see errMapKeyType ), which are dropped.
+// If afterKey is set, cursor is after the key of such an entry, whose value is decoded first. It is a function of
+// its own, so that Decode keeps the size it had: such a key is rare.
+//
+//go:noinline
+func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, mapValue, k, v unsafe.Pointer, afterKey bool) (int64, error) {
 	buf := ctx.Buf
-	cursor = skipWhiteSpace(buf, cursor)
-	if buf[cursor] != ':' {
-		return 0, errors.ErrExpected("colon after object key", cursor)
+	mv := d.mapValue(mapValue)
+	kv := valueAt(d.keyPtrType, k)
+	vv := valueAt(d.valuePtrType, v)
+	for {
+		drop := afterKey
+		if !afterKey {
+			keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
+			if err != nil && err != errMapKeyType {
+				return 0, err
+			}
+			drop = err != nil
+			cursor = keyCursor
+		}
+		afterKey = false
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		valueCursor, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
+		if err != nil {
+			return 0, err
+		}
+		if !drop {
+			mv.SetMapIndex(kv, vv)
+		}
+		kv.SetZero()
+		vv.SetZero()
+		cursor = skipWhiteSpace(buf, valueCursor)
+		if buf[cursor] == '}' {
+			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
+			return cursor + 1, nil
+		}
+		if buf[cursor] != ',' {
+			return 0, errors.ErrExpected("comma after object value", cursor)
+		}
+		cursor++
 	}
-	c, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
-	if err != nil {
-		return 0, err
+}
+
+// decodeOther skips the value at cursor, which is not an object: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *mapDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if isOtherValue(ctx.Buf[cursor], objectValue) {
+		return ctx.skipTypeError(cursor, depth, d.mapType)
 	}
-	kv.SetZero()
-	vv.SetZero()
-	return skipWhiteSpace(buf, c), nil
+	return 0, errors.ErrExpected("{ character for map value", cursor)
 }
 
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -90,10 +131,7 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		return cursor, nil
 	case '{':
 	default:
-		if isOtherValue(buf[cursor], objectValue) {
-			return ctx.skipTypeError(cursor, depth-1, d.mapType)
-		}
-		return 0, errors.ErrExpected("{ character for map value", cursor)
+		return d.decodeOther(ctx, cursor, depth-1)
 	}
 	if d.keyUnsupported {
 		return ctx.unsupportedMapKeys(d, cursor, depth-1, p)
@@ -135,23 +173,11 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	for {
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
-			if err != errMapKeyType {
-				return 0, err
+			if err == errMapKeyType {
+				// a key of another type: the rest of the object is decoded by decodeEntries
+				return d.decodeEntries(ctx, keyCursor, depth, p, mapValue, k, v, true)
 			}
-			// a key of another type: the value is decoded, and the entry is dropped
-			cursor, err = d.dropEntry(ctx, keyCursor, depth, v, kv, vv)
-			if err != nil {
-				return 0, err
-			}
-			if buf[cursor] == '}' {
-				**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
-				return cursor + 1, nil
-			}
-			if buf[cursor] != ',' {
-				return 0, errors.ErrExpected("comma after object value", cursor)
-			}
-			cursor++
-			continue
+			return 0, err
 		}
 		cursor = skipWhiteSpace(buf, keyCursor)
 		if buf[cursor] != ':' {

@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,23 @@ type pointeeLevel int8
 type pointeeName string
 
 func (n pointeeName) Upper() string { return strings.ToUpper(string(n)) }
+
+// pointeeComplex and pointeeComplex64 are of the complex kinds, which are decoded only by their methods.
+type pointeeComplex complex128
+
+func (c *pointeeComplex) UnmarshalJSON(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 64)
+	*c = pointeeComplex(complex(f, -f))
+	return err
+}
+
+type pointeeComplex64 complex64
+
+func (c *pointeeComplex64) UnmarshalText(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 32)
+	*c = pointeeComplex64(complex(float32(f), 1))
+	return err
+}
 
 type pointeeFields struct {
 	Bool       *bool
@@ -40,6 +58,8 @@ type pointeeFields struct {
 	PtrPtr     **string
 	Struct     *struct{ A *string }
 	StringKind *json.Number
+	Complex    *pointeeComplex
+	Complex64  *pointeeComplex64
 }
 
 func TestDecodePointees(t *testing.T) {
@@ -49,7 +69,7 @@ func TestDecodePointees(t *testing.T) {
 	doc := `{"Bool":true,"Int":-1,"Int8":-8,"Int16":-16,"Int32":-32,"Int64":-64,"Uint":1,"Uint8":8,"Uint16":16,
 		"Uint32":32,"Uint64":64,"Uintptr":7,"Float32":1.5,"Float64":2.5,"String":"string",
 		"Time":"2026-09-25T12:00:00Z","Level":3,"Name":"name","Names":["a","b",null,"c"],"PtrPtr":"pp",
-		"Struct":{"A":"a"},"StringKind":12.5}`
+		"Struct":{"A":"a"},"StringKind":12.5,"Complex":1.5,"Complex64":"2.5"}`
 	var want pointeeFields
 	if err := stdjson.Unmarshal([]byte(doc), &want); err != nil {
 		t.Fatal(err)

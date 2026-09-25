@@ -1,0 +1,97 @@
+package json_test
+
+import (
+	stdjson "encoding/json"
+	"reflect"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	json "github.com/goccy/go-json"
+)
+
+type pointeeLevel int8
+
+type pointeeName string
+
+func (n pointeeName) Upper() string { return strings.ToUpper(string(n)) }
+
+// pointeeComplex and pointeeComplex64 are of the complex kinds, which are decoded only by their methods.
+type pointeeComplex complex128
+
+func (c *pointeeComplex) UnmarshalJSON(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 64)
+	*c = pointeeComplex(complex(f, -f))
+	return err
+}
+
+type pointeeComplex64 complex64
+
+func (c *pointeeComplex64) UnmarshalText(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 32)
+	*c = pointeeComplex64(complex(float32(f), 1))
+	return err
+}
+
+type pointeeFields struct {
+	Bool       *bool
+	Int        *int
+	Int8       *int8
+	Int16      *int16
+	Int32      *int32
+	Int64      *int64
+	Uint       *uint
+	Uint8      *uint8
+	Uint16     *uint16
+	Uint32     *uint32
+	Uint64     *uint64
+	Uintptr    *uintptr
+	Float32    *float32
+	Float64    *float64
+	String     *string
+	Time       *time.Time
+	Level      *pointeeLevel
+	Name       *pointeeName
+	Names      []*pointeeName
+	PtrPtr     **string
+	Struct     *struct{ A *string }
+	StringKind *json.Number
+	Complex    *pointeeComplex
+	Complex64  *pointeeComplex64
+}
+
+func TestDecodePointees(t *testing.T) {
+	// The values which pointers are set to are allocated by the kinds of their types: the named types of the
+	// basic kinds are decoded as encoding/json does, and are still intact after the collections of the garbage
+	// which the decoding of other values causes.
+	doc := `{"Bool":true,"Int":-1,"Int8":-8,"Int16":-16,"Int32":-32,"Int64":-64,"Uint":1,"Uint8":8,"Uint16":16,
+		"Uint32":32,"Uint64":64,"Uintptr":7,"Float32":1.5,"Float64":2.5,"String":"string",
+		"Time":"2026-09-25T12:00:00Z","Level":3,"Name":"name","Names":["a","b",null,"c"],"PtrPtr":"pp",
+		"Struct":{"A":"a"},"StringKind":12.5,"Complex":1.5,"Complex64":"2.5"}`
+	var want pointeeFields
+	if err := stdjson.Unmarshal([]byte(doc), &want); err != nil {
+		t.Fatal(err)
+	}
+	var values []*pointeeFields
+	for i := 0; i < 64; i++ {
+		var got pointeeFields
+		if err := json.Unmarshal([]byte(doc), &got); err != nil {
+			t.Fatal(err)
+		}
+		values = append(values, &got)
+		if i%8 == 0 {
+			runtime.GC()
+		}
+	}
+	runtime.GC()
+	for _, got := range values {
+		if !reflect.DeepEqual(*got, want) {
+			t.Fatalf("got %+v, want %+v", *got, want)
+		}
+		if got.Name.Upper() != "NAME" {
+			t.Fatalf("got the method of the name %q", got.Name.Upper())
+		}
+	}
+}

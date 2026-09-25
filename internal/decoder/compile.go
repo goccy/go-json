@@ -148,6 +148,8 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 			return newWrappedStringDecoder(typ, dec, structName, fieldName), nil
 		case *ptrDecoder:
 			dec = t.dec
+		case *basicPtrDecoder:
+			dec = t.dec
 		default:
 			return newInvalidDecoder(typ, structName, fieldName), nil
 		}

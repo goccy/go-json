@@ -67,3 +67,49 @@ func TestEncodeEscapedStrings(t *testing.T) {
 		}
 	}
 }
+
+func TestEncodeInvalidUTF8(t *testing.T) {
+	// A byte of a string which is not valid UTF-8 is replaced by U+FFFD as encoding/json of the running Go does
+	// ( escaped before Go 1.27, as it is by Go 1.27 ), in strings of every length and at every position, by the
+	// scan of words and of SIMD, in values, in object keys and in the strings of the string option.
+	type withString struct {
+		S string `json:"s,string"`
+	}
+	invalid := []string{"\xff", "\xe3\x81", "\xed\xa0\x80"}
+	others := []string{"", "<", " ", "あ", `"`}
+	for n := 0; n < 100; n++ {
+		for pos := 0; pos <= n; pos += 1 + n/16 {
+			for _, bad := range invalid {
+				for _, other := range others {
+					s := strings.Repeat("a", n)
+					s = s[:pos] + bad + other + s[pos:]
+					values := []any{s, map[string]int{s: 1}, withString{S: s}}
+					for _, v := range values {
+						want, err := stdjson.Marshal(v)
+						if err != nil {
+							t.Fatal(err)
+						}
+						got, err := json.Marshal(v)
+						if err != nil || string(got) != string(want) {
+							t.Fatalf("Marshal(%q): got %q, %v, want %q", v, got, err, want)
+						}
+						wantIndent, _ := stdjson.MarshalIndent(v, "", " ")
+						gotIndent, err := json.MarshalIndent(v, "", " ")
+						if err != nil || string(gotIndent) != string(wantIndent) {
+							t.Fatalf("MarshalIndent(%q): got %q, %v, want %q", v, gotIndent, err, wantIndent)
+						}
+						var wantBuf, gotBuf strings.Builder
+						stdEnc := stdjson.NewEncoder(&wantBuf)
+						stdEnc.SetEscapeHTML(false)
+						_ = stdEnc.Encode(v)
+						enc := json.NewEncoder(&gotBuf)
+						enc.SetEscapeHTML(false)
+						if err := enc.Encode(v); err != nil || gotBuf.String() != wantBuf.String() {
+							t.Fatalf("Encode(%q) without HTML escapes: got %q, %v, want %q", v, gotBuf.String(), err, wantBuf.String())
+						}
+					}
+				}
+			}
+		}
+	}
+}

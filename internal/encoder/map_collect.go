@@ -40,6 +40,9 @@ type MapLayout struct {
 	ValueWords int
 	keySize    uintptr
 	valueSize  uintptr
+	// KeysMayEscape is whether an encoded key may have an escape, which puts it out of the order of its name
+	// ( see Mapslice.Sort ): the keys of a kind other than a string or an integer are texts.
+	KeysMayEscape bool
 }
 
 // MapScalarValueWords is the largest ValueWords of a value written by one opcode of a scalar: a slice of bytes.
@@ -55,6 +58,14 @@ func NewMapLayout(typ reflect.Type) *MapLayout {
 		StringKey: typ.Key().Kind() == reflect.String,
 		keySize:   typ.Key().Size(),
 		valueSize: typ.Elem().Size(),
+	}
+	switch typ.Key().Kind() {
+	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		// a key of a string kind is sorted by its string, unless it has MarshalText, and an integer has no escape.
+		l.KeysMayEscape = typ.Key().Implements(marshalTextType) || reflect.PointerTo(typ.Key()).Implements(marshalTextType)
+	default:
+		l.KeysMayEscape = true
 	}
 	words := (l.valueSize + 7) / 8
 	if l.StringKey && words <= mapValueWords && (mapValueIsWords || l.valueSize%8 == 0) {
@@ -103,6 +114,9 @@ var stringKeyCollectors = [mapValueWords + 1]func(unsafe.Pointer, *MapContext){
 // are of a pointer shape, without an allocation.
 func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 	keyType, valueType := typ.Key(), typ.Elem()
+	if keyType.Kind() == reflect.Interface {
+		return newInterfaceKeyCollector(typ)
+	}
 	stringKey := keyType.Kind() == reflect.String
 	keySize, valueSize := keyType.Size(), valueType.Size()
 	keyDirect, valueDirect := !runtime.IfaceIndir(keyType), !runtime.IfaceIndir(valueType)
@@ -127,6 +141,37 @@ func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 			} else {
 				c.RawKeys = append(c.RawKeys, unsafe.Slice((*byte)(k), keySize)...)
 			}
+			v := ifaceData(&c.valueIface, valueDirect)
+			if valueIsIface {
+				v = unsafe.Pointer(&c.valueIface)
+			}
+			c.Values = append(c.Values, unsafe.Slice((*byte)(v), valueSize)...)
+		}
+		it.Reset(reflect.Value{})
+		c.keyIface, c.valueIface = nil, nil
+	}
+}
+
+// newInterfaceKeyCollector is newReflectCollector for a map whose keys are of an interface type: a key is the
+// words of the interface{} it is set to, whatever its interface type is ( see appendInterfaceMapKey ).
+func newInterfaceKeyCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
+	valueType := typ.Elem()
+	valueSize := valueType.Size()
+	valueDirect := !runtime.IfaceIndir(valueType)
+	valueIsIface := valueType.Kind() == reflect.Interface
+	typPtr := runtime.TypePtr(typ)
+	return func(p unsafe.Pointer, c *MapContext) {
+		var mapIface any
+		*(*emptyInterface)(unsafe.Pointer(&mapIface)) = emptyInterface{typ: typPtr, ptr: p}
+		m := reflect.ValueOf(mapIface)
+		key := reflect.ValueOf(&c.keyIface).Elem()
+		value := reflect.ValueOf(&c.valueIface).Elem()
+		it := &c.iter
+		it.Reset(m)
+		for it.Next() {
+			key.SetIterKey(it)
+			value.SetIterValue(it)
+			c.RawKeys = append(c.RawKeys, unsafe.Slice((*byte)(unsafe.Pointer(&c.keyIface)), unsafe.Sizeof(c.keyIface))...)
 			v := ifaceData(&c.valueIface, valueDirect)
 			if valueIsIface {
 				v = unsafe.Pointer(&c.valueIface)

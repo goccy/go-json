@@ -543,6 +543,11 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 
 func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 	switch {
+	case typ.Kind() == reflect.Interface && (interfaceMapKeys || c.implementsMarshalText(typ)):
+		// the name of a key is of its dynamic value, as encoding/json of the Go it is built with makes it: every
+		// key of an interface type where it is built on encoding/json/v2, and else a key of an interface type
+		// which has MarshalText ( see appendInterfaceMapKey ).
+		return &MarshalTextCode{typ: typ, isInterfaceMapKey: true}, nil
 	case c.implementsMarshalText(typ):
 		return c.marshalTextCode(typ)
 	}

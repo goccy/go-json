@@ -48,7 +48,7 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 		return err
 	}
 	if ctx.HasTypeError() {
-		return endWithTypeError(ctx, dec, header.typ, src, cursor)
+		return endWithTypeError(ctx, header.typ, src, cursor)
 	}
 	decoder.ReleaseRuntimeContext(ctx)
 	return validateEndBuf(src, cursor)
@@ -80,7 +80,7 @@ func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...Decod
 		return err
 	}
 	if rctx.HasTypeError() {
-		return endWithTypeError(rctx, dec, header.typ, src, cursor)
+		return endWithTypeError(rctx, header.typ, src, cursor)
 	}
 	decoder.ReleaseRuntimeContext(rctx)
 	return validateEndBuf(src, cursor)
@@ -116,16 +116,19 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	return paths, nil
 }
 
-// endWithTypeError releases the context of a decoding of src up to cursor into a value of the pointer type typ
-// by dec, which has a type error, and returns the error: a syntax error after the value, or else the type error,
-// which is returned only when the whole input is valid, as encoding/json does. It is not inlined, so that the
-// functions which decode keep the size they had: a type error is rare.
+// endWithTypeError releases the context of a decoding of src up to cursor into a value of the pointer type typ,
+// which has a type error, and returns the error: a syntax error after the value, or else the type error, which is
+// returned only when the whole input is valid, as encoding/json does. It takes the decoder of typ again, so that
+// the functions which decode keep nothing more across their call of it: a type error is rare.
 //
 //go:noinline
-func endWithTypeError(ctx *decoder.RuntimeContext, dec decoder.Decoder, typ unsafe.Pointer, src []byte, cursor int64) error {
+func endWithTypeError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, src []byte, cursor int64) error {
 	err := validateEndBuf(src, cursor)
 	if err == nil {
-		err = ctx.TypeError(dec, runtime.TypeOfPtr(typ), 0, 0)
+		var dec decoder.Decoder
+		if dec, err = ctx.DecoderOf(typ); err == nil {
+			err = ctx.TypeError(dec, runtime.TypeOfPtr(typ), 0, 0)
+		}
 	}
 	ctx.DiscardTypeError()
 	decoder.ReleaseRuntimeContext(ctx)
@@ -205,7 +208,13 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
-	return s.Decode(dec, header.typ, header.ptr)
+	if err := s.Decode(dec, header.ptr); err != nil {
+		if err == decoder.ErrValueTypeError {
+			return s.TypeError(header.typ)
+		}
+		return err
+	}
+	return nil
 }
 
 func (d *Decoder) More() bool {

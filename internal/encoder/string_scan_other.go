@@ -16,12 +16,6 @@ func scanBytesSIMD(_ unsafe.Pointer, _ int, _ *nibbleTables) (bool, bool) {
 	return false, false
 }
 
-// indexEscapeSIMD scans nothing: the index of the first byte to escape has no SIMD scan on this architecture,
-// whose words are scanned instead.
-func indexEscapeSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (int, bool) {
-	return 0, false
-}
-
 // hasEscapeLoop is false: the loop of the escapes by SIMD is of amd64 only ( see string_scan_amd64.go ).
 const hasEscapeLoop = false
 

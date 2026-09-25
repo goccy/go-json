@@ -12,9 +12,6 @@ import (
 func scanStringAVX2(p unsafe.Pointer, n int, tables *nibbleTables) int
 
 //go:noescape
-func indexEscapeAVX2(p unsafe.Pointer, n int, tables *nibbleTables) int
-
-//go:noescape
 func escapeStringAVX2(dst, src unsafe.Pointer, n int, tables *nibbleTables, seqs *[256]uint64) (consumed, written int)
 
 // hasEscapeLoop is whether appendEscapedSIMD escapes: whether the CPU has AVX2.
@@ -64,14 +61,4 @@ func scanBytesSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (bool, bool)
 		return false, false
 	}
 	return scanStringAVX2(src, n, tables) != 0, true
-}
-
-// indexEscapeSIMD returns the index of the first of the n bytes at src which may need an escape by the tables,
-// or n if there is none, by SIMD. The second result is false if the CPU doesn't support it or n is small, and
-// the bytes are not looked at.
-func indexEscapeSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (int, bool) {
-	if !runtime.HasAVX2 || n < minSIMDScanLength {
-		return 0, false
-	}
-	return indexEscapeAVX2(src, n, tables), true
 }

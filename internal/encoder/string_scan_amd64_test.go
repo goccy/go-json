@@ -91,37 +91,6 @@ func BenchmarkScanString(b *testing.B) {
 	}
 }
 
-func TestIndexEscapeAVX2(t *testing.T) {
-	// The index is the one of the first byte to escape by the table of the options, for every length and every
-	// position of the byte, including in the last block, which overlaps the previous one.
-	if !runtime.HasAVX2 {
-		t.Skip("AVX2 is not supported")
-	}
-	r := rand.New(rand.NewSource(1))
-	special := []byte{0x00, 0x1f, '"', '\\', '<', '>', '&', 0x80, 0xe3, 0xff, '\n'}
-	for index := range stringEscapes {
-		e := &stringEscapes[index]
-		for n := 32; n <= 160; n++ {
-			for trial := 0; trial < 40; trial++ {
-				b := []byte(strings.Repeat("a", n))
-				for k := r.Intn(3); k > 0; k-- {
-					b[r.Intn(n)] = special[r.Intn(len(special))]
-				}
-				want := n
-				for i, c := range b {
-					if e.table[c] {
-						want = i
-						break
-					}
-				}
-				if got := indexEscapeAVX2(unsafe.Pointer(&b[0]), n, &e.tables); got != want {
-					t.Fatalf("%d %q: got %d, want %d", index, b, got, want)
-				}
-			}
-		}
-	}
-}
-
 func TestAppendEscapedSIMD(t *testing.T) {
 	// The functions of the escapes append the same bytes with the loop of the escapes by SIMD as without it, for
 	// strings of every length with bytes to escape by every option anywhere, including a string which is not

@@ -289,96 +289,42 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
-	// is looked at here, which is where the escape of a short string is.
+	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML|stringEscapeNormalize])
 		i = j
 	} else if valLen >= 8 {
-		if m := maskNormalizedHTML(firstWord(s)); m != 0 {
-			j = bits.TrailingZeros64(m) / 8
-		} else {
-			j = skipNormalizedHTML(s, 8)
+		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
+		// k, or it is none if the mask of the last word is 0, and j is then valLen.
+		k := 0
+		m := maskNormalizedHTML(wordAt(s, 0))
+		for m == 0 && k+16 <= valLen {
+			k += 8
+			m = maskNormalizedHTML(wordAt(s, k))
 		}
+		if m == 0 && k+8 < valLen {
+			k = valLen - 8
+			m = maskNormalizedHTML(wordAt(s, k))
+		}
+		j = k + bits.TrailingZeros64(m)/8
 	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeHTMLNormalizeUTF8[c] {
-			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
-			// which are not worth a call
+			// fast path: most of the time, printable ascii characters are used
 			j++
-			if valLen-j >= 32 && hasEscapeLoop {
-				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
-				buf = append(buf, s[i:j]...)
-				var n int
-				buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[stringEscapeHTML|stringEscapeNormalize])
-				j += n
-				i = j
-			} else if valLen-j >= 8 {
-				j = skipNormalizedHTML(s, j)
-			}
 			continue
 		}
 
-		switch c {
-		case '\\', '"':
+		if seq := escapeSequences[c]; seq != 0 {
+			// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
+			// length are written over by what follows.
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', c)
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\n':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'n')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\r':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'r')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\t':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 't')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '<', '>', '&':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\b':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'b')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\f':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'f')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0E, 0x0F, // 0x00-0x0F
-			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
+			l := len(buf)
+			buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
 			i = j + 1
 			j = j + 1
 			continue
@@ -424,101 +370,44 @@ func appendHTMLString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
-	// is looked at here, which is where the escape of a short string is.
+	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML])
 		i = j
 	} else if valLen >= 8 {
-		if m := maskHTML(firstWord(s)); m != 0 {
-			j = bits.TrailingZeros64(m) / 8
-		} else {
-			j = skipHTML(s, 8)
+		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
+		// k, or it is none if the mask of the last word is 0, and j is then valLen.
+		k := 0
+		m := maskNormalizedHTML(wordAt(s, 0))
+		for m == 0 && k+16 <= valLen {
+			k += 8
+			m = maskNormalizedHTML(wordAt(s, k))
 		}
+		if m == 0 && k+8 < valLen {
+			k = valLen - 8
+			m = maskNormalizedHTML(wordAt(s, k))
+		}
+		j = k + bits.TrailingZeros64(m)/8
 	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeHTML[c] {
-			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
-			// which are not worth a call
+			// fast path: most of the time, printable ascii characters are used
 			j++
-			if valLen-j >= 32 && hasEscapeLoop {
-				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
-				buf = append(buf, s[i:j]...)
-				var n int
-				buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[stringEscapeHTML])
-				j += n
-				i = j
-			} else if valLen-j >= 8 {
-				j = skipHTML(s, j)
-			}
 			continue
 		}
 
-		switch c {
-		case '\\', '"':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', c)
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\n':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'n')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\r':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'r')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\t':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 't')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '<', '>', '&':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\b':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'b')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\f':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'f')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0E, 0x0F, // 0x00-0x0F
-			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
-			i = j + 1
-			j = j + 1
-			continue
-		}
-		j++
+		// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
+		// length are written over by what follows.
+		seq := escapeSequences[c]
+		buf = append(buf, s[i:j]...)
+		l := len(buf)
+		buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
+		i = j + 1
+		j = j + 1
 	}
 
 	return append(append(buf, s[i:]...), '"')
@@ -531,93 +420,46 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
-	// is looked at here, which is where the escape of a short string is.
+	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeNormalize])
 		i = j
 	} else if valLen >= 8 {
-		if m := maskNormalized(firstWord(s)); m != 0 {
-			j = bits.TrailingZeros64(m) / 8
-		} else {
-			j = skipNormalized(s, 8)
+		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
+		// k, or it is none if the mask of the last word is 0, and j is then valLen.
+		k := 0
+		m := maskNormalized(wordAt(s, 0))
+		for m == 0 && k+16 <= valLen {
+			k += 8
+			m = maskNormalized(wordAt(s, k))
 		}
+		if m == 0 && k+8 < valLen {
+			k = valLen - 8
+			m = maskNormalized(wordAt(s, k))
+		}
+		j = k + bits.TrailingZeros64(m)/8
 	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscapeNormalizeUTF8[c] {
-			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
-			// which are not worth a call
+			// fast path: most of the time, printable ascii characters are used
 			j++
-			if valLen-j >= 32 && hasEscapeLoop {
-				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
-				buf = append(buf, s[i:j]...)
-				var n int
-				buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[stringEscapeNormalize])
-				j += n
-				i = j
-			} else if valLen-j >= 8 {
-				j = skipNormalized(s, j)
-			}
 			continue
 		}
 
-		switch c {
-		case '\\', '"':
+		if seq := escapeSequences[c]; seq != 0 {
+			// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
+			// length are written over by what follows.
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', c)
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\n':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'n')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\r':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'r')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\t':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 't')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\b':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'b')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\f':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'f')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0E, 0x0F, // 0x00-0x0F
-			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
+			l := len(buf)
+			buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
 			i = j + 1
 			j = j + 1
 			continue
 		}
-
 		state, size := decodeRuneInString(s[j:])
 		switch state {
 		case runeErrorState:
@@ -659,167 +501,56 @@ func appendString(buf []byte, s string) []byte {
 	}
 	buf = append(buf, '"')
 	var i int
-	// the bytes up to the first one which may need an escape are skipped by words, or by SIMD: the first word
-	// is looked at here, which is where the escape of a short string is.
+	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
 		buf, j = appendEscapedSIMD(buf, s, escapeTables[0])
 		i = j
 	} else if valLen >= 8 {
-		if m := maskPlain(firstWord(s)); m != 0 {
-			j = bits.TrailingZeros64(m) / 8
-		} else {
-			j = skipPlain(s, 8)
+		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
+		// k, or it is none if the mask of the last word is 0, and j is then valLen.
+		k := 0
+		m := maskPlain(wordAt(s, 0))
+		for m == 0 && k+16 <= valLen {
+			k += 8
+			m = maskPlain(wordAt(s, k))
 		}
+		if m == 0 && k+8 < valLen {
+			k = valLen - 8
+			m = maskPlain(wordAt(s, k))
+		}
+		j = k + bits.TrailingZeros64(m)/8
 	}
 	for j < valLen {
 		c := s[j]
 
 		if !needEscape[c] {
-			// the bytes up to the next one which may need an escape are skipped by words, but a few ones,
-			// which are not worth a call
+			// fast path: most of the time, printable ascii characters are used
 			j++
-			if valLen-j >= 32 && hasEscapeLoop {
-				// the rest of a long string is escaped by SIMD, up to a byte which is left to this loop
-				buf = append(buf, s[i:j]...)
-				var n int
-				buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[0])
-				j += n
-				i = j
-			} else if valLen-j >= 8 {
-				j = skipPlain(s, j)
-			}
 			continue
 		}
 
-		switch c {
-		case '\\', '"':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', c)
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\n':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'n')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\r':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'r')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\t':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 't')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\b':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'b')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case '\f':
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, '\\', 'f')
-			i = j + 1
-			j = j + 1
-			continue
-
-		case 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0E, 0x0F, // 0x00-0x0F
-			0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F: // 0x10-0x1F
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u00`...)
-			buf = append(buf, hex[c>>4], hex[c&0xF])
-			i = j + 1
-			j = j + 1
-			continue
-		}
-		j++
+		// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
+		// length are written over by what follows.
+		seq := escapeSequences[c]
+		buf = append(buf, s[i:j]...)
+		l := len(buf)
+		buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
+		i = j + 1
+		j = j + 1
 	}
 
 	return append(append(buf, s[i:]...), '"')
 }
 
-// The functions below return the position of the first byte from j which may need an escape, or of a byte of the
-// last seven bytes of the string, which are left to the byte by byte loop: the bytes before it are skipped by
-// SIMD where the CPU has it and the rest is long enough ( see indexEscapeSIMD ), and else a word at a time. After the first escape of a string, most of its bytes are still plain: a text or a source code has an
-// escape every few dozen bytes, which a loop over its bytes one by one spends most of the time of the encoding in.
-// The masks are the ones of the options ( see stringEscapes ): the loose ones, which have the bytes which are not
-// ASCII, if UTF-8 is normalized, and else the exact ones, so that a text which is not ASCII is skipped too.
-
-func skipNormalizedHTML(s string, j int) int {
-	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeHTML|stringEscapeNormalize]); ok {
-		return j + k
-	}
-	for ; j+8 <= len(s); j += 8 {
-		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := maskNormalizedHTML(w); m != 0 {
-			return j + bits.TrailingZeros64(m)/8
-		}
-	}
-	return j
-}
-
-func skipHTML(s string, j int) int {
-	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeHTML]); ok {
-		return j + k
-	}
-	for ; j+8 <= len(s); j += 8 {
-		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := maskHTML(w); m != 0 {
-			return j + bits.TrailingZeros64(m)/8
-		}
-	}
-	return j
-}
-
-func skipNormalized(s string, j int) int {
-	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[stringEscapeNormalize]); ok {
-		return j + k
-	}
-	for ; j+8 <= len(s); j += 8 {
-		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := maskNormalized(w); m != 0 {
-			return j + bits.TrailingZeros64(m)/8
-		}
-	}
-	return j
-}
-
-func skipPlain(s string, j int) int {
-	if k, ok := indexEscapeSIMD(unsafe.Pointer(unsafe.StringData(s[j:])), len(s)-j, escapeTables[0]); ok {
-		return j + k
-	}
-	for ; j+8 <= len(s); j += 8 {
-		w := binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s[j:]), 8))
-		if m := maskPlain(w); m != 0 {
-			return j + bits.TrailingZeros64(m)/8
-		}
-	}
-	return j
-}
-
 // The masks of a word of the options: the top bit of the first byte which may need an escape is set, and maybe
-// the ones of the bytes after it ( see looseCommonMask ). They are small enough to be inlined.
+// the ones of the bytes after it ( see looseCommonMask ). They are small enough to be inlined. The masks of HTML
+// are loose even if UTF-8 is not normalized: the exact one costs more for every word than it saves by skipping
+// the bytes which are not ASCII, which the loop of appendHTMLString goes over one by one instead.
 
 func maskNormalizedHTML(w uint64) uint64 {
 	return (looseCommonMask(w) | ((w ^ (lsb * '<')) - lsb) | ((w ^ (lsb * '>')) - lsb) | ((w ^ (lsb * '&')) - lsb)) & msb
-}
-
-func maskHTML(w uint64) uint64 {
-	lt, gt, amp := w^(lsb*'<'), w^(lsb*'>'), w^(lsb*'&')
-	return (exactCommonMask(w) | ((lt - lsb) &^ lt) | ((gt - lsb) &^ gt) | ((amp - lsb) &^ amp)) & msb
 }
 
 func maskNormalized(w uint64) uint64 {
@@ -830,7 +561,7 @@ func maskPlain(w uint64) uint64 {
 	return exactCommonMask(w) & msb
 }
 
-// firstWord returns the first eight bytes of the string, which has eight bytes or more, as a little-endian word.
-func firstWord(s string) uint64 {
-	return binary.LittleEndian.Uint64(unsafe.Slice(unsafe.StringData(s), 8))
+// wordAt returns the eight bytes of the string at k as a little-endian word: the string has k+8 bytes or more.
+func wordAt(s string, k int) uint64 {
+	return binary.LittleEndian.Uint64(unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(unsafe.StringData(s)), k)), 8))
 }

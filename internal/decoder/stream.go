@@ -3,7 +3,6 @@ package decoder
 import (
 	"bytes"
 	"encoding/json"
-	stderrors "errors"
 	"io"
 	"math/bits"
 	"strconv"
@@ -45,10 +44,6 @@ type Stream struct {
 	// prevEnd is the total offset of the end of the previous value, which the offset of a type error may be
 	// relative to ( see StreamOffsetBase ).
 	prevEnd int64
-	// typeErrorStart and typeErrorEnd are where the value is which has a type error, and valueType the pointer type
-	// of the value decoded last ( see typeError ).
-	typeErrorStart, typeErrorEnd int64
-	valueType                    unsafe.Pointer
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -293,9 +288,6 @@ func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 // Decode decodes the next value of the stream into p, of the pointer type typ, by dec. If the value has a type
 // error, the stream goes on after the value, as the one of encoding/json does.
 func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error {
-	// the type is kept for a type error, which is made after the call of the decoder, so that nothing more is
-	// kept across it
-	s.valueType = typ
 	s.markPrevEnd()
 	if err := s.prepare(); err != nil {
 		return err
@@ -316,58 +308,47 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 		ctx.Buf = s.buf[:end+1]
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
 		s.buf[end] = saved
-		if err == nil && ctx.HasTypeError() {
-			err = s.pendTypeError(end)
-		}
 	} else {
 		// true, false and null end at the first byte which can't belong to them, and the decoder
 		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
 		ctx.Buf = s.buf[:s.length+1]
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
-		if err == nil && ctx.HasTypeError() {
-			err = s.pendTypeError(s.length)
-		}
 	}
 	ctx.Buf = nil
 	if err != nil {
-		if err == errValueTypeError {
-			// the value is decoded: the stream goes on after it, as the one of encoding/json does
-			s.cursor = cursor
-			return s.typeError()
-		}
-		// a type error before a syntax error is not kept for the next value
-		ctx.DiscardTypeError()
-		return s.totalOffsetError(err)
+		return s.decodeError(err)
+	}
+	if ctx.HasTypeError() {
+		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
 	return nil
 }
 
-// errValueTypeError tells Decode that the value has a type error, which typeError returns.
-var errValueTypeError = stderrors.New("json: type error of the value of the stream")
-
-// pendTypeError keeps where the value which has a type error is, the value at the cursor ended by the nul byte
-// at end, for typeError, and returns errValueTypeError.
+// decodeError returns the error of the decoder, whose offset is made the one in the whole input. A type error
+// before it is not kept for the next value.
 //
 //go:noinline
-func (s *Stream) pendTypeError(end int64) error {
-	s.typeErrorStart, s.typeErrorEnd = s.cursor, end
-	return errValueTypeError
+func (s *Stream) decodeError(err error) error {
+	s.ctx.DiscardTypeError()
+	return s.totalOffsetError(err)
 }
 
-// typeError returns the type error of the value which Decode decoded last, for which pendTypeError was called.
-// Its offset is relative to the value, as encoding/json of the Go version reports it ( see StreamOffsetBase ). It
-// takes the decoder of the type again, so that Decode keeps nothing more across its call of the decoder.
+// typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
+// to end, and moves the cursor after the value: the stream goes on after it, as the one of encoding/json does.
+// Its offset is relative to the value, as encoding/json of the Go version reports it ( see StreamOffsetBase ).
+// It takes the decoder of the type again, so that Decode keeps nothing more across its call of the decoder.
 //
 //go:noinline
-func (s *Stream) typeError() error {
-	typ := s.valueType
+func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
+	start := s.cursor
+	s.cursor = end
+	ctx := s.ctx
 	dec, err := s.DecoderOf(typ)
 	if err != nil {
+		ctx.DiscardTypeError()
 		return err
 	}
-	ctx := s.ctx
-	start, end := s.typeErrorStart, s.typeErrorEnd
 	// the path of the error is walked in the value ended by the nul byte, as it was decoded
 	saved := s.buf[end]
 	s.buf[end] = nul

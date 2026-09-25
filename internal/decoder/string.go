@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/bits"
 	"reflect"
@@ -82,14 +83,6 @@ var (
 	}
 )
 
-func unicodeToRune(code []byte) rune {
-	var r rune
-	for i := 0; i < len(code); i++ {
-		r = r*16 + rune(hexToInt[code[i]])
-	}
-	return r
-}
-
 var runeErrBytes = []byte(string(utf8.RuneError))
 
 // stringInfo is what scanString found in a string.
@@ -104,6 +97,9 @@ type stringInfo struct {
 // decodeByte returns the bytes of the string at cursor, decoded in place in buf, or nil for null.
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	literal, next, info, err := d.scanString(buf, cursor)
+	if next < 0 {
+		literal, next, info, err = d.scanStringRest(buf, literal, -next-1, info)
+	}
 	if err != nil || literal == nil {
 		return literal, next, err
 	}
@@ -125,6 +121,9 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 // An escaped string which is copied out of the buffer ( see makeString ) is decoded into its copy directly.
 func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
 	literal, next, info, err := d.scanString(ctx.Buf, cursor)
+	if next < 0 {
+		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, -next-1, info)
+	}
 	if err != nil || literal == nil {
 		return "", next, false, err
 	}
@@ -143,6 +142,12 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 
 // scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and
 // what it found in it, or nil for null.
+//
+// Most strings are short, and scanned by its loop, which calls nothing so that it keeps its values in the
+// registers. After 64 bytes of plain bytes, it stops and returns the bytes of the string so far, -1 minus the
+// position it stopped at, and what it found so far: the caller continues the scan by scanStringRest, which scans
+// the runs of plain bytes of a long string by SIMD where the CPU has it. The position is negative so that the
+// result has no field more, whose return every string would pay for.
 func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, stringInfo, error) {
 	for {
 		switch buf[cursor] {
@@ -162,15 +167,21 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			firstEscape := int64(-1)
 			// high accumulates the bytes of the string: it is not zero if one of them is not ASCII.
 			var high uint64
+			// The words are read up to wordsEnd: the end of the buffer, or, where the CPU has a SIMD scan, 64
+			// bytes after the start, after which the rest of a long string is left to scanStringRest ( see
+			// scanString ). It is looked at once for a string, not for every word.
+			wordsEnd := buflen
+			if hasStringSIMD {
+				wordsEnd = min(buflen, start+64)
+			}
 			for {
-				// The words with nothing to look at are skipped eight bytes at a time: a word is read
-				// only where the buffer has room for it, so that its end is scanned byte by byte.
-				for cursor+8 <= buflen {
+				// The words with nothing to look at are skipped eight bytes at a time: a word is read only where
+				// the buffer has room for it, so that its end is scanned byte by byte.
+				for cursor+8 <= wordsEnd {
 					w := load64(buf, cursor)
-					special := byteMask(w, '"') | byteMask(w, '\\') | hasLess(w, 0x20)
-					if special != 0 {
+					if special := keyEndBytes(w); special != 0 {
 						i := int64(bits.TrailingZeros64(special) / 8)
-						high |= w & msb & (1<<(uint(i)*8) - 1)
+						high |= w & msb & (1<<(uint(i)*8&63) - 1)
 						cursor += i
 						break
 					}
@@ -209,6 +220,10 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 					if c < 0x20 {
 						return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
 					}
+					if wordsEnd != buflen {
+						// the words stopped at wordsEnd, not at a byte to look at
+						return buf[start:cursor], -cursor - 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
+					}
 					high |= uint64(c)
 					cursor++
 				}
@@ -221,6 +236,74 @@ func (d *stringDecoder) scanString(buf []byte, cursor int64) ([]byte, int64, str
 			return nil, cursor, stringInfo{}, nil
 		default:
 			return nil, 0, stringInfo{}, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+		}
+	}
+}
+
+// scanStringRest continues the scan of a long string from where scanString stopped, which returned the bytes
+// of the string so far, the position it stopped at and what it found so far: the runs of plain bytes are scanned
+// by SIMD ( see indexStringSpecial ), and a run near the end of the buffer by words. The escapes are validated as
+// scanString does.
+func (d *stringDecoder) scanStringRest(buf, literal []byte, cursor int64, info stringInfo) ([]byte, int64, stringInfo, error) {
+	start := cursor - int64(len(literal))
+	firstEscape := int64(info.firstEscape)
+	var high uint64
+	if info.nonASCII {
+		high = msb
+	}
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	buflen := int64(len(buf))
+	for {
+		if i, h, ok := indexStringSpecial(unsafe.Add(b, cursor), int(buflen-cursor)); ok {
+			high |= h
+			cursor += int64(i)
+		} else {
+			for cursor+8 <= buflen {
+				w := load64(buf, cursor)
+				if special := keyEndBytes(w); special != 0 {
+					i := int64(bits.TrailingZeros64(special) / 8)
+					high |= w & msb & (1<<(uint(i)*8&63) - 1)
+					cursor += i
+					break
+				}
+				high |= w & msb
+				cursor += 8
+			}
+		}
+		c := char(b, cursor)
+		switch c {
+		case '\\':
+			if firstEscape < 0 {
+				firstEscape = cursor - start
+			}
+			cursor++
+			switch char(b, cursor) {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				cursor++
+			case 'u':
+				if cursor+5 >= buflen {
+					return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+				}
+				for i := int64(1); i <= 4; i++ {
+					c := char(b, cursor+i)
+					if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+						return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
+					}
+				}
+				cursor += 5
+			default:
+				return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+			}
+		case '"':
+			return buf[start:cursor], cursor + 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, nil
+		case nul:
+			return nil, 0, stringInfo{}, errors.ErrUnexpectedEndOfJSON("string", cursor)
+		default:
+			if c < 0x20 {
+				return nil, 0, stringInfo{}, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
+			}
+			high |= uint64(c)
+			cursor++
 		}
 	}
 }
@@ -260,6 +343,28 @@ func unescapeTo(out unsafe.Pointer, buf []byte, first int) int {
 	src := unsafeAdd(p, first)
 	dst := unsafeAdd(out, first)
 	for src != end {
+		// The bytes up to the next backslash are copied eight at a time, from the words which are all in the
+		// string: a word is written only when it has no backslash, so that the string decoded in place, whose
+		// bytes are written before the ones read, is written over the bytes already read only. An escape which
+		// follows another one is decoded without a word.
+		for *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end) {
+			w := binary.LittleEndian.Uint64((*[8]byte)(src)[:])
+			if backslash := firstByteMask(w, '\\'); backslash != 0 {
+				n := bits.TrailingZeros64(backslash) / 8
+				for i := 0; i < n; i++ {
+					*(*byte)(unsafeAdd(dst, i)) = *(*byte)(unsafeAdd(src, i))
+				}
+				src = unsafeAdd(src, n)
+				dst = unsafeAdd(dst, n)
+				break
+			}
+			binary.LittleEndian.PutUint64((*[8]byte)(dst)[:], w)
+			src = unsafeAdd(src, 8)
+			dst = unsafeAdd(dst, 8)
+		}
+		if src == end {
+			break
+		}
 		c := char(src, 0)
 		if c == '\\' {
 			escapeChar := char(src, 1)
@@ -313,6 +418,13 @@ func unescapeTo(out unsafe.Pointer, buf []byte, first int) int {
 	return int(uintptr(dst) - uintptr(out))
 }
 
+// firstByteMask returns the word which has the top bit of the first byte of w which is c, if it has one, and maybe
+// the top bits of bytes after it: a subtraction borrows from the next byte only at a byte which is c.
+func firstByteMask(w, c uint64) uint64 {
+	x := w ^ (c * lsb)
+	return (x - lsb) &^ x & msb
+}
+
 // coerceUTF8 returns a copy of the literal in which every byte of an invalid UTF-8 sequence
 // is replaced by utf8.RuneError, as encoding/json does.
 func coerceUTF8(literal []byte) []byte {
@@ -327,12 +439,6 @@ func coerceUTF8(literal []byte) []byte {
 		i += size
 	}
 	return out
-}
-
-// hasLess returns the word whose byte is 0x80 where the byte of w is less than n, which is at most 128,
-// exactly for the lowest such byte: a byte above it may be marked wrongly by a borrow.
-func hasLess(w, n uint64) uint64 {
-	return (w - n*lsb) & ^w & msb
 }
 
 // quoteChar formats c as a quoted character literal, as encoding/json does in its errors.

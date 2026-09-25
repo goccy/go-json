@@ -547,13 +547,27 @@ func BenchmarkCodeUnmarshalReuse(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
+// padded is a value alone in its cache lines. The values which the goroutines of a parallel benchmark decode
+// into are padded: small values allocated one after another share a cache line, which the goroutines then
+// write by turns, and how many share one depends on the run, which made the result of the same code differ
+// by half from a run to another.
+type padded[T any] struct {
+	_ [64]byte
+	v T
+	_ [64]byte
+}
+
+func newPadded[T any]() *padded[T] {
+	return new(padded[T])
+}
+
 func BenchmarkUnmarshalString(b *testing.B) {
 	b.ReportAllocs()
 	data := []byte(`"hello, world"`)
 	b.RunParallel(func(pb *testing.PB) {
-		var s string
+		s := newPadded[string]()
 		for pb.Next() {
-			if err := json.Unmarshal(data, &s); err != nil {
+			if err := json.Unmarshal(data, &s.v); err != nil {
 				b.Fatal("Unmarshal:", err)
 			}
 		}
@@ -564,9 +578,9 @@ func BenchmarkUnmarshalFloat64(b *testing.B) {
 	b.ReportAllocs()
 	data := []byte(`3.14`)
 	b.RunParallel(func(pb *testing.PB) {
-		var f float64
+		f := newPadded[float64]()
 		for pb.Next() {
-			if err := json.Unmarshal(data, &f); err != nil {
+			if err := json.Unmarshal(data, &f.v); err != nil {
 				b.Fatal("Unmarshal:", err)
 			}
 		}
@@ -577,16 +591,16 @@ func BenchmarkUnmarshalInt64(b *testing.B) {
 	b.ReportAllocs()
 	data := []byte(`3`)
 	b.RunParallel(func(pb *testing.PB) {
-		var x int64
+		x := newPadded[int64]()
 		for pb.Next() {
-			if err := json.Unmarshal(data, &x); err != nil {
+			if err := json.Unmarshal(data, &x.v); err != nil {
 				b.Fatal("Unmarshal:", err)
 			}
 		}
 	})
 }
 
-func BenchmarkIssue10335(b *testing.B) {
+func BenchmarkUnmarshalIssue10335(b *testing.B) {
 	b.ReportAllocs()
 	j := []byte(`{"a":{ }}`)
 	b.RunParallel(func(pb *testing.PB) {
@@ -599,7 +613,7 @@ func BenchmarkIssue10335(b *testing.B) {
 	})
 }
 
-func BenchmarkUnmapped(b *testing.B) {
+func BenchmarkUnmarshalUnmapped(b *testing.B) {
 	b.ReportAllocs()
 	j := []byte(`{"s": "hello", "y": 2, "o": {"x": 0}, "a": [1, 99, {"x": 1}]}`)
 	b.RunParallel(func(pb *testing.PB) {

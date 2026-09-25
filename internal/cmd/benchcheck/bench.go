@@ -109,13 +109,15 @@ type suite struct {
 // The layout 0 is the default one of the linker, and the others are randomized by the linker
 // with the layout number as the seed ( -randlayout, supported since Go 1.23 ).
 // Only the first build compiles the packages: the rest are linked from the build cache.
-func buildSuite(ctx context.Context, dir, modFile, outDir, name string, layouts int) (*suite, error) {
+//
+// The layout N is linked with the seed N + seedOffset of -randlayout ( the seed 0 is the layout of the linker ).
+func buildSuite(ctx context.Context, dir, modFile, outDir, name string, layouts, seedOffset int) (*suite, error) {
 	s := &suite{dir: dir}
 	for layout := 0; layout < layouts; layout++ {
 		binary := binaryPath(outDir, fmt.Sprintf("%s.layout%d.test", name, layout))
 		args := []string{"test", "-c", "-o", binary}
-		if layout != 0 {
-			args = append(args, "-ldflags", "-randlayout="+strconv.Itoa(layout))
+		if seed := layout + seedOffset; seed != 0 {
+			args = append(args, "-ldflags", "-randlayout="+strconv.Itoa(seed))
 		}
 		if modFile != "" {
 			args = append(args, "-modfile", modFile)
@@ -161,6 +163,7 @@ var comparedLibraries = map[string]struct{}{
 	"JsonIter":      {},
 	"SegmentioJson": {},
 	"Sonic":         {},
+	"SonicFast":     {},
 	"SonicFastest":  {},
 	"SonicStd":      {},
 	"StdLib":        {},
@@ -179,6 +182,26 @@ func isComparedLibraryBenchmark(name string) bool {
 	}
 	_, exists := comparedLibraries[name[i+1:]]
 	return exists
+}
+
+// The groups of the benchmarks, whose means are judged apart: a change of the decoder moves only the decode
+// benchmarks, which are fewer than the encode ones, so in a mean of both it would count for less than one of
+// the encoder.
+const (
+	groupEncode = "encode"
+	groupDecode = "decode"
+)
+
+// benchmarkGroup returns the group of the benchmark function.
+//
+// A test binary identifies a benchmark only by its function name, so the group can't be carried by anything
+// else: a benchmark of decoding has Decode or Unmarshal in its name ( BenchmarkCodeDecoder, Benchmark_Decode_*,
+// BenchmarkUnmarshal* ), and every other one is a benchmark of encoding.
+func benchmarkGroup(name string) string {
+	if strings.Contains(name, "Decode") || strings.Contains(name, "Unmarshal") {
+		return groupDecode
+	}
+	return groupEncode
 }
 
 // funcs returns the names of the top-level benchmark functions of go-json matched by pattern.

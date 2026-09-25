@@ -242,3 +242,48 @@ func TestComparisonWithZeroMeasurement(t *testing.T) {
 		t.Fatalf("unexpected delta: %s", got)
 	}
 }
+
+func TestShardFuncs(t *testing.T) {
+	funcs := []string{"Benchmark_D", "Benchmark_A", "Benchmark_C", "Benchmark_B", "Benchmark_E"}
+	seen := map[string]int{}
+	for shard := 0; shard < 3; shard++ {
+		for _, fn := range shardFuncs(funcs, shard, 3) {
+			seen[fn]++
+		}
+	}
+	if len(seen) != len(funcs) {
+		t.Fatalf("the shards have %d functions, want %d", len(seen), len(funcs))
+	}
+	for fn, n := range seen {
+		if n != 1 {
+			t.Fatalf("%s is in %d shards", fn, n)
+		}
+	}
+	if got := shardFuncs(funcs, 0, 1); len(got) != len(funcs) {
+		t.Fatalf("one shard has %d functions", len(got))
+	}
+}
+
+func TestBenchmarkGroup(t *testing.T) {
+	for name, want := range map[string]string{
+		"BenchmarkCodeDecoder":                          groupDecode,
+		"BenchmarkUnmarshalFloat64":                     groupDecode,
+		"BenchmarkUnmarshalUnmapped":                    groupDecode,
+		"Benchmark_Decode_SmallStruct_Unmarshal_GoJson": groupDecode,
+		"Benchmark_Encode_SmallStruct_GoJson":           groupEncode,
+		"Benchmark_MarshalBytes_GoJson":                 groupEncode,
+		"Benchmark_Compact_GoJson":                      groupEncode,
+		"BenchmarkCodeEncoder":                          groupEncode,
+	} {
+		if got := benchmarkGroup(name); got != want {
+			t.Errorf("%s: got %s, want %s", name, got, want)
+		}
+	}
+	funcs := []string{"Benchmark_Encode_A_GoJson", "Benchmark_Decode_A_GoJson", "BenchmarkUnmarshalX"}
+	if got := groupFuncs(funcs, groupDecode); len(got) != 2 {
+		t.Fatalf("decode: %v", got)
+	}
+	if got := groupFuncs(funcs, ""); len(got) != 3 {
+		t.Fatalf("no group: %v", got)
+	}
+}

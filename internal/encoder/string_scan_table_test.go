@@ -14,3 +14,20 @@ func TestNibbleTables(t *testing.T) {
 		}
 	}
 }
+
+// Every byte which the tables of the options without the normalization of UTF-8 tell to escape, and every byte of
+// ASCII which the others tell to, has an escape sequence: the functions of the escapes write the sequence of such
+// a byte without looking at it otherwise.
+func TestEscapeSequences(t *testing.T) {
+	for index := range stringEscapes {
+		e := &stringEscapes[index]
+		for b := 0; b < 256; b++ {
+			if !e.table[b] || (b >= 0x80 && index&stringEscapeNormalize != 0) {
+				continue
+			}
+			if escapeSequences[b] == 0 {
+				t.Fatalf("escape %d, byte %#x: no escape sequence", index, b)
+			}
+		}
+	}
+}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"unicode"
 	"unsafe"
 
@@ -305,12 +304,11 @@ func typeToStructTags(typ reflect.Type) runtime.StructTags {
 
 func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	fieldNum := typ.NumField()
-	fieldMap := map[string]*structFieldSet{}
 	typeptr := uintptr(runtime.TypePtr(typ))
 	if dec, exists := structTypeToDecoder[typeptr]; exists {
 		return dec, nil
 	}
-	structDec := newStructDecoder(structName, fieldName, fieldMap)
+	structDec := newStructDecoder(structName, fieldName)
 	structTypeToDecoder[typeptr] = structDec
 	structName = typ.Name()
 	tags := typeToStructTags(typ)
@@ -332,16 +330,16 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 					// recursive definition
 					continue
 				}
-				for k, v := range stDec.fieldMap {
-					if tags.ExistsKey(k) {
+				for _, v := range stDec.fields {
+					if tags.ExistsKey(v.key) {
 						continue
 					}
 					fieldSet := &structFieldSet{
 						dec:         v.dec,
 						offset:      field.Offset + v.offset,
 						isTaggedKey: v.isTaggedKey,
-						key:         k,
-						keyLen:      int64(len(k)),
+						key:         v.key,
+						keyLen:      int64(len(v.key)),
 					}
 					allFields = append(allFields, fieldSet)
 				}
@@ -359,16 +357,16 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 					)
 				}
 				if dec, ok := contentDec.(*structDecoder); ok {
-					for k, v := range dec.fieldMap {
-						if tags.ExistsKey(k) {
+					for _, v := range dec.fields {
+						if tags.ExistsKey(v.key) {
 							continue
 						}
 						fieldSet := &structFieldSet{
 							dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
 							offset:      field.Offset,
 							isTaggedKey: v.isTaggedKey,
-							key:         k,
-							keyLen:      int64(len(k)),
+							key:         v.key,
+							keyLen:      int64(len(v.key)),
 							err:         fieldSetErr,
 						}
 						allFields = append(allFields, fieldSet)
@@ -413,16 +411,20 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 			allFields = append(allFields, fieldSet)
 		}
 	}
+	// A key which remains more than once is the one of the last field, as it was when the fields were kept
+	// in a map, at the place of the first.
+	fields := []*structFieldSet{}
+	indexByKey := map[string]int{}
 	for _, set := range filterDuplicatedFields(allFields) {
-		fieldMap[set.key] = set
-		lower := strings.ToLower(set.key)
-		if _, exists := fieldMap[lower]; !exists {
-			// first win
-			fieldMap[lower] = set
+		if i, exists := indexByKey[set.key]; exists {
+			fields[i] = set
+			continue
 		}
+		indexByKey[set.key] = len(fields)
+		fields = append(fields, set)
 	}
+	structDec.setFields(fields)
 	delete(structTypeToDecoder, typeptr)
-	structDec.tryOptimize()
 	return structDec, nil
 }
 

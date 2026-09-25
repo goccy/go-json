@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -15,13 +16,22 @@ type unmarshalJSONDecoder struct {
 	typ        reflect.Type
 	structName string
 	fieldName  string
+	// retainsNothing is set for a type whose UnmarshalJSON keeps nothing of the bytes it is given, which are then
+	// the ones of the buffer. The bytes of any other type are copied: its UnmarshalJSON may keep them, and the
+	// buffer is written again by the next call.
+	retainsNothing bool
 }
+
+// timePtrType is the type of *time.Time, whose UnmarshalJSON parses the bytes it is given and keeps nothing of
+// them. The decoder is made for the pointer type, whose method set has UnmarshalJSON.
+var timePtrType = reflect.TypeOf(&time.Time{})
 
 func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
-		typ:        typ,
-		structName: structName,
-		fieldName:  fieldName,
+		typ:            typ,
+		structName:     structName,
+		fieldName:      fieldName,
+		retainsNothing: typ == timePtrType,
 	}
 }
 
@@ -43,9 +53,10 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	if err != nil {
 		return 0, err
 	}
-	src := buf[start:end]
-	dst := make([]byte, len(src))
-	copy(dst, src)
+	dst := buf[start:end:end]
+	if !d.retainsNothing {
+		dst = append([]byte(nil), dst...)
+	}
 
 	v := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: runtime.TypePtr(d.typ),

@@ -77,6 +77,11 @@ func (d *floatDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, erro
 
 func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
+	cursor = skipWhiteSpace(buf, cursor)
+	if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] {
+		d.op(p, f)
+		return next, nil
+	}
 	bytes, c, err := d.decodeByte(buf, cursor)
 	if err != nil {
 		return 0, err

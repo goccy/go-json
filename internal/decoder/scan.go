@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"unsafe"
 
@@ -27,9 +28,11 @@ func NewInput(data []byte) []byte {
 	return buf
 }
 
-// load64 returns the eight bytes at pos as a little-endian word.
+// load64 returns the eight bytes at pos as a little-endian word, whatever the byte order of the machine:
+// the masks made from a word give the position of a byte by the count of the trailing zeros.
+// It compiles to a single load on a little-endian machine.
 func load64(buf []byte, pos int64) uint64 {
-	return *(*uint64)(unsafe.Add((*sliceHeader)(unsafe.Pointer(&buf)).data, pos))
+	return binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add((*sliceHeader)(unsafe.Pointer(&buf)).data, pos))[:])
 }
 
 // byteMask returns the word whose byte is 0x80 where the byte of w is c, and 0 elsewhere.
@@ -52,7 +55,7 @@ type scanMasks struct {
 func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
 	var quote, backslash, open, closing uint64
 	for i := 0; i < scanBlockSize/8; i++ {
-		w := *(*uint64)(unsafe.Add(p, i*8))
+		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i*8))[:])
 		folded := w &^ bit5
 		shift := uint(i * 8)
 		quote |= gatherMask(byteMask(w, '"')) << shift

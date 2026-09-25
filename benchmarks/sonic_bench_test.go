@@ -36,13 +36,10 @@ package benchmark
 
 import (
 	stdjson "encoding/json"
-	"os"
 	"reflect"
-	"strconv"
 	"testing"
 
 	"github.com/bytedance/sonic"
-	"github.com/bytedance/sonic/option"
 	gojson "github.com/goccy/go-json"
 )
 
@@ -61,13 +58,7 @@ func init() {
 	if err := stdjson.Unmarshal([]byte(TwitterJson), &twitterBinding); err != nil {
 		panic(err)
 	}
-	opts := []option.CompileOption{option.WithCompileRecursiveDepth(10)}
-	if depth, err := strconv.Atoi(os.Getenv("SONIC_MAX_INLINE_DEPTH")); err == nil {
-		opts = append(opts, option.WithCompileMaxInlineDepth(depth))
-	}
-	if err := sonic.Pretouch(reflect.TypeOf(&twitterBinding), opts...); err != nil {
-		panic(err)
-	}
+	sonicTypes = append(sonicTypes, reflect.TypeOf(&twitterBinding))
 }
 
 func benchTwitter(b *testing.B, marshal func() ([]byte, error)) {
@@ -101,10 +92,12 @@ func benchTwitterParallel(b *testing.B, marshal func() ([]byte, error)) {
 }
 
 func Benchmark_TwitterGeneric_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchTwitter(b, func() ([]byte, error) { return sonicTwitter.Marshal(twitterGeneric) })
 }
 
 func Benchmark_TwitterGeneric_SonicFast(b *testing.B) {
+	pretouchSonic()
 	benchTwitter(b, func() ([]byte, error) { return sonicTwitterFast.Marshal(twitterGeneric) })
 }
 
@@ -125,10 +118,12 @@ func Benchmark_TwitterGeneric_GoJsonLikeSonicFast(b *testing.B) {
 }
 
 func Benchmark_TwitterBinding_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchTwitter(b, func() ([]byte, error) { return sonicTwitter.Marshal(&twitterBinding) })
 }
 
 func Benchmark_TwitterBinding_SonicFast(b *testing.B) {
+	pretouchSonic()
 	benchTwitter(b, func() ([]byte, error) { return sonicTwitterFast.Marshal(&twitterBinding) })
 }
 
@@ -149,10 +144,12 @@ func Benchmark_TwitterBinding_GoJsonLikeSonicFast(b *testing.B) {
 }
 
 func Benchmark_TwitterParallelGeneric_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchTwitterParallel(b, func() ([]byte, error) { return sonicTwitter.Marshal(twitterGeneric) })
 }
 
 func Benchmark_TwitterParallelGeneric_SonicFast(b *testing.B) {
+	pretouchSonic()
 	benchTwitterParallel(b, func() ([]byte, error) { return sonicTwitterFast.Marshal(twitterGeneric) })
 }
 
@@ -169,10 +166,12 @@ func Benchmark_TwitterParallelGeneric_GoJsonLikeSonicFast(b *testing.B) {
 }
 
 func Benchmark_TwitterParallelBinding_Sonic(b *testing.B) {
+	pretouchSonic()
 	benchTwitterParallel(b, func() ([]byte, error) { return sonicTwitter.Marshal(&twitterBinding) })
 }
 
 func Benchmark_TwitterParallelBinding_SonicFast(b *testing.B) {
+	pretouchSonic()
 	benchTwitterParallel(b, func() ([]byte, error) { return sonicTwitterFast.Marshal(&twitterBinding) })
 }
 

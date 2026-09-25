@@ -26,3 +26,11 @@ func scanBytesSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (bool, bool)
 	}
 	return scanStringNEON(src, n, tables) != 0, true
 }
+
+// hasEscapeLoop is false: the loop of the escapes by SIMD is of amd64 only ( see string_scan_amd64.go ).
+const hasEscapeLoop = false
+
+// appendEscapedSIMD appends nothing: it is never called on this architecture.
+func appendEscapedSIMD(buf []byte, _ string, _ *nibbleTables) ([]byte, int) {
+	return buf, 0
+}

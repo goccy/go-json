@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"math/bits"
 	"reflect"
 	"sync"
 	"unsafe"
@@ -17,8 +18,11 @@ type RuntimeContext struct {
 	// before the next value is decoded, and puts its own value into it only at its end.
 	slot any
 	// anyStack holds the elements of the arrays being decoded into []interface{}: an array pushes
-	// its elements above the ones of the arrays it is nested in, and pops them at its end.
+	// its elements above the ones of the arrays it is nested in, and pops them at its end. The objects
+	// being decoded into new maps of map[string]interface{} push their values there too, and their keys to
+	// keyStack, so that a map is made of the size of its object ( see decodeNewStringAnyMap ).
 	anyStack []any
+	keyStack []string
 	// floats and strings are the slabs in which the numbers and the strings decoded into interface{}
 	// are kept, so that an interface value refers to them without an allocation of its own.
 	// A slot of a slab is never written again once an interface value refers to it.
@@ -105,12 +109,17 @@ const (
 	maxArenaStringSize = 512
 )
 
+// inputPadding is the number of the bytes the buffer of the input has after its nul byte, which the decoders
+// may read: the words of an object key are read from any byte of the buffer ( see structDecoder.Decode ).
+const inputPadding = 16
+
 // SetInput copies data to the buffer of the context, followed by a nul byte which ends every scan,
 // and makes it the buffer to decode.
 func (ctx *RuntimeContext) SetInput(data []byte) []byte {
 	n := len(data) + 1
-	if cap(ctx.input) < n {
-		ctx.input = make([]byte, n)
+	if cap(ctx.input) < n+inputPadding {
+		// at least a cache line, which the buffer of another context doesn't share: it is written for every call.
+		ctx.input = make([]byte, n, max(n+inputPadding, cacheLineSize))
 	}
 	buf := ctx.input[:n]
 	copy(buf, data)
@@ -214,13 +223,32 @@ func (ctx *RuntimeContext) popAny(base int) {
 	ctx.anyStack = ctx.anyStack[:base]
 }
 
+// popKeys removes the keys of keyStack from base, clearing them so that the stack keeps nothing alive.
+func (ctx *RuntimeContext) popKeys(base int) {
+	clear(ctx.keyStack[base:])
+	ctx.keyStack = ctx.keyStack[:base]
+}
+
+// cacheLineSize is the size of the cache lines the contexts are kept apart by: 128 bytes, which is the line of
+// the Apple M processors and two lines of amd64, whose adjacent lines are fetched together.
+const cacheLineSize = 128
+
+// pooledContext is a context of the pool with its option, in one allocation which fills its cache lines: the
+// contexts of the goroutines which decode at the same time are written for every call, so a context which
+// shared a cache line with another made each goroutine wait for the other.
+type pooledContext struct {
+	ctx RuntimeContext
+	opt Option
+	_   [cacheLineSize - (unsafe.Sizeof(RuntimeContext{})+unsafe.Sizeof(Option{}))%cacheLineSize]byte
+}
+
 var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
-			return &RuntimeContext{
-				Option:         &Option{},
-				recentDecoders: &[recentDecoderSets]recentDecoderSet{},
-			}
+			c := &pooledContext{}
+			c.ctx.Option = &c.opt
+			c.ctx.recentDecoders = &[recentDecoderSets]recentDecoderSet{}
+			return &c.ctx
 		},
 	}
 )
@@ -235,6 +263,7 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	ctx.origin = nil
 	ctx.slot = nil
 	ctx.popAny(0)
+	ctx.popKeys(0)
 	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
 	// the input of a previous call alive. The slab of floats refers to nothing and is kept.
 	ctx.strings = nil
@@ -261,6 +290,54 @@ func skipWhiteSpace(buf []byte, cursor int64) int64 {
 		cursor++
 	}
 	return cursor
+}
+
+// skipStringDecoder scans the strings which skipValue skips.
+var skipStringDecoder = newStringDecoder("", "")
+
+// skipString returns the position after the string at cursor. A string without an escape is skipped word by
+// word up to its quote, where the buffer has room for the words ( the nul byte at its end stops them ), and, where the CPU has a SIMD scan, for its
+// first 64 bytes, after which the rest of a long string is scanned by SIMD ( see scanStringRest ). Any other
+// string is scanned as a string is decoded, and validated so. It is a function of its own, so that the code of
+// skipValue for the other values is the same whatever a string takes.
+func skipString(buf []byte, cursor int64) (int64, error) {
+	start := cursor + 1
+	wordsEnd := int64(len(buf))
+	if hasStringSIMD {
+		wordsEnd = min(wordsEnd, start+64)
+	}
+	c := start
+	for ; c+8 <= wordsEnd; c += 8 {
+		if special := keyEndBytes(load64(buf, c)); special != 0 {
+			c += int64(bits.TrailingZeros64(special) / 8)
+			if buf[c] == '"' {
+				return c + 1, nil
+			}
+			// an escape or a byte which is not valid in a string
+			return skipStringByScan(buf, cursor)
+		}
+	}
+	if c+8 > int64(len(buf)) {
+		// the end of the buffer, whose last bytes are scanned as a string
+		return skipStringByScan(buf, cursor)
+	}
+	_, next, _, err := skipStringDecoder.scanStringRest(buf, buf[start:c], c, stringInfo{firstEscape: -1})
+	if err != nil {
+		return 0, err
+	}
+	return next, nil
+}
+
+// skipStringByScan is skipString for any string, which it scans as a string is decoded.
+func skipStringByScan(buf []byte, cursor int64) (int64, error) {
+	literal, next, info, err := skipStringDecoder.scanString(buf, cursor)
+	if next < 0 {
+		_, next, _, err = skipStringDecoder.scanStringRest(buf, literal, -next-1, info)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return next, nil
 }
 
 func skipValue(buf []byte, cursor, depth int64) (int64, error) {
@@ -291,20 +368,7 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			}
 			return end, nil
 		case '"':
-			for {
-				cursor++
-				switch buf[cursor] {
-				case '\\':
-					cursor++
-					if buf[cursor] == nul {
-						return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-					}
-				case '"':
-					return cursor + 1, nil
-				case nul:
-					return 0, errors.ErrUnexpectedEndOfJSON("string of object", cursor)
-				}
-			}
+			return skipString(buf, cursor)
 		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			for {
 				cursor++

@@ -42,16 +42,15 @@ func unmarshal(data []byte, v any, optFuncs ...DecodeOptionFunc) error {
 		optFunc(ctx.Option)
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, header.ptr)
-	if err != nil {
-		ctx.DiscardTypeError()
-		decoder.ReleaseRuntimeContext(ctx)
-		return err
+	if err == nil {
+		// src is the buffer of the context: it is validated before the context is released
+		err = validateEndBuf(src, cursor)
 	}
-	if ctx.HasTypeError() {
-		return endWithTypeError(ctx, header.typ, src, cursor)
+	if err != nil || ctx.HasTypeError() {
+		return endWithError(ctx, header.typ, err)
 	}
 	decoder.ReleaseRuntimeContext(ctx)
-	return validateEndBuf(src, cursor)
+	return nil
 }
 
 func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...DecodeOptionFunc) error {
@@ -74,16 +73,15 @@ func unmarshalContext(ctx context.Context, data []byte, v any, optFuncs ...Decod
 		optFunc(rctx.Option)
 	}
 	cursor, err := dec.Decode(rctx, 0, 0, header.ptr)
-	if err != nil {
-		rctx.DiscardTypeError()
-		decoder.ReleaseRuntimeContext(rctx)
-		return err
+	if err == nil {
+		// src is the buffer of the context: it is validated before the context is released
+		err = validateEndBuf(src, cursor)
 	}
-	if rctx.HasTypeError() {
-		return endWithTypeError(rctx, header.typ, src, cursor)
+	if err != nil || rctx.HasTypeError() {
+		return endWithError(rctx, header.typ, err)
 	}
 	decoder.ReleaseRuntimeContext(rctx)
-	return validateEndBuf(src, cursor)
+	return nil
 }
 
 var (
@@ -116,14 +114,13 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	return paths, nil
 }
 
-// endWithTypeError releases the context of a decoding of src up to cursor into a value of the pointer type typ,
-// which has a type error, and returns the error: a syntax error after the value, or else the type error, which is
-// returned only when the whole input is valid, as encoding/json does. It takes the decoder of typ again, so that
-// the functions which decode keep nothing more across their call of it: a type error is rare.
+// endWithError releases the context of a decoding into a value of the pointer type typ, which failed with err or
+// else has a type error, and returns the error: the type error is returned only when the whole input is valid, as
+// encoding/json does. It takes the decoder of typ again, so that the functions which decode keep nothing more
+// across their call of it: an error is rare.
 //
 //go:noinline
-func endWithTypeError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, src []byte, cursor int64) error {
-	err := validateEndBuf(src, cursor)
+func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) error {
 	if err == nil {
 		var dec decoder.Decoder
 		if dec, err = ctx.DecoderOf(typ); err == nil {
@@ -135,7 +132,16 @@ func endWithTypeError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, src []byt
 	return err
 }
 
+// validateEndBuf returns the syntax error of what follows the value, which ends at cursor, in src: only white
+// spaces may follow it. The value is most often at the end of src, which is checked without a call.
 func validateEndBuf(src []byte, cursor int64) error {
+	if src[cursor] == nul {
+		return nil
+	}
+	return validateEndBufRest(src, cursor)
+}
+
+func validateEndBufRest(src []byte, cursor int64) error {
 	for {
 		switch src[cursor] {
 		case ' ', '\t', '\n', '\r':

@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -4130,4 +4131,28 @@ func TestIssue429(t *testing.T) {
 			t.Errorf("unexpected success")
 		}
 	}
+}
+
+func TestUnmarshalEndOfInputConcurrently(t *testing.T) {
+	// The end of the input is validated in the buffer of the context before the context is reused by another call.
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < 2000; i++ {
+				var v int
+				if g%2 == 0 {
+					if err := json.Unmarshal([]byte(`1`), &v); err != nil {
+						t.Errorf("valid input: %v", err)
+						return
+					}
+				} else if err := json.Unmarshal([]byte(`1 x`), &v); err == nil {
+					t.Error("invalid input: no error")
+					return
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
 }

@@ -208,13 +208,7 @@ func (d *Decoder) DecodeWithOption(v any, optFuncs ...DecodeOptionFunc) error {
 	for _, optFunc := range optFuncs {
 		optFunc(s.Option)
 	}
-	if err := s.Decode(dec, header.ptr); err != nil {
-		if err == decoder.ErrValueTypeError {
-			return s.TypeError(header.typ)
-		}
-		return err
-	}
-	return nil
+	return s.Decode(dec, header.typ, header.ptr)
 }
 
 func (d *Decoder) More() bool {

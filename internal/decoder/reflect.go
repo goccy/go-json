@@ -33,7 +33,7 @@ func newValue(typ reflect.Type) unsafe.Pointer {
 // every value it decodes, as the one of a pointer does. For the kinds of the basic types it is new of the basic
 // type of the kind, whose layout, pointers included, is the one of typ whatever its name; for time.Time, it is
 // new of it. They cost less than reflect.New, which looks up the pointer type of typ at every call. It is nil
-// for any other type, which the decoder allocates by newValue directly, without the call of a function value.
+// for any other type, whose pointer is decoded by ptrDecoder, which allocates by newValue ( see basicPtrDecoder ).
 func allocatorOf(typ reflect.Type) func() unsafe.Pointer {
 	if typ == reflect.TypeOf(time.Time{}) {
 		return func() unsafe.Pointer { return unsafe.Pointer(new(time.Time)) }

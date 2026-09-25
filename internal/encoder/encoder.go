@@ -32,6 +32,8 @@ func (t OpType) IsMultipleOpField() bool {
 		return true
 	case OpStructFieldOmitEmpty:
 		return true
+	case OpStructFieldOmitZero:
+		return true
 	case OpStructFieldOmitEmptySlice:
 		return true
 	case OpStructFieldOmitEmptyArray:

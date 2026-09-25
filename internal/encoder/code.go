@@ -727,9 +727,10 @@ type StructFieldCode struct {
 }
 
 // runKind returns the kind of the field if it is one which has the opcodes of a run ( fieldRunOps ): a field of
-// int, uint, float64, string or bool, not a pointer, without omitempty or the string option, and not embedded.
+// int, uint, float64, string or bool, not a pointer, without omitempty, omitzero or the string option, and not
+// embedded.
 func (c *StructFieldCode) runKind() (CodeKind, bool) {
-	if c.isAnonymous || c.tag.IsOmitEmpty || c.tag.IsString {
+	if c.isAnonymous || c.tag.IsOmitEmpty || c.tag.IsOmitZero || c.tag.IsString {
 		return 0, false
 	}
 	switch value := c.value.(type) {
@@ -820,7 +821,22 @@ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
 	value := valueCodes.First()
 	var op OpType
-	if c.isLongKey(field) {
+	if c.tag.IsOmitZero {
+		// the generic field opcode with a zero check, whichever the kind of the value is: like the other
+		// generic ones, it gives the opcode of the value the address of the field, so a map is followed
+		// from the address.
+		op = OpStructFieldOmitZero
+		if c.tag.IsString {
+			value.Op = value.Op.ToStringOp()
+		}
+		switch value.Op {
+		case OpMap:
+			value.Op = OpMapPtr
+			value.PtrNum = 1
+		case OpMapPtr:
+			value.PtrNum++
+		}
+	} else if c.isLongKey(field) {
 		op = OpStructField
 		if c.tag.IsOmitEmpty {
 			op = OpStructFieldOmitEmpty
@@ -1040,7 +1056,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	valueCodes := c.toValueOpcodes(ctx)
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
-		if isEnableStructEndOptimization(c.value) && !c.isLongKey(field) {
+		if isEnableStructEndOptimization(c.value) && !c.isLongKey(field) && !c.tag.IsOmitZero {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)

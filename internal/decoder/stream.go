@@ -287,8 +287,7 @@ func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 
 // Decode decodes the next value of the stream into p, of the pointer type typ, by dec.
 func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error {
-	// the end of the previous value, which the offset of a type error may be relative to ( see StreamOffsetBase )
-	s.prevEnd = s.offset + s.cursor
+	s.markPrevEnd()
 	if err := s.prepare(); err != nil {
 		return err
 	}

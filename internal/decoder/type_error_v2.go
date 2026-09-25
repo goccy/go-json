@@ -253,3 +253,7 @@ func isHex(b []byte) bool {
 	}
 	return true
 }
+
+// markPrevEnd keeps nothing: the offsets of the type errors of a value of a stream are relative to the value
+// ( see StreamOffsetBase ).
+func (s *Stream) markPrevEnd() {}

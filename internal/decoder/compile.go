@@ -146,7 +146,7 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		switch t := dec.(type) {
 		case *stringDecoder, *interfaceDecoder:
 			return dec, nil
-		case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *numberDecoder:
+		case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
 			d := newWrappedStringDecoder(typ, dec, structName, fieldName)
 			d.isMapKey = true
 			return d, nil
@@ -233,7 +233,7 @@ func compileFloat32(typ reflect.Type, structName, fieldName string) (Decoder, er
 		*(*float32)(p) = float32(v)
 	})
 	d.typ, d.is32 = typ, true
-	return d, nil
+	return &float32Decoder{floatDecoder: *d}, nil
 }
 
 func compileFloat64(typ reflect.Type, structName, fieldName string) (Decoder, error) {

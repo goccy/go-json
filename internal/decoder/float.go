@@ -93,10 +93,22 @@ func (d *floatDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
 	if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] {
-		if d.is32 && overflowsFloat32(f) {
-			ctx.numberTypeError(cursor, next, d.typ)
-			return next, nil
-		}
+		d.op(p, f)
+		return next, nil
+	}
+	return d.decodeSlow(ctx, cursor, depth, p)
+}
+
+// float32Decoder is the decoder of a float32, whose range is checked: a number out of it is a type error. It is a
+// type of its own, so that the decoder of a float64 checks nothing more.
+type float32Decoder struct {
+	floatDecoder
+}
+
+func (d *float32Decoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	cursor = skipWhiteSpace(buf, cursor)
+	if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] && !overflowsFloat32(f) {
 		d.op(p, f)
 		return next, nil
 	}

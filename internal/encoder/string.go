@@ -333,7 +333,7 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 		switch state {
 		case runeErrorState:
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\ufffd`...)
+			buf = append(buf, invalidUTF8...)
 			i = j + 1
 			j = j + 1
 			continue
@@ -464,7 +464,7 @@ func appendNormalizedString(buf []byte, s string) []byte {
 		switch state {
 		case runeErrorState:
 			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\ufffd`...)
+			buf = append(buf, invalidUTF8...)
 			i = j + 1
 			j = j + 1
 			continue

@@ -82,6 +82,7 @@ func TestEncodeMapInterfaceKeys(t *testing.T) {
 		value any
 	}{
 		{"string", map[any]any{"x": 1}},
+		{"invalid UTF-8 string", map[any]any{"a\xffb": 1, "\xe3\x81": 2, "<\u2028": 3}},
 		{"named string", map[any]any{ifaceKeyName("n"): 1}},
 		{"int", map[any]any{1: "a"}},
 		{"int kinds", map[any]any{int8(-8): 1, int16(-16): 2, int32(-32): 3, int64(math.MinInt64): 4, ifaceKeyInt(5): 5}},

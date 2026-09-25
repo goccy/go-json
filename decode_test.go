@@ -1717,15 +1717,16 @@ func noSpace(c rune) rune {
 	return c
 }
 
-var badUTF8 = []struct {
-	in, out string
-}{
-	{"hello\xffworld", `"hello\ufffdworld"`},
-	{"", `""`},
-	{"\xff", `"\ufffd"`},
-	{"\xff\xff", `"\ufffd\ufffd"`},
-	{"a\xffb", `"a\ufffdb"`},
-	{"\xe6\x97\xa5\xe6\x9c\xac\xff\xaa\x9e", `"日本\ufffd\ufffd\ufffd"`},
+// badUTF8 are strings which are not valid UTF-8. Every byte of an invalid sequence is replaced by U+FFFD, which
+// encoding/json writes escaped before Go 1.27 and as it is by Go 1.27: they are encoded as encoding/json of the
+// running Go does.
+var badUTF8 = []string{
+	"hello\xffworld",
+	"",
+	"\xff",
+	"\xff\xff",
+	"a\xffb",
+	"\xe6\x97\xa5\xe6\x9c\xac\xff\xaa\x9e",
 }
 
 func TestMarshalAllValue(t *testing.T) {
@@ -1751,10 +1752,14 @@ func TestMarshalAllValue(t *testing.T) {
 }
 
 func TestMarshalBadUTF8(t *testing.T) {
-	for _, tt := range badUTF8 {
-		b, err := json.Marshal(tt.in)
-		if string(b) != tt.out || err != nil {
-			t.Errorf("Marshal(%q) = %#q, %v, want %#q, nil", tt.in, b, err, tt.out)
+	for _, in := range badUTF8 {
+		want, err := stdjson.Marshal(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := json.Marshal(in)
+		if string(b) != string(want) || err != nil {
+			t.Errorf("Marshal(%q) = %#q, %v, want %#q, nil", in, b, err, want)
 		}
 	}
 }

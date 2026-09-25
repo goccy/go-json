@@ -7,8 +7,10 @@ import (
 )
 
 type ptrDecoder struct {
-	dec        Decoder
-	typ        reflect.Type
+	dec Decoder
+	typ reflect.Type
+	// alloc allocates the value a nil pointer is set to, or is nil if newValue does ( see allocatorOf ).
+	alloc      func() unsafe.Pointer
 	structName string
 	fieldName  string
 }
@@ -17,6 +19,7 @@ func newPtrDecoder(dec Decoder, typ reflect.Type, structName, fieldName string) 
 	return &ptrDecoder{
 		dec:        dec,
 		typ:        typ,
+		alloc:      allocatorOf(typ),
 		structName: structName,
 		fieldName:  fieldName,
 	}
@@ -45,7 +48,11 @@ func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	}
 	var newptr unsafe.Pointer
 	if *(*unsafe.Pointer)(p) == nil {
-		newptr = newValue(d.typ)
+		if d.alloc != nil {
+			newptr = d.alloc()
+		} else {
+			newptr = newValue(d.typ)
+		}
 		*(*unsafe.Pointer)(p) = newptr
 	} else {
 		newptr = *(*unsafe.Pointer)(p)

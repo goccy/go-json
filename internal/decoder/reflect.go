@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
@@ -26,6 +27,54 @@ func ptrTypeOf(typ reflect.Type) unsafe.Pointer {
 // newValue allocates a zero value of typ.
 func newValue(typ reflect.Type) unsafe.Pointer {
 	return reflect.New(typ).UnsafePointer()
+}
+
+// allocatorOf returns the function which allocates a zero value of typ, for a decoder which allocates one for
+// every value it decodes, as the one of a pointer does. For the kinds of the basic types it is new of the basic
+// type of the kind, whose layout, pointers included, is the one of typ whatever its name; for time.Time, it is
+// new of it. They cost less than reflect.New, which looks up the pointer type of typ at every call. It is nil
+// for any other type, which the decoder allocates by newValue directly, without the call of a function value.
+func allocatorOf(typ reflect.Type) func() unsafe.Pointer {
+	if typ == reflect.TypeOf(time.Time{}) {
+		return func() unsafe.Pointer { return unsafe.Pointer(new(time.Time)) }
+	}
+	switch typ.Kind() {
+	case reflect.Bool:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(bool)) }
+	case reflect.Int:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(int)) }
+	case reflect.Int8:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(int8)) }
+	case reflect.Int16:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(int16)) }
+	case reflect.Int32:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(int32)) }
+	case reflect.Int64:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(int64)) }
+	case reflect.Uint:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uint)) }
+	case reflect.Uint8:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uint8)) }
+	case reflect.Uint16:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uint16)) }
+	case reflect.Uint32:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uint32)) }
+	case reflect.Uint64:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uint64)) }
+	case reflect.Uintptr:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(uintptr)) }
+	case reflect.Float32:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(float32)) }
+	case reflect.Float64:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(float64)) }
+	case reflect.Complex64:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(complex64)) }
+	case reflect.Complex128:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(complex128)) }
+	case reflect.String:
+		return func() unsafe.Pointer { return unsafe.Pointer(new(string)) }
+	}
+	return nil
 }
 
 // zeroBase is the address of the data of an empty slice which is not nil.

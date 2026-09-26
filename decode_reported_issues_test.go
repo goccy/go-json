@@ -482,6 +482,14 @@ func TestUnmarshalMethodErrors(t *testing.T) {
 	checkUnmarshal(t, `{"N":1,"E":2}`, func() any { return new(stdTypeError) })
 }
 
+func TestTypeErrorPathOfKeys(t *testing.T) {
+	// The path of a type error has the keys of the input, which Go 1.27 escapes as the tokens of a JSON pointer.
+	for _, doc := range []string{`{"a/b":"x"}`, `{"a~b":"x"}`, `{"a.b":"x"}`, `{"~1/":{"c":"x"}}`} {
+		checkUnmarshal(t, doc, func() any { return new(map[string]int) })
+		checkUnmarshal(t, doc, func() any { return new(map[string]map[string]int) })
+	}
+}
+
 func TestNulAfterValue(t *testing.T) {
 	// A nul byte in the input is a byte which the grammar doesn't have: after a value, it is a syntax error.
 	for _, doc := range []string{"123\x00", "{\"a\":1}\x00", "\"s\" \x00", "[1]\x00 ", "true\x00", "1 \x00 2"} {

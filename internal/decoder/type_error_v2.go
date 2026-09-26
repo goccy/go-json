@@ -17,6 +17,9 @@ import (
 // Offset is after the value, or after the key of a map entry. Struct is the name of the root type, and Field the
 // path from it to the value: the names of the fields, the indices of the elements and the keys of the entries.
 // An error at the root has neither.
+// jsonPointerEscaper escapes a token of a JSON pointer ( RFC 6901 ).
+var jsonPointerEscaper = strings.NewReplacer("~", "~0", "/", "~1")
+
 func newTypeError(p *pendingTypeError, path []typeErrorStep, root reflect.Type) *errors.UnmarshalTypeError {
 	e := &errors.UnmarshalTypeError{Value: p.value, Type: p.typ, Offset: p.end, Err: p.err}
 	if !p.literal && (p.kind == arrayValue || p.kind == objectValue) {
@@ -38,6 +41,9 @@ func newTypeError(p *pendingTypeError, path []typeErrorStep, root reflect.Type) 
 				// the key of a field as the input has it
 				names[i] = step.inputName
 			}
+			// encoding/json of Go 1.27 makes the path of the tokens of the JSON pointer of the value, which are
+			// escaped as a JSON pointer escapes them
+			names[i] = jsonPointerEscaper.Replace(names[i])
 		}
 		e.Field = strings.Join(names, ".")
 	}

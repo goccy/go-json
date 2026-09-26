@@ -43,7 +43,7 @@ func (p *Path) UsedSingleQuotePathSelector() bool {
 	return p.path.SingleQuotePathSelector
 }
 
-// UsedSingleQuotePathSelector whether double quote-based escaping was done when building the JSON Path.
+// UsedDoubleQuotePathSelector whether double quote-based escaping was done when building the JSON Path.
 func (p *Path) UsedDoubleQuotePathSelector() bool {
 	return p.path.DoubleQuotePathSelector
 }

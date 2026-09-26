@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	json "github.com/goccy/go-json"
 )
@@ -356,6 +357,76 @@ func TestFuncFieldTypeError(t *testing.T) {
 	}
 	checkUnmarshal(t, `[true,null]`, func() any { return new([]func()) })
 	checkUnmarshal(t, `1`, func() any { return new(func()) })
+}
+
+func TestStringOptionJSONNumber(t *testing.T) {
+	// The bytes of the string of a json.Number of the string option are checked as encoding/json of the Go version
+	// checks them: before Go 1.27, any bytes which start as a number are stored as they are.
+	type number struct {
+		N json.Number `json:",string"`
+		A int
+	}
+	type stdNumber struct {
+		N stdjson.Number `json:",string"`
+		A int
+	}
+	check := func(doc string) {
+		t.Helper()
+		want, got := new(stdNumber), new(number)
+		wantErr := describeTypeError(stdjson.Unmarshal([]byte(doc), want))
+		gotErr := describeTypeError(json.Unmarshal([]byte(doc), got))
+		if gotErr != wantErr || string(got.N) != string(want.N) || got.A != want.A {
+			t.Errorf("%q:\n got %q %d %s\nwant %q %d %s", doc, got.N, got.A, gotErr, want.N, want.A, wantErr)
+		}
+	}
+	for _, s := range []string{
+		`1`, `-1.5e3`, `01`, `0x`, `1e`, `-`, `1.`, `1..2`, `--1`, `1 `, ` 1`, `+1`, `00`, `.5`, `12abc`, `1,2`, ``,
+		`true`, `false`, `null`, `nul`, `{}`, `\"1\"`, `\"x\"`, `\"1`, `\u0031`, `1\u0030`, ` null`, `\"1\" `,
+	} {
+		check(`{"N":"` + s + `","A":2}`)
+	}
+	for _, doc := range []string{`{"N":1,"A":2}`, `{"N":true,"A":2}`, `{"N":{},"A":2}`, `{"N":null,"A":2}`} {
+		check(doc)
+	}
+}
+
+func TestStringOptionWhiteSpace(t *testing.T) {
+	// The bytes of a string of the string option are a value with nothing around it: a white space is an error.
+	type fields struct {
+		B  bool    `json:",string"`
+		S  string  `json:",string"`
+		I  int     `json:",string"`
+		F  float64 `json:",string"`
+		PB *bool   `json:",string"`
+		U  uint8   `json:",string"`
+	}
+	for field, values := range map[string][]string{
+		"B":  {` true`, `true `, `\ttrue`, `true\n`, ` false `},
+		"S":  {` \"a\"`, `\"a\" `, ` \"a\" `},
+		"I":  {` 1`, `1 `, ` -1`},
+		"F":  {` 1.5`, `1.5 `},
+		"PB": {` true`, `true `},
+	} {
+		for _, value := range values {
+			checkUnmarshal(t, `{"`+field+`":"`+value+`","U":"7"}`, func() any { return new(fields) })
+		}
+	}
+}
+
+func TestTimeOfOtherKinds(t *testing.T) {
+	// A time.Time is decoded from a string: any other value is given to its UnmarshalJSON before Go 1.27, and is a
+	// type error by Go 1.27.
+	type times struct {
+		T time.Time
+		U int
+	}
+	for _, doc := range []string{
+		`{"T":1,"U":2}`, `{"T":true,"U":2}`, `{"T":{"a":[1]},"U":2}`, `{"T":[],"U":2}`, `{"T":null,"U":2}`,
+		`{"T":"2020-01-01T00:00:00Z","U":2}`, `{"T":-1.5e3,"U":2}`, `{"T":tru,"U":2}`,
+	} {
+		checkUnmarshal(t, doc, func() any { return new(times) })
+	}
+	checkUnmarshal(t, `1`, func() any { return new(time.Time) })
 }
 
 func TestNulAfterValue(t *testing.T) {

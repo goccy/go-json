@@ -82,8 +82,25 @@ func (ctx *RuntimeContext) stringOptionUnquoted(cursor, depth int64, typ reflect
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
+	if typ == jsonNumberType {
+		return ctx.numberKindError(cursor, depth, typ)
+	}
 	return ctx.skipTypeError(cursor, depth, typ)
 }
+
+// timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
+// of Go 1.27 reports it as a type error, after which the decoding goes on.
+const timeKindTypeErrors = true
+
+// stringOptionNumber reports whether the bytes of the string of a json.Number of the string option are stored as
+// they are: encoding/json of Go 1.27 stores a number by the grammar of the numbers, and nothing else.
+func stringOptionNumber(value []byte) bool {
+	return isValidNumber(value)
+}
+
+// stringOptionNumberDecoded is whether the bytes of the string of a json.Number of the string option, when they are
+// not a number, are decoded as a JSON value: encoding/json of Go 1.27 reports them as a type error.
+const stringOptionNumberDecoded = false
 
 // stringOptionError records the type error of the string between start and end of a field of the string option,
 // whose bytes are not a value of typ: encoding/json of Go 1.27 reports the bytes as a number for a number type,

@@ -101,6 +101,12 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 	case c == 'n', c == 't', c == 'f':
 		return save(invalidUse())
 	case c == '"':
+		if elem == jsonNumberType {
+			// a JSON string, whose bytes must be a number
+			if s, ok := unquoteBytes(value); ok && !isValidNumber(s) {
+				return 0, fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", value)
+			}
+		}
 		if elem.Kind() == reflect.String {
 			return 0, invalidUse()
 		}
@@ -124,6 +130,22 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 	}
 	return 0, invalidUse()
 }
+
+// timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
+// before Go 1.27 gives it to the UnmarshalJSON of time.Time, whose error stops the decoding.
+const timeKindTypeErrors = false
+
+// stringOptionNumber reports whether the bytes of the string of a json.Number of the string option are stored as
+// they are: encoding/json before Go 1.27 stores any bytes which start as a number does, without the grammar of the
+// numbers, and decodes any other ones as a JSON value ( see stringOptionNumberDecoded ).
+func stringOptionNumber(value []byte) bool {
+	return len(value) != 0 && (value[0] == '-' || value[0]-'0' <= 9)
+}
+
+// stringOptionNumberDecoded is whether the bytes of the string of a json.Number of the string option, when
+// stringOptionNumber doesn't store them, are decoded as a JSON value, a string of a number or null, as encoding/json
+// before Go 1.27 decodes them.
+const stringOptionNumberDecoded = true
 
 // stringOptionUnquotedAllocates is whether a nil pointer of a field of the string option is set to a zero value
 // when the value of the field is not in a string: encoding/json before Go 1.27 leaves it.

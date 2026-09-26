@@ -26,6 +26,9 @@ type unmarshalJSONDecoder struct {
 // them. The decoder is made for the pointer type, whose method set has UnmarshalJSON.
 var timePtrType = reflect.TypeOf(&time.Time{})
 
+// timeType is the type of time.Time.
+var timeType = timePtrType.Elem()
+
 func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
 		typ:            typ,
@@ -48,6 +51,12 @@ func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
 func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
+	if timeKindTypeErrors && d.typ == timePtrType {
+		if c := buf[cursor]; c != '"' && c != 'n' {
+			// a time.Time is decoded from a string only: any other value is a type error
+			return ctx.skipTypeError(cursor, depth, timeType)
+		}
+	}
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)
 	if err != nil {

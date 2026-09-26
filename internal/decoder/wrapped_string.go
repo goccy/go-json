@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -30,6 +31,9 @@ type wrappedStringDecoder struct {
 	numberKind reflect.Kind
 	// numberType is the type of the number, which typ is or points to.
 	numberType reflect.Type
+	// isJSONNumber is set for a json.Number, or a pointer to one, whose bytes are checked as encoding/json of the Go
+	// version checks them ( see stringOptionNumber ).
+	isJSONNumber bool
 }
 
 func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldName string) *wrappedStringDecoder {
@@ -45,6 +49,7 @@ func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldNam
 	if numberType.Kind() == reflect.Pointer {
 		numberType = numberType.Elem()
 	}
+	d.isJSONNumber = numberType == jsonNumberType
 	switch numberType.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
@@ -81,10 +86,23 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		}
 		return c, nil
 	}
+	if d.isJSONNumber && !d.isMapKey {
+		if stringOptionNumber(bytes) {
+			*(*json.Number)(d.target(p)) = json.Number(ctx.makeString(bytes))
+			return c, nil
+		}
+		if !stringOptionNumberDecoded {
+			return d.stringError(ctx, start, c, bytes, p)
+		}
+	}
 	if d.numberKind != reflect.Invalid && len(bytes) > 0 {
 		if d.decodeNumber(bytes, p) {
 			return c, nil
 		}
+		return d.stringError(ctx, start, c, bytes, p)
+	}
+	if len(bytes) != 0 && (isWhiteSpace[bytes[0]] || isWhiteSpace[bytes[len(bytes)-1]]) {
+		// encoding/json reads the bytes of the string as a value with nothing around it
 		return d.stringError(ctx, start, c, bytes, p)
 	}
 	// The value is decoded from a copy of its bytes, which nothing else uses: its strings may refer to it. A type

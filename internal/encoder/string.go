@@ -101,9 +101,9 @@ var escapeSequences = func() [256]uint64 {
 		case '\t':
 			seq = `\t`
 		case '\b':
-			seq = `\b`
+			seq = backspaceEscape
 		case '\f':
-			seq = `\f`
+			seq = formFeedEscape
 		case '<', '>', '&':
 			seq = `\u00` + string([]byte{hex[c>>4], hex[c&0xF]})
 		default:

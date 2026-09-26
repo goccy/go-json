@@ -20,6 +20,9 @@ type mapDecoder struct {
 	isStringAnyMap bool
 	keyDecoder     Decoder
 	valueDecoder   Decoder
+	// keyUnsupported is set for a map whose keys encoding/json of the Go version doesn't decode ( see
+	// mapKeySupported ): an object is a type error.
+	keyUnsupported bool
 	structName     string
 	fieldName      string
 }
@@ -36,6 +39,7 @@ func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, v
 		valuePtrType:   ptrTypeOf(valueType),
 		isStringAnyMap: mapType == interfaceMapType && isIfaceValue,
 		valueDecoder:   valueDec,
+		keyUnsupported: !mapKeySupported(keyType, keyDec),
 		structName:     structName,
 		fieldName:      fieldName,
 	}
@@ -45,6 +49,64 @@ func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, v
 func (d *mapDecoder) mapValue(m unsafe.Pointer) reflect.Value {
 	// A map is a pointer in an interface value.
 	return reflect.ValueOf(*(*any)(unsafe.Pointer(&emptyInterface{typ: d.mapTypePtr, ptr: m})))
+}
+
+// decodeEntries decodes the entries of the object from cursor into the map, whose keys and values are decoded into
+// k and v, as Decode does, but the entries whose keys are of another type ( see errMapKeyType ), which are dropped.
+// If afterKey is set, cursor is after the key of such an entry, whose value is decoded first. It is a function of
+// its own, so that Decode keeps the size it had: such a key is rare.
+//
+//go:noinline
+func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, mapValue, k, v unsafe.Pointer, afterKey bool) (int64, error) {
+	buf := ctx.Buf
+	mv := d.mapValue(mapValue)
+	kv := valueAt(d.keyPtrType, k)
+	vv := valueAt(d.valuePtrType, v)
+	for {
+		drop := afterKey
+		if !afterKey {
+			keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
+			if err != nil && err != errMapKeyType {
+				return 0, err
+			}
+			drop = err != nil
+			cursor = keyCursor
+		}
+		afterKey = false
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] != ':' {
+			return 0, errors.ErrExpected("colon after object key", cursor)
+		}
+		valueCursor, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
+		if err != nil {
+			return 0, err
+		}
+		if !drop {
+			mv.SetMapIndex(kv, vv)
+		}
+		kv.SetZero()
+		vv.SetZero()
+		cursor = skipWhiteSpace(buf, valueCursor)
+		if buf[cursor] == '}' {
+			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
+			return cursor + 1, nil
+		}
+		if buf[cursor] != ',' {
+			return 0, errors.ErrExpected("comma after object value", cursor)
+		}
+		cursor++
+	}
+}
+
+// decodeOther skips the value at cursor, which is not an object: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *mapDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if isOtherValue(ctx.Buf[cursor], objectValue) {
+		return ctx.skipTypeError(cursor, depth, d.mapType)
+	}
+	return 0, errors.ErrExpected("{ character for map value", cursor)
 }
 
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -69,7 +131,10 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		return cursor, nil
 	case '{':
 	default:
-		return 0, errors.ErrExpected("{ character for map value", cursor)
+		return d.decodeOther(ctx, cursor, depth-1)
+	}
+	if d.keyUnsupported {
+		return ctx.unsupportedMapKeys(d, cursor, depth-1, p)
 	}
 	if d.isStringAnyMap {
 		m := *(*map[string]any)(p)
@@ -108,6 +173,10 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	for {
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
+			if err == errMapKeyType {
+				// a key of another type: the rest of the object is decoded by decodeEntries
+				return d.decodeEntries(ctx, keyCursor, depth, p, mapValue, k, v, true)
+			}
 			return 0, err
 		}
 		cursor = skipWhiteSpace(buf, keyCursor)

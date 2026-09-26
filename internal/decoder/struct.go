@@ -3,6 +3,7 @@ package decoder
 import (
 	"fmt"
 	"math/bits"
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -28,6 +29,12 @@ type structDecoder struct {
 	stringDecoder      *stringDecoder
 	structName         string
 	fieldName          string
+	// typ is the struct type, and typeName its name, which the type errors report.
+	typ      reflect.Type
+	typeName string
+	// embedded are the names of the embedded fields which the fields are promoted through, from the struct, which
+	// only the type errors report ( see typeErrorPath ).
+	embedded map[*structFieldSet][]string
 }
 
 func newStructDecoder(structName, fieldName string) *structDecoder {
@@ -74,7 +81,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		return cursor, nil
 	case '{':
 	default:
-		return 0, errors.ErrInvalidBeginningOfValue(char(b, cursor), cursor)
+		return d.decodeOther(ctx, cursor, depth-1)
 	}
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)
@@ -313,6 +320,17 @@ func (d *structDecoder) decodeKeyByScan(buf []byte, cursor int64, disallowUnknow
 		return nil, 0, unknownFieldError(key)
 	}
 	return field, next, nil
+}
+
+// decodeOther skips the value at cursor, which is not an object: a value of another kind is a type error, and
+// anything else a syntax error. It is a function of its own, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *structDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if c := ctx.Buf[cursor]; isOtherValue(c, objectValue) {
+		return ctx.skipTypeError(cursor, depth, d.typ)
+	}
+	return 0, errors.ErrInvalidBeginningOfValue(ctx.Buf[cursor], cursor)
 }
 
 func unknownFieldError(key []byte) error {

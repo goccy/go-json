@@ -1,5 +1,11 @@
 package decoder
 
+import (
+	"fmt"
+
+	"github.com/goccy/go-json/internal/errors"
+)
+
 // The numbers of the input are parsed in one pass: the digits are accumulated as they are read.
 
 // maxUint64Digits is the number of the digits which a uint64 holds whatever they are: 19 nines are less than 1<<64.
@@ -126,4 +132,50 @@ func parseFloatFast(buf []byte, cursor int64) (float64, int64, bool) {
 		f = -f
 	}
 	return f, cursor, true
+}
+
+// numberEnd returns the position after the number which starts at start, validated by the grammar of the JSON
+// numbers, which is followed by a byte which may end a value.
+func numberEnd(buf []byte, start int64) (int64, error) {
+	c := start
+	if buf[c] == '-' {
+		c++
+	}
+	switch {
+	case buf[c] == '0':
+		c++
+	case '1' <= buf[c] && buf[c] <= '9':
+		c = skipDigits(buf, c+1)
+	default:
+		return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in numeric literal", quoteChar(buf[c])), c+1)
+	}
+	if buf[c] == '.' {
+		c++
+		if buf[c]-'0' > 9 {
+			return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s after decimal point in numeric literal", quoteChar(buf[c])), c+1)
+		}
+		c = skipDigits(buf, c)
+	}
+	if buf[c] == 'e' || buf[c] == 'E' {
+		c++
+		if buf[c] == '+' || buf[c] == '-' {
+			c++
+		}
+		if buf[c]-'0' > 9 {
+			return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in exponent of numeric literal", quoteChar(buf[c])), c+1)
+		}
+		c = skipDigits(buf, c)
+	}
+	if !validEndNumberChar[buf[c]] {
+		return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s after top-level value", quoteChar(buf[c])), c+1)
+	}
+	return c, nil
+}
+
+// skipDigits returns the position of the first byte from c which is not a digit.
+func skipDigits(buf []byte, c int64) int64 {
+	for buf[c]-'0' <= 9 {
+		c++
+	}
+	return c
 }

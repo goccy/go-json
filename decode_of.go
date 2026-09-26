@@ -47,8 +47,12 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, p)
 	if err == nil {
-		err = validateEndBuf(src, cursor)
+		// a type error is returned only when the whole input is valid, as encoding/json does
+		if err = validateEndBuf(src, cursor); err == nil && ctx.HasTypeError() {
+			err = typeErrorOf(ctx, runtime.TypePtr(reflect.TypeOf((*T)(nil))))
+		}
 	}
+	ctx.DiscardTypeError()
 	// What was decoded before an error is stored too, as Unmarshal does.
 	*v = *(*T)(p)
 	// the pool must not keep what the value refers to alive.
@@ -56,4 +60,16 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 	*(*T)(p) = zero
 	decoder.ReleaseRuntimeContext(ctx)
 	return err
+}
+
+// typeErrorOf returns the type error of the decoding into a value of the pointer type typ. It takes the decoder of
+// typ again, so that UnmarshalOf keeps nothing more across its call of the decoder: a type error is rare.
+//
+//go:noinline
+func typeErrorOf(ctx *decoder.RuntimeContext, typ unsafe.Pointer) error {
+	dec, err := ctx.DecoderOf(typ)
+	if err != nil {
+		return err
+	}
+	return ctx.TypeError(dec, runtime.TypeOfPtr(typ), 0, 0)
 }

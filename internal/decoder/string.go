@@ -15,12 +15,15 @@ import (
 type stringDecoder struct {
 	structName string
 	fieldName  string
+	// typ is the type of the string, which the type errors report.
+	typ reflect.Type
 }
 
 func newStringDecoder(structName, fieldName string) *stringDecoder {
 	return &stringDecoder{
 		structName: structName,
 		fieldName:  fieldName,
+		typ:        reflect.TypeOf(""),
 	}
 }
 
@@ -35,7 +38,7 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.
 }
 
 func (d *stringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	s, c, ok, err := d.decodeString(ctx, cursor)
+	s, c, ok, err := d.decodeStringValue(ctx, cursor)
 	if err != nil {
 		return 0, err
 	}
@@ -115,6 +118,57 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 		literal = coerceUTF8(literal)
 	}
 	return literal
+}
+
+// decodeStringValue is decodeString for the value of a string: a value of another kind is a type error, which is
+// recorded, and skipped ( see skipOtherValue ). It is a function of its own, so that the decoding of the other
+// strings, as the keys, is the one it was, and that Decode keeps nothing across its call.
+func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
+	literal, next, info, err := d.scanString(ctx.Buf, cursor)
+	if next < 0 {
+		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, -next-1, info)
+	}
+	if err != nil {
+		return d.skipOtherValue(ctx, err)
+	}
+	if literal == nil {
+		return "", next, false, nil
+	}
+	if info.firstEscape >= 0 && ctx.copiesStrings() && len(literal) <= maxArenaStringSize {
+		dst := ctx.reserveArena(len(literal))
+		n := unescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, info.firstEscape)
+		decoded := dst[:n]
+		if info.nonASCII && !utf8.Valid(decoded) {
+			return string(coerceUTF8(decoded)), next, true, nil
+		}
+		ctx.arena = ctx.arena[:len(ctx.arena)+n]
+		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
+	}
+	return ctx.makeString(decodeLiteral(literal, info), next-1), next, true, nil
+}
+
+// skipOtherValue returns the error of scanString for a value which is not a string, or, for a value of another
+// kind, which scanString reports by an error at its position, records its type error and skips it. The skipped
+// value is not nested in the ones before it: its depth is counted from 0.
+//
+//go:noinline
+func (d *stringDecoder) skipOtherValue(ctx *RuntimeContext, err error) (string, int64, bool, error) {
+	var cursor int64
+	switch e := err.(type) {
+	case *errors.UnmarshalTypeError:
+		// a number, an array or an object
+		cursor = e.Offset
+	case *errors.SyntaxError:
+		// true and false start no string
+		if c := ctx.Buf[e.Offset]; c != 't' && c != 'f' {
+			return "", 0, false, err
+		}
+		cursor = e.Offset
+	default:
+		return "", 0, false, err
+	}
+	next, err := ctx.skipTypeError(cursor, 0, d.typ)
+	return "", next, false, err
 }
 
 // decodeString returns the string at cursor as a value to store, and false for null.

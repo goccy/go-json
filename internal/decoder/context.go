@@ -46,6 +46,9 @@ type RuntimeContext struct {
 	// Only the contexts of the pool have them: a Decoder has a context of its own, which it would allocate
 	// with them for every stream.
 	recentDecoders *[recentDecoderSets]recentDecoderSet
+	// typeError is the first type error of the decoding, which is returned at its end ( see TypeError ). It is nil
+	// in a context of the pool: TypeError clears it, and DiscardTypeError when the decoding fails.
+	typeError *pendingTypeError
 }
 
 const (

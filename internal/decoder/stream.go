@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 const (
@@ -40,6 +41,9 @@ type Stream struct {
 	readErr error
 	ctx     *RuntimeContext
 	Option  *Option
+	// prevEnd is the total offset of the end of the previous value, which the offset of a type error may be
+	// relative to ( see StreamOffsetBase ).
+	prevEnd int64
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -281,8 +285,10 @@ func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 	return s.ctx.DecoderOf(typ)
 }
 
-// Decode decodes the next value of the stream into p by dec.
-func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
+// Decode decodes the next value of the stream into p, of the pointer type typ, by dec. If the value has a type
+// error, the stream goes on after the value, as the one of encoding/json does.
+func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error {
+	s.markPrevEnd()
 	if err := s.prepare(); err != nil {
 		return err
 	}
@@ -310,10 +316,48 @@ func (s *Stream) Decode(dec Decoder, p unsafe.Pointer) error {
 	}
 	ctx.Buf = nil
 	if err != nil {
-		return s.totalOffsetError(err)
+		return s.decodeError(err)
+	}
+	if ctx.HasTypeError() {
+		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
 	return nil
+}
+
+// decodeError returns the error of the decoder, whose offset is made the one in the whole input. A type error
+// before it is not kept for the next value.
+//
+//go:noinline
+func (s *Stream) decodeError(err error) error {
+	s.ctx.DiscardTypeError()
+	return s.totalOffsetError(err)
+}
+
+// typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
+// to end, and moves the cursor after the value: the stream goes on after it, as the one of encoding/json does.
+// Its offset is relative to the value, as encoding/json of the Go version reports it ( see StreamOffsetBase ).
+// It takes the decoder of the type again, so that Decode keeps nothing more across its call of the decoder.
+//
+//go:noinline
+func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
+	start := s.cursor
+	s.cursor = end
+	ctx := s.ctx
+	dec, err := s.DecoderOf(typ)
+	if err != nil {
+		ctx.DiscardTypeError()
+		return err
+	}
+	// the path of the error is walked in the value ended by the nul byte, as it was decoded
+	saved := s.buf[end]
+	s.buf[end] = nul
+	ctx.Buf = s.buf[:end+1]
+	base := StreamOffsetBase(s.prevEnd, s.offset+start) - s.offset
+	err = ctx.TypeError(dec, runtime.TypeOfPtr(typ), start, base)
+	ctx.Buf = nil
+	s.buf[end] = saved
+	return err
 }
 
 // totalOffsetError makes the offset of an error of the decoder, which is relative to the buffer,

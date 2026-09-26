@@ -62,7 +62,7 @@ func compile(typ reflect.Type, structName, fieldName string, structTypeToDecoder
 	case reflect.Slice:
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
-			return compileBytes(elem, structName, fieldName)
+			return compileBytes(typ, structName, fieldName)
 		}
 		return compileSlice(typ, structName, fieldName, structTypeToDecoder)
 	case reflect.Array:
@@ -96,11 +96,11 @@ func compile(typ reflect.Type, structName, fieldName string, structTypeToDecoder
 	case reflect.String:
 		return compileString(typ, structName, fieldName)
 	case reflect.Bool:
-		return compileBool(structName, fieldName)
+		return compileBool(typ, structName, fieldName)
 	case reflect.Float32:
-		return compileFloat32(structName, fieldName)
+		return compileFloat32(typ, structName, fieldName)
 	case reflect.Float64:
-		return compileFloat64(structName, fieldName)
+		return compileFloat64(typ, structName, fieldName)
 	case reflect.Func:
 		return compileFunc(typ, structName, fieldName)
 	}
@@ -134,7 +134,9 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		return newUnmarshalTextDecoder(reflect.PointerTo(typ), structName, fieldName), nil
 	}
 	if typ.Kind() == reflect.String {
-		return newStringDecoder(structName, fieldName), nil
+		d := newStringDecoder(structName, fieldName)
+		d.typ = typ
+		return d, nil
 	}
 	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
@@ -144,8 +146,10 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		switch t := dec.(type) {
 		case *stringDecoder, *interfaceDecoder:
 			return dec, nil
-		case *boolDecoder, *intDecoder, *uintDecoder, *numberDecoder:
-			return newWrappedStringDecoder(typ, dec, structName, fieldName), nil
+		case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
+			d := newWrappedStringDecoder(typ, dec, structName, fieldName)
+			d.isMapKey = true
+			return d, nil
 		case *ptrDecoder:
 			dec = t.dec
 		case *basicPtrDecoder:
@@ -224,16 +228,20 @@ func compileUint64(typ reflect.Type, structName, fieldName string) (Decoder, err
 	}), nil
 }
 
-func compileFloat32(structName, fieldName string) (Decoder, error) {
-	return newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+func compileFloat32(typ reflect.Type, structName, fieldName string) (Decoder, error) {
+	d := newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
 		*(*float32)(p) = float32(v)
-	}), nil
+	})
+	d.typ, d.is32 = typ, true
+	return &float32Decoder{floatDecoder: *d}, nil
 }
 
-func compileFloat64(structName, fieldName string) (Decoder, error) {
-	return newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
+func compileFloat64(typ reflect.Type, structName, fieldName string) (Decoder, error) {
+	d := newFloatDecoder(structName, fieldName, func(p unsafe.Pointer, v float64) {
 		*(*float64)(p) = v
-	}), nil
+	})
+	d.typ = typ
+	return d, nil
 }
 
 func compileString(typ reflect.Type, structName, fieldName string) (Decoder, error) {
@@ -242,15 +250,21 @@ func compileString(typ reflect.Type, structName, fieldName string) (Decoder, err
 			*(*json.Number)(p) = v
 		}), nil
 	}
-	return newStringDecoder(structName, fieldName), nil
+	d := newStringDecoder(structName, fieldName)
+	d.typ = typ
+	return d, nil
 }
 
-func compileBool(structName, fieldName string) (Decoder, error) {
-	return newBoolDecoder(structName, fieldName), nil
+func compileBool(typ reflect.Type, structName, fieldName string) (Decoder, error) {
+	d := newBoolDecoder(structName, fieldName)
+	d.typ = typ
+	return d, nil
 }
 
 func compileBytes(typ reflect.Type, structName, fieldName string) (Decoder, error) {
-	return newBytesDecoder(typ, structName, fieldName), nil
+	d := newBytesDecoder(typ.Elem(), structName, fieldName)
+	d.sliceType = typ
+	return d, nil
 }
 
 func compileSlice(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
@@ -259,7 +273,9 @@ func compileSlice(typ reflect.Type, structName, fieldName string, structTypeToDe
 	if err != nil {
 		return nil, err
 	}
-	return newSliceDecoder(decoder, elem, elem.Size(), structName, fieldName), nil
+	d := newSliceDecoder(decoder, elem, elem.Size(), structName, fieldName)
+	d.typ = typ
+	return d, nil
 }
 
 func compileArray(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
@@ -311,6 +327,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 		return dec, nil
 	}
 	structDec := newStructDecoder(structName, fieldName)
+	structDec.typ, structDec.typeName = typ, typ.Name()
 	structTypeToDecoder[typeptr] = structDec
 	structName = typ.Name()
 	tags := typeToStructTags(typ)
@@ -343,6 +360,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 						key:         v.key,
 						keyLen:      int64(len(v.key)),
 					}
+					structDec.setEmbedded(fieldSet, append([]string{field.Name}, stDec.embedded[v]...))
 					allFields = append(allFields, fieldSet)
 				}
 			} else if pdec, ok := dec.(*ptrDecoder); ok {
@@ -371,6 +389,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 							keyLen:      int64(len(v.key)),
 							err:         fieldSetErr,
 						}
+						structDec.setEmbedded(fieldSet, append([]string{field.Name}, dec.embedded[v]...))
 						allFields = append(allFields, fieldSet)
 					}
 				} else {

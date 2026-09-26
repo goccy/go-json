@@ -4,11 +4,11 @@
 set -e
 export SONIC_USE_OPTDEC=1
 grep -m1 "model name" /proc/cpuinfo
-refs="master HEAD HEAD+pad1 HEAD+pad2 HEAD+fuse2 HEAD+fuse2pad1 HEAD+fuse2pad2"
+refs="master HEAD HEAD+pad1 HEAD+fuse2 HEAD+lit HEAD+litempty"
 layouts=3
 out=$PWD/.bisect
 mkdir -p $out
-bench='^Benchmark_Decode_(OpenAIResponse|AnthropicMessage|OpenAIChatCompletion|GitHubREST|GitHubGraphQL|TwitterBinding|LargeStruct|MediumStruct|SmallStruct)_Unmarshal_(GoJson|GoJsonUnmarshalOfNoCopyString|SonicFastestValidating)$|^BenchmarkCodeUnmarshal$|^BenchmarkUnicodeDecoder$|^Benchmark_Decode_LargeSlice_EscapedString_GoJson$|^Benchmark_Decode_(OpenAIResponse|AnthropicMessage)Stream_Unmarshal_GoJson$'
+bench='^Benchmark_Decode_(OpenAIResponse|AnthropicMessage|OpenAIChatCompletion|GitHubREST|GitHubGraphQL|TwitterBinding|TwitterGeneric|LargeStruct|MediumStruct|SmallStruct)_Unmarshal_(GoJson|GoJsonLikeSonic|GoJsonUnmarshalOfNoCopyString|SonicFastestValidating)$|^BenchmarkCodeUnmarshal$|^BenchmarkUnicodeDecoder$|^Benchmark_Decode_LargeSlice_EscapedString_GoJson$|^Benchmark_Decode_(OpenAIResponse|AnthropicMessage)Stream_Unmarshal_GoJson$'
 name() { local n=${1//^/_}; echo ${n//+/_}; }
 for r in $refs; do
   d=$(name $r)

@@ -4,7 +4,7 @@
 set -e
 export SONIC_USE_OPTDEC=1
 grep -m1 "model name" /proc/cpuinfo
-refs="master HEAD HEAD+pad1 HEAD+fuse HEAD+fuse2"
+refs="master HEAD HEAD+pad1 HEAD+pad2 HEAD+fuse2 HEAD+fuse2pad1 HEAD+fuse2pad2"
 layouts=3
 out=$PWD/.bisect
 mkdir -p $out

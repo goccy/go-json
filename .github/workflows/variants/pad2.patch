@@ -1,0 +1,54 @@
+diff --git a/decode.go b/decode.go
+index a06a42a..ea2c414 100644
+--- a/decode.go
++++ b/decode.go
+@@ -208,3 +208,49 @@ func (d *Decoder) InputOffset() int64 {
+ func (d *Decoder) UseNumber() {
+ 	d.s.Option.Flags |= decoder.UseNumberOption
+ }
++
++// padLayout2 only moves the code after it, to measure the effect of the layout.
++//
++//go:noinline
++func padLayout2(x []int) int {
++	s := 0
++	for _, v := range x {
++		s += v * 1
++	}
++	for _, v := range x {
++		s += v * 2
++	}
++	for _, v := range x {
++		s += v * 3
++	}
++	for _, v := range x {
++		s += v * 4
++	}
++	for _, v := range x {
++		s += v * 5
++	}
++	for _, v := range x {
++		s += v * 6
++	}
++	for _, v := range x {
++		s += v * 7
++	}
++	for _, v := range x {
++		s += v * 8
++	}
++	for _, v := range x {
++		s += v * 9
++	}
++	for _, v := range x {
++		s += v * 10
++	}
++	for _, v := range x {
++		s += v * 11
++	}
++	for _, v := range x {
++		s += v * 12
++	}
++	return s
++}
++
++var padLayoutSink2 = padLayout2(nil)

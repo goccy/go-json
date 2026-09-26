@@ -4156,3 +4156,31 @@ func TestUnmarshalEndOfInputConcurrently(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestUnmarshalIntoSetInterface(t *testing.T) {
+	// A value of interface{} which is set is decoded into what it points to if it is a pointer to a value which is
+	// not an interface value, and is replaced else, as encoding/json does.
+	type inner struct{ A, B int }
+	var nilInner *inner
+	for _, doc := range []string{`{"A":1}`, `null`, `[1,2]`, `"s"`, ` {"B":2} `} {
+		for i, newValue := range []func() any{
+			func() any { return nil },
+			func() any { return &inner{A: 9, B: 8} },
+			func() any { return nilInner },
+			func() any { return inner{A: 9} },
+			func() any { return 1.5 },
+			func() any { return map[string]any{"x": 1.0} },
+		} {
+			want, got := newValue(), newValue()
+			wantErr := stdjson.Unmarshal([]byte(doc), &want)
+			gotErr := json.Unmarshal([]byte(doc), &got)
+			if (wantErr == nil) != (gotErr == nil) {
+				t.Errorf("%s into value %d: got error %v, want %v", doc, i, gotErr, wantErr)
+				continue
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s into value %d: got %#v, want %#v", doc, i, got, want)
+			}
+		}
+	}
+}

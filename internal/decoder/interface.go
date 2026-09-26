@@ -13,7 +13,10 @@ import (
 )
 
 type interfaceDecoder struct {
-	typ           reflect.Type
+	typ reflect.Type
+	// hasMethods is set for an interface type which has methods, whose value may implement the unmarshalers: the
+	// value of an interface{} is read without reflect ( see Decode ).
+	hasMethods    bool
 	structName    string
 	fieldName     string
 	sliceDecoder  *sliceDecoder
@@ -59,6 +62,7 @@ func newInterfaceDecoder(typ reflect.Type, structName, fieldName string) *interf
 	stringDecoder := newStringDecoder(structName, fieldName)
 	return &interfaceDecoder{
 		typ:        typ,
+		hasMethods: typ.NumMethod() > 0,
 		structName: structName,
 		fieldName:  fieldName,
 		sliceDecoder: newSliceDecoder(
@@ -164,6 +168,20 @@ func (d *interfaceDecoder) errUnmarshalType(typ reflect.Type, offset int64) *err
 }
 
 func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if d.hasMethods {
+		return d.decodeWithMethods(ctx, cursor, depth, p)
+	}
+	// p is an interface{}: a nil one, the most common, is decoded as it is, and the value of another one may be
+	// decoded into what it points to
+	if (*emptyInterface)(p).ptr == nil {
+		return d.decodeEmptyInterface(ctx, cursor, depth, p)
+	}
+	return d.decodeInto(ctx, cursor, depth, p, *(*any)(p))
+}
+
+// decodeWithMethods decodes the value of an interface type which has methods, whose value may implement the
+// unmarshalers.
+func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	runtimeInterfaceValue := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: runtime.TypePtr(d.typ),
@@ -192,7 +210,14 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 		return 0, d.errUnmarshalType(rv.Type(), cursor)
 	}
 
-	iface := rv.Interface()
+	return d.decodeInto(ctx, cursor, depth, p, rv.Interface())
+}
+
+// decodeInto decodes the value at cursor into the interface value at p, which holds iface: into the value iface
+// points to, if it is a pointer to a value which is not an interface value, or else as the value of an
+// interface{}, which replaces iface.
+func (d *interfaceDecoder) decodeInto(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, iface any) (int64, error) {
+	buf := ctx.Buf
 	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
 	typ := reflect.TypeOf(iface)
 	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {

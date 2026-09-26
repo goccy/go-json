@@ -675,13 +675,6 @@ func TestRoundtripStringTag(t *testing.T) {
 				StrStr:    "\b\f\n\r\t\"\\",
 				NumberStr: "0", // just to satisfy the roundtrip
 			},
-			want: `{
-				"BoolStr": "false",
-				"IntStr": "0",
-				"UintptrStr": "0",
-				"StrStr": "\"\\b\\f\\n\\r\\t\\\"\\\\\"",
-				"NumberStr": "0"
-			}`,
 		},
 	}
 	for _, test := range tests {
@@ -692,8 +685,13 @@ func TestRoundtripStringTag(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := string(got); got != test.want {
+			if got := string(got); test.want != "" && got != test.want {
 				t.Fatalf(" got: %s\nwant: %s\n", got, test.want)
+			}
+			// the escapes are the ones of encoding/json of the Go version: \b and \f are escaped by their code
+			// before Go 1.22
+			if want, _ := stdjson.MarshalIndent(&test.in, "\t\t\t", "\t"); string(got) != string(want) {
+				t.Fatalf(" got: %s\nwant: %s\n", got, want)
 			}
 
 			// Verify that it round-trips.
@@ -1174,54 +1172,53 @@ func TestMarshalFloat(t *testing.T) {
 	test(math.Copysign(0, -1), 32)
 }
 
-var encodeStringTests = []struct {
-	in  string
-	out string
-}{
-	{"\x00", `"\u0000"`},
-	{"\x01", `"\u0001"`},
-	{"\x02", `"\u0002"`},
-	{"\x03", `"\u0003"`},
-	{"\x04", `"\u0004"`},
-	{"\x05", `"\u0005"`},
-	{"\x06", `"\u0006"`},
-	{"\x07", `"\u0007"`},
-	{"\x08", `"\b"`},
-	{"\x09", `"\t"`},
-	{"\x0a", `"\n"`},
-	{"\x0b", `"\u000b"`},
-	{"\x0c", `"\f"`},
-	{"\x0d", `"\r"`},
-	{"\x0e", `"\u000e"`},
-	{"\x0f", `"\u000f"`},
-	{"\x10", `"\u0010"`},
-	{"\x11", `"\u0011"`},
-	{"\x12", `"\u0012"`},
-	{"\x13", `"\u0013"`},
-	{"\x14", `"\u0014"`},
-	{"\x15", `"\u0015"`},
-	{"\x16", `"\u0016"`},
-	{"\x17", `"\u0017"`},
-	{"\x18", `"\u0018"`},
-	{"\x19", `"\u0019"`},
-	{"\x1a", `"\u001a"`},
-	{"\x1b", `"\u001b"`},
-	{"\x1c", `"\u001c"`},
-	{"\x1d", `"\u001d"`},
-	{"\x1e", `"\u001e"`},
-	{"\x1f", `"\u001f"`},
+// encodeStringTests are the control characters, which are escaped as encoding/json of the Go version escapes them:
+// \b and \f are escaped by their code before Go 1.22.
+var encodeStringTests = []string{
+	"\x00",
+	"\x01",
+	"\x02",
+	"\x03",
+	"\x04",
+	"\x05",
+	"\x06",
+	"\x07",
+	"\x08",
+	"\x09",
+	"\x0a",
+	"\x0b",
+	"\x0c",
+	"\x0d",
+	"\x0e",
+	"\x0f",
+	"\x10",
+	"\x11",
+	"\x12",
+	"\x13",
+	"\x14",
+	"\x15",
+	"\x16",
+	"\x17",
+	"\x18",
+	"\x19",
+	"\x1a",
+	"\x1b",
+	"\x1c",
+	"\x1d",
+	"\x1e",
+	"\x1f",
 }
 
 func TestEncodeString(t *testing.T) {
-	for _, tt := range encodeStringTests {
-		b, err := json.Marshal(tt.in)
+	for _, in := range encodeStringTests {
+		b, err := json.Marshal(in)
 		if err != nil {
-			t.Errorf("Marshal(%q): %v", tt.in, err)
+			t.Errorf("Marshal(%q): %v", in, err)
 			continue
 		}
-		out := string(b)
-		if out != tt.out {
-			t.Errorf("Marshal(%q) = %#q, want %#q", tt.in, out, tt.out)
+		want, _ := stdjson.Marshal(in)
+		if out := string(b); out != string(want) {
+			t.Errorf("Marshal(%q) = %#q, want %#q", in, out, want)
 		}
 	}
 }

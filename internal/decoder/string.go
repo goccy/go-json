@@ -150,7 +150,7 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
 	literal, next, info, err := d.scanString(ctx.Buf, cursor)
 	if next < 0 {
-		literal, next, info, err = d.scanStringRest(ctx.Buf, literal, -next-1, info)
+		return d.decodeStringRest(ctx, literal, -next-1, info)
 	}
 	if err != nil {
 		return d.skipOtherValue(ctx, err)

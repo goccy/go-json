@@ -110,6 +110,25 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 	return decodeLiteral(literal, info), next, nil
 }
 
+// unescapeLong returns the string of the literal, which has an escape and is too long for the arena: it is decoded
+// into the scratch bytes of the context, and copied, so that the bytes of the string are not zeroed before they are
+// written, and the buffer is not written.
+func (ctx *RuntimeContext) unescapeLong(literal []byte, info stringInfo) string {
+	if len(literal) > maxUnescapeScratchSize {
+		decoded := decodeLiteral(literal, info)
+		return unsafe.String(unsafe.SliceData(decoded), len(decoded))
+	}
+	if cap(ctx.unescaped) < len(literal) {
+		ctx.unescaped = make([]byte, len(literal))
+	}
+	n := unescapeTo(unsafe.Pointer(unsafe.SliceData(ctx.unescaped)), literal, info.firstEscape)
+	decoded := ctx.unescaped[:n]
+	if info.nonASCII && !utf8.Valid(decoded) {
+		return string(coerceUTF8(decoded))
+	}
+	return string(decoded)
+}
+
 // decodeLiteral decodes the escapes of the literal and replaces its invalid UTF-8, into a slice of its own if it
 // has any: the buffer is never written, so that it keeps the input, which is checked again for a syntax error
 // ( see Stream.decodeError ).
@@ -150,9 +169,7 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
 	if info.firstEscape >= 0 {
-		// a long one into bytes of its own
-		decoded := decodeLiteral(literal, info)
-		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+		return ctx.unescapeLong(literal, info), next, true, nil
 	}
 	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }
@@ -203,9 +220,7 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
 	if info.firstEscape >= 0 {
-		// a long one into bytes of its own
-		decoded := decodeLiteral(literal, info)
-		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+		return ctx.unescapeLong(literal, info), next, true, nil
 	}
 	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }

@@ -17,13 +17,17 @@ type unmarshalTextDecoder struct {
 	typ        reflect.Type
 	structName string
 	fieldName  string
+	// nullSetsZero is set for a value which null sets to its zero value ( see textUnmarshalerNullSetsZero ): null
+	// leaves any other value as it is, and is not given to UnmarshalText.
+	nullSetsZero bool
 }
 
 func newUnmarshalTextDecoder(typ reflect.Type, structName, fieldName string) *unmarshalTextDecoder {
 	return &unmarshalTextDecoder{
-		typ:        typ,
-		structName: structName,
-		fieldName:  fieldName,
+		typ:          typ,
+		structName:   structName,
+		fieldName:    fieldName,
+		nullSetsZero: textUnmarshalerNullSetsZero(typ.Elem().Kind()),
 	}
 }
 
@@ -52,7 +56,9 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	src := buf[start:end]
 	switch c := src[0]; {
 	case c == 'n':
-		*(*unsafe.Pointer)(p) = nil
+		if d.nullSetsZero {
+			reflect.NewAt(d.typ.Elem(), p).Elem().SetZero()
+		}
 		return end, nil
 	case c != '"':
 		// a value of another kind than a string, which is a type error

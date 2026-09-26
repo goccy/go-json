@@ -164,6 +164,17 @@ func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ refle
 	return ctx.skipTypeError(cursor, depth, typ)
 }
 
+// textUnmarshalerNullSetsZero reports whether null sets a value of the kind, whose pointer type implements
+// encoding.TextUnmarshaler, to its zero value: encoding/json before Go 1.27 does it for a slice, a map, a pointer
+// and an interface value, as it does for any value of these kinds.
+func textUnmarshalerNullSetsZero(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Slice, reflect.Map, reflect.Pointer, reflect.Interface:
+		return true
+	}
+	return false
+}
+
 // mapKeySupported reports whether encoding/json before Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: strings, integers and the types which implement encoding.TextUnmarshaler.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {

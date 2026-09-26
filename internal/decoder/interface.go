@@ -16,7 +16,10 @@ type interfaceDecoder struct {
 	typ reflect.Type
 	// hasMethods is set for an interface type which has methods, whose value may implement the unmarshalers: the
 	// value of an interface{} is read without reflect ( see Decode ).
-	hasMethods    bool
+	hasMethods bool
+	// values are how the values of the types which the interface value holds are decoded, by the type of an
+	// interface{}, or by the itab of an interface type with methods ( see valueDecoderOf ).
+	values        runtime.TypeCache[ifaceValueDecoder]
 	structName    string
 	fieldName     string
 	sliceDecoder  *sliceDecoder
@@ -173,31 +176,87 @@ func (d *interfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p un
 	}
 	// p is an interface{}: a nil one, the most common, is decoded as it is, and the value of another one may be
 	// decoded into what it points to
-	if (*emptyInterface)(p).ptr == nil {
+	h := (*emptyInterface)(p)
+	if h.ptr == nil {
 		return d.decodeEmptyInterface(ctx, cursor, depth, p)
 	}
-	return d.decodeInto(ctx, cursor, depth, p, *(*any)(p))
+	v := d.values.Load(uintptr(h.typ))
+	if v == nil {
+		var err error
+		if v, err = d.valueDecoderOf(ctx, h.typ, *(*any)(p)); err != nil {
+			return 0, err
+		}
+	}
+	return d.decodeValue(ctx, cursor, depth, p, v, h.ptr)
 }
 
-// decodeWithMethods decodes the value of an interface type which has methods, whose value may implement the
-// unmarshalers.
-func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+// ifaceValueKind is how the value which an interface value holds is decoded.
+type ifaceValueKind uint8
+
+const (
+	// ifaceValueReplaced is a value which is replaced by the value decoded as the one of an interface{}.
+	ifaceValueReplaced ifaceValueKind = iota
+	// ifaceValuePointee is a pointer to a value which is not an interface value: the value is decoded into what it
+	// points to.
+	ifaceValuePointee
+	// ifaceValueUnmarshalerContext, ifaceValueUnmarshaler and ifaceValueTextUnmarshaler are values of an interface
+	// type with methods which implement the unmarshalers.
+	ifaceValueUnmarshalerContext
+	ifaceValueUnmarshaler
+	ifaceValueTextUnmarshaler
+	// ifaceValueOther is a value of an interface type with methods which implements no unmarshaler: it can be
+	// decoded from null only.
+	ifaceValueOther
+)
+
+// ifaceValueDecoder is how a value of a type which an interface value holds is decoded, which depends on the type
+// only: it is found once for a type.
+type ifaceValueDecoder struct {
+	kind ifaceValueKind
+	// typ is the type of the value.
+	typ unsafe.Pointer
+	// dec is the decoder of a pointer of ifaceValuePointee.
+	dec Decoder
+}
+
+// valueDecoderOf finds how the value iface, of the type typ, which the interface value holds is decoded, and
+// keeps it for the type by key: the type of an interface{}, or the itab of an interface type with methods.
+func (d *interfaceDecoder) valueDecoderOf(ctx *RuntimeContext, key unsafe.Pointer, iface any) (*ifaceValueDecoder, error) {
+	h := (*emptyInterface)(unsafe.Pointer(&iface))
+	v := &ifaceValueDecoder{typ: h.typ}
+	typ := reflect.TypeOf(iface)
+	switch {
+	case d.hasMethods:
+		switch iface.(type) {
+		case unmarshalerContext:
+			v.kind = ifaceValueUnmarshalerContext
+		case json.Unmarshaler:
+			v.kind = ifaceValueUnmarshaler
+		case encoding.TextUnmarshaler:
+			v.kind = ifaceValueTextUnmarshaler
+		default:
+			v.kind = ifaceValueOther
+		}
+	case typ.Kind() == reflect.Ptr && typ.Elem() != d.typ:
+		dec, err := ctx.DecoderOf(h.typ)
+		if err != nil {
+			return nil, err
+		}
+		v.kind, v.dec = ifaceValuePointee, dec
+	default:
+		v.kind = ifaceValueReplaced
+	}
+	return d.values.Store(uintptr(key), v), nil
+}
+
+// decodeValue decodes the value at cursor into the interface value at p, which holds a value of the type of v,
+// whose data word is ptr.
+func (d *interfaceDecoder) decodeValue(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, v *ifaceValueDecoder, ptr unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
-	runtimeInterfaceValue := *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: runtime.TypePtr(d.typ),
-		ptr: p,
-	}))
-	rv := reflect.ValueOf(runtimeInterfaceValue)
-	if rv.NumMethod() > 0 && rv.CanInterface() {
-		if u, ok := rv.Interface().(unmarshalerContext); ok {
-			return decodeUnmarshalerContext(ctx, buf, cursor, depth, u)
-		}
-		if u, ok := rv.Interface().(json.Unmarshaler); ok {
-			return decodeUnmarshaler(buf, cursor, depth, u)
-		}
-		if u, ok := rv.Interface().(encoding.TextUnmarshaler); ok {
-			return decodeTextUnmarshaler(buf, cursor, depth, u, p)
-		}
+	switch v.kind {
+	case ifaceValueReplaced:
+		return d.decodeEmptyInterface(ctx, cursor, depth, p)
+	case ifaceValuePointee:
 		cursor = skipWhiteSpace(buf, cursor)
 		if buf[cursor] == 'n' {
 			if err := validateNull(buf, cursor); err != nil {
@@ -207,25 +266,18 @@ func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth 
 			**(**any)(unsafe.Pointer(&p)) = nil
 			return cursor, nil
 		}
-		return 0, d.errUnmarshalType(rv.Type(), cursor)
+		return v.dec.Decode(ctx, cursor, depth, ptr)
 	}
-
-	return d.decodeInto(ctx, cursor, depth, p, rv.Interface())
-}
-
-// decodeInto decodes the value at cursor into the interface value at p, which holds iface: into the value iface
-// points to, if it is a pointer to a value which is not an interface value, or else as the value of an
-// interface{}, which replaces iface.
-func (d *interfaceDecoder) decodeInto(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, iface any) (int64, error) {
-	buf := ctx.Buf
-	ifaceHeader := (*emptyInterface)(unsafe.Pointer(&iface))
-	typ := reflect.TypeOf(iface)
-	if ifaceHeader.ptr == nil || d.typ == typ || typ == nil {
-		// concrete type is empty interface
-		return d.decodeEmptyInterface(ctx, cursor, depth, p)
-	}
-	if typ.Kind() == reflect.Ptr && typ.Elem() == d.typ || typ.Kind() != reflect.Ptr {
-		return d.decodeEmptyInterface(ctx, cursor, depth, p)
+	// a value of an interface type with methods: the value as an interface{}, whose type and data word are the ones
+	// the interface value holds
+	value := *(*any)(unsafe.Pointer(&emptyInterface{typ: v.typ, ptr: ptr}))
+	switch v.kind {
+	case ifaceValueUnmarshalerContext:
+		return decodeUnmarshalerContext(ctx, buf, cursor, depth, value.(unmarshalerContext))
+	case ifaceValueUnmarshaler:
+		return decodeUnmarshaler(buf, cursor, depth, value.(json.Unmarshaler))
+	case ifaceValueTextUnmarshaler:
+		return decodeTextUnmarshaler(buf, cursor, depth, value.(encoding.TextUnmarshaler), p)
 	}
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == 'n' {
@@ -236,11 +288,42 @@ func (d *interfaceDecoder) decodeInto(ctx *RuntimeContext, cursor, depth int64, 
 		**(**any)(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	}
-	decoder, err := ctx.DecoderOf(runtime.TypePtr(typ))
-	if err != nil {
-		return 0, err
+	// the error reports the interface type
+	return 0, d.errUnmarshalType(d.typ, cursor)
+}
+
+// nonEmptyInterface is the layout of a value of an interface type with methods: the itab of the type it holds,
+// which is nil for a nil value, and the data word.
+type nonEmptyInterface struct {
+	itab unsafe.Pointer
+	ptr  unsafe.Pointer
+}
+
+// decodeWithMethods decodes the value of an interface type which has methods, whose value may implement the
+// unmarshalers. How a value is decoded is kept by its itab, which is of one type for the interface type of the
+// decoder.
+func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	h := (*nonEmptyInterface)(p)
+	if h.itab == nil {
+		// a nil value implements no unmarshaler: it can be decoded from null only
+		buf := ctx.Buf
+		cursor = skipWhiteSpace(buf, cursor)
+		if buf[cursor] == 'n' {
+			if err := validateNull(buf, cursor); err != nil {
+				return 0, err
+			}
+			return cursor + 4, nil
+		}
+		return 0, d.errUnmarshalType(d.typ, cursor)
 	}
-	return decoder.Decode(ctx, cursor, depth, ifaceHeader.ptr)
+	v := d.values.Load(uintptr(h.itab))
+	if v == nil {
+		var err error
+		if v, err = d.valueDecoderOf(ctx, h.itab, reflect.NewAt(d.typ, p).Elem().Interface()); err != nil {
+			return 0, err
+		}
+	}
+	return d.decodeValue(ctx, cursor, depth, p, v, h.ptr)
 }
 
 func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {

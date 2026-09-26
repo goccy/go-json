@@ -31,7 +31,7 @@ func isEnd(buf []byte, cursor int64) bool {
 
 // endError returns the error of the end of the input at the total offset at.
 func endError(at int64) error {
-	return errors.ErrSyntax("unexpected end of JSON input", at)
+	return errors.ErrSyntaxAtEnd("unexpected end of JSON input", at)
 }
 
 // syntaxErrorAt returns the syntax error of the byte at cursor, which the grammar doesn't have where it is: the end

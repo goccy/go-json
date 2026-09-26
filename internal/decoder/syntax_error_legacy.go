@@ -41,7 +41,7 @@ func invalidCharacterError(buf []byte, cursor int64, what string) error {
 // which starts at start: encoding/json before Go 1.27 reads a white space at the end of the input, which is the
 // byte of the error.
 func scalarEndError(_ []byte, cursor, _ int64, what string) error {
-	return errors.ErrSyntax("invalid character ' ' "+what, cursor)
+	return errors.ErrSyntaxAtEnd("invalid character ' ' "+what, cursor)
 }
 
 // escapeSyntaxError returns the syntax error of the byte at cursor, in the escape which the backslash at backslash

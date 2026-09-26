@@ -33,7 +33,7 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		if err != nil {
 			return 0, err
 		}
-		d.op(p, json.Number(ctx.makeString(buf[cursor:end], end)))
+		d.op(p, json.Number(ctx.makeString(buf[cursor:end])))
 		return end, nil
 	case c == '"', c == 'n':
 	case isOtherValue(c, numberValue):
@@ -51,7 +51,7 @@ func (d *numberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		return ctx.numberStringError(start, c, jsonNumberType)
 	}
 	// a number in a string: its bytes end before the quote
-	d.op(p, json.Number(ctx.makeString(bytes, c-1)))
+	d.op(p, json.Number(ctx.makeString(bytes)))
 	return c, nil
 }
 

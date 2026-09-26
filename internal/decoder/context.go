@@ -132,14 +132,14 @@ func (ctx *RuntimeContext) SetInput(data []byte) []byte {
 	return buf
 }
 
-// makeString returns the string of lit, which the string decoder returned from Buf: lit is either a part
-// of Buf, which is reused by the next call, or a new slice of its own ( an invalid UTF-8 sequence was replaced ).
-// rawEnd is the position in Buf after the bytes lit was decoded from: lit is escaped if they are more.
+// makeString returns the string of lit, which the string decoder returned from Buf: lit is either a part of Buf,
+// which is reused by the next call and has the bytes of the input ( Buf is never written ), or a new slice of its
+// own ( an escape was decoded, or an invalid UTF-8 sequence was replaced ).
 //
 // Only the buffer of Unmarshal is reused ( origin is its input ): the strings are copied out of it, or refer to
 // the input under NoCopyStringOption. The other buffers, as the one of a stream, are never written again after
 // a value is decoded, so the strings refer to them.
-func (ctx *RuntimeContext) makeString(lit []byte, rawEnd int64) string {
+func (ctx *RuntimeContext) makeString(lit []byte) string {
 	if len(lit) == 0 {
 		return ""
 	}
@@ -147,30 +147,26 @@ func (ctx *RuntimeContext) makeString(lit []byte, rawEnd int64) string {
 		return unsafe.String(unsafe.SliceData(lit), len(lit))
 	}
 	if (ctx.Option.Flags & NoCopyStringOption) != 0 {
-		return ctx.referString(lit, rawEnd)
+		return ctx.referString(lit)
 	}
 	return ctx.copyString(lit)
 }
 
-// referString returns a string which refers to the input, if it has the bytes of lit, without a copy.
-func (ctx *RuntimeContext) referString(lit []byte, rawEnd int64) string {
-	base := uintptr(unsafe.Pointer(unsafe.SliceData(ctx.Buf)))
-	p := uintptr(unsafe.Pointer(unsafe.SliceData(lit)))
-	if p < base || p >= base+uintptr(len(ctx.Buf)) {
+// isPartOf reports whether b is a part of buf.
+func isPartOf(b, buf []byte) bool {
+	base := uintptr(unsafe.Pointer(unsafe.SliceData(buf)))
+	p := uintptr(unsafe.Pointer(unsafe.SliceData(b)))
+	return base <= p && p < base+uintptr(len(buf))
+}
+
+// referString returns a string which refers to the input, where lit is a part of Buf, without a copy.
+func (ctx *RuntimeContext) referString(lit []byte) string {
+	if !isPartOf(lit, ctx.Buf) {
 		// a slice of its own
 		return unsafe.String(unsafe.SliceData(lit), len(lit))
 	}
-	off := int64(p - base)
-	if off+int64(len(lit)) != rawEnd {
-		// the escapes were decoded in Buf: the input has other bytes there
-		return ctx.copyString(lit)
-	}
+	off := uintptr(unsafe.Pointer(unsafe.SliceData(lit))) - uintptr(unsafe.Pointer(unsafe.SliceData(ctx.Buf)))
 	return unsafe.String(&ctx.origin[off], len(lit))
-}
-
-// copiesStrings reports whether the decoded strings are copied out of Buf ( see makeString ).
-func (ctx *RuntimeContext) copiesStrings() bool {
-	return ctx.origin != nil && (ctx.Option.Flags&NoCopyStringOption) == 0
 }
 
 // reserveArena returns n bytes of the arena after its end, which a string may be written to:

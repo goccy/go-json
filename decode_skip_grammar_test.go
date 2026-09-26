@@ -3,7 +3,9 @@ package json_test
 import (
 	stdjson "encoding/json"
 	"errors"
+	"io"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -120,6 +122,61 @@ func TestSyntaxErrorMessages(t *testing.T) {
 			var gotSyntax *json.SyntaxError
 			if !errors.As(got, &gotSyntax) || gotSyntax.Error() != wantSyntax.Error() || gotSyntax.Offset != wantSyntax.Offset {
 				t.Fatalf("%q:\n got %v ( %#v )\nwant %v at %d", doc, got, got, want, wantSyntax.Offset)
+			}
+		}
+	}
+}
+
+func TestStreamSyntaxErrorMessages(t *testing.T) {
+	// A syntax error of a value of a stream is the first one of the value, with the message and the offset in the
+	// whole input of encoding/json, and is returned by every Decode after it. The values before it are decoded,
+	// and the strings with escapes among them, which are decoded out of the buffer, keep their input.
+	docs := []string{
+		"1.,", "1. ", "1.", "-", "-a", "tru", "tru ", "truex", "nul,", `"abc`, `"a\q"`, "\"a\x00\"", "[1,2", `{"a":1`,
+		`{"a":[1}`, `[1 2]`, `{"a" 1}`, `{"a":1,}`, "1 2 [", "1 2 x", `"a" "b\`, "\x01", `[1,2]]`, "[01]", "01",
+	}
+	r := rand.New(rand.NewSource(7))
+	for i := 0; i < 10000; i++ {
+		docs = append(docs, randomSkippedValue(r, 1+r.Intn(3))+"\n"+`{"a\"b":"c\nd","X":`+randomSkippedValue(r, 1+r.Intn(3))+`}`+" "+
+			mutate(r, `{"skip":`+randomSkippedValue(r, 1+r.Intn(3))+`,"X":`+randomSkippedValue(r, 1+r.Intn(3))+`}`))
+	}
+	for _, doc := range docs {
+		for _, newValue := range []func() any{
+			func() any { return new(any) },
+			func() any { return new(struct{ X any }) },
+		} {
+			gd := json.NewDecoder(strings.NewReader(doc))
+			sd := stdjson.NewDecoder(strings.NewReader(doc))
+			for n := 0; ; n++ {
+				gotValue, wantValue := newValue(), newValue()
+				got, want := gd.Decode(gotValue), sd.Decode(wantValue)
+				if want == io.EOF || want == io.ErrUnexpectedEOF {
+					if got != want {
+						t.Fatalf("%q: value %d: got %v, want %v", doc, n, got, want)
+					}
+					break
+				}
+				var wantSyntax *stdjson.SyntaxError
+				if !errors.As(want, &wantSyntax) {
+					if want != nil {
+						break
+					}
+					if got != nil {
+						t.Fatalf("%q: value %d: got %v, want nil", doc, n, got)
+					}
+					if !reflect.DeepEqual(gotValue, wantValue) {
+						t.Fatalf("%q: value %d: got %#v, want %#v", doc, n, gotValue, wantValue)
+					}
+					continue
+				}
+				var gotSyntax *json.SyntaxError
+				if !errors.As(got, &gotSyntax) || gotSyntax.Error() != wantSyntax.Error() || gotSyntax.Offset != wantSyntax.Offset {
+					t.Fatalf("%q: value %d:\n got %v ( %#v )\nwant %v at %d", doc, n, got, got, want, wantSyntax.Offset)
+				}
+				if again := gd.Decode(newValue()); again == nil || again.Error() != got.Error() {
+					t.Fatalf("%q: Decode after %v = %v, want the same error", doc, got, again)
+				}
+				break
 			}
 		}
 	}

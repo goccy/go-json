@@ -307,6 +307,9 @@ func compileFunc(typ reflect.Type, strutName, fieldName string) (Decoder, error)
 	return newFuncDecoder(typ, strutName, fieldName), nil
 }
 
+// typeToStructTags returns the tags of the fields of typ which have a key, which hides a field of the same key
+// promoted from an embedded struct. An embedded struct without a key in its tag has no key of its own: its fields
+// are promoted, and one of them may have the name of the embedded struct.
 func typeToStructTags(typ reflect.Type) runtime.StructTags {
 	tags := runtime.StructTags{}
 	fieldNum := typ.NumField()
@@ -315,9 +318,20 @@ func typeToStructTags(typ reflect.Type) runtime.StructTags {
 		if runtime.IsIgnoredStructField(field) {
 			continue
 		}
-		tags = append(tags, runtime.StructTagFromField(field))
+		tag := runtime.StructTagFromField(field)
+		if field.Anonymous && !tag.IsTaggedKey && isStructOrPointerToStruct(field.Type) {
+			continue
+		}
+		tags = append(tags, tag)
 	}
 	return tags
+}
+
+func isStructOrPointerToStruct(typ reflect.Type) bool {
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	return typ.Kind() == reflect.Struct
 }
 
 func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {

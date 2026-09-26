@@ -108,3 +108,45 @@ func TestIssue642NullIntoTextUnmarshaler(t *testing.T) {
 	checkUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Name{"a": "keep"} })
 	checkUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Pair{"a": {7, 8}} })
 }
+
+type decodeIssue450Embedded struct {
+	Embedded string `json:"Embedded"`
+	Other    int
+}
+
+type decodeIssue450Struct struct {
+	decodeIssue450Embedded
+	Name string
+}
+
+type decodeIssue450PtrStruct struct {
+	*decodeIssue450Embedded
+	Name string
+}
+
+type decodeIssue450Inner struct{ Inner string }
+
+type decodeIssue450Outer struct{ decodeIssue450Inner }
+
+// DecodeIssue450Label is embedded as a value which is not a struct: it is a field of its name.
+type DecodeIssue450Label string
+
+type decodeIssue450Labeled struct {
+	DecodeIssue450Label
+	Visible string
+}
+
+func TestIssue450EmbeddedFieldOfItsName(t *testing.T) {
+	// A field promoted from an embedded struct is decoded although it has the name of the embedded struct, which
+	// is no key of its own.
+	for _, doc := range []string{
+		`{"Embedded":"inside","Other":111,"Name":"outside"}`,
+		`{"embedded":"inside"}`,
+	} {
+		checkUnmarshal(t, doc, func() any { return new(decodeIssue450Struct) })
+		checkUnmarshal(t, doc, func() any { return new(decodeIssue450PtrStruct) })
+	}
+	checkUnmarshal(t, `{"Inner":"x"}`, func() any { return new(decodeIssue450Outer) })
+	// an embedded value which is not a struct is a field of its name
+	checkUnmarshal(t, `{"DecodeIssue450Label":"x","Visible":"v"}`, func() any { return new(decodeIssue450Labeled) })
+}

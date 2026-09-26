@@ -144,6 +144,15 @@ func decodeLiteral(literal []byte, info stringInfo) []byte {
 	return literal
 }
 
+// validLiteral returns the literal of a string without an escape, whose bytes are not all ASCII, with its invalid
+// UTF-8 replaced ( see decodeLiteral ).
+func validLiteral(literal []byte) []byte {
+	if !utf8.Valid(literal) {
+		return coerceUTF8(literal)
+	}
+	return literal
+}
+
 // decodeStringValue is decodeString for the value of a string: a value of another kind is a type error, which is
 // recorded, and skipped ( see skipOtherValue ). It is a function of its own, so that the decoding of the other
 // strings, as the keys, is the one it was, and that Decode keeps nothing across its call.
@@ -172,7 +181,10 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 	if info.firstEscape >= 0 {
 		return ctx.unescapeLong(literal, info), next, true, nil
 	}
-	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
+	if info.nonASCII {
+		literal = validLiteral(literal)
+	}
+	return ctx.makeString(literal), next, true, nil
 }
 
 // skipOtherValue returns the error of scanString for a value which is not a string, or, for a value of another
@@ -223,7 +235,10 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 	if info.firstEscape >= 0 {
 		return ctx.unescapeLong(literal, info), next, true, nil
 	}
-	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
+	if info.nonASCII {
+		literal = validLiteral(literal)
+	}
+	return ctx.makeString(literal), next, true, nil
 }
 
 // scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and

@@ -48,7 +48,11 @@ func (d *stringDecoder) decodeStringRest(ctx *RuntimeContext, literal []byte, cu
 		case '\\':
 			return d.unescapeRest(ctx, buf[start:cursor], cursor, stringInfo{firstEscape: -1, nonASCII: high&msb != 0})
 		case '"':
-			return ctx.makeString(decodeLiteral(buf[start:cursor], stringInfo{firstEscape: -1, nonASCII: high&msb != 0})), cursor + 1, true, nil
+			literal := buf[start:cursor]
+			if high&msb != 0 {
+				literal = validLiteral(literal)
+			}
+			return ctx.makeString(literal), cursor + 1, true, nil
 		case nul:
 			return d.skipOtherValue(ctx, errors.ErrUnexpectedEndOfJSON("string", cursor))
 		default:
@@ -135,7 +139,11 @@ func (d *stringDecoder) unescapeRest(ctx *RuntimeContext, literal []byte, cursor
 		case '"':
 			next := cursor + 1
 			if !escaped {
-				return ctx.makeString(decodeLiteral(buf[start:cursor], stringInfo{firstEscape: -1, nonASCII: high&msb != 0})), next, true, nil
+				literal := buf[start:cursor]
+				if high&msb != 0 {
+					literal = validLiteral(literal)
+				}
+				return ctx.makeString(literal), next, true, nil
 			}
 			out = append(out, buf[run:cursor]...)
 			if cap(out) <= maxUnescapeScratchSize {

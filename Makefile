@@ -71,6 +71,8 @@ bench-compare-encode:
 # Keys ones structs whose keys differ only, in length or in script ( benchmarks/decode_key_length_test.go ), and the
 # GitHub ones the responses of the REST and the GraphQL APIs of GitHub ( benchmarks/decode_github_test.go ), and
 # the OpenAI and Anthropic ones the responses and the streams of the APIs of LLMs ( benchmarks/llm_api_test.go ).
+# BENCH_LIVE_HEAP_MB gives the benchmarks a live heap of that size, as a real program has, which sets the goal of the
+# GC for every library alike ( benchmarks/live_heap_test.go ).
 .PHONY: bench-compare-decode
 bench-compare-decode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(Small|Medium|Large)Struct_Unmarshal_(GoJson|GoJsonUnmarshalOfNoCopyString|Sonic|SonicStd|SonicFastest)$$' -benchtime 300ms -count 3 .

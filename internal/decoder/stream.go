@@ -282,9 +282,9 @@ func (s *Stream) scanString() (int64, error) {
 	}
 }
 
-// scanLiteral finds the end of the number, true, false or null at the cursor, as the grammar ends it: the value of a
-// stream ends at the first byte which can't continue it, where the next value may start, as encoding/json reads
-// 01 as 0 and 1. The bytes of the literals are read first, up to one which belongs to none or the end of the input.
+// scanLiteral finds the end of the number, true, false or null at the cursor: the position of
+// the first byte which can't belong to it, or the end of the input. The bytes may be more than one value, as 01 is
+// 0 and 1, which the decoder rejects: Decode then decodes the first alone ( see decodeError ).
 func (s *Stream) scanLiteral() (int64, error) {
 	var rel int64
 	for {
@@ -293,7 +293,7 @@ func (s *Stream) scanLiteral() (int64, error) {
 		end := s.length
 		for pos < end {
 			if !isLiteralChar[buf[pos]] {
-				return literalEnd(buf, s.cursor, pos), nil
+				return pos, nil
 			}
 			pos++
 		}
@@ -302,32 +302,9 @@ func (s *Stream) scanLiteral() (int64, error) {
 			if s.readErr != io.EOF {
 				return 0, s.readErr
 			}
-			return literalEnd(s.buf, s.cursor, s.cursor+rel), nil
+			return s.cursor + rel, nil
 		}
 	}
-}
-
-// literalEnd returns the end of the number, true, false or null at start in buf[:lim] by the grammar: the position
-// of the first byte which can't continue it. A value which is not valid ends there too, before the byte which the
-// decoder reports.
-func literalEnd(buf []byte, start, lim int64) int64 {
-	i := start
-	var lit string
-	switch buf[i] {
-	case 't':
-		lit = "true"
-	case 'f':
-		lit = "false"
-	case 'n':
-		lit = "null"
-	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return streamNumberEnd(buf, start, lim)
-	default:
-		return start + 1
-	}
-	for i++; i < lim && i-start < int64(len(lit)) && buf[i] == lit[i-start]; i++ {
-	}
-	return i
 }
 
 // streamNumberEnd returns the end of the number at start in buf[:lim] by the grammar of the numbers, which may be
@@ -379,23 +356,25 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
-	// The end of the value is known exactly: a nul byte is put there while the value is decoded,
-	// so that the decoder never reads the next value, whatever it makes of a malformed one.
-	// A number needs it too, because the decoder validates the byte which ends it.
-	// true, false and null end at the first byte which can't belong to them, and the decoder
-	// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
-	lim := end
-	if c := s.buf[s.cursor]; c == 't' || c == 'f' || c == 'n' {
-		lim = s.length
+	var cursor int64
+	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
+		// The end of the value is known exactly: a nul byte is put there while the value is decoded,
+		// so that the decoder never reads the next value, whatever it makes of a malformed one.
+		// A number needs it too, because the decoder validates the byte which ends it.
+		saved := s.buf[end]
+		s.buf[end] = nul
+		ctx.Buf = s.buf[:end+1]
+		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
+		s.buf[end] = saved
+	} else {
+		// true, false and null end at the first byte which can't belong to them, and the decoder
+		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
+		ctx.Buf = s.buf[:s.length+1]
+		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
 	}
-	saved := s.buf[lim]
-	s.buf[lim] = nul
-	ctx.Buf = s.buf[:lim+1]
-	cursor, err := dec.Decode(ctx, s.cursor, 0, p)
-	s.buf[lim] = saved
 	ctx.Buf = nil
 	if err != nil {
-		return s.decodeError(err)
+		return s.decodeError(err, dec, typ, p, end)
 	}
 	if ctx.HasTypeError() {
 		return s.typeError(typ, cursor)
@@ -408,13 +387,21 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 }
 
 // decodeError returns the error of the decoder, whose offset is made the one in the whole input, of the value at
-// the cursor, which the decoder read up to lim. A type error before it is not kept for the next value.
+// the cursor, which scanValue ended at end. A type error before it is not kept for the next value.
 //
 // A syntax error is the first one of the value by the grammar, as encoding/json reports it: it checks the value
 // before it decodes it. The decoder never writes the buffer, which keeps the input.
 //
 //go:noinline
-func (s *Stream) decodeError(err error) error {
+func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end int64) error {
+	if c := s.buf[s.cursor]; c == '-' || c-'0' <= 9 {
+		if first := streamNumberEnd(s.buf, s.cursor, end); first < end {
+			// the bytes of the numbers which scanLiteral read are more than one value, as 01 is 0 and 1: the first
+			// is decoded alone, and the next one after it
+			s.ctx.DiscardTypeError()
+			return s.decodeFirstNumber(dec, typ, p, first)
+		}
+	}
 	s.ctx.DiscardTypeError()
 	if _, ok := err.(*errors.SyntaxError); ok {
 		if serr := s.valueSyntaxError(); serr != nil {
@@ -422,6 +409,32 @@ func (s *Stream) decodeError(err error) error {
 		}
 	}
 	return s.fail(s.totalOffsetError(err))
+}
+
+// decodeFirstNumber decodes the number at the cursor, which ends at end by the grammar, as Decode does.
+func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64) error {
+	ctx := s.ctx
+	saved := s.buf[end]
+	s.buf[end] = nul
+	ctx.Buf = s.buf[:end+1]
+	cursor, err := dec.Decode(ctx, s.cursor, 0, p)
+	s.buf[end] = saved
+	ctx.Buf = nil
+	if err != nil {
+		s.ctx.DiscardTypeError()
+		if serr := s.valueSyntaxError(); serr != nil {
+			return s.fail(serr)
+		}
+		return s.fail(s.totalOffsetError(err))
+	}
+	if ctx.HasTypeError() {
+		return s.typeError(typ, cursor)
+	}
+	s.cursor = cursor
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
+	return nil
 }
 
 // valueSyntaxError returns the first syntax error of the value at the cursor by the grammar, in what has been read:

@@ -158,6 +158,12 @@ jobs:
             run: SONIC_USE_OPTDEC=1 make bench-compare-decode
           - name: decode, sonic fastmap
             run: SONIC_USE_FASTMAP=1 make bench-compare-decode
+          # A program which decodes JSON has a live heap of its own, which sets the goal of the GC for every
+          # library alike ( see benchmarks/live_heap_test.go ): it is measured with one too, as a real program runs.
+          - name: decode, live heap
+            run: BENCH_LIVE_HEAP_MB=64 make bench-compare-decode
+          - name: decode, live heap, sonic optdec
+            run: BENCH_LIVE_HEAP_MB=64 SONIC_USE_OPTDEC=1 make bench-compare-decode
           - name: profile encode
             run: make bench-profile-encode
           - name: candidates of the optimizations

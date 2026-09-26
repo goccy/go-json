@@ -31,6 +31,9 @@ type pendingTypeError struct {
 	// noContext is set for an error which is reported with no path and no offset, as encoding/json of Go 1.27
 	// reports the ones of a json.Number.
 	noContext bool
+	// atStart is set for an error whose offset is the start of the value, as encoding/json of Go 1.27 reports the
+	// ones of an interface value which is kept.
+	atStart bool
 }
 
 // jsonKind is the kind of a JSON value, which a decoder decodes and a type error reports.
@@ -165,6 +168,9 @@ func (ctx *RuntimeContext) TypeError(dec Decoder, typ reflect.Type, base, offset
 		return p.plain
 	}
 	e := newTypeError(p, typeErrorPath(dec, ctx.Buf, base, p), typ)
+	if p.atStart {
+		e.Offset = p.start
+	}
 	if e.Offset != 0 {
 		e.Offset -= offsetBase
 	}

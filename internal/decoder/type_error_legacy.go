@@ -150,6 +150,20 @@ func (ctx *RuntimeContext) textUnmarshalerKindError(cursor, depth int64, typ ref
 	return ctx.skipTypeError(cursor, depth, typ)
 }
 
+// ifaceTextUnmarshalerKindError records the type error of the value at cursor, which is not a string, of an
+// interface value of ifaceType which holds a pointer of typ, which implements encoding.TextUnmarshaler, and skips
+// it: encoding/json before Go 1.27 reports the interface type.
+func (ctx *RuntimeContext) ifaceTextUnmarshalerKindError(cursor, depth int64, ifaceType, _ reflect.Type) (int64, error) {
+	return ctx.skipTypeError(cursor, depth, ifaceType)
+}
+
+// keptInterfaceTypeError records the type error of the value at cursor, which is not null, decoded into the
+// value at p of the interface type typ, which has methods and holds no pointer, and skips it: encoding/json before
+// Go 1.27 keeps the interface value, and reports the error as the other type errors.
+func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ reflect.Type, _ unsafe.Pointer) (int64, error) {
+	return ctx.skipTypeError(cursor, depth, typ)
+}
+
 // mapKeySupported reports whether encoding/json before Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: strings, integers and the types which implement encoding.TextUnmarshaler.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {

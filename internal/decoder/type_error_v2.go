@@ -145,6 +145,26 @@ func (ctx *RuntimeContext) textUnmarshalerKindError(cursor, depth int64, typ ref
 	return next, err
 }
 
+// ifaceTextUnmarshalerKindError records the type error of the value at cursor, which is not a string, of an
+// interface value of ifaceType which holds a pointer of typ, which implements encoding.TextUnmarshaler, and skips
+// it: encoding/json of Go 1.27 reports it as the one of the pointer ( see textUnmarshalerKindError ).
+func (ctx *RuntimeContext) ifaceTextUnmarshalerKindError(cursor, depth int64, _, typ reflect.Type) (int64, error) {
+	return ctx.textUnmarshalerKindError(cursor, depth, typ)
+}
+
+// keptInterfaceTypeError records the type error of the value at cursor, which is not null, decoded into the
+// value at p of the interface type typ, which has methods and holds no pointer, and skips it: encoding/json of Go
+// 1.27 sets the interface value to nil, and reports the error at the start of the value.
+func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ reflect.Type, p unsafe.Pointer) (int64, error) {
+	*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
+	first := ctx.typeError == nil
+	next, err := ctx.skipTypeError(cursor, depth, typ)
+	if err == nil && first {
+		ctx.typeError.atStart = true
+	}
+	return next, err
+}
+
 // mapKeySupported reports whether encoding/json of Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: any key but a bool and a key of a type which no key is decoded into.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {

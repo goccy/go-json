@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -26,6 +25,9 @@ type unmarshalJSONDecoder struct {
 // them. The decoder is made for the pointer type, whose method set has UnmarshalJSON.
 var timePtrType = reflect.TypeOf(&time.Time{})
 
+// timeType is the type of time.Time.
+var timeType = timePtrType.Elem()
+
 func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *unmarshalJSONDecoder {
 	return &unmarshalJSONDecoder{
 		typ:            typ,
@@ -35,19 +37,15 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 	}
 }
 
-func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
-	switch e := err.(type) {
-	case *errors.UnmarshalTypeError:
-		e.Struct = d.structName
-		e.Field = d.fieldName
-	case *errors.SyntaxError:
-		e.Offset = cursor
-	}
-}
-
 func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
+	if timeKindTypeErrors && d.typ == timePtrType {
+		if c := buf[cursor]; c != '"' && c != 'n' {
+			// a time.Time is decoded from a string only: any other value is a type error
+			return ctx.skipTypeError(cursor, depth, timeType)
+		}
+	}
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)
 	if err != nil {
@@ -74,13 +72,11 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 			c = context.Background()
 		}
 		if err := v.UnmarshalJSON(c, dst); err != nil {
-			d.annotateError(cursor, err)
-			return 0, err
+			return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
 		}
 	case json.Unmarshaler:
 		if err := v.UnmarshalJSON(dst); err != nil {
-			d.annotateError(cursor, err)
-			return 0, err
+			return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
 		}
 	}
 	return end, nil

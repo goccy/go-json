@@ -11,6 +11,10 @@ import (
 // which encoding/json reports as the Struct and the Field of the error, is computed at the end by a walk of the
 // input from the root ( see typeErrorPath ), so that the decoding of a value which has no error keeps no path.
 
+// float64Type is the type which the type error of a number out of the range of a float64 decoded into an
+// interface{} reports.
+var float64Type = reflect.TypeOf(float64(0))
+
 // pendingTypeError is the first type error of a decoding, as it is recorded.
 type pendingTypeError struct {
 	typ reflect.Type
@@ -24,7 +28,8 @@ type pendingTypeError struct {
 	atKey bool
 	// literal is set for an error which reports the literal of the value in its value, as "number 1.5".
 	literal bool
-	// plain is an error which is not a type error, which encoding/json before Go 1.27 returns as it is.
+	// plain is an error which is not a type error, which encoding/json returns as it is: an invalid use of the string
+	// option before Go 1.27, or the error of an unmarshal method by Go 1.27.
 	plain error
 	// err is the cause of the error, which encoding/json of Go 1.27 reports.
 	err error
@@ -187,6 +192,8 @@ type typeErrorStep struct {
 	// name is the name of a field, which is its key, the key of a map entry as it is decoded, or the index of an
 	// element.
 	name string
+	// inputName is the key of a field as the input has it, decoded, which encoding/json of Go 1.27 reports.
+	inputName string
 	// isField is set for a field of a struct.
 	isField bool
 }
@@ -234,6 +241,26 @@ func typeErrorPath(dec Decoder, buf []byte, cursor int64, p *pendingTypeError) [
 			}
 			path = append(path, typeErrorStep{name: strconv.Itoa(i)})
 			dec, cursor = d.valueDecoder, next
+		case *interfaceDecoder:
+			// the objects and the arrays of an interface{}, whose values are decoded by the same decoder
+			var next int64
+			var ok bool
+			switch buf[cursor] {
+			case '{':
+				var key string
+				if key, next, ok = typeErrorEntry(buf, cursor, p); ok {
+					path = append(path, typeErrorStep{name: key})
+				}
+			case '[':
+				var i int
+				if i, next, ok = typeErrorElement(buf, cursor, p); ok {
+					path = append(path, typeErrorStep{name: strconv.Itoa(i)})
+				}
+			}
+			if !ok || next < 0 || d.hasMethods {
+				return path
+			}
+			cursor = next
 		case *mapDecoder:
 			key, next, ok := typeErrorEntry(buf, cursor, p)
 			if !ok {
@@ -281,7 +308,9 @@ func (d *structDecoder) typeErrorChild(buf []byte, cursor int64, p *pendingTypeE
 			if field == nil {
 				return typeErrorStep{}, nil, 0, false
 			}
-			step := typeErrorStep{structName: d.typeName, name: field.key, isField: true}
+			step := typeErrorStep{
+				structName: d.typeName, name: field.key, inputName: string(decodeLiteral(key, info)), isField: true,
+			}
 			if embeddedFieldNames {
 				step.embedded = d.embedded[field]
 			}

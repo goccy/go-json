@@ -2,10 +2,8 @@ package decoder
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"math/bits"
-	"strconv"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -44,6 +42,25 @@ type Stream struct {
 	// prevEnd is the total offset of the end of the previous value, which the offset of a type error may be
 	// relative to ( see StreamOffsetBase ).
 	prevEnd int64
+	// tokenState is where the stream is between the tokens, and tokenStack the states of the objects and the
+	// arrays which Token opened, the innermost last ( see Token ).
+	tokenState tokenState
+	tokenStack []tokenState
+	// err is the error which a read failed with, which every read returns after it, as encoding/json does, and
+	// errOffset the total offset which InputOffset reports after it: the end of the previous value.
+	err       error
+	errOffset int64
+	// readStart is the total offset where the read of the value of Decode, or of the value of Token, started, and
+	// scanned the number of the bytes which these reads read before it, by which encoding/json before Go 1.27
+	// reports the offset of a syntax error of the value ( see scannedOffset ).
+	readStart int64
+	scanned   int64
+	// more is what More peeked at, which InputOffset reports ( see streamPeek ).
+	more streamPeek
+	// keeps is set while the bytes from the total offset keepFrom are kept in the buffer, before the cursor too:
+	// a read of a token which fails leaves the stream where it was ( see Token ).
+	keeps    bool
+	keepFrom int64
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -54,6 +71,20 @@ func NewStream(r io.Reader) *Stream {
 		ctx:    &RuntimeContext{Option: opt},
 		Option: opt,
 	}
+}
+
+// markPrevEnd keeps the end of the previous value of the stream: the offsets of the type errors of the next value
+// may be relative to it ( see StreamOffsetBase ), and InputOffset reports it after a read which fails.
+func (s *Stream) markPrevEnd() {
+	s.prevEnd = s.offset + s.cursor
+}
+
+// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does.
+//
+//go:noinline
+func (s *Stream) fail(err error) error {
+	s.err, s.errOffset, s.tokenState = err, s.prevEnd, tokenFailed
+	return err
 }
 
 // TotalOffset returns the number of the bytes consumed from the reader.
@@ -87,7 +118,12 @@ func (s *Stream) read() bool {
 // grow moves the bytes which are not consumed yet to a new buffer, so that the reader
 // has room to read into. The old buffer is left to the strings which refer to it.
 func (s *Stream) grow() {
-	remain := s.length - s.cursor
+	// the bytes from the cursor are moved, or from the one which is kept before it
+	from := s.cursor
+	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {
+		from = keep
+	}
+	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
 	if remain*2 > size {
 		// The data which is not consumed yet fills more than half of the buffer: it is a value
@@ -100,11 +136,11 @@ func (s *Stream) grow() {
 		size = remain + int64(r.Len())
 	}
 	buf := make([]byte, size+bufPadding)
-	copy(buf, s.buf[s.cursor:s.length])
-	s.offset += s.cursor
+	copy(buf, s.buf[from:s.length])
+	s.offset += from
 	s.buf = buf
 	s.length = remain
-	s.cursor = 0
+	s.cursor -= from
 }
 
 // fill makes sure that the buffer holds the byte at the cursor.
@@ -123,6 +159,17 @@ func (s *Stream) endError() error {
 		return s.readErr
 	}
 	return io.EOF
+}
+
+// truncatedValueError is the error reported when the reader ends in the middle of the value at the cursor: the first
+// syntax error of what has been read, as encoding/json reads a value byte by byte, or the unexpected end.
+//
+//go:noinline
+func (s *Stream) truncatedValueError() error {
+	if err := s.valueSyntaxError(); err != nil {
+		return err
+	}
+	return s.unexpectedEndError()
 }
 
 // unexpectedEndError is the error reported when the reader ends in the middle of a value.
@@ -149,19 +196,35 @@ func (s *Stream) skipWhiteSpace() bool {
 	}
 }
 
-// prepare moves the cursor to the beginning of the next value: the white space is skipped,
-// as well as the comma or the colon which separates the value from the previous one.
-func (s *Stream) prepare() error {
-	if !s.skipWhiteSpace() {
-		return s.endError()
-	}
-	switch s.buf[s.cursor] {
-	case ',', ':':
-		s.cursor++
-		if !s.skipWhiteSpace() {
-			// A separator followed by nothing: the value it announces is missing.
-			return s.unexpectedEndError()
+// peek moves the cursor to the next byte which is not a white space, as skipWhiteSpace does, but leaves it where it
+// is when the input ends with white spaces only: the offset of the input doesn't count them, as encoding/json
+// doesn't count what it peeks at. It returns false when the reader has nothing more.
+func (s *Stream) peek() bool {
+	var rel int64
+	for {
+		// the position is kept relative to the cursor, because a read may move the data ( grow )
+		for pos := s.cursor + rel; pos < s.length; pos++ {
+			if !isWhiteSpace[s.buf[pos]] {
+				s.cursor = pos
+				return true
+			}
 		}
+		rel = s.length - s.cursor
+		if !s.read() {
+			return false
+		}
+	}
+}
+
+// prepare moves the cursor to the beginning of the next value: the white space is skipped, and, between the
+// tokens of an object or an array, the comma or the colon which the grammar has before the value.
+func (s *Stream) prepare() error {
+	if s.tokenState != tokenTopValue {
+		return s.prepareInTokens()
+	}
+	s.readStart = s.offset + s.cursor
+	if !s.skipWhiteSpace() {
+		return s.fail(s.endError())
 	}
 	return nil
 }
@@ -208,7 +271,7 @@ func (s *Stream) scanCompound() (int64, error) {
 		}
 		rel = pos - s.cursor
 		if !s.read() {
-			return 0, s.unexpectedEndError()
+			return 0, s.truncatedValueError()
 		}
 	}
 }
@@ -251,13 +314,14 @@ func (s *Stream) scanString() (int64, error) {
 			continue
 		}
 		if !s.read() {
-			return 0, s.unexpectedEndError()
+			return 0, s.truncatedValueError()
 		}
 	}
 }
 
 // scanLiteral finds the end of the number, true, false or null at the cursor: the position of
-// the first byte which can't belong to it, or the end of the input.
+// the first byte which can't belong to it, or the end of the input. The bytes may be more than one value, as 01 is
+// 0 and 1, which the decoder rejects: Decode then decodes the first alone ( see decodeError ).
 func (s *Stream) scanLiteral() (int64, error) {
 	var rel int64
 	for {
@@ -280,6 +344,37 @@ func (s *Stream) scanLiteral() (int64, error) {
 	}
 }
 
+// streamNumberEnd returns the end of the number at start in buf[:lim] by the grammar of the numbers, which may be
+// cut there: what follows is not read yet, or is the next value.
+func streamNumberEnd(buf []byte, start, lim int64) int64 {
+	isDigit := func(i int64) bool { return i < lim && buf[i]-'0' <= 9 }
+	i := start
+	if buf[i] == '-' {
+		i++
+	}
+	if i < lim && buf[i] == '0' {
+		i++
+	} else {
+		for isDigit(i) {
+			i++
+		}
+	}
+	if i < lim && buf[i] == '.' {
+		for i++; isDigit(i); i++ {
+		}
+	}
+	if i < lim && (buf[i] == 'e' || buf[i] == 'E') {
+		i++
+		if i < lim && (buf[i] == '+' || buf[i] == '-') {
+			i++
+		}
+		for isDigit(i) {
+			i++
+		}
+	}
+	return i
+}
+
 // DecoderOf returns the decoder of the type, from the recent decoders of the context of the stream.
 func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 	return s.ctx.DecoderOf(typ)
@@ -294,7 +389,7 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	end, err := s.scanValue()
 	if err != nil {
-		return err
+		return s.fail(err)
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
@@ -316,22 +411,106 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	ctx.Buf = nil
 	if err != nil {
-		return s.decodeError(err)
+		return s.decodeError(err, dec, typ, p, end)
 	}
 	if ctx.HasTypeError() {
 		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
+	if countsScanned {
+		s.scanned += s.offset + cursor - s.readStart
+	}
+	s.more.reset()
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
 	return nil
 }
 
-// decodeError returns the error of the decoder, whose offset is made the one in the whole input. A type error
-// before it is not kept for the next value.
+// decodeError returns the error of the decoder, whose offset is made the one in the whole input, of the value at
+// the cursor, which scanValue ended at end. A type error before it is not kept for the next value.
+//
+// A syntax error is the first one of the value by the grammar, as encoding/json reports it: it checks the value
+// before it decodes it. The decoder never writes the buffer, which keeps the input.
 //
 //go:noinline
-func (s *Stream) decodeError(err error) error {
+func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end int64) error {
+	if c := s.buf[s.cursor]; c == '-' || c-'0' <= 9 {
+		if first := streamNumberEnd(s.buf, s.cursor, end); first < end {
+			// the bytes of the numbers which scanLiteral read are more than one value, as 01 is 0 and 1: the first
+			// is decoded alone, and the next one after it
+			s.ctx.DiscardTypeError()
+			return s.decodeFirstNumber(dec, typ, p, first)
+		}
+	}
 	s.ctx.DiscardTypeError()
-	return s.totalOffsetError(err)
+	if _, ok := err.(*errors.SyntaxError); ok {
+		if serr := s.valueSyntaxError(); serr != nil {
+			return s.fail(serr)
+		}
+	}
+	return s.fail(s.totalOffsetError(err))
+}
+
+// decodeFirstNumber decodes the number at the cursor, which ends at end by the grammar, as Decode does.
+func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64) error {
+	ctx := s.ctx
+	saved := s.buf[end]
+	s.buf[end] = nul
+	ctx.Buf = s.buf[:end+1]
+	cursor, err := dec.Decode(ctx, s.cursor, 0, p)
+	s.buf[end] = saved
+	ctx.Buf = nil
+	if err != nil {
+		s.ctx.DiscardTypeError()
+		if serr := s.valueSyntaxError(); serr != nil {
+			return s.fail(serr)
+		}
+		return s.fail(s.totalOffsetError(err))
+	}
+	if ctx.HasTypeError() {
+		return s.typeError(typ, cursor)
+	}
+	s.cursor = cursor
+	if countsScanned {
+		s.scanned += s.offset + cursor - s.readStart
+	}
+	s.more.reset()
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
+	return nil
+}
+
+// valueSyntaxError returns the first syntax error of the value at the cursor by the grammar, in what has been read:
+// the error of a byte, with its offset in the whole input, or the unexpected end of the input, where encoding/json
+// reads more. A number, true, false or null is followed by the byte after it, or by the end of the input: the scan
+// of the value has read either. It is nil if what has been read has none.
+//
+//go:noinline
+func (s *Stream) valueSyntaxError() error {
+	_, err := skipValue(s.buf[:s.length+1], s.cursor, 0)
+	if err == nil {
+		return nil
+	}
+	if errors.IsAtEnd(err) {
+		return s.unexpectedEndError()
+	}
+	if at, ok := errors.ValueStartAt(err); ok {
+		if merr := s.valueStartMismatch(at); merr != nil {
+			return merr
+		}
+	}
+	return s.scannedOffset(s.totalOffsetError(err))
+}
+
+// scannedOffset makes the offset of the syntax error of the value read from readStart the one which encoding/json
+// of the Go version reports ( see countsScanned ).
+func (s *Stream) scannedOffset(err error) error {
+	if e, ok := err.(*errors.SyntaxError); ok && countsScanned {
+		e.Offset += s.scanned - s.readStart
+	}
+	return err
 }
 
 // typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
@@ -343,6 +522,13 @@ func (s *Stream) decodeError(err error) error {
 func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
 	start := s.cursor
 	s.cursor = end
+	if countsScanned {
+		s.scanned += s.offset + end - s.readStart
+	}
+	s.more.reset()
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
 	ctx := s.ctx
 	dec, err := s.DecoderOf(typ)
 	if err != nil {
@@ -372,76 +558,9 @@ func (s *Stream) totalOffsetError(err error) error {
 	return err
 }
 
-// More reports whether the current array or object has another element.
-func (s *Stream) More() bool {
-	if !s.skipWhiteSpace() {
-		return false
-	}
-	switch s.buf[s.cursor] {
-	case ']', '}':
-		return false
-	}
-	return true
-}
-
-// Token returns the next token of the stream: a delimiter, a string, a number, a bool or nil.
-// The commas and the colons are consumed silently.
-func (s *Stream) Token() (any, error) {
-	for {
-		if !s.fill() {
-			return nil, s.endError()
-		}
-		c := s.buf[s.cursor]
-		switch c {
-		case ' ', '\n', '\r', '\t', ',', ':':
-			s.cursor++
-		case '{', '[', ']', '}':
-			s.cursor++
-			return json.Delim(c), nil
-		case '"':
-			return s.tokenString()
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			end, err := s.scanValue()
-			if err != nil {
-				return nil, err
-			}
-			literal := s.buf[s.cursor:end]
-			s.cursor = end
-			f64, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&literal)), 64)
-			if err != nil {
-				// A number out of the range of float64 is still a number.
-				if numErr, ok := err.(*strconv.NumError); !ok || numErr.Err != strconv.ErrRange {
-					return nil, errors.ErrSyntax(err.Error(), s.TotalOffset())
-				}
-			}
-			if (s.Option.Flags & UseNumberOption) != 0 {
-				return json.Number(literal), nil
-			}
-			return f64, nil
-		case 't', 'f', 'n':
-			end, err := s.scanValue()
-			if err != nil {
-				return nil, err
-			}
-			literal := string(s.buf[s.cursor:end])
-			s.cursor = end
-			switch literal {
-			case "true":
-				return true, nil
-			case "false":
-				return false, nil
-			case "null":
-				return nil, nil
-			}
-			return nil, errors.ErrInvalidCharacter(literal[0], "token", s.TotalOffset())
-		default:
-			return nil, errors.ErrInvalidCharacter(c, "token", s.TotalOffset())
-		}
-	}
-}
-
 // tokenString decodes the string at the cursor by the string decoder, as Decode does.
 func (s *Stream) tokenString() (any, error) {
+	s.readStart = s.offset + s.cursor
 	end, err := s.scanValue()
 	if err != nil {
 		return nil, err
@@ -451,9 +570,19 @@ func (s *Stream) tokenString() (any, error) {
 	literal, _, err := tokenStringDecoder.decodeByte(s.buf[:end+1], s.cursor)
 	s.buf[end] = saved
 	if err != nil {
+		if serr := s.valueSyntaxError(); serr != nil {
+			return nil, serr
+		}
 		return nil, s.totalOffsetError(err)
 	}
 	s.cursor = end
+	if countsScanned {
+		s.scanned += s.offset + end - s.readStart
+	}
+	if len(literal) != 0 && !isPartOf(literal, s.buf) {
+		// the bytes of the escaped string, which decodeLiteral made: they are the string's own
+		return unsafe.String(unsafe.SliceData(literal), len(literal)), nil
+	}
 	return string(literal), nil
 }
 

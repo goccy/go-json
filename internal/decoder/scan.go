@@ -236,29 +236,3 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 	sc.depth, sc.inString, sc.escaped = depth, inString, escaped
 	return pos, false, nil
 }
-
-// skipCompound returns the position after the end of the object or the array which is open at cursor:
-// depth brackets are open, nesting is how deep the value is nested in the input.
-// The buffer ends with a nul byte, which no value may reach.
-func skipCompound(buf []byte, cursor, depth, nesting int64) (int64, error) {
-	sc := compoundScanner{depth: depth, maxDepth: maxDecodeNestingDepth - nesting}
-	lim := int64(len(buf))
-	var (
-		end   int64
-		found bool
-		err   error
-	)
-	if lim-cursor <= scanBlockSize {
-		// a short buffer: byte by byte, without the calls of the scan by blocks
-		end, found, err = sc.scanBytes(buf, cursor, lim)
-	} else {
-		end, found, err = sc.scan(buf, cursor, lim)
-	}
-	if err != nil {
-		return 0, err
-	}
-	if !found {
-		return 0, errors.ErrUnexpectedEndOfJSON("object or array", end)
-	}
-	return end, nil
-}

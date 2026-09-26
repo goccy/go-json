@@ -3,6 +3,7 @@
 package decoder
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -101,6 +102,12 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 	case c == 'n', c == 't', c == 'f':
 		return save(invalidUse())
 	case c == '"':
+		if elem == jsonNumberType {
+			// a JSON string, whose bytes must be a number
+			if s, ok := unquoteBytes(value); ok && !isValidNumber(s) {
+				return 0, fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", value)
+			}
+		}
 		if elem.Kind() == reflect.String {
 			return 0, invalidUse()
 		}
@@ -124,6 +131,45 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 	}
 	return 0, invalidUse()
 }
+
+// annotateMethodError sets the field of a type error, or the offset of a syntax error, which an unmarshal method
+// of the value at cursor returned, as encoding/json before Go 1.27 does.
+func annotateMethodError(cursor int64, err error, structName, fieldName string) {
+	switch e := err.(type) {
+	case *errors.UnmarshalTypeError:
+		e.Struct = structName
+		e.Field = fieldName
+	case *json.UnmarshalTypeError:
+		// the type error of encoding/json, which it sets as its own
+		e.Struct = structName
+		e.Field = fieldName
+	case *errors.SyntaxError:
+		e.Offset = cursor
+	}
+}
+
+// methodError returns err, which an unmarshal method of the value between cursor and end returned: encoding/json
+// before Go 1.27 stops the decoding with it, with the field of a type error and the offset of a syntax error.
+func (ctx *RuntimeContext) methodError(cursor, _ int64, err error, structName, fieldName string) (int64, error) {
+	annotateMethodError(cursor, err, structName, fieldName)
+	return 0, err
+}
+
+// timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
+// before Go 1.27 gives it to the UnmarshalJSON of time.Time, whose error stops the decoding.
+const timeKindTypeErrors = false
+
+// stringOptionNumber reports whether the bytes of the string of a json.Number of the string option are stored as
+// they are: encoding/json before Go 1.27 stores any bytes which start as a number does, without the grammar of the
+// numbers, and decodes any other ones as a JSON value ( see stringOptionNumberDecoded ).
+func stringOptionNumber(value []byte) bool {
+	return len(value) != 0 && (value[0] == '-' || value[0]-'0' <= 9)
+}
+
+// stringOptionNumberDecoded is whether the bytes of the string of a json.Number of the string option, when
+// stringOptionNumber doesn't store them, are decoded as a JSON value, a string of a number or null, as encoding/json
+// before Go 1.27 decodes them.
+const stringOptionNumberDecoded = true
 
 // stringOptionUnquotedAllocates is whether a nil pointer of a field of the string option is set to a zero value
 // when the value of the field is not in a string: encoding/json before Go 1.27 leaves it.
@@ -164,6 +210,54 @@ func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ refle
 	return ctx.skipTypeError(cursor, depth, typ)
 }
 
+// textUnmarshalerNullSetsZero reports whether null sets a value of the kind, whose pointer type implements
+// encoding.TextUnmarshaler, to its zero value: encoding/json before Go 1.27 does it for a slice, a map, a pointer
+// and an interface value, as it does for any value of these kinds.
+func textUnmarshalerNullSetsZero(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Slice, reflect.Map, reflect.Pointer, reflect.Interface:
+		return true
+	}
+	return false
+}
+
+// unsettableFieldError records err, the error of a field of the struct typ which can't be set, as an embedded
+// pointer to an unexported struct, for the value at cursor, and skips the value: encoding/json before Go 1.27
+// returns the error as it is.
+func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, _ reflect.Type, err error) (int64, error) {
+	buf := ctx.Buf
+	end, skipErr := skipValue(buf, skipWhiteSpace(buf, cursor), depth)
+	if skipErr != nil {
+		return 0, skipErr
+	}
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{plain: err}
+	}
+	return end, nil
+}
+
+// storesFloatsOutOfRange reports whether a number out of the range of a float is stored as ±Inf with its type
+// error: encoding/json before Go 1.27 leaves the value as it is.
+const storesFloatsOutOfRange = false
+
+// floatRangeErrorOfInterface records the type error of the number between start and end, which is out of the
+// range of a float64, decoded into the interface{} at p, of value f: encoding/json before Go 1.27 leaves the
+// value as it is, and reports the error after the byte which follows the number.
+func (ctx *RuntimeContext) floatRangeErrorOfInterface(start, end int64, _ float64, _ unsafe.Pointer) {
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{
+			typ: float64Type, start: start, end: end + 1, value: "number " + string(ctx.Buf[start:end]),
+			kind: numberValue, literal: true,
+		}
+	}
+}
+
+// stringOptionNumberStart reports whether c starts a number of a string of the string option which encoding/json
+// before Go 1.27 reads: a minus sign or a digit. It reads the numbers of the keys of maps whatever they start with.
+func stringOptionNumberStart(c byte) bool {
+	return c == '-' || c-'0' <= 9
+}
+
 // mapKeySupported reports whether encoding/json before Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: strings, integers and the types which implement encoding.TextUnmarshaler.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {
@@ -183,10 +277,4 @@ func mapKeySupported(keyType reflect.Type, dec Decoder) bool {
 // mapKeySupported ), and skips it: encoding/json before Go 1.27 reports the map, which is left.
 func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64, _ unsafe.Pointer) (int64, error) {
 	return ctx.skipTypeError(cursor, depth, d.mapType)
-}
-
-// markPrevEnd keeps the end of the previous value of the stream, which the offsets of the type errors of the next
-// value are relative to ( see StreamOffsetBase ).
-func (s *Stream) markPrevEnd() {
-	s.prevEnd = s.offset + s.cursor
 }

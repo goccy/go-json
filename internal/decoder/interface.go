@@ -236,6 +236,29 @@ func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth 
 	return d.decodeValue(ctx, cursor, depth, p, v, h.ptr)
 }
 
+// decodeFloatSlow decodes the number at cursor into the interface{} at p, which the fast parse doesn't: a number
+// which is not valid by the grammar is a syntax error, and a number out of the range of a float64 is a type error,
+// after which the decoding goes on ( see floatRangeErrorOfInterface ). It is not inlined, so that the decoding of
+// the values of interface{} keeps the size it had.
+//
+//go:noinline
+func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	end, err := numberEnd(buf, cursor)
+	if err != nil {
+		return 0, err
+	}
+	b := buf[cursor:end]
+	f, parseErr := strconv.ParseFloat(*(*string)(unsafe.Pointer(&b)), 64)
+	// a number of the grammar which ParseFloat fails is out of the range of float64
+	if inRange := parseErr == nil; !inRange {
+		ctx.floatRangeErrorOfInterface(cursor, end, f, p)
+		return end, nil
+	}
+	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+	return end, nil
+}
+
 func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
@@ -261,19 +284,7 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 			**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
 			return next, nil
 		}
-		num, c, err := d.floatDecoder.decodeByte(buf, cursor)
-		if err != nil {
-			return 0, err
-		}
-		if !validEndNumberChar[buf[c]] {
-			return 0, errors.ErrUnexpectedEndOfJSON("float", c)
-		}
-		f, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&num)), 64)
-		if err != nil {
-			return 0, errors.ErrSyntax(err.Error(), c)
-		}
-		**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
-		return c, nil
+		return decodeFloatSlow(ctx, cursor, p)
 	case '"':
 		s, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
@@ -368,17 +379,16 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 		return nil, 0, err
 	}
 	for {
-		key, c, ok, err := d.stringDecoder.decodeString(ctx, cursor)
+		if cursor = skipWhiteSpace(buf, cursor); buf[cursor] != '"' {
+			return fail(syntaxErrorAt(buf, cursor, whereKey))
+		}
+		key, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return fail(err)
 		}
-		if !ok {
-			// null is not a key
-			return fail(errors.ErrSyntax("invalid character 'n' looking for beginning of object key string", skipWhiteSpace(buf, cursor)+1))
-		}
 		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] != ':' {
-			return fail(errors.ErrExpected("colon after object key", cursor))
+			return fail(syntaxErrorAt(buf, cursor, whereAfterKey))
 		}
 		cursor++
 		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))

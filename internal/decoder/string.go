@@ -97,7 +97,8 @@ type stringInfo struct {
 	nonASCII bool
 }
 
-// decodeByte returns the bytes of the string at cursor, decoded in place in buf, or nil for null.
+// decodeByte returns the bytes of the string at cursor, or nil for null: a part of buf, or a slice of their own if
+// the string has an escape or invalid UTF-8 ( see decodeLiteral ).
 func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, error) {
 	literal, next, info, err := d.scanString(buf, cursor)
 	if next < 0 {
@@ -109,10 +110,13 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 	return decodeLiteral(literal, info), next, nil
 }
 
-// decodeLiteral decodes the escapes of the literal in place, and replaces its invalid UTF-8.
+// decodeLiteral decodes the escapes of the literal and replaces its invalid UTF-8, into a slice of its own if it
+// has any: the buffer is never written, so that it keeps the input, which is checked again for a syntax error
+// ( see Stream.decodeError ).
 func decodeLiteral(literal []byte, info stringInfo) []byte {
 	if info.firstEscape >= 0 {
-		literal = literal[:unescapeTo(unsafe.Pointer(unsafe.SliceData(literal)), literal, info.firstEscape)]
+		out := make([]byte, len(literal))
+		literal = out[:unescapeTo(unsafe.Pointer(unsafe.SliceData(out)), literal, info.firstEscape)]
 	}
 	if info.nonASCII && !utf8.Valid(literal) {
 		literal = coerceUTF8(literal)
@@ -134,7 +138,8 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 	if literal == nil {
 		return "", next, false, nil
 	}
-	if info.firstEscape >= 0 && ctx.copiesStrings() && len(literal) <= maxArenaStringSize {
+	if info.firstEscape >= 0 && len(literal) <= maxArenaStringSize {
+		// an escaped string is decoded into the arena, out of the buffer, which is never written
 		dst := ctx.reserveArena(len(literal))
 		n := unescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, info.firstEscape)
 		decoded := dst[:n]
@@ -144,7 +149,12 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 		ctx.arena = ctx.arena[:len(ctx.arena)+n]
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
-	return ctx.makeString(decodeLiteral(literal, info), next-1), next, true, nil
+	if info.firstEscape >= 0 {
+		// a long one into bytes of its own
+		decoded := decodeLiteral(literal, info)
+		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+	}
+	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }
 
 // skipOtherValue returns the error of scanString for a value which is not a string, or, for a value of another
@@ -172,7 +182,7 @@ func (d *stringDecoder) skipOtherValue(ctx *RuntimeContext, err error) (string, 
 }
 
 // decodeString returns the string at cursor as a value to store, and false for null.
-// An escaped string which is copied out of the buffer ( see makeString ) is decoded into its copy directly.
+// An escaped string is decoded out of the buffer directly.
 func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string, int64, bool, error) {
 	literal, next, info, err := d.scanString(ctx.Buf, cursor)
 	if next < 0 {
@@ -181,7 +191,8 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 	if err != nil || literal == nil {
 		return "", next, false, err
 	}
-	if info.firstEscape >= 0 && ctx.copiesStrings() && len(literal) <= maxArenaStringSize {
+	if info.firstEscape >= 0 && len(literal) <= maxArenaStringSize {
+		// an escaped string is decoded into the arena, out of the buffer, which is never written
 		dst := ctx.reserveArena(len(literal))
 		n := unescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, info.firstEscape)
 		decoded := dst[:n]
@@ -191,7 +202,12 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 		ctx.arena = ctx.arena[:len(ctx.arena)+n]
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
-	return ctx.makeString(decodeLiteral(literal, info), next-1), next, true, nil
+	if info.firstEscape >= 0 {
+		// a long one into bytes of its own
+		decoded := decodeLiteral(literal, info)
+		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+	}
+	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }
 
 // scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and

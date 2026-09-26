@@ -2,7 +2,6 @@ package json
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"unsafe"
 
@@ -14,10 +13,6 @@ import (
 type Decoder struct {
 	s *decoder.Stream
 }
-
-const (
-	nul = '\000'
-)
 
 type emptyInterface struct {
 	typ unsafe.Pointer
@@ -121,6 +116,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 //
 //go:noinline
 func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) error {
+	err = inputSyntaxError(ctx, err)
 	if err == nil {
 		var dec decoder.Decoder
 		if dec, err = ctx.DecoderOf(typ); err == nil {
@@ -132,29 +128,25 @@ func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) er
 	return err
 }
 
-// validateEndBuf returns the syntax error of what follows the value, which ends at cursor, in src: only white
-// spaces may follow it. The value is most often at the end of src, which is checked without a call.
-func validateEndBuf(src []byte, cursor int64) error {
-	if src[cursor] == nul {
-		return nil
+// inputSyntaxError returns err, the error of the decoding of the input of ctx, or, for a syntax error, the first
+// syntax error of the input as encoding/json reports it: it checks the whole input before it decodes it.
+func inputSyntaxError(ctx *decoder.RuntimeContext, err error) error {
+	if _, ok := err.(*errors.SyntaxError); ok {
+		if serr := ctx.InputSyntaxError(); serr != nil {
+			return serr
+		}
 	}
-	return validateEndBufRest(src, cursor)
+	return err
 }
 
-func validateEndBufRest(src []byte, cursor int64) error {
-	for {
-		switch src[cursor] {
-		case ' ', '\t', '\n', '\r':
-			cursor++
-			continue
-		case nul:
-			return nil
-		}
-		return errors.ErrSyntax(
-			fmt.Sprintf("invalid character '%c' after top-level value", src[cursor]),
-			cursor+1,
-		)
+// validateEndBuf returns the syntax error of what follows the value, which ends at cursor, in src, the input
+// followed by the nul byte: only white spaces may follow it. The value is most often at the end of the input, which
+// is checked without a call.
+func validateEndBuf(src []byte, cursor int64) error {
+	if cursor == int64(len(src))-1 {
+		return nil
 	}
+	return decoder.ValidateEnd(src, cursor)
 }
 
 // validateType validates that the value is not nil.
@@ -233,7 +225,7 @@ func (d *Decoder) DisallowUnknownFields() {
 }
 
 func (d *Decoder) InputOffset() int64 {
-	return d.s.TotalOffset()
+	return d.s.InputOffset()
 }
 
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a

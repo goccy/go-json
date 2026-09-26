@@ -52,6 +52,9 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 			err = typeErrorOf(ctx, runtime.TypePtr(reflect.TypeOf((*T)(nil))))
 		}
 	}
+	if err != nil {
+		err = inputSyntaxError(ctx, err)
+	}
 	ctx.DiscardTypeError()
 	// What was decoded before an error is stored too, as Unmarshal does.
 	*v = *(*T)(p)

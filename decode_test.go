@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"io"
 	"math"
 	"math/big"
 	"net"
@@ -1870,6 +1869,10 @@ func TestUnmarshal(t *testing.T) {
 			// An error which is not a syntax error is the one of encoding/json of the running Go, whose messages
 			// differ by its version; a syntax error is the one of the test.
 			wantErr := tt.err
+			if e, ok := wantErr.(*json.UnmarshalTypeError); ok && methodErrorsAsIs && e.Type == reflect.TypeOf(SS("")) {
+				// the type error which the method of SS returns, as it is
+				wantErr = &json.UnmarshalTypeError{Value: e.Value, Type: e.Type}
+			}
 			stdDec := stdjson.NewDecoder(bytes.NewReader(in))
 			if tt.useNumber {
 				stdDec.UseNumber()
@@ -2772,8 +2775,13 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 
 	for i, tt := range tests {
 		err := json.Unmarshal([]byte(tt.in), tt.ptr)
-		if !equalError(err, tt.err) {
+		if (err != nil) != (tt.err != nil) {
 			t.Errorf("#%d: %v, want %v", i, err, tt.err)
+		}
+		// the error is the one of encoding/json of the Go version: a type error of the struct with Go 1.27
+		wantErr := stdjson.Unmarshal([]byte(tt.in), reflect.New(reflect.TypeOf(tt.ptr).Elem()).Interface())
+		if describeTypeError(err) != describeTypeError(wantErr) {
+			t.Errorf("#%d: %v, want %v", i, err, wantErr)
 		}
 		if !reflect.DeepEqual(tt.ptr, tt.out) {
 			t.Errorf("#%d: mismatch\ngot:  %#+v\nwant: %#+v", i, tt.ptr, tt.out)
@@ -2782,36 +2790,21 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 }
 
 func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
-	tests := []struct {
-		in  string
-		err error
-	}{{
-		in:  `1 false null :`,
-		err: io.ErrUnexpectedEOF,
-	}, {
-		in:  `1 [] [,]`,
-		err: json.NewSyntaxError("invalid character ',' looking for beginning of value", 6),
-	}, {
-		in:  `1 [] [true:]`,
-		err: json.NewSyntaxError("json: invalid character : as slice", 10),
-	}, {
-		in:  `1  {}    {"x"=}`,
-		err: json.NewSyntaxError("expected colon after object key", 13),
-	}, {
-		in:  `falsetruenul#`,
-		err: json.NewSyntaxError("json: invalid character # as null", 12),
-	}}
-	for i, tt := range tests {
-		dec := json.NewDecoder(strings.NewReader(tt.in))
-		var err error
-		for {
-			var v any
-			if err = dec.Decode(&v); err != nil {
-				break
+	// The error after the values of a stream is the one of encoding/json of the Go version.
+	for i, in := range []string{`1 false null :`, `1 [] [,]`, `1 [] [true:]`, `1  {}    {"x"=}`, `falsetruenul#`} {
+		lastError := func(newDecoder func() interface{ Decode(any) error }) error {
+			dec := newDecoder()
+			for {
+				var v any
+				if err := dec.Decode(&v); err != nil {
+					return err
+				}
 			}
 		}
-		if !reflect.DeepEqual(err, tt.err) {
-			t.Errorf("#%d: got %#v, want %#v", i, err, tt.err)
+		err := lastError(func() interface{ Decode(any) error } { return json.NewDecoder(strings.NewReader(in)) })
+		want := lastError(func() interface{ Decode(any) error } { return stdjson.NewDecoder(strings.NewReader(in)) })
+		if describeTypeError(err) != describeTypeError(want) {
+			t.Errorf("#%d: got %#v, want %#v", i, err, want)
 		}
 	}
 }

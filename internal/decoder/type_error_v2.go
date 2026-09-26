@@ -17,6 +17,9 @@ import (
 // Offset is after the value, or after the key of a map entry. Struct is the name of the root type, and Field the
 // path from it to the value: the names of the fields, the indices of the elements and the keys of the entries.
 // An error at the root has neither.
+// jsonPointerEscaper escapes a token of a JSON pointer ( RFC 6901 ).
+var jsonPointerEscaper = strings.NewReplacer("~", "~0", "/", "~1")
+
 func newTypeError(p *pendingTypeError, path []typeErrorStep, root reflect.Type) *errors.UnmarshalTypeError {
 	e := &errors.UnmarshalTypeError{Value: p.value, Type: p.typ, Offset: p.end, Err: p.err}
 	if !p.literal && (p.kind == arrayValue || p.kind == objectValue) {
@@ -34,6 +37,13 @@ func newTypeError(p *pendingTypeError, path []typeErrorStep, root reflect.Type) 
 		names := make([]string, len(path))
 		for i, step := range path {
 			names[i] = step.name
+			if step.isField {
+				// the key of a field as the input has it
+				names[i] = step.inputName
+			}
+			// encoding/json of Go 1.27 makes the path of the tokens of the JSON pointer of the value, which are
+			// escaped as a JSON pointer escapes them
+			names[i] = jsonPointerEscaper.Replace(names[i])
 		}
 		e.Field = strings.Join(names, ".")
 	}
@@ -78,8 +88,35 @@ func (ctx *RuntimeContext) stringOptionUnquoted(cursor, depth int64, typ reflect
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
+	if typ == jsonNumberType {
+		return ctx.numberKindError(cursor, depth, typ)
+	}
 	return ctx.skipTypeError(cursor, depth, typ)
 }
+
+// methodError records err, which an unmarshal method of the value between cursor and end returned, if it is the
+// first error, and returns end: encoding/json of Go 1.27 goes on after it, as after a type error, and returns it as
+// it is.
+func (ctx *RuntimeContext) methodError(_, end int64, err error, _, _ string) (int64, error) {
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{plain: err}
+	}
+	return end, nil
+}
+
+// timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
+// of Go 1.27 reports it as a type error, after which the decoding goes on.
+const timeKindTypeErrors = true
+
+// stringOptionNumber reports whether the bytes of the string of a json.Number of the string option are stored as
+// they are: encoding/json of Go 1.27 stores a number by the grammar of the numbers, and nothing else.
+func stringOptionNumber(value []byte) bool {
+	return isValidNumber(value)
+}
+
+// stringOptionNumberDecoded is whether the bytes of the string of a json.Number of the string option, when they are
+// not a number, are decoded as a JSON value: encoding/json of Go 1.27 reports them as a type error.
+const stringOptionNumberDecoded = false
 
 // stringOptionError records the type error of the string between start and end of a field of the string option,
 // whose bytes are not a value of typ: encoding/json of Go 1.27 reports the bytes as a number for a number type,
@@ -163,6 +200,47 @@ func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ refle
 		ctx.typeError.atStart = true
 	}
 	return next, err
+}
+
+// textUnmarshalerNullSetsZero reports whether null sets a value of the kind, whose pointer type implements
+// encoding.TextUnmarshaler, to its zero value: encoding/json of Go 1.27 leaves every such value as it is.
+func textUnmarshalerNullSetsZero(reflect.Kind) bool {
+	return false
+}
+
+// errUnsettableEmbeddedPointer is the cause which encoding/json of Go 1.27 reports for a field promoted from an
+// embedded pointer to an unexported struct, which can't be set.
+var errUnsettableEmbeddedPointer = stderrors.New("cannot set embedded pointer to unexported struct type")
+
+// unsettableFieldError records the type error of the value at cursor of a field of the struct typ which can't be
+// set, as an embedded pointer to an unexported struct, and skips the value: encoding/json of Go 1.27 reports it as
+// a type error of the struct at the start of the value.
+func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, typ reflect.Type, _ error) (int64, error) {
+	first := ctx.typeError == nil
+	next, err := ctx.skipTypeError(cursor, depth, typ)
+	if err == nil && first {
+		ctx.typeError.err = errUnsettableEmbeddedPointer
+		ctx.typeError.atStart = true
+	}
+	return next, err
+}
+
+// storesFloatsOutOfRange reports whether a number out of the range of a float is stored as ±Inf with its type
+// error, as encoding/json of Go 1.27 does.
+const storesFloatsOutOfRange = true
+
+// floatRangeErrorOfInterface records the type error of the number between start and end, which is out of the
+// range of a float64, decoded into the interface{} at p, and stores f, which is ±Inf, as encoding/json of Go 1.27
+// does.
+func (ctx *RuntimeContext) floatRangeErrorOfInterface(start, end int64, f float64, p unsafe.Pointer) {
+	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+	ctx.numberTypeError(start, end, float64Type)
+}
+
+// stringOptionNumberStart reports whether c starts a number of a string of the string option which encoding/json
+// reads: encoding/json of Go 1.27 reads whatever strconv reads.
+func stringOptionNumberStart(byte) bool {
+	return true
 }
 
 // mapKeySupported reports whether encoding/json of Go 1.27 decodes the keys of a map of keyType, which dec
@@ -273,7 +351,3 @@ func isHex(b []byte) bool {
 	}
 	return true
 }
-
-// markPrevEnd keeps nothing: the offsets of the type errors of a value of a stream are relative to the value
-// ( see StreamOffsetBase ).
-func (s *Stream) markPrevEnd() {}

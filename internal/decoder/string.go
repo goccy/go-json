@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math/bits"
@@ -408,6 +409,20 @@ func unsafeAdd(ptr unsafe.Pointer, offset int) unsafe.Pointer {
 	return unsafe.Add(ptr, offset)
 }
 
+// copyToBackslash copies the bytes from src up to the first backslash of the n bytes, or all of them, to dst, and
+// returns how many it copied: bytes.IndexByte and copy go by vectors. It is not inlined, so that unescapeTo keeps
+// its registers for the short runs, which most are.
+//
+//go:noinline
+func copyToBackslash(dst, src unsafe.Pointer, n int) int {
+	rest := unsafe.Slice((*byte)(src), n)
+	if i := bytes.IndexByte(rest, '\\'); i >= 0 {
+		n = i
+	}
+	copy(unsafe.Slice((*byte)(dst), n), rest[:n])
+	return n
+}
+
 // unescapeTo decodes the escapes of the bytes of an escaped string into out, which has room for as many bytes and
 // is not the bytes themselves, and returns the length of the result, which is at most the length of the bytes.
 //
@@ -428,8 +443,15 @@ func unescapeTo(out unsafe.Pointer, buf []byte, first int) int {
 	for src != end {
 		// The bytes up to the next backslash are copied eight at a time, from the words which are all in the
 		// string. A word is written whole, and the output goes on to its backslash: out has the length of buf, and
-		// is never ahead of the bytes read, so that a word written at dst ends before out does.
-		for *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end) {
+		// is never ahead of the bytes read, so that a word written at dst ends before out does. A run longer than
+		// two words is looked through by bytes.IndexByte and moved by copy, which go by vectors.
+		for words := 0; *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end); words++ {
+			if words == 2 {
+				n := copyToBackslash(dst, src, int(uintptr(end)-uintptr(src)))
+				src = unsafeAdd(src, n)
+				dst = unsafeAdd(dst, n)
+				break
+			}
 			w := binary.LittleEndian.Uint64((*[8]byte)(src)[:])
 			binary.LittleEndian.PutUint64((*[8]byte)(dst)[:], w)
 			if backslash := firstByteMask(w, '\\'); backslash != 0 {

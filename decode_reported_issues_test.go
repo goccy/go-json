@@ -342,6 +342,22 @@ func TestValidByGrammar(t *testing.T) {
 	}
 }
 
+func TestFuncFieldTypeError(t *testing.T) {
+	// A value of a func is a type error of its field, after which the decoding goes on; null leaves it nil.
+	type funcs struct {
+		F func()
+		A int
+	}
+	for _, doc := range []string{
+		`{"F":1,"A":2}`, `{"F":"x","A":2}`, `{"F":null,"A":2}`, `{"F":[1,{"a":2}],"A":2}`, `{"F":{},"A":2}`,
+		`{"F":true,"A":2}`, `{"F":nul,"A":2}`, `{"F":[1 2],"A":2}`,
+	} {
+		checkUnmarshal(t, doc, func() any { return new(funcs) })
+	}
+	checkUnmarshal(t, `[true,null]`, func() any { return new([]func()) })
+	checkUnmarshal(t, `1`, func() any { return new(func()) })
+}
+
 func TestNulAfterValue(t *testing.T) {
 	// A nul byte in the input is a byte which the grammar doesn't have: after a value, it is a syntax error.
 	for _, doc := range []string{"123\x00", "{\"a\":1}\x00", "\"s\" \x00", "[1]\x00 ", "true\x00", "1 \x00 2"} {

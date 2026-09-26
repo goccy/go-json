@@ -1,12 +1,9 @@
 package decoder
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"unsafe"
-
-	"github.com/goccy/go-json/internal/errors"
 )
 
 type funcDecoder struct {
@@ -23,62 +20,15 @@ func newFuncDecoder(typ reflect.Type, structName, fieldName string) *funcDecoder
 func (d *funcDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
-	start := cursor
-	end, err := skipValue(buf, cursor, depth)
-	if err != nil {
-		return 0, err
-	}
-	src := buf[start:end]
-	if len(src) > 0 {
-		switch src[0] {
-		case '"':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "string",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case '[':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "array",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case '{':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "object",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return 0, &errors.UnmarshalTypeError{
-				Value:  "number",
-				Type:   d.typ,
-				Offset: start,
-			}
-		case 'n':
-			if bytes.Equal(src, nullbytes) {
-				*(*unsafe.Pointer)(p) = nil
-				return end, nil
-			}
-		case 't':
-			if err := validateTrue(buf, start); err == nil {
-				return 0, &errors.UnmarshalTypeError{
-					Value:  "boolean",
-					Type:   d.typ,
-					Offset: start,
-				}
-			}
-		case 'f':
-			if err := validateFalse(buf, start); err == nil {
-				return 0, &errors.UnmarshalTypeError{
-					Value:  "boolean",
-					Type:   d.typ,
-					Offset: start,
-				}
-			}
+	if buf[cursor] == 'n' {
+		if buf[cursor+1] != 'u' || buf[cursor+2] != 'l' || buf[cursor+3] != 'l' {
+			return 0, literalSyntaxError(buf, cursor, "null")
 		}
+		*(*unsafe.Pointer)(p) = nil
+		return cursor + 4, nil
 	}
-	return cursor, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+	// a func can't be decoded from any other value: it is a type error, after which the decoding goes on
+	return ctx.skipTypeError(cursor, depth, d.typ)
 }
 
 func (d *funcDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

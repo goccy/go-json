@@ -67,6 +67,8 @@ bench-compare-encode:
 # bench-compare-decode prints the decode benchmarks of go-json and of bytedance/sonic side by side.
 # Sonic is sonic.ConfigDefault and SonicStd is sonic.ConfigStd, which validates the strings as encoding/json does.
 # SonicFastest is sonic at its fastest, and GoJsonUnmarshalOfNoCopyString go-json at its ( benchmarks/sonic_decode_test.go ).
+# SonicFastestValidating is SonicFastest with the checks which go-json does: the values which are skipped and the
+# strings are validated.
 # The Twitter benchmarks decode the payload of sonic's own benchmarks ( benchmarks/sonic_bench_test.go ), and the
 # Keys ones structs whose keys differ only, in length or in script ( benchmarks/decode_key_length_test.go ), and the
 # GitHub ones the responses of the REST and the GraphQL APIs of GitHub ( benchmarks/decode_github_test.go ), and
@@ -75,7 +77,7 @@ bench-compare-encode:
 # GC for every library alike ( benchmarks/live_heap_test.go ).
 .PHONY: bench-compare-decode
 bench-compare-decode:
-	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(Small|Medium|Large)Struct_Unmarshal_(GoJson|GoJsonUnmarshalOfNoCopyString|Sonic|SonicStd|SonicFastest)$$' -benchtime 300ms -count 3 .
+	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(Small|Medium|Large)Struct_Unmarshal_(GoJson|GoJsonUnmarshalOfNoCopyString|Sonic|SonicStd|SonicFastest|SonicFastestValidating)$$' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_Twitter' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(Short|Medium|Long|NonASCII|UnknownNonASCII)Keys_Unmarshal_' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_GitHub(REST|GraphQL)_Unmarshal_' -benchtime 300ms -count 3 .

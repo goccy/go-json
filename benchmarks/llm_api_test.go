@@ -773,6 +773,17 @@ func Benchmark_Encode_AnthropicMessageRequest_SonicStd(b *testing.B) {
 
 // benchDecodeStreamSonicFastest decodes every event of a stream by sonic at its fastest, as strings.
 func benchDecodeStreamSonicFastest[T any](b *testing.B, events [][]byte) {
+	benchDecodeStreamSonicString[T](b, sonic.ConfigFastest, events)
+}
+
+// benchDecodeStreamSonicFastestValidating decodes every event of a stream as benchDecodeStreamSonicFastest does,
+// with the checks of go-json ( see sonicFastestValidating ).
+func benchDecodeStreamSonicFastestValidating[T any](b *testing.B, events [][]byte) {
+	benchDecodeStreamSonicString[T](b, sonicFastestValidating, events)
+}
+
+// benchDecodeStreamSonicString decodes every event of a stream by api, as strings.
+func benchDecodeStreamSonicString[T any](b *testing.B, api sonic.API, events [][]byte) {
 	strs := make([]string, len(events))
 	n := 0
 	for i, e := range events {
@@ -785,7 +796,7 @@ func benchDecodeStreamSonicFastest[T any](b *testing.B, events [][]byte) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range strs {
 			var v T
-			if err := sonic.ConfigFastest.UnmarshalFromString(e, &v); err != nil {
+			if err := api.UnmarshalFromString(e, &v); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -820,6 +831,11 @@ func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_SonicFastest(b *testing.B) 
 	benchDecodeSonicFastest[ChatCompletionResponse](b, openAIChatResponseJSON)
 }
 
+func Benchmark_Decode_OpenAIChatCompletion_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[ChatCompletionResponse](b, openAIChatResponseJSON)
+}
+
 func Benchmark_Decode_OpenAIResponse_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
 	benchDecodeNoCopy[Response](b, openAIResponsesResponseJSON)
 }
@@ -827,6 +843,11 @@ func Benchmark_Decode_OpenAIResponse_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *
 func Benchmark_Decode_OpenAIResponse_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeSonicFastest[Response](b, openAIResponsesResponseJSON)
+}
+
+func Benchmark_Decode_OpenAIResponse_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[Response](b, openAIResponsesResponseJSON)
 }
 
 func Benchmark_Decode_AnthropicMessage_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
@@ -838,6 +859,11 @@ func Benchmark_Decode_AnthropicMessage_Unmarshal_SonicFastest(b *testing.B) {
 	benchDecodeSonicFastest[MessagesResponse](b, anthropicResponseJSON)
 }
 
+func Benchmark_Decode_AnthropicMessage_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[MessagesResponse](b, anthropicResponseJSON)
+}
+
 func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
 	benchDecodeStreamNoCopy[ChatCompletionStreamResponse](b, openAIChatStream)
 }
@@ -845,6 +871,11 @@ func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_GoJsonUnmarshalOfNoCo
 func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeStreamSonicFastest[ChatCompletionStreamResponse](b, openAIChatStream)
+}
+
+func Benchmark_Decode_OpenAIChatCompletionStream_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeStreamSonicFastestValidating[ChatCompletionStreamResponse](b, openAIChatStream)
 }
 
 func Benchmark_Decode_OpenAIResponseStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
@@ -856,6 +887,11 @@ func Benchmark_Decode_OpenAIResponseStream_Unmarshal_SonicFastest(b *testing.B) 
 	benchDecodeStreamSonicFastest[ResponseStreamEvent](b, openAIResponsesStream)
 }
 
+func Benchmark_Decode_OpenAIResponseStream_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeStreamSonicFastestValidating[ResponseStreamEvent](b, openAIResponsesStream)
+}
+
 func Benchmark_Decode_AnthropicMessageStream_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
 	benchDecodeStreamNoCopy[MessageStreamEvent](b, anthropicStream)
 }
@@ -865,7 +901,17 @@ func Benchmark_Decode_AnthropicMessageStream_Unmarshal_SonicFastest(b *testing.B
 	benchDecodeStreamSonicFastest[MessageStreamEvent](b, anthropicStream)
 }
 
+func Benchmark_Decode_AnthropicMessageStream_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeStreamSonicFastestValidating[MessageStreamEvent](b, anthropicStream)
+}
+
 func Benchmark_Encode_OpenAIChatCompletionRequest_SonicFastest(b *testing.B) {
+	pretouchSonic()
+	benchEncode(b, openAIChatRequest, sonic.ConfigFastest.Marshal)
+}
+
+func Benchmark_Encode_OpenAIChatCompletionRequest_SonicFastestValidating(b *testing.B) {
 	pretouchSonic()
 	benchEncode(b, openAIChatRequest, sonic.ConfigFastest.Marshal)
 }
@@ -875,7 +921,17 @@ func Benchmark_Encode_OpenAIResponseRequest_SonicFastest(b *testing.B) {
 	benchEncode(b, openAIResponsesRequest, sonic.ConfigFastest.Marshal)
 }
 
+func Benchmark_Encode_OpenAIResponseRequest_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchEncode(b, openAIResponsesRequest, sonic.ConfigFastest.Marshal)
+}
+
 func Benchmark_Encode_AnthropicMessageRequest_SonicFastest(b *testing.B) {
+	pretouchSonic()
+	benchEncode(b, anthropicRequest, sonic.ConfigFastest.Marshal)
+}
+
+func Benchmark_Encode_AnthropicMessageRequest_SonicFastestValidating(b *testing.B) {
 	pretouchSonic()
 	benchEncode(b, anthropicRequest, sonic.ConfigFastest.Marshal)
 }

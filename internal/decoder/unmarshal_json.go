@@ -55,7 +55,10 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	}
 	dst := buf[start:end:end]
 	if !d.retainsNothing {
-		dst = append([]byte(nil), dst...)
+		// a copy of the exact length: append would round its capacity up, which costs more
+		copied := make([]byte, len(dst))
+		copy(copied, dst)
+		dst = copied
 	}
 
 	v := *(*any)(unsafe.Pointer(&emptyInterface{

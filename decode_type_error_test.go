@@ -226,3 +226,66 @@ func TestDecodeTypeErrorsNotKept(t *testing.T) {
 		}
 	}
 }
+
+// typeErrorMethods is an interface type with methods, whose value is decoded into what it points to if it is a
+// pointer, and is kept else.
+type typeErrorMethods interface {
+	Method()
+}
+
+type typeErrorJSONValue struct{ Raw string }
+
+func (v *typeErrorJSONValue) Method() {}
+
+func (v *typeErrorJSONValue) UnmarshalJSON(b []byte) error {
+	v.Raw = string(b)
+	return nil
+}
+
+type typeErrorTextValue struct{ Text string }
+
+func (v *typeErrorTextValue) Method() {}
+
+func (v *typeErrorTextValue) UnmarshalText(b []byte) error {
+	v.Text = string(b)
+	return nil
+}
+
+type typeErrorPlainValue struct{ A int }
+
+func (v *typeErrorPlainValue) Method() {}
+
+type typeErrorValueType struct{ A int }
+
+func (v typeErrorValueType) Method() {}
+
+func TestDecodeTypeErrorsOfInterfaceValues(t *testing.T) {
+	// The value which an interface value holds is decoded into what it points to if it is a pointer, with the
+	// unmarshalers of the pointer type, whatever the interface type is. A value of an interface type with
+	// methods which is not a pointer is kept: null sets it to nil, and anything else is a type error.
+	var nilPlain *typeErrorPlainValue
+	values := []func() typeErrorMethods{
+		func() typeErrorMethods { return nil },
+		func() typeErrorMethods { return &typeErrorJSONValue{} },
+		func() typeErrorMethods { return &typeErrorTextValue{} },
+		func() typeErrorMethods { return &typeErrorPlainValue{A: 9} },
+		func() typeErrorMethods { return typeErrorValueType{A: 9} },
+		func() typeErrorMethods { return nilPlain },
+	}
+	type holder struct {
+		V    typeErrorMethods
+		Last int
+	}
+	type anyHolder struct {
+		V    any
+		Last int
+	}
+	for round := 0; round < 2; round++ {
+		for _, value := range []string{`{"A":1}`, `null`, `"text"`, `[1]`, `1`, `true`, ` false`, ` 12 `, ` {}`} {
+			for _, newValue := range values {
+				checkTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &holder{V: newValue()} })
+				checkTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &anyHolder{V: newValue()} })
+			}
+		}
+	}
+}

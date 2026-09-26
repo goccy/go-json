@@ -4184,3 +4184,35 @@ func TestUnmarshalIntoSetInterface(t *testing.T) {
 		}
 	}
 }
+
+func TestUnmarshalIntoInterfaceValuesOfTypes(t *testing.T) {
+	// How a value held by an interface value is decoded depends on its type, which is found once for a type: the
+	// values of the types which alternate in one field are each decoded as their type is.
+	type inner struct{ A, B int }
+	type other struct{ C string }
+	docs := []string{`{"A":1,"C":"c"}`, `null`, `"text"`, `[1]`}
+	anyValues := []func() any{
+		func() any { return &inner{A: 9} },
+		func() any { return &other{C: "x"} },
+		func() any { return inner{A: 9} },
+		func() any { return 1.5 },
+		func() any { return &inner{B: 7} },
+	}
+	for round := 0; round < 2; round++ {
+		for _, doc := range docs {
+			for i, newValue := range anyValues {
+				want := struct{ V any }{newValue()}
+				got := struct{ V any }{newValue()}
+				wantErr := stdjson.Unmarshal([]byte(`{"V":`+doc+`}`), &want)
+				gotErr := json.Unmarshal([]byte(`{"V":`+doc+`}`), &got)
+				if (wantErr == nil) != (gotErr == nil) {
+					t.Errorf("%s into any value %d: got error %v, want %v", doc, i, gotErr, wantErr)
+					continue
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("%s into any value %d: got %#v, want %#v", doc, i, got.V, want.V)
+				}
+			}
+		}
+	}
+}

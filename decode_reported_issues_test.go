@@ -2,6 +2,7 @@ package json_test
 
 import (
 	stdjson "encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -197,5 +198,82 @@ func TestNumberMapKeys(t *testing.T) {
 		checkUnmarshal(t, doc, func() any { return new(map[int]int) })
 		checkUnmarshal(t, doc, func() any { return new(map[uint8]int) })
 		checkUnmarshal(t, doc, func() any { return new(map[float64]int) })
+	}
+}
+
+// tokenDecoder is the decoder of go-json and the one of encoding/json.
+type tokenDecoder interface {
+	Token() (stdjson.Token, error)
+	Decode(any) error
+	More() bool
+	InputOffset() int64
+}
+
+// streamTokens reads the tokens of doc by Token and Decode by turns, as by the calls of pattern: 't' a Token,
+// 'd' a Decode into an interface{}, 'm' a More.
+func streamTokens(doc string, pattern string, newDecoder func(string) tokenDecoder) string {
+	dec := newDecoder(doc)
+	var b strings.Builder
+	for i := 0; i < 40; i++ {
+		switch pattern[i%len(pattern)] {
+		case 't':
+			tok, err := dec.Token()
+			fmt.Fprintf(&b, "T(%v %v %d) ", tok, describeTypeErrorMessage(err), dec.InputOffset())
+			if err != nil {
+				return b.String()
+			}
+		case 'd':
+			var v any
+			err := dec.Decode(&v)
+			// the syntax errors of the decoding of a value are compared by their kind only
+			fmt.Fprintf(&b, "D(%v %v %d) ", v, describeTypeError(err), dec.InputOffset())
+			if err != nil {
+				return b.String()
+			}
+		case 'm':
+			fmt.Fprintf(&b, "M(%v) ", dec.More())
+		}
+	}
+	return b.String()
+}
+
+// describeTypeErrorMessage describes an error with its message, and the offset of a syntax error.
+func describeTypeErrorMessage(err error) string {
+	var std *stdjson.SyntaxError
+	var goErr *json.SyntaxError
+	switch {
+	case err == nil:
+		return "<nil>"
+	case errors.As(err, &std):
+		return fmt.Sprintf("syntax %q at %d", std.Error(), std.Offset)
+	case errors.As(err, &goErr):
+		return fmt.Sprintf("syntax %q at %d", goErr.Error(), goErr.Offset)
+	}
+	return err.Error()
+}
+
+func TestIssue548TokenGrammar(t *testing.T) {
+	// The delimiters of the tokens are checked by the grammar, and a value decoded between the tokens follows the
+	// comma or the colon before it, as encoding/json has them.
+	stdDecoder := func(doc string) tokenDecoder {
+		return stdjson.NewDecoder(strings.NewReader(doc))
+	}
+	goDecoder := func(doc string) tokenDecoder {
+		return json.NewDecoder(strings.NewReader(doc))
+	}
+	for _, doc := range []string{
+		`{"hello": "value"` + "\n" + ` "foo": "bar"}`,
+		`[1 2]`, `{"a" "b"}`, `{"a":1,}`, `[1,]`, `[,1]`, `{,"a":1}`, `{"a"::1}`, `{"a":1:2}`, `[1:2]`, `{"a",1}`,
+		`{1:2}`, `{"a":1]`, `[1}`, `[1,,2]`, `{"a":1,,"b":2}`, `{"a":{"b":1}"c":2}`, `[[1][2]]`, `[true false]`,
+		`{"a":1 "b":2}`, `]`, `}`, `,`, `:`, `1 , 2`, `1 2`, `{"a":[1,{"b":2}],"c":"d"} [3]`,
+		`[{"a":1},{"a":2}]`, `{"a":{"b":[1,2]},"c":3}`, ``, `[`, `{"a"`, `{"a":`, `[1,`,
+	} {
+		for _, pattern := range []string{"t", "d", "td", "ttd", "tmd", "tttd", "tdt", "ttdd"} {
+			want := streamTokens(doc, pattern, stdDecoder)
+			got := streamTokens(doc, pattern, goDecoder)
+			if got != want {
+				t.Errorf("%q by %q:\n got %s\nwant %s", doc, pattern, got, want)
+			}
+		}
 	}
 }

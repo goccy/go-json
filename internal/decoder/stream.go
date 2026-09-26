@@ -2,10 +2,8 @@ package decoder
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"math/bits"
-	"strconv"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -44,6 +42,14 @@ type Stream struct {
 	// prevEnd is the total offset of the end of the previous value, which the offset of a type error may be
 	// relative to ( see StreamOffsetBase ).
 	prevEnd int64
+	// tokenState is where the stream is between the tokens, and tokenStack the states of the objects and the
+	// arrays which Token opened, the innermost last ( see Token ).
+	tokenState tokenState
+	tokenStack []tokenState
+	// err is the error which a read failed with, which every read returns after it, as encoding/json does, and
+	// errOffset the total offset which InputOffset reports after it: the end of the previous value.
+	err       error
+	errOffset int64
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -54,6 +60,20 @@ func NewStream(r io.Reader) *Stream {
 		ctx:    &RuntimeContext{Option: opt},
 		Option: opt,
 	}
+}
+
+// markPrevEnd keeps the end of the previous value of the stream: the offsets of the type errors of the next value
+// may be relative to it ( see StreamOffsetBase ), and InputOffset reports it after a read which fails.
+func (s *Stream) markPrevEnd() {
+	s.prevEnd = s.offset + s.cursor
+}
+
+// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does.
+//
+//go:noinline
+func (s *Stream) fail(err error) error {
+	s.err, s.errOffset, s.tokenState = err, s.prevEnd, tokenFailed
+	return err
 }
 
 // TotalOffset returns the number of the bytes consumed from the reader.
@@ -149,19 +169,14 @@ func (s *Stream) skipWhiteSpace() bool {
 	}
 }
 
-// prepare moves the cursor to the beginning of the next value: the white space is skipped,
-// as well as the comma or the colon which separates the value from the previous one.
+// prepare moves the cursor to the beginning of the next value: the white space is skipped, and, between the
+// tokens of an object or an array, the comma or the colon which the grammar has before the value.
 func (s *Stream) prepare() error {
-	if !s.skipWhiteSpace() {
-		return s.endError()
+	if s.tokenState != tokenTopValue {
+		return s.prepareInTokens()
 	}
-	switch s.buf[s.cursor] {
-	case ',', ':':
-		s.cursor++
-		if !s.skipWhiteSpace() {
-			// A separator followed by nothing: the value it announces is missing.
-			return s.unexpectedEndError()
-		}
+	if !s.skipWhiteSpace() {
+		return s.fail(s.endError())
 	}
 	return nil
 }
@@ -294,7 +309,7 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	end, err := s.scanValue()
 	if err != nil {
-		return err
+		return s.fail(err)
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
@@ -322,6 +337,9 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
 	return nil
 }
 
@@ -331,7 +349,7 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 //go:noinline
 func (s *Stream) decodeError(err error) error {
 	s.ctx.DiscardTypeError()
-	return s.totalOffsetError(err)
+	return s.fail(s.totalOffsetError(err))
 }
 
 // typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
@@ -343,6 +361,9 @@ func (s *Stream) decodeError(err error) error {
 func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
 	start := s.cursor
 	s.cursor = end
+	if s.tokenState != tokenTopValue {
+		s.tokenValueEnd()
+	}
 	ctx := s.ctx
 	dec, err := s.DecoderOf(typ)
 	if err != nil {
@@ -370,74 +391,6 @@ func (s *Stream) totalOffsetError(err error) error {
 		e.Offset += s.offset
 	}
 	return err
-}
-
-// More reports whether the current array or object has another element.
-func (s *Stream) More() bool {
-	if !s.skipWhiteSpace() {
-		return false
-	}
-	switch s.buf[s.cursor] {
-	case ']', '}':
-		return false
-	}
-	return true
-}
-
-// Token returns the next token of the stream: a delimiter, a string, a number, a bool or nil.
-// The commas and the colons are consumed silently.
-func (s *Stream) Token() (any, error) {
-	for {
-		if !s.fill() {
-			return nil, s.endError()
-		}
-		c := s.buf[s.cursor]
-		switch c {
-		case ' ', '\n', '\r', '\t', ',', ':':
-			s.cursor++
-		case '{', '[', ']', '}':
-			s.cursor++
-			return json.Delim(c), nil
-		case '"':
-			return s.tokenString()
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			end, err := s.scanValue()
-			if err != nil {
-				return nil, err
-			}
-			literal := s.buf[s.cursor:end]
-			s.cursor = end
-			f64, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&literal)), 64)
-			if err != nil {
-				// A number out of the range of float64 is still a number.
-				if numErr, ok := err.(*strconv.NumError); !ok || numErr.Err != strconv.ErrRange {
-					return nil, errors.ErrSyntax(err.Error(), s.TotalOffset())
-				}
-			}
-			if (s.Option.Flags & UseNumberOption) != 0 {
-				return json.Number(literal), nil
-			}
-			return f64, nil
-		case 't', 'f', 'n':
-			end, err := s.scanValue()
-			if err != nil {
-				return nil, err
-			}
-			literal := string(s.buf[s.cursor:end])
-			s.cursor = end
-			switch literal {
-			case "true":
-				return true, nil
-			case "false":
-				return false, nil
-			case "null":
-				return nil, nil
-			}
-			return nil, errors.ErrInvalidCharacter(literal[0], "token", s.TotalOffset())
-		default:
-			return nil, errors.ErrInvalidCharacter(c, "token", s.TotalOffset())
-		}
-	}
 }
 
 // tokenString decodes the string at the cursor by the string decoder, as Decode does.

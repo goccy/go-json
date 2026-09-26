@@ -233,7 +233,7 @@ func (d *Decoder) DisallowUnknownFields() {
 }
 
 func (d *Decoder) InputOffset() int64 {
-	return d.s.TotalOffset()
+	return d.s.InputOffset()
 }
 
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a

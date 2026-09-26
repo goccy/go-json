@@ -232,9 +232,3 @@ func mapKeySupported(keyType reflect.Type, dec Decoder) bool {
 func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64, _ unsafe.Pointer) (int64, error) {
 	return ctx.skipTypeError(cursor, depth, d.mapType)
 }
-
-// markPrevEnd keeps the end of the previous value of the stream, which the offsets of the type errors of the next
-// value are relative to ( see StreamOffsetBase ).
-func (s *Stream) markPrevEnd() {
-	s.prevEnd = s.offset + s.cursor
-}

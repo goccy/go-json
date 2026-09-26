@@ -11,6 +11,10 @@ import (
 // which encoding/json reports as the Struct and the Field of the error, is computed at the end by a walk of the
 // input from the root ( see typeErrorPath ), so that the decoding of a value which has no error keeps no path.
 
+// float64Type is the type which the type error of a number out of the range of a float64 decoded into an
+// interface{} reports.
+var float64Type = reflect.TypeOf(float64(0))
+
 // pendingTypeError is the first type error of a decoding, as it is recorded.
 type pendingTypeError struct {
 	typ reflect.Type
@@ -236,6 +240,26 @@ func typeErrorPath(dec Decoder, buf []byte, cursor int64, p *pendingTypeError) [
 			}
 			path = append(path, typeErrorStep{name: strconv.Itoa(i)})
 			dec, cursor = d.valueDecoder, next
+		case *interfaceDecoder:
+			// the objects and the arrays of an interface{}, whose values are decoded by the same decoder
+			var next int64
+			var ok bool
+			switch buf[cursor] {
+			case '{':
+				var key string
+				if key, next, ok = typeErrorEntry(buf, cursor, p); ok {
+					path = append(path, typeErrorStep{name: key})
+				}
+			case '[':
+				var i int
+				if i, next, ok = typeErrorElement(buf, cursor, p); ok {
+					path = append(path, typeErrorStep{name: strconv.Itoa(i)})
+				}
+			}
+			if !ok || next < 0 || d.hasMethods {
+				return path
+			}
+			cursor = next
 		case *mapDecoder:
 			key, next, ok := typeErrorEntry(buf, cursor, p)
 			if !ok {

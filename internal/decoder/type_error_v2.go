@@ -192,6 +192,24 @@ func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, typ reflect
 	return next, err
 }
 
+// storesFloatsOutOfRange reports whether a number out of the range of a float is stored as ±Inf with its type
+// error, as encoding/json of Go 1.27 does.
+const storesFloatsOutOfRange = true
+
+// floatRangeErrorOfInterface records the type error of the number between start and end, which is out of the
+// range of a float64, decoded into the interface{} at p, and stores f, which is ±Inf, as encoding/json of Go 1.27
+// does.
+func (ctx *RuntimeContext) floatRangeErrorOfInterface(start, end int64, f float64, p unsafe.Pointer) {
+	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+	ctx.numberTypeError(start, end, float64Type)
+}
+
+// stringOptionNumberStart reports whether c starts a number of a string of the string option which encoding/json
+// reads: encoding/json of Go 1.27 reads whatever strconv reads.
+func stringOptionNumberStart(byte) bool {
+	return true
+}
+
 // mapKeySupported reports whether encoding/json of Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: any key but a bool and a key of a type which no key is decoded into.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {

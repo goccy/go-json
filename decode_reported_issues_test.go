@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	json "github.com/goccy/go-json"
@@ -25,7 +26,8 @@ func checkUnmarshal(t *testing.T, doc string, newValue func() any) {
 	if wantErr == "SyntaxError" {
 		return
 	}
-	if !reflect.DeepEqual(got, want) {
+	// a NaN is not equal to itself: the values are the same if they are printed the same
+	if !reflect.DeepEqual(got, want) && describeValue(got) != describeValue(want) {
 		t.Errorf("%q: decoded %s, want %s", doc, describeValue(got), describeValue(want))
 	}
 }
@@ -149,4 +151,51 @@ func TestIssue450EmbeddedFieldOfItsName(t *testing.T) {
 	checkUnmarshal(t, `{"Inner":"x"}`, func() any { return new(decodeIssue450Outer) })
 	// an embedded value which is not a struct is a field of its name
 	checkUnmarshal(t, `{"DecodeIssue450Label":"x","Visible":"v"}`, func() any { return new(decodeIssue450Labeled) })
+}
+
+func TestIssue555NumbersOutOfRange(t *testing.T) {
+	// A number out of the range of a float64 decoded into an interface{} is a type error, after which the
+	// decoding goes on, and a float field is set as encoding/json of the Go version sets it.
+	huge := "1" + strings.Repeat("0", 400)
+	for _, n := range []string{`1e400`, `-1e400`, huge, `1e39`, `-1e39`, `1e-400`} {
+		for _, doc := range []string{n, `{"n":` + n + `,"m":1}`, `[` + n + `,1]`} {
+			checkUnmarshal(t, doc, func() any { return new(any) })
+			checkUnmarshal(t, doc, func() any { return new(map[string]any) })
+			checkUnmarshal(t, doc, func() any { return new([]any) })
+		}
+		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float64 }) })
+		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float32 }) })
+		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X any }) })
+	}
+}
+
+func TestStringOptionNumbers(t *testing.T) {
+	// A number in a string of the string option is read by strconv, as encoding/json does: it may have leading
+	// zeros, and a value which fails is not stored.
+	type fields struct {
+		I  int     `json:",string"`
+		U  uint8   `json:",string"`
+		F  float64 `json:",string"`
+		F3 float32 `json:",string"`
+		P  *int    `json:",string"`
+		X  int
+	}
+	for _, s := range []string{
+		`01`, `00`, `-01`, `+1`, `1-`, ` 1`, `1 `, `1.`, `.5`, `1e5`, `1.e5`, `-Inf`, `+Inf`, `Inf`, `NaN`, `0x10`,
+		`1_000`, `300`, `-1`, `1e400`, `1e39`, ``, `-`, `1.5`, `99999999999999999999`,
+	} {
+		for _, name := range []string{"I", "U", "F", "F3", "P"} {
+			checkUnmarshal(t, `{"`+name+`":"`+s+`","X":7}`, func() any { return new(fields) })
+		}
+	}
+}
+
+func TestNumberMapKeys(t *testing.T) {
+	// The keys of a map of numbers are read by strconv, as encoding/json reads them.
+	for _, key := range []string{`01`, `+1`, `-1`, ` 1`, `1 `, `1.5`, `1e2`, `300`, `-Inf`, `0x10`, `1_000`, ``} {
+		doc := `{"` + key + `":1,"2":2}`
+		checkUnmarshal(t, doc, func() any { return new(map[int]int) })
+		checkUnmarshal(t, doc, func() any { return new(map[uint8]int) })
+		checkUnmarshal(t, doc, func() any { return new(map[float64]int) })
+	}
 }

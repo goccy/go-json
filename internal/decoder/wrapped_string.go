@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"unsafe"
 )
 
@@ -24,10 +25,15 @@ type wrappedStringDecoder struct {
 	isPtrType     bool
 	// isMapKey is set for the decoder of the keys of a map, whose errors are the ones of the keys.
 	isMapKey bool
+	// numberKind is the kind of a number which the string has, read by strconv as encoding/json reads it ( see
+	// decodeNumber ), or reflect.Invalid for a value of any other type.
+	numberKind reflect.Kind
+	// numberType is the type of the number, which typ is or points to.
+	numberType reflect.Type
 }
 
 func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldName string) *wrappedStringDecoder {
-	return &wrappedStringDecoder{
+	d := &wrappedStringDecoder{
 		typ:           typ,
 		dec:           dec,
 		stringDecoder: newStringDecoder(structName, fieldName),
@@ -35,6 +41,23 @@ func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldNam
 		fieldName:     fieldName,
 		isPtrType:     typ.Kind() == reflect.Ptr,
 	}
+	numberType := typ
+	if numberType.Kind() == reflect.Pointer {
+		numberType = numberType.Elem()
+	}
+	switch numberType.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64:
+		if numberType.Implements(unmarshalJSONType) || reflect.PointerTo(numberType).Implements(unmarshalJSONType) ||
+			reflect.PointerTo(numberType).Implements(unmarshalJSONContextType) ||
+			reflect.PointerTo(numberType).Implements(unmarshalTextType) {
+			// a number decoded by its own unmarshaler
+			break
+		}
+		d.numberKind, d.numberType = numberType.Kind(), numberType
+	}
+	return d
 }
 
 func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -58,6 +81,12 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		}
 		return c, nil
 	}
+	if d.numberKind != reflect.Invalid && len(bytes) > 0 {
+		if d.decodeNumber(bytes, p) {
+			return c, nil
+		}
+		return d.stringError(ctx, start, c, bytes, p)
+	}
 	// The value is decoded from a copy of its bytes, which nothing else uses: its strings may refer to it. A type
 	// error of it is the one of the string, which is made after it ( see stringOptionError ).
 	saved := ctx.typeError
@@ -73,16 +102,82 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	failed := err != nil || ctx.typeError != nil
 	ctx.typeError = saved
 	if failed || len(bytes) == 0 {
-		if d.isMapKey {
-			ctx.keyTypeError(start, c, bytes, d.elemType())
-			return c, errMapKeyType
-		}
-		if d.isPtrType && stringOptionAllocates(bytes) {
-			d.allocate(p)
-		}
-		return ctx.stringOptionError(start, c, bytes, d.typ)
+		return d.stringError(ctx, start, c, bytes, p)
 	}
 	return c, nil
+}
+
+// stringError records or returns the error of the string between start and end, whose bytes are not a value of
+// the type.
+func (d *wrappedStringDecoder) stringError(ctx *RuntimeContext, start, end int64, bytes []byte, p unsafe.Pointer) (int64, error) {
+	if d.isMapKey {
+		ctx.keyTypeError(start, end, bytes, d.elemType())
+		return end, errMapKeyType
+	}
+	if d.isPtrType && stringOptionAllocates(bytes) {
+		d.allocate(p)
+	}
+	return ctx.stringOptionError(start, end, bytes, d.typ)
+}
+
+// decodeNumber reads the number which the bytes of the string are, as encoding/json reads the number of a string of
+// the string option or of a key of a map, by strconv: a number which it fails, or which is out of the range of the
+// type, is not stored. It reports whether the number is stored.
+func (d *wrappedStringDecoder) decodeNumber(bytes []byte, p unsafe.Pointer) bool {
+	if !d.isMapKey && !stringOptionNumberStart(bytes[0]) {
+		return false
+	}
+	s := *(*string)(unsafe.Pointer(&bytes))
+	bits := int(d.numberType.Size() * 8)
+	switch d.numberKind {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(s, 10, bits)
+		if err != nil {
+			return false
+		}
+		storeInt(d.target(p), bits, uint64(n))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		n, err := strconv.ParseUint(s, 10, bits)
+		if err != nil {
+			return false
+		}
+		storeInt(d.target(p), bits, n)
+	default:
+		n, err := strconv.ParseFloat(s, bits)
+		if err != nil {
+			return false
+		}
+		if bits == 32 {
+			*(*float32)(d.target(p)) = float32(n)
+		} else {
+			*(*float64)(d.target(p)) = n
+		}
+	}
+	return true
+}
+
+// storeInt stores the lowest bits of n, an integer of the size of bits, at p.
+func storeInt(p unsafe.Pointer, bits int, n uint64) {
+	switch bits {
+	case 8:
+		*(*uint8)(p) = uint8(n)
+	case 16:
+		*(*uint16)(p) = uint16(n)
+	case 32:
+		*(*uint32)(p) = uint32(n)
+	default:
+		*(*uint64)(p) = n
+	}
+}
+
+// target returns where the number is stored: at p, or where the pointer at p points to, which is allocated if it
+// is nil.
+func (d *wrappedStringDecoder) target(p unsafe.Pointer) unsafe.Pointer {
+	if !d.isPtrType {
+		return p
+	}
+	d.allocate(p)
+	return *(*unsafe.Pointer)(p)
 }
 
 // elemType returns the type of the value, which the pointers of the type point to.

@@ -138,6 +138,10 @@ func (d *floatDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p un
 		// a number of the grammar which ParseFloat fails is out of the range of float64
 		if inRange := parseErr == nil && !(d.is32 && overflowsFloat32(f)); !inRange {
 			ctx.numberTypeError(cursor, end, d.typ)
+			if storesFloatsOutOfRange {
+				// ±Inf, which ParseFloat returns, or which the conversion to a float32 makes
+				d.op(p, f)
+			}
 			return end, nil
 		}
 		d.op(p, f)

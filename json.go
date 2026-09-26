@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/goccy/go-json/internal/decoder"
 	"github.com/goccy/go-json/internal/encoder"
 )
 
@@ -360,16 +361,11 @@ func HTMLEscape(dst *bytes.Buffer, src []byte) {
 
 // Valid reports whether data is a valid JSON encoding.
 func Valid(data []byte) bool {
-	var v any
-	decoder := NewDecoder(bytes.NewReader(data))
-	err := decoder.Decode(&v)
-	if err != nil {
-		return false
-	}
-	if !decoder.More() {
-		return true
-	}
-	return decoder.InputOffset() >= int64(len(data))
+	// the input is checked by the grammar in the buffer of a context, which is followed by the nul byte
+	ctx := decoder.TakeRuntimeContext()
+	valid := decoder.Valid(ctx.SetInput(data))
+	decoder.ReleaseRuntimeContext(ctx)
+	return valid
 }
 
 func init() {

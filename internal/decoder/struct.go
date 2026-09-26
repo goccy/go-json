@@ -138,7 +138,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 					cursor = c
 					seenFieldNum++
 					if d.fieldUniqueNameNum <= seenFieldNum {
-						return skipCompound(buf, cursor, 1, depth)
+						return skipRestOfObject(buf, cursor, depth)
 					}
 					seenFields[field.fieldIdx] = struct{}{}
 				}

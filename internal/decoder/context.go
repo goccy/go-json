@@ -350,57 +350,48 @@ func skipValue(buf []byte, cursor, depth int64) (int64, error) {
 			cursor++
 			continue
 		case '{', '[':
-			// as skipCompound does, without its call
-			sc := compoundScanner{depth: 1, maxDepth: maxDecodeNestingDepth - depth}
-			lim := int64(len(buf))
-			var (
-				end   int64
-				found bool
-				err   error
-			)
-			if lim-cursor <= scanBlockSize {
-				end, found, err = sc.scanBytes(buf, cursor+1, lim)
-			} else {
-				end, found, err = sc.scan(buf, cursor+1, lim)
+			// the grammar of the object or the array, by skipFast without the call of skipGrammarFast
+			end, level, objects, resume, ev := skipFast(buf, cursor, 0, 0, resumeValue, skipMaxLevel(depth))
+			if ev == skipDone {
+				return end, nil
 			}
+			return skipGrammarEvent(buf, end, depth, level, objects, resume, ev)
+		case '"':
+			end, err := skipString(buf, cursor)
 			if err != nil {
-				return 0, err
-			}
-			if !found {
-				return 0, errors.ErrUnexpectedEndOfJSON("object or array", end)
+				return 0, stringError(buf, cursor, err)
 			}
 			return end, nil
-		case '"':
-			return skipString(buf, cursor)
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			for {
+		case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			// an integer, which most numbers are, without a call
+			start := cursor
+			cursor++
+			for buf[cursor]-'0' <= 9 {
 				cursor++
-				if floatTable[buf[cursor]] {
-					continue
-				}
-				break
+			}
+			if c := buf[cursor]; c == '.' || c == 'e' || c == 'E' {
+				return skipNumberRest(buf, start, cursor)
 			}
 			return cursor, nil
+		case '-', '0':
+			return skipNumber(buf, cursor)
 		case 't':
-			if err := validateTrue(buf, cursor); err != nil {
-				return 0, err
+			if buf[cursor+1] != 'r' || buf[cursor+2] != 'u' || buf[cursor+3] != 'e' {
+				return 0, literalSyntaxError(buf, cursor, "true")
 			}
-			cursor += 4
-			return cursor, nil
+			return cursor + 4, nil
 		case 'f':
-			if err := validateFalse(buf, cursor); err != nil {
-				return 0, err
+			if buf[cursor+1] != 'a' || buf[cursor+2] != 'l' || buf[cursor+3] != 's' || buf[cursor+4] != 'e' {
+				return 0, literalSyntaxError(buf, cursor, "false")
 			}
-			cursor += 5
-			return cursor, nil
+			return cursor + 5, nil
 		case 'n':
-			if err := validateNull(buf, cursor); err != nil {
-				return 0, err
+			if buf[cursor+1] != 'u' || buf[cursor+2] != 'l' || buf[cursor+3] != 'l' {
+				return 0, literalSyntaxError(buf, cursor, "null")
 			}
-			cursor += 4
-			return cursor, nil
+			return cursor + 4, nil
 		default:
-			return cursor, errors.ErrUnexpectedEndOfJSON("null", cursor)
+			return 0, syntaxErrorAt(buf, cursor, whereValue)
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -154,6 +155,46 @@ func TestIssue450EmbeddedFieldOfItsName(t *testing.T) {
 	checkUnmarshal(t, `{"DecodeIssue450Label":"x","Visible":"v"}`, func() any { return new(decodeIssue450Labeled) })
 }
 
+// numberGrammarCases are numbers which are not valid, and valid ones around them.
+var numberGrammarCases = []string{
+	`0.`, `1.`, `-2.`, `01`, `00`, `-01`, `-012`, `012`, `1.e5`, `0.e1`, `2.e+3`, `2.e-3`, `-.123`, `.5`, `-`, `-.`,
+	`1e`, `1e+`, `1E-`, `1.5e`, `1..2`, `1e5.5`, `1ee5`, `1.2.3`, `--1`, `1-`, `-e1`, `1e+-2`, `0.e`, `+1`,
+	`0`, `-0`, `0.5`, `-0.5`, `10`, `1e5`, `1E+5`, `1e-5`, `0e0`, `-0.0e-0`, `123.456e7`,
+}
+
+func TestIssue448NumberGrammar(t *testing.T) {
+	// A number is checked by the grammar of JSON wherever it is: skipped, decoded into any of the types, or
+	// validated.
+	for _, n := range numberGrammarCases {
+		for _, doc := range []string{n, `[` + n + `]`, `{"x":` + n + `}`, `{"skipped":` + n + `,"x":1}`, `[[` + n + `],1]`} {
+			checkUnmarshal(t, doc, func() any { return new(any) })
+			checkUnmarshal(t, doc, func() any { return new(struct{}) })
+			checkUnmarshal(t, doc, func() any { return new(struct{ X any }) })
+			checkUnmarshal(t, doc, func() any { return new(struct{ X float64 }) })
+			checkUnmarshal(t, doc, func() any { return new(struct{ X int }) })
+			checkUnmarshal(t, doc, func() any { return new(map[string]any) })
+			checkUnmarshal(t, doc, func() any { return new([]any) })
+			if got, want := json.Valid([]byte(doc)), stdjson.Valid([]byte(doc)); got != want {
+				t.Errorf("Valid(%q) = %v, want %v", doc, got, want)
+			}
+		}
+		for _, newValue := range []func() any{
+			func() any { return new(float64) }, func() any { return new(float32) }, func() any { return new(int) },
+			func() any { return new(uint) }, func() any { return new(json.Number) },
+			func() any { return new(struct{ X json.Number }) },
+			func() any {
+				return new(struct {
+					X int `json:",string"`
+				})
+			},
+		} {
+			checkUnmarshal(t, n, newValue)
+			checkUnmarshal(t, `{"X":`+n+`}`, newValue)
+			checkUnmarshal(t, `{"X":"`+n+`"}`, newValue)
+		}
+	}
+}
+
 func TestIssue555NumbersOutOfRange(t *testing.T) {
 	// A number out of the range of a float64 decoded into an interface{} is a type error, after which the
 	// decoding goes on, and a float field is set as encoding/json of the Go version sets it.
@@ -274,6 +315,42 @@ func TestIssue548TokenGrammar(t *testing.T) {
 			if got != want {
 				t.Errorf("%q by %q:\n got %s\nwant %s", doc, pattern, got, want)
 			}
+		}
+	}
+}
+
+func TestValidByGrammar(t *testing.T) {
+	// Valid is the grammar of JSON, as encoding/json has it.
+	for _, doc := range []string{
+		`[1]]`, `1]`, `{}}`, `["x"]]`, `[-1e+9999]`, `[1.5e+9999]`, `[123123e100000]`, `0.4e0066999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999969999999006`,
+		`123` + "\x00", "{\"a\":1}\x00", "\x00", ``, ` `, `null`, ` true `, `"a"`, `"\x"`, "\"\x01\"", `[`, `{"a"`, `{"a":1,}`,
+		`[1,2,3]`, `{"a":{"b":[1,{"c":null}]}}`, `01`, `1.`, `-`, "\"\xff\"", `{"a" 1}`, `[1 2]`, `tru`, `nul`, `falsy`,
+	} {
+		if got, want := json.Valid([]byte(doc)), stdjson.Valid([]byte(doc)); got != want {
+			t.Errorf("Valid(%q) = %v, want %v", doc, got, want)
+		}
+	}
+	r := rand.New(rand.NewSource(3))
+	for i := 0; i < 20000; i++ {
+		doc := randomSkippedValue(r, 1+r.Intn(4))
+		if r.Intn(2) == 0 {
+			doc = mutate(r, doc)
+		}
+		if got, want := json.Valid([]byte(doc)), stdjson.Valid([]byte(doc)); got != want {
+			t.Fatalf("Valid(%q) = %v, want %v", doc, got, want)
+		}
+	}
+}
+
+func TestNulAfterValue(t *testing.T) {
+	// A nul byte in the input is a byte which the grammar doesn't have: after a value, it is a syntax error.
+	for _, doc := range []string{"123\x00", "{\"a\":1}\x00", "\"s\" \x00", "[1]\x00 ", "true\x00", "1 \x00 2"} {
+		checkUnmarshal(t, doc, func() any { return new(any) })
+		checkUnmarshal(t, doc, func() any { return new(struct{ A int }) })
+		var got, want any
+		gotErr, wantErr := json.UnmarshalOf([]byte(doc), &got), stdjson.Unmarshal([]byte(doc), &want)
+		if describeTypeErrorMessage(gotErr) != describeTypeErrorMessage(wantErr) {
+			t.Errorf("UnmarshalOf(%q): got %s, want %s", doc, describeTypeErrorMessage(gotErr), describeTypeErrorMessage(wantErr))
 		}
 	}
 }

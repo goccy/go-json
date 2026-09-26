@@ -380,7 +380,7 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 	}
 	for {
 		if cursor = skipWhiteSpace(buf, cursor); buf[cursor] != '"' {
-			return fail(syntaxErrorAt(buf, cursor, "looking for beginning of object key string"))
+			return fail(syntaxErrorAt(buf, cursor, whereKey))
 		}
 		key, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
@@ -388,7 +388,7 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] != ':' {
-			return fail(syntaxErrorAt(buf, cursor, "after object key"))
+			return fail(syntaxErrorAt(buf, cursor, whereAfterKey))
 		}
 		cursor++
 		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))

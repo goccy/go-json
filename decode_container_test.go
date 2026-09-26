@@ -53,14 +53,14 @@ func TestDecodeSliceIntoExisting(t *testing.T) {
 		t.Fatalf("got %v, want %v", v, want)
 	}
 	// The array of the slice is reused when it is large enough; the elements after
-	// its length are decoded into zero values.
+	// its length are decoded into, as encoding/json decodes them.
 	backing := make([]elem, 4)
 	backing[1] = elem{A: 5, B: 5}
 	v = backing[:1]
 	if err := json.Unmarshal([]byte(`[{"A":1},{"A":2}]`), &v); err != nil {
 		t.Fatal(err)
 	}
-	if want := []elem{{1, 0}, {2, 0}}; !reflect.DeepEqual(v, want) {
+	if want := []elem{{1, 0}, {2, 5}}; !reflect.DeepEqual(v, want) {
 		t.Fatalf("got %v, want %v", v, want)
 	}
 	if &v[0] != &backing[0] {

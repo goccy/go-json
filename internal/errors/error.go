@@ -54,6 +54,9 @@ type SyntaxError struct {
 	// atEnd is whether the error is the end of the input, where more of it would have been read: a stream
 	// reports it as io.ErrUnexpectedEOF.
 	atEnd bool
+	// valueAt is the position of the byte of the error, which is not the start of a value where one is waited
+	// for, plus one, or 0 for any other error ( see ValueStartAt ).
+	valueAt int64
 }
 
 func (e *SyntaxError) Error() string { return e.msg }
@@ -120,6 +123,23 @@ func ErrSyntax(msg string, offset int64) *SyntaxError {
 // ErrSyntaxAtEnd is ErrSyntax for the end of the input, where more of it would have been read.
 func ErrSyntaxAtEnd(msg string, offset int64) *SyntaxError {
 	return &SyntaxError{msg: msg, Offset: offset, atEnd: true}
+}
+
+// WithValueStartAt marks e as the error of the byte at cursor, which is not the start of a value where one is
+// waited for, and returns it.
+func WithValueStartAt(e *SyntaxError, cursor int64) *SyntaxError {
+	e.valueAt = cursor + 1
+	return e
+}
+
+// ValueStartAt returns the position of the byte of err, if it is the syntax error of a byte which is not the start
+// of a value where one is waited for ( see WithValueStartAt ).
+func ValueStartAt(err error) (int64, bool) {
+	e, ok := err.(*SyntaxError)
+	if !ok || e.valueAt == 0 {
+		return 0, false
+	}
+	return e.valueAt - 1, true
 }
 
 // IsAtEnd reports whether err is a syntax error of the end of the input ( see ErrSyntaxAtEnd ).

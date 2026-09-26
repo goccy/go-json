@@ -42,7 +42,12 @@ func syntaxErrorAt(buf []byte, cursor int64, where syntaxWhere) error {
 	if isEnd(buf, cursor) {
 		return endError(cursor)
 	}
-	return invalidCharacterError(buf, cursor, where.text())
+	err := invalidCharacterError(buf, cursor, where.text())
+	if where == whereValue {
+		// a stream of Go 1.27 tells a bracket there by the object or the array which Token opened
+		err = errors.WithValueStartAt(err, cursor)
+	}
+	return err
 }
 
 // numberSyntaxError returns the syntax error of the byte at cursor in the number which starts at start.

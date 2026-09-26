@@ -35,7 +35,7 @@ func (w syntaxWhere) text() string {
 
 // invalidCharacterError returns the syntax error of the character at cursor, which the offset is after: the
 // character of the UTF-8 sequence at cursor, or its byte if it is not one.
-func invalidCharacterError(buf []byte, cursor int64, what string) error {
+func invalidCharacterError(buf []byte, cursor int64, what string) *errors.SyntaxError {
 	r, n := utf8.DecodeRune(buf[cursor : len(buf)-1])
 	quoted := strconv.QuoteRune(r)
 	if r == utf8.RuneError && n == 1 {

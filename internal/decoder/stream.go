@@ -50,6 +50,17 @@ type Stream struct {
 	// errOffset the total offset which InputOffset reports after it: the end of the previous value.
 	err       error
 	errOffset int64
+	// readStart is the total offset where the read of the value of Decode, or of the value of Token, started, and
+	// scanned the number of the bytes which these reads read before it, by which encoding/json before Go 1.27
+	// reports the offset of a syntax error of the value ( see scannedOffset ).
+	readStart int64
+	scanned   int64
+	// more is what More peeked at, which InputOffset reports ( see streamPeek ).
+	more streamPeek
+	// keeps is set while the bytes from the total offset keepFrom are kept in the buffer, before the cursor too:
+	// a read of a token which fails leaves the stream where it was ( see Token ).
+	keeps    bool
+	keepFrom int64
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -107,7 +118,12 @@ func (s *Stream) read() bool {
 // grow moves the bytes which are not consumed yet to a new buffer, so that the reader
 // has room to read into. The old buffer is left to the strings which refer to it.
 func (s *Stream) grow() {
-	remain := s.length - s.cursor
+	// the bytes from the cursor are moved, or from the one which is kept before it
+	from := s.cursor
+	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {
+		from = keep
+	}
+	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
 	if remain*2 > size {
 		// The data which is not consumed yet fills more than half of the buffer: it is a value
@@ -120,11 +136,11 @@ func (s *Stream) grow() {
 		size = remain + int64(r.Len())
 	}
 	buf := make([]byte, size+bufPadding)
-	copy(buf, s.buf[s.cursor:s.length])
-	s.offset += s.cursor
+	copy(buf, s.buf[from:s.length])
+	s.offset += from
 	s.buf = buf
 	s.length = remain
-	s.cursor = 0
+	s.cursor -= from
 }
 
 // fill makes sure that the buffer holds the byte at the cursor.
@@ -180,12 +196,33 @@ func (s *Stream) skipWhiteSpace() bool {
 	}
 }
 
+// peek moves the cursor to the next byte which is not a white space, as skipWhiteSpace does, but leaves it where it
+// is when the input ends with white spaces only: the offset of the input doesn't count them, as encoding/json
+// doesn't count what it peeks at. It returns false when the reader has nothing more.
+func (s *Stream) peek() bool {
+	var rel int64
+	for {
+		// the position is kept relative to the cursor, because a read may move the data ( grow )
+		for pos := s.cursor + rel; pos < s.length; pos++ {
+			if !isWhiteSpace[s.buf[pos]] {
+				s.cursor = pos
+				return true
+			}
+		}
+		rel = s.length - s.cursor
+		if !s.read() {
+			return false
+		}
+	}
+}
+
 // prepare moves the cursor to the beginning of the next value: the white space is skipped, and, between the
 // tokens of an object or an array, the comma or the colon which the grammar has before the value.
 func (s *Stream) prepare() error {
 	if s.tokenState != tokenTopValue {
 		return s.prepareInTokens()
 	}
+	s.readStart = s.offset + s.cursor
 	if !s.skipWhiteSpace() {
 		return s.fail(s.endError())
 	}
@@ -380,6 +417,10 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
+	if countsScanned {
+		s.scanned += s.offset + cursor - s.readStart
+	}
+	s.more.reset()
 	if s.tokenState != tokenTopValue {
 		s.tokenValueEnd()
 	}
@@ -431,6 +472,10 @@ func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64
 		return s.typeError(typ, cursor)
 	}
 	s.cursor = cursor
+	if countsScanned {
+		s.scanned += s.offset + cursor - s.readStart
+	}
+	s.more.reset()
 	if s.tokenState != tokenTopValue {
 		s.tokenValueEnd()
 	}
@@ -451,7 +496,21 @@ func (s *Stream) valueSyntaxError() error {
 	if errors.IsAtEnd(err) {
 		return s.unexpectedEndError()
 	}
-	return s.totalOffsetError(err)
+	if at, ok := errors.ValueStartAt(err); ok {
+		if merr := s.valueStartMismatch(at); merr != nil {
+			return merr
+		}
+	}
+	return s.scannedOffset(s.totalOffsetError(err))
+}
+
+// scannedOffset makes the offset of the syntax error of the value read from readStart the one which encoding/json
+// of the Go version reports ( see countsScanned ).
+func (s *Stream) scannedOffset(err error) error {
+	if e, ok := err.(*errors.SyntaxError); ok && countsScanned {
+		e.Offset += s.scanned - s.readStart
+	}
+	return err
 }
 
 // typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
@@ -463,6 +522,10 @@ func (s *Stream) valueSyntaxError() error {
 func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
 	start := s.cursor
 	s.cursor = end
+	if countsScanned {
+		s.scanned += s.offset + end - s.readStart
+	}
+	s.more.reset()
 	if s.tokenState != tokenTopValue {
 		s.tokenValueEnd()
 	}
@@ -497,6 +560,7 @@ func (s *Stream) totalOffsetError(err error) error {
 
 // tokenString decodes the string at the cursor by the string decoder, as Decode does.
 func (s *Stream) tokenString() (any, error) {
+	s.readStart = s.offset + s.cursor
 	end, err := s.scanValue()
 	if err != nil {
 		return nil, err
@@ -506,9 +570,15 @@ func (s *Stream) tokenString() (any, error) {
 	literal, _, err := tokenStringDecoder.decodeByte(s.buf[:end+1], s.cursor)
 	s.buf[end] = saved
 	if err != nil {
+		if serr := s.valueSyntaxError(); serr != nil {
+			return nil, serr
+		}
 		return nil, s.totalOffsetError(err)
 	}
 	s.cursor = end
+	if countsScanned {
+		s.scanned += s.offset + end - s.readStart
+	}
 	if len(literal) != 0 && !isPartOf(literal, s.buf) {
 		// the bytes of the escaped string, which decodeLiteral made: they are the string's own
 		return unsafe.String(unsafe.SliceData(literal), len(literal)), nil

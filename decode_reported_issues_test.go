@@ -267,8 +267,7 @@ func streamTokens(doc string, pattern string, newDecoder func(string) tokenDecod
 		case 'd':
 			var v any
 			err := dec.Decode(&v)
-			// the syntax errors of the decoding of a value are compared by their kind only
-			fmt.Fprintf(&b, "D(%v %v %d) ", v, describeTypeError(err), dec.InputOffset())
+			fmt.Fprintf(&b, "D(%v %v %d) ", v, describeTypeErrorMessage(err), dec.InputOffset())
 			if err != nil {
 				return b.String()
 			}
@@ -309,6 +308,9 @@ func TestIssue548TokenGrammar(t *testing.T) {
 		`{1:2}`, `{"a":1]`, `[1}`, `[1,,2]`, `{"a":1,,"b":2}`, `{"a":{"b":1}"c":2}`, `[[1][2]]`, `[true false]`,
 		`{"a":1 "b":2}`, `]`, `}`, `,`, `:`, `1 , 2`, `1 2`, `{"a":[1,{"b":2}],"c":"d"} [3]`,
 		`[{"a":1},{"a":2}]`, `{"a":{"b":[1,2]},"c":3}`, ``, `[`, `{"a"`, `{"a":`, `[1,`,
+		`[01]`, `[1-2]`, `[1.]`, `[-]`, `[1e5e]`, `[tru]`, `[truex]`, `[nul,1]`, `["a\q"]`, `{"a\q":1}`, `[1.5 , 2]`,
+		`01 2`, ` [ 1 , 2 ] `, "[\"a\x01\"]", `[1,2]  x`,
+		`[1 あ]`, `{"a" é:1}`, `{"a":1 é}`, `[1,]`, `{"a":[1,]}`, `[[1,]]`, `{"a":{"b":1,}}`, `[1,[}]`, `{"a":}`, `{"a":]`,
 	} {
 		for _, pattern := range []string{"t", "d", "td", "ttd", "tmd", "tttd", "tdt", "ttdd"} {
 			want := streamTokens(doc, pattern, stdDecoder)

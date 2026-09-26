@@ -33,7 +33,7 @@ func (w syntaxWhere) text() string {
 }
 
 // invalidCharacterError returns the syntax error of the byte at cursor, which the offset is after.
-func invalidCharacterError(buf []byte, cursor int64, what string) error {
+func invalidCharacterError(buf []byte, cursor int64, what string) *errors.SyntaxError {
 	return errors.ErrSyntax("invalid character "+quoteChar(buf[cursor])+" "+what, cursor+1)
 }
 

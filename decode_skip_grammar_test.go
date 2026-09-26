@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	json "github.com/goccy/go-json"
 )
@@ -178,6 +179,48 @@ func TestStreamSyntaxErrorMessages(t *testing.T) {
 				}
 				break
 			}
+		}
+	}
+}
+
+func TestTokenStreamRandom(t *testing.T) {
+	// Token, Decode and More in any order read a stream as encoding/json of the Go version does: the tokens, the
+	// values, the errors with their messages and offsets, and InputOffset. go-json reads the input by parts, so
+	// that the values and the tokens which the reads cut are read too.
+	stdDecoder := func(doc string) tokenDecoder {
+		return stdjson.NewDecoder(strings.NewReader(doc))
+	}
+	goDecoder := func(doc string) tokenDecoder {
+		return json.NewDecoder(strings.NewReader(doc))
+	}
+	r := rand.New(rand.NewSource(11))
+	for i := 0; i < 5000; i++ {
+		doc := randomSkippedValue(r, 1+r.Intn(3))
+		if r.Intn(3) == 0 {
+			doc += " " + randomSkippedValue(r, 1+r.Intn(2))
+		}
+		if r.Intn(2) == 0 {
+			doc = mutate(r, doc)
+		}
+		// encoding/json of Go 1.27 reads its input by parts, and reports a rune or a \u escape which a part cuts by
+		// the bytes of the part, where go-json reports the whole one: the runes are ASCII, and there is no \u
+		doc = strings.Map(func(c rune) rune {
+			if c >= utf8.RuneSelf {
+				return 'x'
+			}
+			return c
+		}, doc)
+		if strings.Contains(doc, `\u`) {
+			continue
+		}
+		pattern := make([]byte, 1+r.Intn(4))
+		for j := range pattern {
+			pattern[j] = "tdm"[r.Intn(3)]
+		}
+		want := streamTokens(doc, string(pattern), stdDecoder)
+		got := streamTokens(doc, string(pattern), goDecoder)
+		if got != want {
+			t.Fatalf("%q by %q:\n got %q\nwant %q", doc, pattern, got, want)
 		}
 	}
 }

@@ -4,12 +4,33 @@ package decoder
 
 import (
 	"encoding/json"
+	"reflect"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 // The tokens of a stream as encoding/json before Go 1.27 reads them: a comma or a colon which the grammar doesn't
 // have is an error of Token, which is not kept, and Decode reads a value where Token would.
+
+// streamPeek is what More peeked at, which encoding/json before Go 1.27 doesn't keep: More and Token move the
+// offset over the white spaces.
+type streamPeek struct{}
+
+// reset does nothing.
+func (streamPeek) reset() {}
+
+// valueStartMismatch returns nil: encoding/json before Go 1.27 tells the bracket where a value is waited for as
+// the grammar does.
+func (*Stream) valueStartMismatch(int64) error {
+	return nil
+}
+
+// countsScanned is whether the offset of a syntax error of a value of Decode is counted from the bytes which the
+// reads of the values read, as encoding/json before Go 1.27 counts it: the white spaces and the delimiters which
+// Token or More read, and the comma or the colon before a value of Decode, are not counted.
+const countsScanned = true
 
 // prepareInTokens moves the cursor to the value which Decode reads between the tokens: after the comma or the
 // colon which the state waits for. It is not inlined, so that Decode keeps the size it had.
@@ -21,7 +42,7 @@ func (s *Stream) prepareInTokens() error {
 		return s.err
 	case tokenArrayComma:
 		// the comma and the colon are looked for without an error kept, as encoding/json does
-		if !s.skipWhiteSpace() {
+		if !s.peek() {
 			return s.endError()
 		}
 		if s.buf[s.cursor] != ',' {
@@ -31,8 +52,9 @@ func (s *Stream) prepareInTokens() error {
 		s.tokenState = tokenArrayValue
 		// the value is read after the comma
 		s.markPrevEnd()
+		s.readStart = s.offset + s.cursor
 	case tokenObjectColon:
-		if !s.skipWhiteSpace() {
+		if !s.peek() {
 			return s.endError()
 		}
 		if s.buf[s.cursor] != ':' {
@@ -42,6 +64,10 @@ func (s *Stream) prepareInTokens() error {
 		s.tokenState = tokenObjectValue
 		// the value is read after the colon
 		s.markPrevEnd()
+		s.readStart = s.offset + s.cursor
+	default:
+		// the value is read from the cursor, white spaces before it too
+		s.readStart = s.offset + s.cursor
 	}
 	if !s.tokenValueAllowed() {
 		return errors.ErrSyntax("not at beginning of value", s.TotalOffset())
@@ -59,7 +85,7 @@ func (s *Stream) Token() (any, error) {
 		return nil, s.err
 	}
 	for {
-		if !s.skipWhiteSpace() {
+		if !s.peek() {
 			return nil, s.endError()
 		}
 		c := s.buf[s.cursor]
@@ -117,14 +143,22 @@ func (s *Stream) Token() (any, error) {
 		if !s.tokenValueAllowed() {
 			return nil, s.tokenError(c)
 		}
-		v, err := s.tokenValue(c)
+		// a value is read as Decode reads it into an interface{}, as encoding/json before Go 1.27 reads it: its
+		// errors, and the bytes which the reads of the values read ( see countsScanned ), are the ones of Decode
+		dec, err := s.DecoderOf(anyPtrType)
 		if err != nil {
 			return nil, err
 		}
-		s.tokenValueEnd()
+		var v any
+		if err := s.Decode(dec, anyPtrType, unsafe.Pointer(&v)); err != nil {
+			return nil, err
+		}
 		return v, nil
 	}
 }
+
+// anyPtrType is the type of *interface{}, which Token decodes a value into.
+var anyPtrType = runtime.TypePtr(reflect.TypeOf((*any)(nil)))
 
 // tokenError returns the syntax error of the byte c at the cursor, which the grammar doesn't have in the state, as
 // encoding/json has it.
@@ -156,7 +190,7 @@ func (s *Stream) InputOffset() int64 {
 
 // More reports whether the current array or object has another element.
 func (s *Stream) More() bool {
-	if !s.skipWhiteSpace() {
+	if !s.peek() {
 		return false
 	}
 	switch s.buf[s.cursor] {

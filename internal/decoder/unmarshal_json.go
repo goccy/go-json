@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -35,16 +34,6 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 		structName:     structName,
 		fieldName:      fieldName,
 		retainsNothing: typ == timePtrType,
-	}
-}
-
-func (d *unmarshalJSONDecoder) annotateError(cursor int64, err error) {
-	switch e := err.(type) {
-	case *errors.UnmarshalTypeError:
-		e.Struct = d.structName
-		e.Field = d.fieldName
-	case *errors.SyntaxError:
-		e.Offset = cursor
 	}
 }
 
@@ -83,13 +72,11 @@ func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 			c = context.Background()
 		}
 		if err := v.UnmarshalJSON(c, dst); err != nil {
-			d.annotateError(cursor, err)
-			return 0, err
+			return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
 		}
 	case json.Unmarshaler:
 		if err := v.UnmarshalJSON(dst); err != nil {
-			d.annotateError(cursor, err)
-			return 0, err
+			return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
 		}
 	}
 	return end, nil

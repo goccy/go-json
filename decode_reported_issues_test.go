@@ -429,6 +429,59 @@ func TestTimeOfOtherKinds(t *testing.T) {
 	checkUnmarshal(t, `1`, func() any { return new(time.Time) })
 }
 
+// methodErrorValue is a value whose unmarshal methods fail for 0 and x.
+type methodErrorValue struct{ V int }
+
+func (v *methodErrorValue) UnmarshalJSON(b []byte) error {
+	if string(b) == "0" {
+		return errors.New("method error")
+	}
+	v.V = len(b)
+	return nil
+}
+
+// methodErrorText is a value whose UnmarshalText fails for x.
+type methodErrorText struct{ V string }
+
+func (t *methodErrorText) UnmarshalText(b []byte) error {
+	if string(b) == "x" {
+		return errors.New("text method error")
+	}
+	t.V = string(b)
+	return nil
+}
+
+// methodStdTypeError is a value whose UnmarshalJSON returns a type error of encoding/json.
+type methodStdTypeError struct{}
+
+func (*methodStdTypeError) UnmarshalJSON([]byte) error {
+	return &stdjson.UnmarshalTypeError{Value: "number", Type: reflect.TypeOf(0)}
+}
+
+func TestUnmarshalMethodErrors(t *testing.T) {
+	// The error of an unmarshal method stops the decoding before Go 1.27. By Go 1.27, the decoding goes on after
+	// it, as after a type error, and the first error is returned: the error of the method as it is.
+	type fields struct {
+		A int
+		B methodErrorValue
+		C *methodErrorValue
+		T methodErrorText
+		E int
+	}
+	for _, doc := range []string{
+		`{"A":1,"B":0,"E":2}`, `{"A":"x","B":0,"E":2}`, `{"B":0,"A":"x","E":2}`,
+		`{"T":"x","E":2}`, `{"B":0,"E":"x"}`, `{"B":0,"E":2,"C":1}`, `{"B":1,"T":"y","E":2}`,
+	} {
+		checkUnmarshal(t, doc, func() any { return new(fields) })
+	}
+	// a type error of encoding/json has its field set before Go 1.27, as encoding/json sets it
+	type stdTypeError struct {
+		N methodStdTypeError
+		E int
+	}
+	checkUnmarshal(t, `{"N":1,"E":2}`, func() any { return new(stdTypeError) })
+}
+
 func TestNulAfterValue(t *testing.T) {
 	// A nul byte in the input is a byte which the grammar doesn't have: after a value, it is a syntax error.
 	for _, doc := range []string{"123\x00", "{\"a\":1}\x00", "\"s\" \x00", "[1]\x00 ", "true\x00", "1 \x00 2"} {

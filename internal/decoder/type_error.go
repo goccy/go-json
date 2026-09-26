@@ -28,7 +28,8 @@ type pendingTypeError struct {
 	atKey bool
 	// literal is set for an error which reports the literal of the value in its value, as "number 1.5".
 	literal bool
-	// plain is an error which is not a type error, which encoding/json before Go 1.27 returns as it is.
+	// plain is an error which is not a type error, which encoding/json returns as it is: an invalid use of the string
+	// option before Go 1.27, or the error of an unmarshal method by Go 1.27.
 	plain error
 	// err is the cause of the error, which encoding/json of Go 1.27 reports.
 	err error

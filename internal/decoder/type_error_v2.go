@@ -88,6 +88,16 @@ func (ctx *RuntimeContext) stringOptionUnquoted(cursor, depth int64, typ reflect
 	return ctx.skipTypeError(cursor, depth, typ)
 }
 
+// methodError records err, which an unmarshal method of the value between cursor and end returned, if it is the
+// first error, and returns end: encoding/json of Go 1.27 goes on after it, as after a type error, and returns it as
+// it is.
+func (ctx *RuntimeContext) methodError(_, end int64, err error, _, _ string) (int64, error) {
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{plain: err}
+	}
+	return end, nil
+}
+
 // timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
 // of Go 1.27 reports it as a type error, after which the decoding goes on.
 const timeKindTypeErrors = true

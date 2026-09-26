@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -28,16 +27,6 @@ func newUnmarshalTextDecoder(typ reflect.Type, structName, fieldName string) *un
 		structName:   structName,
 		fieldName:    fieldName,
 		nullSetsZero: textUnmarshalerNullSetsZero(typ.Elem().Kind()),
-	}
-}
-
-func (d *unmarshalTextDecoder) annotateError(cursor int64, err error) {
-	switch e := err.(type) {
-	case *errors.UnmarshalTypeError:
-		e.Struct = d.structName
-		e.Field = d.fieldName
-	case *errors.SyntaxError:
-		e.Offset = cursor
 	}
 }
 
@@ -73,8 +62,7 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
 	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
-		d.annotateError(cursor, err)
-		return 0, err
+		return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
 	}
 	return end, nil
 }

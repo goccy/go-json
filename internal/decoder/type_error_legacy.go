@@ -3,6 +3,7 @@
 package decoder
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -129,6 +130,29 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 		return end, nil
 	}
 	return 0, invalidUse()
+}
+
+// annotateMethodError sets the field of a type error, or the offset of a syntax error, which an unmarshal method
+// of the value at cursor returned, as encoding/json before Go 1.27 does.
+func annotateMethodError(cursor int64, err error, structName, fieldName string) {
+	switch e := err.(type) {
+	case *errors.UnmarshalTypeError:
+		e.Struct = structName
+		e.Field = fieldName
+	case *json.UnmarshalTypeError:
+		// the type error of encoding/json, which it sets as its own
+		e.Struct = structName
+		e.Field = fieldName
+	case *errors.SyntaxError:
+		e.Offset = cursor
+	}
+}
+
+// methodError returns err, which an unmarshal method of the value between cursor and end returned: encoding/json
+// before Go 1.27 stops the decoding with it, with the field of a type error and the offset of a syntax error.
+func (ctx *RuntimeContext) methodError(cursor, _ int64, err error, structName, fieldName string) (int64, error) {
+	annotateMethodError(cursor, err, structName, fieldName)
+	return 0, err
 }
 
 // timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json

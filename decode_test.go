@@ -1869,6 +1869,10 @@ func TestUnmarshal(t *testing.T) {
 			// An error which is not a syntax error is the one of encoding/json of the running Go, whose messages
 			// differ by its version; a syntax error is the one of the test.
 			wantErr := tt.err
+			if e, ok := wantErr.(*json.UnmarshalTypeError); ok && methodErrorsAsIs && e.Type == reflect.TypeOf(SS("")) {
+				// the type error which the method of SS returns, as it is
+				wantErr = &json.UnmarshalTypeError{Value: e.Value, Type: e.Type}
+			}
 			stdDec := stdjson.NewDecoder(bytes.NewReader(in))
 			if tt.useNumber {
 				stdDec.UseNumber()

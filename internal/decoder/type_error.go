@@ -187,6 +187,8 @@ type typeErrorStep struct {
 	// name is the name of a field, which is its key, the key of a map entry as it is decoded, or the index of an
 	// element.
 	name string
+	// inputName is the key of a field as the input has it, decoded, which encoding/json of Go 1.27 reports.
+	inputName string
 	// isField is set for a field of a struct.
 	isField bool
 }
@@ -281,7 +283,9 @@ func (d *structDecoder) typeErrorChild(buf []byte, cursor int64, p *pendingTypeE
 			if field == nil {
 				return typeErrorStep{}, nil, 0, false
 			}
-			step := typeErrorStep{structName: d.typeName, name: field.key, isField: true}
+			step := typeErrorStep{
+				structName: d.typeName, name: field.key, inputName: string(decodeLiteral(key, info)), isField: true,
+			}
 			if embeddedFieldNames {
 				step.embedded = d.embedded[field]
 			}

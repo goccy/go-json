@@ -289,3 +289,22 @@ func TestDecodeTypeErrorsOfInterfaceValues(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeTypeErrorsOfKeysOfOtherCase(t *testing.T) {
+	// A key which matches a field in another case: encoding/json of Go 1.27 reports the path by the keys as the
+	// input has them.
+	type continent struct{ Name int }
+	type country struct {
+		Continent continent
+		Code      int `json:"code"`
+	}
+	for _, doc := range []string{
+		`{"continent":{"name":"x"}}`,
+		`{"CONTINENT":{"NAME":"x"}}`,
+		`{"Continent":{"Name":"x"}}`,
+		`{"CODE":"x"}`,
+		`{"code":"x"}`,
+	} {
+		checkTypeError(t, doc, func() any { return new(country) })
+	}
+}

@@ -34,6 +34,10 @@ func newTypeError(p *pendingTypeError, path []typeErrorStep, root reflect.Type) 
 		names := make([]string, len(path))
 		for i, step := range path {
 			names[i] = step.name
+			if step.isField {
+				// the key of a field as the input has it
+				names[i] = step.inputName
+			}
 		}
 		e.Field = strings.Join(names, ".")
 	}
@@ -169,6 +173,23 @@ func (ctx *RuntimeContext) keptInterfaceTypeError(cursor, depth int64, typ refle
 // encoding.TextUnmarshaler, to its zero value: encoding/json of Go 1.27 leaves every such value as it is.
 func textUnmarshalerNullSetsZero(reflect.Kind) bool {
 	return false
+}
+
+// errUnsettableEmbeddedPointer is the cause which encoding/json of Go 1.27 reports for a field promoted from an
+// embedded pointer to an unexported struct, which can't be set.
+var errUnsettableEmbeddedPointer = stderrors.New("cannot set embedded pointer to unexported struct type")
+
+// unsettableFieldError records the type error of the value at cursor of a field of the struct typ which can't be
+// set, as an embedded pointer to an unexported struct, and skips the value: encoding/json of Go 1.27 reports it as
+// a type error of the struct at the start of the value.
+func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, typ reflect.Type, _ error) (int64, error) {
+	first := ctx.typeError == nil
+	next, err := ctx.skipTypeError(cursor, depth, typ)
+	if err == nil && first {
+		ctx.typeError.err = errUnsettableEmbeddedPointer
+		ctx.typeError.atStart = true
+	}
+	return next, err
 }
 
 // mapKeySupported reports whether encoding/json of Go 1.27 decodes the keys of a map of keyType, which dec

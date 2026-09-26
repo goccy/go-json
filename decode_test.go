@@ -2772,8 +2772,13 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 
 	for i, tt := range tests {
 		err := json.Unmarshal([]byte(tt.in), tt.ptr)
-		if !equalError(err, tt.err) {
+		if (err != nil) != (tt.err != nil) {
 			t.Errorf("#%d: %v, want %v", i, err, tt.err)
+		}
+		// the error is the one of encoding/json of the Go version: a type error of the struct with Go 1.27
+		wantErr := stdjson.Unmarshal([]byte(tt.in), reflect.New(reflect.TypeOf(tt.ptr).Elem()).Interface())
+		if describeTypeError(err) != describeTypeError(wantErr) {
+			t.Errorf("#%d: %v, want %v", i, err, wantErr)
 		}
 		if !reflect.DeepEqual(tt.ptr, tt.out) {
 			t.Errorf("#%d: mismatch\ngot:  %#+v\nwant: %#+v", i, tt.ptr, tt.out)

@@ -175,6 +175,21 @@ func textUnmarshalerNullSetsZero(kind reflect.Kind) bool {
 	return false
 }
 
+// unsettableFieldError records err, the error of a field of the struct typ which can't be set, as an embedded
+// pointer to an unexported struct, for the value at cursor, and skips the value: encoding/json before Go 1.27
+// returns the error as it is.
+func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, _ reflect.Type, err error) (int64, error) {
+	buf := ctx.Buf
+	end, skipErr := skipValue(buf, skipWhiteSpace(buf, cursor), depth)
+	if skipErr != nil {
+		return 0, skipErr
+	}
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{plain: err}
+	}
+	return end, nil
+}
+
 // mapKeySupported reports whether encoding/json before Go 1.27 decodes the keys of a map of keyType, which dec
 // decodes: strings, integers and the types which implement encoding.TextUnmarshaler.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {

@@ -117,9 +117,13 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		}
 		if field != nil {
 			if field.err != nil {
-				return 0, field.err
-			}
-			if firstWin {
+				// a field which can't be set: the error is recorded as a type error, and the decoding goes on
+				c, err := d.unsettableField(ctx, cursor, depth, field.err)
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
+			} else if firstWin {
 				if _, exists := seenFields[field.fieldIdx]; exists {
 					c, err := skipValue(buf, cursor, depth)
 					if err != nil {
@@ -162,6 +166,14 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		}
 		cursor++
 	}
+}
+
+// unsettableField records err, the error of a field which can't be set, for the value at cursor, and skips the
+// value. It is not inlined, so that Decode keeps the size it had.
+//
+//go:noinline
+func (d *structDecoder) unsettableField(ctx *RuntimeContext, cursor, depth int64, err error) (int64, error) {
+	return ctx.unsettableFieldError(cursor, depth, d.typ, err)
 }
 
 func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

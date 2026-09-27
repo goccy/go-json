@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -206,6 +207,73 @@ func TestDecodeEscapedStringRunsInvalid(t *testing.T) {
 		var gotStream []struct{ S string }
 		if err := json.NewDecoder(strings.NewReader(doc)).Decode(&gotStream); (err == nil) != (stdErr == nil) {
 			t.Fatalf("Decode %q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+	}
+}
+
+func TestDecodeInterfaceStrings(t *testing.T) {
+	// The keys and the string values decoded into interface{} are scanned by words when they are plain ASCII: a
+	// string of any length, plain or with an escape, a byte which is not ASCII or a control byte, anywhere in it
+	// and at the end of the input, is decoded or rejected as encoding/json does.
+	pieces := []string{"a", "bcdefgh", "ijklmnopqrstuvw", `\n`, `\"`, `é`, "é", "あ", "\xff", "\x01", " "}
+	r := rand.New(rand.NewSource(19))
+	str := func() string {
+		var b strings.Builder
+		b.WriteByte('"')
+		for n := r.Intn(6); n > 0; n-- {
+			p := pieces[r.Intn(len(pieces))]
+			if r.Intn(3) > 0 {
+				p = pieces[r.Intn(3)]
+			}
+			b.WriteString(p)
+		}
+		b.WriteByte('"')
+		return b.String()
+	}
+	for i := 0; i < 5000; i++ {
+		var b strings.Builder
+		switch r.Intn(3) {
+		case 0:
+			b.WriteString(str())
+		case 1:
+			b.WriteString("[")
+			for n := r.Intn(4); n >= 0; n-- {
+				b.WriteString(str())
+				if n > 0 {
+					b.WriteString(",")
+				}
+			}
+			b.WriteString("]")
+		default:
+			b.WriteString("{")
+			for n := r.Intn(4); n >= 0; n-- {
+				b.WriteString(str() + ":" + str())
+				if n > 0 {
+					b.WriteString(",")
+				}
+			}
+			b.WriteString("}")
+		}
+		doc := b.String()
+		var want any
+		stdErr := stdjson.Unmarshal([]byte(doc), &want)
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			var got any
+			err := json.UnmarshalWithOption([]byte(doc), &got, opts...)
+			if (err == nil) != (stdErr == nil) {
+				t.Fatalf("%q: got %v, encoding/json %v", doc, err, stdErr)
+			}
+			if err == nil && !reflect.DeepEqual(got, want) {
+				t.Fatalf("%q: got %#v, want %#v", doc, got, want)
+			}
+		}
+		var got any
+		err := json.NewDecoder(strings.NewReader(doc)).Decode(&got)
+		if (err == nil) != (stdErr == nil) {
+			t.Fatalf("Decode %q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+		if err == nil && !reflect.DeepEqual(got, want) {
+			t.Fatalf("Decode %q: got %#v, want %#v", doc, got, want)
 		}
 	}
 }

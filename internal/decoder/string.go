@@ -241,6 +241,30 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 	return ctx.makeString(literal), next, true, nil
 }
 
+// plainStringEnd returns the position of the quote which ends the string whose bytes start at start, if its bytes
+// are all ASCII and none of them is escaped, and -1 for any other string, which the caller decodes by decodeString.
+// Most of the keys and many of the values are such strings: this is their scan alone, eight bytes at a time, with
+// nothing to keep about the bytes it passes. A word is read only where the buffer has room for it, so that a string
+// at the end of the buffer is left to decodeString too.
+func plainStringEnd(buf []byte, start int64) int64 {
+	cursor := start
+	buflen := int64(len(buf))
+	for cursor+8 <= buflen {
+		w := load64(buf, cursor)
+		// keyEndBytes has no false bit before its first true one, and none at a byte which is not ASCII, which the top
+		// bits add: the first bit is the first byte which ends the plain bytes.
+		if stop := keyEndBytes(w) | w&msb; stop != 0 {
+			cursor += int64(bits.TrailingZeros64(stop) / 8)
+			if buf[cursor] == '"' {
+				return cursor
+			}
+			return -1
+		}
+		cursor += 8
+	}
+	return -1
+}
+
 // scanString finds the string at cursor, and returns its bytes as they are in buf, the position after it and
 // what it found in it, or nil for null.
 //

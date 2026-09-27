@@ -286,6 +286,10 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		}
 		return decodeFloatSlow(ctx, cursor, p)
 	case '"':
+		if end := plainStringEnd(buf, cursor+1); end >= 0 {
+			**(**any)(unsafe.Pointer(&p)) = ctx.boxString(ctx.makeString(buf[cursor+1 : end]))
+			return end + 1, nil
+		}
 		s, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return 0, err
@@ -382,16 +386,22 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 		if cursor = skipWhiteSpace(buf, cursor); buf[cursor] != '"' {
 			return fail(syntaxErrorAt(buf, cursor, whereKey))
 		}
-		key, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
-		if err != nil {
-			return fail(err)
+		var key string
+		var c int64
+		if end := plainStringEnd(buf, cursor+1); end >= 0 {
+			key, c = ctx.makeString(buf[cursor+1:end]), end+1
+		} else {
+			var err error
+			if key, c, _, err = d.stringDecoder.decodeString(ctx, cursor); err != nil {
+				return fail(err)
+			}
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] != ':' {
 			return fail(syntaxErrorAt(buf, cursor, whereAfterKey))
 		}
 		cursor++
-		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
+		c, err := d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
 		if err != nil {
 			return fail(err)
 		}

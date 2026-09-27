@@ -27,6 +27,10 @@ type MarshalerCall struct {
 	nilIsNull bool
 	// recv is the type of the receiver, for an error.
 	recv reflect.Type
+	// appendOutput writes what the method of a type of the standard library returns without calling it, when
+	// that is known ( see stdMarshalerAppender ): the output of MarshalJSON, valid and compact, or the text of
+	// MarshalText. It returns false, and writes nothing, when the method is to be called, as for an error.
+	appendOutput func(b []byte, recv unsafe.Pointer) ([]byte, bool)
 }
 
 func (m *MarshalerCall) call(recv unsafe.Pointer) ([]byte, error) {
@@ -54,5 +58,10 @@ func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
 	if !ok {
 		return nil
 	}
-	return &MarshalerCall{fn: method.Func.Pointer(), nilIsNull: recv.Kind() == reflect.Ptr, recv: recv}
+	return &MarshalerCall{
+		fn:           method.Func.Pointer(),
+		nilIsNull:    recv.Kind() == reflect.Ptr,
+		recv:         recv,
+		appendOutput: stdMarshalerAppender(recv, iface),
+	}
 }

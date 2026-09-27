@@ -233,7 +233,8 @@ func init() {
 				Setting: "json.MarshalWithOption( DisableHTMLEscape, DisableNormalizeUTF8, UnorderedMap ) / json.UnmarshalOf( DecodeNoCopyString )"},
 			module:  goJSONModule,
 			marshal: goJSONMarshal(gojson.DisableHTMLEscape(), gojson.DisableNormalizeUTF8(), gojson.UnorderedMap()),
-			// DecodeFieldPriorityFirstWin is not set: it makes the decode slower, not faster.
+			// DecodeFieldPriorityFirstWin is not set: it is faster only for an object whose fields are all decoded before its
+			// end, and a little slower on most of these payloads.
 			decodeOf: []gojson.DecodeOptionFunc{gojson.DecodeNoCopyString()},
 		},
 		&reportConfig{

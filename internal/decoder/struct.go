@@ -89,13 +89,8 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		cursor++
 		return cursor, nil
 	}
-	var (
-		seenFields   map[int]struct{}
-		seenFieldNum int
-	)
-	firstWin := (ctx.Option.Flags & FirstWinOption) != 0
-	if firstWin {
-		seenFields = make(map[int]struct{}, d.fieldUniqueNameNum)
+	if (ctx.Option.Flags & FirstWinOption) != 0 {
+		return d.decodeObjectFirstWin(ctx, cursor, depth, p)
 	}
 	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
 	for {
@@ -123,25 +118,6 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 					return 0, err
 				}
 				cursor = c
-			} else if firstWin {
-				if _, exists := seenFields[field.fieldIdx]; exists {
-					c, err := skipValue(buf, cursor, depth)
-					if err != nil {
-						return 0, err
-					}
-					cursor = c
-				} else {
-					c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
-					if err != nil {
-						return 0, err
-					}
-					cursor = c
-					seenFieldNum++
-					if d.fieldUniqueNameNum <= seenFieldNum {
-						return skipRestOfObject(buf, cursor, depth)
-					}
-					seenFields[field.fieldIdx] = struct{}{}
-				}
 			} else {
 				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
 				if err != nil {
@@ -166,6 +142,115 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		}
 		cursor++
 	}
+}
+
+// decodeObjectFirstWin is the loop of Decode under FirstWinOption, from the first key of a non-empty object at
+// cursor: a field is decoded at its first key, the value of a later key of the field is skipped, and the rest of
+// the object is skipped once every field is decoded. It is a function of its own, so that the loop of Decode keeps
+// nothing of it in its registers.
+func (d *structDecoder) decodeObjectFirstWin(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	buflen := int64(len(buf))
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	// seen and seenMore are the fields decoded in the object, by their indexes: the bits of seen are the first 64
+	// fields, and the ones of seenMore the others ( see decodedBefore ); seenFieldNum is their number.
+	var (
+		seen         uint64
+		seenMore     []uint64
+		seenFieldNum int
+	)
+	disallowUnknownFields := (ctx.Option.Flags & DisallowUnknownFieldsOption) != 0
+	for {
+		field, c, err := d.decodeKey(buf, cursor, disallowUnknownFields)
+		if err != nil {
+			return 0, err
+		}
+		if char(b, c) == ':' {
+			cursor = c + 1
+		} else {
+			cursor = skipWhiteSpace(buf, c)
+			if char(b, cursor) != ':' {
+				return 0, errors.ErrExpected("colon after object key", cursor)
+			}
+			cursor++
+		}
+		if cursor >= buflen {
+			return 0, errors.ErrExpected("object value after colon", cursor)
+		}
+		if field != nil {
+			// the first 64 fields are the bits of seen, in a register; the others are looked at by a call
+			var decoded bool
+			if field.err != nil {
+				// a field which can't be set: the error is recorded as a type error, and the decoding goes on
+				c, err := d.unsettableField(ctx, cursor, depth, field.err)
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
+			} else if idx := field.fieldIdx; idx < 64 {
+				bit := uint64(1) << uint(idx)
+				decoded = seen&bit != 0
+				seen |= bit
+			} else {
+				decoded = d.decodedBefore(idx, &seenMore)
+			}
+			switch {
+			case field.err != nil:
+			case decoded:
+				c, err := skipValue(buf, cursor, depth)
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
+			default:
+				c, err := field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
+				if err != nil {
+					return 0, err
+				}
+				cursor = c
+				seenFieldNum++
+				if d.fieldUniqueNameNum <= seenFieldNum {
+					// every field is decoded: the rest of the object is skipped, which is nothing in most objects,
+					// whose last key is the last field
+					if cursor = skipWhiteSpace(buf, cursor); char(b, cursor) == '}' {
+						return cursor + 1, nil
+					}
+					return skipRestOfObject(buf, cursor, depth)
+				}
+			}
+		} else {
+			c, err := skipValue(buf, cursor, depth)
+			if err != nil {
+				return 0, err
+			}
+			cursor = c
+		}
+		cursor = skipWhiteSpace(buf, cursor)
+		if char(b, cursor) == '}' {
+			cursor++
+			return cursor, nil
+		}
+		if char(b, cursor) != ',' {
+			return 0, errors.ErrExpected("comma after object element", cursor)
+		}
+		cursor++
+	}
+}
+
+// decodedBefore reports whether the field of the index, which is 64 or more, was decoded before in the object, under
+// FirstWinOption, and marks it decoded: its bit is in more, which is made for a struct of more than 64 fields when
+// such a field is decoded. The first 64 fields are marked in decodeObjectFirstWin itself, without an allocation.
+//
+//go:noinline
+func (d *structDecoder) decodedBefore(idx int, more *[]uint64) bool {
+	if *more == nil {
+		*more = make([]uint64, (d.fieldUniqueNameNum-64+63)/64)
+	}
+	idx -= 64
+	w, bit := &(*more)[idx/64], uint64(1)<<uint(idx%64)
+	decoded := *w&bit != 0
+	*w |= bit
+	return decoded
 }
 
 // unsettableField records err, the error of a field which can't be set, for the value at cursor, and skips the

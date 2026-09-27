@@ -543,6 +543,12 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
+	if m.appendOutput != nil {
+		// the output of a type of the standard library is valid and compact: it is written as it is.
+		if out, ok := m.appendOutput(b, p); ok {
+			return out, nil
+		}
+	}
 	var bb []byte
 	var err error
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -632,6 +638,12 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
+	if m.appendOutput != nil {
+		// the output of a type of the standard library is one token, which has nothing to indent.
+		if out, ok := m.appendOutput(b, p); ok {
+			return out, nil
+		}
+	}
 	var bb []byte
 	var err error
 	if (code.Flags & MarshalerContextFlags) != 0 {
@@ -711,9 +723,20 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m.nilIsNull && p == nil {
 		return appendNilText(ctx, code, b), nil
 	}
-	bytes, err := m.call(p)
-	if err != nil {
-		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+	var bytes []byte
+	appended := false
+	if m.appendOutput != nil {
+		// the text of a type of the standard library is appended to a buffer of the context, not allocated.
+		bytes, appended = m.appendOutput(ctx.MarshalBuf[:0], p)
+		if appended {
+			ctx.MarshalBuf = bytes
+		}
+	}
+	if !appended {
+		var err error
+		if bytes, err = m.call(p); err != nil {
+			return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+		}
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
 	n := len(b)

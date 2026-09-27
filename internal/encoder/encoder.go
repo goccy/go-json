@@ -345,8 +345,8 @@ type MapContext struct {
 	// ScalarRuns is whether the entries of a sorted map whose values are scalars are written by one call of
 	// the VM, the values of the map being scalars or of interface{}.
 	ScalarRuns bool
-	Len      int
-	Idx      int
+	Len        int
+	Idx        int
 	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
 	// the order of their encoded keys after: Start is where the key or the value being written starts,
 	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.

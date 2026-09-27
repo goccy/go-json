@@ -20,6 +20,6 @@ func scanBytesSIMD(_ unsafe.Pointer, _ int, _ *nibbleTables) (bool, bool) {
 const hasEscapeLoop = false
 
 // appendEscapedSIMD appends nothing: it is never called on this architecture.
-func appendEscapedSIMD(buf []byte, _ string, _ *nibbleTables) ([]byte, int) {
+func appendEscapedSIMD(buf []byte, _ string, _ *nibbleTables, _ bool) ([]byte, int) {
 	return buf, 0
 }

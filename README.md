@@ -8,22 +8,6 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 
 <img width="400px" src="https://user-images.githubusercontent.com/209884/92572337-42b42900-f2bf-11ea-973a-c74a359553a5.png"></img>
 
-# Roadmap
-
-```
-* version ( expected release date )
-
-* v0.9.0
- |
- | while maintaining compatibility with encoding/json, we will add convenient APIs
- |
- v
-* v1.0.0
-```
-
-We are accepting requests for features that will be implemented between v0.9.0 and v.1.0.0.
-If you have the API you need, please submit your issue [here](https://github.com/goccy/go-json/issues).
-
 # Features
 
 - Drop-in replacement of `encoding/json`: values are decoded and encoded, and errors are reported, as `encoding/json` of the Go version in use does, including Go 1.27, whose `encoding/json` is built on `encoding/json/v2`

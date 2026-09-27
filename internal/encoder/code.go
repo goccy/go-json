@@ -369,6 +369,11 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 
 	keyCodes := c.key.ToOpcode(ctx)
+	if first := keyCodes.First(); first.Op == OpMarshalText && first.Flags&IsNilableTypeFlags != 0 {
+		// the opcode of the key is given the address of the key, and the marshaler of a key of a pointer
+		// type is called with the pointer.
+		first.Flags |= IndirectFlags
+	}
 
 	// the opcodes other than the header refer to the slot of the header, and they don't take a slot.
 	value := newMapValueCode(ctx, c.typ.Elem(), header)
@@ -1193,6 +1198,8 @@ type MarshalTextCode struct {
 	// isInterfaceMapKey is whether the code is the one of the key of a map of an interface type, whose name is
 	// of the dynamic value of the key ( see appendInterfaceMapKey ).
 	isInterfaceMapKey bool
+	// isMapKey is whether the code is the one of the key of a map, whose name is "" for a nil pointer.
+	isMapKey bool
 }
 
 func (c *MarshalTextCode) Kind() CodeKind {
@@ -1212,6 +1219,9 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
+	}
+	if c.isMapKey {
+		code.Flags |= MapKeyFlags
 	}
 	if c.isNilableType {
 		code.Flags |= IsNilableTypeFlags
@@ -1242,6 +1252,7 @@ func (c *MarshalTextCode) Filter(query *FieldQuery) Code {
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
 		isInterfaceMapKey:  c.isInterfaceMapKey,
+		isMapKey:           c.isMapKey,
 	}
 }
 

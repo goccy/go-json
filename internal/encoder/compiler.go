@@ -549,11 +549,24 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 		// which has MarshalText ( see appendInterfaceMapKey ).
 		return &MarshalTextCode{typ: typ, isInterfaceMapKey: true}, nil
 	case c.implementsMarshalText(typ):
-		return c.marshalTextCode(typ)
+		code, err := c.marshalTextCode(typ)
+		if err != nil {
+			return nil, err
+		}
+		code.isMapKey = true
+		return code, nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return c.ptrCode(typ)
+		code, err := c.ptrCode(typ)
+		if err != nil {
+			return nil, err
+		}
+		if text, ok := code.value.(*MarshalTextCode); ok {
+			// a pointer to a value whose MarshalText has a value receiver
+			text.isMapKey = true
+		}
+		return code, nil
 	case reflect.String:
 		return c.stringCode(typ, false)
 	case reflect.Int:

@@ -516,8 +516,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMarshalText:
 			p := load(ctxptr, code.Idx)
 			if p == nil {
-				b = append(b, `""`...)
-				b = appendComma(ctx, b)
+				if (code.Flags & encoder.MapKeyFlags) != 0 {
+					// the name of a key which is a nil pointer is "", as encoding/json names it
+					b = appendComma(ctx, append(b, `""`...))
+				} else {
+					// a nil pointer value is null, as with encoding/json and as OpMarshalJSON writes it
+					b = appendNullComma(ctx, b)
+				}
 				code = code.Next
 				break
 			}

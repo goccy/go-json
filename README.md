@@ -29,7 +29,6 @@ If you have the API you need, please submit your issue [here](https://github.com
 - Drop-in replacement of `encoding/json`: values are decoded and encoded, and errors are reported, as `encoding/json` of the Go version in use does, including Go 1.27, whose `encoding/json` is built on `encoding/json/v2`
 - Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
 - `MarshalOf` and `UnmarshalOf`, which take the value by its type and save the allocations `Marshal` and `Unmarshal` need for an `interface{}` argument
-- `DecodeNoCopyString`, which lets the decoded strings refer to the input instead of copying them
 - Flexible customization with options
 - Coloring the encoded string
 - Can propagate context.Context to `MarshalJSON` or `UnmarshalJSON`

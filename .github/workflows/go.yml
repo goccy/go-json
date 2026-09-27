@@ -1,9 +1,21 @@
 name: Go
+# A change of the documents alone ( the paths-ignore below, the same for both events ) runs nothing: they affect no build, test or benchmark.
+# A push or a pull request which changes any other file runs everything.
 on:
   push:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'benchmarks/licenses/**'
+      - '.github/FUNDING.yml'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'benchmarks/licenses/**'
+      - '.github/FUNDING.yml'
 jobs:
   build:
     name: Build on limited environment

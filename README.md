@@ -26,8 +26,9 @@ If you have the API you need, please submit your issue [here](https://github.com
 
 # Features
 
-- Drop-in replacement of `encoding/json`
+- Drop-in replacement of `encoding/json`: values are decoded and encoded, and errors are reported, as `encoding/json` of the Go version in use does, including Go 1.27, whose `encoding/json` is built on `encoding/json/v2`
 - Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
+- `MarshalOf` and `UnmarshalOf`, which take the value by its type and save the allocations `Marshal` and `Unmarshal` need for an `interface{}` argument
 - Flexible customization with options
 - Coloring the encoded string
 - Can propagate context.Context to `MarshalJSON` or `UnmarshalJSON`
@@ -59,10 +60,12 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 | [segmentio/encoding/json](https://github.com/segmentio/encoding/tree/master/json) | yes | yes | partial |
 | [jettison](https://github.com/wI2L/jettison) | yes | no | no |
 | [simdjson-go](https://github.com/minio/simdjson-go) | no | yes | no |
+| [bytedance/sonic](https://github.com/bytedance/sonic) | yes | yes | partial |
 | goccy/go-json | yes | yes | yes |
 
 - `json-iterator/go` isn't compatible with `encoding/json` in many ways (e.g. https://github.com/json-iterator/go/issues/229 ), but it hasn't been supported for a long time.
 - `segmentio/encoding/json` is well supported for encoders, but some are not supported for decoder APIs such as `Token` ( streaming decode )
+- `bytedance/sonic` is compatible with `encoding/json` in its `ConfigStd` configuration; by default it doesn't escape HTML, sort the keys of maps or validate strings. It decodes and encodes by native code: SIMD code and, on amd64, code generated at run time. The benchmarks of this repository compare go-json with sonic in both configurations ( see below ).
 
 ## Other libraries
 
@@ -79,22 +82,26 @@ Also, development seems to have already stopped
 
 # Benchmarks
 
+[![Speed relative to encoding/json](https://goccy.github.io/go-json/summary.svg)](https://goccy.github.io/go-json/)
+
+The JSON libraries of Go are measured doing the same work on GitHub Actions, on amd64 and arm64, and the results are published at **https://goccy.github.io/go-json/**, measured again whenever go-json, the version of a library or the report changes. The page has every payload, the encode and decode of each library, the allocations, and the results without a live heap.
+
+A comparison is fair only between libraries doing the same work, so the results are shown by category of behavior: the behavior of `encoding/json`, the behavior of `encoding/json/v2`, the behavior of `encoding/json` without HTML escaping, key sorting and string copying, and every library at its fastest. In each category, every library is configured by its options to behave as the category requires, as far as its options allow, and as fast as they allow. Every run checks the behavior of each library on small probes before it measures it, and a library which behaves differently is still shown, marked, with what differs. The result files are attested by GitHub Artifact Attestations: `gh attestation verify` tells that they were produced by the workflow of this repository.
+
+To run the report locally:
+
 ```
-$ cd benchmarks
-$ go test -bench .
+$ make bench-report
 ```
 
-## Encode
+To compare go-json with `bytedance/sonic` side by side, benchmark by benchmark:
 
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126758-0845cb00-68f5-11eb-8db7-086fcf9bcfaa.png"></img>
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126757-07ad3480-68f5-11eb-87aa-858cc5eacfcb.png"></img>
+```
+$ make bench-compare-encode
+$ make bench-compare-decode
+```
 
-## Decode
-
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979944-bd1d6d80-7002-11eb-944b-9d17b6674e3f.png">
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979931-b989e680-7002-11eb-87a0-66fc22d90dd4.png">
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979940-bc84d700-7002-11eb-9647-869bbc25c9d9.png">
-
+`BENCH_LIVE_HEAP_MB=64 make bench-compare-decode` runs the decode benchmarks with 64 MB of live heap, as a real program has: the GC then runs less often, as it does in such a program.
 
 # Fuzzing
 
@@ -362,7 +369,18 @@ If you want to know more, please refer to the implementation [here](https://gith
 
 ### Dispatch by typeptr without a lock
 
-Like the encoder, the decoder also uses typeptr to call the dedicated process.
+Like the encoder, the decoder uses `typeptr` to call the decoder built for the type. The runtime context of a call remembers the decoders of the types it decoded last, and otherwise a hash table which is read without a lock is looked up, as the encoder does.
+
+### Decode a value without an allocation for the argument by `UnmarshalOf`
+
+`json.Unmarshal` receives an `interface{}` value, which makes the value escape to the heap. `json.UnmarshalOf[T]` receives the pointer by its type: it decodes into a value in the heap which is reused and copies the result to `*v`, so `v` may point to a variable on the stack of the caller, and a value without a pointer, slice or map to fill is decoded without an allocation.
+
+```go
+var v T
+err := json.UnmarshalOf(data, &v)
+```
+
+The value is copied twice, so `json.Unmarshal` is faster for a large value which is in the heap anyway.
 
 ### Faster termination character inspection using NUL character
 
@@ -394,6 +412,8 @@ for {
 }
 ```
 
+`Unmarshal` copies the input once, into a buffer followed by the `NUL` character which the runtime context keeps from a call to the next, so the copy allocates nothing in most calls. The stream decoder ( `Decoder` ) reads until its buffer holds a whole value, puts the `NUL` character after it, and decodes it by the same decoders.
+
 ### Use Boundary Check Elimination
 
 Due to the `NUL` character optimization, the Go compiler does a boundary check every time, even though `buf[cursor]` does not cause out-of-range access.
@@ -416,101 +436,39 @@ for {
 }
 ```
 
-### Checking the existence of fields of struct using Bitmaps
+### Scanning strings eight bytes at a time, and by SIMD
 
-I found by the profiling result, in the struct decode, lookup process for field was taking a long time.
+A string is scanned a word ( eight bytes ) at a time: a few bit operations on the word tell whether one of its bytes is a quote, a backslash or a control character, and whether one is not ASCII, so a byte is looked at alone only where the string ends or has an escape. After its first 64 bytes, the rest of a long string is scanned by AVX2 on amd64.
 
-For example, consider decoding a string like `{"a":1,"b":2,"c":3}` into the following structure:
+A string with an escape is decoded in the same pass as it is scanned from its first escape on: the runs of plain bytes between the escapes are moved at once, and the escapes are validated and decoded as they are met.
 
-```go
-type T struct {
-    A int `json:"a"`
-    B int `json:"b"`
-    C int `json:"c"`
-}
-```
+### Strings copied into an arena, or referring to the input
 
-At this time, it was found that it takes a lot of time to acquire the decoding process corresponding to the field from the field name as shown below during the decoding process.
+A decoded string is a copy, as with `encoding/json`, so the input may be modified after the call. The short strings are copied into chunks of up to 16 KB shared by the strings of a runtime context, instead of an allocation for each. With the option `json.DecodeNoCopyString()`, a string without an escape refers to the input without a copy.
 
-```go
-fieldName := decodeKey(buf, cursor) // "a" or "b" or "c"
-decoder, exists := fieldToDecoderMap[fieldName] // so slow
-if exists {
-    decoder(buf, cursor)
-} else {
-    skipValue(buf, cursor)
-}
-```
+### Finding the field of a key by its words
 
-To improve this process, `json-iterator/go` is optimized so that it can be branched by switch-case when the number of fields in the structure is 10 or less (switch-case is faster than map). However, there is a risk of hash collision because the value hashed by the FNV algorithm is used for conditional branching. Also, `gojay` processes this part at high speed by letting the library user yourself write `switch-case`.
+The fields of a struct are in a hash table keyed by their keys folded to lower case, and a key of the input is looked up by two words: its first eight bytes and its last eight bytes, which overlap for a key shorter than 16 bytes. A key of up to 16 bytes is compared by its length and these two words only, and a key of ASCII is folded eight bytes at a time, so a field is found by a few word operations whatever the number of fields and the length of the keys. A key matches the field with the same key, or else the first field with the same key by case folding, as with `encoding/json`.
 
+An earlier version found the field by bitmaps of the characters of the keys, `[maxKeyLength][256]int8` or `int16`. It was replaced because it worked only for structs of up to 16 fields and keys shorter than 64 bytes, and fell back to a map for the others.
 
-`go-json` considers and implements a new approach that is different from these. I call this **bitmap field optimization**.
+### Parsing numbers in one pass
 
-The range of values ​​per character can be represented by `[256]byte`. Also, if the number of fields in the structure is 8 or less, `int8` type can represent the state of each field.
-In other words, it has the following structure.
+The digits of a number are accumulated as they are read and validated by the grammar of JSON. A float with a mantissa of up to 19 digits is computed from the mantissa and a power of ten: directly when both are held exactly by a float64, and else by a table of the powers of ten as 128-bit significands. The result is the one of `strconv.ParseFloat`, which is called only for the rare numbers the table doesn't decide.
 
-- Base ( 8bit ): `00000000`
-- Key "a": `00000001` ( assign key "a" to the first bit )
-- Key "b": `00000010` ( assign key "b" to the second bit )
-- Key "c": `00000100` ( assign key "c" to the third bit )
+### Skipping values while validating them
 
-Bitmap structure is the following
+The value of a key which matches no field is not decoded, but it is still checked by the grammar of JSON, as `encoding/json` checks the whole input: an invalid value is a syntax error wherever it is. The skip is a state machine which calls no function in its loop, so that its state stays in the registers, and the rare cases it doesn't handle itself ( an escape, a number which is not an integer, a deep nesting ) are handled by its caller, which resumes it.
 
-```
-        | key index(0) |
-------------------------
- 0      | 00000000     |
- 1      | 00000000     |
-~~      |              |
-97 (a)  | 00000001     |
-98 (b)  | 00000010     |
-99 (c)  | 00000100     |
-~~      |              |
-255     | 00000000     |
-```
+To find the end of an object or an array without decoding it, as the stream decoder does, the bytes are scanned 64 at a time: masks of the quotes, backslashes and brackets of a block are made by AVX2 on amd64, by NEON on arm64 and by words elsewhere, and a prefix XOR of the quotes tells which bytes are inside a string.
 
-You can think of this as a Bitmap with a height of `256` and a width of the maximum string length in the field name.
-In other words, it can be represented by the following type .
+### Decoding `interface{}` values without reflection
 
-```go
-[maxFieldKeyLength][256]int8
-```
+The values of an array or an object decoded into `interface{}` are pushed to a stack of the runtime context, and a `[]interface{}` or a `map[string]interface{}` is made of their number at the end: a map filled entry by entry grows and moves its entries several times on the way. The numbers and the strings are stored into `interface{}` values from slabs, instead of an allocation for each, and the empty arrays share one empty slice.
 
-When decoding a field character, check whether the corresponding character exists by referring to the pre-built bitmap like the following.
+### Sizing slices and maps by the last value
 
-```go
-var curBit int8 = math.MaxInt8 // 11111111
-
-c := char(buf, cursor)
-bit := bitmap[keyIdx][c]
-curBit &= bit
-if curBit == 0 {
-    // not found field
-}
-```
-
-If `curBit` is not `0` until the end of the field string, then the string is
-You may have hit one of the fields.
-But the possibility is that if the decoded string is shorter than the field string, you will get a false hit.
-
-- input: `{"a":1}`
-```go
-type T struct {
-    X int `json:"abc"`
-}
-```
-※ Since `a` is shorter than `abc`, it can decode to the end of the field character without `curBit` being 0.
-
-Rest assured. In this case, it doesn't matter because you can tell if you hit by comparing the string length of `a` with the string length of `abc`.
-
-Finally, calculate the position of the bit where `1` is set and get the corresponding value, and you're done.
-
-Using this technique, field lookups are possible with only bitwise operations and access to slices.
-
-`go-json` uses a similar technique for fields with 9 or more and 16 or less fields. At this time, Bitmap is constructed as `[maxKeyLen][256]int16` type.
-
-Currently, this optimization is not performed when the maximum length of the field name is long (specifically, 64 bytes or more) in addition to the limitation of the number of fields from the viewpoint of saving memory usage.
+The elements of an array are decoded directly into the slice, which is allocated for the length of the array the decoder decoded last, and a map is made for the number of the entries of the last object: the values of a type often have the same size. The zero values the entries of a map are decoded into are reused from a pool.
 
 ### Others
 

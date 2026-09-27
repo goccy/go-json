@@ -27,6 +27,15 @@ type mapValue136 struct {
 	A [17]int64
 }
 
+// mapValueLargeWithPointers is a value stored out of the map by the runtime, with pointers.
+type mapValueLargeWithPointers struct {
+	S string
+	P *int
+	M map[string]int
+	I any
+	A [14]int64
+}
+
 type mapValueWithPointers struct {
 	P *int
 	S []string
@@ -68,6 +77,11 @@ func TestEncodeMapLayouts(t *testing.T) {
 			}),
 			mapOf(n, stringKey, func(i int) [16]int64 { return [16]int64{15: int64(i)} }),
 			mapOf(n, stringKey, func(i int) mapValue136 { return mapValue136{[17]int64{16: int64(i)}} }),
+			mapOf(n, stringKey, func(i int) mapValueLargeWithPointers {
+				return mapValueLargeWithPointers{S: "s" + strconv.Itoa(i), P: &one, M: map[string]int{"x": i}, I: []any{i}, A: [14]int64{13: int64(i)}}
+			}),
+			mapOf(n, stringKey, func(i int) [32]int64 { return [32]int64{0: 1, 31: int64(i)} }),
+			mapOf(n, stringKey, func(i int) [33]int64 { return [33]int64{0: 1, 32: int64(i)} }),
 			mapOf(n, stringKey, func(i int) *int { return &one }),
 			mapOf(n, stringKey, func(i int) map[string]int { return map[string]int{"n": i} }),
 			mapOf(n, func(i int) mapKeyString { return mapKeyString(stringKey(i)) }, func(i int) int { return i }),

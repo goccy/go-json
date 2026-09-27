@@ -700,7 +700,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldOmitEmpty:
 			p := load(ctxptr, code.Idx)
 			p = unsafe.Add(p, code.Offset)
-			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) {
+			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
 				code = code.NextField
 			} else {
 				if len(code.Key) <= encoder.KeyChunkSize {

@@ -46,6 +46,7 @@ const (
 type Opcode struct {
 	Op         OpType    // operation type
 	EmptyKind  EmptyKind // what makes the value of the field empty for omitempty, for the generic field opcode
+	ZeroKind   ZeroKind  // what makes the value of the field zero for omitzero, for the generic field opcode
 	Idx        uint32    // offset to access ptr
 	Next       *Opcode   // next opcode
 	End        *Opcode   // array/slice/struct/map end
@@ -301,6 +302,7 @@ func copyOpcode(code *Opcode) *Opcode {
 			KeyChunk:   c.KeyChunk,
 			Map:        c.Map,
 			EmptyKind:  c.EmptyKind,
+			ZeroKind:   c.ZeroKind,
 			ElemIdx:    c.ElemIdx,
 			Length:     c.Length,
 			Size:       c.Size,

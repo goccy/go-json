@@ -40,11 +40,13 @@ const (
 	MapStringKeyFlags      OpFlags = 1 << 10 // the key of the map is a string, written by OpMapKey itself
 	TailRecursiveFlags     OpFlags = 1 << 11 // the recursive value is the last field of a value of its own type, encoded in its frame
 	InterfaceMapKeyFlags   OpFlags = 1 << 12 // the key of a map of an interface type, whose name is of its dynamic value ( see appendInterfaceMapKey )
+	MapKeyFlags            OpFlags = 1 << 13 // the key of a map, whose name is "" for a nil pointer, while a nil pointer value is null
 )
 
 type Opcode struct {
 	Op         OpType    // operation type
 	EmptyKind  EmptyKind // what makes the value of the field empty for omitempty, for the generic field opcode
+	ZeroKind   ZeroKind  // what makes the value of the field zero for omitzero, for the generic field opcode
 	Idx        uint32    // offset to access ptr
 	Next       *Opcode   // next opcode
 	End        *Opcode   // array/slice/struct/map end
@@ -300,6 +302,7 @@ func copyOpcode(code *Opcode) *Opcode {
 			KeyChunk:   c.KeyChunk,
 			Map:        c.Map,
 			EmptyKind:  c.EmptyKind,
+			ZeroKind:   c.ZeroKind,
 			ElemIdx:    c.ElemIdx,
 			Length:     c.Length,
 			Size:       c.Size,

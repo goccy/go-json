@@ -369,6 +369,11 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 
 	keyCodes := c.key.ToOpcode(ctx)
+	if first := keyCodes.First(); first.Op == OpMarshalText && first.Flags&IsNilableTypeFlags != 0 {
+		// the opcode of the key is given the address of the key, and the marshaler of a key of a pointer
+		// type is called with the pointer.
+		first.Flags |= IndirectFlags
+	}
 
 	// the opcodes other than the header refer to the slot of the header, and they don't take a slot.
 	value := newMapValueCode(ctx, c.typ.Elem(), header)
@@ -729,7 +734,7 @@ type StructFieldCode struct {
 // runKind returns the kind of the field if it is one which has the opcodes of a run ( fieldRunOps ): a field of
 // int, uint, float64, string or bool, not a pointer, without omitempty or the string option, and not embedded.
 func (c *StructFieldCode) runKind() (CodeKind, bool) {
-	if c.isAnonymous || c.tag.IsOmitEmpty || c.tag.IsString {
+	if c.isAnonymous || c.tag.IsOmitEmpty || c.tag.IsOmitZero || c.tag.IsString {
 		return 0, false
 	}
 	switch value := c.value.(type) {
@@ -817,12 +822,18 @@ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
 	return len(field.Key) > KeyChunkSize
 }
 
+// isGenericField is whether the field is encoded by the generic field opcode and the opcode of the value: a
+// field of a long key, or of omitzero, whose check the generic opcode makes for a value of any type.
+func (c *StructFieldCode) isGenericField(field *Opcode) bool {
+	return c.isLongKey(field) || c.tag.IsOmitZero
+}
+
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
 	value := valueCodes.First()
 	var op OpType
-	if c.isLongKey(field) {
+	if c.isGenericField(field) {
 		op = OpStructField
-		if c.tag.IsOmitEmpty {
+		if c.tag.IsOmitEmpty || c.tag.IsOmitZero {
 			op = OpStructFieldOmitEmpty
 		}
 		if c.tag.IsString {
@@ -842,7 +853,12 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	}
 	field.Op = op
 	if op == OpStructFieldOmitEmpty {
-		field.EmptyKind = emptyKindOf(c.typ)
+		if c.tag.IsOmitEmpty {
+			field.EmptyKind = emptyKindOf(c.typ)
+		}
+		if c.tag.IsOmitZero {
+			field.ZeroKind = zeroKindOf(c.typ)
+		}
 	}
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
@@ -1040,7 +1056,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	valueCodes := c.toValueOpcodes(ctx)
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if isEndField {
-		if isEnableStructEndOptimization(c.value) && !c.isLongKey(field) {
+		if isEnableStructEndOptimization(c.value) && !c.isGenericField(field) {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)
@@ -1193,6 +1209,8 @@ type MarshalTextCode struct {
 	// isInterfaceMapKey is whether the code is the one of the key of a map of an interface type, whose name is
 	// of the dynamic value of the key ( see appendInterfaceMapKey ).
 	isInterfaceMapKey bool
+	// isMapKey is whether the code is the one of the key of a map, whose name is "" for a nil pointer.
+	isMapKey bool
 }
 
 func (c *MarshalTextCode) Kind() CodeKind {
@@ -1212,6 +1230,9 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
+	}
+	if c.isMapKey {
+		code.Flags |= MapKeyFlags
 	}
 	if c.isNilableType {
 		code.Flags |= IsNilableTypeFlags
@@ -1242,6 +1263,7 @@ func (c *MarshalTextCode) Filter(query *FieldQuery) Code {
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
 		isInterfaceMapKey:  c.isInterfaceMapKey,
+		isMapKey:           c.isMapKey,
 	}
 }
 

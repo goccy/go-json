@@ -709,7 +709,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		return appendMarshalTextByInterface(ctx, code, b, interfaceOf(code, p))
 	}
 	if m.nilIsNull && p == nil {
-		return AppendNull(ctx, b), nil
+		return appendNilText(ctx, code, b), nil
 	}
 	bytes, err := m.call(p)
 	if err != nil {
@@ -729,10 +729,10 @@ func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 	if (code.Flags & AddrForMarshalerFlags) != 0 {
 		rv = addrForMarshaler(v, rv)
 	}
-	// a nil pointer is null, as encoding/json does. The VM gives the address of the pointer,
-	// so it is not known to be nil until here.
+	// a nil pointer is null, or "" as the name of a key, as encoding/json does. The VM gives the address of
+	// the pointer, so it is not known to be nil until here.
 	if rv.Kind() == reflect.Ptr && rv.IsNil() {
-		return AppendNull(ctx, b), nil
+		return appendNilText(ctx, code, b), nil
 	}
 	v = rv.Interface()
 	marshaler, ok := v.(encoding.TextMarshaler)
@@ -744,6 +744,15 @@ func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
 	return appendText(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
+}
+
+// appendNilText appends the text of a nil pointer: null, or "" as the name of a key of a map, as
+// encoding/json writes them.
+func appendNilText(ctx *RuntimeContext, code *Opcode, b []byte) []byte {
+	if code.Flags&MapKeyFlags != 0 {
+		return append(b, `""`...)
+	}
+	return AppendNull(ctx, b)
 }
 
 // AppendMarshalTextIndent is AppendMarshalText: the text has no indent.

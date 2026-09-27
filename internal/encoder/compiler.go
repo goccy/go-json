@@ -549,11 +549,24 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 		// which has MarshalText ( see appendInterfaceMapKey ).
 		return &MarshalTextCode{typ: typ, isInterfaceMapKey: true}, nil
 	case c.implementsMarshalText(typ):
-		return c.marshalTextCode(typ)
+		code, err := c.marshalTextCode(typ)
+		if err != nil {
+			return nil, err
+		}
+		code.isMapKey = true
+		return code, nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return c.ptrCode(typ)
+		code, err := c.ptrCode(typ)
+		if err != nil {
+			return nil, err
+		}
+		if text, ok := code.value.(*MarshalTextCode); ok {
+			// a pointer to a value whose MarshalText has a value receiver
+			text.isMapKey = true
+		}
+		return code, nil
 	case reflect.String:
 		return c.stringCode(typ, false)
 	case reflect.Int:
@@ -625,8 +638,8 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 	tags := c.typeToStructTags(typ)
 	fields := []*StructFieldCode{}
 	for i, tag := range tags {
-		if tag.IsOmitEmpty && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0 {
-			// an array of no elements is always empty, as in encoding/json.
+		if (tag.IsOmitEmpty || tag.IsOmitZero) && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0 {
+			// an array of no elements is always empty and zero, as in encoding/json.
 			continue
 		}
 		isOnlyOneFirstField := i == 0 && fieldNum == 1
@@ -753,12 +766,13 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		c.embeddingChain = nil
 		defer func() { c.embeddingChain = embeddingChain }()
 	}
-	if fieldCode.isAnonymous && tag.IsOmitEmpty {
+	if fieldCode.isAnonymous && (tag.IsOmitEmpty || tag.IsOmitZero) {
 		// The fields of an embedded struct are written as the fields of the struct which embeds it, so there is
-		// nothing for omitempty of the embedded struct itself to omit, as in encoding/json. The opcode for
-		// omitempty would write the key of the embedded struct.
+		// nothing for omitempty or omitzero of the embedded struct itself to omit, as in encoding/json. The
+		// opcode for them would write the key of the embedded struct.
 		inlined := *tag
 		inlined.IsOmitEmpty = false
+		inlined.IsOmitZero = false
 		fieldCode.tag = &inlined
 	}
 	switch {

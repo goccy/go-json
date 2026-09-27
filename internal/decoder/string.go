@@ -39,7 +39,18 @@ func (d *stringDecoder) errUnmarshalType(typeName string, offset int64) *errors.
 }
 
 func (d *stringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	s, c, ok, err := d.decodeStringValue(ctx, cursor)
+	var (
+		s   string
+		c   int64
+		ok  bool
+		err error
+	)
+	buf := ctx.Buf
+	if start := skipWhiteSpace(buf, cursor); buf[start] == '"' {
+		s, c, ok, err = d.decodeStringField(ctx, start+1)
+	} else {
+		s, c, ok, err = d.decodeStringValue(ctx, cursor)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -185,6 +196,111 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 		literal = validLiteral(literal)
 	}
 	return ctx.makeString(literal), next, true, nil
+}
+
+// decodeStringField is decodeStringValue for the string whose bytes start at start, after its quote, which the decoder
+// of a string field decodes. Its words are looked at for their end, an escape and a control byte, and, until the
+// first one is met, a byte which is not ASCII: the words of a plain ASCII string are looked at for nothing more, and
+// its bytes are the string. An escape is validated where it is met, and a byte which is not ASCII makes the words
+// look past such bytes, so that any string is scanned once. The string is then decoded as decodeStringValue decodes
+// it: a short escaped string into the arena, a long one from where the words stop ( see decodeStringRest ). Where
+// the CPU has a SIMD scan, the words are looked at in the first 64 bytes only, after which a long string is scanned
+// by SIMD. An error in the string is a syntax error of the string.
+func (d *stringDecoder) decodeStringField(ctx *RuntimeContext, start int64) (string, int64, bool, error) {
+	buf := ctx.Buf
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	buflen := int64(len(buf))
+	cursor := start
+	wordsEnd := buflen
+	if hasStringSIMD {
+		wordsEnd = min(buflen, start+64)
+	}
+	// The words of a plain ASCII string, which most are, are looked at by this loop, which keeps nothing else: the
+	// loop below goes on from the byte it stops at, which is not read again.
+	for cursor+8 <= wordsEnd {
+		w := load64(buf, cursor)
+		if stop := keyEndBytes(w) | w&msb; stop != 0 {
+			cursor += int64(bits.TrailingZeros64(stop) / 8)
+			if char(b, cursor) == '"' {
+				return ctx.makeString(buf[start:cursor]), cursor + 1, true, nil
+			}
+			break
+		}
+		cursor += 8
+	}
+	firstEscape := int64(-1)
+	nonASCII := false
+	// ascii are the top bits which stop the words at a byte which is not ASCII, until the first one is met.
+	ascii := uint64(msb)
+	for {
+		c := char(b, cursor)
+		switch {
+		case c == '"':
+			literal, next := buf[start:cursor], cursor+1
+			if firstEscape < 0 {
+				if nonASCII {
+					literal = validLiteral(literal)
+				}
+				return ctx.makeString(literal), next, true, nil
+			}
+			if len(literal) <= maxArenaStringSize {
+				// an escaped string is decoded into the arena, out of the buffer, which is never written
+				dst := ctx.reserveArena(len(literal))
+				n := unescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, int(firstEscape))
+				decoded := dst[:n]
+				if nonASCII && !utf8.Valid(decoded) {
+					return string(coerceUTF8(decoded)), next, true, nil
+				}
+				ctx.arena = ctx.arena[:len(ctx.arena)+n]
+				return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
+			}
+			return ctx.unescapeLong(literal, stringInfo{firstEscape: int(firstEscape), nonASCII: nonASCII}), next, true, nil
+		case c == '\\':
+			if firstEscape < 0 {
+				firstEscape = cursor - start
+			}
+			cursor++
+			switch char(b, cursor) {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				cursor++
+			case 'u':
+				if cursor+5 >= buflen {
+					return "", 0, false, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+				}
+				for i := int64(1); i <= 4; i++ {
+					c := char(b, cursor+i)
+					if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
+						return "", 0, false, errors.ErrSyntax(fmt.Sprintf("json: invalid character %c in \\u hexadecimal character escape", c), cursor+i)
+					}
+				}
+				cursor += 5
+			default:
+				return "", 0, false, errors.ErrUnexpectedEndOfJSON("escaped string", cursor)
+			}
+		case c >= 0x80:
+			nonASCII, ascii = true, 0
+			cursor++
+		case c == nul:
+			return "", 0, false, errors.ErrUnexpectedEndOfJSON("string", cursor)
+		case c < 0x20:
+			return "", 0, false, errors.ErrSyntax(fmt.Sprintf("invalid character %s in string literal", quoteChar(c)), cursor+1)
+		default:
+			// the words stopped where they may not be read, not at a byte to look at
+			if wordsEnd != buflen {
+				// the words stopped at wordsEnd, not at a byte to look at: the rest is scanned by SIMD
+				return d.decodeStringRest(ctx, buf[start:cursor], cursor, stringInfo{firstEscape: int(firstEscape), nonASCII: nonASCII})
+			}
+			cursor++
+		}
+		for cursor+8 <= wordsEnd {
+			w := load64(buf, cursor)
+			if stop := keyEndBytes(w) | w&ascii; stop != 0 {
+				cursor += int64(bits.TrailingZeros64(stop) / 8)
+				break
+			}
+			cursor += 8
+		}
+	}
 }
 
 // skipOtherValue returns the error of scanString for a value which is not a string, or, for a value of another

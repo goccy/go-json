@@ -286,6 +286,10 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 		}
 		return decodeFloatSlow(ctx, cursor, p)
 	case '"':
+		if end := plainStringEnd(buf, cursor+1); end >= 0 {
+			**(**any)(unsafe.Pointer(&p)) = ctx.boxString(ctx.makeString(buf[cursor+1 : end]))
+			return end + 1, nil
+		}
 		s, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return 0, err
@@ -360,10 +364,10 @@ func decodeStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, m map[string]a
 }
 
 // decodeNewStringAnyMap decodes the object at cursor into a new map[string]interface{}. The entries are pushed
-// to the stacks of the context, and put into a map of their number at the end of the object: a map filled
-// entry by entry grows and moves its entries several times on the way, which took more time than the
-// entries themselves. A key which is repeated is put later, so that the last one wins as in a map filled in
-// order.
+// to the stack of entries of the context, each key with its value, and put into a map of their number at the end
+// of the object: a map filled entry by entry grows and moves its entries several times on the way, which took
+// more time than the entries themselves. A key which is repeated is put later, so that the last one wins as in a
+// map filled in order.
 func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, depth int64) (map[string]any, int64, error) {
 	buf := ctx.Buf
 	cursor++ // '{'
@@ -371,44 +375,47 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 	if buf[cursor] == '}' {
 		return map[string]any{}, cursor + 1, nil
 	}
-	base, keyBase := len(ctx.anyStack), len(ctx.keyStack)
+	base := len(ctx.entryStack)
 	fail := func(err error) (map[string]any, int64, error) {
 		ctx.slot = nil
-		ctx.popAny(base)
-		ctx.popKeys(keyBase)
+		ctx.popEntries(base)
 		return nil, 0, err
 	}
 	for {
 		if cursor = skipWhiteSpace(buf, cursor); buf[cursor] != '"' {
 			return fail(syntaxErrorAt(buf, cursor, whereKey))
 		}
-		key, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
-		if err != nil {
-			return fail(err)
+		var key string
+		var c int64
+		if end := plainStringEnd(buf, cursor+1); end >= 0 {
+			key, c = ctx.makeString(buf[cursor+1:end]), end+1
+		} else {
+			var err error
+			if key, c, _, err = d.stringDecoder.decodeString(ctx, cursor); err != nil {
+				return fail(err)
+			}
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] != ':' {
 			return fail(syntaxErrorAt(buf, cursor, whereAfterKey))
 		}
 		cursor++
-		c, err = d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
+		c, err := d.decodeEmptyInterface(ctx, cursor, depth, unsafe.Pointer(&ctx.slot))
 		if err != nil {
 			return fail(err)
 		}
 		// the key and the value are pushed together, after the value, whose own entries are popped already.
-		ctx.keyStack = append(ctx.keyStack, key)
-		ctx.anyStack = append(ctx.anyStack, ctx.slot)
+		ctx.entryStack = append(ctx.entryStack, anyEntry{key: key, value: ctx.slot})
 		ctx.slot = nil
 		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
 		case '}':
-			keys, values := ctx.keyStack[keyBase:], ctx.anyStack[base:]
-			m := make(map[string]any, len(keys))
-			for i, key := range keys {
-				m[key] = values[i]
+			entries := ctx.entryStack[base:]
+			m := make(map[string]any, len(entries))
+			for i := range entries {
+				m[entries[i].key] = entries[i].value
 			}
-			ctx.popAny(base)
-			ctx.popKeys(keyBase)
+			ctx.popEntries(base)
 			return m, cursor + 1, nil
 		case ',':
 			cursor++

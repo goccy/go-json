@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -92,7 +93,7 @@ func TestDecodeSkippedStrings(t *testing.T) {
 	type target struct {
 		A int `json:"a"`
 	}
-	specials := []string{`\n`, `é`, `😀`, "\x01", "é", "\xff", `\x`, `\u12`}
+	specials := []string{`\n`, `\u00e9`, `\ud83d\ude00`, "\x01", "é", "\xff", `\x`, `\u12`}
 	for n := 0; n < 140; n++ {
 		for pos := -1; pos < n; pos++ {
 			for _, special := range specials {
@@ -122,7 +123,7 @@ func TestDecodeSkippedStrings(t *testing.T) {
 func TestDecodeEscapedStringRuns(t *testing.T) {
 	// A string with escapes between runs of every length, short ones and ones longer than the words which the
 	// escapes are decoded by, is decoded as encoding/json decodes it, in every mode of the strings.
-	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `é`, `あ`, `😀`, `\ud83d`, `\u0000`, `\ud83d\ude00`, `\uD83D\uDE00x`, "\xff", "\xe3\x81"}
+	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `\u00e9`, `\u3042`, `\ud83d\ude01`, `\ud83d`, `\u0000`, `\ud83d\ude00`, `\uD83D\uDE00x`, "\xff", "\xe3\x81"}
 	r := rand.New(rand.NewSource(13))
 	for i := 0; i < 3000; i++ {
 		var b strings.Builder
@@ -206,6 +207,95 @@ func TestDecodeEscapedStringRunsInvalid(t *testing.T) {
 		var gotStream []struct{ S string }
 		if err := json.NewDecoder(strings.NewReader(doc)).Decode(&gotStream); (err == nil) != (stdErr == nil) {
 			t.Fatalf("Decode %q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+	}
+}
+
+func TestDecodeInterfaceStrings(t *testing.T) {
+	// The keys and the string values decoded into interface{}, and the strings decoded into string, are scanned by
+	// words when they are plain ASCII: a string of any length, plain or with an escape, a byte which is not ASCII or
+	// a control byte, anywhere in it and at the end of the input, is decoded or rejected as encoding/json does.
+	pieces := []string{"a", "bcdefgh", "ijklmnopqrstuvw", `\n`, `\"`, `\u00e9`, "é", "あ", "\xff", "\x01", " "}
+	r := rand.New(rand.NewSource(19))
+	str := func() string {
+		var b strings.Builder
+		b.WriteByte('"')
+		for n := r.Intn(6); n > 0; n-- {
+			p := pieces[r.Intn(len(pieces))]
+			if r.Intn(3) > 0 {
+				p = pieces[r.Intn(3)]
+			}
+			b.WriteString(p)
+		}
+		b.WriteByte('"')
+		return b.String()
+	}
+	for i := 0; i < 5000; i++ {
+		var b strings.Builder
+		switch r.Intn(3) {
+		case 0:
+			b.WriteString(str())
+		case 1:
+			b.WriteString("[")
+			for n := r.Intn(4); n >= 0; n-- {
+				b.WriteString(str())
+				if n > 0 {
+					b.WriteString(",")
+				}
+			}
+			b.WriteString("]")
+		default:
+			b.WriteString("{")
+			for n := r.Intn(4); n >= 0; n-- {
+				b.WriteString(str() + ":" + str())
+				if n > 0 {
+					b.WriteString(",")
+				}
+			}
+			b.WriteString("}")
+		}
+		doc := b.String()
+		var want any
+		stdErr := stdjson.Unmarshal([]byte(doc), &want)
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			var got any
+			err := json.UnmarshalWithOption([]byte(doc), &got, opts...)
+			if (err == nil) != (stdErr == nil) {
+				t.Fatalf("%q: got %v, encoding/json %v", doc, err, stdErr)
+			}
+			if err == nil && !reflect.DeepEqual(got, want) {
+				t.Fatalf("%q: got %#v, want %#v", doc, got, want)
+			}
+		}
+		var got any
+		err := json.NewDecoder(strings.NewReader(doc)).Decode(&got)
+		if (err == nil) != (stdErr == nil) {
+			t.Fatalf("Decode %q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+		if err == nil && !reflect.DeepEqual(got, want) {
+			t.Fatalf("Decode %q: got %#v, want %#v", doc, got, want)
+		}
+		// the same strings into their types, by the decoder of strings
+		var typed any
+		switch doc[0] {
+		case '"':
+			typed = new(string)
+		case '[':
+			typed = new([]string)
+		default:
+			continue
+		}
+		wantTyped := reflect.New(reflect.TypeOf(typed).Elem()).Interface()
+		stdTypedErr := stdjson.Unmarshal([]byte(doc), wantTyped)
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			gotTyped := reflect.New(reflect.TypeOf(typed).Elem()).Interface()
+			err := json.UnmarshalWithOption([]byte(doc), gotTyped, opts...)
+			if (err == nil) != (stdTypedErr == nil) {
+				t.Fatalf("%T %q: got %v, encoding/json %v", gotTyped, doc, err, stdTypedErr)
+			}
+			if err == nil && !reflect.DeepEqual(gotTyped, wantTyped) {
+				t.Fatalf("%T %q: got %#v, want %#v", gotTyped, doc, gotTyped, wantTyped)
+			}
 		}
 	}
 }

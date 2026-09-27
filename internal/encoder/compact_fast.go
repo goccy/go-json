@@ -2,14 +2,16 @@ package encoder
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math/bits"
 	"unsafe"
 )
 
 // The output of a marshaler is compacted and validated, as encoding/json does. Most of the outputs are compact
 // already, so they are copied as they are after being checked: a scan by SIMD finds the bytes which would have
-// to be rewritten, and a walk of the structure without a write validates the rest, the escapes of the strings
-// included. Anything else is left to compact, which rewrites and reports the errors.
+// to be rewritten or looked at, and a walk of the structure without a write validates the rest, the escapes of
+// the strings included. The characters which compact escapes for HTML are escaped as the output is copied.
+// Anything else is left to compact, which rewrites and reports the errors.
 
 // byteClass is a set of bytes, as a table of the bytes and as the tables of the scan by SIMD.
 type byteClass struct {
@@ -47,16 +49,13 @@ func (c *byteClass) has(src []byte) bool {
 	return false
 }
 
-// rewrittenByCompact are the bytes, with the control characters, which compact rewrites or which are not valid:
-// the characters escaped for HTML if the option is set. lookedAtByCompact are those and the bytes which make the
-// walk of the strings look at them carefully: an escape, whose sequence is validated, and the first byte of
-// U+2028 and U+2029, which compact escapes for HTML too, and which starts other characters as well. Most of the
-// outputs have none of them, and their strings are walked to the next quote at once.
+// controlChars are the control characters, which compact removes as white space or reports as errors: an output
+// with one is left to compact. lookedAtByCompact are those and the bytes which the check must look at: an
+// escape, whose sequence is validated, and, if HTML is escaped, the characters which compact escapes then:
+// '<', '>', '&' and the first byte of U+2028 and U+2029, which starts other characters as well. Most of the
+// outputs have none of them: their strings are walked to the next quote at once and they are copied as they are.
 var (
-	rewrittenByCompact = [2]*byteClass{
-		newByteClass(),
-		newByteClass('<', '>', '&'),
-	}
+	controlChars      = newByteClass()
 	lookedAtByCompact = [2]*byteClass{
 		newByteClass('\\'),
 		newByteClass('\\', '<', '>', '&', 0xe2),
@@ -67,19 +66,17 @@ var (
 type stringsOfCompact int
 
 const (
-	// plainStrings have no escape, and no U+2028 or U+2029 which compact escapes: a string ends at the next quote.
+	// plainStrings have no escape: a string ends at the next quote.
 	plainStrings stringsOfCompact = iota
 	// escapedStrings may have escapes, which are validated.
 	escapedStrings
-	// escapedHTMLStrings may have escapes, and U+2028 or U+2029, which compact escapes for HTML.
-	escapedHTMLStrings
 )
 
 // maxDepthOfCompactCheck is the nesting up to which the output is checked here: a deeper one is compacted.
 const maxDepthOfCompactCheck = 64
 
-// appendCompactOutput appends src, the output of a marshaler, to dst if src is compact and valid JSON, and
-// returns false without appending if it may not be: then src is to be compacted.
+// appendCompactOutput appends src, the output of a marshaler, to dst as compact appends it, if src is compact
+// and valid JSON, and returns false without appending if it may not be: then src is to be compacted.
 func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 	if len(src) == 0 {
 		return dst, false
@@ -88,20 +85,81 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 	if escape {
 		option = 1
 	}
-	strs := plainStrings
-	if lookedAtByCompact[option].has(src) {
-		if rewrittenByCompact[option].has(src) {
+	if !lookedAtByCompact[option].has(src) {
+		if !isCompactJSON(src, plainStrings) {
 			return dst, false
 		}
-		strs = escapedStrings
-		if escape {
-			strs = escapedHTMLStrings
-		}
+		return append(dst, src...), true
 	}
-	if !isCompactJSON(src, strs) {
+	if controlChars.has(src) || !isCompactJSON(src, escapedStrings) {
 		return dst, false
 	}
+	if escape {
+		return appendHTMLEscaped(dst, src), true
+	}
 	return append(dst, src...), true
+}
+
+// htmlOfCompact are the bytes which compact escapes for HTML in valid JSON, '<', '>' and '&', and the first byte
+// of U+2028 and U+2029, as a table and as the tables of the loop of the escapes by SIMD, which stops at that byte
+// since it has no sequence ( see escapeSequences ).
+var (
+	htmlOfCompact       = [256]bool{'<': true, '>': true, '&': true, 0xe2: true}
+	htmlOfCompactTables = newNibbleTables(&htmlOfCompact)
+)
+
+// appendHTMLEscaped appends src, valid JSON, to dst with the characters which compact escapes for HTML escaped as
+// it escapes them.
+func appendHTMLEscaped(dst, src []byte) []byte {
+	s := unsafe.String(unsafe.SliceData(src), len(src))
+	n := len(s)
+	i, j := 0, 0
+	// limit is where the loop of the bytes gives the rest back to the loop by SIMD, which stops at the first byte
+	// of U+2028 and U+2029, as appendNormalizedString does.
+	limit := n
+	if n >= 32 && hasEscapeLoop {
+		dst, j = appendEscapedSIMD(dst, s, &htmlOfCompactTables, false)
+		i = j
+		limit = min(n, j+32)
+	}
+	for {
+		for j < limit {
+			c := s[j]
+			if !htmlOfCompact[c] {
+				j++
+				continue
+			}
+			if c == 0xe2 {
+				// U+2028 and U+2029 are E2 80 A8 and E2 80 A9.
+				if j+2 < n && s[j+1] == 0x80 && s[j+2]&^1 == 0xa8 {
+					dst = append(dst, s[i:j]...)
+					dst = append(dst, `\u202`...)
+					dst = append(dst, hex[s[j+2]&0xf])
+					j += 3
+					i = j
+					continue
+				}
+				j++
+				continue
+			}
+			dst = append(dst, s[i:j]...)
+			seq := escapeSequences[c]
+			l := len(dst)
+			dst = binary.LittleEndian.AppendUint64(dst, seq)[:l+int(seq>>56)]
+			j++
+			i = j
+		}
+		if j >= n {
+			break
+		}
+		dst = append(dst, s[i:j]...)
+		var consumed int
+		dst, consumed = appendEscapedSIMD(dst, s[j:], &htmlOfCompactTables, false)
+		j += consumed
+		i = j
+		limit = min(n, j+32)
+	}
+	return append(dst, s[i:]...)
 }
 
 // isCompactJSON is whether src, which has no control character, is valid JSON without a byte to remove, whose
@@ -121,7 +179,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 			if strs == plainStrings {
 				i = quoteEnd(src, i+1)
 			} else {
-				i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+				i = escapedQuoteEnd(src, i+1)
 			}
 			if i < 0 {
 				return false
@@ -145,7 +203,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 			if strs == plainStrings {
 				i = quoteEnd(src, i+1)
 			} else {
-				i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+				i = escapedQuoteEnd(src, i+1)
 			}
 			if i < 0 {
 				return false
@@ -211,7 +269,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 					if strs == plainStrings {
 						i = quoteEnd(src, i+1)
 					} else {
-						i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+						i = escapedQuoteEnd(src, i+1)
 					}
 					if i < 0 {
 						return false
@@ -253,9 +311,8 @@ func quoteEnd(src []byte, i int) int {
 	return -1
 }
 
-// escapedQuoteEnd is quoteEnd for a string which may have escapes, which are validated, and U+2028 or U+2029 if
-// html is set, for which it returns -1 as for an invalid escape: compact escapes them.
-func escapedQuoteEnd(src []byte, i int, html bool) int {
+// escapedQuoteEnd is quoteEnd for a string which may have escapes, which are validated.
+func escapedQuoteEnd(src []byte, i int) int {
 	n := len(src)
 	p := unsafe.Pointer(unsafe.SliceData(src))
 	for {
@@ -263,39 +320,23 @@ func escapedQuoteEnd(src []byte, i int, html bool) int {
 			w := *(*uint64)(unsafe.Add(p, i))
 			q := w ^ (lsb * '"')
 			b := w ^ (lsb * '\\')
-			// the lowest bit of the mask of each byte is exact, so the lowest one of all is.
-			mask := ((q - lsb) &^ q) | ((b - lsb) &^ b)
-			if html {
-				e := w ^ (lsb * 0xe2)
-				mask |= (e - lsb) &^ e
-			}
-			if mask &= msb; mask != 0 {
+			// the lowest bit of the mask of each byte is exact, so the lowest one of both is.
+			if mask := ((q-lsb)&^q | (b-lsb)&^b) & msb; mask != 0 {
 				i += bits.TrailingZeros64(mask) / 8
 				break
 			}
 		}
-		for ; i < n; i++ {
-			if c := src[i]; c == '"' || c == '\\' || (html && c == 0xe2) {
-				break
-			}
+		for ; i < n && src[i] != '"' && src[i] != '\\'; i++ {
 		}
 		if i >= n {
 			return -1
 		}
-		switch src[i] {
-		case '"':
+		if src[i] == '"' {
 			return i + 1
-		case '\\':
-			i = escapeEnd(src, i+1)
-			if i < 0 {
-				return -1
-			}
-		default:
-			// U+2028 and U+2029 are E2 80 A8 and E2 80 A9.
-			if i+2 < n && src[i+1] == 0x80 && src[i+2]&^1 == 0xa8 {
-				return -1
-			}
-			i++
+		}
+		i = escapeEnd(src, i+1)
+		if i < 0 {
+			return -1
 		}
 	}
 }

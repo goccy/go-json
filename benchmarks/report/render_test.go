@@ -56,7 +56,8 @@ func TestRender(t *testing.T) {
 		t.Error("the runs are not ordered by architecture")
 	}
 	svg := site.Summary()
-	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || !strings.Contains(svg, "other &lt;lib&gt; †") {
+	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || !strings.Contains(svg, "other &lt;lib&gt; †") ||
+		!strings.Contains(svg, `fill="#0969da"`) || !strings.Contains(svg, `fill="url(#h`) {
 		t.Errorf("unexpected summary: %s", svg)
 	}
 }

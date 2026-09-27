@@ -62,14 +62,15 @@ var (
 	}
 )
 
-// stringsOfCompact is what the walk of the strings of an output looks for ( see quoteEnd ).
-type stringsOfCompact int
-
-const (
+// The walks of the strings of an output, as the type argument of isCompactJSON: each walk is compiled into a
+// function of its own, so that the walk of the plain strings, which most of the outputs have, has neither a
+// branch nor a call for the escapes in its loop. The types differ by their sizes, which the compiler knows for
+// each of them: the branch on the size is resolved when the function of a walk is compiled.
+type (
 	// plainStrings have no escape: a string ends at the next quote.
-	plainStrings stringsOfCompact = iota
+	plainStrings struct{}
 	// escapedStrings may have escapes, which are validated.
-	escapedStrings
+	escapedStrings struct{ _ byte }
 )
 
 // maxDepthOfCompactCheck is the nesting up to which the output is checked here: a deeper one is compacted.
@@ -86,12 +87,12 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 		option = 1
 	}
 	if !lookedAtByCompact[option].has(src) {
-		if !isCompactJSON(src, plainStrings) {
+		if !isCompactJSON[plainStrings](src) {
 			return dst, false
 		}
 		return append(dst, src...), true
 	}
-	if controlChars.has(src) || !isCompactJSON(src, escapedStrings) {
+	if controlChars.has(src) || !isCompactJSON[escapedStrings](src) {
 		return dst, false
 	}
 	if escape {
@@ -163,8 +164,10 @@ func appendHTMLEscaped(dst, src []byte) []byte {
 }
 
 // isCompactJSON is whether src, which has no control character, is valid JSON without a byte to remove, whose
-// strings are walked as strs tells.
-func isCompactJSON(src []byte, strs stringsOfCompact) bool {
+// strings are walked as S tells.
+func isCompactJSON[S plainStrings | escapedStrings](src []byte) bool {
+	var walk S
+	plain := unsafe.Sizeof(walk) == unsafe.Sizeof(plainStrings{})
 	var stack [maxDepthOfCompactCheck]byte // the closing brackets of the values being read
 	depth := 0
 	n := len(src)
@@ -176,7 +179,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 		}
 		switch c := src[i]; {
 		case c == '"':
-			if strs == plainStrings {
+			if plain {
 				i = quoteEnd(src, i+1)
 			} else {
 				i = escapedQuoteEnd(src, i+1)
@@ -200,7 +203,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 			if i >= n || src[i] != '"' {
 				return false
 			}
-			if strs == plainStrings {
+			if plain {
 				i = quoteEnd(src, i+1)
 			} else {
 				i = escapedQuoteEnd(src, i+1)
@@ -266,7 +269,7 @@ func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 					if i >= n || src[i] != '"' {
 						return false
 					}
-					if strs == plainStrings {
+					if plain {
 						i = quoteEnd(src, i+1)
 					} else {
 						i = escapedQuoteEnd(src, i+1)

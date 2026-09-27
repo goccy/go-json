@@ -19,10 +19,10 @@ type RuntimeContext struct {
 	slot any
 	// anyStack holds the elements of the arrays being decoded into []interface{}: an array pushes
 	// its elements above the ones of the arrays it is nested in, and pops them at its end. The objects
-	// being decoded into new maps of map[string]interface{} push their values there too, and their keys to
-	// keyStack, so that a map is made of the size of its object ( see decodeNewStringAnyMap ).
-	anyStack []any
-	keyStack []string
+	// being decoded into new maps of map[string]interface{} push their entries to entryStack, a key and its
+	// value at once, so that a map is made of the size of its object ( see decodeNewStringAnyMap ).
+	anyStack   []any
+	entryStack []anyEntry
 	// floats and strings are the slabs in which the numbers and the strings decoded into interface{}
 	// are kept, so that an interface value refers to them without an allocation of its own.
 	// A slot of a slab is never written again once an interface value refers to it.
@@ -228,10 +228,16 @@ func (ctx *RuntimeContext) popAny(base int) {
 	ctx.anyStack = ctx.anyStack[:base]
 }
 
-// popKeys removes the keys of keyStack from base, clearing them so that the stack keeps nothing alive.
-func (ctx *RuntimeContext) popKeys(base int) {
-	clear(ctx.keyStack[base:])
-	ctx.keyStack = ctx.keyStack[:base]
+// anyEntry is an entry of an object being decoded into a map[string]interface{}.
+type anyEntry struct {
+	key   string
+	value any
+}
+
+// popEntries removes the entries of entryStack from base, clearing them so that the stack keeps nothing alive.
+func (ctx *RuntimeContext) popEntries(base int) {
+	clear(ctx.entryStack[base:])
+	ctx.entryStack = ctx.entryStack[:base]
 }
 
 // cacheLineSize is the size of the cache lines the contexts are kept apart by: 128 bytes, which is the line of
@@ -268,7 +274,7 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	ctx.origin = nil
 	ctx.slot = nil
 	ctx.popAny(0)
-	ctx.popKeys(0)
+	ctx.popEntries(0)
 	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
 	// the input of a previous call alive. The slab of floats refers to nothing and is kept.
 	ctx.strings = nil

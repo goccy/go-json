@@ -291,10 +291,15 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	var i int
 	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
+	// limit is where the loop of the bytes gives the rest of a long string back to the loop of the escapes by
+	// SIMD, which stops at a block of 32 bytes with invalid UTF-8, U+2028 or U+2029: the loop of the bytes
+	// escapes that block, so that the loop by SIMD is called once for 32 bytes at most.
+	limit := valLen
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
-		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML|stringEscapeNormalize])
+		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML], true)
 		i = j
+		limit = min(valLen, j+32)
 	} else if valLen >= 8 {
 		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
 		// k, or it is none if the mask of the last word is 0, and j is then valLen.
@@ -310,54 +315,65 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 		}
 		j = k + bits.TrailingZeros64(m)/8
 	}
-	for j < valLen {
-		c := s[j]
+	for {
+		for j < limit {
+			c := s[j]
 
-		if !needEscapeHTMLNormalizeUTF8[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
-			continue
-		}
+			if !needEscapeHTMLNormalizeUTF8[c] {
+				// fast path: most of the time, printable ascii characters are used
+				j++
+				continue
+			}
 
-		if seq := escapeSequences[c]; seq != 0 {
-			// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
-			// length are written over by what follows.
-			buf = append(buf, s[i:j]...)
-			l := len(buf)
-			buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
-			i = j + 1
-			j = j + 1
-			continue
+			if seq := escapeSequences[c]; seq != 0 {
+				// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after
+				// its length are written over by what follows.
+				buf = append(buf, s[i:j]...)
+				l := len(buf)
+				buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
+				i = j + 1
+				j = j + 1
+				continue
+			}
+			state, size := decodeRuneInString(s[j:])
+			switch state {
+			case runeErrorState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, invalidUTF8...)
+				i = j + 1
+				j = j + 1
+				continue
+				// U+2028 is LINE SEPARATOR.
+				// U+2029 is PARAGRAPH SEPARATOR.
+				// They are both technically valid characters in JSON strings,
+				// but don't work in JSONP, which has to be evaluated as JavaScript,
+				// and can lead to security holes there. It is valid JSON to
+				// escape them, so we do so unconditionally.
+				// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
+			case lineSepState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, `\u2028`...)
+				i = j + 3
+				j = j + 3
+				continue
+			case paragraphSepState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, `\u2029`...)
+				i = j + 3
+				j = j + 3
+				continue
+			}
+			j += size
 		}
-		state, size := decodeRuneInString(s[j:])
-		switch state {
-		case runeErrorState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, invalidUTF8...)
-			i = j + 1
-			j = j + 1
-			continue
-			// U+2028 is LINE SEPARATOR.
-			// U+2029 is PARAGRAPH SEPARATOR.
-			// They are both technically valid characters in JSON strings,
-			// but don't work in JSONP, which has to be evaluated as JavaScript,
-			// and can lead to security holes there. It is valid JSON to
-			// escape them, so we do so unconditionally.
-			// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
-		case lineSepState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u2028`...)
-			i = j + 3
-			j = j + 3
-			continue
-		case paragraphSepState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u2029`...)
-			i = j + 3
-			j = j + 3
-			continue
+		if j >= valLen {
+			break
 		}
-		j += size
+		buf = append(buf, s[i:j]...)
+		var n int
+		buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[stringEscapeHTML], true)
+		j += n
+		i = j
+		limit = min(valLen, j+32)
 	}
 
 	return append(append(buf, s[i:]...), '"')
@@ -374,7 +390,7 @@ func appendHTMLString(buf []byte, s string) []byte {
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
-		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML])
+		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeHTML], false)
 		i = j
 	} else if valLen >= 8 {
 		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
@@ -422,10 +438,15 @@ func appendNormalizedString(buf []byte, s string) []byte {
 	var i int
 	// the bytes up to the first one which may need an escape are skipped by SIMD, or by words.
 	j := 0
+	// limit is where the loop of the bytes gives the rest of a long string back to the loop of the escapes by
+	// SIMD, which stops at a block of 32 bytes with invalid UTF-8, U+2028 or U+2029: the loop of the bytes
+	// escapes that block, so that the loop by SIMD is called once for 32 bytes at most.
+	limit := valLen
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
-		buf, j = appendEscapedSIMD(buf, s, escapeTables[stringEscapeNormalize])
+		buf, j = appendEscapedSIMD(buf, s, escapeTables[0], true)
 		i = j
+		limit = min(valLen, j+32)
 	} else if valLen >= 8 {
 		// the last word overlaps the one before it: the first byte which may need an escape is in the word at
 		// k, or it is none if the mask of the last word is 0, and j is then valLen.
@@ -441,54 +462,65 @@ func appendNormalizedString(buf []byte, s string) []byte {
 		}
 		j = k + bits.TrailingZeros64(m)/8
 	}
-	for j < valLen {
-		c := s[j]
+	for {
+		for j < limit {
+			c := s[j]
 
-		if !needEscapeNormalizeUTF8[c] {
-			// fast path: most of the time, printable ascii characters are used
-			j++
-			continue
-		}
+			if !needEscapeNormalizeUTF8[c] {
+				// fast path: most of the time, printable ascii characters are used
+				j++
+				continue
+			}
 
-		if seq := escapeSequences[c]; seq != 0 {
-			// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after its
-			// length are written over by what follows.
-			buf = append(buf, s[i:j]...)
-			l := len(buf)
-			buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
-			i = j + 1
-			j = j + 1
-			continue
+			if seq := escapeSequences[c]; seq != 0 {
+				// a byte of ASCII, escaped by its sequence ( see escapeSequences ): the bytes of the word after
+				// its length are written over by what follows.
+				buf = append(buf, s[i:j]...)
+				l := len(buf)
+				buf = binary.LittleEndian.AppendUint64(buf, seq)[:l+int(seq>>56)]
+				i = j + 1
+				j = j + 1
+				continue
+			}
+			state, size := decodeRuneInString(s[j:])
+			switch state {
+			case runeErrorState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, invalidUTF8...)
+				i = j + 1
+				j = j + 1
+				continue
+				// U+2028 is LINE SEPARATOR.
+				// U+2029 is PARAGRAPH SEPARATOR.
+				// They are both technically valid characters in JSON strings,
+				// but don't work in JSONP, which has to be evaluated as JavaScript,
+				// and can lead to security holes there. It is valid JSON to
+				// escape them, so we do so unconditionally.
+				// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
+			case lineSepState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, `\u2028`...)
+				i = j + 3
+				j = j + 3
+				continue
+			case paragraphSepState:
+				buf = append(buf, s[i:j]...)
+				buf = append(buf, `\u2029`...)
+				i = j + 3
+				j = j + 3
+				continue
+			}
+			j += size
 		}
-		state, size := decodeRuneInString(s[j:])
-		switch state {
-		case runeErrorState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, invalidUTF8...)
-			i = j + 1
-			j = j + 1
-			continue
-			// U+2028 is LINE SEPARATOR.
-			// U+2029 is PARAGRAPH SEPARATOR.
-			// They are both technically valid characters in JSON strings,
-			// but don't work in JSONP, which has to be evaluated as JavaScript,
-			// and can lead to security holes there. It is valid JSON to
-			// escape them, so we do so unconditionally.
-			// See http://timelessrepo.com/json-isnt-a-javascript-subset for discussion.
-		case lineSepState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u2028`...)
-			i = j + 3
-			j = j + 3
-			continue
-		case paragraphSepState:
-			buf = append(buf, s[i:j]...)
-			buf = append(buf, `\u2029`...)
-			i = j + 3
-			j = j + 3
-			continue
+		if j >= valLen {
+			break
 		}
-		j += size
+		buf = append(buf, s[i:j]...)
+		var n int
+		buf, n = appendEscapedSIMD(buf, s[j:], escapeTables[0], true)
+		j += n
+		i = j
+		limit = min(valLen, j+32)
 	}
 
 	return append(append(buf, s[i:]...), '"')
@@ -505,7 +537,7 @@ func appendString(buf []byte, s string) []byte {
 	j := 0
 	if valLen >= 32 && hasEscapeLoop {
 		// a long string is escaped by SIMD, up to a byte which is left to this loop
-		buf, j = appendEscapedSIMD(buf, s, escapeTables[0])
+		buf, j = appendEscapedSIMD(buf, s, escapeTables[0], false)
 		i = j
 	} else if valLen >= 8 {
 		// the last word overlaps the one before it: the first byte which may need an escape is in the word at

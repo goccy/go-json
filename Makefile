@@ -83,6 +83,14 @@ bench-compare-decode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_GitHub(REST|GraphQL)_Unmarshal_' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(OpenAIChatCompletion|OpenAIResponse|AnthropicMessage)(Stream)?_Unmarshal_' -benchtime 300ms -count 3 .
 
+# bench-report measures the JSON libraries doing the same work, as the benchmark report does on the CI, and
+# renders the page and the summary into benchmarks/site ( see benchmarks/report_test.go ).
+.PHONY: bench-report
+bench-report:
+	mkdir -p benchmarks/site
+	cd benchmarks && BENCH_REPORT_OUT=$(CURDIR)/benchmarks/site/results-$$(go env GOARCH).json go test -run '^TestReport$$' -count=1 -timeout 60m -test.benchtime=100ms .
+	cd benchmarks && go run ./cmd/benchreport -out site site/results-$$(go env GOARCH).json
+
 # bench-profile-decode prints where the CPU time of the decode benchmarks of go-json goes.
 .PHONY: bench-profile-decode
 bench-profile-decode:

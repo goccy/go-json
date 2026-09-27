@@ -1,0 +1,125 @@
+name: Benchmark report
+# Measures the JSON libraries of Go doing the same work ( benchmarks/report_test.go ) on amd64 and arm64, and
+# publishes the results to GitHub Pages: the page, the SVG summary which the README shows, and the result files,
+# which are attested so that anyone can verify where they come from ( gh attestation verify ).
+#
+# The results follow go-json ( a push to master ), the other libraries ( a weekly run, after the versions in
+# benchmarks/go.mod are updated ) and Go. A pull request which changes the report only checks that it runs and
+# renders, with a short measurement, and publishes nothing.
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'benchmarks/licenses/**'
+      - '.github/FUNDING.yml'
+  pull_request:
+    paths:
+      - 'benchmarks/**'
+      - '.github/workflows/benchmark-report.yml'
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-report-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: Measure (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: measure
+        env:
+          BENCH_REPORT_OUT: ${{ github.workspace }}/results-${{ matrix.arch }}.json
+          # a pull request only checks that the report runs
+          BENCH_REPORT_ROUNDS: ${{ github.event_name == 'pull_request' && '1' || '3' }}
+          BENCH_TIME: ${{ github.event_name == 'pull_request' && '5ms' || '100ms' }}
+        run: |
+          export BENCH_CPU="$(lscpu | sed -n 's/^Model name: *//p' | head -1)"
+          echo "CPU: $BENCH_CPU"
+          cd benchmarks
+          go test -run '^TestReport$' -count=1 -timeout 60m -test.benchtime="$BENCH_TIME" .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.arch }}
+          path: results-${{ matrix.arch }}.json
+          if-no-files-found: error
+
+  render:
+    name: Render
+    needs: measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: results-*
+          merge-multiple: true
+      - name: render
+        run: |
+          cd benchmarks
+          go run ./cmd/benchreport -out ../site -attestations "https://github.com/${{ github.repository }}/attestations" ../results-amd64.json ../results-arm64.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: site
+          if-no-files-found: error
+
+  deploy:
+    name: Attest and deploy
+    if: github.event_name != 'pull_request'
+    needs: render
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      pages: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: site
+          path: site
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            site/results-*.json
+            site/index.html
+            site/summary.svg
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5

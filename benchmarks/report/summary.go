@@ -78,8 +78,10 @@ func (s *Site) Summary() string {
 		panelGap = 24
 	)
 	type bar struct {
-		label string
-		ratio float64
+		label   string
+		library string
+		ratio   float64
+		differs bool
 	}
 	type panel struct {
 		title string
@@ -104,7 +106,7 @@ func (s *Site) Summary() string {
 							label += " †"
 							differing[c.Title] = true
 						}
-						p.bars = append(p.bars, bar{label: label, ratio: ratio})
+						p.bars = append(p.bars, bar{label: label, library: c.Library, ratio: ratio, differs: differs})
 					}
 				}
 			}
@@ -129,7 +131,14 @@ func (s *Site) Summary() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">`, width, height, width, height)
 	// the colors are fixed, on a background of its own, so that it reads the same on a light and a dark page
-	b.WriteString(`<style>.t{font-size:13px;fill:#1f2328}.m{font-size:11px;fill:#59636e}.h{font-size:14px;font-weight:600;fill:#1f2328}.b{fill:#218bff}.g{fill:#8c959f}</style>`)
+	b.WriteString(`<style>.t{font-size:13px;fill:#1f2328}.m{font-size:11px;fill:#59636e}.h{font-size:14px;font-weight:600;fill:#1f2328}.one{stroke:#8c959f;stroke-dasharray:3 3}</style>`)
+	// the bars of a library are of its color, which the page gives it too; the bars of a configuration which behaves
+	// differently are hatched, as on the page
+	b.WriteString(`<defs>`)
+	for i, c := range libraryColors {
+		fmt.Fprintf(&b, `<pattern id="h%d" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="%s" fill-opacity="0.45"/><rect width="3" height="6" fill="%s"/></pattern>`, i, c.color, c.color)
+	}
+	b.WriteString(`</defs>`)
 	fmt.Fprintf(&b, `<rect x="0.5" y="0.5" width="%d" height="%d" rx="6" fill="#ffffff" stroke="#d1d9e0"/>`, width-1, height-1)
 	fmt.Fprintf(&b, `<text class="h" x="%d" y="%d">Speed relative to encoding/json, with the same behavior as encoding/json ( higher is faster )</text>`, pad, pad+14)
 	fmt.Fprintf(&b, `<text class="m" x="%d" y="%d">%s · %s · with a live heap of 64 MB · geometric mean over the payloads</text>`, pad, pad+32, date, template.HTMLEscapeString(goVersion))
@@ -140,13 +149,19 @@ func (s *Site) Summary() string {
 		for j, bb := range p.bars {
 			yy := y + 28 + j*rowH
 			w := float64(barMax) * bb.ratio / maxRatio
-			class := "b"
-			if bb.label == "encoding/json" {
-				class = "g"
+			i := libraryColorIndex(bb.library)
+			fill := libraryColors[i].color
+			if bb.differs {
+				fill = fmt.Sprintf("url(#h%d)", i)
 			}
 			fmt.Fprintf(&b, `<text class="t" x="%d" y="%d">%s</text>`, x, yy+14, template.HTMLEscapeString(bb.label))
-			fmt.Fprintf(&b, `<rect class="%s" x="%d" y="%d" width="%.1f" height="14" rx="2"/>`, class, x+labelW, yy+3, w)
+			fmt.Fprintf(&b, `<rect x="%d" y="%d" width="%.1f" height="14" rx="2" fill="%s"/>`, x+labelW, yy+3, w, fill)
 			fmt.Fprintf(&b, `<text class="t" x="%.1f" y="%d">%.2fx</text>`, float64(x+labelW)+w+6, yy+14, bb.ratio)
+		}
+		if len(p.bars) > 0 {
+			// the line of the speed of encoding/json
+			one := float64(x+labelW) + float64(barMax)/maxRatio
+			fmt.Fprintf(&b, `<line class="one" x1="%.1f" y1="%d" x2="%.1f" y2="%d"/>`, one, y+26, one, y+28+len(p.bars)*rowH)
 		}
 	}
 	if len(differing) > 0 {
@@ -160,6 +175,28 @@ func (s *Site) Summary() string {
 	}
 	b.WriteString(`</svg>`)
 	return b.String()
+}
+
+// libraryColors are the colors of the libraries, the ones of the page ( page.html ) on a light background.
+var libraryColors = []struct{ library, color string }{
+	{"encoding/json", "#8c959f"},
+	{"encoding/json/v2", "#57606a"},
+	{"goccy/go-json", "#0969da"},
+	{"bytedance/sonic", "#e16f24"},
+	{"json-iterator/go", "#1a7f37"},
+	{"segmentio/encoding", "#8250df"},
+	{"", "#59636e"},
+}
+
+// libraryColorIndex returns the index of the color of the library in libraryColors: the last one for a library
+// which has none.
+func libraryColorIndex(library string) int {
+	for i, c := range libraryColors {
+		if c.library == library {
+			return i
+		}
+	}
+	return len(libraryColors) - 1
 }
 
 func opTitle(op string) string {

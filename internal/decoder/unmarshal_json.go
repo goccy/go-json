@@ -25,6 +25,10 @@ type unmarshalJSONDecoder struct {
 // them. The decoder is made for the pointer type, whose method set has UnmarshalJSON.
 var timePtrType = reflect.TypeOf(&time.Time{})
 
+// rawMessagePtrType is the type of *json.RawMessage, whose UnmarshalJSON copies the bytes it is given: a copy of
+// them made here would be copied again.
+var rawMessagePtrType = reflect.TypeOf(&json.RawMessage{})
+
 // timeType is the type of time.Time.
 var timeType = timePtrType.Elem()
 
@@ -33,7 +37,7 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 		typ:            typ,
 		structName:     structName,
 		fieldName:      fieldName,
-		retainsNothing: typ == timePtrType,
+		retainsNothing: typ == timePtrType || typ == rawMessagePtrType,
 	}
 }
 

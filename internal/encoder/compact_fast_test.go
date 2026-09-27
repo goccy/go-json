@@ -16,15 +16,18 @@ func TestAppendCompactOutput(t *testing.T) {
 		`"hello"`, `""`, `"hello world"`, `0`, `-0`, `123`, `-12.5e+3`, `1E-2`, `true`, `false`, `null`,
 		`{}`, `[]`, `{"a":1}`, `{"a":{"b":[1,2,{"c":null}]},"d":"e"}`, `[[[[]]]]`, `[1,"2",true,null,{"x":[]}]`,
 		`{"a b":"c d"}`, strings.Repeat("[", 64) + strings.Repeat("]", 64),
+		// escapes, and characters which are not ASCII, which compact leaves as they are.
+		`"a\"b"`, `"a\\b"`, `"a\nb"`, `"\"\\\/\b\f\n\r\t\u00e9\uD83D\uDE00\uABCD"`, `{"\"k\"":"\\"}`, `["\\","\""]`,
+		`"日本語"`, `"a — b"`, `{"é":"😀"}`, "\"\xff\xfe\"", `"\u2028"`,
 	}
 	rejected := []string{
-		``, ` `, `{ }`, `{"a": 1}`, `[1, 2]`, "[1,\n2]", `{"a":1} `, ` 1`, `"a\"b"`, `"a\\b"`, `"a\nb"`,
-		`"日本語"`, "\" \"", `{`, `[`, `}`, `]`, `{"a"}`, `{"a":}`, `{"a":1,}`, `[1,]`,
+		``, ` `, `{ }`, `{"a": 1}`, `[1, 2]`, "[1,\n2]", `{"a":1} `, ` 1`, "\"a\tb\"",
+		`{`, `[`, `}`, `]`, `{"a"}`, `{"a":}`, `{"a":1,}`, `[1,]`,
 		`[1 2]`, `{"a":1 "b":2}`, `tru`, `nul`, `truex`, `01`, `1.`, `.5`, `1e`, `1e+`, `-`, `--1`, `+1`, `"abc`,
 		`{"a":1}}`, `[1]]`, `{a:1}`, `{1:2}`, `[1]x`, "\x00", "\"\x01\"", strings.Repeat("[", 65) + strings.Repeat("]", 65),
 		`{"a":1}{"b":2}`, `1 2`, `"a" "b"`,
-		// an escape, alone or in a combination: the escapes are left to compact.
-		`"\"`, `"\`, `"\\"x`, `"\u00"`, `["\"]`, `{"\":1}`,
+		// escapes which are not ones of JSON, or which end the string.
+		`"\"`, `"\`, `"\\"x`, `"\u00"`, `"\u00g0"`, `"\x41"`, `"\U0041"`, `"\'"`, `"\u12`, `["\"]`, `{"\":1}`,
 		// commas and colons which are not in their places.
 		`[,]`, `[1,,2]`, `{"a":1,,"b":2}`, `{,}`, `{"a"::1}`, `{"a":1:2}`, `[1:2]`, `,`, `:`, `{"a",1}`, `["a":1]`,
 		// brackets which don't match.
@@ -53,7 +56,7 @@ func TestAppendCompactOutput(t *testing.T) {
 		}
 	}
 	// what is not escaped for HTML when the option is off is accepted then.
-	for _, s := range []string{`"<html>"`, `"a&b"`} {
+	for _, s := range []string{`"<html>"`, `"a&b"`, "\"a\u2028b\"", "{\"\u2029\":1}", "\"\xe2\x80\xa8\""} {
 		if _, ok := appendCompactOutput(nil, []byte(s), false, false); !ok {
 			t.Fatalf("%q must be accepted without the escape of HTML", s)
 		}
@@ -87,7 +90,7 @@ func TestAppendCompactOutputAgainstCompact(t *testing.T) {
 						t.Fatalf("escape=%v: %q is accepted but not valid", escape, b)
 					}
 					// compact accepts a number which is not one of JSON, such as 02: the check doesn't.
-					if !ok && same && stdjson.Valid(b) && c < 0x80 && c >= 0x20 && c != '\\' && !(escape && (c == '<' || c == '>' || c == '&')) {
+					if !ok && same && stdjson.Valid(b) && c >= 0x20 && !(escape && (c == '<' || c == '>' || c == '&')) {
 						t.Fatalf("escape=%v: %q is compact but rejected", escape, b)
 					}
 				}

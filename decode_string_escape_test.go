@@ -93,7 +93,7 @@ func TestDecodeSkippedStrings(t *testing.T) {
 	type target struct {
 		A int `json:"a"`
 	}
-	specials := []string{`\n`, `é`, `😀`, "\x01", "é", "\xff", `\x`, `\u12`}
+	specials := []string{`\n`, `\u00e9`, `\ud83d\ude00`, "\x01", "é", "\xff", `\x`, `\u12`}
 	for n := 0; n < 140; n++ {
 		for pos := -1; pos < n; pos++ {
 			for _, special := range specials {
@@ -123,7 +123,7 @@ func TestDecodeSkippedStrings(t *testing.T) {
 func TestDecodeEscapedStringRuns(t *testing.T) {
 	// A string with escapes between runs of every length, short ones and ones longer than the words which the
 	// escapes are decoded by, is decoded as encoding/json decodes it, in every mode of the strings.
-	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `é`, `あ`, `😀`, `\ud83d`, `\u0000`, `\ud83d\ude00`, `\uD83D\uDE00x`, "\xff", "\xe3\x81"}
+	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `\u00e9`, `\u3042`, `\ud83d\ude01`, `\ud83d`, `\u0000`, `\ud83d\ude00`, `\uD83D\uDE00x`, "\xff", "\xe3\x81"}
 	r := rand.New(rand.NewSource(13))
 	for i := 0; i < 3000; i++ {
 		var b strings.Builder
@@ -212,10 +212,10 @@ func TestDecodeEscapedStringRunsInvalid(t *testing.T) {
 }
 
 func TestDecodeInterfaceStrings(t *testing.T) {
-	// The keys and the string values decoded into interface{} are scanned by words when they are plain ASCII: a
-	// string of any length, plain or with an escape, a byte which is not ASCII or a control byte, anywhere in it
-	// and at the end of the input, is decoded or rejected as encoding/json does.
-	pieces := []string{"a", "bcdefgh", "ijklmnopqrstuvw", `\n`, `\"`, `é`, "é", "あ", "\xff", "\x01", " "}
+	// The keys and the string values decoded into interface{}, and the strings decoded into string, are scanned by
+	// words when they are plain ASCII: a string of any length, plain or with an escape, a byte which is not ASCII or
+	// a control byte, anywhere in it and at the end of the input, is decoded or rejected as encoding/json does.
+	pieces := []string{"a", "bcdefgh", "ijklmnopqrstuvw", `\n`, `\"`, `\u00e9`, "é", "あ", "\xff", "\x01", " "}
 	r := rand.New(rand.NewSource(19))
 	str := func() string {
 		var b strings.Builder
@@ -274,6 +274,28 @@ func TestDecodeInterfaceStrings(t *testing.T) {
 		}
 		if err == nil && !reflect.DeepEqual(got, want) {
 			t.Fatalf("Decode %q: got %#v, want %#v", doc, got, want)
+		}
+		// the same strings into their types, by the decoder of strings
+		var typed any
+		switch doc[0] {
+		case '"':
+			typed = new(string)
+		case '[':
+			typed = new([]string)
+		default:
+			continue
+		}
+		wantTyped := reflect.New(reflect.TypeOf(typed).Elem()).Interface()
+		stdTypedErr := stdjson.Unmarshal([]byte(doc), wantTyped)
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			gotTyped := reflect.New(reflect.TypeOf(typed).Elem()).Interface()
+			err := json.UnmarshalWithOption([]byte(doc), gotTyped, opts...)
+			if (err == nil) != (stdTypedErr == nil) {
+				t.Fatalf("%T %q: got %v, encoding/json %v", gotTyped, doc, err, stdTypedErr)
+			}
+			if err == nil && !reflect.DeepEqual(gotTyped, wantTyped) {
+				t.Fatalf("%T %q: got %#v, want %#v", gotTyped, doc, gotTyped, wantTyped)
+			}
 		}
 	}
 }

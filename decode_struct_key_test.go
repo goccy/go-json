@@ -245,8 +245,8 @@ func TestStructKeyNotASCII(t *testing.T) {
 		`{"Ärger":"u"}`, `{"ärger":"l"}`, `{"ÄRGER":"u"}`, `{"äRGER":"l"}`,
 		`{"K":"kelvin"}`, `{"K":"upper"}`,
 		`{"user_名前_id":"m"}`, `{"USER_名前_ID":"m"}`,
-		"{\"bad\xffkey\":\"i\"}", `{"bad�key":"i"}`,
-		`{"café":"c"}`, `{"CAFÉ":"c"}`, `{"café":"c"}`, `{"café`,
+		"{\"bad\xffkey\":\"i\"}", `{"bad\ufffdkey":"i"}`,
+		`{"café":"c"}`, `{"CAFÉ":"c"}`, `{"caf\u00e9":"c"}`, `{"café`,
 	})
 }
 

@@ -84,7 +84,7 @@ Also, development seems to have already stopped
 
 [![Speed relative to encoding/json](https://goccy.github.io/go-json/summary.svg)](https://goccy.github.io/go-json/)
 
-The JSON libraries of Go are measured doing the same work on GitHub Actions, on amd64 and arm64, and the results are published at **https://goccy.github.io/go-json/**, updated when go-json changes and every week. The page has every payload, the encode and decode of each library, the allocations, and the results without a live heap.
+The JSON libraries of Go are measured doing the same work on GitHub Actions, on amd64 and arm64, and the results are published at **https://goccy.github.io/go-json/**, measured again whenever go-json, the version of a library or the report changes. The page has every payload, the encode and decode of each library, the allocations, and the results without a live heap.
 
 A comparison is fair only between libraries doing the same work, so the libraries are compared by category: with the behavior of `encoding/json`, or without HTML escaping, key sorting and string copying. Every run checks that the libraries of a category behave the same before it measures them, and a library which behaves differently is left out of the category, with the reason shown. The result files are attested by GitHub Artifact Attestations: `gh attestation verify` tells that they were produced by the workflow of this repository.
 

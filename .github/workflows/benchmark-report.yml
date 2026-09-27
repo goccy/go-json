@@ -3,9 +3,11 @@ name: Benchmark report
 # publishes the results to GitHub Pages: the page, the SVG summary which the README shows, and the result files,
 # which are attested so that anyone can verify where they come from ( gh attestation verify ).
 #
-# The results follow go-json ( a push to master ), the other libraries ( a weekly run, after the versions in
-# benchmarks/go.mod are updated ) and Go. A pull request which changes the report only checks that it runs and
-# renders, with a short measurement, and publishes nothing.
+# The results are measured again when what is measured changes, which reaches master by a push: go-json, the
+# versions of the other libraries ( benchmarks/go.mod ), or the report itself. A run without such a change would
+# measure the same code again, and differ only by the machine it got. A run can also be started by hand, as after
+# a release of Go. A pull request which changes the report only checks that it runs and renders, with a short
+# measurement, and publishes nothing.
 on:
   push:
     branches:
@@ -19,8 +21,6 @@ on:
     paths:
       - 'benchmarks/**'
       - '.github/workflows/benchmark-report.yml'
-  schedule:
-    - cron: '23 3 * * 1'
   workflow_dispatch:
 
 permissions:

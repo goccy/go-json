@@ -82,12 +82,19 @@ Also, development seems to have already stopped
 
 # Benchmarks
 
+[![Speed relative to encoding/json](https://goccy.github.io/go-json/summary.svg)](https://goccy.github.io/go-json/)
+
+The JSON libraries of Go are measured doing the same work on GitHub Actions, on amd64 and arm64, and the results are published at **https://goccy.github.io/go-json/**, updated when go-json changes and every week. The page has every payload, the encode and decode of each library, the allocations, and the results without a live heap.
+
+A comparison is fair only between libraries doing the same work, so the libraries are compared by category: with the behavior of `encoding/json`, or without HTML escaping, key sorting and string copying. Every run checks that the libraries of a category behave the same before it measures them, and a library which behaves differently is left out of the category, with the reason shown. The result files are attested by GitHub Artifact Attestations: `gh attestation verify` tells that they were produced by the workflow of this repository.
+
+To run the report locally:
+
 ```
-$ cd benchmarks
-$ go test -bench .
+$ make bench-report
 ```
 
-To compare go-json with `bytedance/sonic` side by side, configured to do the same work ( for example, go-json with `DecodeNoCopyString` beside sonic at its fastest with string validation ):
+To compare go-json with `bytedance/sonic` side by side, benchmark by benchmark:
 
 ```
 $ make bench-compare-encode
@@ -95,20 +102,6 @@ $ make bench-compare-decode
 ```
 
 `BENCH_LIVE_HEAP_MB=64 make bench-compare-decode` runs the decode benchmarks with 64 MB of live heap, as a real program has: the GC then runs less often, as it does in such a program.
-
-The graphs below were measured with an older version of go-json, against the libraries of that time.
-
-## Encode
-
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126758-0845cb00-68f5-11eb-8db7-086fcf9bcfaa.png"></img>
-<img width="700px" src="https://user-images.githubusercontent.com/209884/107126757-07ad3480-68f5-11eb-87aa-858cc5eacfcb.png"></img>
-
-## Decode
-
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979944-bd1d6d80-7002-11eb-944b-9d17b6674e3f.png">
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979931-b989e680-7002-11eb-87a0-66fc22d90dd4.png">
-<img width="700" alt="" src="https://user-images.githubusercontent.com/209884/107979940-bc84d700-7002-11eb-9647-869bbc25c9d9.png">
-
 
 # Fuzzing
 

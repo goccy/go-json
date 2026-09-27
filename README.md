@@ -86,7 +86,7 @@ Also, development seems to have already stopped
 
 The JSON libraries of Go are measured doing the same work on GitHub Actions, on amd64 and arm64, and the results are published at **https://goccy.github.io/go-json/**, measured again whenever go-json, the version of a library or the report changes. The page has every payload, the encode and decode of each library, the allocations, and the results without a live heap.
 
-A comparison is fair only between libraries doing the same work, so the libraries are compared by category: with the behavior of `encoding/json`, or without HTML escaping, key sorting and string copying. Every run checks that the libraries of a category behave the same before it measures them, and a library which behaves differently is left out of the category, with the reason shown. The result files are attested by GitHub Artifact Attestations: `gh attestation verify` tells that they were produced by the workflow of this repository.
+A comparison is fair only between libraries doing the same work, so the results are shown by category of behavior: the behavior of `encoding/json`, the behavior of `encoding/json/v2`, the behavior of `encoding/json` without HTML escaping, key sorting and string copying, and every library at its fastest. In each category, every library is configured by its options to behave as the category requires, as far as its options allow, and as fast as they allow. Every run checks the behavior of each library on small probes before it measures it, and a library which behaves differently is still shown, marked, with what differs. The result files are attested by GitHub Artifact Attestations: `gh attestation verify` tells that they were produced by the workflow of this repository.
 
 To run the report locally:
 

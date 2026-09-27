@@ -122,7 +122,7 @@ func TestDecodeSkippedStrings(t *testing.T) {
 func TestDecodeEscapedStringRuns(t *testing.T) {
 	// A string with escapes between runs of every length, short ones and ones longer than the words which the
 	// escapes are decoded by, is decoded as encoding/json decodes it, in every mode of the strings.
-	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `é`, `あ`, `😀`, `\ud83d`, `\u0000`}
+	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `é`, `あ`, `😀`, `\ud83d`, `\u0000`, `\ud83d\ude00`, `\uD83D\uDE00x`, "\xff", "\xe3\x81"}
 	r := rand.New(rand.NewSource(13))
 	for i := 0; i < 3000; i++ {
 		var b strings.Builder
@@ -161,6 +161,51 @@ func TestDecodeEscapedStringRuns(t *testing.T) {
 		var any1 any
 		if err := json.NewDecoder(strings.NewReader(doc)).Decode(&any1); err != nil || any1 != want {
 			t.Fatalf("Decode %q: got %q, %v, want %q", doc, any1, err, want)
+		}
+	}
+}
+
+func TestDecodeEscapedStringRunsInvalid(t *testing.T) {
+	// A long string with an invalid escape or byte after its runs is a syntax error, as encoding/json reports it,
+	// and a valid value after it in an array is not taken for its end.
+	bad := []string{`\x`, `\u12g4`, `\u12`, "\x01", `\ud83d\u12`, `\`, "\x00"}
+	r := rand.New(rand.NewSource(17))
+	for i := 0; i < 2000; i++ {
+		var b strings.Builder
+		b.WriteString(`[{"s":"`)
+		for n := r.Intn(4); n >= 0; n-- {
+			for j := r.Intn(120); j > 0; j-- {
+				b.WriteByte("abcdefghij"[r.Intn(10)])
+			}
+			if r.Intn(2) == 0 {
+				b.WriteString(`\n`)
+			}
+		}
+		b.WriteString(bad[r.Intn(len(bad))])
+		b.WriteString(`abc"}]`)
+		if r.Intn(4) == 0 {
+			doc := b.String()
+			b.Reset()
+			b.WriteString(doc[:len(doc)-r.Intn(8)-1])
+		}
+		doc := b.String()
+		var want []struct{ S string }
+		stdErr := stdjson.Unmarshal([]byte(doc), &want)
+		var got []struct{ S string }
+		err := json.Unmarshal([]byte(doc), &got)
+		if (err == nil) != (stdErr == nil) {
+			t.Fatalf("%q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+		if err != nil && err.Error() != stdErr.Error() {
+			t.Fatalf("%q: got %q, encoding/json %q", doc, err, stdErr)
+		}
+		var gotOf []struct{ S string }
+		if err := json.UnmarshalOf([]byte(doc), &gotOf, json.DecodeNoCopyString()); (err == nil) != (stdErr == nil) {
+			t.Fatalf("UnmarshalOf %q: got %v, encoding/json %v", doc, err, stdErr)
+		}
+		var gotStream []struct{ S string }
+		if err := json.NewDecoder(strings.NewReader(doc)).Decode(&gotStream); (err == nil) != (stdErr == nil) {
+			t.Fatalf("Decode %q: got %v, encoding/json %v", doc, err, stdErr)
 		}
 	}
 }

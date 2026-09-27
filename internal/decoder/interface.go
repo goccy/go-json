@@ -418,6 +418,10 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 	}
 }
 
+// emptyAnySlice is the value of an empty array as interface{}: an empty []interface{}, which all of them share,
+// so that it is not allocated for each. It has no room for an element, so that nothing is written through it.
+var emptyAnySlice any = []any{}
+
 // decodeAnySlice decodes the array at cursor as a []interface{}: the elements are pushed to the stack
 // of the context, and copied into a slice of their number at the end of the array.
 func (d *interfaceDecoder) decodeAnySlice(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -429,7 +433,7 @@ func (d *interfaceDecoder) decodeAnySlice(ctx *RuntimeContext, cursor, depth int
 	cursor++ // '['
 	cursor = skipWhiteSpace(buf, cursor)
 	if buf[cursor] == ']' {
-		**(**any)(unsafe.Pointer(&p)) = []any{}
+		**(**any)(unsafe.Pointer(&p)) = emptyAnySlice
 		return cursor + 1, nil
 	}
 	base := len(ctx.anyStack)

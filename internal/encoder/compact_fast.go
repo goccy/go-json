@@ -8,8 +8,8 @@ import (
 
 // The output of a marshaler is compacted and validated, as encoding/json does. Most of the outputs are compact
 // already, so they are copied as they are after being checked: a scan by SIMD finds the bytes which would have
-// to be rewritten or looked at carefully, and a walk of the structure without a write validates the rest.
-// Anything else is left to compact, which rewrites and reports the errors.
+// to be rewritten, and a walk of the structure without a write validates the rest, the escapes of the strings
+// included. Anything else is left to compact, which rewrites and reports the errors.
 
 // byteClass is a set of bytes, as a table of the bytes and as the tables of the scan by SIMD.
 type byteClass struct {
@@ -23,9 +23,6 @@ func newByteClass(bytes ...byte) *byteClass {
 		c.table[b] = true
 	}
 	for b := 0; b < 0x20; b++ {
-		c.table[b] = true
-	}
-	for b := 0x80; b < 0x100; b++ {
 		c.table[b] = true
 	}
 	c.tables = newNibbleTables(&c.table)
@@ -50,11 +47,13 @@ func (c *byteClass) has(src []byte) bool {
 	return false
 }
 
-// rewrittenByCompact are the bytes, with the control characters and the bytes which are not ASCII, which
-// compact rewrites or looks at: an escape, and the characters escaped for HTML if the option is set.
+// rewrittenByCompact are the bytes, with the control characters, which compact rewrites or which are not valid:
+// the characters escaped for HTML if the option is set. U+2028 and U+2029, which compact escapes then too, are
+// looked for by the walk of the strings ( see quoteEnd ), since the bytes which start them start other
+// characters too.
 var rewrittenByCompact = [2]*byteClass{
-	newByteClass('\\'),
-	newByteClass('\\', '<', '>', '&'),
+	newByteClass(),
+	newByteClass('<', '>', '&'),
 }
 
 // maxDepthOfCompactCheck is the nesting up to which the output is checked here: a deeper one is compacted.
@@ -73,15 +72,15 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 	if class.has(src) {
 		return dst, false
 	}
-	if !isCompactJSON(src) {
+	if !isCompactJSON(src, escape) {
 		return dst, false
 	}
 	return append(dst, src...), true
 }
 
-// isCompactJSON is whether src, which has no control character, no escape and no byte which is not ASCII,
-// is valid JSON without a byte to remove.
-func isCompactJSON(src []byte) bool {
+// isCompactJSON is whether src, which has no control character, is valid JSON without a byte to remove, and
+// without U+2028 and U+2029 if escape is set.
+func isCompactJSON(src []byte, escape bool) bool {
 	var stack [maxDepthOfCompactCheck]byte // the closing brackets of the values being read
 	depth := 0
 	n := len(src)
@@ -93,7 +92,7 @@ func isCompactJSON(src []byte) bool {
 		}
 		switch c := src[i]; {
 		case c == '"':
-			i = quoteEnd(src, i+1)
+			i = quoteEnd(src, i+1, escape)
 			if i < 0 {
 				return false
 			}
@@ -113,7 +112,7 @@ func isCompactJSON(src []byte) bool {
 			if i >= n || src[i] != '"' {
 				return false
 			}
-			i = quoteEnd(src, i+1)
+			i = quoteEnd(src, i+1, escape)
 			if i < 0 {
 				return false
 			}
@@ -175,7 +174,7 @@ func isCompactJSON(src []byte) bool {
 					if i >= n || src[i] != '"' {
 						return false
 					}
-					i = quoteEnd(src, i+1)
+					i = quoteEnd(src, i+1, escape)
 					if i < 0 {
 						return false
 					}
@@ -196,22 +195,74 @@ func isCompactJSON(src []byte) bool {
 	}
 }
 
-// quoteEnd returns the index after the quote which ends the string whose content starts at i, or -1.
-// The string has no escape, so the quote is the next one. Most of the strings are short, so the quote is
-// looked for by words here, not by a call.
-func quoteEnd(src []byte, i int) int {
+// quoteEnd returns the index after the quote which ends the string whose content starts at i, or -1 if the
+// string has an invalid escape, has U+2028 or U+2029 if escape is set, or does not end. Most of the strings are
+// short, so the quote, a backslash and the byte which starts U+2028 and U+2029 are looked for by words here, not
+// by a call.
+func quoteEnd(src []byte, i int, escape bool) int {
 	n := len(src)
 	p := unsafe.Pointer(unsafe.SliceData(src))
-	for ; i+8 <= n; i += 8 {
-		w := *(*uint64)(unsafe.Add(p, i)) ^ (lsb * '"')
-		if mask := (w - lsb) &^ w & msb; mask != 0 {
-			return i + bits.TrailingZeros64(mask)/8 + 1
+	for {
+		for ; i+8 <= n; i += 8 {
+			w := *(*uint64)(unsafe.Add(p, i))
+			q := w ^ (lsb * '"')
+			b := w ^ (lsb * '\\')
+			// the lowest bit of the mask of each byte is exact, so the lowest one of all is.
+			mask := ((q - lsb) &^ q) | ((b - lsb) &^ b)
+			if escape {
+				e := w ^ (lsb * 0xe2)
+				mask |= (e - lsb) &^ e
+			}
+			if mask &= msb; mask != 0 {
+				i += bits.TrailingZeros64(mask) / 8
+				break
+			}
+		}
+		for ; i < n; i++ {
+			if c := src[i]; c == '"' || c == '\\' || (escape && c == 0xe2) {
+				break
+			}
+		}
+		if i >= n {
+			return -1
+		}
+		switch src[i] {
+		case '"':
+			return i + 1
+		case '\\':
+			i = escapeEnd(src, i+1)
+			if i < 0 {
+				return -1
+			}
+		default:
+			// U+2028 and U+2029 are E2 80 A8 and E2 80 A9.
+			if i+2 < n && src[i+1] == 0x80 && src[i+2]&^1 == 0xa8 {
+				return -1
+			}
+			i++
 		}
 	}
-	for ; i < n; i++ {
-		if src[i] == '"' {
-			return i + 1
+}
+
+// escapeEnd returns the index after the escape of a string whose backslash is before i, or -1 if it is not an
+// escape of JSON.
+func escapeEnd(src []byte, i int) int {
+	if i >= len(src) {
+		return -1
+	}
+	switch src[i] {
+	case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+		return i + 1
+	case 'u':
+		if i+5 > len(src) {
+			return -1
 		}
+		for _, c := range src[i+1 : i+5] {
+			if !('0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F') {
+				return -1
+			}
+		}
+		return i + 5
 	}
 	return -1
 }

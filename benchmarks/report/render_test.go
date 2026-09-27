@@ -29,6 +29,7 @@ func testRun(arch string) *Run {
 			{Condition: "live-heap", Op: OpDecode, Payload: "small", Config: "go-json", NsPerOp: 100},
 			{Condition: "live-heap", Op: OpDecode, Payload: "large", Config: "encoding/json", NsPerOp: 4000},
 			{Condition: "live-heap", Op: OpDecode, Payload: "large", Config: "go-json", NsPerOp: 2000},
+			{Condition: "live-heap", Op: OpDecode, Payload: "small", Config: "other", NsPerOp: 50},
 		},
 	}
 }
@@ -40,22 +41,22 @@ func TestRender(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"4.00x", // small: 400 / 100
-		"2.83x", // the geometric mean of 4x and 2x
-		`href="results-amd64.json"`,
-		"other &lt;lib&gt;", // escaped, and listed as not compared
-		"got &lt;x&gt;",
+		`"arch":"amd64"`, // the results are in the page as JSON
+		`"file":"results-amd64.json"`,
+		`other \u003clib\u003e`, // escaped in the script
+		`"differs":{"other":[`,  // the configuration which fails a probe
+		"<h1>Go JSON Benchmarks</h1>",
 	} {
 		if !strings.Contains(page, want) {
 			t.Errorf("the page has no %q", want)
 		}
 	}
-	// amd64 is shown first
-	if strings.Index(page, `data-run="0"`) > strings.Index(page, `data-run="1"`) || !strings.Contains(page, "amd64: test CPU") {
+	// amd64 is the first run
+	if strings.Index(page, `"arch":"amd64"`) > strings.Index(page, `"arch":"arm64"`) {
 		t.Error("the runs are not ordered by architecture")
 	}
 	svg := site.Summary()
-	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || strings.Contains(svg, "other") {
+	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || !strings.Contains(svg, "other &lt;lib&gt; †") {
 		t.Errorf("unexpected summary: %s", svg)
 	}
 }

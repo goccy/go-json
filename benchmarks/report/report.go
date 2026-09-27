@@ -20,6 +20,9 @@ type Run struct {
 	GOOS        string    `json:"goos"`
 	GOARCH      string    `json:"goarch"`
 	CPU         string    `json:"cpu"`
+	// CPUFeatures are the extensions of the instruction set of the CPU which libraries choose their code by, as
+	// AVX2 and AVX-512: a library may be several times faster on a CPU with one than on one without.
+	CPUFeatures []string `json:"cpuFeatures"`
 	// Commit, Repository and RunURL tell where the run comes from: the commit of go-json measured, the repository
 	// it is in and the workflow run which measured it.
 	Commit     string `json:"commit"`
@@ -35,7 +38,11 @@ type Run struct {
 	Configs    []Config      `json:"configs"`
 	Probes     []ProbeResult `json:"probes"`
 	Results    []Result      `json:"results"`
-	Exclusions []Exclusion   `json:"exclusions"`
+	// Differences are the payloads on which the result of a configuration is not the one of its category: it is
+	// measured, and shown with the difference.
+	Differences []Exclusion `json:"differences"`
+	// Exclusions are the payloads on which an operation of a configuration fails, which is not measured.
+	Exclusions []Exclusion `json:"exclusions"`
 }
 
 // Library is a library measured, with the version the run was built with.
@@ -81,7 +88,8 @@ type Config struct {
 }
 
 // ProbeResult is whether a configuration behaves as its category requires on a probe: a small input which tells a
-// behavior apart. A configuration which fails a required probe is not measured in its category.
+// behavior apart. A configuration which fails a required probe is still measured, and shown apart from the others
+// of its category, with what differs.
 type ProbeResult struct {
 	Config      string `json:"config"`
 	Probe       string `json:"probe"`
@@ -102,8 +110,8 @@ type Result struct {
 	AllocsPerOp int64   `json:"allocsPerOp"`
 }
 
-// Exclusion is a configuration which is not measured on a payload, and why: it failed a required probe, or its
-// result on the payload is not the one of its category.
+// Exclusion is a configuration on a payload, and why it is noted: the operation fails ( Run.Exclusions ), or its
+// result is not the one of its category ( Run.Differences ).
 type Exclusion struct {
 	Op      string `json:"op"`
 	Payload string `json:"payload"`
@@ -152,7 +160,16 @@ func (r *Run) result(cond, op, payload, config string) *Result {
 
 // exclusion returns why a configuration is not measured on a payload, or "".
 func (r *Run) exclusion(op, payload, config string) string {
-	for _, e := range r.Exclusions {
+	return find(r.Exclusions, op, payload, config)
+}
+
+// difference returns how the result of a configuration on a payload differs from the one of its category, or "".
+func (r *Run) difference(op, payload, config string) string {
+	return find(r.Differences, op, payload, config)
+}
+
+func find(es []Exclusion, op, payload, config string) string {
+	for _, e := range es {
 		if e.Op == op && e.Payload == payload && e.Config == config {
 			return e.Reason
 		}

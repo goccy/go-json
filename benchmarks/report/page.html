@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Go JSON Benchmarks</title>
+<meta name="description" content="The JSON libraries of Go compared doing the same work, measured on GitHub Actions.">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --soft: #f6f8fa; --card: #ffffff;
+  --accent: #0969da; --good: #1a7f37; --warn: #9a6700;
+  --c-std: #8c959f; --c-v2: #57606a; --c-gojson: #0969da; --c-sonic: #e16f24; --c-jsoniter: #1a7f37; --c-segmentio: #8250df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --soft: #151b23; --card: #0d1117;
+    --accent: #4493f8; --good: #3fb950; --warn: #d29922;
+    --c-std: #8b949e; --c-v2: #b1bac4; --c-gojson: #4493f8; --c-sonic: #f0883e; --c-jsoniter: #3fb950; --c-segmentio: #a371f7;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --soft: #151b23; --card: #0d1117;
+  --accent: #4493f8; --good: #3fb950; --warn: #d29922;
+  --c-std: #8b949e; --c-v2: #b1bac4; --c-gojson: #4493f8; --c-sonic: #f0883e; --c-jsoniter: #3fb950; --c-segmentio: #a371f7;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; }
+main { max-width: 1200px; margin: 0 auto; padding: 28px 16px 72px; }
+h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 22px; margin: 44px 0 6px; }
+h3 { font-size: 16px; margin: 22px 0 8px; }
+a { color: var(--accent); }
+p { max-width: 880px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.lead { font-size: 17px; color: var(--muted); margin: 4px 0 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13.5px; margin: 10px 0 18px; }
+.meta b { font-weight: 600; }
+.libs { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+.lib { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px 2px 8px; font-size: 13px; text-decoration: none; color: var(--fg); }
+.lib:hover { border-color: var(--accent); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.lib .v { color: var(--muted); }
+
+.controls { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 0; margin: 20px 0 0; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.group { display: flex; align-items: center; gap: 6px; }
+.group > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; color: var(--fg); border: 0; border-right: 1px solid var(--line); padding: 5px 12px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--accent); font-weight: 600; }
+.seg button:hover { background: var(--soft); }
+.machine { font-size: 12.5px; color: var(--muted); }
+
+.category { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 4px; }
+.category > p { margin: 4px 0; }
+details.requires { margin: 6px 0 14px; font-size: 13.5px; }
+details.requires summary { cursor: pointer; color: var(--accent); }
+details.requires ul { margin: 6px 0; padding-left: 20px; color: var(--muted); }
+
+.overview { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 10px; background: var(--card); }
+.overview h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; margin-top: 12px; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 8px; background: var(--card); }
+.card h4 { margin: 0; font-size: 14px; }
+.card .sub { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+
+.bars { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 5px 10px; align-items: center; }
+.bars .label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.card .bars { grid-template-columns: minmax(110px, 46%) 1fr; }
+.card .bars .label { font-size: 12.5px; max-width: none; }
+.bars .label .dot { margin-right: 6px; vertical-align: -1px; }
+.bars .label.base { font-weight: 600; }
+.bars .label.differs { color: var(--muted); }
+.track { position: relative; height: 20px; }
+.bar { position: absolute; left: 0; top: 2px; height: 16px; border-radius: 3px; min-width: 2px; }
+.bar.differs { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 3px, transparent 3px 7px) !important; opacity: 0.75; }
+.value { position: absolute; top: 0; font-size: 12.5px; line-height: 20px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.value .x { color: var(--muted); margin-left: 4px; }
+.value .x.good { color: var(--good); }
+.one { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed var(--muted); opacity: 0.6; }
+.sep { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
+.mark { color: var(--warn); font-weight: 600; }
+
+.notes { font-size: 13px; color: var(--muted); margin: 10px 0 0; padding-left: 18px; }
+.notes li { margin: 2px 0; }
+details.numbers { margin-top: 12px; }
+details.numbers summary { cursor: pointer; color: var(--accent); font-size: 13.5px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 13px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: right; white-space: nowrap; }
+th { background: var(--soft); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
+td.pass { color: var(--good); text-align: center; }
+td.fail { color: var(--warn); text-align: center; font-weight: 600; }
+td.na { color: var(--muted); text-align: center; }
+ul.plain { padding-left: 20px; }
+ul.plain li { margin: 4px 0; max-width: 880px; }
+pre { background: var(--soft); padding: 10px 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12.5px; padding: 6px 8px; border-radius: 6px; max-width: 340px; z-index: 10; display: none; line-height: 1.4; }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .bars .label { max-width: 150px; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Go JSON Benchmarks</h1>
+<p class="lead">The JSON libraries of Go, compared doing the same work.</p>
+<p>Every library is measured on the same machine of GitHub Actions, by turns, in amd64 and arm64. Libraries are compared within categories of behavior, which every run checks: a library which behaves differently from its category is still shown, apart and marked with <span class="mark">†</span>, with what differs.</p>
+<div class="meta">
+  <span><b>Measured</b> {{.Generated}}</span>
+  <span><b>Go</b> {{.GoVersion}}</span>
+  {{if .Commit}}<span><b>go-json</b> <a href="https://github.com/{{.Repository}}/commit/{{.Commit}}">{{.ShortCommit}}</a></span>{{end}}
+  {{if .RunURL}}<span><a href="{{.RunURL}}">Workflow run</a></span>{{end}}
+  {{if .Source}}<span><a href="{{.Source}}">Source of the benchmarks</a></span>{{end}}
+  <span><a href="#verify">Verify the results</a></span>
+</div>
+<div class="libs" id="libs"></div>
+
+<div class="controls" id="controls">
+  <div class="group"><span>Machine</span><div class="seg" data-key="run"></div></div>
+  <div class="group"><span>Condition</span><div class="seg" data-key="cond"></div></div>
+  <div class="group"><span>Operation</span><div class="seg" data-key="op"></div></div>
+  <div class="group"><span>Metric</span><div class="seg" data-key="metric"></div></div>
+  <div class="machine" id="machine"></div>
+</div>
+<p class="muted small" id="condition"></p>
+
+<div id="categories"></div>
+
+<h2 id="fairness">Fairness</h2>
+<ul class="plain">
+  <li><b>The results depend on the CPU.</b> The machines of GitHub Actions are not the same from run to run, and a library may choose its code by the extensions of the instruction set of the CPU, such as AVX-512: segmentio/encoding, for example, decodes several times faster on a CPU with AVX-512 than on one without it, which can change the order of the libraries. The CPU of each run and its extensions are shown with the results; compare the libraries within a run, not the runs with each other.</li>
+  <li><b>Same machine, by turns.</b> Every library of a run is measured on the same machine, by turns, in several rounds, and the median of the rounds is shown, so that a change of the machine during the run affects every library alike. The machines of GitHub Actions differ from run to run, so the results of different runs are not compared.</li>
+  <li><b>Categories of behavior.</b> A library with an option which makes it do less work is not compared with one doing more: the libraries are grouped in categories of what they do, which every run checks on probes, small inputs which tell a behavior apart ( below ). A library which fails a probe its category requires is shown apart, marked with <span class="mark">†</span>.</li>
+  <li><b>Same results.</b> On every payload, a decoded value is compared with the one encoding/json decodes, and an encoded value with encoding/json's output, byte for byte ( as a JSON value where the keys of a map may be in any order ). A result which differs is marked with <span class="mark">‡</span>.</li>
+  <li><b>Same calls.</b> A value is decoded into a new value for each operation, and the encoders encode a pointer to the value. sonic's fastest configuration decodes from a string, as it is at its fastest: the string is made once, outside of the measurement.</li>
+  <li><b>A real program's heap.</b> "With a live heap of 64 MB" is the condition of a real program, which keeps its own data: the GC runs as often for every library. "Without a live heap" favors a library which keeps more memory alive, as the GC then runs less often.</li>
+</ul>
+<h3>Probes</h3>
+<div class="scroll"><table id="probes"></table></div>
+
+<h2 id="verify">Verify the results</h2>
+<p>The result files are produced by the workflow of the repository and attested with GitHub Artifact Attestations, which record the repository, the commit and the workflow run which produced them. Download a result file and verify it with the GitHub CLI:</p>
+<pre id="verify-cmd"></pre>
+<p id="raw" class="small"></p>
+{{if .Attestations}}<p class="small">The attestations of the repository: <a href="{{.Attestations}}">{{.Attestations}}</a></p>{{end}}
+</main>
+<div class="tip" id="tip"></div>
+<script>
+const D = {{.}};
+(function () {
+  "use strict";
+  const COLORS = {
+    "encoding/json": "var(--c-std)", "encoding/json/v2": "var(--c-v2)", "goccy/go-json": "var(--c-gojson)",
+    "bytedance/sonic": "var(--c-sonic)", "json-iterator/go": "var(--c-jsoniter)", "segmentio/encoding": "var(--c-segmentio)",
+  };
+  const color = (lib) => COLORS[lib] || "var(--muted)";
+  const METRICS = {
+    speed: { title: "Speed", note: "relative to the baseline, higher is faster" },
+    time: { title: "Time", note: "per operation, lower is faster" },
+    bytes: { title: "Memory", note: "allocated per operation, lower is better" },
+    allocs: { title: "Allocations", note: "per operation, lower is better" },
+  };
+  const OPS = { decode: "Decode", encode: "Encode" };
+  const el = (tag, attrs, ...kids) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v; else if (k.startsWith("data-")) e.setAttribute(k, v); else e[k] = v;
+    }
+    for (const k of kids.flat()) if (k != null) e.append(k);
+    return e;
+  };
+  const fmtNs = (ns) => ns >= 1e6 ? (ns / 1e6).toFixed(2) + " ms" : ns >= 1e3 ? (ns / 1e3).toFixed(2) + " µs" : Math.round(ns) + " ns";
+  const fmtBytes = (b) => b >= 1 << 20 ? (b / (1 << 20)).toFixed(2) + " MiB" : b >= 1024 ? (b / 1024).toFixed(1) + " KiB" : b + " B";
+  const fmtX = (x) => (x >= 10 ? x.toFixed(1) : x.toFixed(2)) + "×";
+  const configs = Object.fromEntries(D.configs.map((c) => [c.id, c]));
+  const payloads = D.payloads;
+
+  // state, kept in the URL so that a view can be linked to
+  const state = { run: 0, cond: D.conditions[0].id, op: "decode", metric: "speed" };
+  const readHash = () => {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const arch = h.get("machine");
+    const i = D.runs.findIndex((r) => r.arch === arch);
+    if (i >= 0) state.run = i;
+    if (D.conditions.some((c) => c.id === h.get("condition"))) state.cond = h.get("condition");
+    if (OPS[h.get("op")]) state.op = h.get("op");
+    if (METRICS[h.get("metric")]) state.metric = h.get("metric");
+  };
+  const writeHash = () => {
+    const h = new URLSearchParams({ machine: D.runs[state.run].arch, condition: state.cond, op: state.op, metric: state.metric });
+    history.replaceState(null, "", "#" + h.toString());
+  };
+
+  // the libraries
+  const libs = document.getElementById("libs");
+  for (const l of D.libraries) {
+    const href = l.module === "std" ? "https://pkg.go.dev/" + l.name : /^v/.test(l.version) ? "https://pkg.go.dev/" + l.module + "@" + l.version : "https://" + l.module + "/commit/" + l.version;
+    libs.append(el("a", { class: "lib", href }, el("span", { class: "dot", style: "background:" + color(l.name) }), l.name, el("span", { class: "v" }, /^v|^go/.test(l.version) ? l.version : l.version.slice(0, 7))));
+  }
+
+  // the controls
+  const options = {
+    run: D.runs.map((r, i) => [i, r.arch]),
+    cond: D.conditions.map((c) => [c.id, c.title]),
+    op: Object.entries(OPS),
+    metric: Object.entries(METRICS).map(([k, m]) => [k, m.title]),
+  };
+  document.querySelectorAll(".seg").forEach((seg) => {
+    const key = seg.dataset.key;
+    for (const [value, label] of options[key]) {
+      const b = el("button", { type: "button", textContent: label });
+      b.dataset.value = value;
+      b.addEventListener("click", () => { state[key] = key === "run" ? Number(value) : value; update(); });
+      seg.append(b);
+    }
+  });
+
+  // the tooltip
+  const tip = document.getElementById("tip");
+  document.addEventListener("mousemove", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (!t) { tip.style.display = "none"; return; }
+    tip.textContent = t.dataset.tip;
+    tip.style.display = "block";
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px";
+    tip.style.top = (e.clientY + 16) + "px";
+  });
+
+  const resultsOf = (run) => {
+    const m = new Map();
+    for (const r of run.results) m.set(r.condition + "|" + r.op + "|" + r.payload + "|" + r.config, r);
+    return (cond, op, payload, config) => m.get(cond + "|" + op + "|" + payload + "|" + config);
+  };
+  const noteOf = (list) => {
+    const m = new Map();
+    for (const e of list || []) m.set(e.op + "|" + e.payload + "|" + e.config, e.reason);
+    return (op, payload, config) => m.get(op + "|" + payload + "|" + config);
+  };
+  const metricOf = (r, base) => {
+    switch (state.metric) {
+      case "speed": return base ? base.nsPerOp / r.nsPerOp : null;
+      case "time": return r.nsPerOp;
+      case "bytes": return r.bytesPerOp;
+      default: return r.allocsPerOp;
+    }
+  };
+  const label = (v, r, base) => {
+    const rel = base ? base.nsPerOp / r.nsPerOp : null;
+    switch (state.metric) {
+      case "speed": return [fmtX(v), fmtNs(r.nsPerOp), rel > 1.005];
+      case "time": return [fmtNs(v), rel ? fmtX(rel) : "", rel > 1.005];
+      case "bytes": return [fmtBytes(v), base && base.bytesPerOp ? fmtX(v / base.bytesPerOp) + " of the baseline" : "", false];
+      default: return [String(v), base && base.allocsPerOp ? fmtX(v / base.allocsPerOp) + " of the baseline" : "", false];
+    }
+  };
+
+  // bars draws the rows of a chart: rows are {config, value, text, sub, good, tip}; the scale is the largest value.
+  const bars = (rows, opts) => {
+    const box = el("div", { class: "bars" });
+    const max = Math.max(...rows.map((r) => r.value || 0), opts.one ? 1 : 0) || 1;
+    let separated = false;
+    for (const r of rows) {
+      const c = configs[r.config];
+      if (r.differs && !separated) {
+        separated = true;
+        box.append(el("div", { class: "sep" }, "Behave differently from the category ( † ): not the same work"));
+      }
+      const lab = el("div", { class: "label" + (r.base ? " base" : "") + (r.differs ? " differs" : ""), title: c.setting },
+        el("span", { class: "dot", style: "background:" + color(c.library) }), c.title + (r.differs ? " †" : ""));
+      const track = el("div", { class: "track" });
+      if (r.value == null) {
+        track.append(el("span", { class: "value muted", style: "left:0" }, r.missing || "not measured"));
+      } else {
+        const scale = opts.scale || 0.78;
+        const w = 100 * r.value / max * scale;
+        const bar = el("div", { class: "bar" + (r.differs ? " differs" : ""), style: "width:" + w + "%;background-color:" + color(c.library) });
+        bar.dataset.tip = r.tip;
+        const val = el("span", { class: "value", style: "left:calc(" + w + "% + 6px)" }, r.text,
+          r.mark ? el("span", { class: "mark" }, " ‡") : null,
+          r.sub ? el("span", { class: "x" + (r.good ? " good" : "") }, r.sub) : null);
+        val.dataset.tip = r.tip;
+        track.append(bar, val);
+        if (opts.one) track.append(el("div", { class: "one", style: "left:" + (100 / max * scale) + "%" }));
+      }
+      box.append(lab, track);
+    }
+    return box;
+  };
+
+  const categories = document.getElementById("categories");
+  const update = () => {
+    writeHash();
+    document.querySelectorAll(".seg").forEach((seg) => {
+      for (const b of seg.children) b.setAttribute("aria-pressed", String(b.dataset.value === String(state[seg.dataset.key])));
+    });
+    const run = D.runs[state.run];
+    const cond = D.conditions.find((c) => c.id === state.cond);
+    const feats = run.features && run.features.length ? run.features.join(", ") : "unknown";
+    const avx512 = run.arch === "amd64" ? (run.features || []).some((f) => f.startsWith("AVX-512")) ? "" : " · no AVX-512" : "";
+    document.getElementById("machine").textContent = run.cpu + " ( " + feats + avx512 + " ) · " + run.goos + "/" + run.arch + " · " + run.rounds + " rounds of " + run.benchTime + ", median";
+    document.getElementById("condition").textContent = cond.title + ": " + cond.description + " " + METRICS[state.metric].title + " is " + METRICS[state.metric].note + ".";
+    const result = resultsOf(run);
+    const difference = noteOf(run.differences);
+    const exclusion = noteOf(run.exclusions);
+    categories.replaceChildren();
+    for (const cat of D.categories) {
+      const cfgs = D.configs.filter((c) => c.category === cat.id && run.results.some((r) => r.config === c.id && r.op === state.op));
+      if (!cfgs.length) continue;
+      // the configurations which behave as the category requires first
+      const differs = (id) => !!run.differs[id];
+      cfgs.sort((a, b) => differs(a.id) - differs(b.id));
+      const sec = el("section", { class: "category" });
+      sec.append(el("h2", {}, cat.title), el("p", {}, cat.description));
+      if (cat.requires && cat.requires.length) {
+        sec.append(el("details", { class: "requires" }, el("summary", {}, "What the category requires, checked on every run"),
+          el("ul", {}, cat.requires.map((d) => el("li", {}, d)))));
+      }
+
+      // overview: the geometric mean over the payloads, relative to the baseline
+      const ov = el("div", { class: "overview" });
+      const lower = state.metric !== "speed" && state.metric !== "time";
+      ov.append(el("h3", {}, OPS[state.op] + " · geometric mean over the payloads · " +
+        (lower ? METRICS[state.metric].title.toLowerCase() + " relative to " + configs[cat.baseline].title + ", lower is better" : "speed relative to " + configs[cat.baseline].title + ", higher is faster")));
+      const ovRows = cfgs.map((c) => {
+        let s = 0, n = 0;
+        for (const p of payloads) {
+          const r = result(state.cond, state.op, p.id, c.id), b = result(state.cond, state.op, p.id, cat.baseline);
+          if (!r || !b) continue;
+          const x = lower ? (state.metric === "bytes" ? r.bytesPerOp / b.bytesPerOp : r.allocsPerOp / b.allocsPerOp) : b.nsPerOp / r.nsPerOp;
+          if (!isFinite(x) || x <= 0) continue;
+          s += Math.log(x); n++;
+        }
+        const v = n ? Math.exp(s / n) : null;
+        return { config: c.id, value: v, text: v ? fmtX(v) : "", base: c.id === cat.baseline, differs: differs(c.id),
+          good: !lower && v > 1.005, tip: c.title + " ( " + c.setting + " ): " + (v ? fmtX(v) : "") + " over " + n + " payloads" };
+      });
+      ov.append(bars(ovRows, { one: true }));
+      sec.append(ov);
+
+      // one chart for each payload
+      const grid = el("div", { class: "grid" });
+      for (const p of payloads) {
+        const base = result(state.cond, state.op, p.id, cat.baseline);
+        const rows = cfgs.map((c) => {
+          const r = result(state.cond, state.op, p.id, c.id);
+          if (!r) return { config: c.id, value: null, missing: exclusion(state.op, p.id, c.id) ? "fails: " + exclusion(state.op, p.id, c.id) : "not measured", differs: differs(c.id) };
+          const v = metricOf(r, base);
+          const [text] = label(v, r, base);
+          const diff = difference(state.op, p.id, c.id);
+          return { config: c.id, value: v, text, base: c.id === cat.baseline, differs: differs(c.id), mark: !!diff,
+            tip: c.title + ": " + fmtNs(r.nsPerOp) + "/op" + (base ? " ( " + fmtX(base.nsPerOp / r.nsPerOp) + " the speed of " + configs[cat.baseline].title + " )" : "") +
+              ", " + fmtBytes(r.bytesPerOp) + "/op, " + r.allocsPerOp + " allocs/op" + (diff ? " · ‡ " + diff : "") };
+        });
+        grid.append(el("div", { class: "card" }, el("h4", {}, p.title), el("p", { class: "sub" }, p.description + " " + fmtBytes(p.bytes) + " of JSON."),
+          bars(rows, { one: state.metric === "speed", scale: 0.62 })));
+      }
+      sec.append(grid);
+
+      // what differs
+      const notes = [];
+      for (const c of cfgs) {
+        if (differs(c.id)) notes.push(el("li", {}, el("span", { class: "mark" }, "† "), c.title + " ( " + c.setting + " ): " +
+          run.differs[c.id].map((f) => f.description.replace(/\.$/, "") + " — " + f.detail).join("; ")));
+      }
+      for (const c of cfgs) {
+        const sk = run.skips[c.id];
+        if (sk && sk.length) notes.push(el("li", {}, c.title + " ( " + c.setting + " ) differs from encoding/json: " +
+          sk.map((f) => f.description.replace(/\.$/, "") + " — " + f.detail).join("; ")));
+      }
+      for (const c of cfgs) for (const p of payloads) {
+        const d = difference(state.op, p.id, c.id);
+        if (d) notes.push(el("li", {}, el("span", { class: "mark" }, "‡ "), c.title + " on " + p.title + ": " + d));
+      }
+      if (notes.length) sec.append(el("ul", { class: "notes" }, notes));
+
+      // the numbers
+      const table = el("table");
+      table.append(el("tr", {}, el("th", {}, "Library"), payloads.map((p) => el("th", {}, p.title))));
+      for (const c of cfgs) {
+        table.append(el("tr", {}, el("td", {}, c.title + (differs(c.id) ? " †" : "")), payloads.map((p) => {
+          const r = result(state.cond, state.op, p.id, c.id);
+          return el("td", {}, r ? fmtNs(r.nsPerOp) + " · " + fmtBytes(r.bytesPerOp) + " · " + r.allocsPerOp : "–");
+        })));
+      }
+      sec.append(el("details", { class: "numbers" }, el("summary", {}, "The numbers ( time · memory · allocations per operation )"), el("div", { class: "scroll" }, table)));
+      categories.append(sec);
+    }
+  };
+
+  // the probes, of the first machine
+  const probes = document.getElementById("probes");
+  const probed = D.configs.filter((c) => D.probes.some((p) => p.results[c.id]));
+  probes.append(el("tr", {}, el("th", {}, "Probe"), probed.map((c) => el("th", { title: c.setting }, c.title, el("br"), el("span", { class: "muted small" }, D.categories.find((k) => k.id === c.category).id)))));
+  for (const p of D.probes) {
+    probes.append(el("tr", {}, el("td", {}, p.description), probed.map((c) => {
+      const r = p.results[c.id];
+      if (!r) return el("td", { class: "na" }, "–");
+      const td = el("td", { class: r.passed ? "pass" : (r.required ? "fail" : "na") }, r.passed ? "✓" : (r.required ? "✗" : "✗ not required"));
+      if (r.detail) td.dataset.tip = r.detail;
+      return td;
+    })));
+  }
+
+  // how to verify
+  document.getElementById("verify-cmd").textContent = D.runs.map((r) => "gh attestation verify " + r.file + " --repo " + (D.repository || "goccy/go-json")).join("\n");
+  const raw = document.getElementById("raw");
+  raw.append("Raw results: ");
+  D.runs.forEach((r, i) => { if (i) raw.append(" · "); raw.append(el("a", { href: r.file }, r.file)); });
+
+  readHash();
+  window.addEventListener("hashchange", () => { readHash(); update(); });
+  update();
+})();
+</script>
+</body>
+</html>

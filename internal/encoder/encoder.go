@@ -342,6 +342,9 @@ type MapContext struct {
 	Order    []int32
 	prefixes []uint64 // the first bytes of the keys as numbers, while they are sorted
 	Sorted   bool
+	// ScalarRuns is whether the entries of a sorted map whose values are scalars are written by one call of
+	// the VM, the values of the map being scalars or of interface{}.
+	ScalarRuns bool
 	Len      int
 	Idx      int
 	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
@@ -370,9 +373,15 @@ func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx.Buf = ctx.Buf[:0]
 	ctx.Idx = 0
 	ctx.Sorted = false
+	ctx.ScalarRuns = false
 	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
 	ctx.Slice.Items = nil
 	return ctx
+}
+
+// ScalarValue is whether the values of the map are written by one opcode of a scalar ( MapLayout.ScalarValue ).
+func (c *MapContext) ScalarValue() bool {
+	return c.layout.ScalarValue
 }
 
 // SortByEncodedKeys makes the context put the entries in the order of their encoded keys, for a sorted map

@@ -48,13 +48,32 @@ func (c *byteClass) has(src []byte) bool {
 }
 
 // rewrittenByCompact are the bytes, with the control characters, which compact rewrites or which are not valid:
-// the characters escaped for HTML if the option is set. U+2028 and U+2029, which compact escapes then too, are
-// looked for by the walk of the strings ( see quoteEnd ), since the bytes which start them start other
-// characters too.
-var rewrittenByCompact = [2]*byteClass{
-	newByteClass(),
-	newByteClass('<', '>', '&'),
-}
+// the characters escaped for HTML if the option is set. lookedAtByCompact are those and the bytes which make the
+// walk of the strings look at them carefully: an escape, whose sequence is validated, and the first byte of
+// U+2028 and U+2029, which compact escapes for HTML too, and which starts other characters as well. Most of the
+// outputs have none of them, and their strings are walked to the next quote at once.
+var (
+	rewrittenByCompact = [2]*byteClass{
+		newByteClass(),
+		newByteClass('<', '>', '&'),
+	}
+	lookedAtByCompact = [2]*byteClass{
+		newByteClass('\\'),
+		newByteClass('\\', '<', '>', '&', 0xe2),
+	}
+)
+
+// stringsOfCompact is what the walk of the strings of an output looks for ( see quoteEnd ).
+type stringsOfCompact int
+
+const (
+	// plainStrings have no escape, and no U+2028 or U+2029 which compact escapes: a string ends at the next quote.
+	plainStrings stringsOfCompact = iota
+	// escapedStrings may have escapes, which are validated.
+	escapedStrings
+	// escapedHTMLStrings may have escapes, and U+2028 or U+2029, which compact escapes for HTML.
+	escapedHTMLStrings
+)
 
 // maxDepthOfCompactCheck is the nesting up to which the output is checked here: a deeper one is compacted.
 const maxDepthOfCompactCheck = 64
@@ -65,22 +84,29 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 	if len(src) == 0 {
 		return dst, false
 	}
-	class := rewrittenByCompact[0]
+	option := 0
 	if escape {
-		class = rewrittenByCompact[1]
+		option = 1
 	}
-	if class.has(src) {
-		return dst, false
+	strs := plainStrings
+	if lookedAtByCompact[option].has(src) {
+		if rewrittenByCompact[option].has(src) {
+			return dst, false
+		}
+		strs = escapedStrings
+		if escape {
+			strs = escapedHTMLStrings
+		}
 	}
-	if !isCompactJSON(src, escape) {
+	if !isCompactJSON(src, strs) {
 		return dst, false
 	}
 	return append(dst, src...), true
 }
 
-// isCompactJSON is whether src, which has no control character, is valid JSON without a byte to remove, and
-// without U+2028 and U+2029 if escape is set.
-func isCompactJSON(src []byte, escape bool) bool {
+// isCompactJSON is whether src, which has no control character, is valid JSON without a byte to remove, whose
+// strings are walked as strs tells.
+func isCompactJSON(src []byte, strs stringsOfCompact) bool {
 	var stack [maxDepthOfCompactCheck]byte // the closing brackets of the values being read
 	depth := 0
 	n := len(src)
@@ -92,7 +118,11 @@ func isCompactJSON(src []byte, escape bool) bool {
 		}
 		switch c := src[i]; {
 		case c == '"':
-			i = quoteEnd(src, i+1, escape)
+			if strs == plainStrings {
+				i = quoteEnd(src, i+1)
+			} else {
+				i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+			}
 			if i < 0 {
 				return false
 			}
@@ -112,7 +142,11 @@ func isCompactJSON(src []byte, escape bool) bool {
 			if i >= n || src[i] != '"' {
 				return false
 			}
-			i = quoteEnd(src, i+1, escape)
+			if strs == plainStrings {
+				i = quoteEnd(src, i+1)
+			} else {
+				i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+			}
 			if i < 0 {
 				return false
 			}
@@ -174,7 +208,11 @@ func isCompactJSON(src []byte, escape bool) bool {
 					if i >= n || src[i] != '"' {
 						return false
 					}
-					i = quoteEnd(src, i+1, escape)
+					if strs == plainStrings {
+						i = quoteEnd(src, i+1)
+					} else {
+						i = escapedQuoteEnd(src, i+1, strs == escapedHTMLStrings)
+					}
 					if i < 0 {
 						return false
 					}
@@ -195,11 +233,29 @@ func isCompactJSON(src []byte, escape bool) bool {
 	}
 }
 
-// quoteEnd returns the index after the quote which ends the string whose content starts at i, or -1 if the
-// string has an invalid escape, has U+2028 or U+2029 if escape is set, or does not end. Most of the strings are
-// short, so the quote, a backslash and the byte which starts U+2028 and U+2029 are looked for by words here, not
-// by a call.
-func quoteEnd(src []byte, i int, escape bool) int {
+// quoteEnd returns the index after the quote which ends the string whose content starts at i, or -1.
+// The string has no escape, so the quote is the next one. Most of the strings are short, so the quote is
+// looked for by words here, not by a call.
+func quoteEnd(src []byte, i int) int {
+	n := len(src)
+	p := unsafe.Pointer(unsafe.SliceData(src))
+	for ; i+8 <= n; i += 8 {
+		w := *(*uint64)(unsafe.Add(p, i)) ^ (lsb * '"')
+		if mask := (w - lsb) &^ w & msb; mask != 0 {
+			return i + bits.TrailingZeros64(mask)/8 + 1
+		}
+	}
+	for ; i < n; i++ {
+		if src[i] == '"' {
+			return i + 1
+		}
+	}
+	return -1
+}
+
+// escapedQuoteEnd is quoteEnd for a string which may have escapes, which are validated, and U+2028 or U+2029 if
+// html is set, for which it returns -1 as for an invalid escape: compact escapes them.
+func escapedQuoteEnd(src []byte, i int, html bool) int {
 	n := len(src)
 	p := unsafe.Pointer(unsafe.SliceData(src))
 	for {
@@ -209,7 +265,7 @@ func quoteEnd(src []byte, i int, escape bool) int {
 			b := w ^ (lsb * '\\')
 			// the lowest bit of the mask of each byte is exact, so the lowest one of all is.
 			mask := ((q - lsb) &^ q) | ((b - lsb) &^ b)
-			if escape {
+			if html {
 				e := w ^ (lsb * 0xe2)
 				mask |= (e - lsb) &^ e
 			}
@@ -219,7 +275,7 @@ func quoteEnd(src []byte, i int, escape bool) int {
 			}
 		}
 		for ; i < n; i++ {
-			if c := src[i]; c == '"' || c == '\\' || (escape && c == 0xe2) {
+			if c := src[i]; c == '"' || c == '\\' || (html && c == 0xe2) {
 				break
 			}
 		}

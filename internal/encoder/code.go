@@ -423,6 +423,9 @@ type StructCode struct {
 	isRecursive               bool
 	// isHiddenByItself is whether the struct is a recursive one embedded in itself, which has nothing to write.
 	isHiddenByItself bool
+	// fieldQuery is the query which the fields of a recursive struct are filtered by: the code which is jumped
+	// to is filtered by it when the recursive codes are linked.
+	fieldQuery *FieldQuery
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -492,6 +495,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
 		recursive.Type = runtime.TypePtr(c.typ)
+		recursive.FieldQuery = c.fieldQuery
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -598,6 +602,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true})
 		recursive.Type = runtime.TypePtr(c.typ)
+		recursive.FieldQuery = c.fieldQuery
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -678,6 +683,12 @@ func (c *StructCode) enableIndirect() {
 }
 
 func (c *StructCode) Filter(query *FieldQuery) Code {
+	if c.isRecursive {
+		// the code of a recursive struct is a jump: the code which is jumped to is filtered when it is linked.
+		filtered := *c
+		filtered.fieldQuery = query
+		return &filtered
+	}
 	fieldMap := map[string]*FieldQuery{}
 	for _, field := range query.Fields {
 		fieldMap[field.Name] = field

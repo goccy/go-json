@@ -140,3 +140,34 @@ func TestAppendEscapedSIMD(t *testing.T) {
 		check(b.String())
 	}
 }
+
+func TestAppendHTMLEscapedSIMD(t *testing.T) {
+	// The output of a marshaler is escaped for HTML the same with the loop of the escapes by SIMD as without it,
+	// with the characters to escape and the other characters which start as U+2028 and U+2029 do anywhere.
+	if !runtime.HasAVX2 {
+		t.Skip("AVX2 is not supported")
+	}
+	defer func() { hasEscapeLoop = true }()
+	r := rand.New(rand.NewSource(1))
+	pieces := []string{"<", ">", "&", "\u2028", "\u2029", "\u2027", "—", "“", "\xe2", "\xe2\x80", "é", "\\n", "\\\""}
+	for n := 0; n < 3000; n++ {
+		var b strings.Builder
+		b.WriteByte('"')
+		for k := r.Intn(n%400 + 1); k > 0; k-- {
+			if r.Intn(8) == 0 {
+				b.WriteString(pieces[r.Intn(len(pieces))])
+			} else {
+				b.WriteByte(byte('a' + r.Intn(26)))
+			}
+		}
+		b.WriteByte('"')
+		src := []byte(b.String())
+		hasEscapeLoop = false
+		want := appendHTMLEscaped([]byte("prefix"), src)
+		hasEscapeLoop = true
+		got := appendHTMLEscaped([]byte("prefix"), src)
+		if string(got) != string(want) {
+			t.Fatalf("%q:\n got %q\nwant %q", src, got, want)
+		}
+	}
+}

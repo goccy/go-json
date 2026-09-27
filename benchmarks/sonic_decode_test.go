@@ -17,7 +17,8 @@ import (
 // validating them, decoding the input as a string ( UnmarshalFromString ), which sonic doesn't copy, while
 // Unmarshal copies the bytes it is given into a string first. Its strings refer to the input, as the ones of
 // sonic do by default. GoJsonUnmarshalOfNoCopyString is go-json at its fastest: UnmarshalOf, with the strings
-// referring to the input ( DecodeNoCopyString ).
+// referring to the input ( DecodeNoCopyString ). SonicFastestValidating is SonicFastest with the checks of
+// go-json ( see sonicFastestValidating ), which is the one to compare it with.
 //
 // Sonic has two decoders on amd64, the JIT one and the one of SONIC_USE_OPTDEC=1, which the environment chooses
 // for the process: the comparison is run with both ( see the CI ).
@@ -129,13 +130,29 @@ func Benchmark_Decode_TwitterGeneric_Unmarshal_SonicStd(b *testing.B) {
 // benchDecodeSonicFastest decodes the data by sonic at its fastest: the data is made a string once, outside of
 // the loop, as a program which has the input as a string does.
 func benchDecodeSonicFastest[T any](b *testing.B, data []byte) {
+	benchDecodeSonicString[T](b, sonic.ConfigFastest, data)
+}
+
+// sonicFastestValidating is sonic at its fastest with the checks which encoding/json and go-json do: the values
+// which are skipped are validated ( NoValidateJSONSkip is not set ), and so are the strings ( ValidateString: a
+// control character is an error, and invalid UTF-8 is replaced ). Its strings refer to the input, as the ones of
+// GoJsonUnmarshalOfNoCopyString, which does the same checks.
+var sonicFastestValidating = sonic.Config{ValidateString: true}.Froze()
+
+// benchDecodeSonicFastestValidating decodes the data as benchDecodeSonicFastest does, with the checks of go-json.
+func benchDecodeSonicFastestValidating[T any](b *testing.B, data []byte) {
+	benchDecodeSonicString[T](b, sonicFastestValidating, data)
+}
+
+// benchDecodeSonicString decodes the data by api from a string, which is made once, outside of the loop.
+func benchDecodeSonicString[T any](b *testing.B, api sonic.API, data []byte) {
 	s := string(data)
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var v T
-		if err := sonic.ConfigFastest.UnmarshalFromString(s, &v); err != nil {
+		if err := api.UnmarshalFromString(s, &v); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -159,14 +176,29 @@ func Benchmark_Decode_SmallStruct_Unmarshal_SonicFastest(b *testing.B) {
 	benchDecodeSonicFastest[SmallPayload](b, SmallFixture)
 }
 
+func Benchmark_Decode_SmallStruct_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[SmallPayload](b, SmallFixture)
+}
+
 func Benchmark_Decode_MediumStruct_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeSonicFastest[MediumPayload](b, MediumFixture)
 }
 
+func Benchmark_Decode_MediumStruct_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[MediumPayload](b, MediumFixture)
+}
+
 func Benchmark_Decode_LargeStruct_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeSonicFastest[LargePayload](b, LargeFixture)
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[LargePayload](b, LargeFixture)
 }
 
 func Benchmark_Decode_TwitterBinding_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
@@ -178,7 +210,17 @@ func Benchmark_Decode_TwitterBinding_Unmarshal_SonicFastest(b *testing.B) {
 	benchDecodeSonicFastest[TwitterStruct](b, []byte(TwitterJson))
 }
 
+func Benchmark_Decode_TwitterBinding_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[TwitterStruct](b, []byte(TwitterJson))
+}
+
 func Benchmark_Decode_TwitterGeneric_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeSonicFastest[any](b, []byte(TwitterJson))
+}
+
+func Benchmark_Decode_TwitterGeneric_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[any](b, []byte(TwitterJson))
 }

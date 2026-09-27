@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math/bits"
@@ -110,6 +111,25 @@ func (d *stringDecoder) decodeByte(buf []byte, cursor int64) ([]byte, int64, err
 	return decodeLiteral(literal, info), next, nil
 }
 
+// unescapeLong returns the string of the literal, which has an escape and is too long for the arena: it is decoded
+// into the scratch bytes of the context, and copied, so that the bytes of the string are not zeroed before they are
+// written, and the buffer is not written.
+func (ctx *RuntimeContext) unescapeLong(literal []byte, info stringInfo) string {
+	if len(literal) > maxUnescapeScratchSize {
+		decoded := decodeLiteral(literal, info)
+		return unsafe.String(unsafe.SliceData(decoded), len(decoded))
+	}
+	if cap(ctx.unescaped) < len(literal) {
+		ctx.unescaped = make([]byte, len(literal))
+	}
+	n := unescapeTo(unsafe.Pointer(unsafe.SliceData(ctx.unescaped)), literal, info.firstEscape)
+	decoded := ctx.unescaped[:n]
+	if info.nonASCII && !utf8.Valid(decoded) {
+		return string(coerceUTF8(decoded))
+	}
+	return string(decoded)
+}
+
 // decodeLiteral decodes the escapes of the literal and replaces its invalid UTF-8, into a slice of its own if it
 // has any: the buffer is never written, so that it keeps the input, which is checked again for a syntax error
 // ( see Stream.decodeError ).
@@ -150,9 +170,7 @@ func (d *stringDecoder) decodeStringValue(ctx *RuntimeContext, cursor int64) (st
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
 	if info.firstEscape >= 0 {
-		// a long one into bytes of its own
-		decoded := decodeLiteral(literal, info)
-		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+		return ctx.unescapeLong(literal, info), next, true, nil
 	}
 	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }
@@ -203,9 +221,7 @@ func (d *stringDecoder) decodeString(ctx *RuntimeContext, cursor int64) (string,
 		return unsafe.String(unsafe.SliceData(decoded), n), next, true, nil
 	}
 	if info.firstEscape >= 0 {
-		// a long one into bytes of its own
-		decoded := decodeLiteral(literal, info)
-		return unsafe.String(unsafe.SliceData(decoded), len(decoded)), next, true, nil
+		return ctx.unescapeLong(literal, info), next, true, nil
 	}
 	return ctx.makeString(decodeLiteral(literal, info)), next, true, nil
 }
@@ -393,42 +409,57 @@ func unsafeAdd(ptr unsafe.Pointer, offset int) unsafe.Pointer {
 	return unsafe.Add(ptr, offset)
 }
 
-// unescapeTo decodes the escapes of the bytes of an escaped string into out, which may be the bytes themselves,
-// and returns the length of the result, which is at most the length of the bytes.
+// copyToBackslash copies the bytes from src up to the first backslash of the n bytes, or all of them, to dst, and
+// returns how many it copied: bytes.IndexByte and copy go by vectors. It is not inlined, so that unescapeTo keeps
+// its registers for the short runs, which most are.
+//
+//go:noinline
+func copyToBackslash(dst, src unsafe.Pointer, n int) int {
+	rest := unsafe.Slice((*byte)(src), n)
+	if i := bytes.IndexByte(rest, '\\'); i >= 0 {
+		n = i
+	}
+	copy(unsafe.Slice((*byte)(dst), n), rest[:n])
+	return n
+}
+
+// unescapeTo decodes the escapes of the bytes of an escaped string into out, which has room for as many bytes and
+// is not the bytes themselves, and returns the length of the result, which is at most the length of the bytes.
 //
 // first is the offset of the first backslash, which scanString found.
 func unescapeTo(out unsafe.Pointer, buf []byte, first int) int {
 	p := (*sliceHeader)(unsafe.Pointer(&buf)).data
 	end := unsafeAdd(p, len(buf))
-	if out != p {
-		// the bytes before the first escape, by words: a short string is not worth a call of memmove.
-		i := 0
-		for ; i+8 <= first; i += 8 {
-			*(*uint64)(unsafeAdd(out, i)) = *(*uint64)(unsafeAdd(p, i))
-		}
-		for ; i < first; i++ {
-			*(*byte)(unsafeAdd(out, i)) = *(*byte)(unsafeAdd(p, i))
-		}
+	// the bytes before the first escape, by words: a short string is not worth a call of memmove.
+	i := 0
+	for ; i+8 <= first; i += 8 {
+		*(*uint64)(unsafeAdd(out, i)) = *(*uint64)(unsafeAdd(p, i))
+	}
+	for ; i < first; i++ {
+		*(*byte)(unsafeAdd(out, i)) = *(*byte)(unsafeAdd(p, i))
 	}
 	src := unsafeAdd(p, first)
 	dst := unsafeAdd(out, first)
 	for src != end {
 		// The bytes up to the next backslash are copied eight at a time, from the words which are all in the
-		// string: a word is written only when it has no backslash, so that the string decoded in place, whose
-		// bytes are written before the ones read, is written over the bytes already read only. An escape which
-		// follows another one is decoded without a word.
-		for *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end) {
-			w := binary.LittleEndian.Uint64((*[8]byte)(src)[:])
-			if backslash := firstByteMask(w, '\\'); backslash != 0 {
-				n := bits.TrailingZeros64(backslash) / 8
-				for i := 0; i < n; i++ {
-					*(*byte)(unsafeAdd(dst, i)) = *(*byte)(unsafeAdd(src, i))
-				}
+		// string. A word is written whole, and the output goes on to its backslash: out has the length of buf, and
+		// is never ahead of the bytes read, so that a word written at dst ends before out does. A run longer than
+		// two words is looked through by bytes.IndexByte and moved by copy, which go by vectors.
+		for words := 0; *(*byte)(src) != '\\' && uintptr(src)+8 <= uintptr(end); words++ {
+			if words == 2 {
+				n := copyToBackslash(dst, src, int(uintptr(end)-uintptr(src)))
 				src = unsafeAdd(src, n)
 				dst = unsafeAdd(dst, n)
 				break
 			}
+			w := binary.LittleEndian.Uint64((*[8]byte)(src)[:])
 			binary.LittleEndian.PutUint64((*[8]byte)(dst)[:], w)
+			if backslash := firstByteMask(w, '\\'); backslash != 0 {
+				n := bits.TrailingZeros64(backslash) / 8
+				src = unsafeAdd(src, n)
+				dst = unsafeAdd(dst, n)
+				break
+			}
 			src = unsafeAdd(src, 8)
 			dst = unsafeAdd(dst, 8)
 		}

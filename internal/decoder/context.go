@@ -38,6 +38,9 @@ type RuntimeContext struct {
 	// arena is where the bytes of the decoded strings are copied to. A string refers to a part of it which is
 	// never written again, so the arena is kept from a call to the next, as the slab of floats.
 	arena []byte
+	// unescaped is where an escaped string too long for the arena is decoded to before it is copied, which is kept
+	// from a call to the next up to maxUnescapeScratchSize ( see unescapeLong ).
+	unescaped []byte
 	// value is a zero value of the type valueType in the heap, which UnmarshalOf decodes into
 	// before it copies the result to the value of the caller.
 	valueType unsafe.Pointer
@@ -110,6 +113,9 @@ const (
 	// maxArenaStringSize is the length of the longest string which is copied to the arena:
 	// a longer one gets an allocation of its own, which it alone keeps alive.
 	maxArenaStringSize = 512
+	// maxUnescapeScratchSize is the length of the longest escaped string which is decoded into the scratch bytes of
+	// a context: a longer one is decoded into bytes of its own, which the context doesn't keep.
+	maxUnescapeScratchSize = 64 << 10
 )
 
 // inputPadding is the number of the bytes the buffer of the input has after its nul byte, which the decoders

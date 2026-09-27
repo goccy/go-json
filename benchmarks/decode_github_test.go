@@ -309,6 +309,11 @@ func Benchmark_Decode_GitHubREST_Unmarshal_SonicFastest(b *testing.B) {
 	benchDecodeSonicFastest[[]*GitHubIssue](b, githubRESTIssues)
 }
 
+func Benchmark_Decode_GitHubREST_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[[]*GitHubIssue](b, githubRESTIssues)
+}
+
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *testing.B) {
 	benchDecodeNoCopy[GitHubGraphQLIssues](b, githubGraphQLIssues)
 }
@@ -316,4 +321,9 @@ func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonUnmarshalOfNoCopyString(b *t
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicFastest(b *testing.B) {
 	pretouchSonic()
 	benchDecodeSonicFastest[GitHubGraphQLIssues](b, githubGraphQLIssues)
+}
+
+func Benchmark_Decode_GitHubGraphQL_Unmarshal_SonicFastestValidating(b *testing.B) {
+	pretouchSonic()
+	benchDecodeSonicFastestValidating[GitHubGraphQLIssues](b, githubGraphQLIssues)
 }

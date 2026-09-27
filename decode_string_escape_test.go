@@ -118,3 +118,49 @@ func TestDecodeSkippedStrings(t *testing.T) {
 		}
 	}
 }
+
+func TestDecodeEscapedStringRuns(t *testing.T) {
+	// A string with escapes between runs of every length, short ones and ones longer than the words which the
+	// escapes are decoded by, is decoded as encoding/json decodes it, in every mode of the strings.
+	escapes := []string{`\n`, `\"`, `\\`, `\/`, `\t`, `é`, `あ`, `😀`, `\ud83d`, `\u0000`}
+	r := rand.New(rand.NewSource(13))
+	for i := 0; i < 3000; i++ {
+		var b strings.Builder
+		b.WriteByte('"')
+		for n := r.Intn(8); n >= 0; n-- {
+			run := r.Intn(4)
+			switch run {
+			case 0:
+				run = r.Intn(8)
+			case 1:
+				run = 8 + r.Intn(16)
+			default:
+				run = r.Intn(200)
+			}
+			for j := 0; j < run; j++ {
+				b.WriteByte("abcdefghij é"[r.Intn(12)])
+			}
+			b.WriteString(escapes[r.Intn(len(escapes))])
+		}
+		b.WriteByte('"')
+		doc := b.String()
+		var want string
+		if err := stdjson.Unmarshal([]byte(doc), &want); err != nil {
+			t.Fatalf("encoding/json: %q: %v", doc, err)
+		}
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			var got string
+			if err := json.UnmarshalWithOption([]byte(doc), &got, opts...); err != nil || got != want {
+				t.Fatalf("%q: got %q, %v, want %q", doc, got, err, want)
+			}
+			var gotOf string
+			if err := json.UnmarshalOf([]byte(doc), &gotOf, opts...); err != nil || gotOf != want {
+				t.Fatalf("UnmarshalOf %q: got %q, %v, want %q", doc, gotOf, err, want)
+			}
+		}
+		var any1 any
+		if err := json.NewDecoder(strings.NewReader(doc)).Decode(&any1); err != nil || any1 != want {
+			t.Fatalf("Decode %q: got %q, %v, want %q", doc, any1, err, want)
+		}
+	}
+}

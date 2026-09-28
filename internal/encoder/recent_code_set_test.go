@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
 )
@@ -391,5 +392,104 @@ func TestRecentCodeSetsHoldTwoTypesOfASet(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+	}
+}
+
+// typesOfSet returns n types among recentTypes which are hashed to the same set of the recent opcodes, or to n
+// different sets.
+func typesOfSet(tb testing.TB, n int, sameSet bool) []uintptr {
+	tb.Helper()
+	bySet := map[uint64][]uintptr{}
+	var separate []uintptr
+	for _, v := range recentTypes {
+		typeptr := typeptrOf(v)
+		set := recentCodeSetIndex(typeptr)
+		bySet[set] = append(bySet[set], typeptr)
+		if sameSet && len(bySet[set]) == n {
+			return bySet[set]
+		}
+		if !sameSet && len(bySet[set]) == 1 {
+			if separate = append(separate, typeptr); len(separate) == n {
+				return separate
+			}
+		}
+	}
+	tb.Skipf("no %d types of the same set or of different sets in this binary", n)
+	return nil
+}
+
+// recentCodeSetOrVictim returns the opcodes of the type if the context has them in its set or in its victims.
+func (c *RuntimeContext) recentCodeSetOrVictim(typeptr uintptr) *OpcodeSet {
+	if codeSet := c.RecentCodeSet(typeptr); codeSet != nil {
+		return codeSet
+	}
+	for _, v := range c.recentVictims {
+		if v.typeptr == typeptr {
+			return v.codeSet
+		}
+	}
+	return nil
+}
+
+// The types encoded by turns are found in the context, not in the shared table, whatever sets they are of, as
+// long as there are no more of them than the two of a set and the victims.
+func TestRecentCodeSetsKeepTheTypesOfASetInTheVictims(t *testing.T) {
+	for n := 3; n <= recentCodeSetWays+recentCodeSetVictims; n++ {
+		typeptrs := typesOfSet(t, n, true)
+		ctx := TakeRuntimeContext()
+		for round := 0; round < 3; round++ {
+			for _, typeptr := range typeptrs {
+				if round > 0 && ctx.recentCodeSetOrVictim(typeptr) == nil {
+					t.Fatalf("%d types of a set: type %#x is not in the context", n, typeptr)
+				}
+				if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		ReleaseRuntimeContext(ctx)
+	}
+}
+
+// BenchmarkRecentCodeSetsByTurns looks up the opcodes of types by turns as the values of interface{} are: in the
+// context, then in the shared table. The types are of one set, which is where the binary has them, or of
+// different sets.
+func BenchmarkRecentCodeSetsByTurns(b *testing.B) {
+	for _, c := range []struct {
+		n       int
+		sameSet bool
+		// many: the first n types of recentTypes, over the sets as the binary has them.
+		many bool
+	}{{2, true, false}, {3, true, false}, {4, true, false}, {6, true, false}, {7, true, false}, {6, false, false},
+		{12, false, true}, {24, false, true}, {48, false, true}} {
+		name := fmt.Sprintf("%d types of different sets", c.n)
+		if c.sameSet {
+			name = fmt.Sprintf("%d types of one set", c.n)
+		}
+		if c.many {
+			name = fmt.Sprintf("%d types", c.n)
+		}
+		b.Run(name, func(b *testing.B) {
+			var typeptrs []uintptr
+			if c.many {
+				for _, v := range recentTypes[:c.n] {
+					typeptrs = append(typeptrs, typeptrOf(v))
+				}
+			} else {
+				typeptrs = typesOfSet(b, c.n, c.sameSet)
+			}
+			ctx := TakeRuntimeContext()
+			defer ReleaseRuntimeContext(ctx)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				for _, typeptr := range typeptrs {
+					if ctx.RecentCodeSet(typeptr) == nil {
+						if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {
+							b.Fatal(err)
+						}
+					}
+				}
+			}
+		})
 	}
 }

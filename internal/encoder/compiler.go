@@ -14,25 +14,67 @@ import (
 )
 
 // CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new.
+//
+// A lookup which misses the set of the type in the context comes here for every value of interface{} of a type
+// which its set doesn't hold, so this path makes as few calls as it can: the shared table is looked up here, and
+// only the compilation of a new type and the filter of a field query are calls.
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
-	key := ctx.codeSetKey(typeptr)
-	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
-	for i := range set {
-		if set[i].typeptr == key {
-			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
+	return ctx.missedCodeSet(typeptr)
+}
+
+// missedCodeSet is CompileToGetCodeSet for a type which RecentCodeSet doesn't find: it is a function of its own,
+// so that the lookups which hit, the type passed to every Marshal, don't pay for the frame of this one.
+//
+//go:noinline
+func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
+	key := c.codeSetKey(typeptr)
+	set := &c.recentCodeSets[recentCodeSetIndex(key)]
+	withContext := c.Option.Flag&ContextOption != 0
+	if withContext {
+		// RecentCodeSet doesn't look with a context, whose field query may filter the fields.
+		for i := range set {
+			if set[i].typeptr == key {
+				return getFilteredCodeSetIfNeeded(c, set[i].codeSet)
+			}
 		}
 	}
-	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
-	if err != nil {
-		return nil, err
+	// a type evicted from its set stays where it is: a type of a set encoded by turns with two others would
+	// evict one of them again if it took its entry back.
+	for i := range c.recentVictims {
+		if c.recentVictims[i].typeptr == key {
+			if withContext {
+				return getFilteredCodeSetIfNeeded(c, c.recentVictims[i].codeSet)
+			}
+			return c.recentVictims[i].codeSet, nil
+		}
 	}
-	// the type takes the first entry of its set, and the one encoded before it is kept in the second.
-	copy(set[1:], set[:])
+	optimizeFieldOrder := c.Option.Flag&OptimizeFieldOrderOption != 0
+	cache := &cachedOpcodeSets
+	if optimizeFieldOrder {
+		cache = &cachedOptimizedOpcodeSets
+	}
+	codeSet := cache.Load(typeptr)
+	if codeSet == nil {
+		var err error
+		if codeSet, err = compileToStoreCodeSet(cache, typeptr, optimizeFieldOrder); err != nil {
+			return nil, err
+		}
+	}
+	// the type takes the first entry of its set, the one encoded before it is kept in the second, and the one
+	// in the second is kept in the victims, in the place of the one evicted the earliest.
+	if evicted := set[len(set)-1]; evicted.codeSet != nil {
+		c.recentVictims[c.recentVictimNext%recentCodeSetVictims] = evicted
+		c.recentVictimNext++
+	}
+	set[1] = set[0]
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
-	return getFilteredCodeSetIfNeeded(ctx, codeSet)
+	if withContext {
+		return getFilteredCodeSetIfNeeded(c, codeSet)
+	}
+	return codeSet, nil
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose
@@ -75,6 +117,11 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*O
 	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
+	return compileToStoreCodeSet(cache, typeptr, optimizeFieldOrder)
+}
+
+// compileToStoreCodeSet compiles the opcodes of a type which the shared table doesn't have, and stores them.
+func compileToStoreCodeSet(cache *runtime.TypeCache[OpcodeSet], typeptr uintptr, optimizeFieldOrder bool) (*OpcodeSet, error) {
 	codeSet, err := newCompiler(optimizeFieldOrder).compile(typeptr)
 	if err != nil {
 		return nil, err

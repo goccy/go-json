@@ -110,9 +110,19 @@ const (
 	// of interface{}, never evict each other then, whatever their addresses are. With one entry per set,
 	// they did whenever their addresses hashed to the same entry, which depends on where the binary has the
 	// types, and every Marshal of them cost two lookups of the table shared by every goroutine: 20% of the
-	// encoding of a small value, present or absent by the build. Three types of a set encoded by turns still
-	// evict each other, which costs those lookups, not the result.
+	// encoding of a small value, present or absent by the build. A third type of a set is kept in the victims.
 	recentCodeSetWays = 2
+	// recentCodeSetVictims is the number of the types evicted from their sets which a context keeps, in the
+	// order they were evicted: a lookup which misses its set looks at them before the shared table. The types
+	// encoded by turns are then found in the context whatever sets they are of, as long as there are no more of
+	// them than the two of a set and these: six, the type passed to Marshal and the five kinds of the values of
+	// interface{} of a JSON document, an object, an array, a string, a number and a boolean. Which types share a
+	// set depends on where the binary has them, which any change of the program moves, and even the directory it
+	// is built in: without the victims, three of six types of a set cost map[string]interface{} 10..20% on amd64.
+	// A lookup which misses them costs what it did without them, since the path of a miss has fewer calls
+	// ( see missedCodeSet ); by BenchmarkRecentCodeSetsByTurns on amd64, three to six types of a set cost a
+	// fifth of what they did, and 48 types by turns, more than the table holds, 5% less.
+	recentCodeSetVictims = 4
 )
 
 type recentCodeSet struct {
@@ -153,6 +163,10 @@ type RuntimeContext struct {
 	topValue unsafe.Pointer
 	// recentCodeSets are the opcodes of the types encoded last, in the sets indexed by the address of the type.
 	recentCodeSets [recentCodeSetSets]recentCodeSetSet
+	// recentVictims are the types evicted from recentCodeSets last, and recentVictimNext is the next entry to
+	// be replaced.
+	recentVictims    [recentCodeSetVictims]recentCodeSet
+	recentVictimNext uint
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet

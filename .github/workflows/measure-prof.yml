@@ -1,4 +1,4 @@
-name: Measure report encode
+name: Profile report encode
 on:
   push:
     branches:
@@ -6,11 +6,10 @@ on:
 jobs:
   measure:
     name: Measure (${{ matrix.machine }})
-    if: false
     strategy:
       fail-fast: false
       matrix:
-        machine: [1, 2, 3]
+        machine: [1]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -24,4 +23,4 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: .github/measure/report_layouts.sh
+        run: .github/measure/prof_report.sh

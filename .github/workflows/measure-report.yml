@@ -25,4 +25,4 @@ jobs:
       - name: measure
         run: |
           lscpu | sed -n 's/^Model name: *//p' | head -1
-          .github/measure/final.sh
+          .github/measure/perf.sh

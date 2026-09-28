@@ -12,6 +12,10 @@ import (
 // most, is known: the text of AppendText quoted. It is written by AppendText, into the buffer, without the
 // allocation of the output. The other types of the standard library are called, and their outputs are not checked
 // ( see MarshalerCall.trusted ).
+//
+// time is the one package of the standard library which is imported for its types ( the others are found by their
+// paths, see runtime.IsStdMarshalerType ): it is linked into every program which uses go-json anyway, as context
+// imports it, and AppendText called directly costs less than called by its code, as a method found by reflect is.
 
 var (
 	timeType    = reflect.TypeOf(time.Time{})

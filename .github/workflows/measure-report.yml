@@ -23,4 +23,4 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: .github/measure/strings.sh
+        run: .github/measure/report_layouts.sh

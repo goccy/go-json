@@ -172,8 +172,10 @@ type (
 		S string
 		embeddedTimeAfter
 	}
-	embeddedAddr struct{ netip.Addr }
-	embeddedInt  struct{ *big.Int }
+	// embeddedThroughPointer embeds a pointer to a type which embeds time.Time.
+	embeddedThroughPointer struct{ *embeddedTime }
+	embeddedAddr           struct{ netip.Addr }
+	embeddedInt            struct{ *big.Int }
 )
 
 func TestEncodeEmbeddedStdMarshalers(t *testing.T) {
@@ -185,6 +187,8 @@ func TestEncodeEmbeddedStdMarshalers(t *testing.T) {
 		P   embeddedTimePointer
 		A   embeddedTimeAfter
 		Nst embeddedTimeNested
+		EP  embeddedThroughPointer
+		EPP *embeddedThroughPointer
 		Ad  embeddedAddr
 		Int embeddedInt
 		M   map[embeddedAddr]embeddedTime
@@ -193,14 +197,17 @@ func TestEncodeEmbeddedStdMarshalers(t *testing.T) {
 	}
 	v := fields{
 		T: embeddedTime{tm}, TP: &embeddedTime{tm}, P: embeddedTimePointer{&tm}, A: embeddedTimeAfter{1, tm},
-		Nst: embeddedTimeNested{"s", embeddedTimeAfter{2, tm}}, Ad: embeddedAddr{netip.MustParseAddr("fe80::1%eth0")},
+		Nst: embeddedTimeNested{"s", embeddedTimeAfter{2, tm}}, EP: embeddedThroughPointer{&embeddedTime{tm}},
+		EPP: &embeddedThroughPointer{&embeddedTime{tm}}, Ad: embeddedAddr{netip.MustParseAddr("fe80::1%eth0")},
 		Int: embeddedInt{big.NewInt(-12)}, M: map[embeddedAddr]embeddedTime{{netip.MustParseAddr("::1")}: {tm}},
 		S: []embeddedTimeNested{{"a", embeddedTimeAfter{3, tm}}}, Any: embeddedTimeAfter{4, tm},
 	}
-	checkStdEncoding(t, v, &v, embeddedTime{tm}, &embeddedTime{tm}, embeddedTimeNested{}, embeddedAddr{})
+	checkStdEncoding(t, v, &v, embeddedTime{tm}, &embeddedTime{tm}, embeddedTimeNested{}, embeddedAddr{},
+		embeddedThroughPointer{&embeddedTime{tm}}, &embeddedThroughPointer{&embeddedTime{tm}})
 	// the error of the marshaler of the embedded value is the one of the call.
 	late := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
-	for _, v := range []any{embeddedTime{late}, embeddedTimeNested{"s", embeddedTimeAfter{1, late}}, embeddedTimePointer{&late}} {
+	for _, v := range []any{embeddedTime{late}, embeddedTimeNested{"s", embeddedTimeAfter{1, late}}, embeddedTimePointer{&late},
+		embeddedThroughPointer{&embeddedTime{late}}} {
 		var marshalerErr *json.MarshalerError
 		if _, err := json.Marshal(v); !errors.As(err, &marshalerErr) {
 			t.Fatalf("%v: expected a MarshalerError but got %v", v, err)

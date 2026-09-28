@@ -27,6 +27,9 @@ type promotedTimeThroughPointer struct {
 	*promotedTimeAfterField
 }
 
+// promotedThroughEmbeddedPointer embeds a pointer to a type which embeds time.Time.
+type promotedThroughEmbeddedPointer struct{ *promotedTime }
+
 type promotedBigInt struct{ big.Int }
 
 type declaredOnValue struct{ time.Time }
@@ -76,6 +79,8 @@ func TestPromotedStdMethod(t *testing.T) {
 		{reflect.TypeOf(promotedTimeNested{}), "MarshalJSON", true, timeType, 24, true},
 		{reflect.TypeOf(promotedTimePointer{}), "MarshalJSON", true, reflect.PointerTo(timeType), 0, false},
 		{reflect.TypeOf(promotedTimeThroughPointer{}), "MarshalJSON", true, timeType, 16, false},
+		{reflect.TypeOf(promotedThroughEmbeddedPointer{}), "MarshalJSON", true, timeType, 0, false},
+		{reflect.TypeOf(&promotedThroughEmbeddedPointer{}), "MarshalJSON", true, timeType, 0, false},
 		{reflect.TypeOf(&promotedBigInt{}), "MarshalJSON", true, reflect.TypeOf(big.Int{}), 0, true},
 		{reflect.TypeOf(declaredOnValue{}), "MarshalJSON", false, nil, 0, false},
 		{reflect.TypeOf(&declaredOnValue{}), "MarshalJSON", false, nil, 0, false},

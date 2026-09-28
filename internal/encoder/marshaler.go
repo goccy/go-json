@@ -25,11 +25,15 @@ type MarshalerCall struct {
 	fn uintptr
 	// nilIsNull is whether a nil receiver is encoded as null without a call, which is so for a pointer.
 	nilIsNull bool
+	// trusted is whether the output of MarshalJSON is valid and compact, as the one of a type of the standard
+	// library is ( see runtime.IsStdMarshalerType ): it is not checked.
+	trusted bool
 	// recv is the type of the receiver, for an error.
 	recv reflect.Type
-	// appendOutput writes what the method of a type of the standard library returns without calling it, when
-	// that is known ( see stdMarshalerAppender ): the output of MarshalJSON, valid and compact, or the text of
-	// MarshalText. It returns false, and writes nothing, when the method is to be called, as for an error.
+	// appendOutput writes what the method of a type of the standard library returns without calling it, by the
+	// appending method of the type: the output of MarshalJSON, valid and compact ( see stdJSONAppender ), or the
+	// text of MarshalText, by AppendText. It returns false, and writes nothing, when the method is to be called,
+	// as for an error, which is then the one of the method.
 	appendOutput func(b []byte, recv unsafe.Pointer) ([]byte, bool)
 }
 
@@ -46,8 +50,28 @@ func (m *MarshalerCall) callContext(recv unsafe.Pointer, ctx context.Context) ([
 // newMarshalerCall returns the call of the method of the type of the receiver, which implements the interface.
 // It is decided when the type is compiled.
 func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
-	if !recv.Implements(iface) {
+	fn, ok := methodCode(recv, iface)
+	if !ok {
 		return nil
+	}
+	m := &MarshalerCall{fn: fn, nilIsNull: recv.Kind() == reflect.Ptr, recv: recv}
+	if runtime.IsStdMarshalerType(recv) {
+		switch iface {
+		case marshalJSONType:
+			m.trusted = true
+			m.appendOutput = stdJSONAppender(recv)
+		case marshalTextType:
+			m.appendOutput = textAppenderOf(recv)
+		}
+	}
+	return m
+}
+
+// methodCode returns the code of the method of the interface of the receiver type, which takes the data word of
+// the interface value.
+func methodCode(recv reflect.Type, iface reflect.Type) (uintptr, bool) {
+	if !recv.Implements(iface) {
+		return 0, false
 	}
 	holder := recv
 	if runtime.IfaceIndir(recv) {
@@ -56,12 +80,34 @@ func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
 	}
 	method, ok := holder.MethodByName(iface.Method(0).Name)
 	if !ok {
+		return 0, false
+	}
+	return method.Func.Pointer(), true
+}
+
+// textAppender is encoding.TextAppender, which is of Go 1.24: the types of the standard library have it from
+// that release on.
+type textAppender interface {
+	AppendText(b []byte) ([]byte, error)
+}
+
+var appendTextType = reflect.TypeOf((*textAppender)(nil)).Elem()
+
+// textAppenderOf returns the function which appends the text of a value of the type of the standard library by
+// AppendText, which appends what MarshalText returns, or nil if the type has no AppendText. AppendText fails
+// when MarshalText does: MarshalText is then called for its error.
+func textAppenderOf(recv reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bool) {
+	fn, ok := methodCode(recv, appendTextType)
+	if !ok {
 		return nil
 	}
-	return &MarshalerCall{
-		fn:           method.Func.Pointer(),
-		nilIsNull:    recv.Kind() == reflect.Ptr,
-		recv:         recv,
-		appendOutput: stdMarshalerAppender(recv, iface),
+	code := &fn // a func value is a pointer to its code, as MarshalerCall is
+	appendText := *(*func(unsafe.Pointer, []byte) ([]byte, error))(unsafe.Pointer(&code))
+	return func(b []byte, p unsafe.Pointer) ([]byte, bool) {
+		out, err := appendText(p, b)
+		if err != nil {
+			return b, false
+		}
+		return out, true
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-// stdMarshalerAppender returns nil: the appending methods of the types of the standard library are of Go 1.24.
-func stdMarshalerAppender(_, _ reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bool) {
+// stdJSONAppender returns nil: time.Time has AppendText from Go 1.24 on.
+func stdJSONAppender(_ reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bool) {
 	return nil
 }

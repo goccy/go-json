@@ -153,3 +153,48 @@ func BenchmarkDecodeRawMessage(b *testing.B) {
 		}
 	}
 }
+
+// A type which has the UnmarshalJSON of time.Time only by embedding it is given the bytes of the buffer, which the
+// method keeps nothing of: the values decoded from a stream, whose buffer is written again, are the ones of
+// encoding/json.
+func TestDecodeEmbeddedStdUnmarshalers(t *testing.T) {
+	type record struct {
+		T   embeddedTime
+		TP  *embeddedTime
+		A   embeddedTimeAfter
+		Nst embeddedTimeNested
+		Ad  embeddedAddr
+	}
+	input := func(i int) string {
+		ts := `"2026-09-28T01:02:03.` + strings.Repeat("1", 1+i%9) + `+09:00"`
+		return `{"T":` + ts + `,"TP":` + ts + `,"A":` + ts + `,"Nst":` + ts + `,"Ad":"2001:db8::` + strconv.Itoa(i) + `"}`
+	}
+	var stream strings.Builder
+	var wants []record
+	for i := 0; i < 50; i++ {
+		var want, got record
+		if err := stdjson.Unmarshal([]byte(input(i)), &want); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(input(i)), &got); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("value %d:\n got %+v\nwant %+v", i, got, want)
+		}
+		wants = append(wants, want)
+		stream.WriteString(input(i) + "\n")
+	}
+	dec := json.NewDecoder(strings.NewReader(stream.String()))
+	var fromStream []record
+	for {
+		var got record
+		if err := dec.Decode(&got); err != nil {
+			break
+		}
+		fromStream = append(fromStream, got)
+	}
+	if !reflect.DeepEqual(fromStream, wants) {
+		t.Fatal("the values decoded from the stream differ from the ones of encoding/json")
+	}
+}

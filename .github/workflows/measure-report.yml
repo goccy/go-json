@@ -1,0 +1,28 @@
+name: Measure variants
+on:
+  push:
+    branches:
+      - 'measure/**'
+jobs:
+  final:
+    name: Final (${{ matrix.machine }})
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: [1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: measure
+        run: |
+          lscpu | sed -n 's/^Model name: *//p' | head -1
+          .github/measure/final.sh

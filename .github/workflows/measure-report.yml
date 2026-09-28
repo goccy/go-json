@@ -1,11 +1,11 @@
-name: Measure variants
+name: Measure report encode
 on:
   push:
     branches:
       - 'measure/**'
 jobs:
-  final:
-    name: Final (${{ matrix.machine }})
+  measure:
+    name: Measure (${{ matrix.machine }})
     strategy:
       fail-fast: false
       matrix:
@@ -22,7 +22,21 @@ jobs:
           cache-dependency-path: |
             go.sum
             benchmarks/go.sum
-      - name: measure
+      - name: build
         run: |
           lscpu | sed -n 's/^Model name: *//p' | head -1
-          .github/measure/prof.sh
+          git worktree add ../master origin/master
+          git worktree add ../head origin/perf/encoder-string-escape
+          (cd ../master/benchmarks && go test -c -o /tmp/master.test .)
+          (cd ../head/benchmarks && go test -c -o /tmp/head.test .)
+      - name: measure
+        env:
+          BENCH_REPORT_ONLY: '^(std|fast|fastest|v2)/(go-json|sonic)/encode/'
+          BENCH_REPORT_ROUNDS: '1'
+        run: |
+          for round in 1 2 3 4 5; do
+            for ref in master head; do
+              (cd ../$ref/benchmarks && BENCH_REPORT_OUT=/tmp/$ref-$round.json /tmp/$ref.test -test.run '^TestReport$' -test.count=1 -test.timeout 60m -test.benchtime=100ms > /dev/null)
+            done
+          done
+          python3 .github/measure/table.py /tmp

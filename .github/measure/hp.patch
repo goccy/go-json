@@ -1,0 +1,292 @@
+diff --git a/internal/encoder/compiler.go b/internal/encoder/compiler.go
+index 130c159..28196b7 100644
+--- a/internal/encoder/compiler.go
++++ b/internal/encoder/compiler.go
+@@ -22,9 +22,34 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
+ 	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
+ 		return codeSet, nil
+ 	}
++	if ctx.Option.Flag&(ContextOption|OptimizeFieldOrderOption) == 0 {
++		// a type evicted from its set stays where it is: a type of a set encoded by turns with two others would
++		// evict one of them again if it took its entry back.
++		for i := range ctx.recentVictims {
++			if ctx.recentVictims[i].typeptr == typeptr {
++				return ctx.recentVictims[i].codeSet, nil
++			}
++		}
++		if codeSet := cachedOpcodeSets.Load(typeptr); codeSet != nil {
++			ctx.rememberCodeSet(typeptr, codeSet)
++			return codeSet, nil
++		}
++	}
+ 	return ctx.missedCodeSet(typeptr)
+ }
+ 
++// rememberCodeSet puts the opcodes of the type in the first entry of its set: the one encoded before it is kept in
++// the second, and the one in the second in the victims, in the place of the one evicted the earliest.
++func (c *RuntimeContext) rememberCodeSet(key uintptr, codeSet *OpcodeSet) {
++	set := &c.recentCodeSets[recentCodeSetIndex(key)]
++	if evicted := set[len(set)-1]; evicted.codeSet != nil {
++		c.recentVictims[c.recentVictimNext%recentCodeSetVictims] = evicted
++		c.recentVictimNext++
++	}
++	set[1] = set[0]
++	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
++}
++
+ // missedCodeSet is CompileToGetCodeSet for a type which RecentCodeSet doesn't find: it is a function of its own,
+ // so that the lookups which hit, the type passed to every Marshal, don't pay for the frame of this one.
+ //
+@@ -63,14 +88,7 @@ func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
+ 			return nil, err
+ 		}
+ 	}
+-	// the type takes the first entry of its set, the one encoded before it is kept in the second, and the one
+-	// in the second is kept in the victims, in the place of the one evicted the earliest.
+-	if evicted := set[len(set)-1]; evicted.codeSet != nil {
+-		c.recentVictims[c.recentVictimNext%recentCodeSetVictims] = evicted
+-		c.recentVictimNext++
+-	}
+-	set[1] = set[0]
+-	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
++	c.rememberCodeSet(key, codeSet)
+ 	if withContext {
+ 		return getFilteredCodeSetIfNeeded(c, codeSet)
+ 	}
+diff --git a/internal/runtime/type_cache.go b/internal/runtime/type_cache.go
+index 9f3934a..42845d6 100644
+--- a/internal/runtime/type_cache.go
++++ b/internal/runtime/type_cache.go
+@@ -9,117 +9,152 @@ import (
+ // TypeCache is a table of the values for the types, which is looked up by the address of a type
+ // without a lock.
+ //
+-// It is a hash table with open addressing. It used to be an array which had a slot for every address a type of
+-// the program can be at, which was found from the type links of the runtime: that needed a linkname, a scan of
+-// every type at the start, memory in proportion to the size of the program, and a fallback for the types which
+-// are not in the type links. A lookup of this table costs about the same, and it has none of them.
++// A lookup costs what the lookup of an array does: the table is buckets of a cache line, one of which a type is
++// hashed to, and the table keeps every type in its bucket, so a lookup reads the bucket and compares the types
++// in it, and nothing else. It is made larger when a type would have no room in its bucket, which happens only
++// when a type is stored: the types of a program are stored once each. The table used to be an array with a slot
++// for every address a type of the program can be at, found from the type links of the runtime, and then a hash
++// table with open addressing, whose lookup depended on where the other types were.
+ //
+ // The zero value is ready to use.
+ type TypeCache[T any] struct {
+-	table atomic.Pointer[typeTable[T]]
+-	// mu is for the writers. A value is stored only when a type is compiled.
+-	mu sync.Mutex
++	cache typeCache
+ }
+ 
+-type typeTable[T any] struct {
+-	entries []typeEntry[T]
+-	// shift makes an index of entries from the hash.
+-	shift uint
+-	// count is the number of the entries in use. It is guarded by TypeCache.mu.
+-	count int
++// Load returns the value for the type, or nil. It is inlined into the callers.
++func (c *TypeCache[T]) Load(typ uintptr) *T {
++	return (*T)(c.cache.load(typ))
+ }
+ 
+-// typeEntry is written once: the value, and then the type, which makes it visible.
+-type typeEntry[T any] struct {
+-	typ   atomic.Uintptr
+-	value atomic.Pointer[T]
++// Store sets the value for the type, and returns the value which the table has for the type:
++// it is the value which was stored first if the type was compiled by more than one goroutine at a time.
++func (c *TypeCache[T]) Store(typ uintptr, v *T) *T {
++	return (*T)(c.cache.store(typ, unsafe.Pointer(v)))
+ }
+ 
+-const (
+-	minTypeTableBits = 6
+-)
+-
+-// TypeHashMultiplier is the multiplier of the Fibonacci hashing of the address of a type: the top bits of the
+-// product spread the addresses, which are aligned and close to each other, over a table.
+-const TypeHashMultiplier = 0x9E3779B97F4A7C15
++// typeBucketSize is the number of the types of a bucket: the types and their values fill a cache line.
++const typeBucketSize = 4
+ 
+-func newTypeTable[T any](bits uint) *typeTable[T] {
+-	return &typeTable[T]{
+-		entries: make([]typeEntry[T], 1<<bits),
+-		shift:   64 - bits,
+-	}
++// typeBucket is the types of a bucket and their values. The values are words which the GC doesn't scan, as the
++// types are, so that the buckets cost the GC nothing however many they are: typeCache.refs keeps the values alive.
++type typeBucket struct {
++	types  [typeBucketSize]uintptr
++	values [typeBucketSize]uintptr
+ }
+ 
+-func (t *typeTable[T]) index(typ uintptr) uintptr {
+-	return uintptr((uint64(typ) * TypeHashMultiplier) >> t.shift)
++// typeCache is TypeCache for the values as pointers, so that its lookups are not generic code, which the compiler
++// doesn't inline.
++//
++// A table is never written after it is published: a type is stored by a new table with the type, which replaces
++// the table. So a lookup reads the table with one atomic load, of the word which has both the address of the
++// buckets and the shift which makes the index of a bucket from the hash, and the bucket with plain loads, which the
++// atomic load orders after the writes of the table: they cost what the loads of an array do. The buckets are
++// aligned to their size, a cache line, so the shift fits in the low bits of their address, and the word points
++// into the first bucket, which keeps the buckets alive.
++type typeCache struct {
++	table unsafe.Pointer // the first bucket plus the shift ( see tableWord ), read and written atomically
++	// mu is for the writers, and count is the number of the types and refs the values, which it guards.
++	mu    sync.Mutex
++	count int
++	refs  []unsafe.Pointer
+ }
+ 
+-// entry returns the entry of the index, which is always less than the length:
+-// the check of the bounds is not worth its cost on this path, which every Marshal and Unmarshal takes.
+-func (t *typeTable[T]) entry(index uintptr) *typeEntry[T] {
+-	return (*typeEntry[T])(unsafe.Add(unsafe.Pointer(unsafe.SliceData(t.entries)), index*unsafe.Sizeof(typeEntry[T]{})))
+-}
++// TypeHashMultiplier is the multiplier of the Fibonacci hashing of the address of a type: the top bits of the
++// product spread the addresses, which are aligned and close to each other, over a table.
++const TypeHashMultiplier = 0x9E3779B97F4A7C15
+ 
+-// Load returns the value for the type, or nil.
+-func (c *TypeCache[T]) Load(typ uintptr) *T {
+-	t := c.table.Load()
+-	if t == nil {
++// minTypeBucketBits is the log2 of the number of the buckets of a new table.
++const minTypeBucketBits = 4
++
++func (c *typeCache) load(typ uintptr) unsafe.Pointer {
++	table := atomic.LoadPointer(&c.table)
++	if table == nil {
+ 		return nil
+ 	}
+-	mask := uintptr(len(t.entries) - 1)
+-	for i := t.index(typ); ; i = (i + 1) & mask {
+-		e := t.entry(i)
+-		switch e.typ.Load() {
+-		case typ:
+-			return e.value.Load()
+-		case 0:
+-			return nil
++	shift := uintptr(table) % typeBucketAlign
++	b := (*typeBucket)(unsafe.Add(table, uintptr((uint64(typ)*TypeHashMultiplier)>>shift)*unsafe.Sizeof(typeBucket{})-shift))
++	for i := range b.types {
++		if b.types[i] == typ {
++			// the value is the address it is: it is kept alive by typeCache.refs, and a value in the heap doesn't
++			// move.
++			return *(*unsafe.Pointer)(unsafe.Pointer(&b.values[i]))
+ 		}
+ 	}
++	return nil
+ }
+ 
+-// Store sets the value for the type, and returns the value which the table has for the type:
+-// it is the value which was stored first if the type was compiled by more than one goroutine at a time.
+-func (c *TypeCache[T]) Store(typ uintptr, v *T) *T {
++// typeBucketAlign is the alignment of the buckets, which is their size: newTypeBuckets aligns them.
++const typeBucketAlign = uintptr(unsafe.Sizeof(typeBucket{}))
++
++// tableWord is the word of the table of the buckets: the address of the first bucket plus the shift.
++func tableWord(buckets []typeBucket, shift uint64) unsafe.Pointer {
++	return unsafe.Add(unsafe.Pointer(&buckets[0]), shift)
++}
++
++func (c *typeCache) store(typ uintptr, v unsafe.Pointer) unsafe.Pointer {
+ 	c.mu.Lock()
+ 	defer c.mu.Unlock()
+ 
+-	t := c.table.Load()
+-	if t == nil {
+-		t = newTypeTable[T](minTypeTableBits)
+-		c.table.Store(t)
+-	}
+-	if existing := c.Load(typ); existing != nil {
++	if existing := c.load(typ); existing != nil {
+ 		return existing
+ 	}
+-	// the table is at most half full, so a lookup ends after a few entries.
+-	if (t.count+1)*2 > len(t.entries) {
+-		grown := newTypeTable[T](64 - t.shift + 1)
+-		for i := range t.entries {
+-			e := &t.entries[i]
+-			if typ := e.typ.Load(); typ != 0 {
+-				grown.insert(typ, e.value.Load())
+-			}
++	c.refs = append(c.refs, v)
++	var old []typeBucket
++	bits := uint64(minTypeBucketBits)
++	if table := atomic.LoadPointer(&c.table); table != nil {
++		shift := uintptr(table) % typeBucketAlign
++		old = unsafe.Slice((*typeBucket)(unsafe.Add(table, -shift)), 1<<(64-shift))
++		bits = uint64(64 - shift)
++	}
++	// the new table has the types of the table and the type, each in its bucket: it is larger when a bucket has no
++	// room for them, and when there are more types than buckets, so that most of the types are the first of their
++	// buckets and a lookup finds them by its first comparison.
++	for c.count+1 > 1<<bits {
++		bits++
++	}
++	for ; ; bits++ {
++		buckets := newTypeBuckets(bits)
++		if rehashTypeBuckets(old, buckets, 64-bits) && insertTypeBucket(buckets, 64-bits, typ, v) {
++			atomic.StorePointer(&c.table, tableWord(buckets, 64-bits))
++			break
+ 		}
+-		grown.insert(typ, v)
+-		// the table gets visible after it has every value.
+-		c.table.Store(grown)
+-		return v
+ 	}
+-	t.insert(typ, v)
++	c.count++
+ 	return v
+ }
+ 
+-func (t *typeTable[T]) insert(typ uintptr, v *T) {
+-	mask := uintptr(len(t.entries) - 1)
+-	for i := t.index(typ); ; i = (i + 1) & mask {
+-		e := t.entry(i)
+-		if e.typ.Load() == 0 {
+-			// the value is set before the entry gets visible by the type.
+-			e.value.Store(v)
+-			e.typ.Store(typ)
+-			t.count++
+-			return
++// newTypeBuckets returns 1<<bits buckets, aligned to their size: one more is allocated, of which the part before
++// the alignment is left unused.
++func newTypeBuckets(bits uint64) []typeBucket {
++	buckets := make([]typeBucket, 1+1<<bits)
++	skip := (typeBucketAlign - uintptr(unsafe.Pointer(&buckets[0]))%typeBucketAlign) % typeBucketAlign
++	return unsafe.Slice((*typeBucket)(unsafe.Add(unsafe.Pointer(&buckets[0]), skip)), 1<<bits)
++}
++
++// rehashTypeBuckets puts the types of the buckets into the other buckets, and reports whether every one had room
++// in its bucket.
++func rehashTypeBuckets(from, to []typeBucket, toShift uint64) bool {
++	for i := range from {
++		for j, typ := range from[i].types {
++			if typ != 0 && !insertTypeBucketWord(to, toShift, typ, from[i].values[j]) {
++				return false
++			}
++		}
++	}
++	return true
++}
++
++func insertTypeBucket(buckets []typeBucket, shift uint64, typ uintptr, v unsafe.Pointer) bool {
++	return insertTypeBucketWord(buckets, shift, typ, uintptr(v))
++}
++
++func insertTypeBucketWord(buckets []typeBucket, shift uint64, typ, v uintptr) bool {
++	b := &buckets[(uint64(typ)*TypeHashMultiplier)>>shift]
++	for i := range b.types {
++		if b.types[i] == 0 {
++			b.types[i], b.values[i] = typ, v
++			return true
+ 		}
+ 	}
++	return false
+ }

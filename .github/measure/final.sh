@@ -5,11 +5,11 @@
 set -e
 root=$PWD; LAYOUTS=3; ROUNDS=3
 names=""
-for v in head headpad h hpad g3 g3pad; do
+for v in head headpad hp hppad; do
   names="$names $v"
   git worktree add -q /tmp/wt-$v HEAD
   cp $root/.github/measure/type_lookup_test.go /tmp/wt-$v/
-  case $v in h|hpad) (cd /tmp/wt-$v && git apply $root/.github/measure/h.patch);; g3|g3pad) (cd /tmp/wt-$v && git apply $root/.github/measure/g3.patch);; esac
+  case $v in hp|hppad) (cd /tmp/wt-$v && git apply $root/.github/measure/hp.patch);; esac
   case $v in *pad) cp $root/.github/measure/pad.go /tmp/wt-$v/internal/encoder/zz_measure_pad.go;; esac
   for l in $(seq 1 $LAYOUTS); do
     (cd /tmp/wt-$v && go test -c -ldflags=-randlayout=$l -o /tmp/root-$v-$l.test .)

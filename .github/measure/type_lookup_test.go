@@ -651,6 +651,7 @@ func benchTypeLookups(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
+			probeDecode(b.Name(), targets)
 		})
 	}
 	for _, k := range []int{1, 6, 24, 96} {

@@ -2,6 +2,7 @@
 # Builds the head and the candidate ( a patch ), and runs the decode of the types alone and after the other
 # benchmarks, printing where the objects which it reads are, to see whether the history of the process moves it.
 set -e
+lscpu | sed -n "s/^Model name: *//p" | head -1
 root=$PWD; LAYOUTS=2; ROUNDS=3
 for v in head hp; do
   git worktree add -q /tmp/wt-$v HEAD

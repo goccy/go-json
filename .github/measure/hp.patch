@@ -1,8 +1,17 @@
 diff --git a/internal/encoder/compiler.go b/internal/encoder/compiler.go
-index 130c159..28196b7 100644
+index 130c159..39c45b1 100644
 --- a/internal/encoder/compiler.go
 +++ b/internal/encoder/compiler.go
-@@ -22,9 +22,34 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
+@@ -16,17 +16,44 @@ import (
+ // CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new.
+ //
+ // A lookup which misses the set of the type in the context comes here for every value of interface{} of a type
+-// which its set doesn't hold, so this path makes as few calls as it can: the shared table is looked up here, and
+-// only the compilation of a new type and the filter of a field query are calls.
++// which its set doesn't hold, so this path makes as few calls as it can: the victims of the context and the table
++// shared by every goroutine, whose lookup costs about what the one of an array does, are looked up here, and only
++// the compilation of a new type and the filter of a field query are calls ( see missedCodeSet ).
+ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
  	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
  		return codeSet, nil
  	}
@@ -22,6 +31,8 @@ index 130c159..28196b7 100644
  	return ctx.missedCodeSet(typeptr)
  }
  
+-// missedCodeSet is CompileToGetCodeSet for a type which RecentCodeSet doesn't find: it is a function of its own,
+-// so that the lookups which hit, the type passed to every Marshal, don't pay for the frame of this one.
 +// rememberCodeSet puts the opcodes of the type in the first entry of its set: the one encoded before it is kept in
 +// the second, and the one in the second in the victims, in the place of the one evicted the earliest.
 +func (c *RuntimeContext) rememberCodeSet(key uintptr, codeSet *OpcodeSet) {
@@ -34,10 +45,13 @@ index 130c159..28196b7 100644
 +	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 +}
 +
- // missedCodeSet is CompileToGetCodeSet for a type which RecentCodeSet doesn't find: it is a function of its own,
- // so that the lookups which hit, the type passed to every Marshal, don't pay for the frame of this one.
++// missedCodeSet is CompileToGetCodeSet for a type which neither the context nor the shared table has, or for a
++// context which may filter the fields or with the fields ordered by the encoder: it is a function of its own, so
++// that the lookups which hit, the type passed to every Marshal, don't pay for the frame of this one.
  //
-@@ -63,14 +88,7 @@ func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
+ //go:noinline
+ func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
+@@ -63,14 +90,7 @@ func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
  			return nil, err
  		}
  	}
@@ -53,8 +67,24 @@ index 130c159..28196b7 100644
  	if withContext {
  		return getFilteredCodeSetIfNeeded(c, codeSet)
  	}
+diff --git a/internal/encoder/context.go b/internal/encoder/context.go
+index 0873ce5..5879eb3 100644
+--- a/internal/encoder/context.go
++++ b/internal/encoder/context.go
+@@ -119,9 +119,8 @@ const (
+ 	// interface{} of a JSON document, an object, an array, a string, a number and a boolean. Which types share a
+ 	// set depends on where the binary has them, which any change of the program moves, and even the directory it
+ 	// is built in: without the victims, three of six types of a set cost map[string]interface{} 10..20% on amd64.
+-	// A lookup which misses them costs what it did without them, since the path of a miss has fewer calls
+-	// ( see missedCodeSet ); by BenchmarkRecentCodeSetsByTurns on amd64, three to six types of a set cost a
+-	// fifth of what they did, and 48 types by turns, more than the table holds, 5% less.
++	// A lookup which misses them looks the type up in the shared table without a call ( see
++	// CompileToGetCodeSet ), which costs about what the lookup of an array does ( see runtime.TypeCache ).
+ 	recentCodeSetVictims = 4
+ )
+ 
 diff --git a/internal/runtime/type_cache.go b/internal/runtime/type_cache.go
-index 9f3934a..42845d6 100644
+index 9f3934a..76d040f 100644
 --- a/internal/runtime/type_cache.go
 +++ b/internal/runtime/type_cache.go
 @@ -9,117 +9,152 @@ import (
@@ -187,7 +217,7 @@ index 9f3934a..42845d6 100644
 -// it is the value which was stored first if the type was compiled by more than one goroutine at a time.
 -func (c *TypeCache[T]) Store(typ uintptr, v *T) *T {
 +// typeBucketAlign is the alignment of the buckets, which is their size: newTypeBuckets aligns them.
-+const typeBucketAlign = uintptr(unsafe.Sizeof(typeBucket{}))
++const typeBucketAlign = unsafe.Sizeof(typeBucket{})
 +
 +// tableWord is the word of the table of the buckets: the address of the first bucket plus the shift.
 +func tableWord(buckets []typeBucket, shift uint64) unsafe.Pointer {
@@ -290,3 +320,69 @@ index 9f3934a..42845d6 100644
  	}
 +	return false
  }
+diff --git a/internal/runtime/type_cache_test.go b/internal/runtime/type_cache_test.go
+index 3815806..e46147b 100644
+--- a/internal/runtime/type_cache_test.go
++++ b/internal/runtime/type_cache_test.go
+@@ -1,8 +1,11 @@
+ package runtime
+ 
+ import (
++	"fmt"
+ 	"sync"
++	"sync/atomic"
+ 	"testing"
++	"unsafe"
+ )
+ 
+ func TestTypeCache(t *testing.T) {
+@@ -91,3 +94,49 @@ func TestTypeCacheConcurrently(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// typeCacheTypes returns the addresses of n objects of the size of a type descriptor, laid out as the types of a
++// program are: aligned and close to each other.
++func typeCacheTypes(n int) []uintptr {
++	objs := make([][80]byte, n)
++	keepTypeCacheTypes = append(keepTypeCacheTypes, objs)
++	types := make([]uintptr, n)
++	for i := range objs {
++		types[i] = uintptr(unsafe.Pointer(&objs[i]))
++	}
++	return types
++}
++
++var keepTypeCacheTypes [][][80]byte
++
++var typeCacheSink *int
++
++// BenchmarkTypeCacheLoad looks up types by turns in tables of several sizes, and reports the bytes of the buckets
++// of a table for each of its types.
++func BenchmarkTypeCacheLoad(b *testing.B) {
++	for _, n := range []int{16, 1024, 8192} {
++		types := typeCacheTypes(n)
++		v := 1
++		var cache TypeCache[int]
++		for _, typ := range types {
++			cache.Store(typ, &v)
++		}
++		table := atomic.LoadPointer(&cache.cache.table)
++		bytesPerType := float64(uintptr(1)<<(64-uintptr(table)%typeBucketAlign)*typeBucketAlign) / float64(n)
++		for _, k := range []int{1, 8, 128} {
++			if k > n {
++				continue
++			}
++			look := make([]uintptr, k)
++			for i := range look {
++				look[i] = types[(i*7919)%n]
++			}
++			b.Run(fmt.Sprintf("%d types/%d by turns", n, k), func(b *testing.B) {
++				for i := 0; i < b.N; i++ {
++					typeCacheSink = cache.Load(look[i%k])
++				}
++				b.ReportMetric(bytesPerType, "bytes/type")
++			})
++		}
++	}
++}

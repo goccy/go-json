@@ -1,19 +1,20 @@
 #!/bin/bash
-# Builds the head and the strategies of the lookups of the types ( a patch each ), each also with a pad, with
+# Builds the head and the candidate ( a patch ), each also with a pad which moves the itabs by 32 bytes, with
 # several function layouts, and runs them by turns; prints the mean over the layouts of the fastest round of each
 # benchmark, against the head.
 set -e
 root=$PWD; LAYOUTS=3; ROUNDS=3
 names=""
-for v in head headpad hp hppad; do
+for v in head headdict hp hpdict; do
   names="$names $v"
   git worktree add -q /tmp/wt-$v HEAD
   cp $root/.github/measure/type_lookup_test.go /tmp/wt-$v/
-  case $v in hp|hppad) (cd /tmp/wt-$v && git apply $root/.github/measure/hp.patch);; esac
-  case $v in *pad) cp $root/.github/measure/pad.go /tmp/wt-$v/internal/encoder/zz_measure_pad.go;; esac
+  case $v in hp|hpdict) (cd /tmp/wt-$v && git apply $root/.github/measure/hp.patch);; esac
+  case $v in *dict) cp $root/.github/measure/dictpad.go /tmp/wt-$v/internal/decoder/zz_measure_pad.go;; esac
   for l in $(seq 1 $LAYOUTS); do
     (cd /tmp/wt-$v && go test -c -ldflags=-randlayout=$l -o /tmp/root-$v-$l.test .)
     (cd /tmp/wt-$v/benchmarks && go test -c -ldflags=-randlayout=$l -o /tmp/bench-$v-$l.test .)
+    go tool nm -n /tmp/root-$v-$l.test | grep -E 'go:itab.\*github.com/goccy/go-json/internal/decoder.(structDecoder|intDecoder),' | awk -v v=$v -v l=$l '{printf "itab %s %s %d %s\n", v, l, ("0x"$1)%64, substr($3,40,30)}'
   done
 done
 SUITE='^Benchmark_(Encode_(Small|Medium|Large)StructCached_GoJson|Encode_Interface_GoJson|Encode_MapInterface_GoJson(LikeSonic)?|TwitterGeneric_GoJson|TwitterBinding_GoJson|Decode_(Small|Large)Struct_Unmarshal_GoJson|Decode_Twitter\w*_GoJson|Encode_OpenAIResponse_GoJson)$'

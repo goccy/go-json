@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [1, 2, 3, 4, 5, 6]
+        machine: [1, 2, 3]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -25,4 +25,4 @@ jobs:
       - name: measure
         run: |
           lscpu | sed -n 's/^Model name: *//p' | head -1
-          .github/measure/order.sh
+          .github/measure/prof.sh

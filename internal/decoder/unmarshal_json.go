@@ -16,13 +16,14 @@ type unmarshalJSONDecoder struct {
 	structName string
 	fieldName  string
 	// retainsNothing is set for a type whose UnmarshalJSON keeps nothing of the bytes it is given, which are then
-	// the ones of the buffer. The bytes of any other type are copied: its UnmarshalJSON may keep them, and the
-	// buffer is written again by the next call.
+	// the ones of the buffer: a type of the standard library ( see runtime.IsStdMarshalerType ), and
+	// json.RawMessage, which copies them. The bytes of any other type are copied: its UnmarshalJSON may keep them,
+	// and the buffer is written again by the next call.
 	retainsNothing bool
 }
 
-// timePtrType is the type of *time.Time, whose UnmarshalJSON parses the bytes it is given and keeps nothing of
-// them. The decoder is made for the pointer type, whose method set has UnmarshalJSON.
+// timePtrType is the type of *time.Time, which is decoded from a string only. The decoder is made for the pointer
+// type, whose method set has UnmarshalJSON.
 var timePtrType = reflect.TypeOf(&time.Time{})
 
 // rawMessagePtrType is the type of *json.RawMessage, whose UnmarshalJSON copies the bytes it is given: a copy of
@@ -37,7 +38,7 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 		typ:            typ,
 		structName:     structName,
 		fieldName:      fieldName,
-		retainsNothing: typ == timePtrType || typ == rawMessagePtrType,
+		retainsNothing: typ == rawMessagePtrType || runtime.IsStdMarshalerType(typ),
 	}
 }
 

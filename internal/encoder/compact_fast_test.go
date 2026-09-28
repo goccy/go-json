@@ -42,13 +42,13 @@ func TestAppendCompactOutput(t *testing.T) {
 			if err != nil {
 				t.Fatalf("escape=%v: compact of %q: %v", escape, s, err)
 			}
-			got, ok := appendCompactOutput([]byte("x"), []byte(s), escape)
+			got, ok := appendCompactOutput([]byte("x"), []byte(s), escape, false)
 			if !ok || string(got) != string(compacted) {
 				t.Fatalf("escape=%v: %q must be accepted as %q, got %q, %v", escape, s, compacted, got, ok)
 			}
 		}
 		for _, s := range rejected {
-			if got, ok := appendCompactOutput([]byte("x"), []byte(s), escape); ok {
+			if got, ok := appendCompactOutput([]byte("x"), []byte(s), escape, false); ok {
 				t.Fatalf("escape=%v: %q must be rejected, got %q", escape, s, got)
 			}
 		}
@@ -61,7 +61,7 @@ func TestAppendCompactOutput(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, ok := appendCompactOutput(nil, []byte(s), escape)
+			got, ok := appendCompactOutput(nil, []byte(s), escape, false)
 			if !ok || string(got) != string(want) {
 				t.Fatalf("escape=%v: %q must be accepted as %q, got %q, %v", escape, s, want, got, ok)
 			}
@@ -85,7 +85,7 @@ func TestAppendCompactOutputAgainstCompact(t *testing.T) {
 					compacted, err := compact(nil, append(append([]byte(nil), b...), nul), escape)
 					unescaped, _ := compact(nil, append(append([]byte(nil), b...), nul), false)
 					same := err == nil && bytes.Equal(unescaped, b)
-					out, ok := appendCompactOutput(nil, b, escape)
+					out, ok := appendCompactOutput(nil, b, escape, false)
 					if ok && (!same || !bytes.Equal(out, compacted)) {
 						t.Fatalf("escape=%v: %q is accepted as %q but compact gives %q, %v", escape, b, out, compacted, err)
 					}
@@ -111,7 +111,7 @@ func BenchmarkCompactOutput(b *testing.B) {
 		b.Run("check/"+strconv.Itoa(len(s)), func(b *testing.B) {
 			b.SetBytes(int64(len(s)))
 			for i := 0; i < b.N; i++ {
-				if _, ok := appendCompactOutput(dst[:0], src, true); !ok {
+				if _, ok := appendCompactOutput(dst[:0], src, true, false); !ok {
 					b.Fatal("rejected")
 				}
 			}
@@ -136,7 +136,7 @@ func FuzzAppendCompactOutput(f *testing.F) {
 		f.Add([]byte(s), false)
 	}
 	f.Fuzz(func(t *testing.T, src []byte, escape bool) {
-		out, ok := appendCompactOutput([]byte("x"), src, escape)
+		out, ok := appendCompactOutput([]byte("x"), src, escape, false)
 		if !ok {
 			return
 		}

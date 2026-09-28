@@ -573,7 +573,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
 	}
 	escape := (ctx.Option.Flag & HTMLEscapeOption) != 0
-	if out, ok := appendCompactOutput(b, bb, escape); ok {
+	if out, ok := appendCompactOutput(b, bb, escape, m.trusted); ok {
 		// the output is compact and valid: it is copied as it is.
 		return out, nil
 	}

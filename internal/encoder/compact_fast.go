@@ -77,8 +77,9 @@ type (
 const maxDepthOfCompactCheck = 64
 
 // appendCompactOutput appends src, the output of a marshaler, to dst as compact appends it, if src is compact
-// and valid JSON, and returns false without appending if it may not be: then src is to be compacted.
-func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
+// and valid JSON, and returns false without appending if it may not be: then src is to be compacted. The output
+// of a trusted marshaler, valid and compact, is appended as it is if compact leaves it so.
+func appendCompactOutput(dst, src []byte, escape, trusted bool) ([]byte, bool) {
 	if len(src) == 0 {
 		return dst, false
 	}
@@ -87,7 +88,7 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 		option = 1
 	}
 	if !lookedAtByCompact[option].has(src) {
-		if !isCompactJSON[plainStrings](src) {
+		if !trusted && !isCompactJSON[plainStrings](src) {
 			return dst, false
 		}
 		return append(dst, src...), true

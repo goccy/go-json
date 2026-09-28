@@ -26,7 +26,8 @@ type MarshalerCall struct {
 	// nilIsNull is whether a nil receiver is encoded as null without a call, which is so for a pointer.
 	nilIsNull bool
 	// trusted is whether the output of MarshalJSON is valid and compact, as the one of a type of the standard
-	// library is ( see runtime.IsStdMarshalerType ): it is not checked.
+	// library is, or of a type which has it only by embedding one ( see runtime.IsStdMarshalerType and
+	// runtime.PromotedStdMethod ): it is not checked.
 	trusted bool
 	// recv is the type of the receiver, for an error.
 	recv reflect.Type
@@ -63,8 +64,35 @@ func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
 		case marshalTextType:
 			m.appendOutput = textAppenderOf(recv)
 		}
+	} else if origin, offset, inline, ok := runtime.PromotedStdMethod(recv, iface.Method(0).Name); ok {
+		// the method is the one of the embedded value of a type of the standard library, which the wrapper of the
+		// type calls: its output is trusted as that of the type, and written by its appending method from the
+		// embedded value if it is in the value, whose address is then the data word: a pointer, or a type which
+		// is not stored directly in an interface value.
+		switch iface {
+		case marshalJSONType:
+			m.trusted = true
+			if inline && (recv.Kind() == reflect.Pointer || runtime.IfaceIndir(recv)) {
+				m.appendOutput = embeddedAppender(stdJSONAppender(origin), offset)
+			}
+		case marshalTextType:
+			if inline && (recv.Kind() == reflect.Pointer || runtime.IfaceIndir(recv)) {
+				m.appendOutput = embeddedAppender(textAppenderOf(origin), offset)
+			}
+		}
 	}
 	return m
+}
+
+// embeddedAppender returns the appending function of the value embedded at the offset of the receiver, whose data
+// word is the address of the value which embeds it, or nil if the function is.
+func embeddedAppender(appendOutput func([]byte, unsafe.Pointer) ([]byte, bool), offset uintptr) func([]byte, unsafe.Pointer) ([]byte, bool) {
+	if appendOutput == nil {
+		return nil
+	}
+	return func(b []byte, recv unsafe.Pointer) ([]byte, bool) {
+		return appendOutput(b, unsafe.Add(recv, offset))
+	}
 }
 
 // methodCode returns the code of the method of the interface of the receiver type, which takes the data word of

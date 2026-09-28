@@ -159,12 +159,81 @@ func TestEncodeUserMarshalerIsChecked(t *testing.T) {
 	}
 }
 
+// Types which embed a type of the standard library, and have its marshalers only by embedding it: their outputs
+// are the ones of the embedded values, and are written as those are.
+type (
+	embeddedTime        struct{ time.Time }
+	embeddedTimePointer struct{ *time.Time }
+	embeddedTimeAfter   struct {
+		N int
+		time.Time
+	}
+	embeddedTimeNested struct {
+		S string
+		embeddedTimeAfter
+	}
+	embeddedAddr struct{ netip.Addr }
+	embeddedInt  struct{ *big.Int }
+)
+
+func TestEncodeEmbeddedStdMarshalers(t *testing.T) {
+	tm := time.Date(2026, 9, 28, 1, 2, 3, 456789000, time.FixedZone("", 9*60*60))
+	type fields struct {
+		T   embeddedTime
+		TP  *embeddedTime
+		TN  *embeddedTime
+		P   embeddedTimePointer
+		A   embeddedTimeAfter
+		Nst embeddedTimeNested
+		Ad  embeddedAddr
+		Int embeddedInt
+		M   map[embeddedAddr]embeddedTime
+		S   []embeddedTimeNested
+		Any any
+	}
+	v := fields{
+		T: embeddedTime{tm}, TP: &embeddedTime{tm}, P: embeddedTimePointer{&tm}, A: embeddedTimeAfter{1, tm},
+		Nst: embeddedTimeNested{"s", embeddedTimeAfter{2, tm}}, Ad: embeddedAddr{netip.MustParseAddr("fe80::1%eth0")},
+		Int: embeddedInt{big.NewInt(-12)}, M: map[embeddedAddr]embeddedTime{{netip.MustParseAddr("::1")}: {tm}},
+		S: []embeddedTimeNested{{"a", embeddedTimeAfter{3, tm}}}, Any: embeddedTimeAfter{4, tm},
+	}
+	checkStdEncoding(t, v, &v, embeddedTime{tm}, &embeddedTime{tm}, embeddedTimeNested{}, embeddedAddr{})
+	// the error of the marshaler of the embedded value is the one of the call.
+	late := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, v := range []any{embeddedTime{late}, embeddedTimeNested{"s", embeddedTimeAfter{1, late}}, embeddedTimePointer{&late}} {
+		var marshalerErr *json.MarshalerError
+		if _, err := json.Marshal(v); !errors.As(err, &marshalerErr) {
+			t.Fatalf("%v: expected a MarshalerError but got %v", v, err)
+		}
+	}
+	// a type which declares the method on top of the embedded one is checked ( see userTime ).
+	if _, err := json.Marshal(struct{ T struct{ userTime } }{}); err == nil {
+		t.Fatal("expected an error for the invalid output of the marshaler of a type of the user")
+	}
+}
+
 func BenchmarkEncodeTime(b *testing.B) {
 	type event struct {
 		Created, Updated, Closed time.Time
 		Due                      *time.Time
 	}
 	now := time.Date(2026, 9, 28, 1, 2, 3, 456789000, time.UTC)
+	v := &event{Created: now, Updated: now, Closed: now, Due: &now}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := json.Marshal(v); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkEncodeEmbeddedTime encodes times of a type which embeds time.Time, as go-github's Timestamp does.
+func BenchmarkEncodeEmbeddedTime(b *testing.B) {
+	type event struct {
+		Created, Updated, Closed embeddedTime
+		Due                      *embeddedTime
+	}
+	now := embeddedTime{time.Date(2026, 9, 28, 1, 2, 3, 456789000, time.UTC)}
 	v := &event{Created: now, Updated: now, Closed: now, Due: &now}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

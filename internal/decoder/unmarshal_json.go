@@ -16,8 +16,8 @@ type unmarshalJSONDecoder struct {
 	structName string
 	fieldName  string
 	// retainsNothing is set for a type whose UnmarshalJSON keeps nothing of the bytes it is given, which are then
-	// the ones of the buffer: a type of the standard library ( see runtime.IsStdMarshalerType ), and
-	// json.RawMessage, which copies them. The bytes of any other type are copied: its UnmarshalJSON may keep them,
+	// the ones of the buffer: a type of the standard library ( see runtime.IsStdMarshalerType ), a type which has
+	// the UnmarshalJSON of one only by embedding it, and json.RawMessage, which copies them. The bytes of any other type are copied: its UnmarshalJSON may keep them,
 	// and the buffer is written again by the next call.
 	retainsNothing bool
 }
@@ -38,8 +38,15 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 		typ:            typ,
 		structName:     structName,
 		fieldName:      fieldName,
-		retainsNothing: typ == rawMessagePtrType || runtime.IsStdMarshalerType(typ),
+		retainsNothing: typ == rawMessagePtrType || runtime.IsStdMarshalerType(typ) || promotesStdUnmarshalJSON(typ),
 	}
+}
+
+// promotesStdUnmarshalJSON is whether the UnmarshalJSON of the type is the one of an embedded type of the standard
+// library, which the type doesn't declare itself ( see runtime.PromotedStdMethod ).
+func promotesStdUnmarshalJSON(typ reflect.Type) bool {
+	_, _, _, ok := runtime.PromotedStdMethod(typ, unmarshalJSONType.Method(0).Name)
+	return ok
 }
 
 func (d *unmarshalJSONDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {

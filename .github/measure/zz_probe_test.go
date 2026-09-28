@@ -21,5 +21,5 @@ func probeDecode(name string, targets []any) {
 	e := (*[2]unsafe.Pointer)(unsafe.Pointer(&v))
 	dec, _ := decoder.CompileToGetDecoder(e[0])
 	d := (*[2]uintptr)(unsafe.Pointer(&dec))[1]
-	fmt.Printf("probe %s ctx=%03x dec=%03x target=%03x input=%03x\n", name, ctxAddr&4095, d&4095, uintptr(e[1])&4095, uintptr(unsafe.Pointer(&lookupInput[0]))&4095)
+	fmt.Fprintf(os.Stderr, "probe %s ctx=%03x dec=%03x target=%03x input=%03x\n", name, ctxAddr&4095, d&4095, uintptr(e[1])&4095, uintptr(unsafe.Pointer(&lookupInput[0]))&4095)
 }

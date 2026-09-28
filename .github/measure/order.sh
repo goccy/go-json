@@ -16,7 +16,8 @@ for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for ((m = 0; m < ${#modes[@]}; m += 2)); do
       for v in head hp; do
-        ZZPROBE=1 /tmp/root-$v-$l.test -test.run '^$' -test.bench "${modes[m+1]}" -test.benchtime 300ms | awk -v v=$v -v l=$l -v m=${modes[m]} -v r=$r '/ns\/op/ && /decode\/top-level\/(1|8|128)_types-/ {print m, v, l, $1, $3} /^probe/ && r == 1 {print "probe", m, v, l, $2, $3, $4, $5, $6}' >> /tmp/o.txt
+        ZZPROBE=1 /tmp/root-$v-$l.test -test.run '^$' -test.bench "${modes[m+1]}" -test.benchtime 300ms 2>/tmp/probe.txt | awk -v v=$v -v l=$l -v m=${modes[m]} '/ns\/op/ && /decode\/top-level\/(1|8|128)_types-/ {print m, v, l, $1, $3}' >> /tmp/o.txt
+        [ $r = 1 ] && awk -v v=$v -v l=$l -v m=${modes[m]} '/^probe/ {print "probe", m, v, l, $2, $3, $4, $5, $6}' /tmp/probe.txt | sort -u >> /tmp/o.txt
       done
     done
   done

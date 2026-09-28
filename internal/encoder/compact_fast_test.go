@@ -37,7 +37,7 @@ func TestAppendCompactOutput(t *testing.T) {
 			if escape && strings.ContainsAny(s, "<>&") {
 				continue
 			}
-			got, ok := appendCompactOutput([]byte("x"), []byte(s), escape)
+			got, ok := appendCompactOutput([]byte("x"), []byte(s), escape, false)
 			if !ok || string(got) != "x"+s {
 				t.Fatalf("escape=%v: %q must be accepted, got %q, %v", escape, s, got, ok)
 			}
@@ -47,17 +47,17 @@ func TestAppendCompactOutput(t *testing.T) {
 			}
 		}
 		for _, s := range rejected {
-			if got, ok := appendCompactOutput([]byte("x"), []byte(s), escape); ok {
+			if got, ok := appendCompactOutput([]byte("x"), []byte(s), escape, false); ok {
 				t.Fatalf("escape=%v: %q must be rejected, got %q", escape, s, got)
 			}
 		}
 	}
 	// what is not escaped for HTML when the option is off is accepted then.
 	for _, s := range []string{`"<html>"`, `"a&b"`} {
-		if _, ok := appendCompactOutput(nil, []byte(s), false); !ok {
+		if _, ok := appendCompactOutput(nil, []byte(s), false, false); !ok {
 			t.Fatalf("%q must be accepted without the escape of HTML", s)
 		}
-		if _, ok := appendCompactOutput(nil, []byte(s), true); ok {
+		if _, ok := appendCompactOutput(nil, []byte(s), true, false); ok {
 			t.Fatalf("%q must be rejected with the escape of HTML", s)
 		}
 	}
@@ -78,7 +78,7 @@ func TestAppendCompactOutputAgainstCompact(t *testing.T) {
 				for _, escape := range []bool{false, true} {
 					compacted, err := compact(nil, append(append([]byte(nil), b...), nul), escape)
 					same := err == nil && bytes.Equal(compacted, b)
-					_, ok := appendCompactOutput(nil, b, escape)
+					_, ok := appendCompactOutput(nil, b, escape, false)
 					if ok && !same {
 						t.Fatalf("escape=%v: %q is accepted but compact gives %q, %v", escape, b, compacted, err)
 					}
@@ -104,7 +104,7 @@ func BenchmarkCompactOutput(b *testing.B) {
 		b.Run("check/"+strconv.Itoa(len(s)), func(b *testing.B) {
 			b.SetBytes(int64(len(s)))
 			for i := 0; i < b.N; i++ {
-				if _, ok := appendCompactOutput(dst[:0], src, true); !ok {
+				if _, ok := appendCompactOutput(dst[:0], src, true, false); !ok {
 					b.Fatal("rejected")
 				}
 			}
@@ -129,7 +129,7 @@ func FuzzAppendCompactOutput(f *testing.F) {
 		f.Add([]byte(s), false)
 	}
 	f.Fuzz(func(t *testing.T, src []byte, escape bool) {
-		out, ok := appendCompactOutput([]byte("x"), src, escape)
+		out, ok := appendCompactOutput([]byte("x"), src, escape, false)
 		if !ok {
 			return
 		}

@@ -61,8 +61,9 @@ var rewrittenByCompact = [2]*byteClass{
 const maxDepthOfCompactCheck = 64
 
 // appendCompactOutput appends src, the output of a marshaler, to dst if src is compact and valid JSON, and
-// returns false without appending if it may not be: then src is to be compacted.
-func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
+// returns false without appending if it may not be: then src is to be compacted. The output of a trusted
+// marshaler, valid and compact, is not checked: it is appended as it is if compact leaves it so.
+func appendCompactOutput(dst, src []byte, escape, trusted bool) ([]byte, bool) {
 	if len(src) == 0 {
 		return dst, false
 	}
@@ -73,7 +74,7 @@ func appendCompactOutput(dst, src []byte, escape bool) ([]byte, bool) {
 	if class.has(src) {
 		return dst, false
 	}
-	if !isCompactJSON(src) {
+	if !trusted && !isCompactJSON(src) {
 		return dst, false
 	}
 	return append(dst, src...), true

@@ -297,12 +297,14 @@ func isCompactJSON[S plainStrings | escapedStrings](src []byte) bool {
 
 // quoteEnd returns the index after the quote which ends the string whose content starts at i, or -1.
 // The string has no escape, so the quote is the next one. Most of the strings are short, so the quote is
-// looked for by words here, not by a call.
+// looked for by words here, not by a call. The words are read as little-endian ones, so that the lowest byte
+// found by bits.TrailingZeros64 is the first one in memory on a big-endian machine too; on a little-endian one
+// the read is a load as it is.
 func quoteEnd(src []byte, i int) int {
 	n := len(src)
 	p := unsafe.Pointer(unsafe.SliceData(src))
 	for ; i+8 <= n; i += 8 {
-		w := *(*uint64)(unsafe.Add(p, i)) ^ (lsb * '"')
+		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i))[:]) ^ (lsb * '"')
 		if mask := (w - lsb) &^ w & msb; mask != 0 {
 			return i + bits.TrailingZeros64(mask)/8 + 1
 		}
@@ -321,7 +323,7 @@ func escapedQuoteEnd(src []byte, i int) int {
 	p := unsafe.Pointer(unsafe.SliceData(src))
 	for {
 		for ; i+8 <= n; i += 8 {
-			w := *(*uint64)(unsafe.Add(p, i))
+			w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i))[:])
 			q := w ^ (lsb * '"')
 			b := w ^ (lsb * '\\')
 			// the lowest bit of the mask of each byte is exact, so the lowest one of both is.

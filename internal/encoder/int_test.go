@@ -29,18 +29,35 @@ func TestAppendIntegers(t *testing.T) {
 			signed := int64(v&mask) << (64 - size) >> (64 - size)
 			for _, prefix := range [][]byte{nil, []byte("x"), make([]byte, 3, 4)} {
 				buf := append([]byte(nil), prefix...)
-				got := AppendInt(nil, buf, unsafe.Pointer(&v), code)
+				got := AppendInt(nil, buf, valueOfSize(v, size), code)
 				if want := string(prefix) + strconv.FormatInt(signed, 10); string(got) != want {
 					t.Fatalf("AppendInt of %d as int%d: got %q, want %q", v, size, got, want)
 				}
 				buf = append([]byte(nil), prefix...)
-				got = AppendUint(nil, buf, unsafe.Pointer(&v), code)
+				got = AppendUint(nil, buf, valueOfSize(v, size), code)
 				if want := string(prefix) + strconv.FormatUint(v&mask, 10); string(got) != want {
 					t.Fatalf("AppendUint of %d as uint%d: got %q, want %q", v, size, got, want)
 				}
 			}
 		}
 	}
+}
+
+// valueOfSize returns a pointer to the lowest size bits of v as a variable of that size, as the encoder is given
+// an integer of that size: they are the first bytes of v only on a little-endian machine.
+func valueOfSize(v uint64, size uint8) unsafe.Pointer {
+	switch size {
+	case 8:
+		u := uint8(v)
+		return unsafe.Pointer(&u)
+	case 16:
+		u := uint16(v)
+		return unsafe.Pointer(&u)
+	case 32:
+		u := uint32(v)
+		return unsafe.Pointer(&u)
+	}
+	return unsafe.Pointer(&v)
 }
 
 func TestDecimalDigits(t *testing.T) {

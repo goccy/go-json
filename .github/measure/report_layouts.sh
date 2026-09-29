@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs the report encode of the payloads without marshalers for master and the string branch, each also with a
+# Runs the report encode for master and the map branch, each also with a
 # pad, with several function layouts: the median over the rounds of each layout, then the mean over the layouts,
 # against master.
 set -e
@@ -15,14 +15,14 @@ variant() { # name ref [pad]
 }
 variant master origin/master
 variant masterpad origin/master pad
-variant head origin/perf/encoder-string-escape
-variant headpad origin/perf/encoder-string-escape pad
+variant head origin/perf/encoder-map
+variant headpad origin/perf/encoder-map pad
 names="master masterpad head headpad"
 mkdir -p /tmp/rep
 for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for n in $names; do
-      (cd /tmp/wt-$n/benchmarks && BENCH_REPORT_ONLY='^(std|fast|fastest)/go-json/encode/(small|medium|large|twitter|code)$' BENCH_REPORT_ROUNDS=1 BENCH_REPORT_OUT=/tmp/rep/$n-$l-$r.json /tmp/bin-$n-$l.test -test.run '^TestReport$' -test.count=1 -test.timeout 60m -test.benchtime=100ms > /dev/null)
+      (cd /tmp/wt-$n/benchmarks && BENCH_REPORT_ONLY='^(std|fast|fastest)/go-json/encode/(small|medium|large|twitter|twitter-any|github|openai|anthropic|code)$' BENCH_REPORT_ROUNDS=1 BENCH_REPORT_OUT=/tmp/rep/$n-$l-$r.json /tmp/bin-$n-$l.test -test.run '^TestReport$' -test.count=1 -test.timeout 60m -test.benchtime=100ms > /dev/null)
     done
   done
 done

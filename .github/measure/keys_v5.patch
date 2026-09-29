@@ -1,0 +1,2097 @@
+diff --git a/internal/encoder/code.go b/internal/encoder/code.go
+index 31bf39c..336cd3c 100644
+--- a/internal/encoder/code.go
++++ b/internal/encoder/code.go
+@@ -830,7 +830,7 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
+ // isLongKey is whether the key of the field is longer than a chunk: then the field is not encoded by one opcode
+ // with its value, but by the generic field opcode, which writes a key of any length, and the opcode of the value.
+ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
+-	return len(field.Key) > KeyChunkSize
++	return len(field.Key) > 2*KeyChunkSize
+ }
+ 
+ // isGenericField is whether the field is encoded by the generic field opcode and the opcode of the value: a
+@@ -915,19 +915,19 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
+ // KeyChunkSize is the size of the chunk which the VM copies a key by: a key up to it is written by the
+ // opcode of its field, as a chunk. A longer key is written by the generic field opcode, and its value by the
+ // opcode of the value.
+-const KeyChunkSize = 32
++const KeyChunkSize = 16
+ 
+ // PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+ // so that a chunk is copied from the key without reading the memory of others.
+ func PaddedKey(key string) string {
+-	buf := make([]byte, len(key)+KeyChunkSize)
++	buf := make([]byte, len(key)+2*KeyChunkSize)
+ 	copy(buf, key)
+ 	return unsafe.String(unsafe.SliceData(buf), len(key))
+ }
+ 
+ // keyChunk returns the chunk at the start of a padded key.
+-func keyChunk(paddedKey string) *[KeyChunkSize]byte {
+-	return (*[KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
++func keyChunk(paddedKey string) *[2 * KeyChunkSize]byte {
++	return (*[2 * KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
+ }
+ 
+ // EmptyKind is what makes the value of a field empty for omitempty, as encoding/json decides it by the kind
+diff --git a/internal/encoder/opcode.go b/internal/encoder/opcode.go
+index f2b95d1..13fec13 100644
+--- a/internal/encoder/opcode.go
++++ b/internal/encoder/opcode.go
+@@ -57,17 +57,17 @@ type Opcode struct {
+ 	NumBitSize uint8
+ 	Flags      OpFlags
+ 
+-	Type       unsafe.Pointer      // pointer to the type descriptor of go type
+-	Jmp        *CompiledCode       // for recursive call
+-	Marshaler  *MarshalerCall      // the method of the marshaler, for MarshalJSON and MarshalText
+-	FieldQuery *FieldQuery         // field query for Interface / MarshalJSON / MarshalText
+-	ElemIdx    uint32              // offset to access array/slice elem
+-	Length     uint32              // offset to access slice length or array length
+-	Indent     uint32              // indent number
+-	Size       uint32              // array/slice elem size
+-	DisplayIdx uint32              // opcode index
+-	KeyChunk   *[KeyChunkSize]byte // the key and the padding after it, which the VM copies as a chunk
+-	Map        *MapLayout          // how the entries of the map are read, for the opcode of a map
++	Type       unsafe.Pointer          // pointer to the type descriptor of go type
++	Jmp        *CompiledCode           // for recursive call
++	Marshaler  *MarshalerCall          // the method of the marshaler, for MarshalJSON and MarshalText
++	FieldQuery *FieldQuery             // field query for Interface / MarshalJSON / MarshalText
++	ElemIdx    uint32                  // offset to access array/slice elem
++	Length     uint32                  // offset to access slice length or array length
++	Indent     uint32                  // indent number
++	Size       uint32                  // array/slice elem size
++	DisplayIdx uint32                  // opcode index
++	KeyChunk   *[2 * KeyChunkSize]byte // the key and the padding after it, which the VM copies by chunks
++	Map        *MapLayout              // how the entries of the map are read, for the opcode of a map
+ }
+ 
+ func (c *Opcode) Validate() error {
+diff --git a/internal/encoder/vm/util.go b/internal/encoder/vm/util.go
+index 90256b8..757dcd8 100644
+--- a/internal/encoder/vm/util.go
++++ b/internal/encoder/vm/util.go
+@@ -184,9 +184,14 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
+ //
+ // Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+ // this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
++func appendStructKey16(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
++	return append(b, code.KeyChunk[:encoder.KeyChunkSize]...)[:len(b)+len(code.Key)]
++}
++
++// appendStructKey2 appends a key which is up to two chunks long, by two chunks: the key is followed by two chunks
++// of padding in memory ( encoder.PaddedKey ).
+ func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+-	const half = encoder.KeyChunkSize / 2
+-	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
++	return append(append(b, code.KeyChunk[:encoder.KeyChunkSize]...), code.KeyChunk[encoder.KeyChunkSize:]...)[:len(b)+len(code.Key)]
+ }
+ 
+ // appendLongStructKey appends a key of any length.
+diff --git a/internal/encoder/vm/vm.go b/internal/encoder/vm/vm.go
+index 3382d42..56b3254 100644
+--- a/internal/encoder/vm/vm.go
++++ b/internal/encoder/vm/vm.go
+@@ -68,7 +68,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// of interface{} is nil in many a value, and it is null then, without a call. The cases are here, with
+ 			// the ones of a value of interface{}, not with the other fields: there they cost the small structs 3%.
+ 			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if *(*unsafe.Pointer)(p) == nil {
+ 				b = appendNullComma(ctx, b)
+ 				code = code.Next
+@@ -100,7 +104,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			first, base, scalar, err := ctx.EnterInterface(code, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -698,6 +706,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
++					if len(code.Key) <= encoder.KeyChunkSize {
++						b = appendStructKey16(ctx, code, b)
++					} else {
++						b = appendStructKey(ctx, code, b)
++					}
++				} else if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -713,6 +727,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 			} else {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
++					if len(code.Key) <= encoder.KeyChunkSize {
++						b = appendStructKey16(ctx, code, b)
++					} else {
++						b = appendStructKey(ctx, code, b)
++					}
++				} else if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -724,21 +744,33 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// Three fields of the kind in a row, then two: the fields after the first are encoded without
+ 			// a dispatch, by falling through to the case of the field. The same for the other kinds below.
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldInt2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldInt:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -747,14 +779,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldIntString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -765,7 +805,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -775,7 +819,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldIntPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -787,7 +835,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -795,7 +847,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldIntPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -809,7 +865,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -818,21 +878,33 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldUint3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldUint2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldUint:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -841,14 +913,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldUintString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -859,7 +939,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -869,7 +953,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldUintPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -881,7 +969,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -889,7 +981,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldUintPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -903,7 +999,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -912,7 +1012,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat32:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -924,7 +1028,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -935,7 +1043,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat32String:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -949,7 +1061,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+@@ -963,7 +1079,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat32Ptr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -979,7 +1099,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -991,7 +1115,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat32PtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1009,7 +1137,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+@@ -1022,7 +1154,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat643:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1033,7 +1169,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			fallthrough
+ 		case encoder.OpStructFieldFloat642:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1044,7 +1184,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			fallthrough
+ 		case encoder.OpStructFieldFloat64:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1059,7 +1203,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1070,7 +1218,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = append(b, '"')
+@@ -1083,7 +1235,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = append(b, '"')
+@@ -1093,7 +1249,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat64Ptr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNullComma(ctx, b)
+ 				code = code.Next
+@@ -1110,7 +1270,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -1122,7 +1286,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat64PtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1140,7 +1308,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+@@ -1153,21 +1325,33 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldString3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldString2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1175,7 +1359,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1183,7 +1371,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringString:
+ 			p := load(ctxptr, code.Idx)
+ 			s := ptrToString(unsafe.Add(p, code.Offset))
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1191,7 +1383,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1199,7 +1395,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1211,7 +1411,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, ptrToString(p))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1219,7 +1423,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1231,28 +1439,44 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldBool3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldBool2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldBool:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1260,14 +1484,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = appendBool(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldBoolString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = append(b, '"')
+@@ -1277,7 +1509,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, v)
+ 				b = append(b, '"')
+@@ -1287,7 +1523,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBoolPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1299,7 +1539,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1307,7 +1551,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBoolPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1321,7 +1569,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = append(b, '"')
+@@ -1330,7 +1582,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldBytes:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1338,7 +1594,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1346,7 +1606,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBytesPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1358,14 +1622,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, ptrToBytes(p))
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldNumber:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -1376,7 +1648,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -1386,7 +1662,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldNumberString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -1399,7 +1679,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+@@ -1412,7 +1696,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldNumberPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1428,7 +1716,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -1439,7 +1731,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldNumberPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1456,7 +1752,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+@@ -1468,7 +1768,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalJSON:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p = unsafe.Add(p, code.Offset)
+ 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+ 				p = ptrToPtr(p)
+@@ -1499,7 +1803,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := appendMarshalJSON(ctx, code, b, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -1508,7 +1816,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalJSONPtr:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+@@ -1525,7 +1837,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendMarshalJSON(ctx, code, b, p)
+ 				if err != nil {
+ 					return nil, err
+@@ -1535,7 +1851,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalText:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p = unsafe.Add(p, code.Offset)
+ 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+ 				p = ptrToPtr(p)
+@@ -1566,7 +1886,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := appendMarshalText(ctx, code, b, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -1575,7 +1899,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalTextPtr:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+@@ -1592,7 +1920,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendMarshalText(ctx, code, b, p)
+ 				if err != nil {
+ 					return nil, err
+@@ -1601,19 +1933,31 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldArray:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+ 			store(ctxptr, code.Idx, p)
+ 		case encoder.OpStructFieldOmitEmptyArray:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+ 			store(ctxptr, code.Idx, p)
+ 		case encoder.OpStructFieldArrayPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			code = code.Next
+@@ -1622,14 +1966,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldSlice:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+@@ -1641,12 +1993,20 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if slice.Len == 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+ 		case encoder.OpStructFieldSlicePtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			code = code.Next
+@@ -1655,14 +2015,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldMap:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToPtr(unsafe.Add(p, code.Offset))
+ 			code = code.Next
+@@ -1673,12 +2041,20 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if p == nil || encoder.MapLen(p) == 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+ 		case encoder.OpStructFieldMapPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToPtr(unsafe.Add(p, code.Offset))
+ 			if p != nil {
+@@ -1693,14 +2069,22 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				p = ptrToNPtr(p, code.PtrNum)
+ 			}
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldStruct:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+@@ -1711,7 +2095,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+@@ -1720,7 +2108,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndInt:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -1729,7 +2121,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1738,7 +2134,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndIntString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -1749,7 +2149,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -1759,7 +2163,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndIntPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1773,7 +2181,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1781,7 +2193,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndIntPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1797,7 +2213,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -1808,7 +2228,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndUint:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -1817,7 +2241,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1826,7 +2254,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndUintString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -1837,7 +2269,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -1847,7 +2283,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndUintPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1861,7 +2301,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1869,7 +2313,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndUintPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1885,7 +2333,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -1896,7 +2348,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -1908,7 +2364,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -1921,7 +2381,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32String:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -1935,7 +2399,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+@@ -1949,7 +2417,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32Ptr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1967,7 +2439,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -1979,7 +2455,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32PtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1999,7 +2479,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+@@ -2018,7 +2502,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2029,7 +2517,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2042,7 +2534,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = append(b, '"')
+@@ -2055,7 +2551,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = append(b, '"')
+@@ -2065,7 +2565,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat64Ptr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2085,7 +2589,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -2097,7 +2605,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat64PtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2117,7 +2629,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -2132,7 +2648,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2140,7 +2660,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2149,7 +2673,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndStringString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			s := ptrToString(unsafe.Add(p, code.Offset))
+ 			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+ 			b = appendStructEnd(ctx, code, b)
+@@ -2158,7 +2686,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2166,7 +2698,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndStringPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2180,7 +2716,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, ptrToString(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2188,7 +2728,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndStringPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2202,7 +2746,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2211,7 +2759,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBool:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2219,7 +2771,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = appendBool(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2228,7 +2784,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = append(b, '"')
+@@ -2238,7 +2798,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, v)
+ 				b = append(b, '"')
+@@ -2248,7 +2812,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2262,7 +2830,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2270,7 +2842,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2286,7 +2862,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = append(b, '"')
+@@ -2297,7 +2877,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBytes:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2305,7 +2889,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2313,7 +2901,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBytesPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2327,7 +2919,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, ptrToBytes(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2336,7 +2932,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndNumber:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -2347,7 +2947,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -2359,7 +2963,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			b = append(b, '"')
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -2372,7 +2980,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+@@ -2385,7 +2997,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberPtr:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2403,7 +3019,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -2414,7 +3034,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if len(code.Key) <= encoder.KeyChunkSize {
++				b = appendStructKey16(ctx, code, b)
++			} else {
++				b = appendStructKey(ctx, code, b)
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2433,7 +3057,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if len(code.Key) <= encoder.KeyChunkSize {
++					b = appendStructKey16(ctx, code, b)
++				} else {
++					b = appendStructKey(ctx, code, b)
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {

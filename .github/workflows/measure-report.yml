@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANTS='master u9' LAYOUTS=8 ROUNDS=5 .github/measure/mb_variants.sh
+        run: VARIANTS='master u10' LAYOUTS=8 ROUNDS=5 .github/measure/mb_variants.sh

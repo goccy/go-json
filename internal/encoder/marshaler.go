@@ -48,9 +48,24 @@ func (m *MarshalerCall) callContext(recv unsafe.Pointer, ctx context.Context) ([
 	return f(recv, ctx)
 }
 
+// marshalerInterface is an interface of a marshaler, with the lookup of its method by the name of the method as a
+// constant ( see runtime.MethodLookup ): a method is never looked up by a name in a variable, so that the linker can
+// drop the methods which no one calls.
+type marshalerInterface struct {
+	typ    reflect.Type
+	method runtime.MethodLookup
+}
+
+var (
+	marshalJSONInterface        = &marshalerInterface{typ: marshalJSONType, method: runtime.MarshalJSONMethod}
+	marshalJSONContextInterface = &marshalerInterface{typ: marshalJSONContextType, method: runtime.MarshalJSONMethod}
+	marshalTextInterface        = &marshalerInterface{typ: marshalTextType, method: runtime.MarshalTextMethod}
+	appendTextInterface         = &marshalerInterface{typ: appendTextType, method: runtime.AppendTextMethod}
+)
+
 // newMarshalerCall returns the call of the method of the type of the receiver, which implements the interface.
 // It is decided when the type is compiled.
-func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
+func newMarshalerCall(recv reflect.Type, iface *marshalerInterface) *MarshalerCall {
 	fn, ok := methodCode(recv, iface)
 	if !ok {
 		return nil
@@ -58,24 +73,24 @@ func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
 	m := &MarshalerCall{fn: fn, nilIsNull: recv.Kind() == reflect.Ptr, recv: recv}
 	if runtime.IsStdMarshalerType(recv) {
 		switch iface {
-		case marshalJSONType:
+		case marshalJSONInterface:
 			m.trusted = true
 			m.appendOutput = stdJSONAppender(recv)
-		case marshalTextType:
+		case marshalTextInterface:
 			m.appendOutput = textAppenderOf(recv)
 		}
-	} else if origin, offset, inline, ok := runtime.PromotedStdMethod(recv, iface.Method(0).Name); ok {
+	} else if origin, offset, inline, ok := runtime.PromotedStdMethod(recv, iface.method); ok {
 		// the method is the one of the embedded value of a type of the standard library, which the wrapper of the
 		// type calls: its output is trusted as that of the type, and written by its appending method from the
 		// embedded value if it is in the value, whose address is then the data word: a pointer, or a type which
 		// is not stored directly in an interface value.
 		switch iface {
-		case marshalJSONType:
+		case marshalJSONInterface:
 			m.trusted = true
 			if inline && (recv.Kind() == reflect.Pointer || runtime.IfaceIndir(recv)) {
 				m.appendOutput = embeddedAppender(stdJSONAppender(origin), offset)
 			}
-		case marshalTextType:
+		case marshalTextInterface:
 			if inline && (recv.Kind() == reflect.Pointer || runtime.IfaceIndir(recv)) {
 				m.appendOutput = embeddedAppender(textAppenderOf(origin), offset)
 			}
@@ -97,8 +112,8 @@ func embeddedAppender(appendOutput func([]byte, unsafe.Pointer) ([]byte, bool), 
 
 // methodCode returns the code of the method of the interface of the receiver type, which takes the data word of
 // the interface value.
-func methodCode(recv reflect.Type, iface reflect.Type) (uintptr, bool) {
-	if !recv.Implements(iface) {
+func methodCode(recv reflect.Type, iface *marshalerInterface) (uintptr, bool) {
+	if !recv.Implements(iface.typ) {
 		return 0, false
 	}
 	holder := recv
@@ -106,7 +121,7 @@ func methodCode(recv reflect.Type, iface reflect.Type) (uintptr, bool) {
 		// the data word is the address of the value: the method of the pointer takes it.
 		holder = reflect.PointerTo(recv)
 	}
-	method, ok := holder.MethodByName(iface.Method(0).Name)
+	method, ok := iface.method(holder)
 	if !ok {
 		return 0, false
 	}
@@ -125,7 +140,7 @@ var appendTextType = reflect.TypeOf((*textAppender)(nil)).Elem()
 // AppendText, which appends what MarshalText returns, or nil if the type has no AppendText. AppendText fails
 // when MarshalText does: MarshalText is then called for its error.
 func textAppenderOf(recv reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bool) {
-	fn, ok := methodCode(recv, appendTextType)
+	fn, ok := methodCode(recv, appendTextInterface)
 	if !ok {
 		return nil
 	}

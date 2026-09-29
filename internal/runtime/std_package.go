@@ -31,24 +31,24 @@ func IsStdMarshalerType(typ reflect.Type) bool {
 	return typ.Name() != "" && stdMarshalerPackages[typ.PkgPath()]
 }
 
-// PromotedStdMethod reports whether the method of the name of the type, or of the type it points to, is the one of
-// a type of the standard library whose marshalers are trusted ( see IsStdMarshalerType ), which the type has by
-// embedding it and doesn't declare itself: a call of the method then runs the method of that type, on the embedded
-// value. It returns that type and, if the embedded value is in the value of the type ( embedded by value at every
-// depth ), its offset in it, and whether it is so ( inline ), and whether the method is such a method. A type which
-// declares the method, or which has it from more than one embedded type at one depth, is not such a type.
-func PromotedStdMethod(typ reflect.Type, name string) (reflect.Type, uintptr, bool, bool) {
+// PromotedStdMethod reports whether the method of the type which the lookup finds, or the one of the type it points to,
+// is the method of a type of the standard library whose marshalers are trusted ( see IsStdMarshalerType ), which the
+// type has by embedding it and doesn't declare itself: a call of the method then runs the method of that type, on the
+// embedded value. It returns that type and, if the embedded value is in the value of the type ( embedded by value at
+// every depth ), its offset in it, and whether it is so ( inline ), and whether the method is such a method. A type
+// which declares the method, or which has it from more than one embedded type at one depth, is not such a type.
+func PromotedStdMethod(typ reflect.Type, method MethodLookup) (reflect.Type, uintptr, bool, bool) {
 	if typ.Kind() == reflect.Pointer && typ.Name() == "" {
 		typ = typ.Elem()
 	}
-	if typ.Kind() != reflect.Struct || !isPromotedMethod(typ, name) {
+	if typ.Kind() != reflect.Struct || !isPromotedMethod(typ, method) {
 		return nil, 0, false, false
 	}
 	var field reflect.StructField
 	found := false
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
-		if f.Anonymous && hasMethod(f.Type, name) {
+		if f.Anonymous && hasMethod(f.Type, method) {
 			if found {
 				// the depth of the method is not looked for: it is not trusted.
 				return nil, 0, false, false
@@ -62,27 +62,27 @@ func PromotedStdMethod(typ reflect.Type, name string) (reflect.Type, uintptr, bo
 	if IsStdMarshalerType(field.Type) {
 		return field.Type, field.Offset, field.Type.Kind() != reflect.Pointer, true
 	}
-	origin, offset, inline, ok := PromotedStdMethod(field.Type, name)
+	origin, offset, inline, ok := PromotedStdMethod(field.Type, method)
 	return origin, field.Offset + offset, inline && field.Type.Kind() != reflect.Pointer, ok
 }
 
-// hasMethod is whether the type, or the pointer to it, has the method of the name.
-func hasMethod(typ reflect.Type, name string) bool {
+// hasMethod is whether the type, or the pointer to it, has the method.
+func hasMethod(typ reflect.Type, method MethodLookup) bool {
 	if typ.Kind() != reflect.Pointer {
 		typ = reflect.PointerTo(typ)
 	}
-	_, ok := typ.MethodByName(name)
+	_, ok := method(typ)
 	return ok
 }
 
-// isPromotedMethod is whether the method of the name of the struct type is promoted from an embedded field: the
-// method of the type and the one of the pointer to it, those which it has, are the wrappers which the compiler
-// makes for a promoted method. A declared method is not a wrapper, although the method of the pointer to the type
-// of a method declared on the value is.
-func isPromotedMethod(typ reflect.Type, name string) bool {
+// isPromotedMethod is whether the method of the struct type which the lookup finds is promoted from an embedded field:
+// the method of the type and the one of the pointer to it, those which it has, are the wrappers which the compiler
+// makes for a promoted method. A declared method is not a wrapper, although the method of the pointer to the type of a
+// method declared on the value is.
+func isPromotedMethod(typ reflect.Type, method MethodLookup) bool {
 	has := false
 	for _, holder := range []reflect.Type{typ, reflect.PointerTo(typ)} {
-		m, ok := holder.MethodByName(name)
+		m, ok := method(holder)
 		if !ok {
 			continue
 		}

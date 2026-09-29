@@ -50,6 +50,27 @@ jobs:
     - name: test with race detector
       run: go test -v -race ./... -count=1
 
+  test-big-endian:
+    # The code which reads several bytes at once as a word must find them in the order of memory on a big-endian
+    # machine too: the tests run on linux/s390x, whose binaries QEMU runs, since no runner is big-endian.
+    name: Test on a big-endian machine (s390x)
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v7
+    - name: setup Go
+      uses: actions/setup-go@v7
+      with:
+        go-version: '1.27'
+    - name: setup QEMU
+      uses: docker/setup-qemu-action@v4
+      with:
+        platforms: s390x
+    - name: test
+      run: go test -v ./... -count=1
+      env:
+        GOARCH: s390x
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

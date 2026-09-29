@@ -30,12 +30,12 @@ func TestEmbeddedStdMarshalerCall(t *testing.T) {
 	// AppendText is of Go 1.24: time.Time.MarshalJSON is called before it.
 	hasAppendText := stdJSONAppender(reflect.TypeOf(time.Time{})) != nil
 	for _, test := range tests {
-		m := newMarshalerCall(test.typ, marshalJSONType)
+		m := newMarshalerCall(test.typ, marshalJSONInterface)
 		if m == nil || m.trusted != test.trusted || (m.appendOutput != nil) != (test.appendOutput && hasAppendText) {
 			t.Errorf("%v: got %+v, want trusted %v and appendOutput %v", test.typ, m, test.trusted, test.appendOutput)
 		}
 	}
-	text := newMarshalerCall(reflect.TypeOf(embeddedTime{}), marshalTextType)
+	text := newMarshalerCall(reflect.TypeOf(embeddedTime{}), marshalTextInterface)
 	if text == nil || (text.appendOutput != nil) != hasAppendText {
 		t.Fatal("the text of an embedded time.Time is not appended by AppendText")
 	}

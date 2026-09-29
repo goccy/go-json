@@ -94,8 +94,11 @@ func TestPromotedStdMethod(t *testing.T) {
 		{timeType, "MarshalJSON", false, nil, 0, false},
 		{reflect.TypeOf(0), "MarshalJSON", false, nil, 0, false},
 	}
+	lookups := map[string]MethodLookup{
+		"MarshalJSON": MarshalJSONMethod, "MarshalText": MarshalTextMethod, "UnmarshalJSON": UnmarshalJSONMethod,
+	}
 	for _, test := range tests {
-		origin, offset, inline, ok := PromotedStdMethod(test.typ, test.name)
+		origin, offset, inline, ok := PromotedStdMethod(test.typ, lookups[test.name])
 		if ok != test.ok || origin != test.origin || offset != test.offset || inline != test.inline {
 			t.Errorf("%v.%s: got (%v, %d, %v, %v), want (%v, %d, %v, %v)", test.typ, test.name,
 				origin, offset, inline, ok, test.origin, test.offset, test.inline, test.ok)

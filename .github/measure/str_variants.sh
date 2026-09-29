@@ -5,22 +5,22 @@ set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
 root=$PWD
 names=""
-for v in master v9 v10; do
+for v in ${VARIANTS:-master v9 v10}; do
   for pad in "" pad; do
     n=$v$pad; names="$names $n"
     git worktree add -q /tmp/wt-$n origin/master
     cp $root/.github/measure/string_fast_path_test.go /tmp/wt-$n/internal/encoder/string_fast_path_test.go
     [ $v = master ] || (cd /tmp/wt-$n && git apply $root/.github/measure/str_$v.patch)
     [ -z "$pad" ] || cp $root/.github/measure/pad.go /tmp/wt-$n/internal/encoder/zz_measure_pad.go
-    for l in 1 2 3 4; do
+    for l in $(seq 1 ${LAYOUTS:-4}); do
       (cd /tmp/wt-$n && go test -c -ldflags=-randlayout=$l -o /tmp/fn-$n-$l.test ./internal/encoder/)
     done
   done
 done
-for r in 1 2 3; do
-  for l in 1 2 3 4; do
+for r in $(seq 1 ${ROUNDS:-3}); do
+  for l in $(seq 1 ${LAYOUTS:-4}); do
     for n in $names; do
-      /tmp/fn-$n-$l.test -test.run '^$' -test.bench 'BenchmarkAppendString/' -test.benchtime 40ms | awk -v n=$n -v l=$l '/ns\/op/ {print n, l, $1, $3}' >> /tmp/sv.txt
+      /tmp/fn-$n-$l.test -test.run '^$' -test.bench "${BENCH:-BenchmarkAppendString/}" -test.benchtime 40ms | awk -v n=$n -v l=$l '/ns\/op/ {print n, l, $1, $3}' >> /tmp/sv.txt
     done
   done
 done

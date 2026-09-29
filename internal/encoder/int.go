@@ -32,17 +32,13 @@ import (
 
 var endianness int
 
+// init sets endianness by the first byte of 0xABCD in memory: 0xCD on a little-endian machine (0) and 0xAB on a
+// big-endian one (1), the only two orders of the bytes of a word which Go runs on.
 func init() {
 	var b [2]byte
 	*(*uint16)(unsafe.Pointer(&b)) = uint16(0xABCD)
-
-	switch b[0] {
-	case 0xCD:
-		endianness = 0 // LE
-	case 0xAB:
-		endianness = 1 // BE
-	default:
-		panic("could not determine endianness")
+	if b[0] == 0xAB {
+		endianness = 1
 	}
 }
 

@@ -19,6 +19,8 @@ func TestAppendCompactOutput(t *testing.T) {
 		// escapes, and characters which are not ASCII, which compact leaves as they are.
 		`"a\"b"`, `"a\\b"`, `"a\nb"`, `"\"\\\/\b\f\n\r\t\u00e9\uD83D\uDE00\uABCD"`, `{"\"k\"":"\\"}`, `["\\","\""]`,
 		`"日本語"`, `"a — b"`, `{"é":"😀"}`, "\"\xff\xfe\"", `"\u2028"`,
+		// several quotes in the eight bytes read at once, of which the first one in memory ends the string.
+		`["x","y","z"]`, `["ab","cd","e"]`, `["a\\bcdefg","ijklmnop","q"]`, `{"k":"ab","l":"cdefghij"}`,
 	}
 	rejected := []string{
 		``, ` `, `{ }`, `{"a": 1}`, `[1, 2]`, "[1,\n2]", `{"a":1} `, ` 1`, "\"a\tb\"",
@@ -26,6 +28,8 @@ func TestAppendCompactOutput(t *testing.T) {
 		`[1 2]`, `{"a":1 "b":2}`, `tru`, `nul`, `truex`, `01`, `1.`, `.5`, `1e`, `1e+`, `-`, `--1`, `+1`, `"abc`,
 		`{"a":1}}`, `[1]]`, `{a:1}`, `{1:2}`, `[1]x`, "\x00", "\"\x01\"", strings.Repeat("[", 65) + strings.Repeat("]", 65),
 		`{"a":1}{"b":2}`, `1 2`, `"a" "b"`,
+		// several quotes in the eight bytes read at once: a string ended at a later one would make these valid.
+		`""}a,:,{{`, `"\\]"[b]a}"`, `["ab" "cd"]`, `["ab" "c\\"]`, `{"k":"ab" "cd"}`,
 		// escapes which are not ones of JSON, or which end the string.
 		`"\"`, `"\`, `"\\"x`, `"\u00"`, `"\u00g0"`, `"\x41"`, `"\U0041"`, `"\'"`, `"\u12`, `["\"]`, `{"\":1}`,
 		// commas and colons which are not in their places.

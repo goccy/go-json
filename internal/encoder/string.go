@@ -212,11 +212,17 @@ func growForString(buf []byte, n int) []byte {
 
 // AppendString appends the string as a JSON string.
 //
-// Most of the strings have nothing to escape and are short, so that case is handled here: the capacity is
-// checked once, the string is looked at by words ( by bytes if it is shorter than a word ), and a short string
-// is copied by a few loads and stores instead of a call of memmove, which costs more than the copy itself.
-// A string which may have a byte to escape is left to the function for the options.
+// Most of the strings have nothing to escape and are short, so that case is handled here. A string of up to
+// maxOnePassLength bytes is looked at and written to the capacity of the buffer in one pass, by bytes, by the
+// halves of a word or by words, and nothing is called; a longer one is looked at by SIMD ( or by words ) and
+// then copied. A string which may have a byte to escape is left to the function for the options, and what was
+// written for it is left out of the buffer.
 func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+	n := len(s)
+	if n == 0 {
+		// no byte to escape: the options are not looked at.
+		return append(buf, '"', '"')
+	}
 	index := 0
 	if ctx.Option.Flag&HTMLEscapeOption != 0 {
 		index = stringEscapeHTML
@@ -226,10 +232,6 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	}
 	escape := &stringEscapes[index]
 
-	n := len(s)
-	if n == 0 {
-		return append(buf, '"', '"')
-	}
 	src := unsafe.Pointer(unsafe.StringData(s))
 	if n < 4 {
 		table := escape.table
@@ -238,6 +240,17 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 				return escape.appendEscaped(buf, s)
 			}
 		}
+		if l := len(buf); cap(buf)-l >= n+2 {
+			// the first, the middle and the last byte are every byte of 1 to 3 bytes.
+			buf = buf[:l+n+2]
+			p := unsafe.Pointer(unsafe.SliceData(buf))
+			*(*byte)(unsafe.Add(p, l)) = '"'
+			*(*byte)(unsafe.Add(p, l+1)) = *(*byte)(src)
+			*(*byte)(unsafe.Add(p, l+1+(n>>1))) = *(*byte)(unsafe.Add(src, n>>1))
+			*(*byte)(unsafe.Add(p, l+n)) = *(*byte)(unsafe.Add(src, n-1))
+			*(*byte)(unsafe.Add(p, l+n+1)) = '"'
+			return buf
+		}
 	} else if n < 8 {
 		// the two halves overlap, so that the word has every byte of the string and nothing else.
 		w := uint64(*(*uint32)(src)) | uint64(*(*uint32)(unsafe.Add(src, n-4)))<<32
@@ -245,7 +258,46 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 			(escape.high != 0 || (exactCommonMask(w)|escape.exactCharsMask(w))&msb != 0) {
 			return escape.appendEscaped(buf, s)
 		}
-	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
+		if l := len(buf); cap(buf)-l >= n+2 {
+			// the halves of the word are written where they were read from.
+			buf = buf[:l+n+2]
+			p := unsafe.Pointer(unsafe.SliceData(buf))
+			*(*byte)(unsafe.Add(p, l)) = '"'
+			*(*uint32)(unsafe.Add(p, l+1)) = uint32(w)
+			*(*uint32)(unsafe.Add(p, l+n-3)) = uint32(w >> 32)
+			*(*byte)(unsafe.Add(p, l+n+1)) = '"'
+			return buf
+		}
+	} else if l := len(buf); n <= maxOnePassLength && cap(buf)-l >= n+2 {
+		// the first and the last word and the ones between them, which overlap: 8 to maxOnePassLength bytes, 31
+		// at most, are 2 to 4 words. A buffer without the capacity is grown below.
+		dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(buf)), l+1)
+		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, n-8))
+		*(*uint64)(dst) = first
+		*(*uint64)(unsafe.Add(dst, n-8)) = last
+		mask := looseCommonMask(first) | escape.looseCharsMask(first) | looseCommonMask(last) | escape.looseCharsMask(last)
+		if n > 16 {
+			w := *(*uint64)(unsafe.Add(src, 8))
+			*(*uint64)(unsafe.Add(dst, 8)) = w
+			mask |= looseCommonMask(w) | escape.looseCharsMask(w)
+			if n > 24 {
+				w := *(*uint64)(unsafe.Add(src, 16))
+				*(*uint64)(unsafe.Add(dst, 16)) = w
+				mask |= looseCommonMask(w) | escape.looseCharsMask(w)
+			}
+		}
+		if mask&msb != 0 && (escape.high != 0 || escape.hasExactEscape(src, n)) {
+			// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
+			return escape.appendEscaped(buf, s)
+		}
+		// the position is taken from buf again, which is kept across the call above, so that nothing more is.
+		l := len(buf)
+		buf = buf[:l+n+2]
+		p := unsafe.Pointer(unsafe.SliceData(buf))
+		*(*byte)(unsafe.Add(p, l)) = '"'
+		*(*byte)(unsafe.Add(p, l+n+1)) = '"'
+		return buf
+	} else if found, ok := scanBytesSIMD(src, n, &escape.tables); ok {
 		if found {
 			return escape.appendEscaped(buf, s)
 		}

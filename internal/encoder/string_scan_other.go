@@ -6,10 +6,9 @@ import (
 	"unsafe"
 )
 
-// hasEscapeSIMD is not available: the string is scanned by words.
-func (e *stringEscape) hasEscapeSIMD(_ unsafe.Pointer, _ int) (bool, bool) {
-	return false, false
-}
+// maxOnePassLength is the length of the longest string which AppendString looks at and copies in one pass, of
+// up to four words: a longer one is looked at by words, and copied after.
+const maxOnePassLength = 31
 
 // scanBytesSIMD is not available: the bytes are scanned one by one.
 func scanBytesSIMD(_ unsafe.Pointer, _ int, _ *nibbleTables) (bool, bool) {

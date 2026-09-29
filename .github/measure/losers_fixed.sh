@@ -17,11 +17,11 @@ while read cat p n; do
     go tool pprof -ignore "$IGNORE" -peek 'runtime\.memmove$' /tmp/m.test /tmp/p.prof 2>/dev/null | sed -n '/flat  flat%/,$p' | head -30
     echo "-- peek mallocgc"
     go tool pprof -ignore "$IGNORE" -peek 'runtime\.mallocgc$' /tmp/m.test /tmp/p.prof 2>/dev/null | sed -n '/flat  flat%/,$p' | head -20
+    if [ $p = small ] && [ $lib = go-json ]; then
+      echo "-- list AppendInt"
+      go tool pprof -ignore "$IGNORE" -list 'encoder\.AppendInt$' /tmp/m.test /tmp/p.prof 2>/dev/null | head -120
+    fi
   done
-  if [ $p = small ]; then
-    echo "-- list AppendInt"
-    go tool pprof -ignore "$IGNORE" -list 'encoder\.AppendInt$' /tmp/m.test /tmp/p.prof 2>/dev/null | head -120
-  fi
 done <<'LIST'
 fastest twitter 600000
 fastest anthropic 2000000

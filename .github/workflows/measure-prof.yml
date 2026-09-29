@@ -1,4 +1,4 @@
-name: Profile report encode
+name: Count code set lookups
 on:
   push:
     branches:
@@ -6,7 +6,6 @@ on:
 jobs:
   measure:
     name: Measure (${{ matrix.machine }})
-    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -24,4 +23,4 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: .github/measure/prof_report.sh
+        run: .github/measure/count.sh

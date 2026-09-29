@@ -1,0 +1,54 @@
+diff --git a/encode_zz_count.go b/encode_zz_count.go
+new file mode 100644
+index 0000000..fb63c37
+--- /dev/null
++++ b/encode_zz_count.go
+@@ -0,0 +1,13 @@
++package json
++
++import "github.com/goccy/go-json/internal/encoder"
++
++// CodeSetCounts returns the counts of the lookups of the code sets, for a measurement only.
++func CodeSetCounts() (lookups, misses, shared int) {
++	return encoder.CountRecentLookups, encoder.CountRecentMisses, encoder.CountSharedLookups
++}
++
++// ResetCodeSetCounts resets them.
++func ResetCodeSetCounts() {
++	encoder.CountRecentLookups, encoder.CountRecentMisses, encoder.CountSharedLookups = 0, 0, 0
++}
+diff --git a/internal/encoder/compiler.go b/internal/encoder/compiler.go
+index 0205e4e..7010f80 100644
+--- a/internal/encoder/compiler.go
++++ b/internal/encoder/compiler.go
+@@ -25,6 +25,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
+ 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
+ 		}
+ 	}
++	CountSharedLookups++
+ 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
+ 	if err != nil {
+ 		return nil, err
+@@ -48,6 +49,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
+ // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
+ // This is inlined into the callers: the values of interface{} come through it one by one.
+ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
++	CountRecentLookups++
+ 	key := c.codeSetKey(typeptr)
+ 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
+ 	if c.Option.Flag&ContextOption == 0 {
+@@ -58,9 +60,14 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
+ 			return set[1].codeSet
+ 		}
+ 	}
++	CountRecentMisses++
+ 	return nil
+ }
+ 
++// CountRecentLookups, CountRecentMisses and CountSharedLookups count the lookups of the code sets, for a
++// measurement only.
++var CountRecentLookups, CountRecentMisses, CountSharedLookups int
++
+ func recentCodeSetIndex(typeptr uintptr) uint64 {
+ 	return (uint64(typeptr) * runtime.TypeHashMultiplier) >> recentCodeSetHashShift
+ }

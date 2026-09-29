@@ -6,6 +6,7 @@ on:
 jobs:
   measure:
     name: Measure (${{ matrix.machine }})
+    if: false
     strategy:
       fail-fast: false
       matrix:

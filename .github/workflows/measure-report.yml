@@ -6,7 +6,6 @@ on:
 jobs:
   measure:
     name: Measure (${{ matrix.machine }})
-    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -26,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: .github/measure/causes.sh
+        run: .github/measure/strings_ints.sh

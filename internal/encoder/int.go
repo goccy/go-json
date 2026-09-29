@@ -101,6 +101,11 @@ func AppendInt(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []
 	} else if n < 100 {
 		u := intLELookup[n]
 		return append(out, byte(u), byte(u>>8))
+	} else if n < 10000 {
+		return appendThreeOrFourDigits(out, n)
+	}
+	if negative && n < 10000 {
+		return appendFourDigits(append(out, '-'), n)
 	}
 	return appendDecimal(out, n, negative)
 }
@@ -123,8 +128,32 @@ func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) [
 	} else if n < 100 {
 		u := intLELookup[n]
 		return append(out, byte(u), byte(u>>8))
+	} else if n < 10000 {
+		return appendThreeOrFourDigits(out, n)
 	}
 	return appendDecimal(out, n, false)
+}
+
+// appendFourDigits appends n, of up to four digits, by the lookups of its digits without a loop: most of the
+// integers of JSON are small.
+func appendFourDigits(out []byte, n uint64) []byte {
+	if n < 10 {
+		return append(out, byte(n+'0'))
+	} else if n < 100 {
+		u := intLELookup[n]
+		return append(out, byte(u), byte(u>>8))
+	}
+	return appendThreeOrFourDigits(out, n)
+}
+
+// appendThreeOrFourDigits appends n, of three or four digits, by the lookups of its digits without a loop.
+func appendThreeOrFourDigits(out []byte, n uint64) []byte {
+	hi, lo := n/100, intLELookup[n%100]
+	if hi < 10 {
+		return append(out, byte(hi+'0'), byte(lo), byte(lo>>8))
+	}
+	u := intLELookup[hi]
+	return append(out, byte(u), byte(u>>8), byte(lo), byte(lo>>8))
 }
 
 // pow10 are the powers of 10 which an uint64 has, from 10^0.

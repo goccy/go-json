@@ -63,7 +63,7 @@ func TestDecimalDigits(t *testing.T) {
 }
 
 func BenchmarkAppendInt(b *testing.B) {
-	values := []int64{0, 7, 42, 123, -456, 98765, 1234567890, -9876543210123, math.MinInt64}
+	values := []int64{0, 7, 42, -6, 486, 123, -456, 98765, 1234567890, -9876543210123, math.MinInt64}
 	code := &Opcode{NumBitSize: 64}
 	buf := make([]byte, 0, 64)
 	for _, v := range values {

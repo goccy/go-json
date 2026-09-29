@@ -6,6 +6,10 @@ import (
 	"unsafe"
 )
 
+// maxOnePassLength is the length of the longest string which appendStringOnePass looks at and copies in one pass:
+// a longer one is looked at by words, and copied after.
+const maxOnePassLength = 64
+
 // hasEscapeSIMD is not available: the string is scanned by words.
 func (e *stringEscape) hasEscapeSIMD(_ unsafe.Pointer, _ int) (bool, bool) {
 	return false, false

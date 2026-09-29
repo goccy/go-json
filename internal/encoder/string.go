@@ -245,6 +245,8 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 			(escape.high != 0 || (exactCommonMask(w)|escape.exactCharsMask(w))&msb != 0) {
 			return escape.appendEscaped(buf, s)
 		}
+	} else if n <= maxOnePassLength {
+		return appendStringOnePass(ctx, buf, s)
 	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
 		if found {
 			return escape.appendEscaped(buf, s)
@@ -278,6 +280,48 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 		*(*byte)(unsafe.Add(dst, n>>1)) = *(*byte)(unsafe.Add(src, n>>1))
 		*(*byte)(unsafe.Add(dst, n-1)) = *(*byte)(unsafe.Add(src, n-1))
 	}
+	*(*byte)(unsafe.Add(dst, n)) = '"'
+	return buf
+}
+
+// appendStringOnePass appends a string of 8 to maxOnePassLength bytes as AppendString does: a word is looked at
+// and written to its place in the capacity of the buffer at once, the last word overlapping the one before it, so
+// that the string is read once and nothing is called. If a word may have a byte to escape, what was written is
+// left out of the buffer, and the string is appended by the escape of the options.
+func appendStringOnePass(ctx *RuntimeContext, buf []byte, s string) []byte {
+	index := 0
+	if ctx.Option.Flag&HTMLEscapeOption != 0 {
+		index = stringEscapeHTML
+	}
+	if ctx.Option.Flag&NormalizeUTF8Option != 0 {
+		index |= stringEscapeNormalize
+	}
+	escape := &stringEscapes[index]
+	n := len(s)
+	src := unsafe.Pointer(unsafe.StringData(s))
+	l := len(buf)
+	if cap(buf)-l < n+2 {
+		buf = growForString(buf, n+2)
+	}
+	dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(buf)), l+1)
+	var mask uint64
+	i := 0
+	for ; i+8 <= n; i += 8 {
+		w := *(*uint64)(unsafe.Add(src, i))
+		mask |= looseCommonMask(w) | escape.looseCharsMask(w)
+		*(*uint64)(unsafe.Add(dst, i)) = w
+	}
+	if i < n {
+		w := *(*uint64)(unsafe.Add(src, n-8))
+		mask |= looseCommonMask(w) | escape.looseCharsMask(w)
+		*(*uint64)(unsafe.Add(dst, n-8)) = w
+	}
+	if mask&msb != 0 && (escape.high != 0 || escape.hasExactEscape(src, n)) {
+		// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
+		return escape.appendEscaped(buf, s)
+	}
+	buf = buf[:l+n+2]
+	*(*byte)(unsafe.Add(dst, -1)) = '"'
 	*(*byte)(unsafe.Add(dst, n)) = '"'
 	return buf
 }

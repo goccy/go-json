@@ -1,0 +1,2804 @@
+diff --git a/internal/encoder/vm/util.go b/internal/encoder/vm/util.go
+index 90256b8..5b16977 100644
+--- a/internal/encoder/vm/util.go
++++ b/internal/encoder/vm/util.go
+@@ -189,6 +189,13 @@ func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte)
+ 	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
+ }
+ 
++// growForKey returns b with the capacity for a chunk of a key after it.
++//
++//go:noinline
++func growForKey(b []byte) []byte {
++	return append(b, make([]byte, encoder.KeyChunkSize)...)[:len(b)]
++}
++
+ // appendLongStructKey appends a key of any length.
+ func appendLongStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+ 	return append(b, code.Key...)
+diff --git a/internal/encoder/vm/vm.go b/internal/encoder/vm/vm.go
+index 3382d42..8f8ad9a 100644
+--- a/internal/encoder/vm/vm.go
++++ b/internal/encoder/vm/vm.go
+@@ -68,7 +68,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// of interface{} is nil in many a value, and it is null then, without a call. The cases are here, with
+ 			// the ones of a value of interface{}, not with the other fields: there they cost the small structs 3%.
+ 			p := unsafe.Add(load(ctxptr, code.Idx), code.Offset)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if *(*unsafe.Pointer)(p) == nil {
+ 				b = appendNullComma(ctx, b)
+ 				code = code.Next
+@@ -100,7 +109,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			first, base, scalar, err := ctx.EnterInterface(code, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -698,7 +716,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
+-					b = appendStructKey(ctx, code, b)
++					if cap(b)-len(b) < encoder.KeyChunkSize {
++						b = growForKey(b)
++					}
++					{
++						k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++						w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++						d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++						d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++						b = b[:len(b)+len(code.Key)]
++					}
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+ 				}
+@@ -713,7 +740,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 			} else {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
+-					b = appendStructKey(ctx, code, b)
++					if cap(b)-len(b) < encoder.KeyChunkSize {
++						b = growForKey(b)
++					}
++					{
++						k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++						w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++						d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++						d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++						b = b[:len(b)+len(code.Key)]
++					}
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+ 				}
+@@ -724,21 +760,48 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			// Three fields of the kind in a row, then two: the fields after the first are encoded without
+ 			// a dispatch, by falling through to the case of the field. The same for the other kinds below.
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldInt2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldInt:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -747,14 +810,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldIntString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -765,7 +846,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -775,7 +865,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldIntPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -787,7 +886,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -795,7 +903,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldIntPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -809,7 +926,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -818,21 +944,48 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldUint3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldUint2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldUint:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -841,14 +994,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldUintString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -859,7 +1030,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -869,7 +1049,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldUintPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -881,7 +1070,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -889,7 +1087,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldUintPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -903,7 +1110,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -912,7 +1128,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat32:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -924,7 +1149,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -935,7 +1169,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat32String:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -949,7 +1192,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+@@ -963,7 +1215,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat32Ptr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -979,7 +1240,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -991,7 +1261,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat32PtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1009,7 +1288,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+@@ -1022,7 +1310,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldFloat643:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1033,7 +1330,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			fallthrough
+ 		case encoder.OpStructFieldFloat642:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1044,7 +1350,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			fallthrough
+ 		case encoder.OpStructFieldFloat64:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+@@ -1059,7 +1374,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1070,7 +1394,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = append(b, '"')
+@@ -1083,7 +1416,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = append(b, '"')
+@@ -1093,7 +1435,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat64Ptr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNullComma(ctx, b)
+ 				code = code.Next
+@@ -1110,7 +1461,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -1122,7 +1482,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldFloat64PtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1140,7 +1509,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+@@ -1153,21 +1531,48 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldString3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldString2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1175,7 +1580,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1183,7 +1597,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringString:
+ 			p := load(ctxptr, code.Idx)
+ 			s := ptrToString(unsafe.Add(p, code.Offset))
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1191,7 +1614,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1199,7 +1631,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1211,7 +1652,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, ptrToString(p))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1219,7 +1669,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldStringPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1231,28 +1690,64 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldBool3:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldBool2:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+ 		case encoder.OpStructFieldBool:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1260,14 +1755,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = appendBool(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldBoolString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = append(b, '"')
+@@ -1277,7 +1790,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, v)
+ 				b = append(b, '"')
+@@ -1287,7 +1809,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBoolPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1299,7 +1830,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1307,7 +1847,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBoolPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1321,7 +1870,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = append(b, '"')
+@@ -1330,7 +1888,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldBytes:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+@@ -1338,7 +1905,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, v)
+ 				b = appendComma(ctx, b)
+ 			}
+@@ -1346,7 +1922,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldBytesPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1358,14 +1943,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, ptrToBytes(p))
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldNumber:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -1376,7 +1979,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -1386,7 +1998,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldNumberString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -1399,7 +2020,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+@@ -1412,7 +2042,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldNumberPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1428,7 +2067,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -1439,7 +2087,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructFieldNumberPtrString:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+ 			} else {
+@@ -1456,7 +2113,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+@@ -1468,7 +2134,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalJSON:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p = unsafe.Add(p, code.Offset)
+ 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+ 				p = ptrToPtr(p)
+@@ -1499,7 +2174,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := appendMarshalJSON(ctx, code, b, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -1508,7 +2192,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalJSONPtr:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+@@ -1525,7 +2218,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendMarshalJSON(ctx, code, b, p)
+ 				if err != nil {
+ 					return nil, err
+@@ -1535,7 +2237,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalText:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p = unsafe.Add(p, code.Offset)
+ 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
+ 				p = ptrToPtr(p)
+@@ -1566,7 +2277,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				code = code.NextField
+ 				break
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := appendMarshalText(ctx, code, b, p)
+ 			if err != nil {
+ 				return nil, err
+@@ -1575,7 +2295,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructFieldMarshalTextPtr:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+ 				b = appendNull(ctx, b)
+@@ -1592,7 +2321,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendMarshalText(ctx, code, b, p)
+ 				if err != nil {
+ 					return nil, err
+@@ -1601,19 +2339,46 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructFieldArray:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+ 			store(ctxptr, code.Idx, p)
+ 		case encoder.OpStructFieldOmitEmptyArray:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+ 			store(ctxptr, code.Idx, p)
+ 		case encoder.OpStructFieldArrayPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			code = code.Next
+@@ -1622,14 +2387,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldSlice:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+@@ -1641,12 +2424,30 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if slice.Len == 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+ 		case encoder.OpStructFieldSlicePtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			code = code.Next
+@@ -1655,14 +2456,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldMap:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToPtr(unsafe.Add(p, code.Offset))
+ 			code = code.Next
+@@ -1673,12 +2492,30 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if p == nil || encoder.MapLen(p) == 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+ 		case encoder.OpStructFieldMapPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToPtr(unsafe.Add(p, code.Offset))
+ 			if p != nil {
+@@ -1693,14 +2530,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				p = ptrToNPtr(p, code.PtrNum)
+ 			}
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			} else {
+ 				code = code.NextField
+ 			}
+ 		case encoder.OpStructFieldStruct:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = unsafe.Add(p, code.Offset)
+ 			code = code.Next
+@@ -1711,7 +2566,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
+ 				code = code.NextField
+ 			} else {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				code = code.Next
+ 				store(ctxptr, code.Idx, p)
+ 			}
+@@ -1720,7 +2584,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndInt:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -1729,7 +2602,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1738,7 +2620,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndIntString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -1749,7 +2640,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -1759,7 +2659,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndIntPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1773,7 +2682,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1781,7 +2699,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndIntPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1797,7 +2724,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendInt(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -1808,7 +2744,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndUint:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -1817,7 +2762,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1826,7 +2780,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndUintString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = append(b, '"')
+@@ -1837,7 +2800,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 				b = append(b, '"')
+@@ -1847,7 +2819,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndUintPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1861,7 +2842,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -1869,7 +2859,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndUintPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1885,7 +2884,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendUint(ctx, b, p, code)
+ 				b = append(b, '"')
+@@ -1896,7 +2904,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -1908,7 +2925,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -1921,7 +2947,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32String:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -1935,7 +2970,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, v)
+ 				if err != nil {
+@@ -1949,7 +2993,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32Ptr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1967,7 +3020,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -1979,7 +3041,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat32PtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -1999,7 +3070,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+ 				if err != nil {
+@@ -2018,7 +3098,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2029,7 +3118,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2042,7 +3140,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if isInfOrNaN(v) {
+ 				return nil, errUnsupportedFloat(v)
+ 			}
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = append(b, '"')
+@@ -2055,7 +3162,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+ 				}
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = encoder.AppendFloat64(ctx, b, v)
+ 				b = append(b, '"')
+@@ -2065,7 +3181,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat64Ptr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2085,7 +3210,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -2097,7 +3231,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndFloat64PtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2117,7 +3260,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				v := ptrToFloat64(p)
+ 				if isInfOrNaN(v) {
+ 					return nil, errUnsupportedFloat(v)
+@@ -2132,7 +3284,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2140,7 +3301,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2149,7 +3319,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndStringString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			s := ptrToString(unsafe.Add(p, code.Offset))
+ 			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+ 			b = appendStructEnd(ctx, code, b)
+@@ -2158,7 +3337,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2166,7 +3354,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndStringPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2180,7 +3377,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, ptrToString(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2188,7 +3394,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndStringPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2202,7 +3417,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2211,7 +3435,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBool:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2219,7 +3452,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = appendBool(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2228,7 +3470,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = append(b, '"')
+@@ -2238,7 +3489,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, v)
+ 				b = append(b, '"')
+@@ -2248,7 +3508,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2262,7 +3531,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2270,7 +3548,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBoolPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2286,7 +3573,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				b = appendBool(ctx, b, ptrToBool(p))
+ 				b = append(b, '"')
+@@ -2297,7 +3593,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndBytes:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendStructEnd(ctx, code, b)
+ 			code = code.Next
+@@ -2305,7 +3610,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, v)
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2313,7 +3627,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndBytesPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2327,7 +3650,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = encoder.AppendByteSlice(ctx, b, ptrToBytes(p))
+ 				b = appendStructEnd(ctx, code, b)
+ 			} else {
+@@ -2336,7 +3668,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndNumber:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+ 				return nil, err
+@@ -2347,7 +3688,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+ 					return nil, err
+@@ -2359,7 +3709,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberString:
+ 			p := load(ctxptr, code.Idx)
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			b = append(b, '"')
+ 			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+ 			if err != nil {
+@@ -2372,7 +3731,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, v)
+ 				if err != nil {
+@@ -2385,7 +3753,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberPtr:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2403,7 +3780,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {
+ 					return nil, err
+@@ -2414,7 +3800,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			code = code.Next
+ 		case encoder.OpStructEndNumberPtrString:
+-			b = appendStructKey(ctx, code, b)
++			if cap(b)-len(b) < encoder.KeyChunkSize {
++				b = growForKey(b)
++			}
++			{
++				k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++				w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++				d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++				d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++				b = b[:len(b)+len(code.Key)]
++			}
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p == nil {
+@@ -2433,7 +3828,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+ 			if p != nil {
+-				b = appendStructKey(ctx, code, b)
++				if cap(b)-len(b) < encoder.KeyChunkSize {
++					b = growForKey(b)
++				}
++				{
++					k := (*[4]uint64)(unsafe.Pointer(code.KeyChunk))
++					w0, w1, w2, w3 := k[0], k[1], k[2], k[3]
++					d := (*[4]uint64)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b)))
++					d[0], d[1], d[2], d[3] = w0, w1, w2, w3
++					b = b[:len(b)+len(code.Key)]
++				}
+ 				b = append(b, '"')
+ 				bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(p))
+ 				if err != nil {

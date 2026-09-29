@@ -17,6 +17,7 @@ for v in master head; do
     done
   done
 done
+cd /tmp/wt-master/benchmarks
 for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for cfg in std fast fastest; do

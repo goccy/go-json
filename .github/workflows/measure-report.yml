@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: .github/measure/strings_ints.sh
+        run: .github/measure/fn_layouts.sh

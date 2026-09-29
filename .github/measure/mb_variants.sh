@@ -24,10 +24,10 @@ cd /tmp/wt-master/benchmarks
 for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for n in $names; do
-      /tmp/mb-$n-$l.test -test.run '^$' -test.bench 'BenchmarkZZMultibyte/.*/go-json$' -test.benchtime 100ms | awk -v n=$n -v l=$l '/ns\/op/ {print n, l, $1, $3}' >> /tmp/mb.txt
+      /tmp/mb-$n-$l.test -test.run '^$' -test.bench 'BenchmarkZZMultibyte/.*/.*/go-json$' -test.benchtime 100ms | awk -v n=$n -v l=$l '/ns\/op/ {print n, l, $1, $3}' >> /tmp/mb.txt
     done
     if [ $l = 1 ]; then
-      /tmp/mb-master-1.test -test.run '^$' -test.bench 'BenchmarkZZMultibyte/.*/sonic$' -test.benchtime 100ms | awk '/ns\/op/ {print "sonic", 1, $1, $3}' >> /tmp/mb.txt
+      /tmp/mb-master-1.test -test.run '^$' -test.bench 'BenchmarkZZMultibyte/.*/.*/sonic$' -test.benchtime 100ms | awk '/ns\/op/ {print "sonic", 1, $1, $3}' >> /tmp/mb.txt
     fi
   done
 done

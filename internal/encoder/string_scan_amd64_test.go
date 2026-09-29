@@ -171,3 +171,46 @@ func TestAppendHTMLEscapedSIMD(t *testing.T) {
 		}
 	}
 }
+
+// TestAppendNormalizedStrings without the loop of the escapes by SIMD.
+func TestAppendNormalizedStringsWithoutEscapeLoop(t *testing.T) {
+	defer func(loop bool) { hasEscapeLoop = loop }(hasEscapeLoop)
+	hasEscapeLoop = false
+	checkAppendNormalizedStrings(t)
+}
+
+// A character which goes on after a block of the loop of the escapes of UTF-8, valid or not, followed by a block
+// of ASCII, of characters which are not ASCII or with a byte to escape, is appended as it is without the loop, at
+// every position around the ends of the blocks: the loop validates it with the next block, or stops before it.
+func TestEscapeUTF8AVX2AcrossBlocks(t *testing.T) {
+	if !runtime.HasAVX2 {
+		t.Skip("AVX2 is not supported")
+	}
+	defer func(loop bool) { hasEscapeLoop = loop }(hasEscapeLoop)
+	text := strings.Repeat("あいう", 40)
+	prefix := func(n int) string {
+		// n bytes of characters of three bytes, and ASCII after the last whole one.
+		s := text[:n/3*3]
+		return s + strings.Repeat("x", n-len(s))
+	}
+	pieces := []string{"", "\xe3", "\xe3\x81", "\xe3\x81\x82", "\xf0\x9f", "\xf0\x9f\x98", "\xf0\x9f\x98\x80", "\xc3", "\xc3\xa9",
+		"\xe2\x80\xa8", "\xe2\x80\xa9", "\xe2\x80", "\xed\xa0\x80", "\x80", "\xff"}
+	tails := []string{strings.Repeat("a", 70), strings.Repeat("あ", 24), `"` + strings.Repeat("b", 69), "é" + strings.Repeat("c", 68), ""}
+	for n := 0; n <= 100; n++ {
+		for _, piece := range pieces {
+			for _, tail := range tails {
+				s := prefix(n) + piece + tail
+				for index := range stringEscapes {
+					e := &stringEscapes[index]
+					hasEscapeLoop = false
+					want := e.appendEscaped([]byte("prefix"), s)
+					hasEscapeLoop = true
+					got := e.appendEscaped([]byte("prefix"), s)
+					if string(got) != string(want) {
+						t.Fatalf("%d %q:\n got %q\nwant %q", index, s, got, want)
+					}
+				}
+			}
+		}
+	}
+}

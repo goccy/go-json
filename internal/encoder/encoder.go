@@ -342,8 +342,12 @@ type MapContext struct {
 	Order    []int32
 	prefixes []uint64 // the first bytes of the keys as numbers, while they are sorted
 	Sorted   bool
-	Len      int
-	Idx      int
+	// DirectEntries is whether the entries of a sorted map are written directly by one call of the VM, up to one
+	// whose value is left to its opcodes, as the entries of a map which is not sorted are written as it is read:
+	// the values are written by one opcode of a scalar, or are of interface{} ( see MapLayout ).
+	DirectEntries bool
+	Len           int
+	Idx           int
 	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
 	// the order of their encoded keys after: Start is where the key or the value being written starts,
 	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.
@@ -370,9 +374,15 @@ func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx.Buf = ctx.Buf[:0]
 	ctx.Idx = 0
 	ctx.Sorted = false
+	ctx.DirectEntries = false
 	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
 	ctx.Slice.Items = nil
 	return ctx
+}
+
+// ScalarValue is whether the values of the map are written by one opcode of a scalar ( MapLayout.ScalarValue ).
+func (c *MapContext) ScalarValue() bool {
+	return c.layout.ScalarValue
 }
 
 // SortByEncodedKeys makes the context put the entries in the order of their encoded keys, for a sorted map

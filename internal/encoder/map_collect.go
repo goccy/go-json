@@ -18,7 +18,7 @@ import (
 // go-json read them through linknames of the runtime for years. Instead, a map with keys of a string kind is
 // ranged over as a map of the same layout: the layout of a map depends only on the size and the alignment of
 // the key and of the value, and the hash depends only on the key. So map[K]V, with K of a string kind and
-// V of up to 128 bytes, is read as map[string][n]uint64 by the code the compiler makes for a range: no
+// V of up to 256 bytes, is read as map[string][n]uint64 by the code the compiler makes for a range: no
 // allocation, no call for an entry, and no dependence on the runtime beyond the layout of a map being what
 // its type says. A map of another key is read by reflect.MapIter, which is slower but is the public way.
 
@@ -32,7 +32,7 @@ type MapLayout struct {
 	// string kind and the values are written by one opcode of a scalar ( ScalarValue: the map is ranged over
 	// as a map of a value of ValueWords words, appendMapScalarValues ), or when the values are of interface{},
 	// the map of a JSON object as a value of interface{} ( InterfaceValue: the values which hold a scalar are
-	// written, and the others are read into the context, appendMapScalarEntries ).
+	// written, and the others are read into the context, appendMapAsRead ).
 	ScalarValue    bool
 	InterfaceValue bool
 	// ValueWords is the number of the words of a value when the map is ranged over as a map of the same layout,
@@ -49,8 +49,10 @@ type MapLayout struct {
 const MapScalarValueWords = 3
 
 // mapValueWords is the number of the words of a value up to which a map is ranged over as a map of the same
-// layout: a larger value is stored out of the map by the runtime, which changes the layout.
-const mapValueWords = 16
+// layout. A value of more than 128 bytes is stored out of the map by the runtime, but so is the value of the
+// map[string][n]uint64 of its size, so the layouts are still the same. Each size is a function of about a
+// kilobyte of code, so the sizes stop at twice that one of the runtime; a larger value is read by reflect.
+const mapValueWords = 32
 
 // NewMapLayout returns how the VM reads a map of the type.
 func NewMapLayout(typ reflect.Type) *MapLayout {
@@ -107,6 +109,22 @@ var stringKeyCollectors = [mapValueWords + 1]func(unsafe.Pointer, *MapContext){
 	collectStringKeys[[14]uint64],
 	collectStringKeys[[15]uint64],
 	collectStringKeys[[16]uint64],
+	collectStringKeys[[17]uint64],
+	collectStringKeys[[18]uint64],
+	collectStringKeys[[19]uint64],
+	collectStringKeys[[20]uint64],
+	collectStringKeys[[21]uint64],
+	collectStringKeys[[22]uint64],
+	collectStringKeys[[23]uint64],
+	collectStringKeys[[24]uint64],
+	collectStringKeys[[25]uint64],
+	collectStringKeys[[26]uint64],
+	collectStringKeys[[27]uint64],
+	collectStringKeys[[28]uint64],
+	collectStringKeys[[29]uint64],
+	collectStringKeys[[30]uint64],
+	collectStringKeys[[31]uint64],
+	collectStringKeys[[32]uint64],
 }
 
 // newReflectCollector returns the function which reads a map of the type by reflect.MapIter: the key and the

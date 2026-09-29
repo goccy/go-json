@@ -29,3 +29,11 @@ for k in keys:
     g = statistics.mean(mean[k + '/go-json']); s = statistics.mean(mean[k + '/sonic'])
     print(f"{k:22} {g:11.1f} {s:10.1f} {(g / s - 1) * 100:+13.1f}%")
 PY
+# profiles of go-json and sonic for the same number of encodes
+for c in fast/ja10 fast/ja30 fast/ja1000; do
+  for lib in go-json sonic; do
+    echo "== profile $c/$lib"
+    /tmp/mb-1.test -test.run '^$' -test.bench "BenchmarkZZMultibyte/^${c%%/*}\$/^${c##*/}\$/^$lib\$" -test.benchtime=2000000x -test.cpuprofile /tmp/mb.prof | grep ns/op
+    go tool pprof -ignore 'pretouchSonic|reportPayloads|PretouchMany' -top -nodecount 25 /tmp/mb-1.test /tmp/mb.prof 2>/dev/null | sed -n '5,31p'
+  done
+done

@@ -25,6 +25,8 @@
 package encoder
 
 import (
+	"math/bits"
+	"slices"
 	"unsafe"
 )
 
@@ -92,43 +94,15 @@ func AppendInt(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []
 	mask := numMask(code.NumBitSize)
 	n := u64 & mask
 	negative := (u64>>(code.NumBitSize-1))&1 == 1
-	if !negative {
-		if n < 10 {
-			return append(out, byte(n+'0'))
-		} else if n < 100 {
-			u := intLELookup[n]
-			return append(out, byte(u), byte(u>>8))
-		}
-	} else {
-		n = -n & mask
-	}
-
-	lookup := intLookup[endianness]
-
-	var b [22]byte
-	u := (*[11]uint16)(unsafe.Pointer(&b))
-	i := 11
-
-	for n >= 100 {
-		j := n % 100
-		n /= 100
-		i--
-		u[i] = lookup[j]
-	}
-
-	i--
-	u[i] = lookup[n]
-
-	i *= 2 // convert to byte index
-	if n < 10 {
-		i++ // remove leading zero
-	}
 	if negative {
-		i--
-		b[i] = '-'
+		n = -n & mask
+	} else if n < 10 {
+		return append(out, byte(n+'0'))
+	} else if n < 100 {
+		u := intLELookup[n]
+		return append(out, byte(u), byte(u>>8))
 	}
-
-	return append(out, b[i:]...)
+	return appendDecimal(out, n, negative)
 }
 
 func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []byte {
@@ -143,34 +117,63 @@ func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) [
 	case 64:
 		u64 = *(*uint64)(p)
 	}
-	mask := numMask(code.NumBitSize)
-	n := u64 & mask
+	n := u64 & numMask(code.NumBitSize)
 	if n < 10 {
 		return append(out, byte(n+'0'))
 	} else if n < 100 {
 		u := intLELookup[n]
 		return append(out, byte(u), byte(u>>8))
 	}
+	return appendDecimal(out, n, false)
+}
 
+// pow10 are the powers of 10 which an uint64 has, from 10^0.
+var pow10 = [20]uint64{
+	1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
+	1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
+}
+
+// decimalDigits returns the number of the decimal digits of n: log10 of n by the one of 2, which bits.Len64
+// gives, corrected by the power of 10 it may be short of ( 1233/4096 is log10(2) ).
+func decimalDigits(n uint64) int {
+	n |= 1
+	t := bits.Len64(n) * 1233 >> 12
+	if n < pow10[t] {
+		return t
+	}
+	return t + 1
+}
+
+// appendDecimal appends n in decimal, after a minus sign if negative. The digits are written where they go in
+// out, two at a time from the last, so that nothing is copied: the number of the digits is known first.
+func appendDecimal(out []byte, n uint64, negative bool) []byte {
+	d := decimalDigits(n)
+	if negative {
+		d++
+	}
+	l := len(out)
+	if cap(out)-l < d {
+		out = slices.Grow(out, d)
+	}
+	out = out[:l+d]
+	base := unsafe.Pointer(unsafe.SliceData(out))
 	lookup := intLookup[endianness]
-
-	var b [22]byte
-	u := (*[11]uint16)(unsafe.Pointer(&b))
-	i := 11
-
+	i := l + d
 	for n >= 100 {
 		j := n % 100
 		n /= 100
+		i -= 2
+		*(*uint16)(unsafe.Add(base, i)) = lookup[j]
+	}
+	if n >= 10 {
+		i -= 2
+		*(*uint16)(unsafe.Add(base, i)) = lookup[n]
+	} else {
 		i--
-		u[i] = lookup[j]
+		*(*byte)(unsafe.Add(base, i)) = byte(n + '0')
 	}
-
-	i--
-	u[i] = lookup[n]
-
-	i *= 2 // convert to byte index
-	if n < 10 {
-		i++ // remove leading zero
+	if negative {
+		*(*byte)(unsafe.Add(base, l)) = '-'
 	}
-	return append(out, b[i:]...)
+	return out
 }

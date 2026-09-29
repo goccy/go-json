@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANTS='u11 broken1 broken2' .github/measure/utf8_tests.sh
+        run: .github/measure/utf8_counts.sh

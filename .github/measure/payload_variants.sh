@@ -19,6 +19,7 @@ for v in master ${VARIANTS:-keys_v1}; do
   done
 done
 cd /tmp/wt-master/benchmarks
+for p in $PAYLOADS; do echo "$p $(ZZ_PAYLOAD=$p /tmp/bin-master-1.test -test.run '^TestZZKeys$' -test.v | grep -o 'keys:.*')"; done
 for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for cfg in std fast fastest; do

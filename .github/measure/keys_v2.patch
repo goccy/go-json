@@ -1,0 +1,27 @@
+diff --git a/internal/encoder/code.go b/internal/encoder/code.go
+index 31bf39c..fc70dc4 100644
+--- a/internal/encoder/code.go
++++ b/internal/encoder/code.go
+@@ -915,7 +915,7 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
+ // KeyChunkSize is the size of the chunk which the VM copies a key by: a key up to it is written by the
+ // opcode of its field, as a chunk. A longer key is written by the generic field opcode, and its value by the
+ // opcode of the value.
+-const KeyChunkSize = 32
++const KeyChunkSize = 16
+ 
+ // PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+ // so that a chunk is copied from the key without reading the memory of others.
+diff --git a/internal/encoder/vm/util.go b/internal/encoder/vm/util.go
+index 90256b8..5d6276d 100644
+--- a/internal/encoder/vm/util.go
++++ b/internal/encoder/vm/util.go
+@@ -185,8 +185,7 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
+ // Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+ // this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
+ func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+-	const half = encoder.KeyChunkSize / 2
+-	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
++	return append(b, code.KeyChunk[:]...)[:len(b)+len(code.Key)]
+ }
+ 
+ // appendLongStructKey appends a key of any length.

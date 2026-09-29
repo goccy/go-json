@@ -49,7 +49,13 @@ func TestZZKeys(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Logf("keys: %d, bytes: %d", strings.Count(string(out), "\":"), len(out))
+				var long int
+				for _, part := range strings.Split(string(out), "\":")[:strings.Count(string(out), "\":")] {
+					if k := strings.LastIndexByte(part, '"'); k >= 0 && len(part)-k+2 > 16 {
+						long++
+					}
+				}
+				t.Logf("keys: %d, over 16 bytes: %d, bytes: %d", strings.Count(string(out), "\":"), long, len(out))
 			}
 		}
 	}

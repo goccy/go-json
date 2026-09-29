@@ -9,11 +9,12 @@ cp $root/.github/measure/zz_prof_test.go /tmp/wt/benchmarks/
 cd /tmp/wt/benchmarks
 go test -c -o /tmp/b.test .
 IGNORE='pretouchSonic|reportPayloads|newReportPayload|PretouchMany'
-export GOGC=off
+export GOGC=off GOMEMLIMIT=2GiB
 for p in ${PAYLOADS:-anthropic openai small}; do
+  ZZ_PAYLOAD=$p /tmp/b.test -test.run '^TestZZKeys$' -test.v | grep 'keys:' || true
   for lib in go-json sonic; do
     echo "== $p fastest/$lib"
-    ZZ_CONFIG=fastest/$lib ZZ_PAYLOAD=$p /tmp/b.test -test.run '^$' -test.bench '^BenchmarkZZEncode$' -test.benchtime=${N:-3000000}x -test.cpuprofile /tmp/$p-$lib.prof | grep ns/op
+    ZZ_CONFIG=fastest/$lib ZZ_PAYLOAD=$p /tmp/b.test -test.run '^$' -test.bench '^BenchmarkZZEncode$' -test.benchtime=${N:-1000000}x -test.cpuprofile /tmp/$p-$lib.prof | grep ns/op
     go tool pprof -ignore "$IGNORE" -top -nodecount 25 /tmp/b.test /tmp/$p-$lib.prof 2>/dev/null | sed -n '6,31p' | awk '{printf "%8s %7s %8s %7s  %s\n", $1, $2, $4, $5, $6}'
   done
   echo "== $p go-json: the inlined helpers of the structs ( flat seconds by function )"

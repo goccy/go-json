@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +33,24 @@ func BenchmarkZZEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		if _, err := c.marshal(p.value); err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+// TestZZKeys prints the number of the keys and of the bytes of the encode of ZZ_PAYLOAD by go-json.
+func TestZZKeys(t *testing.T) {
+	for _, x := range reportPayloads() {
+		if x.ID != os.Getenv("ZZ_PAYLOAD") {
+			continue
+		}
+		for _, c := range reportConfigs {
+			if c.ID == "fastest/go-json" {
+				out, err := c.marshal(x.value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("keys: %d, bytes: %d", strings.Count(string(out), "\":"), len(out))
+			}
 		}
 	}
 }

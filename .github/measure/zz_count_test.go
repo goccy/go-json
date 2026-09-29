@@ -11,7 +11,7 @@ import (
 // how many of them miss the recent code sets of the context and go to the shared table.
 func TestZZCodeSetCounts(t *testing.T) {
 	for _, c := range reportConfigs {
-		if c.Library != "goccy/go-json" || (c.Category != "std" && c.Category != "fast" && c.Category != "fastest") {
+		if c.Library != "goccy/go-json" || c.marshal == nil || (c.Category != "std" && c.Category != "fast" && c.Category != "fastest") {
 			continue
 		}
 		for _, p := range reportPayloads() {

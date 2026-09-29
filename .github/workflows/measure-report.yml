@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: LAYOUTS=8 ROUNDS=5 PAYLOADS=github .github/measure/payloads_int.sh
+        run: .github/measure/str_variants.sh

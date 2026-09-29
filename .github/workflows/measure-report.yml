@@ -23,4 +23,6 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: .github/measure/losers.sh
+        env:
+          MACHINE: ${{ matrix.machine }}
+        run: .github/measure/causes.sh

@@ -25,7 +25,7 @@ func BenchmarkZZMultibyte(b *testing.B) {
 		{"ja1000", string([]rune(ja)[:1000])},
 		{"mixed40", string([]rune(mixed)[:40])},
 		{"mixed400", string([]rune(mixed)[:400])},
-		{"ascii300q", strings.Repeat(`say "hi" <b>&</b> `, 16)[:300]},
+		{"ascii300q", strings.Repeat(`say "hi" <b>&</b> `, 20)[:300]},
 	}
 	pretouchSonic()
 	for _, cat := range []string{"std", "fast", "fastest"} {

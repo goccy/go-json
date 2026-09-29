@@ -27,6 +27,7 @@ package encoder
 import (
 	"encoding/binary"
 	"math/bits"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -334,6 +335,47 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
 	return buf
 }
 
+// skipPlainRunes returns the index of the first byte of s from j which may need an escape by table, or len(s),
+// taking the characters of commonRuneSize as bytes which need none: the characters of a text of CJK are skipped by
+// this loop, called once for a run of them, and not one by one by the loop of the escapes, which then keeps its
+// layout for the bytes of ASCII. The loop of the escapes passes s up to its limit, so that it gives the rest of a
+// long string back to the loop by SIMD as before.
+//
+//go:noinline
+func skipPlainRunes(s string, j int, table *[256]bool) int {
+	for j < len(s) {
+		c := s[j]
+		if !table[c] {
+			j++
+			continue
+		}
+		size := commonRuneSize(s, j)
+		if size == 0 {
+			break
+		}
+		j += size
+	}
+	return j
+}
+
+// commonRuneSize returns the size of the character at s[j] if it is one of two bytes, or one of three bytes whose
+// first byte is 0xE3 to 0xEC, 0xEE or 0xEF, as the characters of CJK are, and its next bytes are continuation
+// bytes, or 0. Such a character is valid UTF-8 and is not escaped whatever its continuation bytes are, so it is
+// written as it is without decodeRuneInString, which is not inlined.
+func commonRuneSize(s string, j int) int {
+	c := s[j]
+	if c-0xc2 < 0xe0-0xc2 {
+		if j+1 < len(s) && s[j+1]^0x80 < 0x40 {
+			return 2
+		}
+	} else if c-0xe3 < 0xed-0xe3 || c-0xee < 2 {
+		if j+2 < len(s) && (s[j+1]^0x80)|(s[j+2]^0x80) < 0x40 {
+			return 3
+		}
+	}
+	return 0
+}
+
 func appendNormalizedHTMLString(buf []byte, s string) []byte {
 	valLen := len(s)
 	if valLen == 0 {
@@ -386,6 +428,12 @@ func appendNormalizedHTMLString(buf []byte, s string) []byte {
 				i = j + 1
 				j = j + 1
 				continue
+			}
+			if c >= utf8.RuneSelf {
+				if k := skipPlainRunes(s[:limit], j, &needEscapeHTMLNormalizeUTF8); k != j {
+					j = k
+					continue
+				}
 			}
 			state, size := decodeRuneInString(s[j:])
 			switch state {
@@ -533,6 +581,12 @@ func appendNormalizedString(buf []byte, s string) []byte {
 				i = j + 1
 				j = j + 1
 				continue
+			}
+			if c >= utf8.RuneSelf {
+				if k := skipPlainRunes(s[:limit], j, &needEscapeNormalizeUTF8); k != j {
+					j = k
+					continue
+				}
 			}
 			state, size := decodeRuneInString(s[j:])
 			switch state {

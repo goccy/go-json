@@ -32,7 +32,7 @@ type MapLayout struct {
 	// string kind and the values are written by one opcode of a scalar ( ScalarValue: the map is ranged over
 	// as a map of a value of ValueWords words, appendMapScalarValues ), or when the values are of interface{},
 	// the map of a JSON object as a value of interface{} ( InterfaceValue: the values which hold a scalar are
-	// written, and the others are read into the context, appendMapScalarEntries ).
+	// written, and the others are read into the context, appendMapAsRead ).
 	ScalarValue    bool
 	InterfaceValue bool
 	// ValueWords is the number of the words of a value when the map is ranged over as a map of the same layout,

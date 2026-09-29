@@ -10,10 +10,10 @@ import (
 	"github.com/goccy/go-json"
 )
 
-// The entries of a sorted map whose values are scalars are written by one call of the VM, up to an entry whose
-// value is not a scalar, which its opcodes write. The values of every kind in any order, with indent and
+// The entries of a sorted map whose values are scalars or of interface{} are written directly by one call of the
+// VM, up to an entry of interface{} whose value is not a scalar, which its opcodes write. The values of every kind in any order, with indent and
 // colors, must encode as encoding/json does.
-func TestEncodeSortedMapScalarRuns(t *testing.T) {
+func TestEncodeSortedMapDirectEntries(t *testing.T) {
 	one := 1
 	var nilInt *int
 	values := []any{

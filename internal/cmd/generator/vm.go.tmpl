@@ -167,7 +167,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					if code.Flags&encoder.MapStringKeyFlags != 0 {
 						mapCtx.SortKeys()
 						mapCtx.Sorted = true
-						mapCtx.ScalarRuns = code.Map.ScalarValue || code.Map.InterfaceValue
+						mapCtx.DirectEntries = code.Map.ScalarValue || code.Map.InterfaceValue
 					} else {
 						mapCtx.SortByEncodedKeys()
 						mapCtx.First = len(b)
@@ -191,9 +191,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:]
 			}
 			idx++
-			if mapCtx.ScalarRuns && idx < mapCtx.Len {
-				// the entries from here whose values are scalars are written by one call.
-				bb, next, err := appendSortedMapScalars(ctx, code, b, mapCtx, idx)
+			if mapCtx.DirectEntries && idx < mapCtx.Len {
+				// the entries from here are written by one call, up to one whose value is left to its opcodes.
+				bb, next, err := appendSortedMapEntries(ctx, code, b, mapCtx, idx)
 				if err != nil {
 					return nil, err
 				}
@@ -2505,14 +2505,15 @@ func appendMapAsRead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 	return b, nil
 }
 
-// appendSortedMapScalars writes the entries of a sorted map with keys of a string kind, from the one at idx in
-// the order of the keys, while their values are scalars, as the opcodes of the entries would: a value of
-// interface{} which holds a scalar or nothing, or any value when the values are written by one opcode of a
-// scalar. It returns the index of the first entry it doesn't write, whose value is left to its opcodes, or the
-// number of the entries. code is the opcode of the keys, followed by the one of the values.
+// appendSortedMapEntries writes the entries of a sorted map with keys of a string kind directly, as
+// appendMapAsRead does for a map which is not sorted, from the one at idx in the order of the keys, as the
+// opcodes of the entries would: every value when the values are written by one opcode of a scalar
+// ( MapLayout.ScalarValue ), and a value of interface{} which holds a scalar or nothing
+// ( MapLayout.InterfaceValue ). It returns the index of the first entry it doesn't write, whose value is left to
+// its opcodes, or the number of the entries. code is the opcode of the keys, followed by the one of the values.
 //
 //go:noinline
-func appendSortedMapScalars(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, mapCtx *encoder.MapContext, idx int) ([]byte, int, error) {
+func appendSortedMapEntries(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, mapCtx *encoder.MapContext, idx int) ([]byte, int, error) {
 	scalarValue := mapCtx.ScalarValue()
 	for ; idx < mapCtx.Len; idx++ {
 		i := int(mapCtx.Order[idx])

@@ -1,0 +1,31 @@
+diff --git a/internal/encoder/int.go b/internal/encoder/int.go
+index 1fc8093..3b7061b 100644
+--- a/internal/encoder/int.go
++++ b/internal/encoder/int.go
+@@ -145,7 +145,7 @@ func decimalDigits(n uint64) int {
+ }
+ 
+ // appendDecimal appends n in decimal, after a minus sign if negative. The digits are written where they go in
+-// out, two at a time from the last, so that nothing is copied: the number of the digits is known first.
++// out, from the last, so that nothing is copied: the number of the digits is known first.
+ func appendDecimal(out []byte, n uint64, negative bool) []byte {
+ 	d := decimalDigits(n)
+ 	if negative {
+@@ -159,7 +159,16 @@ func appendDecimal(out []byte, n uint64, negative bool) []byte {
+ 	base := unsafe.Pointer(unsafe.SliceData(out))
+ 	lookup := intLookup[endianness]
+ 	i := l + d
+-	for n >= 100 {
++	// four digits at a time: a division by 10000 costs what one by 100 does, so there are half as many.
++	for n >= 10000 {
++		q := n / 10000
++		r := n - q*10000
++		n = q
++		i -= 4
++		*(*uint16)(unsafe.Add(base, i)) = lookup[r/100]
++		*(*uint16)(unsafe.Add(base, i+2)) = lookup[r%100]
++	}
++	if n >= 100 {
+ 		j := n % 100
+ 		n /= 100
+ 		i -= 2

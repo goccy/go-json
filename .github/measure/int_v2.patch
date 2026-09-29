@@ -1,0 +1,64 @@
+diff --git a/internal/encoder/int.go b/internal/encoder/int.go
+index 1fc8093..b16edff 100644
+--- a/internal/encoder/int.go
++++ b/internal/encoder/int.go
+@@ -101,6 +101,8 @@ func AppendInt(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []
+ 	} else if n < 100 {
+ 		u := intLELookup[n]
+ 		return append(out, byte(u), byte(u>>8))
++	} else if n < 10000 {
++		return appendThreeOrFourDigits(out, n)
+ 	}
+ 	return appendDecimal(out, n, negative)
+ }
+@@ -123,10 +125,23 @@ func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) [
+ 	} else if n < 100 {
+ 		u := intLELookup[n]
+ 		return append(out, byte(u), byte(u>>8))
++	} else if n < 10000 {
++		return appendThreeOrFourDigits(out, n)
+ 	}
+ 	return appendDecimal(out, n, false)
+ }
+ 
++// appendThreeOrFourDigits appends n, of three or four digits, by the lookups of its digits without a loop: most of
++// the integers of JSON are small.
++func appendThreeOrFourDigits(out []byte, n uint64) []byte {
++	hi, lo := n/100, intLELookup[n%100]
++	if hi < 10 {
++		return append(out, byte(hi+'0'), byte(lo), byte(lo>>8))
++	}
++	u := intLELookup[hi]
++	return append(out, byte(u), byte(u>>8), byte(lo), byte(lo>>8))
++}
++
+ // pow10 are the powers of 10 which an uint64 has, from 10^0.
+ var pow10 = [20]uint64{
+ 	1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
+@@ -145,7 +160,7 @@ func decimalDigits(n uint64) int {
+ }
+ 
+ // appendDecimal appends n in decimal, after a minus sign if negative. The digits are written where they go in
+-// out, two at a time from the last, so that nothing is copied: the number of the digits is known first.
++// out, from the last, so that nothing is copied: the number of the digits is known first.
+ func appendDecimal(out []byte, n uint64, negative bool) []byte {
+ 	d := decimalDigits(n)
+ 	if negative {
+@@ -159,7 +174,16 @@ func appendDecimal(out []byte, n uint64, negative bool) []byte {
+ 	base := unsafe.Pointer(unsafe.SliceData(out))
+ 	lookup := intLookup[endianness]
+ 	i := l + d
+-	for n >= 100 {
++	// four digits at a time: a division by 10000 costs what one by 100 does, so there are half as many.
++	for n >= 10000 {
++		q := n / 10000
++		r := n - q*10000
++		n = q
++		i -= 4
++		*(*uint16)(unsafe.Add(base, i)) = lookup[r/100]
++		*(*uint16)(unsafe.Add(base, i+2)) = lookup[r%100]
++	}
++	if n >= 100 {
+ 		j := n % 100
+ 		n /= 100
+ 		i -= 2

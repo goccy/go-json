@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [1]
+        machine: [1, 2, 3]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: .github/measure/losers_fixed.sh
+        run: .github/measure/copy.sh

@@ -1,0 +1,44 @@
+diff --git a/encode.go b/encode.go
+index 65eedba..8bfd7ba 100644
+--- a/encode.go
++++ b/encode.go
+@@ -148,22 +148,17 @@ func marshal(v any, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+ 		optFunc(ctx.Option)
+ 	}
+ 
++	pooled := ctx.Buf
++	ctx.Buf = make([]byte, 0, ctx.OutputHint)
+ 	buf, err := encode(ctx, v)
++	ctx.Buf = pooled
+ 	if err != nil {
+ 		encoder.ReleaseRuntimeContext(ctx)
+ 		return nil, err
+ 	}
+-
+-	// this line exists to escape call of `runtime.makeslicecopy` .
+-	// if use `make([]byte, len(buf)-1)` and `copy(copied, buf)`,
+-	// dst buffer size and src buffer size are differrent.
+-	// in this case, compiler uses `runtime.makeslicecopy`, but it is slow.
+-	buf = buf[:len(buf)-1]
+-	copied := make([]byte, len(buf))
+-	copy(copied, buf)
+-
++	ctx.OutputHint = len(buf)
+ 	encoder.ReleaseRuntimeContext(ctx)
+-	return copied, nil
++	return buf[:len(buf)-1], nil
+ }
+ 
+ func marshalIndent(v any, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+diff --git a/internal/encoder/context.go b/internal/encoder/context.go
+index ddd8818..a554fba 100644
+--- a/internal/encoder/context.go
++++ b/internal/encoder/context.go
+@@ -126,6 +126,7 @@ type recentCodeSetSet [recentCodeSetWays]recentCodeSet
+ type RuntimeContext struct {
+ 	Context    context.Context
+ 	Buf        []byte
++	OutputHint int
+ 	MarshalBuf []byte
+ 	Slots      []uintptr
+ 	SeenPtr    []unsafe.Pointer

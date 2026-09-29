@@ -1,0 +1,13 @@
+diff --git a/internal/encoder/string.go b/internal/encoder/string.go
+index d705f8e..952708a 100644
+--- a/internal/encoder/string.go
++++ b/internal/encoder/string.go
+@@ -245,7 +245,7 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+ 			(escape.high != 0 || (exactCommonMask(w)|escape.exactCharsMask(w))&msb != 0) {
+ 			return escape.appendEscaped(buf, s)
+ 		}
+-	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
++	} else if found, ok := scanBytesSIMD(src, n, &escape.tables); ok {
+ 		if found {
+ 			return escape.appendEscaped(buf, s)
+ 		}

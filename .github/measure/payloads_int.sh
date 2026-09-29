@@ -1,12 +1,12 @@
 #!/bin/bash
-# Measures the encode of the report payloads by master and the integer branch ( perf/encoder-int-small ), each also
+# Measures the encode of the report payloads by master and a branch ( BRANCH ), each also
 # with a pad, in three function layouts, and sonic for reference: the mean over the layouts of the best of the rounds.
 set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
 root=$PWD; LAYOUTS=${LAYOUTS:-3}; ROUNDS=${ROUNDS:-3}; PAYLOADS=${PAYLOADS:-small medium large twitter twitter-any github openai anthropic code}
 names=""
 for v in master head; do
-  ref=origin/master; [ $v = head ] && ref=origin/perf/encoder-int-small
+  ref=origin/master; [ $v = head ] && ref=origin/${BRANCH:-perf/encoder-short-strings}
   for pad in "" pad; do
     n=$v$pad; names="$names $n"
     git worktree add -q /tmp/wt-$n $ref

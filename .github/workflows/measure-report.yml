@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANTS='master v10' LAYOUTS=8 ROUNDS=5 BENCH='BenchmarkAppendString/[a-z]+/(0|3|6|32|36|50|64|100|300|1000|10000)$' .github/measure/str_variants.sh
+        run: .github/measure/payloads_int.sh

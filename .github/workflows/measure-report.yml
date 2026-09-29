@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANTS=keys_v2 .github/measure/payload_variants.sh
+        run: VARIANTS=keys_v3 .github/measure/payload_variants.sh

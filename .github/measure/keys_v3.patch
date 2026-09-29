@@ -1,0 +1,103 @@
+diff --git a/internal/encoder/code.go b/internal/encoder/code.go
+index 31bf39c..a29bf96 100644
+--- a/internal/encoder/code.go
++++ b/internal/encoder/code.go
+@@ -915,19 +915,19 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
+ // KeyChunkSize is the size of the chunk which the VM copies a key by: a key up to it is written by the
+ // opcode of its field, as a chunk. A longer key is written by the generic field opcode, and its value by the
+ // opcode of the value.
+-const KeyChunkSize = 32
++const KeyChunkSize = 16
+ 
+ // PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+ // so that a chunk is copied from the key without reading the memory of others.
+ func PaddedKey(key string) string {
+-	buf := make([]byte, len(key)+KeyChunkSize)
++	buf := make([]byte, len(key)+2*KeyChunkSize)
+ 	copy(buf, key)
+ 	return unsafe.String(unsafe.SliceData(buf), len(key))
+ }
+ 
+ // keyChunk returns the chunk at the start of a padded key.
+-func keyChunk(paddedKey string) *[KeyChunkSize]byte {
+-	return (*[KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
++func keyChunk(paddedKey string) *[2 * KeyChunkSize]byte {
++	return (*[2 * KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
+ }
+ 
+ // EmptyKind is what makes the value of a field empty for omitempty, as encoding/json decides it by the kind
+diff --git a/internal/encoder/opcode.go b/internal/encoder/opcode.go
+index f2b95d1..13fec13 100644
+--- a/internal/encoder/opcode.go
++++ b/internal/encoder/opcode.go
+@@ -57,17 +57,17 @@ type Opcode struct {
+ 	NumBitSize uint8
+ 	Flags      OpFlags
+ 
+-	Type       unsafe.Pointer      // pointer to the type descriptor of go type
+-	Jmp        *CompiledCode       // for recursive call
+-	Marshaler  *MarshalerCall      // the method of the marshaler, for MarshalJSON and MarshalText
+-	FieldQuery *FieldQuery         // field query for Interface / MarshalJSON / MarshalText
+-	ElemIdx    uint32              // offset to access array/slice elem
+-	Length     uint32              // offset to access slice length or array length
+-	Indent     uint32              // indent number
+-	Size       uint32              // array/slice elem size
+-	DisplayIdx uint32              // opcode index
+-	KeyChunk   *[KeyChunkSize]byte // the key and the padding after it, which the VM copies as a chunk
+-	Map        *MapLayout          // how the entries of the map are read, for the opcode of a map
++	Type       unsafe.Pointer          // pointer to the type descriptor of go type
++	Jmp        *CompiledCode           // for recursive call
++	Marshaler  *MarshalerCall          // the method of the marshaler, for MarshalJSON and MarshalText
++	FieldQuery *FieldQuery             // field query for Interface / MarshalJSON / MarshalText
++	ElemIdx    uint32                  // offset to access array/slice elem
++	Length     uint32                  // offset to access slice length or array length
++	Indent     uint32                  // indent number
++	Size       uint32                  // array/slice elem size
++	DisplayIdx uint32                  // opcode index
++	KeyChunk   *[2 * KeyChunkSize]byte // the key and the padding after it, which the VM copies by chunks
++	Map        *MapLayout              // how the entries of the map are read, for the opcode of a map
+ }
+ 
+ func (c *Opcode) Validate() error {
+diff --git a/internal/encoder/vm/util.go b/internal/encoder/vm/util.go
+index 90256b8..ad4321f 100644
+--- a/internal/encoder/vm/util.go
++++ b/internal/encoder/vm/util.go
+@@ -185,8 +185,13 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
+ // Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+ // this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
+ func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+-	const half = encoder.KeyChunkSize / 2
+-	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
++	return append(b, code.KeyChunk[:encoder.KeyChunkSize]...)[:len(b)+len(code.Key)]
++}
++
++// appendStructKey2 appends a key which is up to two chunks long, by two chunks: the key is followed by two chunks
++// of padding in memory ( encoder.PaddedKey ).
++func appendStructKey2(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
++	return append(append(b, code.KeyChunk[:encoder.KeyChunkSize]...), code.KeyChunk[encoder.KeyChunkSize:]...)[:len(b)+len(code.Key)]
+ }
+ 
+ // appendLongStructKey appends a key of any length.
+diff --git a/internal/encoder/vm/vm.go b/internal/encoder/vm/vm.go
+index 3382d42..bd95713 100644
+--- a/internal/encoder/vm/vm.go
++++ b/internal/encoder/vm/vm.go
+@@ -699,6 +699,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
++				} else if len(code.Key) <= 2*encoder.KeyChunkSize {
++					b = appendStructKey2(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+ 				}
+@@ -714,6 +716,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			} else {
+ 				if len(code.Key) <= encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
++				} else if len(code.Key) <= 2*encoder.KeyChunkSize {
++					b = appendStructKey2(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+ 				}

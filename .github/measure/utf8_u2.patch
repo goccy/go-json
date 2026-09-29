@@ -1,0 +1,204 @@
+diff --git a/internal/encoder/string_scan_amd64.s b/internal/encoder/string_scan_amd64.s
+index 2ab68aa..77c5e39 100644
+--- a/internal/encoder/string_scan_amd64.s
++++ b/internal/encoder/string_scan_amd64.s
+@@ -165,10 +165,12 @@ edone:
+ //
+ // It is escapeStringAVX2 for the options which normalize UTF-8: the tables are the ones of the bytes of ASCII to
+ // escape, and a block with a byte which is not ASCII is validated as UTF-8 by the tables of utf8 ( see utf8Tables ).
+-// A block starts at the start of a character, so the bytes before it are taken as ASCII. A valid block is written
+-// as it is, but for the character which its last bytes start if it goes on after the block: the next block starts
+-// there. A block with invalid UTF-8, or with U+2028 or U+2029, which are escaped, stops the loop at its first byte
+-// which is not ASCII, the start of a character, which the caller escapes.
++// The blocks follow each other by 32 bytes: a character which goes on after a block is validated with the next
++// block, as the bytes before each byte of a block are taken from the previous block, and R8 has the number of its
++// bytes in the previous block. A block with invalid UTF-8, or with U+2028 or U+2029, which are escaped, stops the
++// loop at the start of that character, or else at its first byte which is not ASCII, the start of a character,
++// which the caller escapes; so does a block of ASCII after such a character. The loop also ends before such a
++// character in its last block, so that it stops at the start of a character.
+ TEXT ·escapeUTF8AVX2(SB), NOSPLIT, $0-64
+ 	MOVQ dst+0(FP), DI
+ 	MOVQ src+8(FP), SI
+@@ -180,10 +182,11 @@ TEXT ·escapeUTF8AVX2(SB), NOSPLIT, $0-64
+ 	VBROADCASTI128 (AX), Y8
+ 	VBROADCASTI128 16(AX), Y9
+ 	VPBROADCASTB   c0f<>(SB), Y10
+-	VPXOR          Y11, Y11, Y11
+ 	VBROADCASTI128 (R8), Y12     // the errors by the high nibble of the first byte
+ 	VBROADCASTI128 16(R8), Y13   // by its low nibble
+ 	VBROADCASTI128 32(R8), Y14   // by the high nibble of the second byte
++	VPXOR          Y0, Y0, Y0    // the block before the first one: the string starts at the start of a character
++	XORL           R8, R8        // the bytes of the character which the previous block leaves to the next one
+ 
+ 	MOVQ SI, R12                 // the start of src
+ 	MOVQ DI, R13                 // the start of dst
+@@ -191,16 +194,20 @@ TEXT ·escapeUTF8AVX2(SB), NOSPLIT, $0-64
+ uloop:
+ 	LEAQ    32(SI), R10          // the end of the block
+ 	CMPQ    R10, R11
+-	JGT     udone
++	JGT     uend
++	VMOVDQA Y0, Y11              // the previous block
+ 	VMOVDQU (SI), Y0
+ 	VMOVDQU Y0, (DI)
+ 	MASK(Y0, Y4, Y5)
+-	VPCMPEQB  Y11, Y5, Y5
++	VPCMPEQB  zero32<>(SB), Y5, Y5
+ 	VPMOVMSKB Y5, DX
+ 	NOTL      DX                 // the bytes of ASCII to escape
+ 	VPMOVMSKB Y0, BX             // the bytes which are not ASCII
+ 	TESTL     BX, BX
+ 	JNE       uutf8
++	// a block of ASCII: a character which the previous block leaves to it is invalid.
++	TESTQ     R8, R8
++	JNE       uincomplete
+ ublock:
+ 	TESTL     DX, DX
+ 	JNE       uescape
+@@ -210,8 +217,8 @@ ublock:
+ 	MOVQ      R10, SI
+ 	JMP       uloop
+ uutf8:
+-	// the bytes one, two and three before every byte, with zeros before the block.
+-	VPERM2I128 $0x08, Y0, Y0, Y1
++	// the bytes one, two and three before every byte, with the previous block before the block.
++	VPERM2I128 $0x03, Y11, Y0, Y1
+ 	VPALIGNR   $15, Y1, Y0, Y2
+ 	VPALIGNR   $14, Y1, Y0, Y3
+ 	VPALIGNR   $13, Y1, Y0, Y6
+@@ -228,45 +235,46 @@ uutf8:
+ 	VPAND   Y4, Y7, Y7
+ 	// the third and the fourth bytes of a character must be continuation bytes, which the lookups take as errors
+ 	// of two continuation bytes in a row: the bit of that error is flipped there.
+-	VPBROADCASTB c60<>(SB), Y4
+-	VPSUBUSB     Y4, Y3, Y4      // 0x80 or more if the byte two before is 111_____
+-	VPBROADCASTB c70<>(SB), Y15
+-	VPSUBUSB     Y15, Y6, Y15    // 0x80 or more if the byte three before is 1111____
++	// The constants are operands in memory, of 32 bytes: a broadcast would take the port of the shuffles, which
++	// the lookups above need.
++	VPSUBUSB     c60x32<>(SB), Y3, Y4  // 0x80 or more if the byte two before is 111_____
++	VPSUBUSB     c70x32<>(SB), Y6, Y15 // 0x80 or more if the byte three before is 1111____
+ 	VPOR         Y15, Y4, Y4
+-	VPBROADCASTB c80<>(SB), Y15
+-	VPAND        Y15, Y4, Y4
++	VPAND        c80x32<>(SB), Y4, Y4
+ 	VPXOR        Y4, Y7, Y7
+ 	// U+2028 and U+2029: E2 80 A8 and E2 80 A9.
+-	VPBROADCASTB cE2<>(SB), Y4
+-	VPCMPEQB     Y4, Y3, Y4
+-	VPCMPEQB     Y15, Y2, Y6
++	VPCMPEQB     cE2x32<>(SB), Y3, Y4
++	VPCMPEQB     c80x32<>(SB), Y2, Y6
+ 	VPAND        Y6, Y4, Y4
+-	VPBROADCASTB cFE<>(SB), Y6
+-	VPAND        Y6, Y0, Y6
+-	VPBROADCASTB cA8<>(SB), Y1
+-	VPCMPEQB     Y1, Y6, Y6
++	VPAND        cFEx32<>(SB), Y0, Y6
++	VPCMPEQB     cA8x32<>(SB), Y6, Y6
+ 	VPAND        Y6, Y4, Y4
+ 	VPOR         Y4, Y7, Y7
+ 	VPTEST       Y7, Y7
+ 	JNE          uproblem
+-	// the character which the last bytes start, if it goes on after the block, is left to the next block.
++	// the bytes of the character which the last bytes start, if it goes on after the block: the next block
++	// validates it.
++	XORL    R8, R8
+ 	MOVBLZX 31(SI), AX
+ 	CMPL    AX, $0xc0
+-	JAE     utail1
++	JAE     uleft1
+ 	MOVBLZX 30(SI), AX
+ 	CMPL    AX, $0xe0
+-	JAE     utail2
++	JAE     uleft2
+ 	MOVBLZX 29(SI), AX
+ 	CMPL    AX, $0xf0
+ 	JB      ublock
+-	DECQ    R10
+-utail2:
+-	DECQ    R10
+-utail1:
+-	DECQ    R10
++	INCQ    R8
++uleft2:
++	INCQ    R8
++uleft1:
++	INCQ    R8
+ 	JMP     ublock
+ uproblem:
+-	// the loop stops at the first byte which is not ASCII, as at a byte to escape whose sequence is 0.
++	// the loop stops at the start of the character which the previous block leaves to this one, if there is one,
++	// or else at the first byte which is not ASCII, as at a byte to escape whose sequence is 0.
++	TESTQ   R8, R8
++	JNE     uincomplete
+ 	BSFL    BX, CX
+ 	MOVL    $1, AX
+ 	SHLL    CX, AX
+@@ -306,6 +314,14 @@ ubyte:
+ 	ADDQ    BX, DI
+ 	MOVQ    R10, SI
+ 	JMP     uloop
++uend:
++	// the loop ends before the character which the last block leaves to the next one, which the caller validates.
++	TESTQ R8, R8
++	JEQ   udone
++uincomplete:
++	// the bytes of the character in dst are written over by the caller.
++	SUBQ R8, SI
++	SUBQ R8, DI
+ udone:
+ 	VZEROUPPER
+ 	SUBQ R12, SI
+@@ -317,15 +333,39 @@ udone:
+ DATA c0f<>+0(SB)/1, $0x0f
+ GLOBL c0f<>(SB), RODATA|NOPTR, $1
+ 
+-DATA c60<>+0(SB)/1, $0x60
+-GLOBL c60<>(SB), RODATA|NOPTR, $1
+-DATA c70<>+0(SB)/1, $0x70
+-GLOBL c70<>(SB), RODATA|NOPTR, $1
+-DATA c80<>+0(SB)/1, $0x80
+-GLOBL c80<>(SB), RODATA|NOPTR, $1
+-DATA cE2<>+0(SB)/1, $0xe2
+-GLOBL cE2<>(SB), RODATA|NOPTR, $1
+-DATA cFE<>+0(SB)/1, $0xfe
+-GLOBL cFE<>(SB), RODATA|NOPTR, $1
+-DATA cA8<>+0(SB)/1, $0xa8
+-GLOBL cA8<>(SB), RODATA|NOPTR, $1
++// the constants of the check of UTF-8, repeated in the 32 bytes of a register.
++DATA zero32<>+0(SB)/8, $0
++DATA zero32<>+8(SB)/8, $0
++DATA zero32<>+16(SB)/8, $0
++DATA zero32<>+24(SB)/8, $0
++GLOBL zero32<>(SB), RODATA|NOPTR, $32
++DATA c60x32<>+0(SB)/8, $0x6060606060606060
++DATA c60x32<>+8(SB)/8, $0x6060606060606060
++DATA c60x32<>+16(SB)/8, $0x6060606060606060
++DATA c60x32<>+24(SB)/8, $0x6060606060606060
++GLOBL c60x32<>(SB), RODATA|NOPTR, $32
++DATA c70x32<>+0(SB)/8, $0x7070707070707070
++DATA c70x32<>+8(SB)/8, $0x7070707070707070
++DATA c70x32<>+16(SB)/8, $0x7070707070707070
++DATA c70x32<>+24(SB)/8, $0x7070707070707070
++GLOBL c70x32<>(SB), RODATA|NOPTR, $32
++DATA c80x32<>+0(SB)/8, $0x8080808080808080
++DATA c80x32<>+8(SB)/8, $0x8080808080808080
++DATA c80x32<>+16(SB)/8, $0x8080808080808080
++DATA c80x32<>+24(SB)/8, $0x8080808080808080
++GLOBL c80x32<>(SB), RODATA|NOPTR, $32
++DATA cE2x32<>+0(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+8(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+16(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+24(SB)/8, $0xe2e2e2e2e2e2e2e2
++GLOBL cE2x32<>(SB), RODATA|NOPTR, $32
++DATA cFEx32<>+0(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+8(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+16(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+24(SB)/8, $0xfefefefefefefefe
++GLOBL cFEx32<>(SB), RODATA|NOPTR, $32
++DATA cA8x32<>+0(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+8(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+16(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+24(SB)/8, $0xa8a8a8a8a8a8a8a8
++GLOBL cA8x32<>(SB), RODATA|NOPTR, $32

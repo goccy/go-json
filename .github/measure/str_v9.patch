@@ -1,0 +1,116 @@
+diff --git a/internal/encoder/string.go b/internal/encoder/string.go
+index d705f8e..52be187 100644
+--- a/internal/encoder/string.go
++++ b/internal/encoder/string.go
+@@ -238,6 +238,17 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+ 				return escape.appendEscaped(buf, s)
+ 			}
+ 		}
++		if l := len(buf); cap(buf)-l >= n+2 {
++			// the first, the middle and the last byte are every byte of 1 to 3 bytes.
++			buf = buf[:l+n+2]
++			p := unsafe.Pointer(unsafe.SliceData(buf))
++			*(*byte)(unsafe.Add(p, l)) = '"'
++			*(*byte)(unsafe.Add(p, l+1)) = *(*byte)(src)
++			*(*byte)(unsafe.Add(p, l+1+n>>1)) = *(*byte)(unsafe.Add(src, n>>1))
++			*(*byte)(unsafe.Add(p, l+n)) = *(*byte)(unsafe.Add(src, n-1))
++			*(*byte)(unsafe.Add(p, l+n+1)) = '"'
++			return buf
++		}
+ 	} else if n < 8 {
+ 		// the two halves overlap, so that the word has every byte of the string and nothing else.
+ 		w := uint64(*(*uint32)(src)) | uint64(*(*uint32)(unsafe.Add(src, n-4)))<<32
+@@ -245,7 +256,47 @@ func AppendString(ctx *RuntimeContext, buf []byte, s string) []byte {
+ 			(escape.high != 0 || (exactCommonMask(w)|escape.exactCharsMask(w))&msb != 0) {
+ 			return escape.appendEscaped(buf, s)
+ 		}
+-	} else if found, ok := escape.hasEscapeSIMD(src, n); ok {
++		if l := len(buf); cap(buf)-l >= n+2 {
++			// the halves of the word are written where they were read from.
++			buf = buf[:l+n+2]
++			p := unsafe.Pointer(unsafe.SliceData(buf))
++			*(*byte)(unsafe.Add(p, l)) = '"'
++			*(*uint32)(unsafe.Add(p, l+1)) = uint32(w)
++			*(*uint32)(unsafe.Add(p, l+n-3)) = uint32(w >> 32)
++			*(*byte)(unsafe.Add(p, l+n+1)) = '"'
++			return buf
++		}
++	} else if l := len(buf); n <= maxOnePassLength && cap(buf)-l >= n+2 {
++		// looked at and written to its place in the capacity of the buffer in one pass, by the first and the last
++		// word and the ones between them, which overlap: 8 to 31 bytes are 2 to 4 words. If a word may have a byte
++		// to escape, what was written is left out of the buffer. A buffer without the capacity is grown below.
++		dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(buf)), l+1)
++		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, n-8))
++		*(*uint64)(dst) = first
++		*(*uint64)(unsafe.Add(dst, n-8)) = last
++		mask := looseCommonMask(first) | escape.looseCharsMask(first) | looseCommonMask(last) | escape.looseCharsMask(last)
++		if n > 16 {
++			w := *(*uint64)(unsafe.Add(src, 8))
++			*(*uint64)(unsafe.Add(dst, 8)) = w
++			mask |= looseCommonMask(w) | escape.looseCharsMask(w)
++			if n > 24 {
++				w := *(*uint64)(unsafe.Add(src, 16))
++				*(*uint64)(unsafe.Add(dst, 16)) = w
++				mask |= looseCommonMask(w) | escape.looseCharsMask(w)
++			}
++		}
++		if mask&msb != 0 && (escape.high != 0 || escape.hasExactEscape(src, n)) {
++			// a byte which is not ASCII is to be looked at only if UTF-8 is normalized.
++			return escape.appendEscaped(buf, s)
++		}
++		// the position is taken from buf again, which is kept across the call above, so that nothing more is.
++		l := len(buf)
++		buf = buf[:l+n+2]
++		p := unsafe.Pointer(unsafe.SliceData(buf))
++		*(*byte)(unsafe.Add(p, l)) = '"'
++		*(*byte)(unsafe.Add(p, l+n+1)) = '"'
++		return buf
++	} else if found, ok := scanBytesSIMD(src, n, &escape.tables); ok {
+ 		if found {
+ 			return escape.appendEscaped(buf, s)
+ 		}
+diff --git a/internal/encoder/string_scan_amd64.go b/internal/encoder/string_scan_amd64.go
+index 34e6b2f..7a2502c 100644
+--- a/internal/encoder/string_scan_amd64.go
++++ b/internal/encoder/string_scan_amd64.go
+@@ -58,6 +58,10 @@ func appendEscapedSIMD(buf []byte, s string, tables *nibbleTables, normalizeUTF8
+ // about as much as a few words of the scalar scan.
+ const minSIMDScanLength = 32
+ 
++// maxOnePassLength is the length of the longest string which AppendString looks at and copies in one pass:
++// a longer one is looked at by SIMD, which then costs less, and copied after.
++const maxOnePassLength = minSIMDScanLength - 1
++
+ // hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD. The second result is false if
+ // the CPU doesn't support it or the string is short, and the string is not looked at.
+ func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
+diff --git a/internal/encoder/string_scan_arm64.go b/internal/encoder/string_scan_arm64.go
+index 3ad28f1..a4e5949 100644
+--- a/internal/encoder/string_scan_arm64.go
++++ b/internal/encoder/string_scan_arm64.go
+@@ -12,6 +12,10 @@ func scanStringNEON(p unsafe.Pointer, n int, tables *nibbleTables) int
+ // minSIMDScanLength is the length from which a string is scanned by SIMD.
+ const minSIMDScanLength = 16
+ 
++// maxOnePassLength is the length of the longest string which AppendString looks at and copies in one pass:
++// a longer one is looked at by SIMD, which then costs less, and copied after.
++const maxOnePassLength = minSIMDScanLength - 1
++
+ // hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD. The second result is false if
+ // the string is short, and the string is not looked at.
+ func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
+diff --git a/internal/encoder/string_scan_other.go b/internal/encoder/string_scan_other.go
+index 76caff4..489986a 100644
+--- a/internal/encoder/string_scan_other.go
++++ b/internal/encoder/string_scan_other.go
+@@ -6,6 +6,10 @@ import (
+ 	"unsafe"
+ )
+ 
++// maxOnePassLength is the length of the longest string which AppendString looks at and copies in one pass, of
++// up to four words: a longer one is looked at by words, and copied after.
++const maxOnePassLength = 31
++
+ // hasEscapeSIMD is not available: the string is scanned by words.
+ func (e *stringEscape) hasEscapeSIMD(_ unsafe.Pointer, _ int) (bool, bool) {
+ 	return false, false

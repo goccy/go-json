@@ -1,11 +1,11 @@
 #!/bin/bash
-# Measures the benchmark of AppendString of master and of variants of the strings ( str_v7.patch, str_v8.patch ), each also
+# Measures the benchmark of AppendString of master and of variants of the strings ( str_v8.patch, str_v9.patch ), each also
 # with a pad, in four function layouts: the mean over the layouts of the median of the rounds, against master.
 set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
 root=$PWD
 names=""
-for v in master v7 v8; do
+for v in master v8 v9; do
   for pad in "" pad; do
     n=$v$pad; names="$names $n"
     git worktree add -q /tmp/wt-$n origin/master

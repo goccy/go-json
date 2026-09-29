@@ -3,8 +3,6 @@ package encoder
 import (
 	"encoding/binary"
 	"reflect"
-	"slices"
-	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
@@ -257,8 +255,9 @@ func (c *MapContext) ValueAt(i int) unsafe.Pointer {
 //
 // A comparison of two keys is by their first eight bytes as one number first, which decides it for most of
 // the keys of a JSON object, and by the strings only when those are the same: a comparison of strings is a
-// call which costs more than the rest of a sort of a small map. The insertion sort is for the small maps,
-// which most of the maps are ( see Mapslice.Sort ).
+// call which costs more than the rest of a sort of a small map. The sort is written here, so that the
+// comparisons are inlined into it: a sort which takes the comparison as a function, as slices.SortFunc does,
+// calls it for every one.
 func (c *MapContext) SortKeys() {
 	n := len(c.Keys)
 	if cap(c.Order) < n {
@@ -270,36 +269,81 @@ func (c *MapContext) SortKeys() {
 		order[i] = int32(i)
 		prefixes[i] = keyPrefix(key)
 	}
-	less := func(a, b int32) bool {
-		if prefixes[a] != prefixes[b] {
-			return prefixes[a] < prefixes[b]
-		}
-		return keys[a] < keys[b]
-	}
 	if n > maxItemsOfInsertionSort {
-		slices.SortFunc(order, func(a, b int32) int {
-			if prefixes[a] != prefixes[b] {
-				if prefixes[a] < prefixes[b] {
-					return -1
-				}
-				return 1
-			}
-			return strings.Compare(keys[a], keys[b])
-		})
+		sortKeyOrder(order, prefixes, keys)
 	} else {
-		for i := 1; i < n; i++ {
-			e := order[i]
-			if !less(e, order[i-1]) {
-				continue
-			}
-			j := i
-			for ; j > 0 && less(e, order[j-1]); j-- {
-				order[j] = order[j-1]
-			}
-			order[j] = e
-		}
+		insertionSortKeyOrder(order, prefixes, keys)
 	}
 	c.Order = order
+}
+
+// keyLess is whether the key of the entry a comes before the one of b.
+func keyLess(a, b int32, prefixes []uint64, keys []string) bool {
+	if pa, pb := prefixes[a], prefixes[b]; pa != pb {
+		return pa < pb
+	}
+	return keys[a] < keys[b]
+}
+
+// sortKeyOrder sorts the entries of order by their keys: by quicksort, with the median of three entries as the
+// pivot, down to the parts of up to maxItemsOfInsertionSort entries, which are sorted by insertion. The smaller
+// part is sorted first, and the larger one by the loop, so that the depth is logarithmic.
+func sortKeyOrder(order []int32, prefixes []uint64, keys []string) {
+	for len(order) > maxItemsOfInsertionSort {
+		last := len(order) - 1
+		mid := last / 2
+		// the median of the first, the middle and the last entries, at the middle
+		if keyLess(order[mid], order[0], prefixes, keys) {
+			order[0], order[mid] = order[mid], order[0]
+		}
+		if keyLess(order[last], order[mid], prefixes, keys) {
+			order[mid], order[last] = order[last], order[mid]
+			if keyLess(order[mid], order[0], prefixes, keys) {
+				order[0], order[mid] = order[mid], order[0]
+			}
+		}
+		pivot := order[mid]
+		// Hoare's partition: the keys are distinct, so an entry equals the pivot only if it is the pivot.
+		i, j := 0, last
+		for {
+			for keyLess(order[i], pivot, prefixes, keys) {
+				i++
+			}
+			for keyLess(pivot, order[j], prefixes, keys) {
+				j--
+			}
+			if i >= j {
+				break
+			}
+			order[i], order[j] = order[j], order[i]
+			i++
+			j--
+		}
+		if j+1 < len(order)-j-1 {
+			sortKeyOrder(order[:j+1], prefixes, keys)
+			order = order[j+1:]
+		} else {
+			sortKeyOrder(order[j+1:], prefixes, keys)
+			order = order[:j+1]
+		}
+	}
+	insertionSortKeyOrder(order, prefixes, keys)
+}
+
+// insertionSortKeyOrder sorts the entries of order by their keys by insertion, which is the fastest sort of a few
+// entries.
+func insertionSortKeyOrder(order []int32, prefixes []uint64, keys []string) {
+	for i := 1; i < len(order); i++ {
+		e := order[i]
+		if !keyLess(e, order[i-1], prefixes, keys) {
+			continue
+		}
+		j := i
+		for ; j > 0 && keyLess(e, order[j-1], prefixes, keys); j-- {
+			order[j] = order[j-1]
+		}
+		order[j] = e
+	}
 }
 
 // keyPrefix returns the first eight bytes of the key as a number which compares as the bytes do, with zeros

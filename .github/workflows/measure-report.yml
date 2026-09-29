@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: .github/measure/multibyte.sh
+        run: .github/measure/mb_variants.sh

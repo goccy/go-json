@@ -1,0 +1,84 @@
+diff --git a/internal/encoder/string_scan_amd64.s b/internal/encoder/string_scan_amd64.s
+index 2ab68aa..c78759f 100644
+--- a/internal/encoder/string_scan_amd64.s
++++ b/internal/encoder/string_scan_amd64.s
+@@ -228,23 +228,19 @@ uutf8:
+ 	VPAND   Y4, Y7, Y7
+ 	// the third and the fourth bytes of a character must be continuation bytes, which the lookups take as errors
+ 	// of two continuation bytes in a row: the bit of that error is flipped there.
+-	VPBROADCASTB c60<>(SB), Y4
+-	VPSUBUSB     Y4, Y3, Y4      // 0x80 or more if the byte two before is 111_____
+-	VPBROADCASTB c70<>(SB), Y15
+-	VPSUBUSB     Y15, Y6, Y15    // 0x80 or more if the byte three before is 1111____
++	// The constants are operands in memory, of 32 bytes: a broadcast would take the port of the shuffles, which
++	// the lookups above need.
++	VPSUBUSB     c60x32<>(SB), Y3, Y4  // 0x80 or more if the byte two before is 111_____
++	VPSUBUSB     c70x32<>(SB), Y6, Y15 // 0x80 or more if the byte three before is 1111____
+ 	VPOR         Y15, Y4, Y4
+-	VPBROADCASTB c80<>(SB), Y15
+-	VPAND        Y15, Y4, Y4
++	VPAND        c80x32<>(SB), Y4, Y4
+ 	VPXOR        Y4, Y7, Y7
+ 	// U+2028 and U+2029: E2 80 A8 and E2 80 A9.
+-	VPBROADCASTB cE2<>(SB), Y4
+-	VPCMPEQB     Y4, Y3, Y4
+-	VPCMPEQB     Y15, Y2, Y6
++	VPCMPEQB     cE2x32<>(SB), Y3, Y4
++	VPCMPEQB     c80x32<>(SB), Y2, Y6
+ 	VPAND        Y6, Y4, Y4
+-	VPBROADCASTB cFE<>(SB), Y6
+-	VPAND        Y6, Y0, Y6
+-	VPBROADCASTB cA8<>(SB), Y1
+-	VPCMPEQB     Y1, Y6, Y6
++	VPAND        cFEx32<>(SB), Y0, Y6
++	VPCMPEQB     cA8x32<>(SB), Y6, Y6
+ 	VPAND        Y6, Y4, Y4
+ 	VPOR         Y4, Y7, Y7
+ 	VPTEST       Y7, Y7
+@@ -317,15 +313,34 @@ udone:
+ DATA c0f<>+0(SB)/1, $0x0f
+ GLOBL c0f<>(SB), RODATA|NOPTR, $1
+ 
+-DATA c60<>+0(SB)/1, $0x60
+-GLOBL c60<>(SB), RODATA|NOPTR, $1
+-DATA c70<>+0(SB)/1, $0x70
+-GLOBL c70<>(SB), RODATA|NOPTR, $1
+-DATA c80<>+0(SB)/1, $0x80
+-GLOBL c80<>(SB), RODATA|NOPTR, $1
+-DATA cE2<>+0(SB)/1, $0xe2
+-GLOBL cE2<>(SB), RODATA|NOPTR, $1
+-DATA cFE<>+0(SB)/1, $0xfe
+-GLOBL cFE<>(SB), RODATA|NOPTR, $1
+-DATA cA8<>+0(SB)/1, $0xa8
+-GLOBL cA8<>(SB), RODATA|NOPTR, $1
++// the constants of the check of UTF-8, repeated in the 32 bytes of a register.
++DATA c60x32<>+0(SB)/8, $0x6060606060606060
++DATA c60x32<>+8(SB)/8, $0x6060606060606060
++DATA c60x32<>+16(SB)/8, $0x6060606060606060
++DATA c60x32<>+24(SB)/8, $0x6060606060606060
++GLOBL c60x32<>(SB), RODATA|NOPTR, $32
++DATA c70x32<>+0(SB)/8, $0x7070707070707070
++DATA c70x32<>+8(SB)/8, $0x7070707070707070
++DATA c70x32<>+16(SB)/8, $0x7070707070707070
++DATA c70x32<>+24(SB)/8, $0x7070707070707070
++GLOBL c70x32<>(SB), RODATA|NOPTR, $32
++DATA c80x32<>+0(SB)/8, $0x8080808080808080
++DATA c80x32<>+8(SB)/8, $0x8080808080808080
++DATA c80x32<>+16(SB)/8, $0x8080808080808080
++DATA c80x32<>+24(SB)/8, $0x8080808080808080
++GLOBL c80x32<>(SB), RODATA|NOPTR, $32
++DATA cE2x32<>+0(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+8(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+16(SB)/8, $0xe2e2e2e2e2e2e2e2
++DATA cE2x32<>+24(SB)/8, $0xe2e2e2e2e2e2e2e2
++GLOBL cE2x32<>(SB), RODATA|NOPTR, $32
++DATA cFEx32<>+0(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+8(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+16(SB)/8, $0xfefefefefefefefe
++DATA cFEx32<>+24(SB)/8, $0xfefefefefefefefe
++GLOBL cFEx32<>(SB), RODATA|NOPTR, $32
++DATA cA8x32<>+0(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+8(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+16(SB)/8, $0xa8a8a8a8a8a8a8a8
++DATA cA8x32<>+24(SB)/8, $0xa8a8a8a8a8a8a8a8
++GLOBL cA8x32<>(SB), RODATA|NOPTR, $32

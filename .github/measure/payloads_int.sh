@@ -3,7 +3,7 @@
 # with a pad, in three function layouts, and sonic for reference: the mean over the layouts of the best of the rounds.
 set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
-root=$PWD; LAYOUTS=3; ROUNDS=3
+root=$PWD; LAYOUTS=${LAYOUTS:-3}; ROUNDS=${ROUNDS:-3}; PAYLOADS=${PAYLOADS:-small medium large twitter twitter-any github openai anthropic code}
 names=""
 for v in master head; do
   ref=origin/master; [ $v = head ] && ref=origin/perf/encoder-int-small
@@ -21,7 +21,7 @@ cd /tmp/wt-master/benchmarks
 for r in $(seq 1 $ROUNDS); do
   for l in $(seq 1 $LAYOUTS); do
     for cfg in std fast fastest; do
-      for p in small medium large twitter twitter-any github openai anthropic code; do
+      for p in $PAYLOADS; do
         for n in $names; do
           ZZ_CONFIG=$cfg/go-json ZZ_PAYLOAD=$p /tmp/bin-$n-$l.test -test.run '^$' -test.bench '^BenchmarkZZEncode$' -test.benchtime 200ms | awk -v n=$n -v l=$l -v k=$cfg/$p '/ns\/op/ {print n, l, k, $3}' >> /tmp/c.txt
         done

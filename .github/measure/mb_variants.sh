@@ -5,7 +5,7 @@ set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
 root=$PWD; LAYOUTS=${LAYOUTS:-3}; ROUNDS=${ROUNDS:-3}
 names=""
-for v in ${VARIANTS:-master u2 u3}; do
+for v in ${VARIANTS:-master u4 u5}; do
   for pad in "" pad; do
     n=$v$pad; names="$names $n"
     git worktree add -q /tmp/wt-$n origin/master

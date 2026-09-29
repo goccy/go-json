@@ -58,14 +58,13 @@ func appendEscapedSIMD(buf []byte, s string, tables *nibbleTables, normalizeUTF8
 // about as much as a few words of the scalar scan.
 const minSIMDScanLength = 32
 
-// hasEscapeSIMD is whether a byte of the string may need an escape, by SIMD. The second result is false if
-// the CPU doesn't support it or the string is short, and the string is not looked at.
-func (e *stringEscape) hasEscapeSIMD(src unsafe.Pointer, n int) (bool, bool) {
-	return scanBytesSIMD(src, n, &e.tables)
-}
+// maxOnePassLength is the length of the longest string which AppendString looks at and copies in one pass:
+// a longer one is looked at by SIMD, which then costs less, and copied after.
+const maxOnePassLength = minSIMDScanLength - 1
 
 // scanBytesSIMD is whether a byte of the n bytes at src is in the tables, by SIMD. The second result is false
-// if the CPU doesn't support it or n is small, and the bytes are not looked at.
+// if the CPU doesn't support it or n is small, and the bytes are not looked at. It is inlined, so that
+// AppendString calls the scan itself.
 func scanBytesSIMD(src unsafe.Pointer, n int, tables *nibbleTables) (bool, bool) {
 	if !runtime.HasAVX2 || n < minSIMDScanLength {
 		return false, false

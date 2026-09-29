@@ -5,14 +5,14 @@ set -e
 lscpu | sed -n 's/^Model name: *//p' | head -1
 root=$PWD; LAYOUTS=${LAYOUTS:-3}; ROUNDS=${ROUNDS:-3}
 names=""
-for v in ${VARIANTS:-master u4 u5}; do
+for v in ${VARIANTS:-master u4 u6}; do
   for pad in "" pad; do
     n=$v$pad; names="$names $n"
     git worktree add -q /tmp/wt-$n origin/master
     [ $v = master ] || (cd /tmp/wt-$n && git apply $root/.github/measure/utf8_$v.patch)
     [ -z "$pad" ] || cp $root/.github/measure/pad.go /tmp/wt-$n/internal/encoder/zz_measure_pad.go
     if [ $v != master ] && [ -z "$pad" ]; then
-      (cd /tmp/wt-$n && go test -count=1 -run 'TestAppendEscapedSIMD|TestAppendHTMLEscapedSIMD|TestScanStringAVX2|TestAppendString|TestUTF8|TestCommonRuneSize' ./internal/encoder/)
+      (cd /tmp/wt-$n && go test -count=1 -run 'TestAppendEscapedSIMD|TestAppendHTMLEscapedSIMD|TestScanStringAVX2|TestAppendString|TestUTF8|TestCommonRuneSize|TestAppendNormalizedStrings' ./internal/encoder/)
     fi
     cp $root/.github/measure/zz_multibyte_test.go $root/.github/measure/zz_prof_test.go /tmp/wt-$n/benchmarks/
     for l in $(seq 1 $LAYOUTS); do

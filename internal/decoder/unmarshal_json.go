@@ -45,7 +45,7 @@ func newUnmarshalJSONDecoder(typ reflect.Type, structName, fieldName string) *un
 // promotesStdUnmarshalJSON is whether the UnmarshalJSON of the type is the one of an embedded type of the standard
 // library, which the type doesn't declare itself ( see runtime.PromotedStdMethod ).
 func promotesStdUnmarshalJSON(typ reflect.Type) bool {
-	_, _, _, ok := runtime.PromotedStdMethod(typ, unmarshalJSONType.Method(0).Name)
+	_, _, _, ok := runtime.PromotedStdMethod(typ, runtime.UnmarshalJSON)
 	return ok
 }
 

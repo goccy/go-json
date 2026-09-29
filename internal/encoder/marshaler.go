@@ -64,7 +64,7 @@ func newMarshalerCall(recv reflect.Type, iface reflect.Type) *MarshalerCall {
 		case marshalTextType:
 			m.appendOutput = textAppenderOf(recv)
 		}
-	} else if origin, offset, inline, ok := runtime.PromotedStdMethod(recv, iface.Method(0).Name); ok {
+	} else if origin, offset, inline, ok := runtime.PromotedStdMethod(recv, methodName(iface)); ok {
 		// the method is the one of the embedded value of a type of the standard library, which the wrapper of the
 		// type calls: its output is trusted as that of the type, and written by its appending method from the
 		// embedded value if it is in the value, whose address is then the data word: a pointer, or a type which
@@ -95,6 +95,19 @@ func embeddedAppender(appendOutput func([]byte, unsafe.Pointer) ([]byte, bool), 
 	}
 }
 
+// methodName is the name of the method of the interface of a marshaler, as a constant ( see runtime.MethodByName ).
+func methodName(iface reflect.Type) string {
+	switch iface {
+	case marshalJSONType, marshalJSONContextType:
+		return runtime.MarshalJSON
+	case marshalTextType:
+		return runtime.MarshalText
+	case appendTextType:
+		return runtime.AppendText
+	}
+	panic("encoder: methodName: " + iface.String() + " is not the interface of a marshaler")
+}
+
 // methodCode returns the code of the method of the interface of the receiver type, which takes the data word of
 // the interface value.
 func methodCode(recv reflect.Type, iface reflect.Type) (uintptr, bool) {
@@ -106,7 +119,7 @@ func methodCode(recv reflect.Type, iface reflect.Type) (uintptr, bool) {
 		// the data word is the address of the value: the method of the pointer takes it.
 		holder = reflect.PointerTo(recv)
 	}
-	method, ok := holder.MethodByName(iface.Method(0).Name)
+	method, ok := runtime.MethodByName(holder, methodName(iface))
 	if !ok {
 		return 0, false
 	}

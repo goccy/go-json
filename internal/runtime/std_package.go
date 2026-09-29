@@ -71,7 +71,7 @@ func hasMethod(typ reflect.Type, name string) bool {
 	if typ.Kind() != reflect.Pointer {
 		typ = reflect.PointerTo(typ)
 	}
-	_, ok := typ.MethodByName(name)
+	_, ok := MethodByName(typ, name)
 	return ok
 }
 
@@ -82,7 +82,7 @@ func hasMethod(typ reflect.Type, name string) bool {
 func isPromotedMethod(typ reflect.Type, name string) bool {
 	has := false
 	for _, holder := range []reflect.Type{typ, reflect.PointerTo(typ)} {
-		m, ok := holder.MethodByName(name)
+		m, ok := MethodByName(holder, name)
 		if !ok {
 			continue
 		}

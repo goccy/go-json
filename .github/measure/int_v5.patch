@@ -1,0 +1,98 @@
+diff --git a/internal/encoder/int.go b/internal/encoder/int.go
+index 1fc8093..13ae1f1 100644
+--- a/internal/encoder/int.go
++++ b/internal/encoder/int.go
+@@ -101,6 +101,8 @@ func AppendInt(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) []
+ 	} else if n < 100 {
+ 		u := intLELookup[n]
+ 		return append(out, byte(u), byte(u>>8))
++	} else if n < 10000 {
++		return appendThreeOrFourDigits(out, n)
+ 	}
+ 	return appendDecimal(out, n, negative)
+ }
+@@ -123,10 +125,23 @@ func AppendUint(_ *RuntimeContext, out []byte, p unsafe.Pointer, code *Opcode) [
+ 	} else if n < 100 {
+ 		u := intLELookup[n]
+ 		return append(out, byte(u), byte(u>>8))
++	} else if n < 10000 {
++		return appendThreeOrFourDigits(out, n)
+ 	}
+ 	return appendDecimal(out, n, false)
+ }
+ 
++// appendThreeOrFourDigits appends n, of three or four digits, by the lookups of its digits without a loop: most of
++// the integers of JSON are small.
++func appendThreeOrFourDigits(out []byte, n uint64) []byte {
++	hi, lo := n/100, intLELookup[n%100]
++	if hi < 10 {
++		return append(out, byte(hi+'0'), byte(lo), byte(lo>>8))
++	}
++	u := intLELookup[hi]
++	return append(out, byte(u), byte(u>>8), byte(lo), byte(lo>>8))
++}
++
+ // pow10 are the powers of 10 which an uint64 has, from 10^0.
+ var pow10 = [20]uint64{
+ 	1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
+@@ -144,9 +159,40 @@ func decimalDigits(n uint64) int {
+ 	return t + 1
+ }
+ 
+-// appendDecimal appends n in decimal, after a minus sign if negative. The digits are written where they go in
+-// out, two at a time from the last, so that nothing is copied: the number of the digits is known first.
++// appendDecimal appends n in decimal, after a minus sign if negative: a positive number of five digits or more,
++// or any negative one. A number of up to eight digits is written by the lookups of its digits; the digits of a
++// larger one are written where they go in out, from the last, so that nothing is copied: the number of the digits
++// is known first.
+ func appendDecimal(out []byte, n uint64, negative bool) []byte {
++	if n < 10000 {
++		// a negative number of up to four digits: the positive ones are written by their callers.
++		out = append(out, '-')
++		if n < 10 {
++			return append(out, byte(n+'0'))
++		} else if n < 100 {
++			u := intLELookup[n]
++			return append(out, byte(u), byte(u>>8))
++		}
++		return appendThreeOrFourDigits(out, n)
++	}
++	if n < 100000000 {
++		// up to eight digits: the first ones and the last four, of a division by 10000, by their lookups.
++		hi, lo := n/10000, n%10000
++		if negative {
++			out = append(out, '-')
++		}
++		switch {
++		case hi < 10:
++			out = append(out, byte(hi+'0'))
++		case hi < 100:
++			u := intLELookup[hi]
++			out = append(out, byte(u), byte(u>>8))
++		default:
++			out = appendThreeOrFourDigits(out, hi)
++		}
++		a, b := intLELookup[lo/100], intLELookup[lo%100]
++		return append(out, byte(a), byte(a>>8), byte(b), byte(b>>8))
++	}
+ 	d := decimalDigits(n)
+ 	if negative {
+ 		d++
+@@ -159,7 +205,16 @@ func appendDecimal(out []byte, n uint64, negative bool) []byte {
+ 	base := unsafe.Pointer(unsafe.SliceData(out))
+ 	lookup := intLookup[endianness]
+ 	i := l + d
+-	for n >= 100 {
++	// four digits at a time: a division by 10000 costs what one by 100 does, so there are half as many.
++	for n >= 10000 {
++		q := n / 10000
++		r := n - q*10000
++		n = q
++		i -= 4
++		*(*uint16)(unsafe.Add(base, i)) = lookup[r/100]
++		*(*uint16)(unsafe.Add(base, i+2)) = lookup[r%100]
++	}
++	if n >= 100 {
+ 		j := n % 100
+ 		n /= 100
+ 		i -= 2

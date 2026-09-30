@@ -185,6 +185,7 @@ var libraryColors = []struct{ library, color string }{
 	{"bytedance/sonic", "#e16f24"},
 	{"json-iterator/go", "#1a7f37"},
 	{"segmentio/encoding", "#8250df"},
+	{"ugorji/go/codec", "#9a6700"},
 	{"", "#59636e"},
 }
 

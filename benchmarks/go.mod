@@ -10,6 +10,7 @@ require (
 	github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/segmentio/encoding v0.3.4
+	github.com/ugorji/go/codec v1.2.14
 	github.com/valyala/fastjson v1.6.3
 	github.com/wI2L/jettison v0.7.4
 )

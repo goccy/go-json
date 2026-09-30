@@ -111,14 +111,3 @@ func init() {
 		Baseline: "v2/encoding/json/v2",
 	}}, reportCategories[1:]...)...)
 }
-
-// insertAfter inserts the configuration after the one of the ID.
-func insertAfter(id string, c *reportConfig) {
-	for i, x := range reportConfigs {
-		if x.ID == id {
-			reportConfigs = append(reportConfigs[:i+1], append([]*reportConfig{c}, reportConfigs[i+1:]...)...)
-			return
-		}
-	}
-	panic("no configuration " + id)
-}

@@ -45,6 +45,7 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 | [jettison](https://github.com/wI2L/jettison) | yes | no | no |
 | [simdjson-go](https://github.com/minio/simdjson-go) | no | yes | no |
 | [bytedance/sonic](https://github.com/bytedance/sonic) | yes | yes | partial |
+| [ugorji/go/codec](https://github.com/ugorji/go/tree/master/codec) | yes | yes | partial |
 | goccy/go-json | yes | yes | yes |
 
 - `json-iterator/go` isn't compatible with `encoding/json` in many ways (e.g. https://github.com/json-iterator/go/issues/229 ), but it hasn't been supported for a long time.

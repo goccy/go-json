@@ -1,0 +1,1303 @@
+diff --git a/internal/cmd/generator/main.go b/internal/cmd/generator/main.go
+index 86fba06..ef27186 100644
+--- a/internal/cmd/generator/main.go
++++ b/internal/cmd/generator/main.go
+@@ -20,9 +20,136 @@ type opType struct {
+ 	Code string
+ }
+ 
++// key16Pair is an opcode of key16Ops and its opcode for a key of up to a chunk.
++type key16Pair struct {
++	Op    string
++	Key16 string
++}
++
+ // fieldRunTypes are the kinds of a field which have the opcodes of a run: see internal/encoder.fieldRunOps.
+ var fieldRunTypes = []string{"Int", "Uint", "Float64", "String", "Bool"}
+ 
++// key16Ops are the opcodes of the fields whose cases in vm.go.tmpl write the key by appendStructKey and do not
++// fall through: each has an opcode of its own for a key of up to a chunk ( see key16Suffix ), which writes the
++// key by one chunk. The opcodes of the runs fall through the cases of the fields, so they have none.
++var key16Ops []string
++
++// key16Suffix is the suffix of the name of the opcode of a field whose key is up to a chunk long.
++const key16Suffix = "Key16"
++
++// collectKey16Ops sets key16Ops from the cases of the switch of the template.
++func collectKey16Ops(f *ast.File) {
++	key16Ops = nil
++	forEachFieldCase(f, func(clause *ast.CaseClause, op string) {
++		key16Ops = append(key16Ops, op)
++	})
++}
++
++// forEachFieldCase calls fn for each case of the switch of Run with one opcode of a field of a type, not of a
++// run, which writes the key by appendStructKey and does not fall through.
++func forEachFieldCase(f *ast.File, fn func(clause *ast.CaseClause, op string)) {
++	ast.Inspect(f, func(n ast.Node) bool {
++		clause, ok := n.(*ast.CaseClause)
++		if !ok || len(clause.List) != 1 {
++			return true
++		}
++		sel, ok := clause.List[0].(*ast.SelectorExpr)
++		if !ok {
++			return true
++		}
++		op := strings.TrimPrefix(sel.Sel.Name, "Op")
++		if !isKey16Candidate(op) || !writesStructKey(clause) {
++			return true
++		}
++		fn(clause, op)
++		return true
++	})
++}
++
++// isKey16Candidate is whether the opcode is the one of a field or an end of a field of a type, not the generic
++// one, which may have a key longer than two chunks, nor the one of a run.
++func isKey16Candidate(op string) bool {
++	switch op {
++	case "StructField", "StructFieldOmitEmpty", "StructEnd", "StructEndOmitEmpty":
++		return false
++	}
++	for _, typ := range fieldRunTypes {
++		if op == "StructField"+typ+"2" || op == "StructField"+typ+"3" {
++			return false
++		}
++	}
++	if !strings.HasPrefix(op, "StructField") {
++		return false
++	}
++	typ := strings.TrimPrefix(strings.TrimPrefix(op, "StructField"), "OmitEmpty")
++	switch typ {
++	case "Int", "Uint", "Float32", "Float64", "Bool", "String", "Bytes", "Number":
++		return true
++	}
++	return false
++}
++
++// writesStructKey is whether the case writes a key by appendStructKey and does not fall through.
++func writesStructKey(clause *ast.CaseClause) bool {
++	var key, fallthroughs bool
++	for _, stmt := range clause.Body {
++		ast.Inspect(stmt, func(n ast.Node) bool {
++			switch n := n.(type) {
++			case *ast.CallExpr:
++				if ident, ok := n.Fun.(*ast.Ident); ok && ident.Name == "appendStructKey" {
++					key = true
++				}
++			case *ast.BranchStmt:
++				if n.Tok == token.FALLTHROUGH {
++					fallthroughs = true
++				}
++			}
++			return true
++		})
++	}
++	return key && !fallthroughs
++}
++
++// addKey16Cases returns the source of the template with the cases of the opcodes of key16Ops: the plain VM has
++// a case of its own for each, right after the case it is a copy of, which writes the key by appendStructKey16,
++// and the other VMs, which write a key as they do any key, take the opcode in the case it is the one for a short
++// key of. The cases are copied as the text they are in the template, with their comments.
++func addKey16Cases(src []byte, plain bool) ([]byte, error) {
++	fset := token.NewFileSet()
++	f, err := parser.ParseFile(fset, "", src, parser.ParseComments)
++	if err != nil {
++		return nil, err
++	}
++	type edit struct {
++		offset int
++		text   string
++	}
++	var edits []edit
++	forEachFieldCase(f, func(clause *ast.CaseClause, op string) {
++		label := "encoder.Op" + op
++		key16 := label + key16Suffix
++		if !plain {
++			// the opcode for a short key is added to the list of the case.
++			edits = append(edits, edit{offset: fset.Position(clause.List[0].End()).Offset, text: ", " + key16})
++			return
++		}
++		start, end := fset.Position(clause.Pos()).Offset, fset.Position(clause.End()).Offset
++		text := string(src[start:end])
++		text = strings.Replace(text, "case "+label+":", "case "+key16+":", 1)
++		text = strings.ReplaceAll(text, "appendStructKey(", "appendStructKey16(")
++		edits = append(edits, edit{offset: end, text: "\n" + text})
++	})
++	var out bytes.Buffer
++	last := 0
++	for _, e := range edits {
++		out.Write(src[last:e.offset])
++		out.WriteString(e.text)
++		last = e.offset
++	}
++	out.Write(src[last:])
++	return out.Bytes(), nil
++}
++
+ func createOpType(op, code string) opType {
+ 	return opType{
+ 		Op:   op,
+@@ -133,6 +260,29 @@ func (t OpType) FieldToOmitEmptyField() OpType {
+   }
+   return t
+ }
++
++// Key16 returns the opcode of the field for a key of up to a chunk ( KeyChunkSize ), which the VM writes by one
++// chunk, or t if the field has none.
++func (t OpType) Key16() OpType {
++  switch t {
++{{- range $pair := .Key16Pairs }}
++  case Op{{ $pair.Op }}:
++    return Op{{ $pair.Key16 }}
++{{- end }}
++  }
++  return t
++}
++
++// WithoutKey16 returns the opcode of the field which t is the one for a key of up to a chunk of, or t.
++func (t OpType) WithoutKey16() OpType {
++  switch t {
++{{- range $pair := .Key16Pairs }}
++  case Op{{ $pair.Key16 }}:
++    return Op{{ $pair.Op }}
++{{- end }}
++  }
++  return t
++}
+ `)
+ 	if err != nil {
+ 		return err
+@@ -229,15 +379,30 @@ func (t OpType) FieldToOmitEmptyField() OpType {
+ 			opTypes = append(opTypes, opType{Op: "StructField" + typ + n, Code: "StructField"})
+ 		}
+ 	}
++	// The opcodes of the fields whose key is up to a chunk long come after them, for the same reason.
++	key16Start := len(opTypes)
++	for _, op := range key16Ops {
++		code := "StructField"
++		if strings.HasPrefix(op, "StructEnd") {
++			code = "StructEnd"
++		}
++		opTypes = append(opTypes, opType{Op: op + key16Suffix, Code: code})
++	}
++	var key16Pairs []key16Pair
++	for i, op := range key16Ops {
++		key16Pairs = append(key16Pairs, key16Pair{Op: op, Key16: opTypes[key16Start+i].Op})
++	}
+ 	var b bytes.Buffer
+ 	if err := tmpl.Execute(&b, struct {
+-		CodeTypes []string
+-		OpTypes   []opType
+-		OpLen     int
++		CodeTypes  []string
++		OpTypes    []opType
++		OpLen      int
++		Key16Pairs []key16Pair
+ 	}{
+-		CodeTypes: codeTypes,
+-		OpTypes:   opTypes,
+-		OpLen:     len(opTypes),
++		CodeTypes:  codeTypes,
++		OpTypes:    opTypes,
++		OpLen:      len(opTypes),
++		Key16Pairs: key16Pairs,
+ 	}); err != nil {
+ 		return err
+ 	}
+@@ -286,8 +451,19 @@ func generateVM() error {
+ 	}
+ 	for _, pkg := range []string{"vm", "vm_indent", "vm_color", "vm_color_indent"} {
+ 		// parsed for each package: the tree of the plain VM is changed.
++		if key16Ops == nil {
++			f, err := parser.ParseFile(token.NewFileSet(), "", file, 0)
++			if err != nil {
++				return err
++			}
++			collectKey16Ops(f)
++		}
++		src, err := addKey16Cases(file, pkg == "vm")
++		if err != nil {
++			return err
++		}
+ 		fset := token.NewFileSet()
+-		f, err := parser.ParseFile(fset, "", string(file), parser.ParseComments)
++		f, err := parser.ParseFile(fset, "", src, parser.ParseComments)
+ 		if err != nil {
+ 			return err
+ 		}
+diff --git a/internal/cmd/generator/vm.go.tmpl b/internal/cmd/generator/vm.go.tmpl
+index bc84c23..50b444e 100644
+--- a/internal/cmd/generator/vm.go.tmpl
++++ b/internal/cmd/generator/vm.go.tmpl
+@@ -697,7 +697,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructField:
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -712,7 +712,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
+ 				code = code.NextField
+ 			} else {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+diff --git a/internal/encoder/code.go b/internal/encoder/code.go
+index 31bf39c..5f96169 100644
+--- a/internal/encoder/code.go
++++ b/internal/encoder/code.go
+@@ -558,6 +558,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
+ 	}
+ 	ctx.decIndent()
+ 	markFieldRuns(codes)
++	useKey16Ops(codes)
+ 	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
+ 	return codes
+ }
+@@ -595,6 +596,16 @@ func markFieldRuns(codes Opcodes) {
+ 	}
+ }
+ 
++// useKey16Ops gives a field whose key is up to a chunk long the opcode of its field for such a key, which writes
++// the key by one chunk. It is done last: the other passes know only the opcodes of the fields.
++func useKey16Ops(codes Opcodes) {
++	for _, code := range codes {
++		if len(code.Key) <= KeyChunkSize {
++			code.Op = code.Op.Key16()
++		}
++	}
++}
++
+ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
+ 	// header => code => structField => code => end
+ 	//                        ^          |
+@@ -830,7 +841,7 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
+ // isLongKey is whether the key of the field is longer than a chunk: then the field is not encoded by one opcode
+ // with its value, but by the generic field opcode, which writes a key of any length, and the opcode of the value.
+ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
+-	return len(field.Key) > KeyChunkSize
++	return len(field.Key) > 2*KeyChunkSize
+ }
+ 
+ // isGenericField is whether the field is encoded by the generic field opcode and the opcode of the value: a
+@@ -912,22 +923,23 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
+ 	return codes
+ }
+ 
+-// KeyChunkSize is the size of the chunk which the VM copies a key by: a key up to it is written by the
+-// opcode of its field, as a chunk. A longer key is written by the generic field opcode, and its value by the
+-// opcode of the value.
+-const KeyChunkSize = 32
++// KeyChunkSize is the size of the chunks which the VM copies a key by. A key of up to two chunks is written by
++// the opcode of its field: by one chunk if it is up to a chunk long, the opcode of the field being then the one
++// for such a key ( OpType.Key16 ), or else by two. A longer key is written by the generic field opcode, and its
++// value by the opcode of the value.
++const KeyChunkSize = 16
+ 
+ // PaddedKey returns the key whose memory has the bytes after it up to a chunk,
+ // so that a chunk is copied from the key without reading the memory of others.
+ func PaddedKey(key string) string {
+-	buf := make([]byte, len(key)+KeyChunkSize)
++	buf := make([]byte, len(key)+2*KeyChunkSize)
+ 	copy(buf, key)
+ 	return unsafe.String(unsafe.SliceData(buf), len(key))
+ }
+ 
+ // keyChunk returns the chunk at the start of a padded key.
+-func keyChunk(paddedKey string) *[KeyChunkSize]byte {
+-	return (*[KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
++func keyChunk(paddedKey string) *[2 * KeyChunkSize]byte {
++	return (*[2 * KeyChunkSize]byte)(unsafe.Pointer(unsafe.StringData(paddedKey)))
+ }
+ 
+ // EmptyKind is what makes the value of a field empty for omitempty, as encoding/json decides it by the kind
+diff --git a/internal/encoder/encoder.go b/internal/encoder/encoder.go
+index 9a12473..6ba2620 100644
+--- a/internal/encoder/encoder.go
++++ b/internal/encoder/encoder.go
+@@ -20,7 +20,7 @@ import (
+ )
+ 
+ func (t OpType) IsMultipleOpField() bool {
+-	switch t {
++	switch t.WithoutKey16() {
+ 	case OpStructField:
+ 		return true
+ 	case OpStructFieldSlice:
+diff --git a/internal/encoder/opcode.go b/internal/encoder/opcode.go
+index f2b95d1..fc00758 100644
+--- a/internal/encoder/opcode.go
++++ b/internal/encoder/opcode.go
+@@ -57,17 +57,17 @@ type Opcode struct {
+ 	NumBitSize uint8
+ 	Flags      OpFlags
+ 
+-	Type       unsafe.Pointer      // pointer to the type descriptor of go type
+-	Jmp        *CompiledCode       // for recursive call
+-	Marshaler  *MarshalerCall      // the method of the marshaler, for MarshalJSON and MarshalText
+-	FieldQuery *FieldQuery         // field query for Interface / MarshalJSON / MarshalText
+-	ElemIdx    uint32              // offset to access array/slice elem
+-	Length     uint32              // offset to access slice length or array length
+-	Indent     uint32              // indent number
+-	Size       uint32              // array/slice elem size
+-	DisplayIdx uint32              // opcode index
+-	KeyChunk   *[KeyChunkSize]byte // the key and the padding after it, which the VM copies as a chunk
+-	Map        *MapLayout          // how the entries of the map are read, for the opcode of a map
++	Type       unsafe.Pointer          // pointer to the type descriptor of go type
++	Jmp        *CompiledCode           // for recursive call
++	Marshaler  *MarshalerCall          // the method of the marshaler, for MarshalJSON and MarshalText
++	FieldQuery *FieldQuery             // field query for Interface / MarshalJSON / MarshalText
++	ElemIdx    uint32                  // offset to access array/slice elem
++	Length     uint32                  // offset to access slice length or array length
++	Indent     uint32                  // indent number
++	Size       uint32                  // array/slice elem size
++	DisplayIdx uint32                  // opcode index
++	KeyChunk   *[2 * KeyChunkSize]byte // the key and the padding after it, which the VM copies by chunks
++	Map        *MapLayout              // how the entries of the map are read, for the opcode of a map
+ }
+ 
+ func (c *Opcode) Validate() error {
+@@ -330,7 +330,7 @@ func copyOpcode(code *Opcode) *Opcode {
+ 
+ func setTotalLengthToInterfaceOp(code *Opcode) {
+ 	for c := code; !c.IsEnd(); {
+-		switch c.Op {
++		switch c.Op.WithoutKey16() {
+ 		case OpInterface, OpInterfacePtr, OpStructFieldInterface, OpStructFieldOmitEmptyInterface:
+ 			c.Length = uint32(code.TotalLength())
+ 		}
+diff --git a/internal/encoder/optype.go b/internal/encoder/optype.go
+index 891231a..dc39aea 100644
+--- a/internal/encoder/optype.go
++++ b/internal/encoder/optype.go
+@@ -22,7 +22,7 @@ const (
+ 	CodeStructEnd   CodeType = 11
+ )
+ 
+-var opTypeStrings = [244]string{
++var opTypeStrings = [260]string{
+ 	"End",
+ 	"Interface",
+ 	"Ptr",
+@@ -267,6 +267,22 @@ var opTypeStrings = [244]string{
+ 	"StructFieldString2",
+ 	"StructFieldBool3",
+ 	"StructFieldBool2",
++	"StructFieldIntKey16",
++	"StructFieldOmitEmptyIntKey16",
++	"StructFieldUintKey16",
++	"StructFieldOmitEmptyUintKey16",
++	"StructFieldFloat32Key16",
++	"StructFieldOmitEmptyFloat32Key16",
++	"StructFieldFloat64Key16",
++	"StructFieldOmitEmptyFloat64Key16",
++	"StructFieldStringKey16",
++	"StructFieldOmitEmptyStringKey16",
++	"StructFieldBoolKey16",
++	"StructFieldOmitEmptyBoolKey16",
++	"StructFieldBytesKey16",
++	"StructFieldOmitEmptyBytesKey16",
++	"StructFieldNumberKey16",
++	"StructFieldOmitEmptyNumberKey16",
+ }
+ 
+ type OpType uint16
+@@ -516,10 +532,26 @@ const (
+ 	OpStructFieldString2                   OpType = 241
+ 	OpStructFieldBool3                     OpType = 242
+ 	OpStructFieldBool2                     OpType = 243
++	OpStructFieldIntKey16                  OpType = 244
++	OpStructFieldOmitEmptyIntKey16         OpType = 245
++	OpStructFieldUintKey16                 OpType = 246
++	OpStructFieldOmitEmptyUintKey16        OpType = 247
++	OpStructFieldFloat32Key16              OpType = 248
++	OpStructFieldOmitEmptyFloat32Key16     OpType = 249
++	OpStructFieldFloat64Key16              OpType = 250
++	OpStructFieldOmitEmptyFloat64Key16     OpType = 251
++	OpStructFieldStringKey16               OpType = 252
++	OpStructFieldOmitEmptyStringKey16      OpType = 253
++	OpStructFieldBoolKey16                 OpType = 254
++	OpStructFieldOmitEmptyBoolKey16        OpType = 255
++	OpStructFieldBytesKey16                OpType = 256
++	OpStructFieldOmitEmptyBytesKey16       OpType = 257
++	OpStructFieldNumberKey16               OpType = 258
++	OpStructFieldOmitEmptyNumberKey16      OpType = 259
+ )
+ 
+ func (t OpType) String() string {
+-	if int(t) >= 244 {
++	if int(t) >= 260 {
+ 		return ""
+ 	}
+ 	return opTypeStrings[int(t)]
+@@ -591,3 +623,82 @@ func (t OpType) FieldToOmitEmptyField() OpType {
+ 	}
+ 	return t
+ }
++
++// Key16 returns the opcode of the field for a key of up to a chunk ( KeyChunkSize ), which the VM writes by one
++// chunk, or t if the field has none.
++func (t OpType) Key16() OpType {
++	switch t {
++	case OpStructFieldInt:
++		return OpStructFieldIntKey16
++	case OpStructFieldOmitEmptyInt:
++		return OpStructFieldOmitEmptyIntKey16
++	case OpStructFieldUint:
++		return OpStructFieldUintKey16
++	case OpStructFieldOmitEmptyUint:
++		return OpStructFieldOmitEmptyUintKey16
++	case OpStructFieldFloat32:
++		return OpStructFieldFloat32Key16
++	case OpStructFieldOmitEmptyFloat32:
++		return OpStructFieldOmitEmptyFloat32Key16
++	case OpStructFieldFloat64:
++		return OpStructFieldFloat64Key16
++	case OpStructFieldOmitEmptyFloat64:
++		return OpStructFieldOmitEmptyFloat64Key16
++	case OpStructFieldString:
++		return OpStructFieldStringKey16
++	case OpStructFieldOmitEmptyString:
++		return OpStructFieldOmitEmptyStringKey16
++	case OpStructFieldBool:
++		return OpStructFieldBoolKey16
++	case OpStructFieldOmitEmptyBool:
++		return OpStructFieldOmitEmptyBoolKey16
++	case OpStructFieldBytes:
++		return OpStructFieldBytesKey16
++	case OpStructFieldOmitEmptyBytes:
++		return OpStructFieldOmitEmptyBytesKey16
++	case OpStructFieldNumber:
++		return OpStructFieldNumberKey16
++	case OpStructFieldOmitEmptyNumber:
++		return OpStructFieldOmitEmptyNumberKey16
++	}
++	return t
++}
++
++// WithoutKey16 returns the opcode of the field which t is the one for a key of up to a chunk of, or t.
++func (t OpType) WithoutKey16() OpType {
++	switch t {
++	case OpStructFieldIntKey16:
++		return OpStructFieldInt
++	case OpStructFieldOmitEmptyIntKey16:
++		return OpStructFieldOmitEmptyInt
++	case OpStructFieldUintKey16:
++		return OpStructFieldUint
++	case OpStructFieldOmitEmptyUintKey16:
++		return OpStructFieldOmitEmptyUint
++	case OpStructFieldFloat32Key16:
++		return OpStructFieldFloat32
++	case OpStructFieldOmitEmptyFloat32Key16:
++		return OpStructFieldOmitEmptyFloat32
++	case OpStructFieldFloat64Key16:
++		return OpStructFieldFloat64
++	case OpStructFieldOmitEmptyFloat64Key16:
++		return OpStructFieldOmitEmptyFloat64
++	case OpStructFieldStringKey16:
++		return OpStructFieldString
++	case OpStructFieldOmitEmptyStringKey16:
++		return OpStructFieldOmitEmptyString
++	case OpStructFieldBoolKey16:
++		return OpStructFieldBool
++	case OpStructFieldOmitEmptyBoolKey16:
++		return OpStructFieldOmitEmptyBool
++	case OpStructFieldBytesKey16:
++		return OpStructFieldBytes
++	case OpStructFieldOmitEmptyBytesKey16:
++		return OpStructFieldOmitEmptyBytes
++	case OpStructFieldNumberKey16:
++		return OpStructFieldNumber
++	case OpStructFieldOmitEmptyNumberKey16:
++		return OpStructFieldOmitEmptyNumber
++	}
++	return t
++}
+diff --git a/internal/encoder/vm/util.go b/internal/encoder/vm/util.go
+index 90256b8..415c07e 100644
+--- a/internal/encoder/vm/util.go
++++ b/internal/encoder/vm/util.go
+@@ -177,16 +177,24 @@ func appendStructHead(_ *encoder.RuntimeContext, b []byte) []byte {
+ 	return append(b, '{')
+ }
+ 
+-// appendStructKey appends a key which is up to a chunk long, by two copies of a half chunk each: the key is
+-// followed by its padding in memory ( encoder.PaddedKey ), and the length is cut back to the key after.
+-// A copy of a half chunk is inlined by the compiler on amd64 and arm64; a call of memmove, or of this
+-// function, makes the VM spill and restore its registers, which costs more than the copy of a key.
++// appendStructKey appends a key which is up to two chunks long, by two chunks: the key is followed by its
++// padding in memory ( encoder.PaddedKey ), and the length is cut back to the key after. A copy of a chunk of 16
++// bytes is inlined by the compiler on amd64 and arm64; a call of memmove, or of this function, makes the VM
++// spill and restore its registers, which costs more than the copy of a key.
+ //
+ // Run is a big function to the inliner, which inlines into it only a function whose cost is 20 or less:
+-// this one costs 19. A key longer than a chunk is written by appendLongStructKey, by the generic field opcode.
++// this one costs 19. A key longer than two chunks is written by appendLongStructKey, by the generic field
++// opcode.
+ func appendStructKey(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
+-	const half = encoder.KeyChunkSize / 2
+-	return append(append(b, code.KeyChunk[:half]...), code.KeyChunk[half:]...)[:len(b)+len(code.Key)]
++	const chunk = encoder.KeyChunkSize
++	return append(append(b, code.KeyChunk[:chunk]...), code.KeyChunk[chunk:]...)[:len(b)+len(code.Key)]
++}
++
++// appendStructKey16 appends a key which is up to a chunk long, by one chunk, as appendStructKey does by two: it
++// is for the opcodes of the fields whose key is so short ( encoder.OpType.Key16 ), which are most of them, and
++// it checks the capacity and copies once.
++func appendStructKey16(_ *encoder.RuntimeContext, code *encoder.Opcode, b []byte) []byte {
++	return append(b, code.KeyChunk[:encoder.KeyChunkSize]...)[:len(b)+len(code.Key)]
+ }
+ 
+ // appendLongStructKey appends a key of any length.
+diff --git a/internal/encoder/vm/vm.go b/internal/encoder/vm/vm.go
+index 3382d42..d92b5f9 100644
+--- a/internal/encoder/vm/vm.go
++++ b/internal/encoder/vm/vm.go
+@@ -697,7 +697,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructField:
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -712,7 +712,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
+ 				code = code.NextField
+ 			} else {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -742,6 +742,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldIntKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyInt:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+@@ -752,6 +758,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyIntKey16:
++			p := load(ctxptr, code.Idx)
++			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
++			v := u64 & ((1 << code.NumBitSize) - 1)
++			if v != 0 {
++				b = appendStructKey16(ctx, code, b)
++				b = encoder.AppendInt(ctx, b, unsafe.Add(p, code.Offset), code)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldIntString:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+@@ -836,6 +852,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldUintKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyUint:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+@@ -846,6 +868,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyUintKey16:
++			p := load(ctxptr, code.Idx)
++			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
++			v := u64 & ((1 << code.NumBitSize) - 1)
++			if v != 0 {
++				b = appendStructKey16(ctx, code, b)
++				b = encoder.AppendUint(ctx, b, unsafe.Add(p, code.Offset), code)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldUintString:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+@@ -920,6 +952,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = bb
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldFloat32Key16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
++			if err != nil {
++				return nil, err
++			}
++			b = bb
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyFloat32:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+@@ -933,6 +975,19 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyFloat32Key16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToFloat32(unsafe.Add(p, code.Offset))
++			if v != 0 {
++				b = appendStructKey16(ctx, code, b)
++				bb, err := appendFloat32(ctx, b, v)
++				if err != nil {
++					return nil, err
++				}
++				b = bb
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldFloat32String:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+@@ -1052,6 +1107,16 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = encoder.AppendFloat64(ctx, b, v)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldFloat64Key16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			v := ptrToFloat64(unsafe.Add(p, code.Offset))
++			if isInfOrNaN(v) {
++				return nil, errUnsupportedFloat(v)
++			}
++			b = encoder.AppendFloat64(ctx, b, v)
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyFloat64:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+@@ -1064,6 +1129,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyFloat64Key16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToFloat64(unsafe.Add(p, code.Offset))
++			if v != 0 {
++				if isInfOrNaN(v) {
++					return nil, errUnsupportedFloat(v)
++				}
++				b = appendStructKey16(ctx, code, b)
++				b = encoder.AppendFloat64(ctx, b, v)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldFloat64String:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+@@ -1171,6 +1248,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldStringKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyString:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+@@ -1180,6 +1263,15 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyStringKey16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToString(unsafe.Add(p, code.Offset))
++			if v != "" {
++				b = appendStructKey16(ctx, code, b)
++				b = encoder.AppendString(ctx, b, v)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldStringString:
+ 			p := load(ctxptr, code.Idx)
+ 			s := ptrToString(unsafe.Add(p, code.Offset))
+@@ -1256,6 +1348,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldBoolKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyBool:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+@@ -1265,6 +1363,15 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyBoolKey16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToBool(unsafe.Add(p, code.Offset))
++			if v {
++				b = appendStructKey16(ctx, code, b)
++				b = appendBool(ctx, b, v)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldBoolString:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+@@ -1334,6 +1441,12 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
++		case encoder.OpStructFieldBytesKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			b = encoder.AppendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
++			b = appendComma(ctx, b)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyBytes:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+@@ -1343,6 +1456,15 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyBytesKey16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToBytes(unsafe.Add(p, code.Offset))
++			if len(v) > 0 {
++				b = appendStructKey16(ctx, code, b)
++				b = encoder.AppendByteSlice(ctx, b, v)
++				b = appendComma(ctx, b)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldBytesPtr:
+ 			p := load(ctxptr, code.Idx)
+ 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+@@ -1372,6 +1494,15 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			b = appendComma(ctx, bb)
+ 			code = code.Next
++		case encoder.OpStructFieldNumberKey16:
++			p := load(ctxptr, code.Idx)
++			b = appendStructKey16(ctx, code, b)
++			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
++			if err != nil {
++				return nil, err
++			}
++			b = appendComma(ctx, bb)
++			code = code.Next
+ 		case encoder.OpStructFieldOmitEmptyNumber:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+@@ -1384,6 +1515,18 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, bb)
+ 			}
+ 			code = code.Next
++		case encoder.OpStructFieldOmitEmptyNumberKey16:
++			p := load(ctxptr, code.Idx)
++			v := ptrToNumber(unsafe.Add(p, code.Offset))
++			if v != "" {
++				b = appendStructKey16(ctx, code, b)
++				bb, err := encoder.AppendNumber(ctx, b, v)
++				if err != nil {
++					return nil, err
++				}
++				b = appendComma(ctx, bb)
++			}
++			code = code.Next
+ 		case encoder.OpStructFieldNumberString:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+diff --git a/internal/encoder/vm_color/vm.go b/internal/encoder/vm_color/vm.go
+index 03d1ebb..bfd29d5 100644
+--- a/internal/encoder/vm_color/vm.go
++++ b/internal/encoder/vm_color/vm.go
+@@ -697,7 +697,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructField:
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -712,7 +712,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
+ 				code = code.NextField
+ 			} else {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -736,13 +736,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldInt:
++		case encoder.OpStructFieldInt, encoder.OpStructFieldIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyInt:
++		case encoder.OpStructFieldOmitEmptyInt, encoder.OpStructFieldOmitEmptyIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -830,13 +830,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldUint:
++		case encoder.OpStructFieldUint, encoder.OpStructFieldUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyUint:
++		case encoder.OpStructFieldOmitEmptyUint, encoder.OpStructFieldOmitEmptyUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -910,7 +910,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldFloat32:
++		case encoder.OpStructFieldFloat32, encoder.OpStructFieldFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+@@ -920,7 +920,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = bb
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat32:
++		case encoder.OpStructFieldOmitEmptyFloat32, encoder.OpStructFieldOmitEmptyFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1042,7 +1042,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldFloat64:
++		case encoder.OpStructFieldFloat64, encoder.OpStructFieldFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+@@ -1052,7 +1052,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendFloat64(ctx, b, v)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat64:
++		case encoder.OpStructFieldOmitEmptyFloat64, encoder.OpStructFieldOmitEmptyFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1165,13 +1165,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldString:
++		case encoder.OpStructFieldString, encoder.OpStructFieldStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyString:
++		case encoder.OpStructFieldOmitEmptyString, encoder.OpStructFieldOmitEmptyStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+@@ -1250,13 +1250,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldBool:
++		case encoder.OpStructFieldBool, encoder.OpStructFieldBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBool:
++		case encoder.OpStructFieldOmitEmptyBool, encoder.OpStructFieldOmitEmptyBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+@@ -1328,13 +1328,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldBytes:
++		case encoder.OpStructFieldBytes, encoder.OpStructFieldBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBytes:
++		case encoder.OpStructFieldOmitEmptyBytes, encoder.OpStructFieldOmitEmptyBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+@@ -1363,7 +1363,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldNumber:
++		case encoder.OpStructFieldNumber, encoder.OpStructFieldNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+@@ -1372,7 +1372,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			b = appendComma(ctx, bb)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyNumber:
++		case encoder.OpStructFieldOmitEmptyNumber, encoder.OpStructFieldOmitEmptyNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+diff --git a/internal/encoder/vm_color_indent/vm.go b/internal/encoder/vm_color_indent/vm.go
+index 372fcae..b63d148 100644
+--- a/internal/encoder/vm_color_indent/vm.go
++++ b/internal/encoder/vm_color_indent/vm.go
+@@ -697,7 +697,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructField:
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -712,7 +712,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
+ 				code = code.NextField
+ 			} else {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -736,13 +736,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldInt:
++		case encoder.OpStructFieldInt, encoder.OpStructFieldIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyInt:
++		case encoder.OpStructFieldOmitEmptyInt, encoder.OpStructFieldOmitEmptyIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -830,13 +830,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldUint:
++		case encoder.OpStructFieldUint, encoder.OpStructFieldUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyUint:
++		case encoder.OpStructFieldOmitEmptyUint, encoder.OpStructFieldOmitEmptyUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -910,7 +910,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldFloat32:
++		case encoder.OpStructFieldFloat32, encoder.OpStructFieldFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+@@ -920,7 +920,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = bb
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat32:
++		case encoder.OpStructFieldOmitEmptyFloat32, encoder.OpStructFieldOmitEmptyFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1042,7 +1042,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldFloat64:
++		case encoder.OpStructFieldFloat64, encoder.OpStructFieldFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+@@ -1052,7 +1052,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendFloat64(ctx, b, v)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat64:
++		case encoder.OpStructFieldOmitEmptyFloat64, encoder.OpStructFieldOmitEmptyFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1165,13 +1165,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldString:
++		case encoder.OpStructFieldString, encoder.OpStructFieldStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyString:
++		case encoder.OpStructFieldOmitEmptyString, encoder.OpStructFieldOmitEmptyStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+@@ -1250,13 +1250,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldBool:
++		case encoder.OpStructFieldBool, encoder.OpStructFieldBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBool:
++		case encoder.OpStructFieldOmitEmptyBool, encoder.OpStructFieldOmitEmptyBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+@@ -1328,13 +1328,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldBytes:
++		case encoder.OpStructFieldBytes, encoder.OpStructFieldBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBytes:
++		case encoder.OpStructFieldOmitEmptyBytes, encoder.OpStructFieldOmitEmptyBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+@@ -1363,7 +1363,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldNumber:
++		case encoder.OpStructFieldNumber, encoder.OpStructFieldNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+@@ -1372,7 +1372,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			b = appendComma(ctx, bb)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyNumber:
++		case encoder.OpStructFieldOmitEmptyNumber, encoder.OpStructFieldOmitEmptyNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+diff --git a/internal/encoder/vm_indent/vm.go b/internal/encoder/vm_indent/vm.go
+index c70adf2..9b8c000 100644
+--- a/internal/encoder/vm_indent/vm.go
++++ b/internal/encoder/vm_indent/vm.go
+@@ -697,7 +697,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 		case encoder.OpStructField:
+ 			// the generic field: the value is encoded by its own opcode, and the key may be longer than a chunk.
+ 			if code.Flags&encoder.IsTaggedKeyFlags != 0 || code.Flags&encoder.AnonymousKeyFlags == 0 {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -712,7 +712,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) || (code.ZeroKind != encoder.ZeroNever && encoder.IsZeroField(code, p)) {
+ 				code = code.NextField
+ 			} else {
+-				if len(code.Key) <= encoder.KeyChunkSize {
++				if len(code.Key) <= 2*encoder.KeyChunkSize {
+ 					b = appendStructKey(ctx, code, b)
+ 				} else {
+ 					b = appendLongStructKey(ctx, code, b)
+@@ -736,13 +736,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldInt:
++		case encoder.OpStructFieldInt, encoder.OpStructFieldIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendInt(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyInt:
++		case encoder.OpStructFieldOmitEmptyInt, encoder.OpStructFieldOmitEmptyIntKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -830,13 +830,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldUint:
++		case encoder.OpStructFieldUint, encoder.OpStructFieldUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendUint(ctx, b, unsafe.Add(p, code.Offset), code)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyUint:
++		case encoder.OpStructFieldOmitEmptyUint, encoder.OpStructFieldOmitEmptyUintKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			u64 := ptrToUint64(unsafe.Add(p, code.Offset), code.NumBitSize)
+ 			v := u64 & ((1 << code.NumBitSize) - 1)
+@@ -910,7 +910,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldFloat32:
++		case encoder.OpStructFieldFloat32, encoder.OpStructFieldFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendFloat32(ctx, b, ptrToFloat32(unsafe.Add(p, code.Offset)))
+@@ -920,7 +920,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = bb
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat32:
++		case encoder.OpStructFieldOmitEmptyFloat32, encoder.OpStructFieldOmitEmptyFloat32Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat32(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1042,7 +1042,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldFloat64:
++		case encoder.OpStructFieldFloat64, encoder.OpStructFieldFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+@@ -1052,7 +1052,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendFloat64(ctx, b, v)
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyFloat64:
++		case encoder.OpStructFieldOmitEmptyFloat64, encoder.OpStructFieldOmitEmptyFloat64Key16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToFloat64(unsafe.Add(p, code.Offset))
+ 			if v != 0 {
+@@ -1165,13 +1165,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldString:
++		case encoder.OpStructFieldString, encoder.OpStructFieldStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyString:
++		case encoder.OpStructFieldOmitEmptyString, encoder.OpStructFieldOmitEmptyStringKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToString(unsafe.Add(p, code.Offset))
+ 			if v != "" {
+@@ -1250,13 +1250,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+ 			fallthrough
+-		case encoder.OpStructFieldBool:
++		case encoder.OpStructFieldBool, encoder.OpStructFieldBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendBool(ctx, b, ptrToBool(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBool:
++		case encoder.OpStructFieldOmitEmptyBool, encoder.OpStructFieldOmitEmptyBoolKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBool(unsafe.Add(p, code.Offset))
+ 			if v {
+@@ -1328,13 +1328,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldBytes:
++		case encoder.OpStructFieldBytes, encoder.OpStructFieldBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			b = appendByteSlice(ctx, b, ptrToBytes(unsafe.Add(p, code.Offset)))
+ 			b = appendComma(ctx, b)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyBytes:
++		case encoder.OpStructFieldOmitEmptyBytes, encoder.OpStructFieldOmitEmptyBytesKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToBytes(unsafe.Add(p, code.Offset))
+ 			if len(v) > 0 {
+@@ -1363,7 +1363,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 				b = appendComma(ctx, b)
+ 			}
+ 			code = code.Next
+-		case encoder.OpStructFieldNumber:
++		case encoder.OpStructFieldNumber, encoder.OpStructFieldNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			b = appendStructKey(ctx, code, b)
+ 			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+@@ -1372,7 +1372,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
+ 			}
+ 			b = appendComma(ctx, bb)
+ 			code = code.Next
+-		case encoder.OpStructFieldOmitEmptyNumber:
++		case encoder.OpStructFieldOmitEmptyNumber, encoder.OpStructFieldOmitEmptyNumberKey16:
+ 			p := load(ctxptr, code.Idx)
+ 			v := ptrToNumber(unsafe.Add(p, code.Offset))
+ 			if v != "" {

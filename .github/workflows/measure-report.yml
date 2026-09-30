@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANT=keys_v6 CONFIGS='std/openai' N=2000000 .github/measure/prof_variant.sh
+        run: VARIANTS='keys_v7 keys_v8' .github/measure/payload_variants.sh

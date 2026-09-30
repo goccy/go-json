@@ -295,7 +295,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 			return b, e.failAt(errInvalidUTF8, pos, pointNext)
 		}
 		if name {
-			return b, e.insertName(pos, []byte(t.str), !valid)
+			return b, e.insertName(pos, readOnlyBytes(t.str), !valid) // the name is copied
 		}
 		return b, nil
 	case formFloat, formFloat32:

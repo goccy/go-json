@@ -2567,7 +2567,13 @@ func appendMapKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, k
 // depends only on the sizes of the key and of the value ( encoder.MapLayout ).
 func appendMapScalarValues[V any](ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
 	value := code.Next
-	for k, v := range *(*map[string]V)(unsafe.Pointer(&p)) {
+	// v is declared out of the loop: its address is given to appendScalar, so it lives on the heap, and a
+	// variable of the loop would be allocated for each entry.
+	var (
+		k string
+		v V
+	)
+	for k, v = range *(*map[string]V)(unsafe.Pointer(&p)) {
 		b = appendMapKey(ctx, code, b, k)
 		bb, err := appendScalar(ctx, b, value, unsafe.Pointer(&v))
 		if err != nil {

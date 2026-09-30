@@ -96,13 +96,6 @@ func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
 	return p
 }
 
-func ptrToInterface(code *encoder.Opcode, p unsafe.Pointer) any {
-	return *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: p,
-	}))
-}
-
 func appendBool(_ *encoder.RuntimeContext, b []byte, v bool) []byte {
 	if v {
 		return append(b, "true"...)

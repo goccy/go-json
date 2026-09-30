@@ -1494,8 +1494,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 				break
 			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
+			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsEmptyForMarshaler(code, p) {
 				code = code.NextField
 				break
 			}
@@ -1561,8 +1560,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				code = code.NextField
 				break
 			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
+			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsEmptyForMarshaler(code, p) {
 				code = code.NextField
 				break
 			}

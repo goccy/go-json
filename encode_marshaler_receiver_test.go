@@ -140,6 +140,45 @@ type receiverStateOnly struct {
 	A receiverState
 }
 
+// receiverStateMap and receiverStateFunc are stored directly in an interface value, as receiverState is, and are
+// empty for omitempty by their kind: an empty map is, a nil func is not.
+type receiverStateMap map[string]int
+
+func (m *receiverStateMap) MarshalJSON() ([]byte, error) {
+	if *m == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(strconv.Itoa(len(*m))), nil
+}
+
+type receiverStateMapText map[string]int
+
+func (m *receiverStateMapText) MarshalText() ([]byte, error) {
+	if *m == nil {
+		return []byte("nil"), nil
+	}
+	return []byte(strconv.Itoa(len(*m))), nil
+}
+
+type receiverStateFunc func()
+
+func (f *receiverStateFunc) MarshalJSON() ([]byte, error) {
+	if *f == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"func"`), nil
+}
+
+type receiverStateOmitted struct {
+	A receiverStateMap     `json:",omitempty"`
+	B receiverStateMapText `json:",omitempty"`
+	C receiverStateFunc    `json:",omitempty"`
+	D receiverStateMap     `json:",omitzero"`
+	E receiverState        `json:",omitzero"`
+	X int
+	F receiverStateMap `json:",omitempty"`
+}
+
 // receiverStateArray is encoded only by a pointer: go-json calls the marshaler of an element of an array which
 // is not addressable, which encoding/json doesn't.
 type receiverStateArray struct {
@@ -171,6 +210,16 @@ func TestEncodePointerReceiverOfPointerSizedTypes(t *testing.T) {
 		map[string]*receiverStateOnly{"k": {A: receiverState{&n}}},
 		&receiverStateArray{},
 		&receiverStateArray{F: [1]receiverStateText{{&n}}},
+		&receiverStateOmitted{},
+		&receiverStateOmitted{
+			A: receiverStateMap{}, B: receiverStateMapText{}, C: func() {}, D: receiverStateMap{},
+			E: receiverState{&n}, F: receiverStateMap{},
+		},
+		&receiverStateOmitted{
+			A: receiverStateMap{"a": 1}, B: receiverStateMapText{"a": 1}, D: receiverStateMap{"a": 1},
+			F: receiverStateMap{"a": 1},
+		},
+		[]receiverStateOmitted{{A: receiverStateMap{}}, {A: receiverStateMap{"a": 1}}},
 	} {
 		want, err := stdjson.Marshal(v)
 		if err != nil {

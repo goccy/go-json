@@ -183,6 +183,7 @@ func getEncoder(opts []Options, first ...Options) *encoder {
 	e, _ := encoders.Get().(*encoder)
 	if e == nil {
 		e = new(encoder)
+		e.vs.open = new([64]openObject)
 	}
 	e.cfg = config{}
 	e.cfg.apply(first)

@@ -45,6 +45,9 @@ type valueScanner struct {
 
 	ro      reorderer // the members of the objects which are reordered, by level
 	scratch []byte
+	// open, if it is set, keeps the open objects of scanFast, which are otherwise in its frame: a scanner which
+	// is used again, as the ones of the functions of values are, doesn't clear them at every value.
+	open *[64]openObject
 }
 
 // The places in a value where a scan continues.
@@ -145,6 +148,9 @@ func (s *valueScanner) plain() bool {
 // the value: resume reads it again from the start, and reports the errors. The names of the objects are checked
 // as resume checks them.
 func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
+	if s.open != nil {
+		return s.scanObjects(b, i, s.open)
+	}
 	// the open objects are in this frame, not in the one of scanObjects: the spilled registers of the loop are
 	// then near its stack pointer, where the CPUs of AMD Zen 4 read them without a stall.
 	var open [64]openObject

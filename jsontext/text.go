@@ -164,6 +164,13 @@ func numberEnd(b []byte) int {
 
 // scanNumberFrom continues the scan of the number which starts b at b[i:], where st was.
 func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
+	// the digits which continue a run of digits to the end of b, as a slow reader gives them, change no state
+	if st.next == numInt || st.next == numFrac || st.next == numExp {
+		if i = scanDigits(b, i); i == len(b) {
+			st.done = i
+			return i, st, nil
+		}
+	}
 	for {
 		if i == len(b) {
 			switch st.next {

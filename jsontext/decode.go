@@ -544,33 +544,35 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		}
 	case 'n', 't', 'f':
 	default:
+		if kindOf(c) != KindNumber {
+			if (c == ',' || c == ':') && d.st.last().count == 0 {
+				where = pointAt // a delimiter before the first value
+			}
+			return pos, pos, 0, d.charError(pos, "at start of value", where)
+		}
 		if n := numberEnd(d.buf[pos:]); n > 0 {
 			return pos, pos + n, 0, nil
 		}
 	}
 	for {
 		b := d.buf[pos:]
-		final := d.rerr == io.EOF
 		var cut bool // the token may continue after the buffer
 		switch c {
 		case '"':
-			n, f, err = scanStringFrom(b, max(n, 1), f, strModeOf(validUTF8, !final))
+			n, f, err = scanStringFrom(b, max(n, 1), f, strModeOf(validUTF8, d.rerr != io.EOF))
 			cut = err == io.ErrUnexpectedEOF
 		case 'n', 't', 'f':
 			n, err = scanLiteral(b, literalOf(Kind(c)))
 			cut = err == io.ErrUnexpectedEOF
 		default:
-			if kindOf(c) != KindNumber {
-				if (c == ',' || c == ':') && d.st.last().count == 0 {
-					where = pointAt // a delimiter before the first value
-				}
-				return pos, pos, 0, d.charError(pos, "at start of value", where)
-			}
 			n, st, err = scanNumberFrom(b, n, st)
 			cut = err == nil && n == len(b) || err == io.ErrUnexpectedEOF
 		}
-		if cut && !final {
+		if cut && d.rerr != io.EOF {
 			// the token continues after the buffer
+			if c == 'n' || c == 't' || c == 'f' {
+				n = 0
+			}
 		} else if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
 			// an invalid character which the buffer cuts is shown whole: the token is scanned again with more
 			n, f, st = 0, 0, numState{}
@@ -581,9 +583,6 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		pos -= shift
 		if ferr != nil && ferr != io.EOF {
 			return pos, pos, 0, ferr
-		}
-		if c == 'n' || c == 't' || c == 'f' {
-			n = 0
 		}
 	}
 	if err == nil {

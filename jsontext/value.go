@@ -89,13 +89,17 @@ func (v *Value) Format(opts ...Options) error {
 // It doesn't change the representation of the strings and numbers. So that it formats as many values as it
 // can, it takes values of duplicate names and invalid UTF-8.
 //
-// It is Value.Format with the options AllowDuplicateNames(true), AllowInvalidUTF8(true) and
-// PreserveRawStrings(true), followed by the options given.
+// It is Value.Format with the options AllowDuplicateNames(true), AllowInvalidUTF8(true),
+// PreserveRawStrings(true), Multiline(false), SpaceAfterColon(false) and SpaceAfterComma(false), and an empty
+// indentation, followed by the options given.
 func (v *Value) Compact(opts ...Options) error {
 	return v.format(compactOptions, opts)
 }
 
-var compactOptions = []Options{AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true)}
+var compactOptions = []Options{
+	AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true),
+	&config{set: multiline | spaceAfterColon | spaceAfterComma | indentSet},
+}
 
 // Indent formats the white space of v so that each element of an object or array starts a line which is
 // indented by its depth.
@@ -104,12 +108,16 @@ var compactOptions = []Options{AllowDuplicateNames(true), AllowInvalidUTF8(true)
 // can, it takes values of duplicate names and invalid UTF-8.
 //
 // It is Value.Format with the options AllowDuplicateNames(true), AllowInvalidUTF8(true),
-// PreserveRawStrings(true) and Multiline(true), followed by the options given.
+// PreserveRawStrings(true), Multiline(true), SpaceAfterColon(true) and WithIndent("\t"), followed by the options
+// given.
 func (v *Value) Indent(opts ...Options) error {
 	return v.format(indentOptions, opts)
 }
 
-var indentOptions = []Options{AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true), Multiline(true)}
+var indentOptions = []Options{
+	AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true),
+	&config{set: multiline | spaceAfterColon | indentSet, value: multiline | spaceAfterColon, indent: "\t"},
+}
 
 // Canonicalize formats v in the canonical form of the JSON Canonicalization Scheme (JCS) of RFC 8785: a value
 // of the same meaning, which Canonicalize doesn't change.
@@ -182,6 +190,14 @@ func putEncoder(e *encoder) {
 	// a large buffer is kept only if it was used well, so that one large value doesn't keep it for small ones.
 	if cap(e.buf) > 64<<10 && len(e.buf) < cap(e.buf)/4 {
 		e.buf = nil
+	}
+	// neither are the arrays of the names and of the reordered members of a large value.
+	const large = 64 << 10
+	if cap(e.vs.ro.buf) > large || cap(e.vs.ro.names) > large || cap(e.vs.ro.members) > large/32 {
+		e.vs.ro = reorderer{}
+	}
+	if cap(e.st.names.buf) > large || cap(e.st.names.ends) > large/8 {
+		e.st.names = names{}
 	}
 	e.vs.out = nil
 	encoders.Put(e)

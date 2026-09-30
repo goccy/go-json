@@ -593,9 +593,22 @@ func (d *Decoder) ReadValue() (Value, error) {
 	return s.buf[start:end], nil
 }
 
-// SkipValue is ReadValue, whose value is dropped.
+// SkipValue skips the next value. An object or array is read token by token, as ReadToken reads it, so that
+// at an error the decoder is where the error is; another value is read as ReadValue reads it.
 func (d *Decoder) SkipValue() error {
-	_, _, err := d.d.readValue()
+	s := &d.d
+	if k := d.PeekKind(); k == KindBeginObject || k == KindBeginArray {
+		depth := s.st.depth()
+		for {
+			if _, err := s.readToken(); err != nil {
+				return err
+			}
+			if s.st.depth() == depth {
+				return nil
+			}
+		}
+	}
+	_, _, err := s.readValue()
 	return err
 }
 

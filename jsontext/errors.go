@@ -79,29 +79,46 @@ func (e *SyntacticError) Error() string {
 func (e *SyntacticError) Unwrap() error { return e.Err }
 
 // maxShownPointer is the length over which the pointer of an error is shown shortened: its start and its end,
-// of at most half of it each, cut where a token starts if they can be.
+// of about half of it each, cut before a token if they can be.
 const maxShownPointer = 100
 
+// shortPointer shortens a long pointer. The part which is left out is shown by an ellipsis for the end of the
+// token which the start cuts, one for the whole tokens, and one for the start of the token which the end cuts.
 func shortPointer(p string) string {
 	if len(p) <= maxShownPointer {
 		return p
 	}
 	half := maxShownPointer / 2
 	head := strings.LastIndexByte(p[1:half], '/') + 1
-	sep := "/…"
 	if head <= 0 {
 		for head = half; !utf8.RuneStart(p[head]); head-- {
 		}
-		sep = "…"
 	}
-	tail := strings.IndexByte(p[len(p)-half:], '/')
-	if tail >= 0 {
-		tail += len(p) - half
-	} else {
+	from := max(len(p)-half, head+1)
+	tail := strings.IndexByte(p[from:], '/')
+	tailCut := tail < 0 // the end starts within a token
+	if tailCut {
 		for tail = len(p) - half; !utf8.RuneStart(p[tail]); tail++ {
 		}
+	} else {
+		tail += from
 	}
-	return p[:head] + sep + p[tail:]
+	out := p[:head]
+	cut := p[head:tail]
+	first, last := strings.IndexByte(cut, '/'), strings.LastIndexByte(cut, '/')
+	if first != 0 {
+		out += "…" // the end of a token
+	}
+	if first >= 0 && (last > first || !tailCut) {
+		out += "/…" // whole tokens
+	}
+	if tailCut && first >= 0 {
+		out += "/"
+		if last < len(cut)-1 {
+			out += "…" // the start of a token
+		}
+	}
+	return out + p[tail:]
 }
 
 // ioError is an error of the reader of a Decoder or the writer of an Encoder.

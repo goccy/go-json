@@ -14,7 +14,7 @@ type level struct {
 	count  int64
 	object bool
 	first  int    // for an object, the index in names.ends of its first name
-	last   int    // for an object, the index in names.ends of its last name, or -1
+	last   int    // for an object, the index in names.ends of its last name, or -1, or, for valueScanner.lazyNames, -2 minus the position of the name in the input
 	named  int64  // for an object, its count after its last name was added
 	bits   uint64 // for an object, the bits of its names ( nameBit ), which the name of no bit is not one of
 }

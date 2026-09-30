@@ -151,6 +151,9 @@ func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 
 value:
 	if i = s.skip(b, i); i == len(b) {
+		if s.st.depth() == base {
+			return s.cut(atValue, i, pointNext, rp) // an empty value, which the encoder counts as the next one
+		}
 		return s.cut(atValue, i, pointAt, rp)
 	}
 	if s.spaced {

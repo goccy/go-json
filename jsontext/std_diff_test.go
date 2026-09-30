@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"regexp"
 	"strings"
 	"testing"
@@ -122,7 +123,10 @@ func readMixed(in []byte, streaming bool, opts ...jsontext.Options) string {
 	var out bytes.Buffer
 	for i := 0; ; i++ {
 		var err error
-		if i%3 == 2 {
+		if i%5 == 4 {
+			err = d.SkipValue()
+			out.WriteString("[S")
+		} else if i%3 == 2 {
 			var v jsontext.Value
 			v, err = d.ReadValue()
 			fmt.Fprintf(&out, "[V %q", v)
@@ -152,7 +156,10 @@ func readStdMixed(in []byte, streaming bool, opts ...stdjsontext.Options) string
 	var out bytes.Buffer
 	for i := 0; ; i++ {
 		var err error
-		if i%3 == 2 {
+		if i%5 == 4 {
+			err = d.SkipValue()
+			out.WriteString("[S")
+		} else if i%3 == 2 {
 			var v stdjsontext.Value
 			v, err = d.ReadValue()
 			fmt.Fprintf(&out, "[V %q", v)
@@ -342,6 +349,115 @@ var stdDiffEncoderOptions = []stdDiffOptions{
 	stdDiffFormatOptions[3],
 	stdDiffFormatOptions[5],
 	stdDiffFormatOptions[6],
+}
+
+// TestStdDiffWhiteSpaceOptions compares the output of the options of white space, in every order of up to three of
+// them, given to an Encoder and to the functions and methods which format a value, whose own options come first.
+func TestStdDiffWhiteSpaceOptions(t *testing.T) {
+	type option struct {
+		goJSON jsontext.Options
+		std    stdjsontext.Options
+	}
+	options := []option{
+		{jsontext.Multiline(true), stdjsontext.Multiline(true)},
+		{jsontext.Multiline(false), stdjsontext.Multiline(false)},
+		{jsontext.SpaceAfterColon(true), stdjsontext.SpaceAfterColon(true)},
+		{jsontext.SpaceAfterColon(false), stdjsontext.SpaceAfterColon(false)},
+		{jsontext.SpaceAfterComma(true), stdjsontext.SpaceAfterComma(true)},
+		{jsontext.WithIndent("  "), stdjsontext.WithIndent("  ")},
+		{jsontext.WithIndentPrefix(" "), stdjsontext.WithIndentPrefix(" ")},
+	}
+	const in = `{"a":[1,2],"b":{}}`
+	for n := range (len(options) + 1) * (len(options) + 1) * (len(options) + 1) {
+		var goJSON []jsontext.Options
+		var std []stdjsontext.Options
+		for k := n; k > 0; k /= len(options) + 1 {
+			if i := k%(len(options)+1) - 1; i >= 0 {
+				goJSON, std = append(goJSON, options[i].goJSON), append(std, options[i].std)
+			}
+		}
+		var got, want []string
+		var gb, sb bytes.Buffer
+		jsontext.NewEncoder(&gb, goJSON...).WriteValue(jsontext.Value(in))
+		stdjsontext.NewEncoder(&sb, std...).WriteValue(stdjsontext.Value(in))
+		got, want = append(got, gb.String()), append(want, sb.String())
+		for m := range 3 {
+			g, s := jsontext.Value(in), stdjsontext.Value(in)
+			switch m {
+			case 0:
+				g.Format(goJSON...)
+				s.Format(std...)
+			case 1:
+				g.Compact(goJSON...)
+				s.Compact(std...)
+			case 2:
+				g.Indent(goJSON...)
+				s.Indent(std...)
+			}
+			got, want = append(got, string(g)), append(want, string(s))
+		}
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Fatalf("options %d: output of Encoder, Format, Compact and Indent:\ngot:  %q\nwant: %q", n, got, want)
+		}
+	}
+}
+
+// TestStdDiffWriteValueInContext compares the errors of Encoder.WriteValue in every place of the grammar, for
+// values which are empty, cut, invalid, or followed by more.
+func TestStdDiffWriteValueInContext(t *testing.T) {
+	contexts := [][]string{{}, {"["}, {"[", "1"}, {"{"}, {"{", `"k"`}, {"{", `"k"`, "1"}, {"[", "{", `"k"`}}
+	values := []string{"", " ", "1 2", "[", "{", "[1,", `{"a"`, `{"a":`, "x", `"a" 2`, "1 x", "]", "}", "[1]]", `"\u"`, `{"a":1,"a":2}`}
+	for _, c := range contexts {
+		for _, v := range values {
+			g, s := jsontext.NewEncoder(io.Discard), stdjsontext.NewEncoder(io.Discard)
+			for _, tok := range c {
+				switch tok {
+				case "[":
+					g.WriteToken(jsontext.BeginArray)
+					s.WriteToken(stdjsontext.BeginArray)
+				case "{":
+					g.WriteToken(jsontext.BeginObject)
+					s.WriteToken(stdjsontext.BeginObject)
+				default:
+					g.WriteValue(jsontext.Value(tok))
+					s.WriteValue(stdjsontext.Value(tok))
+				}
+			}
+			got := fmt.Sprintf("%s | %d %q", errorString(g.WriteValue(jsontext.Value(v))), g.StackDepth(), g.StackPointer())
+			want := fmt.Sprintf("%s | %d %q", errorString(s.WriteValue(stdjsontext.Value(v))), s.StackDepth(), s.StackPointer())
+			if got != want {
+				t.Errorf("WriteValue(%q) after %q:\ngot:  %s\nwant: %s", v, c, got, want)
+			}
+		}
+	}
+}
+
+// TestStdDiffLongPointer compares the messages of the errors of long pointers, which are shown shortened, and of
+// duplicate names within them.
+func TestStdDiffLongPointer(t *testing.T) {
+	r := rand.New(rand.NewPCG(1, 2))
+	tokens := []string{"a", "bc", "é", "日本", "~0", "~1"}
+	for range 100000 {
+		var b strings.Builder
+		for b.Len() < 60+r.IntN(200) {
+			b.WriteByte('/')
+			n := r.IntN(4)
+			if r.IntN(5) == 0 {
+				n = r.IntN(60)
+			}
+			for range n {
+				b.WriteString(tokens[r.IntN(len(tokens))])
+			}
+		}
+		p := b.String()
+		for _, errs := range [][2]error{{io.ErrUnexpectedEOF, io.ErrUnexpectedEOF}, {jsontext.ErrDuplicateName, stdjsontext.ErrDuplicateName}} {
+			got := (&jsontext.SyntacticError{JSONPointer: jsontext.Pointer(p), Err: errs[0]}).Error()
+			want := (&stdjsontext.SyntacticError{JSONPointer: stdjsontext.Pointer(p), Err: errs[1]}).Error()
+			if got != want {
+				t.Fatalf("SyntacticError.Error() of the pointer %q:\ngot:  %s\nwant: %s", p, got, want)
+			}
+		}
+	}
 }
 
 func errorString(err error) string {

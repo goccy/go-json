@@ -412,7 +412,7 @@ func (e *encoder) writeValue(v Value) error {
 	}
 	if end = skipSpace(v, end); end < len(v) {
 		e.st.last().count--
-		return &SyntacticError{ByteOffset: e.base + int64(pos+end), Err: invalidChar(v[end:], "after top-level value")}
+		return e.failAt(invalidChar(v[end:], "after top-level value"), pos+end, pointAt)
 	}
 	if name {
 		e.st.last().count--

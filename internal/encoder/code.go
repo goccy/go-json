@@ -1011,12 +1011,28 @@ func (c *StructFieldCode) structKey(ctx *compileContext) string {
 	return PaddedKey(fmt.Sprintf(`"%s":`, c.key))
 }
 
+// callsMarshalerWithAddr is whether the value of the field is written by a marshaler whose method is on the
+// pointer, which is called with the address of the field: the value is not loaded from the address, also for a
+// type which is stored directly in an interface value.
+func (c *StructFieldCode) callsMarshalerWithAddr() bool {
+	if c.isAddrForMarshaler {
+		return true
+	}
+	switch value := c.value.(type) {
+	case *MarshalJSONCode:
+		return value.isAddrForMarshaler
+	case *MarshalTextCode:
+		return value.isAddrForMarshaler
+	}
+	return false
+}
+
 func (c *StructFieldCode) flags() OpFlags {
 	var flags OpFlags
 	if c.isTaggedKey {
 		flags |= IsTaggedKeyFlags
 	}
-	if c.isNilableType {
+	if c.isNilableType && !c.callsMarshalerWithAddr() {
 		flags |= IsNilableTypeFlags
 	}
 	if c.isNilCheck {
@@ -1176,7 +1192,8 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMarshalerContext {
 		code.Flags |= MarshalerContextFlags
 	}
-	if c.isNilableType {
+	// a method on the pointer is called with the address of the value, which is not loaded from it.
+	if c.isNilableType && !c.isAddrForMarshaler {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -1185,14 +1202,12 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-// marshalerCall returns the direct call of the method, or nil if the method is called through the interface:
-// a value of the size of a pointer whose method is on the pointer is copied first, see addrForMarshaler.
+// marshalerCall returns the direct call of the method, or nil if the method is called through the interface.
+// A method on the pointer is called with the address of the value, which the opcode is given, as encoding/json
+// calls it with the address of an addressable value.
 func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
 	recv := c.typ
 	if c.isAddrForMarshaler {
-		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
-			return nil
-		}
 		recv = reflect.PointerTo(c.typ)
 	}
 	iface := marshalJSONInterface
@@ -1245,7 +1260,8 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMapKey {
 		code.Flags |= MapKeyFlags
 	}
-	if c.isNilableType {
+	// a method on the pointer is called with the address of the value, which is not loaded from it.
+	if c.isNilableType && !c.isAddrForMarshaler {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -1259,9 +1275,6 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 func (c *MarshalTextCode) marshalerCall() *MarshalerCall {
 	recv := c.typ
 	if c.isAddrForMarshaler {
-		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
-			return nil
-		}
 		recv = reflect.PointerTo(c.typ)
 	}
 	return newMarshalerCall(recv, marshalTextInterface)

@@ -525,22 +525,12 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 
 // addrForMarshaler returns the pointer to the value held by v, to call a marshaler with a pointer receiver.
 //
-// The VM makes v from the address of the value, so the data word of v is that address unless the type is
-// stored directly in an interface value. Only a pointer-sized type can be stored directly, so for the other
-// sizes the pointer is made from the data word: the marshaler is called with the original value, as
-// encoding/json does, and nothing is allocated. A pointer-sized value is copied, because its data word
-// may be the value itself.
+// The VM makes v from the address of the value ( interfaceOf ), so the data word of v is that address for every
+// type, also for a type which is stored directly in an interface value, whose data word is then not the value:
+// the marshaler is called with the original value, as encoding/json calls it for an addressable value, and
+// nothing is allocated.
 func addrForMarshaler(v any, rv reflect.Value) reflect.Value {
-	if rv.CanAddr() {
-		return rv.Addr()
-	}
-	typ := rv.Type()
-	if typ.Size() != unsafe.Sizeof(unsafe.Pointer(nil)) {
-		return reflect.NewAt(typ, (*emptyInterface)(unsafe.Pointer(&v)).ptr)
-	}
-	newV := reflect.New(typ)
-	newV.Elem().Set(rv)
-	return newV
+	return reflect.NewAt(rv.Type(), (*emptyInterface)(unsafe.Pointer(&v)).ptr)
 }
 
 // AppendMarshalJSON appends what MarshalJSON of the value returns, compacted. p is the data word of the

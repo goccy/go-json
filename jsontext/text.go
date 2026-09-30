@@ -61,8 +61,12 @@ func skipIndent(b []byte, i int) int {
 
 // scanLiteral takes the literal lit ( null, true or false ) at the start of b.
 func scanLiteral(b []byte, lit string) (int, error) {
-	if len(b) >= len(lit) && string(b[:len(lit)]) == lit {
-		return len(lit), nil
+	// the comparisons with constants, which are words, not calls
+	switch {
+	case len(b) >= 4 && (lit == "null" && string(b[:4]) == "null" || lit == "true" && string(b[:4]) == "true"):
+		return 4, nil
+	case len(b) >= 5 && lit == "false" && string(b[:5]) == "false":
+		return 5, nil
 	}
 	for i := 0; i < len(lit); i++ {
 		if i == len(b) {

@@ -52,6 +52,7 @@ func (e *Encoder) EncodeContext(ctx context.Context, v any, optFuncs ...EncodeOp
 	rctx.Option.Flag = 0
 	rctx.Option.Flag |= encoder.ContextOption
 	rctx.Option.Context = ctx
+	setSelectionOfContext(rctx.Option, ctx)
 
 	err := e.encodeWithOption(rctx, v, optFuncs...)
 
@@ -117,6 +118,7 @@ func marshalContext(ctx context.Context, v any, optFuncs ...EncodeOptionFunc) ([
 	rctx.Option.Flag = 0
 	rctx.Option.Flag = encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option | encoder.ContextOption
 	rctx.Option.Context = ctx
+	setSelectionOfContext(rctx.Option, ctx)
 	for _, optFunc := range optFuncs {
 		optFunc(rctx.Option)
 	}
@@ -204,6 +206,12 @@ func encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ctx.Option.Flag&encoder.SelectionOption != 0 {
+		codeSet, err = ctx.SelectCodeSet(codeSet)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	p := ctx.ValueAddr(codeSet, header.ptr)
 	if p == nil {
@@ -238,6 +246,12 @@ func encodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
 		return nil, err
+	}
+	if ctx.Option.Flag&encoder.SelectionOption != 0 {
+		codeSet, err = ctx.SelectCodeSet(codeSet)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	p := ctx.ValueAddr(codeSet, header.ptr)

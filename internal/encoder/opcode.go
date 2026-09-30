@@ -60,7 +60,7 @@ type Opcode struct {
 	Type       unsafe.Pointer      // pointer to the type descriptor of go type
 	Jmp        *CompiledCode       // for recursive call
 	Marshaler  *MarshalerCall      // the method of the marshaler, for MarshalJSON and MarshalText
-	FieldQuery *FieldQuery         // field query for Interface / MarshalJSON / MarshalText
+	Selected   *SelectedField      // the selected field of the value for Interface / MarshalJSON / Recursive
 	ElemIdx    uint32              // offset to access array/slice elem
 	Length     uint32              // offset to access slice length or array length
 	Indent     uint32              // indent number
@@ -297,7 +297,7 @@ func copyOpcode(code *Opcode) *Opcode {
 			Idx:        c.Idx,
 			Offset:     c.Offset,
 			Type:       c.Type,
-			FieldQuery: c.FieldQuery,
+			Selected:   c.Selected,
 			DisplayIdx: c.DisplayIdx,
 			KeyChunk:   c.KeyChunk,
 			Map:        c.Map,

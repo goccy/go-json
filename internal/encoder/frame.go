@@ -110,6 +110,14 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 		// a scalar is never stored directly in an interface value: the data word is its address.
 		return codeSet.Scalar, ifacePtr, true, nil
 	}
+	if c.Option.Flag&SelectionOption != 0 && code.Selected != nil {
+		// the value is filtered by the selection of the place of the interface value.
+		selected, err := code.Selected.Sub.CodeSet(codeSet, c.Option.Flag&OptimizeFieldOrderOption != 0)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		codeSet = selected
+	}
 	// after every path which doesn't go into the value, so that a record always has its end.
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
 		if err := c.recordSeen(code, p); err != nil {

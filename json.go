@@ -367,8 +367,3 @@ func Valid(data []byte) bool {
 	decoder.ReleaseRuntimeContext(ctx)
 	return valid
 }
-
-func init() {
-	encoder.Marshal = Marshal
-	encoder.Unmarshal = Unmarshal
-}

@@ -67,25 +67,19 @@ func (*UserAddressRepository) FindByUserID(ctx context.Context, id int64) (*User
 	}, nil
 }
 
-func Example_fieldQuery() {
+func Example_selection() {
 	ctx := context.Background()
 	userRepo := NewUserRepository()
 	user, err := userRepo.FindByID(ctx, 1)
 	if err != nil {
 		log.Fatal(err)
 	}
-	query, err := json.BuildFieldQuery(
-		"Name",
-		"Age",
-		json.BuildSubFieldQuery("Address").Fields(
-			"City",
-		),
-	)
+	sel, err := json.ParseSelection(`Name Age Address { City }`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx = json.SetFieldQueryToContext(ctx, query)
-	b, err := json.MarshalContext(ctx, user)
+	// Address is resolved by MarshalJSON(context.Context), which is given the selection of the address.
+	b, err := json.MarshalContext(ctx, user, json.WithSelection(sel))
 	if err != nil {
 		log.Fatal(err)
 	}

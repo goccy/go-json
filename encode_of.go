@@ -73,6 +73,14 @@ func encodeOf[T any](ctx *encoder.RuntimeContext, v *T) ([]byte, error) {
 
 	p := codeSet.TakeValue(ctx)
 	*(*T)(p) = *v
+	if ctx.Option.Flag&encoder.SelectionOption != 0 {
+		codeSet, err = ctx.SelectCodeSet(codeSet)
+		if err != nil {
+			var zero T
+			*(*T)(p) = zero
+			return nil, err
+		}
+	}
 	ctx.Init(p, codeSet.CodeLength)
 	buf, err := encodeRunCode(ctx, ctx.Buf[:0], codeSet)
 	// the pool must not keep what the value refers to alive.

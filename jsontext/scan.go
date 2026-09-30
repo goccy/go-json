@@ -304,7 +304,8 @@ func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 	var ok bool
 	i := rp.pos
 	base := rp.base
-	ws := wsNone // the white space which a written value has before the next token
+	ws := wsNone     // the white space which a written value has before the next token
+	l := s.st.last() // the innermost level, which a push and a close change
 	switch rp.at {
 	case atNext:
 		goto next
@@ -331,6 +332,7 @@ value:
 		if err := s.st.push(c == '{'); err != nil {
 			return i, s.fail(err, i, pointNext)
 		}
+		l = s.st.last()
 		if s.write && c == '{' && s.reorder {
 			s.flush(b, i+1)
 			s.ro.open(len(s.out))
@@ -409,7 +411,7 @@ value:
 		}
 		i += n
 	}
-	s.st.last().count++
+	l.count++
 
 next:
 	if s.st.depth() == base {
@@ -418,7 +420,7 @@ next:
 	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atNext, i, pointAt, rp)
 	}
-	if l := s.st.last(); l.object {
+	if l.object {
 		switch b[i] {
 		case ',':
 			if s.spaced && s.wsEnd == i {
@@ -433,6 +435,7 @@ next:
 			goto name
 		case '}':
 			s.closeLevel(b, i, false)
+			l = s.st.last()
 			i++
 			goto next
 		}
@@ -448,6 +451,7 @@ next:
 		goto value
 	case ']':
 		s.closeLevel(b, i, false)
+		l = s.st.last()
 		i++
 		goto next
 	}
@@ -460,8 +464,9 @@ opened:
 	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atOpened, i, pointAt, rp)
 	}
-	if l := s.st.last(); b[i] == '}' && l.object || b[i] == ']' && !l.object {
+	if b[i] == '}' && l.object || b[i] == ']' && !l.object {
 		s.closeLevel(b, i, true)
+		l = s.st.last()
 		i++
 		goto next
 	} else if ws = wsOpen; l.object {
@@ -496,12 +501,11 @@ name:
 		}
 		name := b[i : i+n]
 		if s.lazyNames {
-			l := s.st.last()
 			l.last, l.named = -2-i, l.count+1
 		} else if unquoted := unquotedName(&s.scratch, name, f); !s.st.insertName(unquoted, s.checkNames) {
 			return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(unquoted)}
 		}
-		s.st.last().count++
+		l.count++
 		if s.write {
 			if s.reorder {
 				s.flush(b, i)

@@ -19,8 +19,13 @@ type valueScanner struct {
 	// the options
 	validUTF8  bool
 	checkNames bool
-	decoding   bool // the messages and the offsets of the errors of a decoder
-	final      bool // the end of the input is the end of the buffer
+	// lazyNames is set where the names of the objects aren't checked and the input, in, is the whole value: an
+	// object keeps the position of its last name in the input, as -2 minus it in level.last, and the names are
+	// added to the stack at an error only, for its pointer.
+	lazyNames bool
+	in        []byte
+	decoding  bool // the messages and the offsets of the errors of a decoder
+	final     bool // the end of the input is the end of the buffer
 
 	// the output, when the value is written
 	write     bool
@@ -32,8 +37,12 @@ type valueScanner struct {
 	canonFlts bool
 	reorder   bool
 
-	// the members of the objects which are reordered, by level
-	members []memberList
+	run           int    // the start of the input which is not appended to out yet, which out has as it is
+	spaced        bool   // the output has white space, which is compared with the input
+	wsFrom, wsEnd int    // the white space of the input which skipSpace left pending
+	lines         []byte // a line feed, the prefix and the indentation of the deepest line so far
+
+	ro      reorderer // the members of the objects which are reordered, by level
 	scratch []byte
 }
 
@@ -65,7 +74,29 @@ type scanError struct {
 }
 
 func (s *valueScanner) fail(err error, pos int, where int) *scanError {
+	if s.lazyNames {
+		s.addNames()
+	}
 	return &scanError{err: err, pos: pos, ptr: s.st.pointer(where)}
+}
+
+// addNames adds the names which the objects of the value have as their positions in the input, outer objects
+// first, for the pointer of an error.
+func (s *valueScanner) addNames() {
+	n := &s.st.names
+	for k := range s.st.levels {
+		l := &s.st.levels[k]
+		if !l.object || l.last >= 0 {
+			continue
+		}
+		l.first = len(n.ends) // after the names added to the objects around it
+		if l.last < -1 {
+			p := -2 - l.last
+			size, f, _ := scanString(s.in[p:], strModeOf(s.validUTF8, false))
+			l.last = l.first
+			n.add(l.first, unquotedName(&s.scratch, s.in[p:p+size], f))
+		}
+	}
 }
 
 // errCut reports a scan which the end of the buffer cut, which continues from the resume point.
@@ -76,9 +107,13 @@ var errCut = &scanError{err: io.ErrUnexpectedEOF}
 func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 	count := s.st.last().count
 	rp := resumePoint{pos: i, base: s.st.depth()}
+	s.run, s.wsEnd, s.in = i, -1, b
 	end, err := s.resume(b, &rp)
+	s.in = nil
 	if err != nil {
 		s.restore(rp.base, count)
+	} else if s.write {
+		s.flush(b, end)
 	}
 	return end, err
 }
@@ -89,7 +124,7 @@ func (s *valueScanner) restore(base int, count int64) {
 		s.st.pop()
 	}
 	s.st.last().count = count
-	s.members = s.members[:0]
+	s.ro.reset()
 }
 
 // resume scans the value from the resume point. If the end of the buffer cuts it and the input continues, it
@@ -99,8 +134,10 @@ func (s *valueScanner) restore(base int, count int64) {
 func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 	var err error
 	var n int
+	var ok bool
 	i := rp.pos
 	base := rp.base
+	ws := wsNone // the white space which a written value has before the next token
 	switch rp.at {
 	case atNext:
 		goto next
@@ -113,19 +150,20 @@ func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 	}
 
 value:
-	if i = skipSpace(b, i); i == len(b) {
+	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atValue, i, pointAt, rp)
+	}
+	if s.spaced {
+		s.space(b, i, ws)
 	}
 	switch c := b[i]; c {
 	case '{', '[':
 		if err := s.st.push(c == '{'); err != nil {
 			return i, s.fail(err, i, pointNext)
 		}
-		if s.write {
-			s.out = append(s.out, c)
-			if c == '{' && s.reorder {
-				s.members = append(s.members, memberList{start: len(s.out)})
-			}
+		if s.write && c == '{' && s.reorder {
+			s.flush(b, i+1)
+			s.ro.open(len(s.out))
 		}
 		i++
 		goto opened
@@ -134,8 +172,8 @@ value:
 		if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
-		} else {
-			n, f, err = scanString(b[i:], strModeOf(s.validUTF8, !s.final))
+		} else if n, ok = simpleStringEnd(b[i:]); !ok {
+			n, f, err = scanStringFrom(b[i:], n, 0, strModeOf(s.validUTF8, !s.final))
 		}
 		if err != nil {
 			if err == io.ErrUnexpectedEOF && !s.final {
@@ -145,7 +183,7 @@ value:
 			return i + n, s.fail(err, i+n, pointNext)
 		}
 		if s.write {
-			s.out = appendRawString(s.out, b[i:i+n], f, s.esc, s.preserve)
+			s.writeString(b, i, n, f)
 		}
 		i += n
 	case 'n', 't', 'f':
@@ -156,9 +194,6 @@ value:
 				return s.cut(atValue, i, pointNext, rp)
 			}
 			return i + n, s.fail(err, i+n, pointNext)
-		}
-		if s.write {
-			s.out = append(s.out, lit...)
 		}
 		i += n
 	default:
@@ -178,7 +213,7 @@ value:
 		if rp.tok > 0 {
 			n, st, err = scanNumberFrom(b[i:], rp.tok, rp.num)
 			rp.tok = 0
-		} else {
+		} else if n = numberEnd(b[i:]); n < 0 {
 			n, st, err = scanNumberFrom(b[i:], 0, numState{})
 		}
 		if i+n == len(b) && !s.final && (err == nil || err == io.ErrUnexpectedEOF) {
@@ -196,8 +231,10 @@ value:
 			}
 			return i + n, s.fail(err, i+n, pointNext)
 		}
-		if s.write {
-			s.out = s.appendNumber(s.out, b[i:i+n])
+		if s.write && !s.numberKept(b[i:i+n]) {
+			s.flush(b, i)
+			s.out = appendCanonicalNumber(s.out, b[i:i+n])
+			s.run = i + n
 		}
 		i += n
 	}
@@ -207,38 +244,40 @@ next:
 	if s.st.depth() == base {
 		return i, nil
 	}
-	if i = skipSpace(b, i); i == len(b) {
+	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atNext, i, pointAt, rp)
 	}
 	if l := s.st.last(); l.object {
 		switch b[i] {
 		case ',':
-			i++
-			if s.write {
-				if s.reorder {
-					s.members[len(s.members)-1].endMember(len(s.out))
-				}
-				s.out = s.ws.appendComma(s.out)
+			if s.spaced {
+				s.space(b, i, wsNone)
 			}
+			if s.write && s.reorder {
+				s.flush(b, i)
+				s.ro.endMember(len(s.out))
+			}
+			i++
+			ws = wsElem
 			goto name
 		case '}':
+			s.closeLevel(b, i, false)
 			i++
-			s.closeLevel('}', false)
 			goto next
 		}
 		return i, s.fail(invalidChar(b[i:], "after object value (expecting ',' or '}')"), i, pointAt)
 	}
 	switch b[i] {
 	case ',':
-		i++
-		if s.write {
-			s.out = s.ws.appendComma(s.out)
-			s.newLine(0)
+		if s.spaced {
+			s.space(b, i, wsNone)
 		}
+		i++
+		ws = wsElem
 		goto value
 	case ']':
+		s.closeLevel(b, i, false)
 		i++
-		s.closeLevel(']', false)
 		goto next
 	}
 	if s.decoding {
@@ -247,24 +286,24 @@ next:
 	return i, s.fail(invalidChar(b[i:], "after array value (expecting ',' or ']')"), i, pointAt)
 
 opened:
-	if i = skipSpace(b, i); i == len(b) {
+	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atOpened, i, pointAt, rp)
 	}
 	if l := s.st.last(); b[i] == '}' && l.object || b[i] == ']' && !l.object {
+		s.closeLevel(b, i, true)
 		i++
-		s.closeLevel(b[i-1], true)
 		goto next
-	} else if l.object {
+	} else if ws = wsOpen; l.object {
 		goto name
-	}
-	if s.write {
-		s.newLine(0)
 	}
 	goto value
 
 name:
-	if i = skipSpace(b, i); i == len(b) {
+	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atName, i, pointAt, rp)
+	}
+	if s.spaced {
+		s.space(b, i, ws)
 	}
 	if b[i] != '"' {
 		return i, s.fail(invalidChar(b[i:], "at start of string (expecting '\"')"), i, pointAt)
@@ -274,8 +313,8 @@ name:
 		if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
-		} else {
-			n, f, err = scanString(b[i:], strModeOf(s.validUTF8, !s.final))
+		} else if n, ok = simpleStringEnd(b[i:]); !ok {
+			n, f, err = scanStringFrom(b[i:], n, 0, strModeOf(s.validUTF8, !s.final))
 		}
 		if err != nil {
 			if err == io.ErrUnexpectedEOF && !s.final {
@@ -285,39 +324,35 @@ name:
 			return i + n, s.fail(err, i+n, pointAt)
 		}
 		name := b[i : i+n]
-		if f&(strEscaped|strInvalidUTF8) != 0 {
-			s.scratch = appendUnquoted(s.scratch[:0], name)
-		} else {
-			s.scratch = append(s.scratch[:0], name[1:n-1]...)
-		}
-		if !s.st.insertName(s.scratch, s.checkNames) {
-			return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(s.scratch)}
+		if s.lazyNames {
+			l := s.st.last()
+			l.last, l.named = -2-i, l.count+1
+		} else if unquoted := unquotedName(&s.scratch, name, f); !s.st.insertName(unquoted, s.checkNames) {
+			return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(unquoted)}
 		}
 		s.st.last().count++
 		if s.write {
-			s.newLine(0)
 			if s.reorder {
-				s.members[len(s.members)-1].startMember(len(s.out), s.scratch)
+				s.flush(b, i)
+				s.ro.startMember(len(s.out), unquotedName(&s.scratch, name, f))
 			}
-			s.out = appendRawString(s.out, name, f, s.esc, s.preserve)
+			s.writeString(b, i, n, f)
 		}
 		i += n
 	}
 
 colon:
-	if i = skipSpace(b, i); i == len(b) {
+	if i = s.skip(b, i); i == len(b) {
 		return s.cut(atColon, i, pointAt, rp)
 	}
 	if b[i] != ':' {
 		return i, s.fail(invalidChar(b[i:], "after object name (expecting ':')"), i, pointAt)
 	}
-	i++
-	if s.write {
-		s.out = append(s.out, ':')
-		if s.ws.colon {
-			s.out = append(s.out, ' ')
-		}
+	if s.spaced {
+		s.space(b, i, wsNone)
 	}
+	i++
+	ws = wsColon
 	goto value
 }
 
@@ -335,28 +370,142 @@ func (s *valueScanner) cut(at uint8, i int, where int, rp *resumePoint) (int, *s
 	return i, errCut
 }
 
-// closeLevel pops the innermost object or array, and writes its end delimiter.
-func (s *valueScanner) closeLevel(end byte, empty bool) {
-	if s.write {
-		if end == '}' && s.reorder {
-			m := &s.members[len(s.members)-1]
-			m.endMember(len(s.out))
-			s.out = m.reorder(s.out)
-			s.members = s.members[:len(s.members)-1]
-		}
-		if !empty {
-			s.newLine(-1)
-		}
-		s.out = append(s.out, end)
+// The output is the input where they are the same: the run of the input from s.run, which is not appended yet,
+// is appended where the output differs, before what the output has instead.
+
+// flush appends the run of the input up to i.
+func (s *valueScanner) flush(b []byte, i int) {
+	if s.run < i {
+		s.out = append(s.out, b[s.run:i]...)
 	}
-	s.st.pop()
+	s.run = i
 }
 
-// newLine starts a new line of a multiline output at the depth of the stack plus delta.
-func (s *valueScanner) newLine(delta int) {
-	if s.ws.multiline {
-		s.out = s.ws.appendLine(s.out, s.st.depth()+delta)
+// skip skips the white space at b[i:], which a written value doesn't have. It is inlined where there is none.
+func (s *valueScanner) skip(b []byte, i int) int {
+	if i < len(b) && b[i] <= ' ' {
+		return s.skipSpace(b, i)
 	}
+	return i
+}
+
+// skipSpace skips the white space at b[i:]. A value written without white space drops it; one written with white
+// space keeps it pending, for space to compare with the white space which the output has there.
+func (s *valueScanner) skipSpace(b []byte, i int) int {
+	switch {
+	case !s.write:
+		return skipSpace(b, i)
+	case s.spaced:
+		s.wsFrom, s.wsEnd = i, skipSpace(b, i)
+		return s.wsEnd
+	}
+	s.flush(b, i)
+	s.run = skipSpace(b, i)
+	return s.run
+}
+
+// The white space which a value written with white space has before a token.
+const (
+	wsNone  = iota // none
+	wsColon        // after a colon
+	wsElem         // before an element or a member after the first one, after its comma
+	wsOpen         // before the first element or member
+	wsClose        // before the end of an object or array which is not empty
+)
+
+// space writes the white space of the kind ws before the token at b[i]: the white space of the input before it,
+// which skipSpace left pending, is kept if it is the same.
+func (s *valueScanner) space(b []byte, i int, ws int) {
+	from := i
+	if s.wsEnd == i {
+		from = s.wsFrom
+	}
+	s.wsEnd = -1 // the pending white space is taken
+
+	var sp bool
+	var line []byte
+	switch ws {
+	case wsColon:
+		sp = s.ws.colon
+	case wsElem, wsOpen, wsClose:
+		sp = ws == wsElem && s.ws.comma
+		if s.ws.multiline {
+			depth := s.st.depth()
+			if ws == wsClose {
+				depth--
+			}
+			line = s.line(depth)
+		}
+	}
+	got := b[from:i]
+	same := true
+	if sp {
+		same = len(got) > 0 && got[0] == ' '
+		if same {
+			got = got[1:]
+		}
+	}
+	if !same || string(got) != string(line) {
+		s.flush(b, from)
+		if sp {
+			s.out = append(s.out, ' ')
+		}
+		s.out = append(s.out, line...)
+		s.run = i
+	}
+}
+
+// line returns a line feed, the prefix and the indentation of the depth, sliced from a buffer which holds the
+// deepest line so far.
+func (s *valueScanner) line(depth int) []byte {
+	if len(s.lines) == 0 {
+		s.lines = append(append(s.lines, '\n'), s.ws.prefix...)
+	}
+	n := 1 + len(s.ws.prefix) + depth*len(s.ws.indent)
+	for len(s.lines) < n {
+		s.lines = append(s.lines, s.ws.indent...)
+	}
+	return s.lines[:n]
+}
+
+// writeString writes the string b[i:i+n], which scanString took with the flags f. It is inlined where the
+// string is written as it is, without the options which escape more.
+func (s *valueScanner) writeString(b []byte, i, n int, f strFlags) {
+	if f&strNonCanonical != 0 && !s.preserve || s.esc != 0 {
+		s.rewriteString(b, i, n, f)
+	}
+}
+
+func (s *valueScanner) rewriteString(b []byte, i, n int, f strFlags) {
+	if !rawStringKept(b[i:i+n], f, s.esc, s.preserve) {
+		s.flush(b, i)
+		s.out = appendRawString(s.out, b[i:i+n], f, s.esc, s.preserve)
+		s.run = i + n
+	}
+}
+
+// closeLevel pops the innermost object or array, whose end delimiter is at b[i].
+func (s *valueScanner) closeLevel(b []byte, i int, empty bool) {
+	if s.write {
+		if b[i] == '}' && s.reorder {
+			// the members end before the white space which is pending
+			end := i
+			if s.spaced && s.wsEnd == i {
+				end = s.wsFrom
+			}
+			s.flush(b, end)
+			s.ro.endMember(len(s.out))
+			s.out = s.ro.close(s.out)
+		}
+		if s.spaced {
+			if empty {
+				s.space(b, i, wsNone)
+			} else {
+				s.space(b, i, wsClose)
+			}
+		}
+	}
+	s.st.pop()
 }
 
 // appendComma appends a comma, and the space after it if the options want it.
@@ -377,79 +526,105 @@ func (w *whitespace) appendLine(b []byte, depth int) []byte {
 	return b
 }
 
-// appendNumber appends the number b, canonicalized if the options say so.
-func (s *valueScanner) appendNumber(dst, b []byte) []byte {
-	if string(b) == "-0" && (s.canonInts || s.canonFlts) {
-		return append(dst, '0') // -0 is 0 under either option
+// numberKept reports whether the options keep the number b as it is. -0 is 0 under either option, and an
+// integer of at most 15 digits is exact as a double, which is formatted by its digits.
+func (s *valueScanner) numberKept(b []byte) bool {
+	if !s.canonInts && !s.canonFlts {
+		return true
+	}
+	if string(b) == "-0" {
+		return false
 	}
 	if isInteger(b) {
-		if s.canonInts {
-			return appendCanonicalNumber(dst, b)
-		}
-	} else if s.canonFlts {
-		return appendCanonicalNumber(dst, b)
+		return !s.canonInts || len(b) <= 15
 	}
-	return append(dst, b...)
+	return !s.canonFlts
 }
 
-// memberList are the members of an object which ReorderRawObjects reorders: the output of each member, from the
-// start of its name to the end of its value.
-type memberList struct {
-	start   int // the start of the output of the members
-	members []member
+// reorderer holds the members of the objects which ReorderRawObjects reorders, the innermost object last: the
+// output of each member, from the start of its name to the end of its value, and its unquoted name. Its arrays
+// are used again by the objects after.
+type reorderer struct {
+	objects []object // the open objects
+	members []member // their members, back to back
+	names   []byte   // the names of the members, back to back
+	sorted  []member
+	buf     []byte
+}
+
+type object struct {
+	start   int // the start of the output of its members
+	members int // the index of its first member
 }
 
 type member struct {
-	name       string // unquoted
-	start, end int
+	name, nameEnd int // the name, in names
+	start, end    int // the output
 }
 
-func (m *memberList) startMember(pos int, name []byte) {
-	m.members = append(m.members, member{name: string(name), start: pos, end: -1})
+func (r *reorderer) reset() {
+	r.objects, r.members, r.names = r.objects[:0], r.members[:0], r.names[:0]
 }
 
-func (m *memberList) endMember(pos int) {
-	if k := len(m.members); k > 0 && m.members[k-1].end < 0 {
-		m.members[k-1].end = pos
+func (r *reorderer) open(pos int) {
+	r.objects = append(r.objects, object{start: pos, members: len(r.members)})
+}
+
+func (r *reorderer) startMember(pos int, name []byte) {
+	r.names = append(r.names, name...)
+	r.members = append(r.members, member{name: len(r.names) - len(name), nameEnd: len(r.names), start: pos, end: -1})
+}
+
+func (r *reorderer) endMember(pos int) {
+	if k := len(r.members); k > r.objects[len(r.objects)-1].members && r.members[k-1].end < 0 {
+		r.members[k-1].end = pos
 	}
 }
 
-// reorder sorts the members in out, which are separated by commas and white space, by their names.
-func (m *memberList) reorder(out []byte) []byte {
+// close sorts the members of the innermost object in out, which are separated by commas and white space, by
+// their names, and drops the object.
+func (r *reorderer) close(out []byte) []byte {
+	o := r.objects[len(r.objects)-1]
+	members := r.members[o.members:]
+	defer func() {
+		r.objects = r.objects[:len(r.objects)-1]
+		if len(members) > 0 {
+			r.names = r.names[:members[0].name]
+		}
+		r.members = r.members[:o.members]
+	}()
 	// members of the same name, or of names which are the same once invalid UTF-8 is mangled, are ordered by
 	// their output.
 	compare := func(a, b member) int {
-		if c := compareMembers(a, b); c != 0 {
+		if c := compareNames(r.names[a.name:a.nameEnd], r.names[b.name:b.nameEnd]); c != 0 {
 			return c
 		}
 		return bytes.Compare(out[a.start:a.end], out[b.start:b.end])
 	}
-	if len(m.members) < 2 || slices.IsSortedFunc(m.members, compare) {
+	if len(members) < 2 || slices.IsSortedFunc(members, compare) {
 		return out
 	}
+	r.sorted = append(r.sorted[:0], members...)
+	slices.SortFunc(r.sorted, compare)
 	// the separator of the members, from the end of the first one to the start of the second one.
-	sep := string(out[m.members[0].end:m.members[1].start])
-	lead := string(out[m.start:m.members[0].start])
-	tail := string(out[m.members[len(m.members)-1].end:])
-	ordered := slices.Clone(m.members)
-	slices.SortFunc(ordered, compare)
-	buf := []byte(lead)
-	for i, x := range ordered {
+	sep := out[members[0].end:members[1].start]
+	buf := append(r.buf[:0], out[o.start:members[0].start]...)
+	for i, x := range r.sorted {
 		if i > 0 {
 			buf = append(buf, sep...)
 		}
 		buf = append(buf, out[x.start:x.end]...)
 	}
-	buf = append(buf, tail...)
-	return append(out[:m.start], buf...)
+	buf = append(buf, out[members[len(members)-1].end:]...)
+	r.buf = buf
+	return append(out[:o.start], buf...)
 }
 
-// compareMembers orders names by their UTF-16 code units, as RFC 8785, section 3.2.3 does.
-func compareMembers(a, b member) int {
-	x, y := a.name, b.name
+// compareNames orders names by their UTF-16 code units, as RFC 8785, section 3.2.3 does.
+func compareNames(x, y []byte) int {
 	for len(x) > 0 && len(y) > 0 {
-		rx, nx := utf8.DecodeRuneInString(x)
-		ry, ny := utf8.DecodeRuneInString(y)
+		rx, nx := utf8.DecodeRune(x)
+		ry, ny := utf8.DecodeRune(y)
 		if rx != ry {
 			ux, uy := utf16Units(rx), utf16Units(ry)
 			if ux[0] != uy[0] {

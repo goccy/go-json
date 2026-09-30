@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"unicode/utf16"
 	"unicode/utf8"
+	"unsafe"
 )
 
 // The scanners of the text of a token take the text from its first byte, and return the number of bytes which
@@ -19,10 +20,41 @@ func isSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
-// skipSpace returns the position of the first byte of b from i which is not white space, or len(b).
+// skipWS is skipSpace, which it calls only where b[i] is white space: it is inlined, so that a token without
+// white space before it costs no call.
+func skipWS(b []byte, i int) int {
+	if i < len(b) && b[i] <= ' ' {
+		return skipSpace(b, i)
+	}
+	return i
+}
+
+// skipSpace returns the position of the first byte of b from i which is not white space, or len(b). The
+// indentation after a line feed is taken 8 spaces or 8 tabs at a time.
 func skipSpace(b []byte, i int) int {
-	for i < len(b) && b[i] <= ' ' && isSpace(b[i]) {
+	for i < len(b) {
+		c := b[i]
+		if c > ' ' || !isSpace(c) {
+			break
+		}
 		i++
+		if c == '\n' && i < len(b) && (b[i] == ' ' || b[i] == '\t') {
+			i = skipIndent(b, i)
+		}
+	}
+	return i
+}
+
+// skipIndent returns the end of the run of the byte at b[i], a space or a tab, as the indentation of a line has
+// it, looked at 8 bytes at a time.
+func skipIndent(b []byte, i int) int {
+	run := uint64(b[i]) * 0x0101010101010101
+	for i+8 <= len(b) {
+		// the bytes of the run are 0 in x, and the first one which is not is its lowest byte which is not.
+		if x := binary.LittleEndian.Uint64(b[i:]) ^ run; x != 0 {
+			return i + bits.TrailingZeros64(x)/8
+		}
+		i += 8
 	}
 	return i
 }
@@ -86,6 +118,44 @@ func scanNumber(b []byte) (int, error) {
 		n = st.done
 	}
 	return n, err
+}
+
+// numberEnd returns the end of the valid JSON number which starts b, if a byte which ends it follows it in b, or
+// -1: at an error and at a number which may continue after b, which scanNumberFrom takes.
+func numberEnd(b []byte) int {
+	i := 0
+	if i < len(b) && b[i] == '-' {
+		i++
+	}
+	switch {
+	case i == len(b):
+		return -1
+	case b[i] == '0':
+		i++
+	case '1' <= b[i] && b[i] <= '9':
+		i = scanDigits(b, i+1)
+	default:
+		return -1
+	}
+	if i < len(b) && b[i] == '.' {
+		if i++; i == len(b) || b[i] < '0' || '9' < b[i] {
+			return -1
+		}
+		i = scanDigits(b, i+1)
+	}
+	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
+		if i++; i < len(b) && (b[i] == '+' || b[i] == '-') {
+			i++
+		}
+		if i == len(b) || b[i] < '0' || '9' < b[i] {
+			return -1
+		}
+		i = scanDigits(b, i+1)
+	}
+	if i == len(b) {
+		return -1
+	}
+	return i
 }
 
 // scanNumberFrom continues the scan of the number which starts b at b[i:], where st was.
@@ -227,6 +297,57 @@ var stringClass = func() [256]uint8 {
 	return t
 }()
 
+// The masks of the bytes of a word of 8 bytes, which is looked at by arithmetic on all its bytes at once. A mask
+// has the top bit of each byte which is found: the first one is exact, and the ones after it may be not, as a
+// borrow may spread from a byte which is found to the next one. The words are loaded in little-endian order,
+// so that the first byte is the lowest one on any machine.
+const (
+	lsb = 0x0101010101010101
+	msb = 0x8080808080808080
+)
+
+// zeroBytes has the top bit of the bytes of w which are 0.
+func zeroBytes(w uint64) uint64 {
+	return (w - lsb) &^ w & msb
+}
+
+// specialBytes has the top bit of the bytes of w which a string doesn't take as they are: a quote, a backslash,
+// a control character or a byte of 0x80 or more.
+func specialBytes(w uint64) uint64 {
+	// a byte below 0x20 borrows in w - 0x20 per byte; the top bits of w are the bytes of 0x80 or more.
+	return zeroBytes(w^('"'*lsb)) | zeroBytes(w^('\\'*lsb)) | (w-' '*lsb)&^w&msb | w&msb
+}
+
+// plainEnd returns the position of the first byte of b from i which is not ASCII taken as it is in a string: a
+// quote, a backslash, a control character or a byte of 0x80 or more; or len(b).
+func plainEnd(b []byte, i int) int {
+	for i+8 <= len(b) {
+		if m := specialBytes(binary.LittleEndian.Uint64(b[i:])); m != 0 {
+			return i + bits.TrailingZeros64(m)/8
+		}
+		i += 8
+	}
+	for i < len(b) && stringClass[b[i]] == 0 {
+		i++
+	}
+	return i
+}
+
+// simpleStringEnd returns the end of the string which starts b, which starts with a quote, if it is short and its
+// characters are ASCII to take as they are, and true; or else the position from which scanStringFrom continues,
+// and false. It is inlined, and scans by bytes, which is faster for short strings; scanStringFrom takes the rest
+// of a long one 8 bytes at a time.
+func simpleStringEnd(b []byte) (int, bool) {
+	i := 1
+	if i < len(b) && stringClass[b[i]] == 0 {
+		i = plainEnd(b, 2)
+	}
+	if i < len(b) && b[i] == '"' {
+		return i + 1, true
+	}
+	return i, false
+}
+
 // strMode is how a string is scanned.
 type strMode uint8
 
@@ -258,10 +379,8 @@ func scanString(b []byte, mode strMode) (int, strFlags, error) {
 // scanStringFrom continues the scan of the string which starts b at b[i:], with the flags of b[:i].
 func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlags, error) {
 	for {
-		// the characters taken as they are
-		for i < len(b) && stringClass[b[i]] == 0 {
-			i++
-		}
+		// the characters taken as they are: ASCII other than a quote, a backslash and a control character
+		i = plainEnd(b, i)
 		if i == len(b) {
 			return i, flags, io.ErrUnexpectedEOF
 		}
@@ -283,19 +402,44 @@ func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlag
 		case c < ' ':
 			return i, flags, invalidChar(b[i:], "in string (expecting non-control character)")
 		default:
-			r, n := utf8.DecodeRune(b[i:])
-			if r == utf8.RuneError && n == 1 {
-				if !utf8.FullRune(b[i:]) {
-					return i, flags, io.ErrUnexpectedEOF
-				}
-				if mode&strValid != 0 {
-					return i, flags, errInvalidUTF8
-				}
-				flags |= strInvalidUTF8 | strNonCanonical
+			// a run of characters which are not ASCII, and ASCII ones, validated at once, and a character at a
+			// time only if it is not valid.
+			end := charsEnd(b, i)
+			if utf8.Valid(b[i:end]) {
+				i = end
+				continue
 			}
-			i += n
+			for i < end {
+				r, n := utf8.DecodeRune(b[i:end])
+				if r == utf8.RuneError && n == 1 {
+					if end == len(b) && !utf8.FullRune(b[i:end]) {
+						return i, flags, io.ErrUnexpectedEOF
+					}
+					if mode&strValid != 0 {
+						return i, flags, errInvalidUTF8
+					}
+					flags |= strInvalidUTF8 | strNonCanonical
+				}
+				i += n
+			}
 		}
 	}
+}
+
+// charsEnd returns the position of the first byte of b from i which is a quote, a backslash or a control
+// character, or len(b): the characters before it are taken as they are, once they are valid UTF-8.
+func charsEnd(b []byte, i int) int {
+	for i+8 <= len(b) {
+		w := binary.LittleEndian.Uint64(b[i:])
+		if m := zeroBytes(w^('"'*lsb)) | zeroBytes(w^('\\'*lsb)) | (w-' '*lsb)&^w&msb; m != 0 {
+			return i + bits.TrailingZeros64(m)/8
+		}
+		i += 8
+	}
+	for i < len(b) && (b[i] >= ' ' && b[i] != '"' && b[i] != '\\') {
+		i++
+	}
+	return i
 }
 
 // isCanonicalEscape reports whether the escape sequence e of r is the one which AppendQuote writes.
@@ -381,6 +525,13 @@ func isPrefixOfLowSurrogate(b []byte) bool {
 
 // scanHex4 is the value of the escape sequence \uXXXX at the start of b.
 func scanHex4(b []byte) (rune, error) {
+	if len(b) >= 6 {
+		// the 4 digits at once: a byte which is not a digit is negative in the table, and so is their OR.
+		d0, d1, d2, d3 := hexTable[b[2]], hexTable[b[3]], hexTable[b[4]], hexTable[b[5]]
+		if d0|d1|d2|d3 >= 0 {
+			return rune(d0)<<12 | rune(d1)<<8 | rune(d2)<<4 | rune(d3), nil
+		}
+	}
 	var r rune
 	for i := 2; i < 6; i++ {
 		if i == len(b) {
@@ -396,16 +547,26 @@ func scanHex4(b []byte) (rune, error) {
 }
 
 func hexValue(c byte) int {
-	switch {
-	case '0' <= c && c <= '9':
-		return int(c - '0')
-	case 'a' <= c && c <= 'f':
-		return int(c - 'a' + 10)
-	case 'A' <= c && c <= 'F':
-		return int(c - 'A' + 10)
-	}
-	return -1
+	return int(hexTable[c])
 }
+
+// hexTable is the value of each byte as a hexadecimal digit, or -1.
+var hexTable = func() [256]int8 {
+	var t [256]int8
+	for c := range t {
+		switch {
+		case '0' <= c && c <= '9':
+			t[c] = int8(c - '0')
+		case 'a' <= c && c <= 'f':
+			t[c] = int8(c - 'a' + 10)
+		case 'A' <= c && c <= 'F':
+			t[c] = int8(c - 'A' + 10)
+		default:
+			t[c] = -1
+		}
+	}
+	return t
+}()
 
 // appendUnquoted appends the value of the JSON string s, which scanString took without an error: an escaped
 // surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD.
@@ -480,7 +641,20 @@ func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags)
 	valid := true
 	dst = append(dst, '"')
 	start := 0
+	b := readOnlyBytes(s)
 	for i := 0; i < len(s); {
+		if esc == 0 {
+			// the characters written as they are, ASCII 8 at a time, and the others validated by runs.
+			if i = plainEnd(b, i); i == len(b) {
+				break
+			}
+			if b[i] >= utf8.RuneSelf {
+				if end := charsEnd(b, i); utf8.Valid(b[i:end]) {
+					i = end
+					continue
+				}
+			}
+		}
 		c := s[i]
 		if c < utf8.RuneSelf {
 			if needsEscapeASCII[c] == 0 || needsEscapeASCII[c] == 2 && esc&escapeHTML == 0 {
@@ -514,6 +688,12 @@ func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags)
 	return append(dst, '"'), valid
 }
 
+// readOnlyBytes is the bytes of s, a string or a []byte, without a copy: they must not be written to. A string
+// and a slice both start with the pointer to their bytes, which has the length after it.
+func readOnlyBytes[Bytes ~[]byte | ~string](s Bytes) []byte {
+	return unsafe.Slice(*(**byte)(unsafe.Pointer(&s)), len(s))
+}
+
 // appendEscapedASCII appends the escape sequence of the ASCII character c.
 func appendEscapedASCII(dst []byte, c byte) []byte {
 	switch c {
@@ -533,21 +713,23 @@ func appendEscapedASCII(dst []byte, c byte) []byte {
 	return append(dst, '\\', 'u', '0', '0', hexDigits[c>>4], hexDigits[c&0xf])
 }
 
+// rawStringKept reports whether appendRawString appends the string s as it is.
+func rawStringKept(s []byte, f strFlags, esc escapeFlags, preserve bool) bool {
+	return (preserve || f&strNonCanonical == 0) && (esc == 0 || !needsExtraEscape(s, esc))
+}
+
 // appendRawString appends the JSON string s, which scanString took with the flags f, as the options want it:
 // requoted unless it is canonical, or as it is with PreserveRawStrings, whose escapes are kept and whose invalid
 // UTF-8 is kept as it is; the characters of esc are escaped in any case.
 func appendRawString(dst, s []byte, f strFlags, esc escapeFlags, preserve bool) []byte {
-	if !preserve {
-		if f&strNonCanonical != 0 || esc != 0 && needsExtraEscape(s, esc) {
-			var buf [64]byte
-			v := appendUnquoted(buf[:0], s)
-			dst, _ = appendQuoted(dst, v, esc)
-			return dst
-		}
+	if rawStringKept(s, f, esc, preserve) {
 		return append(dst, s...)
 	}
-	if esc == 0 || !needsExtraEscape(s, esc) {
-		return append(dst, s...)
+	if !preserve {
+		var buf [64]byte
+		v := appendUnquoted(buf[:0], s)
+		dst, _ = appendQuoted(dst, v, esc)
+		return dst
 	}
 	start := 0
 	for i := 0; i < len(s); {
@@ -618,6 +800,15 @@ func appendFloatText(dst []byte, f float64, bits int) []byte {
 func appendFloat(dst []byte, f float64, bits int) []byte {
 	if bits == 32 {
 		f = float64(float32(f))
+	}
+	// an integer below 2⁵³, or 2²⁴ for 32 bits, is the only integer which rounds to its float: its digits are the
+	// shortest.
+	limit := int64(1) << 53
+	if bits == 32 {
+		limit = 1 << 24
+	}
+	if i := int64(f); float64(i) == f && i != 0 && -limit < i && i < limit {
+		return strconv.AppendInt(dst, i, 10)
 	}
 	abs := math.Abs(f)
 	fmt := byte('f')

@@ -323,10 +323,22 @@ var stdDiffFormatOptions = append(stdDiffDecoderOptions,
 			stdjsontext.CanonicalizeRawInts(true), stdjsontext.CanonicalizeRawFloats(true), stdjsontext.ReorderRawObjects(true),
 		},
 	},
+	stdDiffOptions{
+		name: "ReorderIndented",
+		goJSON: []jsontext.Options{
+			jsontext.ReorderRawObjects(true), jsontext.AllowDuplicateNames(true), jsontext.WithIndent("\t"),
+			jsontext.SpaceAfterColon(true),
+		},
+		std: []stdjsontext.Options{
+			stdjsontext.ReorderRawObjects(true), stdjsontext.AllowDuplicateNames(true), stdjsontext.WithIndent("\t"),
+			stdjsontext.SpaceAfterColon(true),
+		},
+	},
 )
 
 var stdDiffEncoderOptions = []stdDiffOptions{
 	{name: "default"},
+	stdDiffFormatOptions[1],
 	stdDiffFormatOptions[3],
 	stdDiffFormatOptions[5],
 	stdDiffFormatOptions[6],

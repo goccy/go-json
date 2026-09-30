@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"slices"
 	"strconv"
 	"sync"
 )
@@ -63,9 +64,9 @@ func (v *Value) UnmarshalJSON(b []byte) error {
 //
 // The options which matter are AllowDuplicateNames and AllowInvalidUTF8; the others are ignored.
 func (v Value) IsValid(opts ...Options) bool {
-	e := getEncoder(opts, false)
+	e := getEncoder(opts)
 	defer putEncoder(e)
-	e.vs.write = false
+	e.vs.write, e.vs.spaced = false, false
 	return e.writeValue(v) == nil
 }
 
@@ -131,7 +132,8 @@ func (v *Value) Canonicalize(opts ...Options) error {
 var canonicalOptions = []Options{CanonicalizeRawInts(true), CanonicalizeRawFloats(true), ReorderRawObjects(true)}
 
 func (v *Value) format(first, opts []Options) error {
-	e := getEncoder(opts, false, first...)
+	e := getEncoder(opts, first...)
+	e.buf = slices.Grow(e.buf, len(*v))
 	defer putEncoder(e)
 	if err := e.writeValue(*v); err != nil {
 		return err
@@ -147,9 +149,11 @@ func (v *Value) format(first, opts []Options) error {
 //
 // dst and src may overlap. At an error, all of src is appended to dst.
 func AppendFormat[Bytes ~[]byte | ~string](dst []byte, src Bytes, opts ...Options) ([]byte, error) {
-	e := getEncoder(opts, false)
+	e := getEncoder(opts)
 	defer putEncoder(e)
-	if err := e.writeValue(Value(src)); err != nil {
+	e.buf = slices.Grow(e.buf, len(src))
+	// the value is only read, which a string may be without a copy.
+	if err := e.writeValue(readOnlyBytes(src)); err != nil {
 		return append(dst, src...), err
 	}
 	return append(dst, e.buf...), nil
@@ -160,18 +164,23 @@ var encoders sync.Pool
 
 // getEncoder returns an encoder of the options first and opts, which writes to its buffer only, without a line
 // feed after the value.
-func getEncoder(opts []Options, _ bool, first ...Options) *encoder {
+func getEncoder(opts []Options, first ...Options) *encoder {
 	e, _ := encoders.Get().(*encoder)
 	if e == nil {
 		e = new(encoder)
 	}
-	all := append(append(append(make([]Options, 0, len(first)+len(opts)+1), first...), opts...), boolOption(omitTopLevelNewline<<1|1))
-	e.reset(nil, all)
+	e.cfg = config{}
+	e.cfg.apply(first)
+	e.cfg.apply(opts)
+	e.cfg.set |= omitTopLevelNewline
+	e.cfg.value |= omitTopLevelNewline
+	e.init(nil)
 	return e
 }
 
 func putEncoder(e *encoder) {
-	if cap(e.buf) > 64<<10 {
+	// a large buffer is kept only if it was used well, so that one large value doesn't keep it for small ones.
+	if cap(e.buf) > 64<<10 && len(e.buf) < cap(e.buf)/4 {
 		e.buf = nil
 	}
 	e.vs.out = nil

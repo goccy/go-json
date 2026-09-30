@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"unsafe"
 )
 
 // Encoder is a streaming encoder of raw JSON tokens and values. It writes a stream of top-level JSON values,
@@ -48,7 +49,8 @@ type encoder struct {
 	ws        whitespace
 	esc       escapeFlags
 	validUTF8 bool
-	check     bool // check duplicate names
+	check     bool   // check duplicate names
+	value     []byte // a copy of a value which is in the room of buf
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -70,6 +72,11 @@ func (e *Encoder) Reset(w io.Writer, opts ...Options) {
 func (e *encoder) reset(w io.Writer, opts []Options) {
 	e.cfg = config{}
 	e.cfg.apply(opts)
+	e.init(w)
+}
+
+// init resets the state of the encoder to write to w with the options of e.cfg.
+func (e *encoder) init(w io.Writer) {
 	e.st.reset()
 	e.w = w
 	e.bb, _ = w.(*bytes.Buffer)
@@ -86,6 +93,7 @@ func (e *encoder) reset(w io.Writer, opts []Options) {
 		st:         &e.st,
 		validUTF8:  e.validUTF8,
 		checkNames: e.check,
+		lazyNames:  !e.check,
 		final:      true,
 		write:      true,
 		ws:         e.ws,
@@ -94,8 +102,10 @@ func (e *encoder) reset(w io.Writer, opts []Options) {
 		canonInts:  e.cfg.has(canonicalizeRawInts),
 		canonFlts:  e.cfg.has(canonicalizeRawFloats),
 		reorder:    e.cfg.has(reorderRawObjects),
+		spaced:     e.ws.multiline || e.ws.colon || e.ws.comma,
+		lines:      e.vs.lines[:0],
 		scratch:    e.vs.scratch[:0],
-		members:    e.vs.members[:0],
+		ro:         e.vs.ro,
 	}
 }
 
@@ -193,22 +203,18 @@ func (e *Encoder) WriteToken(t Token) error {
 func (e *encoder) writeToken(t Token) error {
 	k := t.Kind()
 	l := e.st.last()
-	switch k {
-	case KindEndObject, KindEndArray:
-		if e.st.depth() == 0 || l.object != (k == KindEndObject) {
-			return e.failAt(errMismatchDelim, len(e.buf)+e.delimLen(k), pointNext)
-		}
-		if l.needValue() {
-			return e.failAt(errMissingValue, len(e.buf)+e.delimLen(k), pointAt)
-		}
-	case KindInvalid:
-		return e.failAt(errInvalidToken, len(e.buf), pointNext)
-	default:
-		if l.needName() && k != KindString {
-			return e.failAt(ErrNonStringName, len(e.buf)+e.delimLen(k), pointAt)
-		}
+	if misplaced(l, k, e.st.depth()) {
+		return e.misplacedError(l, k)
 	}
-	b := e.appendDelim(e.buf, k)
+	b := e.buf
+	switch {
+	case e.vs.spaced || len(e.st.levels) == 1 || l.count == 0 || k == KindEndObject || k == KindEndArray:
+		b = e.appendDelim(b, k)
+	case l.object && l.count&1 == 1:
+		b = append(b, ':')
+	default:
+		b = append(b, ',')
+	}
 	pos := len(b)
 	var err error
 	switch k {
@@ -227,14 +233,42 @@ func (e *encoder) writeToken(t Token) error {
 	case KindString:
 		b, err = e.appendString(b, t, l.needName())
 	default:
-		b, err = e.appendNumberToken(b, t)
+		if t.form == formFloat {
+			b = appendFloat(b, math.Float64frombits(t.num), 64) // a finite number, whose kind is KindNumber
+		} else {
+			b, err = e.appendNumberToken(b, t)
+		}
 	}
 	if err != nil {
 		return err
 	}
-	e.st.last().count++
+	l.count++
 	e.buf = b
 	return e.endValue()
+}
+
+// misplaced reports whether a token of kind k doesn't fit the grammar in the innermost level l at depth.
+func misplaced(l *level, k Kind, depth int) bool {
+	switch k {
+	case KindEndObject, KindEndArray:
+		return depth == 0 || l.object != (k == KindEndObject) || l.needValue()
+	case KindInvalid:
+		return true
+	}
+	return l.needName() && k != KindString
+}
+
+// misplacedError is the error of a token of kind k which is misplaced in the innermost level l.
+func (e *encoder) misplacedError(l *level, k Kind) error {
+	switch {
+	case k == KindInvalid:
+		return e.failAt(errInvalidToken, len(e.buf), pointNext)
+	case k != KindEndObject && k != KindEndArray:
+		return e.failAt(ErrNonStringName, len(e.buf)+e.delimLen(k), pointAt)
+	case e.st.depth() == 0 || l.object != (k == KindEndObject):
+		return e.failAt(errMismatchDelim, len(e.buf)+e.delimLen(k), pointNext)
+	}
+	return e.failAt(errMissingValue, len(e.buf)+e.delimLen(k), pointAt)
 }
 
 // delimLen is the length of the delimiter and the white space which precede a token of kind k.
@@ -301,17 +335,25 @@ func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
 	if n, err := scanNumber(raw); err != nil || n < len(raw) {
 		return b, e.failAt(invalidChar(raw[n:], "in number (expecting digit)"), len(b)+n, pointNext)
 	}
-	return e.vs.appendNumber(b, raw), nil
+	if e.vs.numberKept(raw) {
+		return append(b, raw...), nil
+	}
+	return appendCanonicalNumber(b, raw), nil
 }
 
 // endValue ends a token or value: after a complete top-level value, a line feed, and the output is written,
 // as it is when the buffer is large.
 func (e *encoder) endValue() error {
-	if e.st.depth() > 0 {
-		if len(e.buf) > 1<<16 {
-			return e.flush()
-		}
+	// it is inlined where the output is kept.
+	if len(e.st.levels) > 1 && len(e.buf) <= 1<<16 {
 		return nil
+	}
+	return e.endOutput()
+}
+
+func (e *encoder) endOutput() error {
+	if e.st.depth() > 0 {
+		return e.flush()
 	}
 	if !e.cfg.has(omitTopLevelNewline) {
 		e.buf = append(e.buf, '\n')
@@ -349,6 +391,13 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
+	// a value in the room of the output, as AvailableBuffer gives it, is copied first: the output, which may be
+	// longer than the value, would be written over the value before it is read.
+	if room := e.buf[len(e.buf):cap(e.buf)]; len(v) > 0 && len(room) > 0 &&
+		uintptr(unsafe.Pointer(unsafe.SliceData(v)))-uintptr(unsafe.Pointer(unsafe.SliceData(room))) < uintptr(len(room)) {
+		e.value = append(e.value[:0], v...)
+		v = e.value
+	}
 	l := e.st.last()
 	k := v.Kind()
 	name := l.needName()

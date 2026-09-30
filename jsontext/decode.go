@@ -122,10 +122,16 @@ func (d *decoder) fetch() (int, error) {
 		d.buf = append(d.buf, b...)
 		return shift, nil
 	}
-	shift := d.makeRoom(minRead)
+	shift := 0
+	if cap(d.buf)-len(d.buf) < minRead || d.shared {
+		shift = d.makeRoom(minRead)
+	}
 	for tries := 0; ; tries++ {
 		n, err := d.r.Read(d.buf[len(d.buf):cap(d.buf)])
 		d.buf = d.buf[:len(d.buf)+n]
+		if n > 0 && err == nil {
+			return shift, nil
+		}
 		if err == nil && n == 0 && tries == 100 {
 			err = io.ErrNoProgress
 		}
@@ -233,6 +239,23 @@ func (d *Decoder) PeekKind() Kind {
 func (d *decoder) beforeToken(peek bool) (int, error) {
 	// an error of the reader, even io.EOF, ends only the call which met it: the next one reads again.
 	d.rerr = nil
+	// most tokens have the delimiter which they need, with some white space, in the buffer.
+	b := d.buf
+	if pos := skipWS(b, d.pos); pos < len(b) {
+		c := b[pos]
+		need := d.delimBefore(c, peek)
+		if c != ',' && c != ':' {
+			if need == 0 {
+				return pos, nil
+			}
+		} else if c == need {
+			if next := skipWS(b, pos+1); next < len(b) {
+				if c := b[next]; c != ',' && c != ':' && (c != '}' && c != ']' || need == ':') && d.delimBefore(c, peek) == need {
+					return next, nil
+				}
+			}
+		}
+	}
 	pos, err := d.skip(d.pos)
 	if err != nil {
 		return pos, d.endError(pos, err, pointAt)
@@ -304,7 +327,75 @@ func (d *Decoder) ReadToken() (Token, error) {
 	return d.d.readToken()
 }
 
+// readToken reads the next token in one loop where the token and the delimiter before it are valid and whole in
+// the buffer, as most tokens are, and else by readTokenSlow, from the same state.
 func (d *decoder) readToken() (Token, error) {
+	b := d.buf
+	pos := skipWS(b, d.pos)
+	if pos >= len(b) || len(d.st.levels) == 1 || d.peekErr != nil {
+		return d.readTokenSlow() // the top level, which reads a stream of values, among others
+	}
+	l := &d.st.levels[len(d.st.levels)-1]
+	c := b[pos]
+	switch {
+	case c == '}' && l.object && l.count%2 == 0, c == ']' && !l.object:
+		d.st.pop()
+		d.done(pos, pos+1)
+		if c == '}' {
+			return EndObject, nil
+		}
+		return EndArray, nil
+	case l.count == 0:
+	case c == ',' && (!l.object || l.count%2 == 0), c == ':' && l.object && l.count%2 == 1:
+		if pos = skipWS(b, pos+1); pos >= len(b) || b[pos] == '}' || b[pos] == ']' {
+			return d.readTokenSlow()
+		}
+		c = b[pos]
+	default:
+		return d.readTokenSlow()
+	}
+	name := l.object && l.count%2 == 0
+	switch c {
+	case '"':
+		n, ok := simpleStringEnd(b[pos:])
+		f, err := strFlags(0), error(nil)
+		if !ok {
+			n, f, err = scanStringFrom(b[pos:], n, 0, strModeOf(!d.cfg.has(allowInvalidUTF8), true))
+		}
+		if err != nil || name && !d.st.insertName(unquotedName(&d.vs.scratch, b[pos:pos+n], f), !d.cfg.has(allowDuplicateNames)) {
+			return d.readTokenSlow()
+		}
+		l.count++
+		d.done(pos, pos+n)
+		return Token{dec: d, num: uint64(d.base + int64(pos)), kind: KindString, form: formRaw}, nil
+	case '{', '[':
+		if name || d.st.push(c == '{') != nil {
+			return d.readTokenSlow()
+		}
+		d.done(pos, pos+1)
+		if c == '{' {
+			return BeginObject, nil
+		}
+		return BeginArray, nil
+	case 'n', 't', 'f':
+		lit := literalOf(Kind(c))
+		if name || len(b)-pos <= len(lit) || string(b[pos:pos+len(lit)]) != lit {
+			return d.readTokenSlow()
+		}
+		l.count++
+		d.done(pos, pos+len(lit))
+		return Token{kind: Kind(c)}, nil
+	}
+	n := numberEnd(b[pos:])
+	if name || n < 0 {
+		return d.readTokenSlow()
+	}
+	l.count++
+	d.done(pos, pos+n)
+	return Token{dec: d, num: uint64(d.base + int64(pos)), kind: KindNumber, form: formRaw}, nil
+}
+
+func (d *decoder) readTokenSlow() (Token, error) {
 	if err := d.peekErr; err != nil {
 		d.peekErr = nil
 		return Token{}, err
@@ -398,17 +489,22 @@ func (d *decoder) done(start, end int) {
 
 // insertName adds the name of the string at buf[start:end] to the innermost object.
 func (d *decoder) insertName(start, end int, f strFlags) error {
-	s := d.buf[start:end]
-	if f&(strEscaped|strInvalidUTF8) != 0 {
-		d.vs.scratch = appendUnquoted(d.vs.scratch[:0], s)
-	} else {
-		d.vs.scratch = append(d.vs.scratch[:0], s[1:len(s)-1]...)
-	}
-	if !d.st.insertName(d.vs.scratch, !d.cfg.has(allowDuplicateNames)) {
-		ptr := d.st.namePointer(d.vs.scratch)
+	name := unquotedName(&d.vs.scratch, d.buf[start:end], f)
+	if !d.st.insertName(name, !d.cfg.has(allowDuplicateNames)) {
+		ptr := d.st.namePointer(name)
 		return &SyntacticError{ByteOffset: d.base + int64(start), JSONPointer: ptr, Err: ErrDuplicateName}
 	}
 	return nil
+}
+
+// unquotedName is the value of the string s, which scanString took with the flags f: the bytes between its quotes,
+// or, if it has escape sequences or invalid UTF-8, its value unquoted in scratch.
+func unquotedName(scratch *[]byte, s []byte, f strFlags) []byte {
+	if f&(strEscaped|strInvalidUTF8) != 0 {
+		*scratch = appendUnquoted((*scratch)[:0], s)
+		return *scratch
+	}
+	return s[1 : len(s)-1]
 }
 
 // scanToken scans the string, number or literal at pos, reading more input while the buffer cuts it. It
@@ -422,17 +518,29 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 	)
 	c := d.buf[pos]
 	validUTF8 := !d.cfg.has(allowInvalidUTF8)
+	// most tokens are whole in the buffer
+	switch c {
+	case '"':
+		if n, f, err := scanString(d.buf[pos:], strModeOf(validUTF8, true)); err == nil {
+			return pos, pos + n, f, nil
+		}
+	case 'n', 't', 'f':
+	default:
+		if n := numberEnd(d.buf[pos:]); n > 0 {
+			return pos, pos + n, 0, nil
+		}
+	}
 	for {
 		b := d.buf[pos:]
+		final := d.rerr == io.EOF
+		var cut bool // the token may continue after the buffer
 		switch c {
 		case '"':
-			if n > 0 {
-				n, f, err = scanStringFrom(b, n, f, strModeOf(validUTF8, d.rerr != io.EOF))
-			} else {
-				n, f, err = scanString(b, strModeOf(validUTF8, d.rerr != io.EOF))
-			}
+			n, f, err = scanStringFrom(b, max(n, 1), f, strModeOf(validUTF8, !final))
+			cut = err == io.ErrUnexpectedEOF
 		case 'n', 't', 'f':
 			n, err = scanLiteral(b, literalOf(Kind(c)))
+			cut = err == io.ErrUnexpectedEOF
 		default:
 			if kindOf(c) != KindNumber {
 				if (c == ',' || c == ':') && d.st.last().count == 0 {
@@ -441,14 +549,14 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 				return pos, pos, 0, d.charError(pos, "at start of value", where)
 			}
 			n, st, err = scanNumberFrom(b, n, st)
-			if err == nil && n == len(b) && d.rerr != io.EOF {
-				err = io.ErrUnexpectedEOF // the number may continue
-			}
+			cut = err == nil && n == len(b) || err == io.ErrUnexpectedEOF
 		}
-		if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
+		if cut && !final {
+			// the token continues after the buffer
+		} else if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
 			// an invalid character which the buffer cuts is shown whole: the token is scanned again with more
 			n, f, st = 0, 0, numState{}
-		} else if err != io.ErrUnexpectedEOF || d.rerr == io.EOF {
+		} else {
 			break
 		}
 		shift, ferr := d.fetch()
@@ -548,14 +656,45 @@ func (d *decoder) readValue() (int, int, error) {
 				return 0, 0, &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
 			}
 		}
-		shift, ferr := d.fetch()
-		rp.pos -= shift
-		start -= shift
-		if ferr != nil && ferr != io.EOF {
-			d.vs.restore(rp.base, count)
-			return 0, 0, ferr
+		for {
+			shift, ferr := d.fetch()
+			rp.pos -= shift
+			start -= shift
+			if ferr != nil && ferr != io.EOF {
+				d.vs.restore(rp.base, count)
+				return 0, 0, ferr
+			}
+			if ferr != nil || !d.stillCut(&rp) {
+				break
+			}
 		}
 	}
+}
+
+// stillCut reads the input which a fetch added to a value which the buffer cut, and reports whether the value is
+// still cut at the end of the buffer: the white space, strings and numbers which a slow reader gives a byte at a
+// time are read here, without going through the states of the scanner.
+func (d *decoder) stillCut(rp *resumePoint) bool {
+	b := d.buf
+	if rp.tok == 0 {
+		rp.pos = skipSpace(b, rp.pos)
+		return rp.pos == len(b)
+	}
+	// a string or a number, which a cut token is
+	if b[rp.pos] == '"' {
+		n, f, err := scanStringFrom(b[rp.pos:], rp.tok, rp.str, strModeOf(d.vs.validUTF8, true))
+		if err == io.ErrUnexpectedEOF {
+			rp.tok, rp.str = n, f
+			return true
+		}
+		return false
+	}
+	n, st, err := scanNumberFrom(b[rp.pos:], rp.tok, rp.num)
+	if rp.pos+n == len(b) && (err == nil || err == io.ErrUnexpectedEOF) {
+		rp.tok, rp.num = n, st
+		return true
+	}
+	return false
 }
 
 // InputOffset returns the offset in the input after the last token or value which was read. The decoder may

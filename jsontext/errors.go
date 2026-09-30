@@ -60,7 +60,7 @@ func (e *SyntacticError) Error() string {
 	if e.Err == ErrDuplicateName {
 		s := "jsontext: " + e.Err.Error() + " " + strconv.Quote(e.JSONPointer.LastToken())
 		if parent := e.JSONPointer.Parent(); parent != "" {
-			s += " within " + strconv.Quote(string(parent))
+			s += " within " + strconv.Quote(shortPointer(string(parent)))
 		}
 		return s
 	}

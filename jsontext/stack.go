@@ -13,9 +13,10 @@ const maxDepth = 10000
 type level struct {
 	count  int64
 	object bool
-	first  int   // for an object, the index in names.ends of its first name
-	last   int   // for an object, the index in names.ends of its last name, or -1
-	named  int64 // for an object, its count after its last name was added
+	first  int    // for an object, the index in names.ends of its first name
+	last   int    // for an object, the index in names.ends of its last name, or -1
+	named  int64  // for an object, its count after its last name was added
+	bits   uint64 // for an object, the bits of its names ( nameBit ), which the name of no bit is not one of
 }
 
 // stack is the state of the grammar: the levels of the nesting, the top level first, and the names of the open
@@ -120,7 +121,15 @@ func (s *stack) insertName(name []byte, check bool) bool {
 	l := s.last()
 	n := &s.names
 	if !check {
-		n.truncate(l.first)
+		// the object keeps its last name only, for the pointers of errors: no object is indexed.
+		n.buf = append(n.buf[:n.start(l.first)], name...)
+		n.ends = append(n.ends[:l.first], len(n.buf))
+		l.last = l.first
+		l.named = l.count + 1
+		return true
+	}
+	if bit := nameBit(name); l.bits&bit == 0 {
+		l.bits |= bit // a name of a bit which no name has is new: it is not looked for
 	} else if n.has(l.first, name) {
 		return false
 	}
@@ -128,6 +137,16 @@ func (s *stack) insertName(name []byte, check bool) bool {
 	l.last = len(n.ends) - 1
 	l.named = l.count + 1
 	return true
+}
+
+// nameBit is one of 64 bits, chosen by the length of the name and its first and last bytes: two names of other
+// bits differ.
+func nameBit(name []byte) uint64 {
+	h := uint(len(name))
+	if len(name) > 0 {
+		h += uint(name[0])*7 + uint(name[len(name)-1])*31
+	}
+	return 1 << (h & 63)
 }
 
 // names are the names of the open objects, back to back, an object after the objects which contain it.
@@ -204,9 +223,10 @@ func (n *names) has(first int, name []byte) bool {
 		}
 		return false
 	}
+	// the length and the first byte are compared first, which rejects most names without a call of the runtime.
 	start := n.start(first)
 	for _, end := range n.ends[first:] {
-		if string(n.buf[start:end]) == string(name) {
+		if end-start == len(name) && (len(name) == 0 || n.buf[start] == name[0] && string(n.buf[start:end]) == string(name)) {
 			return true
 		}
 		start = end
@@ -234,8 +254,14 @@ func (n *names) add(first int, name []byte) {
 
 // indexObject makes the index of the names of the innermost object, whose first name is at first.
 func (n *names) indexObject(first int) {
-	n.indexes = append(n.indexes, nameIndex{first: first})
+	// the arrays of an index of an object which was closed are used again.
+	if k := len(n.indexes); k < cap(n.indexes) {
+		n.indexes = n.indexes[:k+1]
+	} else {
+		n.indexes = append(n.indexes, nameIndex{})
+	}
 	x := &n.indexes[len(n.indexes)-1]
+	x.first, x.hashes = first, x.hashes[:0]
 	for i := first; i < len(n.ends); i++ {
 		x.hashes = append(x.hashes, maphash.Bytes(nameSeed, n.get(i)))
 	}
@@ -244,7 +270,12 @@ func (n *names) indexObject(first int) {
 
 // rebuild makes the table of the given size, a power of two, of all the names.
 func (x *nameIndex) rebuild(size int) {
-	x.slots = make([]int32, size)
+	if cap(x.slots) >= size {
+		x.slots = x.slots[:size]
+		clear(x.slots)
+	} else {
+		x.slots = make([]int32, size)
+	}
 	for i := range x.hashes {
 		x.insert(i)
 	}

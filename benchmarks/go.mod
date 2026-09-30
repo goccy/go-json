@@ -1,6 +1,6 @@
 module benchmark
 
-go 1.21
+go 1.23
 
 require (
 	github.com/bytedance/sonic v1.15.4

@@ -147,3 +147,27 @@ func TestEncodeUnorderedMapOfScalars(t *testing.T) {
 	)
 	assertUnorderedMapsEqual(t, values)
 }
+
+// An unordered map of scalars is ranged over with one variable for its values, whose address is given to the
+// opcode of the value: it is allocated once for the map, not once for each entry.
+func TestEncodeUnorderedMapOfScalarsAllocs(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the runtime context, which keeps the buffer to reuse, is dropped from its pool at random")
+	}
+	stringKey := func(i int) string { return "k" + strconv.Itoa(i) }
+	for _, e := range unorderedMapEncoders {
+		t.Run(e.name, func(t *testing.T) {
+			allocs := func(v any) float64 {
+				if _, err := e.encode(v); err != nil {
+					t.Fatal(err)
+				}
+				return testing.AllocsPerRun(100, func() { _, _ = e.encode(v) })
+			}
+			small := allocs(mapOf(1, stringKey, func(i int) int { return i }))
+			large := allocs(mapOf(100, stringKey, func(i int) int { return i }))
+			if large != small {
+				t.Fatalf("%v allocations for 100 entries, %v for 1 entry", large, small)
+			}
+		})
+	}
+}

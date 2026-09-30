@@ -180,7 +180,6 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 		createOpType("InterfaceEnd", "Op"),
 	}
 	for _, typ := range primitiveTypesUpper {
-		typ := typ
 		opTypes = append(opTypes, createOpType(typ, "Op"))
 	}
 	// the head of a struct is an opcode of its own: it is followed by the opcode of the first field.
@@ -192,9 +191,6 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	// the opcode of a value of interface{} is among the first ones, so it is not a primitive type here.
 	for _, typ := range append(primitiveTypesUpper, "Interface", "") {
 		for _, opt := range []string{"", "OmitEmpty"} {
-			opt := opt
-			typ := typ
-
 			op := fmt.Sprintf(
 				"StructField%s%s",
 				opt,
@@ -206,9 +202,6 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 			})
 		}
 		for _, opt := range []string{"", "OmitEmpty"} {
-			opt := opt
-			typ := typ
-
 			op := fmt.Sprintf(
 				"StructEnd%s%s",
 				opt,

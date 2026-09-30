@@ -25,4 +25,4 @@ jobs:
       - name: measure
         env:
           MACHINE: ${{ matrix.machine }}
-        run: VARIANTS='keys_v4 keys_v6' .github/measure/payload_variants.sh
+        run: VARIANT=keys_v6 CONFIGS='std/openai std/twitter-any' .github/measure/prof_variant.sh

@@ -346,8 +346,7 @@ func plainEnd(b []byte, i int) int {
 
 // simpleStringEnd returns the end of the string which starts b, which starts with a quote, if it is short and its
 // characters are ASCII to take as they are, and true; or else the position from which scanStringFrom continues,
-// and false. It is inlined, and scans by bytes, which is faster for short strings; scanStringFrom takes the rest
-// of a long one 8 bytes at a time.
+// and false. It scans the characters 8 bytes at a time, as scanStringFrom does, which then takes the rest.
 func simpleStringEnd(b []byte) (int, bool) {
 	i := 1
 	if i < len(b) && stringClass[b[i]] == 0 {

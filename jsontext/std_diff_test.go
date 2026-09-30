@@ -576,6 +576,38 @@ func TestStdDiffCoderOptions(t *testing.T) {
 	}
 }
 
+// TestStdDiffSameOptionsAgain uses the functions of values, and an encoder which is reset, again with the options
+// of their last use, after uses which change how they scan.
+func TestStdDiffSameOptionsAgain(t *testing.T) {
+	const in = `{"b":1,"a":[2,{}]}`
+	for _, multiline := range []bool{false, true} {
+		o, stdO := jsontext.Multiline(multiline), stdjsontext.Multiline(multiline)
+		for range 2 {
+			if got, want := jsontext.Value(in).IsValid(o), stdjsontext.Value(in).IsValid(stdO); got != want {
+				t.Errorf("IsValid with Multiline(%v): got %v, want %v", multiline, got, want)
+			}
+			got, err := jsontext.AppendFormat(nil, in, o)
+			want, stdErr := stdjsontext.AppendFormat(nil, []byte(in), stdO)
+			if string(got) != string(want) || (err == nil) != (stdErr == nil) {
+				t.Errorf("AppendFormat with Multiline(%v):\ngot:  %q, %v\nwant: %q, %v", multiline, got, err, want, stdErr)
+			}
+		}
+		var b, stdB bytes.Buffer
+		e, stdE := jsontext.NewEncoder(&b, o), stdjsontext.NewEncoder(&stdB, stdO)
+		for range 2 {
+			e.Reset(&b, o)
+			stdE.Reset(&stdB, stdO)
+			e.WriteValue(jsontext.Value(in))
+			stdE.WriteValue(stdjsontext.Value(in))
+		}
+		got, _ := jsontext.AppendFormat(nil, in, e.Options())
+		want, _ := stdjsontext.AppendFormat(nil, []byte(in), stdE.Options())
+		if b.String()+string(got) != stdB.String()+string(want) {
+			t.Errorf("an encoder reset with Multiline(%v):\ngot:  %q\nwant: %q", multiline, b.String()+string(got), stdB.String()+string(want))
+		}
+	}
+}
+
 // TestStdDiffEdgeCases compares the results of the methods and functions at the edges of their input.
 func TestStdDiffEdgeCases(t *testing.T) {
 	var voided, stdVoided = func() func() string {

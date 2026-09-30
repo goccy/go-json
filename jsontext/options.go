@@ -82,6 +82,13 @@ func (c *config) apply(opts []Options) {
 // has reports whether the property f is true.
 func (c *config) has(f flag) bool { return c.value&f != 0 }
 
+// same reports whether c sets the same options as d. The indentation and the prefix, which are compared by a
+// call, are compared only if they are set.
+func (c *config) same(d *config) bool {
+	return c.set == d.set && c.value == d.value &&
+		(c.set&indentSet == 0 || c.indent == d.indent) && (c.set&prefixSet == 0 || c.prefix == d.prefix)
+}
+
 // whitespace is the white space which an encoder writes under c.
 type whitespace struct {
 	colon, comma bool // a space after a colon and after a comma

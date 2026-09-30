@@ -37,6 +37,10 @@ func (v Value) String() string {
 // Kind returns the kind of the first token of v. A valid value never starts with KindEndObject or
 // KindEndArray.
 func (v Value) Kind() Kind {
+	// a value without leading white space, as most are, is looked at without a call
+	if len(v) > 0 && v[0] > ' ' {
+		return kindOf(v[0])
+	}
 	if i := skipSpace(v, 0); i < len(v) {
 		return kindOf(v[i])
 	}

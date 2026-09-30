@@ -45,11 +45,17 @@ type encoder struct {
 	buf  []byte        // the output which is not written to w yet
 	base int64         // the offset of buf[0] in the output
 
+	// the options as init takes them, which follow from cfg, and the options of vs: derived is the cfg which
+	// they were set from, once derivedOK is set, so that an encoder which is used again with the same options
+	// doesn't set them again.
+	derived   config
+	derivedOK bool
 	ws        whitespace
 	esc       escapeFlags
 	validUTF8 bool
-	check     bool   // check duplicate names
-	avail     []byte // the buffer of AvailableBuffer, which the output doesn't share
+	check     bool // check duplicate names
+
+	avail []byte // the buffer of AvailableBuffer, which the output doesn't share
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -91,32 +97,43 @@ func (e *encoder) init(w io.Writer) {
 		e.buf = e.bb.AvailableBuffer()
 	}
 	e.base = 0
+	if !e.derivedOK || !e.cfg.same(&e.derived) {
+		e.derive()
+	}
+	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
+	vs := &e.vs
+	vs.write = true
+	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
+	vs.run = 0
+	vs.wsFrom, vs.wsEnd = 0, 0
+	if vs.in != nil || vs.out != nil {
+		vs.in, vs.out = nil, nil
+	}
+}
+
+// derive sets the fields which follow from the options, e.cfg.
+func (e *encoder) derive() {
 	e.ws = e.cfg.whitespace()
 	e.esc = e.cfg.escapes()
 	e.validUTF8 = !e.cfg.has(allowInvalidUTF8)
 	e.check = !e.cfg.has(allowDuplicateNames)
-	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
 	vs := &e.vs
 	vs.st = &e.st
 	vs.validUTF8 = e.validUTF8
 	vs.checkNames = e.check
 	vs.lazyNames = !e.check
-	vs.in = nil
 	vs.decoding = false
 	vs.final = true
-	vs.write = true
-	vs.out = nil
 	vs.ws = e.ws
 	vs.esc = e.esc
 	vs.preserve = e.cfg.has(preserveRawStrings)
 	vs.canonInts = e.cfg.has(canonicalizeRawInts)
 	vs.canonFlts = e.cfg.has(canonicalizeRawFloats)
 	vs.reorder = e.cfg.has(reorderRawObjects)
-	vs.run = 0
-	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
-	vs.wsFrom, vs.wsEnd = 0, 0
-	vs.lines = vs.lines[:0]
-	vs.scratch = vs.scratch[:0]
+	vs.lines = vs.lines[:0] // the lines of the white space of other options
+	// whitespace may have set the defaults of Multiline in cfg: the options which were given differ from it, and
+	// are derived again.
+	e.derived, e.derivedOK = e.cfg, true
 }
 
 // Options returns the options of the encoder: the ones it was constructed or last reset with, and, for Multiline,
@@ -417,9 +434,12 @@ func (e *encoder) writeValue(v Value) error {
 	if serr != nil {
 		return &SyntacticError{ByteOffset: e.base + int64(pos+serr.pos), JSONPointer: serr.ptr, Err: serr.err}
 	}
-	if end = skipSpace(v, end); end < len(v) {
-		e.st.last().count--
-		return e.failAt(invalidChar(v[end:], "after top-level value"), pos+end, pointAt)
+	if end < len(v) {
+		// white space after the value, or an error
+		if end = skipSpace(v, end); end < len(v) {
+			e.st.last().count--
+			return e.failAt(invalidChar(v[end:], "after top-level value"), pos+end, pointAt)
+		}
 	}
 	if name {
 		e.st.last().count--

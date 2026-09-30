@@ -332,6 +332,10 @@ func scanEscape(b []byte, mode strMode) (int, rune, error) {
 	case 't':
 		return 2, '\t', nil
 	case 'u':
+		// with more input, the error of an escape sequence waits for the bytes which its message shows.
+		if len(b) < 6 && mode&strMore != 0 {
+			return 0, 0, io.ErrUnexpectedEOF
+		}
 		r, err := scanHex4(b)
 		if err != nil {
 			return 0, 0, err
@@ -339,7 +343,10 @@ func scanEscape(b []byte, mode strMode) (int, rune, error) {
 		if !utf16.IsSurrogate(r) {
 			return 6, r, nil
 		}
-		// a surrogate pair is two escape sequences
+		// a surrogate pair is two escape sequences, which the error shows.
+		if len(b) < 12 && mode&strMore != 0 {
+			return 0, 0, io.ErrUnexpectedEOF
+		}
 		if r < 0xdc00 && len(b) >= 12 && b[6] == '\\' && b[7] == 'u' {
 			if r2, err := scanHex4(b[6:]); err == nil {
 				if pair := utf16.DecodeRune(r, r2); pair != utf8.RuneError {

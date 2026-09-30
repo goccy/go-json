@@ -1,8 +1,10 @@
 package jsontext
 
 import (
+	"bytes"
 	"math"
 	"strconv"
+	"unicode/utf8"
 )
 
 // Kind is the kind of a JSON token.
@@ -194,23 +196,37 @@ func (t Token) Bool() bool {
 // String returns the unescaped value of a JSON string. For a token of another kind, it returns its raw JSON
 // text.
 func (t Token) String() string {
+	// It is small enough to be inlined: the text of a raw token, which is in the buffer of the decoder, is
+	// converted by the caller, which doesn't allocate it where the string doesn't escape.
+	s, b := t.text()
+	if b != nil {
+		return string(b)
+	}
+	return s
+}
+
+// text is the value of String, as a string or as the bytes of the buffer of a decoder.
+func (t Token) text() (string, []byte) {
 	switch t.form {
 	case formNone:
 		if t.kind == KindInvalid {
-			return "<invalid jsontext.Token>"
+			return "<invalid jsontext.Token>", nil
 		}
-		return t.kind.String()
+		return t.kind.String(), nil
 	case formRaw:
 		b := t.raw()
-		if t.kind == KindString {
-			s, _ := AppendUnquote(nil, b)
-			return string(s)
+		if t.kind != KindString {
+			return "", b
 		}
-		return string(b)
+		if v := b[1 : len(b)-1]; bytes.IndexByte(v, '\\') < 0 && utf8.Valid(v) {
+			return "", v // the value is the text between the quotes
+		}
+		s, _ := AppendUnquote(nil, b)
+		return string(s), nil
 	case formString:
-		return t.str
+		return t.str, nil
 	}
-	return string(t.appendNumber(nil))
+	return string(t.appendNumber(nil)), nil
 }
 
 // appendNumber appends the text of a number of a Go value: for a float which is not finite, the text of its
@@ -356,6 +372,9 @@ func (t Token) float(bits int) (float64, error) {
 	case formFloat, formFloat32:
 		f := math.Float64frombits(t.num)
 		if bits == 32 && t.form == formFloat {
+			if f32 := float64(float32(f)); math.IsInf(f32, 0) {
+				return f32, &numError{"Float", t.String(), strconv.ErrRange}
+			}
 			f = float64(float32(f))
 		}
 		return f, nil
@@ -374,7 +393,10 @@ func (t Token) nonFinite() (float64, bool) {
 	var s string
 	switch t.form {
 	case formFloat, formFloat32:
-		return math.Float64frombits(t.num), true
+		if f := math.Float64frombits(t.num); !math.IsNaN(f) {
+			return f, true
+		}
+		return math.NaN(), true
 	case formString:
 		s = t.str
 	case formRaw:

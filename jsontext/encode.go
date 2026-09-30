@@ -157,16 +157,17 @@ func (e *encoder) appendDelim(b []byte, k Kind) []byte {
 	if e.st.depth() == 0 {
 		return b
 	}
-	if k == KindEndObject || k == KindEndArray {
-		if l.count > 0 && e.ws.multiline {
-			b = e.ws.appendLine(b, e.st.depth()-1)
-		}
-		return b
-	}
 	if l.needValue() {
+		// a colon, which is also the delimiter of the offset of an error of an end delimiter there
 		b = append(b, ':')
 		if e.ws.colon {
 			b = append(b, ' ')
+		}
+		return b
+	}
+	if k == KindEndObject || k == KindEndArray {
+		if l.count > 0 && e.ws.multiline {
+			b = e.ws.appendLine(b, e.st.depth()-1)
 		}
 		return b
 	}
@@ -198,7 +199,7 @@ func (e *encoder) writeToken(t Token) error {
 			return e.failAt(errMismatchDelim, len(e.buf)+e.delimLen(k), pointNext)
 		}
 		if l.needValue() {
-			return e.failAt(errMissingValue, len(e.buf)+e.delimLen(KindString), pointAt)
+			return e.failAt(errMissingValue, len(e.buf)+e.delimLen(k), pointAt)
 		}
 	case KindInvalid:
 		return e.failAt(errInvalidToken, len(e.buf), pointNext)
@@ -218,13 +219,11 @@ func (e *encoder) writeToken(t Token) error {
 			return e.failAt(err, pos, pointNext)
 		}
 		e.buf = append(b, byte(k))
-		e.endValue()
-		return nil
+		return e.endValue()
 	case KindEndObject, KindEndArray:
 		e.st.pop()
 		e.buf = append(b, byte(k))
-		e.endValue()
-		return nil
+		return e.endValue()
 	case KindString:
 		b, err = e.appendString(b, t, l.needName())
 	default:
@@ -235,8 +234,7 @@ func (e *encoder) writeToken(t Token) error {
 	}
 	e.st.last().count++
 	e.buf = b
-	e.endValue()
-	return nil
+	return e.endValue()
 }
 
 // delimLen is the length of the delimiter and the white space which precede a token of kind k.
@@ -285,7 +283,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 // insertName adds a name of the innermost object, written at pos.
 func (e *encoder) insertName(pos int, name []byte, mangle bool) error {
 	if mangle {
-		name = []byte(string(bytes.ToValidUTF8(name, []byte("�"))))
+		name = appendValidUTF8(nil, name)
 	}
 	if !e.st.insertName(name, e.check) {
 		ptr := e.st.namePointer(name)
@@ -306,18 +304,19 @@ func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
 	return e.vs.appendNumber(b, raw), nil
 }
 
-// endValue ends a top-level value which is complete: a line feed follows it, and the output is written.
-func (e *encoder) endValue() {
+// endValue ends a token or value: after a complete top-level value, a line feed, and the output is written,
+// as it is when the buffer is large.
+func (e *encoder) endValue() error {
 	if e.st.depth() > 0 {
 		if len(e.buf) > 1<<16 {
-			e.flush()
+			return e.flush()
 		}
-		return
+		return nil
 	}
 	if !e.cfg.has(omitTopLevelNewline) {
 		e.buf = append(e.buf, '\n')
 	}
-	e.flush()
+	return e.flush()
 }
 
 // flush writes the buffer to the writer.
@@ -332,7 +331,10 @@ func (e *encoder) flush() error {
 	} else {
 		e.buf = e.buf[:copy(e.buf, e.buf[n:])]
 	}
-	return err
+	if err != nil {
+		return &ioError{write: true, err: err}
+	}
+	return nil
 }
 
 // WriteValue writes the next raw value and advances the write offset. The encoder checks that the value is
@@ -376,6 +378,5 @@ func (e *encoder) writeValue(v Value) error {
 		e.st.last().count++
 	}
 	e.buf = b
-	e.endValue()
-	return nil
+	return e.endValue()
 }

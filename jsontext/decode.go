@@ -3,6 +3,7 @@ package jsontext
 import (
 	"bytes"
 	"io"
+	"unicode/utf8"
 )
 
 // Decoder is a streaming decoder of raw JSON tokens and values. It reads a stream of top-level JSON values,
@@ -45,9 +46,9 @@ type decoder struct {
 	shared bool          // buf is the array of bb, which the decoder must not write to
 	base   int64         // the offset of buf[0] in the input
 
-	pos                int // the read offset: the end of the last token or value
-	prevStart, prevEnd int // the last token or value
-	rerr               error
+	pos                int   // the read offset: the end of the last token or value
+	prevStart, prevEnd int   // the last token or value
+	rerr               error // the error of the reader in the current call
 	peekErr            error // an error which PeekKind found, which the next read reports
 }
 
@@ -98,18 +99,22 @@ const minRead = 512
 
 // fetch reads more input to the end of the buffer. It may move the buffer, and drop the input before the last
 // token: it returns the number of bytes by which the positions in the buffer moved back. At the end of the
-// input, it returns the error of the reader.
+// input, it returns io.EOF, and at an error of the reader, the error in an ioError.
 func (d *decoder) fetch() (int, error) {
 	if d.rerr != nil {
 		return 0, d.rerr
 	}
 	if d.bb != nil {
 		b := d.bb.Next(d.bb.Len())
-		if len(b) == 0 {
+		switch {
+		case len(b) == 0:
 			d.rerr = io.EOF
 			return 0, io.EOF
-		}
-		if len(d.buf) == 0 && !d.shared {
+		case d.shared:
+			// the buffer was written to after the decoder took its array, which the write may have changed.
+			d.rerr = &ioError{err: errBufferWriteAfterNext}
+			return 0, d.rerr
+		case len(d.buf) == 0:
 			d.buf, d.shared = b, true
 			return 0, nil
 		}
@@ -121,6 +126,12 @@ func (d *decoder) fetch() (int, error) {
 	for tries := 0; ; tries++ {
 		n, err := d.r.Read(d.buf[len(d.buf):cap(d.buf)])
 		d.buf = d.buf[:len(d.buf)+n]
+		if err == nil && n == 0 && tries == 100 {
+			err = io.ErrNoProgress
+		}
+		if err != nil && err != io.EOF {
+			err = &ioError{err: err}
+		}
 		if err != nil {
 			d.rerr = err
 		}
@@ -129,10 +140,6 @@ func (d *decoder) fetch() (int, error) {
 		}
 		if err != nil {
 			return shift, err
-		}
-		if tries == 100 {
-			d.rerr = io.ErrNoProgress
-			return shift, d.rerr
 		}
 	}
 }
@@ -176,6 +183,16 @@ func (d *decoder) skip(pos int) (int, error) {
 	}
 }
 
+// charError is the error of the invalid character at pos, which is not expected where the text says. A
+// character which the buffer cuts is read whole first, so that the error shows it as the input has it.
+func (d *decoder) charError(pos int, text string, where int) error {
+	for d.rerr == nil && !utf8.FullRune(d.buf[pos:]) {
+		shift, _ := d.fetch()
+		pos -= shift
+	}
+	return d.failAt(invalidChar(d.buf[pos:], text), pos, where)
+}
+
 // failAt is a SyntacticError at the position pos of the buffer, in the value where points.
 func (d *decoder) failAt(err error, pos int, where int) error {
 	return &SyntacticError{ByteOffset: d.base + int64(pos), JSONPointer: d.st.pointer(where), Err: err}
@@ -199,14 +216,10 @@ func (d *decoder) endError(pos int, err error, where int) error {
 // be followed by a read call.
 func (d *Decoder) PeekKind() Kind {
 	s := &d.d
-	if s.peekErr != nil {
-		return KindInvalid
-	}
 	pos, err := s.beforeToken(true)
+	s.peekErr = nil // an error of an earlier PeekKind is replaced
 	if err != nil {
-		if err != io.EOF {
-			s.peekErr = err
-		}
+		s.peekErr = err // even io.EOF, which the next read reports once
 		return KindInvalid
 	}
 	return kindOf(s.buf[pos])
@@ -218,6 +231,8 @@ func (d *Decoder) PeekKind() Kind {
 // A comma or a colon is taken first, and then compared with the delimiter which the next token needs: one which
 // is not needed, or not the one needed, is an invalid character itself.
 func (d *decoder) beforeToken(peek bool) (int, error) {
+	// an error of the reader, even io.EOF, ends only the call which met it: the next one reads again.
+	d.rerr = nil
 	pos, err := d.skip(d.pos)
 	if err != nil {
 		return pos, d.endError(pos, err, pointAt)
@@ -230,8 +245,10 @@ func (d *decoder) beforeToken(peek bool) (int, error) {
 			if err != io.EOF || found == need {
 				return pos, d.endError(pos, err, pointAt)
 			}
+		} else if c := d.buf[pos]; (c == '}' || c == ']') && !d.st.last().needValue() {
+			need = 0 // before an end delimiter of any kind, a delimiter is the error
 		} else {
-			need = d.delimBefore(d.buf[pos], peek)
+			need = d.delimBefore(c, peek)
 		}
 	}
 	switch {
@@ -240,7 +257,7 @@ func (d *decoder) beforeToken(peek bool) (int, error) {
 	case found == 0:
 		return pos, d.missingDelim(pos)
 	case need == 0:
-		return at, d.failAt(invalidChar(d.buf[at:], "at start of value"), at, pointAt)
+		return at, d.charError(at, "at start of value", pointAt)
 	default:
 		// the delimiter of the other kind is reported as the character where the needed one is
 		return at, d.missingDelim(at)
@@ -269,16 +286,16 @@ func (d *decoder) missingDelim(pos int) error {
 	l := d.st.last()
 	switch {
 	case l.needValue():
-		return d.failAt(invalidChar(d.buf[pos:], "after object name (expecting ':')"), pos, pointAt)
+		return d.charError(pos, "after object name (expecting ':')", pointAt)
 	case l.object:
 		// the end of an array in an object is reported in the level which contains the object.
 		where := pointAt
 		if d.buf[pos] == ']' {
 			where = pointOut
 		}
-		return d.failAt(invalidChar(d.buf[pos:], "after object value (expecting ',' or '}')"), pos, where)
+		return d.charError(pos, "after object value (expecting ',' or '}')", where)
 	}
-	return d.failAt(invalidChar(d.buf[pos:], "after array element (expecting ',' or ']')"), pos, pointAt)
+	return d.charError(pos, "after array element (expecting ',' or ']')", pointAt)
 }
 
 // ReadToken reads the next Token and advances the read offset. The token is only valid until the next Peek,
@@ -312,19 +329,8 @@ func (d *decoder) readToken() (Token, error) {
 		}
 		return BeginArray, nil
 	case '}', ']':
-		switch {
-		case d.st.depth() == 0:
-			return Token{}, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointAt)
-		case l.object != (c == '}'):
-			if l.needValue() {
-				return Token{}, d.failAt(invalidChar(d.buf[pos:], "after object value (expecting ',' or '}')"), pos, pointHere)
-			}
-			if l.object {
-				return Token{}, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointAt)
-			}
-			return Token{}, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointNext)
-		case l.needValue():
-			return Token{}, d.failAt(errMissingValue, pos, pointAt)
+		if err := d.closeError(pos); err != nil {
+			return Token{}, err
 		}
 		d.st.pop()
 		d.done(pos, pos+1)
@@ -364,6 +370,27 @@ func (d *decoder) readToken() (Token, error) {
 	}
 }
 
+// closeError is the error of the end delimiter at pos, or nil if it closes the innermost object or array.
+func (d *decoder) closeError(pos int) error {
+	l := d.st.last()
+	c := d.buf[pos]
+	switch {
+	case d.st.depth() == 0:
+		return d.charError(pos, "at start of value", pointAt)
+	case l.object != (c == '}'):
+		if l.needValue() {
+			return d.charError(pos, "after object value (expecting ',' or '}')", pointHere)
+		}
+		if l.object {
+			return d.charError(pos, "at start of value", pointAt)
+		}
+		return d.charError(pos, "at start of value", pointNext)
+	case l.needValue():
+		return d.failAt(errMissingValue, pos, pointAt)
+	}
+	return nil
+}
+
 // done records the token or value at buf[start:end] as the last one read.
 func (d *decoder) done(start, end int) {
 	d.prevStart, d.prevEnd, d.pos = start, end, end
@@ -400,9 +427,9 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		switch c {
 		case '"':
 			if n > 0 {
-				n, f, err = scanStringFrom(b, n, f, strModeOf(validUTF8, d.rerr == nil))
+				n, f, err = scanStringFrom(b, n, f, strModeOf(validUTF8, d.rerr != io.EOF))
 			} else {
-				n, f, err = scanString(b, strModeOf(validUTF8, d.rerr == nil))
+				n, f, err = scanString(b, strModeOf(validUTF8, d.rerr != io.EOF))
 			}
 		case 'n', 't', 'f':
 			n, err = scanLiteral(b, literalOf(Kind(c)))
@@ -411,14 +438,17 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 				if (c == ',' || c == ':') && d.st.last().count == 0 {
 					where = pointAt // a delimiter before the first value
 				}
-				return pos, pos, 0, d.failAt(invalidChar(b, "at start of value"), pos, where)
+				return pos, pos, 0, d.charError(pos, "at start of value", where)
 			}
 			n, st, err = scanNumberFrom(b, n, st)
-			if err == nil && n == len(b) && d.rerr == nil {
+			if err == nil && n == len(b) && d.rerr != io.EOF {
 				err = io.ErrUnexpectedEOF // the number may continue
 			}
 		}
-		if err != io.ErrUnexpectedEOF || d.rerr != nil {
+		if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
+			// an invalid character which the buffer cuts is shown whole: the token is scanned again with more
+			n, f, st = 0, 0, numState{}
+		} else if err != io.ErrUnexpectedEOF || d.rerr == io.EOF {
 			break
 		}
 		shift, ferr := d.fetch()
@@ -434,12 +464,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		return pos, pos + n, f, nil
 	}
 	if err == io.ErrUnexpectedEOF && kindOf(c) == KindNumber {
-		if d.rerr != io.EOF {
-			return pos, pos, 0, d.rerr
-		}
-		n = 0 // a number which the input cuts is reported at its start
-	} else if err == io.ErrUnexpectedEOF && d.rerr != io.EOF {
-		return pos, pos, 0, d.rerr
+		n = 0 // a number which the end of the input cuts is reported at its start
 	}
 	return pos, pos, 0, d.failAt(err, pos+n, where)
 }
@@ -478,17 +503,15 @@ func (d *decoder) readValue() (int, int, error) {
 	l := d.st.last()
 	switch c := d.buf[pos]; {
 	case c == '}' || c == ']':
-		if d.st.depth() == 0 || l.object != (c == '}') {
-			return 0, 0, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointNext)
-		}
-		return 0, 0, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointAt)
-	case l.needName():
-		if c != '"' {
-			if kindOf(c) != KindInvalid {
-				return 0, 0, d.failAt(ErrNonStringName, pos, pointAt)
+		// a value can't start with an end delimiter; an end delimiter which doesn't fit the innermost object or
+		// array is reported as ReadToken reports it, but the end of an object which needs a value.
+		if !(l.needValue() && c == '}') {
+			if err := d.closeError(pos); err != nil {
+				return 0, 0, err
 			}
-			return 0, 0, d.failAt(invalidChar(d.buf[pos:], "at start of value"), pos, pointAt)
 		}
+		return 0, 0, d.charError(pos, "at start of value", pointNext)
+	case l.needName() && c == '"':
 		start, end, f, err := d.scanToken(pos, pointAt)
 		if err != nil {
 			return 0, 0, err
@@ -500,19 +523,30 @@ func (d *decoder) readValue() (int, int, error) {
 		d.done(start, end)
 		return start, end, nil
 	}
+	// a value where a name is must be a string, which is reported once the value is read.
+	name := l.needName()
 	count := l.count
 	rp := resumePoint{pos: pos, base: d.st.depth()}
 	start := pos
 	for {
-		d.vs.final = d.rerr != nil
+		d.vs.final = d.rerr == io.EOF
 		end, serr := d.vs.resume(d.buf, &rp)
+		if serr == nil && name {
+			d.vs.restore(rp.base, count)
+			return 0, 0, d.failAt(ErrNonStringName, start, pointAt)
+		}
 		if serr == nil {
 			d.done(start, end)
 			return start, end, nil
 		}
 		if serr != errCut {
 			d.vs.restore(rp.base, count)
-			return 0, 0, &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
+			if _, ok := serr.err.(*textError); ok && d.rerr == nil && !utf8.FullRune(d.buf[serr.pos:]) {
+				// an invalid character which the buffer cuts is shown whole: the value is read again with more
+				rp = resumePoint{pos: start, base: rp.base}
+			} else {
+				return 0, 0, &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
+			}
 		}
 		shift, ferr := d.fetch()
 		rp.pos -= shift

@@ -48,7 +48,24 @@ func (p Pointer) LastToken() string {
 
 // AppendToken appends the token tok to p and returns the pointer.
 func (p Pointer) AppendToken(tok string) Pointer {
+	if !utf8.ValidString(tok) {
+		tok = string(appendValidUTF8(nil, tok))
+	}
 	return Pointer(appendPointerToken([]byte(p), tok))
+}
+
+// appendValidUTF8 appends s, whose each byte of invalid UTF-8 is U+FFFD.
+func appendValidUTF8[Bytes ~[]byte | ~string](dst []byte, s Bytes) []byte {
+	for i := 0; i < len(s); {
+		r, n := utf8.DecodeRuneInString(string(s[i:min(i+utf8.UTFMax, len(s))]))
+		if r == utf8.RuneError && n == 1 {
+			dst = append(dst, "�"...)
+		} else {
+			dst = append(dst, s[i:i+n]...)
+		}
+		i += n
+	}
+	return dst
 }
 
 // Tokens returns an iterator over the tokens of p, from the first to the last.

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -62,6 +63,11 @@ func assertStdDiff(t *testing.T, in []byte) {
 			if got != want {
 				t.Fatalf("ReadValue of %q ( streaming %v, %s ):\ngot:  %s\nwant: %s", in, streaming, opts.name, got, want)
 			}
+			got = readMixed(in, streaming, opts.goJSON...)
+			want = readStdMixed(in, streaming, opts.std...)
+			if got != want {
+				t.Fatalf("ReadToken and ReadValue of %q ( streaming %v, %s ):\ngot:  %s\nwant: %s", in, streaming, opts.name, got, want)
+			}
 		}
 	}
 	for _, opts := range stdDiffFormatOptions {
@@ -101,7 +107,170 @@ func assertStdDiff(t *testing.T, in []byte) {
 		if got != want {
 			t.Fatalf("WriteToken of the tokens of %q ( %s ):\ngot:  %s\nwant: %s", in, opts.name, got, want)
 		}
+		got = writeMixed(in, opts.goJSON...)
+		want = writeStdMixed(in, opts.std...)
+		if got != want {
+			t.Fatalf("WriteToken and WriteValue of %q ( %s ):\ngot:  %s\nwant: %s", in, opts.name, got, want)
+		}
 	}
+}
+
+// readMixed reads the input by ReadToken, and by ReadValue every third call, and logs the state of the decoder
+// after each call: its offset, its stack, and, when it reads from a bytes.Buffer, the buffer which it didn't read.
+func readMixed(in []byte, streaming bool, opts ...jsontext.Options) string {
+	d := jsontext.NewDecoder(reader(in, streaming), opts...)
+	var out bytes.Buffer
+	for i := 0; ; i++ {
+		var err error
+		if i%3 == 2 {
+			var v jsontext.Value
+			v, err = d.ReadValue()
+			fmt.Fprintf(&out, "[V %q", v)
+		} else {
+			var tok jsontext.Token
+			tok, err = d.ReadToken()
+			fmt.Fprintf(&out, "[T %q%s", tok.String(), numberAccessors(tok))
+		}
+		fmt.Fprintf(&out, " %d %q", d.InputOffset(), d.StackPointer())
+		for l := 0; l <= d.StackDepth(); l++ {
+			k, n := d.StackIndex(l)
+			fmt.Fprintf(&out, " %v:%d", k, n)
+		}
+		if !streaming {
+			fmt.Fprintf(&out, " %q", d.UnreadBuffer())
+		}
+		out.WriteString("] ")
+		if err != nil {
+			fmt.Fprintf(&out, "%s", valueErrorString(err, streaming))
+			return out.String()
+		}
+	}
+}
+
+func readStdMixed(in []byte, streaming bool, opts ...stdjsontext.Options) string {
+	d := stdjsontext.NewDecoder(reader(in, streaming), opts...)
+	var out bytes.Buffer
+	for i := 0; ; i++ {
+		var err error
+		if i%3 == 2 {
+			var v stdjsontext.Value
+			v, err = d.ReadValue()
+			fmt.Fprintf(&out, "[V %q", v)
+		} else {
+			var tok stdjsontext.Token
+			tok, err = d.ReadToken()
+			fmt.Fprintf(&out, "[T %q%s", tok.String(), stdNumberAccessors(tok))
+		}
+		fmt.Fprintf(&out, " %d %q", d.InputOffset(), d.StackPointer())
+		for l := 0; l <= d.StackDepth(); l++ {
+			k, n := d.StackIndex(l)
+			fmt.Fprintf(&out, " %v:%d", k, n)
+		}
+		if !streaming {
+			fmt.Fprintf(&out, " %q", d.UnreadBuffer())
+		}
+		out.WriteString("] ")
+		if err != nil {
+			fmt.Fprintf(&out, "%s", valueErrorString(err, streaming))
+			return out.String()
+		}
+	}
+}
+
+// numberAccessors are the results of the methods of a number token, or of Float of a string token which may
+// hold NaN or an infinity.
+func numberAccessors(tok jsontext.Token) string {
+	switch tok.Kind() {
+	case '0':
+		i, ierr := tok.Int()
+		u, uerr := tok.Uint()
+		f, ferr := tok.Float()
+		f32, f32err := tok.Float32()
+		return fmt.Sprintf(" %d %v %d %v %v %v %v %v", i, ierr, u, uerr, f, ferr, f32, f32err)
+	case '"':
+		return " " + recovered(func() string { f, err := tok.Float(); return fmt.Sprint(f, err) })
+	}
+	return ""
+}
+
+func stdNumberAccessors(tok stdjsontext.Token) string {
+	switch tok.Kind() {
+	case '0':
+		i, ierr := tok.Int()
+		u, uerr := tok.Uint()
+		f, ferr := tok.Float()
+		f32, f32err := tok.Float32()
+		return fmt.Sprintf(" %d %v %d %v %v %v %v %v", i, ierr, u, uerr, f, ferr, f32, f32err)
+	case '"':
+		return " " + recovered(func() string { f, err := tok.Float(); return fmt.Sprint(f, err) })
+	}
+	return ""
+}
+
+// recovered is the result of f, or the value of its panic.
+func recovered(f func() string) (s string) {
+	defer func() {
+		if r := recover(); r != nil {
+			s = fmt.Sprint("panic: ", r)
+		}
+	}()
+	return f()
+}
+
+// writeMixed writes the tokens of in, which are read with invalid UTF-8 and duplicate names allowed, and writes
+// every other object and array by WriteValue, with white space around it.
+func writeMixed(in []byte, opts ...jsontext.Options) string {
+	d := jsontext.NewDecoder(bytes.NewReader(in), jsontext.AllowInvalidUTF8(true), jsontext.AllowDuplicateNames(true))
+	var out bytes.Buffer
+	e := jsontext.NewEncoder(&out, opts...)
+	var log bytes.Buffer
+	for i := 0; ; i++ {
+		if k := d.PeekKind(); i%2 == 0 && (k == '{' || k == '[' || k == '"' || k == '0') {
+			v, err := d.ReadValue()
+			if err != nil {
+				break
+			}
+			if err := e.WriteValue(append(append([]byte(" "), v...), " \n"...)); err != nil {
+				fmt.Fprintf(&log, "%s at %d ", errorString(err), e.OutputOffset())
+			}
+			continue
+		}
+		tok, err := d.ReadToken()
+		if err != nil {
+			break
+		}
+		if err := e.WriteToken(tok); err != nil {
+			fmt.Fprintf(&log, "%s at %d ", errorString(err), e.OutputOffset())
+		}
+	}
+	return log.String() + completeOutput(&out, e.StackDepth())
+}
+
+func writeStdMixed(in []byte, opts ...stdjsontext.Options) string {
+	d := stdjsontext.NewDecoder(bytes.NewReader(in), stdjsontext.AllowInvalidUTF8(true), stdjsontext.AllowDuplicateNames(true))
+	var out bytes.Buffer
+	e := stdjsontext.NewEncoder(&out, opts...)
+	var log bytes.Buffer
+	for i := 0; ; i++ {
+		if k := d.PeekKind(); i%2 == 0 && (k == '{' || k == '[' || k == '"' || k == '0') {
+			v, err := d.ReadValue()
+			if err != nil {
+				break
+			}
+			if err := e.WriteValue(append(append([]byte(" "), v...), " \n"...)); err != nil {
+				fmt.Fprintf(&log, "%s at %d ", errorString(err), e.OutputOffset())
+			}
+			continue
+		}
+		tok, err := d.ReadToken()
+		if err != nil {
+			break
+		}
+		if err := e.WriteToken(tok); err != nil {
+			fmt.Fprintf(&log, "%s at %d ", errorString(err), e.OutputOffset())
+		}
+	}
+	return log.String() + completeOutput(&out, e.StackDepth())
 }
 
 type stdDiffOptions struct {
@@ -200,7 +369,7 @@ func readTokens(in []byte, streaming bool, opts ...jsontext.Options) string {
 		tok, err := d.ReadToken()
 		fmt.Fprintf(&out, "[%v %v %q %d %d %q] ", k, tok.Kind(), tok.String(), d.InputOffset(), d.StackDepth(), d.StackPointer())
 		if err != nil {
-			fmt.Fprintf(&out, "%s", errorString(err))
+			fmt.Fprintf(&out, "%s", tokenErrorString(err, streaming))
 			return out.String()
 		}
 	}
@@ -214,7 +383,7 @@ func readStdTokens(in []byte, streaming bool, opts ...stdjsontext.Options) strin
 		tok, err := d.ReadToken()
 		fmt.Fprintf(&out, "[%v %v %q %d %d %q] ", k, tok.Kind(), tok.String(), d.InputOffset(), d.StackDepth(), d.StackPointer())
 		if err != nil {
-			fmt.Fprintf(&out, "%s", errorString(err))
+			fmt.Fprintf(&out, "%s", tokenErrorString(err, streaming))
 			return out.String()
 		}
 	}
@@ -297,11 +466,32 @@ func valueErrorString(err error, streaming bool) string {
 	var stdErr *stdjsontext.SyntacticError
 	switch {
 	case errors.As(err, &serr):
-		return fmt.Sprintf("SyntacticError at %d: %v", serr.ByteOffset, serr.Err)
+		return fmt.Sprintf("SyntacticError at %d: %s", serr.ByteOffset, cutCharacter(serr.Err.Error()))
 	case errors.As(err, &stdErr):
-		return fmt.Sprintf("SyntacticError at %d: %v", stdErr.ByteOffset, stdErr.Err)
+		return fmt.Sprintf("SyntacticError at %d: %s", stdErr.ByteOffset, cutCharacter(stdErr.Err.Error()))
 	}
 	return errorString(err)
+}
+
+// tokenErrorString is errorString of an error of ReadToken, with the invalid character left out from a
+// streaming decoder (see cutCharacter).
+func tokenErrorString(err error, streaming bool) string {
+	if !streaming {
+		return errorString(err)
+	}
+	return cutCharacter(errorString(err))
+}
+
+// quotedInput is the invalid character or escape sequence which an error text quotes.
+var quotedInput = regexp.MustCompile("(invalid character) '(\\\\.|[^\\\\'])+'|(invalid (escape sequence|surrogate pair)) (`[^`]*`|\"(\\\\.|[^\\\\\"])*\")")
+
+// cutCharacter is the text of an error without the character or escape sequence which it quotes as invalid:
+// encoding/json/jsontext quotes the bytes of the input which its buffer holds, which the end of the buffer may
+// cut, as a buffer of a byte at a time does, where github.com/goccy/go-json/jsontext reads the rest first, so
+// that its errors don't depend on how the input is read. The text of the error of encoding/json/jsontext is not
+// structured: it is matched as text.
+func cutCharacter(s string) string {
+	return quotedInput.ReplaceAllString(s, "$1$3")
 }
 
 // completeOutput is the output of an encoder whose top-level values are complete: the output of a value which

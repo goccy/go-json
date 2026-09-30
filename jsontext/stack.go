@@ -13,8 +13,9 @@ const maxDepth = 10000
 type level struct {
 	count  int64
 	object bool
-	first  int // for an object, the index in names.ends of its first name
-	last   int // for an object, the index in names.ends of its last name
+	first  int   // for an object, the index in names.ends of its first name
+	last   int   // for an object, the index in names.ends of its last name, or -1
+	named  int64 // for an object, its count after its last name was added
 }
 
 // stack is the state of the grammar: the levels of the nesting, the top level first, and the names of the open
@@ -40,7 +41,7 @@ func (s *stack) push(object bool) error {
 		return errMaxDepth
 	}
 	s.last().count++
-	s.levels = append(s.levels, level{object: object, first: len(s.names.ends)})
+	s.levels = append(s.levels, level{object: object, first: len(s.names.ends), last: -1})
 	return nil
 }
 
@@ -97,7 +98,8 @@ func (s *stack) pointerBytes(where int) []byte {
 		switch {
 		case l.object:
 			// the last name, while its value or a value in it is read, and after it was read if pointLast.
-			if l.count > 0 && (l.count%2 == 1 || !innermost || where == pointLast) {
+			// the name must be the one of the last member, which a value where a name is has not.
+			if l.last >= 0 && l.named >= l.count-1 && (l.count%2 == 1 || !innermost || where == pointLast) {
 				b = appendPointerToken(b, s.names.get(l.last))
 			}
 		case !innermost || where == pointLast:
@@ -124,6 +126,7 @@ func (s *stack) insertName(name []byte, check bool) bool {
 	}
 	n.add(l.first, name)
 	l.last = len(n.ends) - 1
+	l.named = l.count + 1
 	return true
 }
 

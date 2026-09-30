@@ -35,7 +35,7 @@ var (
 	errMismatchDelim = errors.New("mismatching structural token for object or array")
 	errMissingValue  = errors.New("missing value after object name")
 	errMaxDepth      = errors.New("exceeded max depth")
-	errInvalidToken  = errors.New("invalid token kind: invalid")
+	errInvalidToken  = errors.New("invalid jsontext.Token")
 )
 
 // SyntacticError describes an error of the JSON grammar found while encoding or decoding.
@@ -103,6 +103,24 @@ func shortPointer(p string) string {
 	}
 	return p[:head] + sep + p[tail:]
 }
+
+// ioError is an error of the reader of a Decoder or the writer of an Encoder.
+type ioError struct {
+	write bool
+	err   error
+}
+
+func (e *ioError) Error() string {
+	if e.write {
+		return "jsontext: write error: " + e.err.Error()
+	}
+	return "jsontext: read error: " + e.err.Error()
+}
+
+func (e *ioError) Unwrap() error { return e.err }
+
+// errBufferWriteAfterNext reports a write to the bytes.Buffer which a Decoder reads in place.
+var errBufferWriteAfterNext = errors.New("invalid bytes.Buffer.Write call after calling bytes.Buffer.Next")
 
 // textError is an error of the text of a token: an invalid character or escape sequence.
 type textError struct {

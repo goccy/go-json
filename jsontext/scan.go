@@ -1,6 +1,7 @@
 package jsontext
 
 import (
+	"bytes"
 	"io"
 	"slices"
 	"unicode/utf16"
@@ -118,7 +119,7 @@ value:
 	switch c := b[i]; c {
 	case '{', '[':
 		if err := s.st.push(c == '{'); err != nil {
-			return i, s.fail(err, i, pointAt)
+			return i, s.fail(err, i, pointNext)
 		}
 		if s.write {
 			s.out = append(s.out, c)
@@ -162,6 +163,15 @@ value:
 		i += n
 	default:
 		if kindOf(c) != KindNumber {
+			if l := &s.st.levels[base]; s.decoding && base > 0 && l.count > 1 && (c == ']' && l.object || c == '}' && !l.object) {
+				// encoding/json/jsontext reports an end delimiter where a value is, in a value which a decoder
+				// reads in an object or array, as the error of the object or array where the value is, when it
+				// is the end of the other kind.
+				if l.object {
+					return i, s.fail(invalidChar(b[i:], "after object value (expecting ',' or '}')"), i, pointHere)
+				}
+				return i, s.fail(invalidChar(b[i:], "after array element (expecting ',' or ']')"), i, pointHere)
+			}
 			return i, s.fail(invalidChar(b[i:], "at start of value"), i, pointNext)
 		}
 		var st numState
@@ -369,6 +379,9 @@ func (w *whitespace) appendLine(b []byte, depth int) []byte {
 
 // appendNumber appends the number b, canonicalized if the options say so.
 func (s *valueScanner) appendNumber(dst, b []byte) []byte {
+	if string(b) == "-0" && (s.canonInts || s.canonFlts) {
+		return append(dst, '0') // -0 is 0 under either option
+	}
 	if isInteger(b) {
 		if s.canonInts {
 			return appendCanonicalNumber(dst, b)
@@ -403,7 +416,15 @@ func (m *memberList) endMember(pos int) {
 
 // reorder sorts the members in out, which are separated by commas and white space, by their names.
 func (m *memberList) reorder(out []byte) []byte {
-	if len(m.members) < 2 || slices.IsSortedFunc(m.members, compareMembers) {
+	// members of the same name, or of names which are the same once invalid UTF-8 is mangled, are ordered by
+	// their output.
+	compare := func(a, b member) int {
+		if c := compareMembers(a, b); c != 0 {
+			return c
+		}
+		return bytes.Compare(out[a.start:a.end], out[b.start:b.end])
+	}
+	if len(m.members) < 2 || slices.IsSortedFunc(m.members, compare) {
 		return out
 	}
 	// the separator of the members, from the end of the first one to the start of the second one.
@@ -411,7 +432,7 @@ func (m *memberList) reorder(out []byte) []byte {
 	lead := string(out[m.start:m.members[0].start])
 	tail := string(out[m.members[len(m.members)-1].end:])
 	ordered := slices.Clone(m.members)
-	slices.SortStableFunc(ordered, compareMembers)
+	slices.SortFunc(ordered, compare)
 	buf := []byte(lead)
 	for i, x := range ordered {
 		if i > 0 {

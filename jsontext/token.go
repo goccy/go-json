@@ -245,12 +245,20 @@ func (t Token) Kind() Kind {
 // kind is the kind of t. The kind of a raw token is the one of the text of the decoder at its offset, which a
 // Reset of the decoder may change, as encoding/json/jsontext reads it.
 func (t Token) kind() Kind {
-	src := t.source()
-	if src.dec == nil {
-		return src.kind
+	if t.src != nil && t.src.dec == nil {
+		return t.src.kind // inlined, for the tokens which the encoder writes
+	}
+	return t.otherKind()
+}
+
+// otherKind is the kind of the zero Token and of a raw token.
+func (t Token) otherKind() Kind {
+	if t.src == nil {
+		return KindInvalid
 	}
 	t.checkValid()
-	return kindOf(src.dec.buf[src.dec.prevStart])
+	dec := t.src.dec
+	return kindOf(dec.buf[dec.prevStart])
 }
 
 // Bool returns the value of a JSON boolean. It panics if the token is not a JSON boolean.

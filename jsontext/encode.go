@@ -243,7 +243,7 @@ func (e *encoder) writeToken(t Token) error {
 	case KindString:
 		b, err = e.appendString(b, t, l.needName())
 	default:
-		if t.form == formFloat {
+		if t.src == &floatSource {
 			b = appendFloat(b, math.Float64frombits(t.num), 64) // a finite number, whose kind is KindNumber
 		} else {
 			b, err = e.appendNumberToken(b, t)
@@ -290,7 +290,7 @@ func (e *encoder) delimLen(k Kind) int {
 // appendString appends the string token t, a name of an object if name is set.
 func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 	pos := len(b)
-	switch t.form {
+	switch t.source().form {
 	case formString:
 		var valid bool
 		b, valid = appendQuoted(b, t.str, e.esc)
@@ -338,7 +338,7 @@ func (e *encoder) insertName(pos int, name []byte, mangle bool) error {
 
 // appendNumberToken appends the number token t.
 func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
-	if t.form != formRaw {
+	if t.source().form != formRaw {
 		return t.appendNumber(b), nil
 	}
 	raw := t.raw()

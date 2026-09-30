@@ -50,6 +50,8 @@ type decoder struct {
 	prevStart, prevEnd int   // the last token or value
 	rerr               error // the error of the reader in the current call
 	peekErr            error // an error which PeekKind found, which the next read reports
+
+	rawString, rawNumber tokenSource // the sources of its raw tokens
 }
 
 // NewDecoder constructs a streaming decoder which reads from r.
@@ -80,6 +82,8 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	s.buf = s.buf[:0]
 	s.base, s.pos, s.prevStart, s.prevEnd = 0, 0, 0, 0
 	s.rerr, s.peekErr = nil, nil
+	s.rawString = tokenSource{dec: s, kind: KindString, form: formRaw}
+	s.rawNumber = tokenSource{dec: s, kind: KindNumber, form: formRaw}
 	s.vs = valueScanner{
 		st:         &s.st,
 		validUTF8:  !s.cfg.has(allowInvalidUTF8),
@@ -372,7 +376,7 @@ func (d *decoder) readToken() (Token, error) {
 		}
 		l.count++
 		d.done(pos, pos+n)
-		return Token{dec: d, num: uint64(d.base + int64(pos)), kind: KindString, form: formRaw}, nil
+		return Token{src: &d.rawString, num: uint64(d.base + int64(pos))}, nil
 	case '{', '[':
 		if name || d.st.push(c == '{') != nil {
 			return d.readTokenSlow()
@@ -389,7 +393,7 @@ func (d *decoder) readToken() (Token, error) {
 		}
 		l.count++
 		d.done(pos, pos+len(lit))
-		return Token{kind: Kind(c)}, nil
+		return literalToken(Kind(c)), nil
 	}
 	n := numberEnd(b[pos:])
 	if name || n < 0 {
@@ -397,7 +401,7 @@ func (d *decoder) readToken() (Token, error) {
 	}
 	l.count++
 	d.done(pos, pos+n)
-	return Token{dec: d, num: uint64(d.base + int64(pos)), kind: KindNumber, form: formRaw}, nil
+	return Token{src: &d.rawNumber, num: uint64(d.base + int64(pos))}, nil
 }
 
 func (d *decoder) readTokenSlow() (Token, error) {
@@ -455,14 +459,12 @@ func (d *decoder) readTokenSlow() (Token, error) {
 	d.st.last().count++
 	d.done(start, end)
 	switch k := kindOf(c); k {
-	case KindNull:
-		return Null, nil
-	case KindTrue:
-		return True, nil
-	case KindFalse:
-		return False, nil
+	case KindString:
+		return Token{src: &d.rawString, num: uint64(d.base + int64(start))}, nil
+	case KindNumber:
+		return Token{src: &d.rawNumber, num: uint64(d.base + int64(start))}, nil
 	default:
-		return Token{dec: d, num: uint64(d.base + int64(start)), kind: k, form: formRaw}, nil
+		return literalToken(k), nil
 	}
 }
 

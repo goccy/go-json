@@ -90,23 +90,73 @@ const (
 type Token struct {
 	_ [0]func() // not comparable
 
-	dec  *decoder // the decoder whose last token this is, for formRaw in its buffer
-	str  string
-	num  uint64 // the value of a number, or, in the buffer of dec, the offset of the token in the input
+	// Of four fields at most, so that the compiler keeps a Token in registers.
+	src *tokenSource // what the token is
+	str string       // the value of a string, or the text of a clone of a raw token
+	num uint64       // the value of a number, or, in the buffer of the decoder, the offset of the token in the input
+}
+
+// tokenSource is the kind and the form of a token, and the decoder of a raw token: a raw token points to one of
+// its decoder, and the others to one of the variables here.
+type tokenSource struct {
+	dec  *decoder
 	kind Kind
 	form uint8
 }
 
 var (
-	Null  = Token{kind: KindNull}
-	False = Token{kind: KindFalse}
-	True  = Token{kind: KindTrue}
+	invalidSource = tokenSource{}
 
-	BeginObject = Token{kind: KindBeginObject}
-	EndObject   = Token{kind: KindEndObject}
-	BeginArray  = Token{kind: KindBeginArray}
-	EndArray    = Token{kind: KindEndArray}
+	nullSource, falseSource, trueSource = tokenSource{kind: KindNull}, tokenSource{kind: KindFalse}, tokenSource{kind: KindTrue}
+
+	beginObjectSource, endObjectSource = tokenSource{kind: KindBeginObject}, tokenSource{kind: KindEndObject}
+	beginArraySource, endArraySource   = tokenSource{kind: KindBeginArray}, tokenSource{kind: KindEndArray}
+
+	stringSource                     = tokenSource{kind: KindString, form: formString}
+	intSource, uintSource            = tokenSource{kind: KindNumber, form: formInt}, tokenSource{kind: KindNumber, form: formUint}
+	floatSource, float32Source       = tokenSource{kind: KindNumber, form: formFloat}, tokenSource{kind: KindNumber, form: formFloat32}
+	nonFiniteSource                  = tokenSource{kind: KindString, form: formFloat} // NaN or an infinity
+	nonFinite32Source                = tokenSource{kind: KindString, form: formFloat32}
+	rawStringSource, rawNumberSource = tokenSource{kind: KindString, form: formRaw}, tokenSource{kind: KindNumber, form: formRaw}
 )
+
+var (
+	Null  = Token{src: &nullSource}
+	False = Token{src: &falseSource}
+	True  = Token{src: &trueSource}
+
+	BeginObject = Token{src: &beginObjectSource}
+	EndObject   = Token{src: &endObjectSource}
+	BeginArray  = Token{src: &beginArraySource}
+	EndArray    = Token{src: &endArraySource}
+)
+
+// source is the source of t, which the zero Token has not.
+func (t Token) source() *tokenSource {
+	if t.src == nil {
+		return &invalidSource
+	}
+	return t.src
+}
+
+// literalToken is the token of a literal or a delimiter of the kind k.
+func literalToken(k Kind) Token {
+	switch k {
+	case KindNull:
+		return Null
+	case KindFalse:
+		return False
+	case KindTrue:
+		return True
+	case KindBeginObject:
+		return BeginObject
+	case KindEndObject:
+		return EndObject
+	case KindBeginArray:
+		return BeginArray
+	}
+	return EndArray
+}
 
 // Bool constructs a Token of a JSON boolean.
 func Bool(b bool) Token {
@@ -119,14 +169,18 @@ func Bool(b bool) Token {
 // String constructs a Token of a JSON string. The string should be valid UTF-8: invalid bytes may be mangled
 // as the Unicode replacement character.
 func String(s string) Token {
-	return Token{str: s, kind: KindString, form: formString}
+	return Token{src: &stringSource, str: s}
 }
 
 // Float constructs a Token of a JSON number of a 64-bit floating-point number, formatted as ECMA-262, 10th
 // edition, section 7.1.12.1 and RFC 8785, section 3.2.2.3 do, except that -0 is formatted as -0. NaN, +Inf and
 // -Inf are JSON strings of the values "NaN", "Infinity" and "-Infinity".
 func Float(n float64) Token {
-	return Token{num: math.Float64bits(n), kind: floatKind(n), form: formFloat}
+	src := &floatSource
+	if math.IsNaN(n) || math.IsInf(n, 0) {
+		src = &nonFiniteSource
+	}
+	return Token{src: src, num: math.Float64bits(n)}
 }
 
 // Float32 constructs a Token of a JSON number of a 32-bit floating-point number, formatted as ECMA-262, 10th
@@ -137,47 +191,49 @@ func Float(n float64) Token {
 // only if the decoder knows that the number has only 32-bit precision. In any other case, use Float.
 func Float32(n float32) Token {
 	f := float64(n)
-	return Token{num: math.Float64bits(f), kind: floatKind(f), form: formFloat32}
-}
-
-func floatKind(f float64) Kind {
+	src := &float32Source
 	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return KindString
+		src = &nonFinite32Source
 	}
-	return KindNumber
+	return Token{src: src, num: math.Float64bits(f)}
 }
 
 // Int constructs a Token of a JSON number of an int64.
 func Int(n int64) Token {
-	return Token{num: uint64(n), kind: KindNumber, form: formInt}
+	return Token{src: &intSource, num: uint64(n)}
 }
 
 // Uint constructs a Token of a JSON number of a uint64.
 func Uint(n uint64) Token {
-	return Token{num: n, kind: KindNumber, form: formUint}
+	return Token{src: &uintSource, num: n}
 }
 
 // Clone returns a copy of the token whose value is not in the buffer of a Decoder: it stays valid after the
 // following calls of the Decoder. A token which a constructor made is returned as it is.
 func (t Token) Clone() Token {
-	if t.dec == nil {
+	src := t.source()
+	if src.dec == nil {
 		return t
 	}
-	return Token{str: string(t.raw()), kind: t.kind, form: formRaw}
+	if src.kind == KindString {
+		return Token{src: &rawStringSource, str: string(t.raw())}
+	}
+	return Token{src: &rawNumberSource, str: string(t.raw())}
 }
 
 // raw is the text of a raw token. It panics if the decoder has moved past the token.
 func (t Token) raw() []byte {
-	if t.dec == nil {
+	dec := t.source().dec
+	if dec == nil {
 		return []byte(t.str)
 	}
 	t.checkValid()
-	return t.dec.prevBuffer()
+	return dec.prevBuffer()
 }
 
 // checkValid panics if t is a raw token which the decoder has moved past.
 func (t Token) checkValid() {
-	if t.dec != nil && t.dec.prevOffset() != int64(t.num) {
+	if dec := t.source().dec; dec != nil && dec.prevOffset() != int64(t.num) {
 		panic("invalid jsontext.Token; it has been voided by a subsequent json.Decoder call")
 	}
 }
@@ -185,18 +241,18 @@ func (t Token) checkValid() {
 // Kind returns the kind of the token. It panics for a raw token which the decoder has moved past.
 func (t Token) Kind() Kind {
 	t.checkValid()
-	return t.kind
+	return t.source().kind
 }
 
 // Bool returns the value of a JSON boolean. It panics if the token is not a JSON boolean.
 func (t Token) Bool() bool {
-	switch t.kind {
+	switch t.source().kind {
 	case KindTrue:
 		return true
 	case KindFalse:
 		return false
 	}
-	panic("invalid JSON token kind: " + t.kind.String())
+	panic("invalid JSON token kind: " + t.source().kind.String())
 }
 
 // String returns the unescaped value of a JSON string. For a token of another kind, it returns its raw JSON
@@ -213,15 +269,15 @@ func (t Token) String() string {
 
 // text is the value of String, as a string or as the bytes of the buffer of a decoder.
 func (t Token) text() (string, []byte) {
-	switch t.form {
+	switch t.source().form {
 	case formNone:
-		if t.kind == KindInvalid {
+		if t.source().kind == KindInvalid {
 			return "<invalid jsontext.Token>", nil
 		}
-		return t.kind.String(), nil
+		return t.source().kind.String(), nil
 	case formRaw:
 		b := t.raw()
-		if t.kind != KindString {
+		if t.source().kind != KindString {
 			return "", b
 		}
 		if v := b[1 : len(b)-1]; bytes.IndexByte(v, '\\') < 0 && utf8.Valid(v) {
@@ -238,7 +294,7 @@ func (t Token) text() (string, []byte) {
 // appendNumber appends the text of a number of a Go value: for a float which is not finite, the text of its
 // string, without the quotes.
 func (t Token) appendNumber(b []byte) []byte {
-	switch t.form {
+	switch t.source().form {
 	case formInt:
 		return strconv.AppendInt(b, int64(t.num), 10)
 	case formUint:
@@ -265,8 +321,8 @@ func (e *numError) Unwrap() error { return e.err }
 
 // checkNumber panics unless the token is a JSON number.
 func (t Token) checkNumber() {
-	if t.kind != KindNumber {
-		panic("invalid JSON token kind: " + t.kind.String())
+	if t.source().kind != KindNumber {
+		panic("invalid JSON token kind: " + t.source().kind.String())
 	}
 }
 
@@ -282,7 +338,7 @@ func (t Token) Int() (int64, error) {
 	t.checkNumber()
 	var n int64
 	var err error
-	switch t.form {
+	switch t.source().form {
 	case formInt:
 		return int64(t.num), nil
 	case formUint:
@@ -314,7 +370,7 @@ func (t Token) Uint() (uint64, error) {
 	t.checkNumber()
 	var n uint64
 	var err error
-	switch t.form {
+	switch t.source().form {
 	case formUint:
 		return t.num, nil
 	case formInt:
@@ -364,20 +420,20 @@ func (t Token) Float32() (float32, error) {
 }
 
 func (t Token) float(bits int) (float64, error) {
-	if t.kind == KindString {
+	if t.source().kind == KindString {
 		if f, ok := t.nonFinite(); ok {
 			return f, nil
 		}
 	}
 	t.checkNumber()
-	switch t.form {
+	switch t.source().form {
 	case formInt:
 		return float64(int64(t.num)), nil
 	case formUint:
 		return float64(t.num), nil
 	case formFloat, formFloat32:
 		f := math.Float64frombits(t.num)
-		if bits == 32 && t.form == formFloat {
+		if bits == 32 && t.source().form == formFloat {
 			if f32 := float64(float32(f)); math.IsInf(f32, 0) {
 				return f32, &numError{"Float", t.String(), strconv.ErrRange}
 			}
@@ -397,7 +453,7 @@ func (t Token) float(bits int) (float64, error) {
 // nonFinite is the float of a JSON string of the value "NaN", "Infinity" or "-Infinity".
 func (t Token) nonFinite() (float64, bool) {
 	var s string
-	switch t.form {
+	switch t.source().form {
 	case formFloat, formFloat32:
 		if f := math.Float64frombits(t.num); !math.IsNaN(f) {
 			return f, true

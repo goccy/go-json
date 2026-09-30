@@ -58,12 +58,13 @@ const (
 // resumePoint is where a scan which the end of the buffer cut continues: the place, and the progress in a
 // string or number which was cut.
 type resumePoint struct {
-	at   uint8
-	pos  int // the start of the token which was cut, or the position of the place
-	tok  int // the length of the part of the token which was taken, 0 if none
-	str  strFlags
-	num  numState
-	base int // the depth of the stack before the value
+	at    uint8
+	where uint8 // where the pointer of an error at the cut points
+	pos   int   // the start of the token which was cut, or the position of the place
+	tok   int   // the length of the part of the token which was taken, 0 if none
+	str   strFlags
+	num   numState
+	base  int // the depth of the stack before the value
 }
 
 // scanError is an error of the value at an offset, with the pointer where it was found.
@@ -369,7 +370,7 @@ func (s *valueScanner) cut(at uint8, i int, where int, rp *resumePoint) (int, *s
 		}
 		return pos, s.fail(io.ErrUnexpectedEOF, pos, where)
 	}
-	rp.at, rp.pos = at, i
+	rp.at, rp.pos, rp.where = at, i, uint8(where)
 	return i, errCut
 }
 

@@ -64,9 +64,13 @@ func NewDecoder(r io.Reader, opts ...Options) *Decoder {
 
 // Reset resets the decoder to read from r anew, with the options.
 func (d *Decoder) Reset(r io.Reader, opts ...Options) {
+	if r == nil {
+		panic("jsontext: invalid nil io.Reader")
+	}
 	s := &d.d
-	s.cfg = config{}
-	s.cfg.apply(opts)
+	var c config // opts may hold the options of d, which Options returned
+	c.apply(opts)
+	s.cfg = c
 	s.st.reset()
 	s.r = r
 	s.bb, _ = r.(*bytes.Buffer)
@@ -85,10 +89,10 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	}
 }
 
-// Options returns the options which the decoder was constructed with.
+// Options returns the options of the decoder: the ones it was constructed or last reset with, which follow a
+// later Reset.
 func (d *Decoder) Options() Options {
-	c := d.d.cfg
-	return &c
+	return &d.d.cfg
 }
 
 func (d *decoder) prevOffset() int64  { return d.base + int64(d.prevStart) }
@@ -105,16 +109,18 @@ func (d *decoder) fetch() (int, error) {
 		return 0, d.rerr
 	}
 	if d.bb != nil {
-		b := d.bb.Next(d.bb.Len())
 		switch {
-		case len(b) == 0:
+		case d.bb.Len() == 0:
 			d.rerr = io.EOF
 			return 0, io.EOF
 		case d.shared:
-			// the buffer was written to after the decoder took its array, which the write may have changed.
+			// the buffer was written to after the decoder took its array, which the write may have changed: the
+			// input is left in the buffer.
 			d.rerr = &ioError{err: errBufferWriteAfterNext}
 			return 0, d.rerr
-		case len(d.buf) == 0:
+		}
+		b := d.bb.Next(d.bb.Len())
+		if len(d.buf) == 0 {
 			d.buf, d.shared = b, true
 			return 0, nil
 		}
@@ -129,7 +135,9 @@ func (d *decoder) fetch() (int, error) {
 	for tries := 0; ; tries++ {
 		n, err := d.r.Read(d.buf[len(d.buf):cap(d.buf)])
 		d.buf = d.buf[:len(d.buf)+n]
-		if n > 0 && err == nil {
+		if n > 0 {
+			// an error which comes with input is dropped, as encoding/json/jsontext drops it: the reader reports
+			// it again at the next read, if it lasts.
 			return shift, nil
 		}
 		if err == nil && n == 0 && tries == 100 {
@@ -140,11 +148,6 @@ func (d *decoder) fetch() (int, error) {
 		}
 		if err != nil {
 			d.rerr = err
-		}
-		if n > 0 {
-			return shift, nil
-		}
-		if err != nil {
 			return shift, err
 		}
 	}
@@ -674,14 +677,33 @@ func (d *decoder) readValue() (int, int, error) {
 			rp.pos -= shift
 			start -= shift
 			if ferr != nil && ferr != io.EOF {
+				err := d.cutError(&rp, ferr)
 				d.vs.restore(rp.base, count)
-				return 0, 0, ferr
+				return 0, 0, err
 			}
 			if ferr != nil || !d.stillCut(&rp) {
 				break
 			}
 		}
 	}
+}
+
+// cutError is the error of the reader, err, in a value which the buffer cuts at rp: within an object or array of
+// the value, where the error has a pointer, it is shown there, where the value ends as the end of the input
+// would be, at the start of a number which is cut.
+func (d *decoder) cutError(rp *resumePoint, err error) error {
+	if d.st.depth() == rp.base {
+		return err
+	}
+	ptr := d.st.pointer(int(rp.where))
+	if ptr == "" {
+		return err
+	}
+	pos := rp.pos + rp.tok
+	if rp.tok > 0 && kindOf(d.buf[rp.pos]) == KindNumber {
+		pos = rp.pos
+	}
+	return &SyntacticError{ByteOffset: d.base + int64(pos), JSONPointer: ptr, Err: err}
 }
 
 // stillCut reads the input which a fetch added to a value which the buffer cut, and reports whether the value is

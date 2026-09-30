@@ -2,6 +2,7 @@ package jsontext
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"math"
 	"slices"
@@ -52,6 +53,9 @@ func (v Value) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON sets v to a copy of b, without validating it.
 func (v *Value) UnmarshalJSON(b []byte) error {
+	if v == nil {
+		return errors.New("jsontext.Value: UnmarshalJSON on nil pointer")
+	}
 	*v = append((*v)[:0], b...)
 	return nil
 }
@@ -97,9 +101,11 @@ func (v *Value) Compact(opts ...Options) error {
 }
 
 var compactOptions = []Options{
-	AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true),
-	&config{set: multiline | spaceAfterColon | spaceAfterComma | indentSet},
+	AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true), noWhiteSpace,
 }
+
+// noWhiteSpace sets the options of white space to none, so that an option given after it changes only itself.
+var noWhiteSpace = &config{set: multiline | spaceAfterColon | spaceAfterComma | indentSet}
 
 // Indent formats the white space of v so that each element of an object or array starts a line which is
 // indented by its depth.
@@ -125,8 +131,9 @@ var indentOptions = []Options{
 // The strings are in their minimal form, the numbers are formatted as double precision numbers, the members of
 // the objects are sorted by their names, and the white space is removed.
 //
-// It is Value.Format with the options CanonicalizeRawInts(true), CanonicalizeRawFloats(true) and
-// ReorderRawObjects(true), followed by the options given.
+// It is Value.Format with the options CanonicalizeRawInts(true), CanonicalizeRawFloats(true),
+// ReorderRawObjects(true), Multiline(false), SpaceAfterColon(false) and SpaceAfterComma(false), and an empty
+// indentation, followed by the options given.
 //
 // JCS takes all JSON numbers as IEEE 754 double precision numbers: a number which needs more precision loses
 // it. For example, integers beyond ±2⁵³ lose their precision. To keep the representation of the integers, set
@@ -137,7 +144,7 @@ func (v *Value) Canonicalize(opts ...Options) error {
 	return v.format(canonicalOptions, opts)
 }
 
-var canonicalOptions = []Options{CanonicalizeRawInts(true), CanonicalizeRawFloats(true), ReorderRawObjects(true)}
+var canonicalOptions = []Options{CanonicalizeRawInts(true), CanonicalizeRawFloats(true), ReorderRawObjects(true), noWhiteSpace}
 
 func (v *Value) format(first, opts []Options) error {
 	e := getEncoder(opts, first...)
@@ -268,6 +275,9 @@ func appendUnquotedPrefix(dst, b []byte) []byte {
 // Most JSON libraries and standards take JSON numbers as 64-bit floating-point numbers: use 64 bits of
 // precision unless the reader of the number knows that it has 32 bits of precision.
 func AppendFloat(dst []byte, src float64, bits int) []byte {
+	if bits != 32 && bits != 64 {
+		panic("illegal AppendFloat bit size")
+	}
 	if bits == 32 {
 		src = float64(float32(src))
 	}

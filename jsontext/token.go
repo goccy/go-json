@@ -171,14 +171,20 @@ func (t Token) raw() []byte {
 	if t.dec == nil {
 		return []byte(t.str)
 	}
-	if t.dec.prevOffset() != int64(t.num) {
-		panic("invalid jsontext.Token; it has been voided by a subsequent json.Decoder call")
-	}
+	t.checkValid()
 	return t.dec.prevBuffer()
 }
 
-// Kind returns the kind of the token.
+// checkValid panics if t is a raw token which the decoder has moved past.
+func (t Token) checkValid() {
+	if t.dec != nil && t.dec.prevOffset() != int64(t.num) {
+		panic("invalid jsontext.Token; it has been voided by a subsequent json.Decoder call")
+	}
+}
+
+// Kind returns the kind of the token. It panics for a raw token which the decoder has moved past.
 func (t Token) Kind() Kind {
+	t.checkValid()
 	return t.kind
 }
 
@@ -422,7 +428,10 @@ func floatToInt(f float64) (int64, error) {
 	}
 	switch {
 	case f >= 1<<63:
-		return math.MaxInt64, orErr(err, strconv.ErrRange)
+		if f > 1<<63 { // 2⁶³ is math.MaxInt64 rounded to a float64, as encoding/json/jsontext takes it
+			err = orErr(err, strconv.ErrRange)
+		}
+		return math.MaxInt64, err
 	case f < -1<<63:
 		return math.MinInt64, orErr(err, strconv.ErrRange)
 	}
@@ -437,7 +446,10 @@ func floatToUint(f float64) (uint64, error) {
 	}
 	switch {
 	case f >= 1<<64:
-		return math.MaxUint64, orErr(err, strconv.ErrRange)
+		if f > 1<<64 { // 2⁶⁴ is math.MaxUint64 rounded to a float64
+			err = orErr(err, strconv.ErrRange)
+		}
+		return math.MaxUint64, err
 	case f <= 0:
 		return 0, err
 	}

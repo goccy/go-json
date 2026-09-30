@@ -90,15 +90,23 @@ type whitespace struct {
 	prefix       string
 }
 
+// A multiline output has a space after a colon and the indentation of a tab unless they were set otherwise: they
+// are set in c, which the options of an Encoder show.
 func (c *config) whitespace() whitespace {
-	w := whitespace{multiline: c.has(multiline), comma: c.has(spaceAfterComma)}
-	// a multiline output has a space after a colon unless it was set otherwise.
-	w.colon = c.has(spaceAfterColon) || w.multiline && c.set&spaceAfterColon == 0
-	w.indent, w.prefix = "\t", c.prefix
-	if c.set&indentSet != 0 {
-		w.indent = c.indent
+	if c.has(multiline) {
+		if c.set&spaceAfterColon == 0 {
+			c.set |= spaceAfterColon
+			c.value |= spaceAfterColon
+		}
+		if c.set&indentSet == 0 {
+			c.set |= indentSet
+			c.indent = "\t"
+		}
 	}
-	return w
+	return whitespace{
+		colon: c.has(spaceAfterColon), comma: c.has(spaceAfterComma), multiline: c.has(multiline),
+		indent: c.indent, prefix: c.prefix,
+	}
 }
 
 // boolOption is an option of a flag: the flag shifted by one bit, with the value as the lowest bit. Its values

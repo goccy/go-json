@@ -54,9 +54,6 @@ type SyntacticError struct {
 }
 
 func (e *SyntacticError) Error() string {
-	if e.Err == nil {
-		return "jsontext: syntactic error"
-	}
 	if e.Err == ErrDuplicateName {
 		s := "jsontext: " + e.Err.Error() + " " + strconv.Quote(e.JSONPointer.LastToken())
 		if parent := e.JSONPointer.Parent(); parent != "" {
@@ -64,7 +61,10 @@ func (e *SyntacticError) Error() string {
 		}
 		return s
 	}
-	b := append([]byte("jsontext: "), e.Err.Error()...)
+	b := []byte("jsontext: syntactic error")
+	if e.Err != nil {
+		b = append(b[:len("jsontext: ")], e.Err.Error()...)
+	}
 	if e.JSONPointer != "" {
 		b = append(b, " within "...)
 		b = strconv.AppendQuote(b, shortPointer(string(e.JSONPointer)))

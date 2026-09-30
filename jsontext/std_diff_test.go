@@ -381,7 +381,7 @@ func TestStdDiffWhiteSpaceOptions(t *testing.T) {
 		jsontext.NewEncoder(&gb, goJSON...).WriteValue(jsontext.Value(in))
 		stdjsontext.NewEncoder(&sb, std...).WriteValue(stdjsontext.Value(in))
 		got, want = append(got, gb.String()), append(want, sb.String())
-		for m := range 3 {
+		for m := range 4 {
 			g, s := jsontext.Value(in), stdjsontext.Value(in)
 			switch m {
 			case 0:
@@ -393,11 +393,14 @@ func TestStdDiffWhiteSpaceOptions(t *testing.T) {
 			case 2:
 				g.Indent(goJSON...)
 				s.Indent(std...)
+			case 3:
+				g.Canonicalize(goJSON...)
+				s.Canonicalize(std...)
 			}
 			got, want = append(got, string(g)), append(want, string(s))
 		}
 		if fmt.Sprint(got) != fmt.Sprint(want) {
-			t.Fatalf("options %d: output of Encoder, Format, Compact and Indent:\ngot:  %q\nwant: %q", n, got, want)
+			t.Fatalf("options %d: output of Encoder, Format, Compact, Indent and Canonicalize:\ngot:  %q\nwant: %q", n, got, want)
 		}
 	}
 }
@@ -428,6 +431,218 @@ func TestStdDiffWriteValueInContext(t *testing.T) {
 			if got != want {
 				t.Errorf("WriteValue(%q) after %q:\ngot:  %s\nwant: %s", v, c, got, want)
 			}
+		}
+	}
+}
+
+// errBoom is the error of the readers of TestStdDiffReaderErrors.
+var errBoom = errors.New("boom")
+
+// dataThenErrBoom returns all its input together with errBoom, and then io.EOF.
+type dataThenErrBoom struct{ b []byte }
+
+func (r *dataThenErrBoom) Read(p []byte) (int, error) {
+	if len(r.b) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, r.b)
+	r.b = r.b[n:]
+	return n, errBoom
+}
+
+// TestStdDiffReaderErrors compares reads from readers which fail after the input, or with it, and from a
+// bytes.Buffer which is written to after the decoder read it.
+func TestStdDiffReaderErrors(t *testing.T) {
+	readers := map[string]func(string) io.Reader{
+		"error after the input": func(s string) io.Reader {
+			return io.MultiReader(strings.NewReader(s), iotest.ErrReader(errBoom))
+		},
+		"error after the input read by bytes": func(s string) io.Reader {
+			return io.MultiReader(iotest.OneByteReader(strings.NewReader(s)), iotest.ErrReader(errBoom))
+		},
+		"error with the input": func(s string) io.Reader { return &dataThenErrBoom{[]byte(s)} },
+	}
+	inputs := []string{``, ` `, `123`, `tru`, `"ab`, `[`, `[[[[`, `[1,2`, `[12`, `[1e`, `["\u12`, `[1,"x`, `[1,2]`,
+		`{"a"`, `{"a":1`, `{"a":"b"`, `{"a":{"b":`, `{"a":[1,2]}`}
+	for name, newReader := range readers {
+		for _, in := range inputs {
+			for _, ops := range []string{"TTTT", "VVV", "TVVV", "SSS", "TSSS", "TTVV"} {
+				d, s := jsontext.NewDecoder(newReader(in)), stdjsontext.NewDecoder(newReader(in))
+				var got, want string
+				for _, op := range ops {
+					var err, stdErr error
+					switch op {
+					case 'T':
+						_, err = d.ReadToken()
+						_, stdErr = s.ReadToken()
+					case 'V':
+						_, err = d.ReadValue()
+						_, stdErr = s.ReadValue()
+					case 'S':
+						err, stdErr = d.SkipValue(), s.SkipValue()
+					}
+					got += fmt.Sprintf("[%s | %d %d %q] ", errorString(err), d.InputOffset(), d.StackDepth(), d.StackPointer())
+					want += fmt.Sprintf("[%s | %d %d %q] ", errorString(stdErr), s.InputOffset(), s.StackDepth(), s.StackPointer())
+				}
+				if got != want {
+					t.Errorf("%s of %q from a reader with an %s:\ngot:  %s\nwant: %s", ops, in, name, got, want)
+				}
+			}
+		}
+	}
+	for _, in := range []string{"1 ", "[1,", `{"a"`, "12"} {
+		b, stdB := bytes.NewBufferString(in), bytes.NewBufferString(in)
+		d, s := jsontext.NewDecoder(b), stdjsontext.NewDecoder(stdB)
+		var got, want string
+		for i := range 5 {
+			if i == 2 {
+				b.WriteString("2]")
+				stdB.WriteString("2]")
+			}
+			_, err := d.ReadToken()
+			_, stdErr := s.ReadToken()
+			got, want = got+errorString(err)+" ", want+errorString(stdErr)+" "
+		}
+		got, want = got+b.String(), want+stdB.String()
+		if got != want {
+			t.Errorf("ReadToken of %q, written to after the second:\ngot:  %s\nwant: %s", in, got, want)
+		}
+	}
+}
+
+// TestStdDiffCoderOptions compares the options which an Encoder or Decoder returns, given to an Encoder and to
+// Compact, before and after a Reset of the coder.
+func TestStdDiffCoderOptions(t *testing.T) {
+	const in = `{"b":1,"a":[2]}`
+	sets := [][2][]any{
+		{nil, nil},
+		{{jsontext.Multiline(true)}, {stdjsontext.Multiline(true)}},
+		{{jsontext.WithIndent("  ")}, {stdjsontext.WithIndent("  ")}},
+		{{jsontext.Multiline(true), jsontext.SpaceAfterColon(false)}, {stdjsontext.Multiline(true), stdjsontext.SpaceAfterColon(false)}},
+		{{jsontext.SpaceAfterComma(true)}, {stdjsontext.SpaceAfterComma(true)}},
+		{{jsontext.Multiline(false)}, {stdjsontext.Multiline(false)}},
+	}
+	goOptions := func(s []any) (o []jsontext.Options) {
+		for _, v := range s {
+			o = append(o, v.(jsontext.Options))
+		}
+		return o
+	}
+	stdOptions := func(s []any) (o []stdjsontext.Options) {
+		for _, v := range s {
+			o = append(o, v.(stdjsontext.Options))
+		}
+		return o
+	}
+	format := func(o jsontext.Options, s stdjsontext.Options, extra [2][]any) (string, string) {
+		var b, stdB bytes.Buffer
+		jsontext.NewEncoder(&b, append([]jsontext.Options{o}, goOptions(extra[0])...)...).WriteValue(jsontext.Value(in))
+		stdjsontext.NewEncoder(&stdB, append([]stdjsontext.Options{s}, stdOptions(extra[1])...)...).WriteValue(stdjsontext.Value(in))
+		v, stdV := jsontext.Value(in), stdjsontext.Value(in)
+		v.Compact(append([]jsontext.Options{o}, goOptions(extra[0])...)...)
+		stdV.Compact(append([]stdjsontext.Options{s}, stdOptions(extra[1])...)...)
+		return b.String() + string(v), stdB.String() + string(stdV)
+	}
+	for i, set := range sets {
+		e, stdE := jsontext.NewEncoder(io.Discard, goOptions(set[0])...), stdjsontext.NewEncoder(io.Discard, stdOptions(set[1])...)
+		d, stdD := jsontext.NewDecoder(strings.NewReader(""), goOptions(set[0])...), stdjsontext.NewDecoder(strings.NewReader(""), stdOptions(set[1])...)
+		for j, extra := range sets {
+			if got, want := format(e.Options(), stdE.Options(), extra); got != want {
+				t.Errorf("options of an encoder of %d, then %d:\ngot:  %q\nwant: %q", i, j, got, want)
+			}
+			if got, want := format(d.Options(), stdD.Options(), extra); got != want {
+				t.Errorf("options of a decoder of %d, then %d:\ngot:  %q\nwant: %q", i, j, got, want)
+			}
+		}
+		o, stdO, dO, stdDO := e.Options(), stdE.Options(), d.Options(), stdD.Options()
+		e.Reset(io.Discard, o) // the options of the encoder itself
+		stdE.Reset(io.Discard, stdO)
+		if got, want := format(e.Options(), stdE.Options(), sets[0]); got != want {
+			t.Errorf("options of an encoder of %d reset with them:\ngot:  %q\nwant: %q", i, got, want)
+		}
+		e.Reset(io.Discard)
+		stdE.Reset(io.Discard)
+		d.Reset(strings.NewReader(""))
+		stdD.Reset(strings.NewReader(""))
+		if got, want := format(o, stdO, sets[0]); got != want {
+			t.Errorf("options of an encoder of %d, after a Reset:\ngot:  %q\nwant: %q", i, got, want)
+		}
+		if got, want := format(dO, stdDO, sets[0]); got != want {
+			t.Errorf("options of a decoder of %d, after a Reset:\ngot:  %q\nwant: %q", i, got, want)
+		}
+	}
+}
+
+// TestStdDiffEdgeCases compares the results of the methods and functions at the edges of their input.
+func TestStdDiffEdgeCases(t *testing.T) {
+	var voided, stdVoided = func() func() string {
+		d := jsontext.NewDecoder(strings.NewReader(`["abc", 12]`))
+		d.ReadToken()
+		tok, _ := d.ReadToken()
+		d.ReadToken()
+		return func() string { return tok.Kind().String() }
+	}(), func() func() string {
+		d := stdjsontext.NewDecoder(strings.NewReader(`["abc", 12]`))
+		d.ReadToken()
+		tok, _ := d.ReadToken()
+		d.ReadToken()
+		return func() string { return tok.Kind().String() }
+	}()
+	resetFromBuffer := func(newEncoder func(io.Writer) (func(io.Writer), func(string))) string {
+		var b bytes.Buffer
+		b.Grow(100)
+		var w strings.Builder
+		reset, write := newEncoder(&b)
+		write("null")
+		reset(&w)
+		write("[")
+		write(`"abc"`)
+		b.WriteString("XXXXXXXXXX")
+		write("]")
+		return b.String() + " " + w.String()
+	}
+	for _, c := range []struct {
+		name      string
+		got, want func() string
+	}{
+		{"NewEncoder(nil)", func() string { jsontext.NewEncoder(nil); return "" }, func() string { stdjsontext.NewEncoder(nil); return "" }},
+		{"NewDecoder(nil)", func() string { jsontext.NewDecoder(nil); return "" }, func() string { stdjsontext.NewDecoder(nil); return "" }},
+		{"(*Value)(nil).UnmarshalJSON", func() string { return fmt.Sprint((*jsontext.Value)(nil).UnmarshalJSON([]byte("1"))) },
+			func() string { return fmt.Sprint((*stdjsontext.Value)(nil).UnmarshalJSON([]byte("1"))) }},
+		{"AppendFloat of 16 bits", func() string { return string(jsontext.AppendFloat(nil, 1.5, 16)) },
+			func() string { return string(stdjsontext.AppendFloat(nil, 1.5, 16)) }},
+		{"Float(2⁶³).Int", func() string { return fmt.Sprint(jsontext.Float(1 << 63).Int()) }, func() string { return fmt.Sprint(stdjsontext.Float(1 << 63).Int()) }},
+		{"Float(2⁶⁴).Uint", func() string { return fmt.Sprint(jsontext.Float(1 << 64).Uint()) }, func() string { return fmt.Sprint(stdjsontext.Float(1 << 64).Uint()) }},
+		{"Float32(2⁶³).Int", func() string { return fmt.Sprint(jsontext.Float32(1 << 63).Int()) }, func() string { return fmt.Sprint(stdjsontext.Float32(1 << 63).Int()) }},
+		{"Kind of a voided token", voided, stdVoided},
+		{"SyntacticError without Err", func() string { return (&jsontext.SyntacticError{ByteOffset: 5, JSONPointer: "/a"}).Error() },
+			func() string { return (&stdjsontext.SyntacticError{ByteOffset: 5, JSONPointer: "/a"}).Error() }},
+		{"Encoder.Reset from a bytes.Buffer", func() string {
+			return resetFromBuffer(func(w io.Writer) (func(io.Writer), func(string)) {
+				e := jsontext.NewEncoder(w)
+				return func(w io.Writer) { e.Reset(w) }, func(v string) {
+					if v == "[" || v == "]" {
+						e.WriteToken(map[string]jsontext.Token{"[": jsontext.BeginArray, "]": jsontext.EndArray}[v])
+					} else {
+						e.WriteValue(jsontext.Value(v))
+					}
+				}
+			})
+		}, func() string {
+			return resetFromBuffer(func(w io.Writer) (func(io.Writer), func(string)) {
+				e := stdjsontext.NewEncoder(w)
+				return func(w io.Writer) { e.Reset(w) }, func(v string) {
+					if v == "[" || v == "]" {
+						e.WriteToken(map[string]stdjsontext.Token{"[": stdjsontext.BeginArray, "]": stdjsontext.EndArray}[v])
+					} else {
+						e.WriteValue(stdjsontext.Value(v))
+					}
+				}
+			})
+		}},
+	} {
+		if got, want := recovered(c.got), recovered(c.want); got != want {
+			t.Errorf("%s:\ngot:  %s\nwant: %s", c.name, got, want)
 		}
 	}
 }

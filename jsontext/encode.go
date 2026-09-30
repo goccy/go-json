@@ -66,18 +66,25 @@ func NewEncoder(w io.Writer, opts ...Options) *Encoder {
 
 // Reset resets the encoder to write to w anew, with the options.
 func (e *Encoder) Reset(w io.Writer, opts ...Options) {
+	if w == nil {
+		panic("jsontext: invalid nil io.Writer")
+	}
 	e.e.reset(w, opts)
 }
 
 func (e *encoder) reset(w io.Writer, opts []Options) {
-	e.cfg = config{}
-	e.cfg.apply(opts)
+	var c config // opts may hold the options of e, which Options returned
+	c.apply(opts)
+	e.cfg = c
 	e.init(w)
 }
 
 // init resets the state of the encoder to write to w with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
 	e.st.reset()
+	if e.bb != nil {
+		e.buf = nil // the array of the bytes.Buffer written before, which stays its own
+	}
 	e.w = w
 	e.bb, _ = w.(*bytes.Buffer)
 	e.buf = e.buf[:0]
@@ -109,10 +116,10 @@ func (e *encoder) init(w io.Writer) {
 	}
 }
 
-// Options returns the options which the encoder was constructed with.
+// Options returns the options of the encoder: the ones it was constructed or last reset with, and, for Multiline,
+// the space after a colon and the indentation it takes if they are not set. They follow a later Reset.
 func (e *Encoder) Options() Options {
-	c := e.e.cfg
-	return &c
+	return &e.e.cfg
 }
 
 // OutputOffset returns the offset in the output after the last token or value which was written. The encoder

@@ -145,11 +145,24 @@ func (s *valueScanner) plain() bool {
 // the value: resume reads it again from the start, and reports the errors. The names of the objects are checked
 // as resume checks them.
 func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
+	// the open objects are in this frame, not in the one of scanObjects: the spilled registers of the loop are
+	// then near its stack pointer, where the CPUs of AMD Zen 4 read them without a stall.
+	var open [64]openObject
+	return s.scanObjects(b, i, &open)
+}
+
+// openObject is an open object of valueScanner.scanFast: the index in names.ends of its first name, and the
+// bits of its names ( nameBit ).
+type openObject struct {
+	first int
+	bits  uint64
+}
+
+// scanObjects is scanFast, which keeps the open objects in open by their depth in the value.
+func (s *valueScanner) scanObjects(b []byte, i int, open *[64]openObject) (int, bool) {
 	var objects uint64 // the bit of each open level which is an object, the innermost the lowest
 	depth := 0
 	names := &s.st.names
-	var starts [64]int32 // for each open object, the index of its first name
-	var bits [64]uint64  // and the bits of its names ( nameBit )
 	var ok bool
 	limit := min(64, maxDepth-s.st.depth()) // the levels which the value may open
 	mode := strModeOf(s.validUTF8, false)
@@ -169,7 +182,7 @@ value:
 		objects <<= 1
 		if c == '{' {
 			objects |= 1
-			starts[depth], bits[depth] = int32(len(names.ends)), 0
+			open[depth] = openObject{first: len(names.ends)}
 		}
 		depth++
 		i++
@@ -228,7 +241,7 @@ next:
 closed:
 	depth--
 	if objects&1 != 0 {
-		names.truncate(int(starts[depth]))
+		names.truncate(open[depth].first)
 	}
 	objects >>= 1
 	goto next
@@ -246,12 +259,13 @@ name:
 	if s.checkNames {
 		name := unquotedName(&s.scratch, b[i:i+n], f)
 		k := depth - 1
-		if bit := nameBit(name); bits[k]&bit == 0 {
-			bits[k] |= bit
-		} else if names.has(int(starts[k]), name) {
+		o := &open[k]
+		if bit := nameBit(name); o.bits&bit == 0 {
+			o.bits |= bit
+		} else if names.has(o.first, name) {
 			return i, false
 		}
-		names.add(int(starts[k]), name)
+		names.add(o.first, name)
 	}
 	i += n
 	if i = s.skip(b, i); i == len(b) || b[i] != ':' {

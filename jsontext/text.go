@@ -380,7 +380,9 @@ func scanString(b []byte, mode strMode) (int, strFlags, error) {
 func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlags, error) {
 	for {
 		// the characters taken as they are: ASCII other than a quote, a backslash and a control character
-		i = plainEnd(b, i)
+		if i < len(b) && stringClass[b[i]] == 0 {
+			i = plainEnd(b, i)
+		}
 		if i == len(b) {
 			return i, flags, io.ErrUnexpectedEOF
 		}
@@ -388,6 +390,17 @@ func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlag
 		case c == '"':
 			return i + 1, flags, nil
 		case c == '\\':
+			// \uXXXX of a character which is not a surrogate, as most escape sequences are, without a call
+			if i+6 <= len(b) && b[i+1] == 'u' {
+				if r := hex4(b[i+2:]); r >= 0 && !utf16.IsSurrogate(r) {
+					flags |= strEscaped
+					if !isCanonicalEscape(b[i:i+6], r) {
+						flags |= strNonCanonical
+					}
+					i += 6
+					continue
+				}
+			}
 			n, r, err := scanEscape(b[i:], mode)
 			if err != nil {
 				return i, flags, err
@@ -523,13 +536,21 @@ func isPrefixOfLowSurrogate(b []byte) bool {
 	return true
 }
 
+// hex4 is the value of the 4 hexadecimal digits at the start of b, or -1 if one is not a digit: the digits are
+// taken at once, as a byte which is not a digit is negative in the table, and so is their OR.
+func hex4(b []byte) rune {
+	d0, d1, d2, d3 := hexTable[b[0]], hexTable[b[1]], hexTable[b[2]], hexTable[b[3]]
+	if d0|d1|d2|d3 < 0 {
+		return -1
+	}
+	return rune(d0)<<12 | rune(d1)<<8 | rune(d2)<<4 | rune(d3)
+}
+
 // scanHex4 is the value of the escape sequence \uXXXX at the start of b.
 func scanHex4(b []byte) (rune, error) {
 	if len(b) >= 6 {
-		// the 4 digits at once: a byte which is not a digit is negative in the table, and so is their OR.
-		d0, d1, d2, d3 := hexTable[b[2]], hexTable[b[3]], hexTable[b[4]], hexTable[b[5]]
-		if d0|d1|d2|d3 >= 0 {
-			return rune(d0)<<12 | rune(d1)<<8 | rune(d2)<<4 | rune(d3), nil
+		if r := hex4(b[2:]); r >= 0 {
+			return r, nil
 		}
 	}
 	var r rune

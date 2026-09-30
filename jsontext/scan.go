@@ -254,7 +254,7 @@ next:
 	if l := s.st.last(); l.object {
 		switch b[i] {
 		case ',':
-			if s.spaced {
+			if s.spaced && s.wsEnd == i {
 				s.space(b, i, wsNone)
 			}
 			if s.write && s.reorder {
@@ -273,7 +273,7 @@ next:
 	}
 	switch b[i] {
 	case ',':
-		if s.spaced {
+		if s.spaced && s.wsEnd == i {
 			s.space(b, i, wsNone)
 		}
 		i++
@@ -352,7 +352,7 @@ colon:
 	if b[i] != ':' {
 		return i, s.fail(invalidChar(b[i:], "after object name (expecting ':')"), i, pointAt)
 	}
-	if s.spaced {
+	if s.spaced && s.wsEnd == i {
 		s.space(b, i, wsNone)
 	}
 	i++
@@ -396,16 +396,23 @@ func (s *valueScanner) skip(b []byte, i int) int {
 // skipSpace skips the white space at b[i:]. A value written without white space drops it; one written with white
 // space keeps it pending, for space to compare with the white space which the output has there.
 func (s *valueScanner) skipSpace(b []byte, i int) int {
+	// the loop of skipSpace, which is not called: it runs at every token of a value with white space
+	end := i
+	for end < len(b) && isSpace(b[end]) {
+		end++
+		if b[end-1] == '\n' && end < len(b) && (b[end] == ' ' || b[end] == '\t') {
+			end = skipIndent(b, end)
+		}
+	}
 	switch {
 	case !s.write:
-		return skipSpace(b, i)
 	case s.spaced:
-		s.wsFrom, s.wsEnd = i, skipSpace(b, i)
-		return s.wsEnd
+		s.wsFrom, s.wsEnd = i, end
+	default:
+		s.flush(b, i)
+		s.run = end
 	}
-	s.flush(b, i)
-	s.run = skipSpace(b, i)
-	return s.run
+	return end
 }
 
 // The white space which a value written with white space has before a token.
@@ -503,7 +510,9 @@ func (s *valueScanner) closeLevel(b []byte, i int, empty bool) {
 		}
 		if s.spaced {
 			if empty {
-				s.space(b, i, wsNone)
+				if s.wsEnd == i {
+					s.space(b, i, wsNone)
+				}
 			} else {
 				s.space(b, i, wsClose)
 			}

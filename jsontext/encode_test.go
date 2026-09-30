@@ -2,6 +2,7 @@ package jsontext_test
 
 import (
 	"bytes"
+	"io"
 	"math"
 	"math/rand/v2"
 	"strconv"
@@ -10,9 +11,9 @@ import (
 	"github.com/goccy/go-json/jsontext"
 )
 
-// TestWriteValueInAvailableBuffer writes values which are built in the buffer of AvailableBuffer, as its
-// documentation shows, under options whose output is longer than the value: the output must be the one of a
-// copy of the value.
+// TestWriteValueInAvailableBuffer writes values twice which are built in the AvailableBuffer of the encoder, as
+// its documentation shows, to a writer and to a bytes.Buffer, under options whose output is longer than the
+// value: the value must not change, and the output must be the one of a copy of it.
 func TestWriteValueInAvailableBuffer(t *testing.T) {
 	for _, opts := range [][]jsontext.Options{
 		nil,
@@ -24,18 +25,35 @@ func TestWriteValueInAvailableBuffer(t *testing.T) {
 			`{ "a" : 1 , "b" : [ 1 , 2 , "\/" ] }`,
 			`"<<<>>>&&&"`,
 		} {
-			var got bytes.Buffer
-			got.Grow(1024)
-			e := jsontext.NewEncoder(&got, opts...)
-			if err := e.WriteValue(append(e.AvailableBuffer(), in...)); err != nil {
-				t.Fatal(err)
-			}
 			var want bytes.Buffer
-			if err := jsontext.NewEncoder(&want, opts...).WriteValue(jsontext.Value(in)); err != nil {
-				t.Fatal(err)
-			}
-			if got.String() != want.String() {
-				t.Errorf("WriteValue(%q) in AvailableBuffer = %q, want %q", in, got.String(), want.String())
+			we := jsontext.NewEncoder(&want, opts...)
+			we.WriteToken(jsontext.BeginArray)
+			we.WriteValue(jsontext.Value(in))
+			we.WriteValue(jsontext.Value(in))
+			we.WriteToken(jsontext.EndArray)
+			// a writer whose output the encoder buffers, and a bytes.Buffer, whose room the encoder writes to
+			for _, w := range []string{"writer", "bytes.Buffer"} {
+				var got bytes.Buffer
+				got.Grow(1024)
+				e := jsontext.NewEncoder(struct{ io.Writer }{&got}, opts...)
+				if w == "bytes.Buffer" {
+					e = jsontext.NewEncoder(&got, opts...)
+				}
+				e.WriteToken(jsontext.BeginArray) // the output which is not written yet
+				b := append(e.AvailableBuffer(), in...)
+				if err := e.WriteValue(b); err != nil {
+					t.Fatal(err)
+				}
+				if string(b) != in {
+					t.Fatalf("WriteValue(%q) in AvailableBuffer, to a %s, changed it to %q", in, w, b)
+				}
+				if err := e.WriteValue(b); err != nil {
+					t.Fatal(err)
+				}
+				e.WriteToken(jsontext.EndArray)
+				if got.String() != want.String() {
+					t.Errorf("WriteValue(%q) in AvailableBuffer, to a %s = %q, want %q", in, w, got.String(), want.String())
+				}
 			}
 		}
 	}

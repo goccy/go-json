@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"math"
-	"unsafe"
 )
 
 // Encoder is a streaming encoder of raw JSON tokens and values. It writes a stream of top-level JSON values,
@@ -50,7 +49,7 @@ type encoder struct {
 	esc       escapeFlags
 	validUTF8 bool
 	check     bool   // check duplicate names
-	value     []byte // a copy of a value which is in the room of buf
+	avail     []byte // the buffer of AvailableBuffer, which the output doesn't share
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -140,7 +139,11 @@ func (e *Encoder) OutputOffset() int64 {
 // WriteValue takes a valid JSON value: a Value built as raw bytes takes more care than a Token of a
 // constructor such as String.
 func (e *Encoder) AvailableBuffer() []byte {
-	return e.e.buf[len(e.e.buf):]
+	// a buffer of its own: the room of the output would be written over by the value built in it.
+	if e.e.avail == nil {
+		e.e.avail = make([]byte, 0, 64)
+	}
+	return e.e.avail[:0]
 }
 
 // StackDepth returns the number of the objects and arrays which are open in the output: 0 at the top level,
@@ -398,13 +401,6 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
-	// a value in the room of the output, as AvailableBuffer gives it, is copied first: the output, which may be
-	// longer than the value, would be written over the value before it is read.
-	if room := e.buf[len(e.buf):cap(e.buf)]; len(v) > 0 && len(room) > 0 &&
-		uintptr(unsafe.Pointer(unsafe.SliceData(v)))-uintptr(unsafe.Pointer(unsafe.SliceData(room))) < uintptr(len(room)) {
-		e.value = append(e.value[:0], v...)
-		v = e.value
-	}
 	l := e.st.last()
 	k := v.Kind()
 	name := l.needName()

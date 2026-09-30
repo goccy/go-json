@@ -372,11 +372,15 @@ func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
 	return appendCanonicalNumber(b, raw), nil
 }
 
+// flushSize is the size of the output from which it is written before a top-level value is complete: the
+// buffer of a writer stays about as small as it, unless a token or value is larger.
+const flushSize = 4 << 10
+
 // endValue ends a token or value: after a complete top-level value, a line feed, and the output is written,
 // as it is when the buffer is large.
 func (e *encoder) endValue() error {
 	// it is inlined where the output is kept.
-	if len(e.st.levels) > 1 && len(e.buf) <= 1<<16 {
+	if len(e.st.levels) > 1 && len(e.buf) <= flushSize {
 		return nil
 	}
 	return e.endOutput()

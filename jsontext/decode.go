@@ -51,7 +51,7 @@ type decoder struct {
 	rerr               error // the error of the reader in the current call
 	peekErr            error // an error which PeekKind found, which the next read reports
 
-	rawString, rawNumber tokenSource // the sources of its raw tokens
+	raw tokenSource // the source of its raw tokens
 }
 
 // NewDecoder constructs a streaming decoder which reads from r.
@@ -82,8 +82,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	s.buf = s.buf[:0]
 	s.base, s.pos, s.prevStart, s.prevEnd = 0, 0, 0, 0
 	s.rerr, s.peekErr = nil, nil
-	s.rawString = tokenSource{dec: s, kind: KindString, form: formRaw}
-	s.rawNumber = tokenSource{dec: s, kind: KindNumber, form: formRaw}
+	s.raw = tokenSource{dec: s, form: formRaw}
 	s.vs = valueScanner{
 		st:         &s.st,
 		validUTF8:  !s.cfg.has(allowInvalidUTF8),
@@ -273,7 +272,9 @@ func (d *decoder) beforeToken(peek bool) (int, error) {
 	if c := d.buf[pos]; c == ',' || c == ':' {
 		found = c
 		if pos, err = d.skip(pos + 1); err != nil {
-			if err != io.EOF || found == need {
+			// at the end of the input, or an error of the reader, a delimiter which the next token can't need is
+			// reported first
+			if found == need {
 				return pos, d.endError(pos, err, pointAt)
 			}
 		} else if c := d.buf[pos]; (c == '}' || c == ']') && !d.st.last().needValue() {
@@ -349,7 +350,7 @@ func (d *decoder) readToken() (Token, error) {
 	switch {
 	case c == '}' && l.object && l.count%2 == 0, c == ']' && !l.object:
 		d.st.pop()
-		d.done(pos, pos+1)
+		d.done(pos+1, pos+1)
 		if c == '}' {
 			return EndObject, nil
 		}
@@ -376,12 +377,12 @@ func (d *decoder) readToken() (Token, error) {
 		}
 		l.count++
 		d.done(pos, pos+n)
-		return Token{src: &d.rawString, num: uint64(d.base + int64(pos))}, nil
+		return Token{src: &d.raw, num: uint64(d.base + int64(pos))}, nil
 	case '{', '[':
 		if name || d.st.push(c == '{') != nil {
 			return d.readTokenSlow()
 		}
-		d.done(pos, pos+1)
+		d.done(pos+1, pos+1)
 		if c == '{' {
 			return BeginObject, nil
 		}
@@ -392,7 +393,7 @@ func (d *decoder) readToken() (Token, error) {
 			return d.readTokenSlow()
 		}
 		l.count++
-		d.done(pos, pos+len(lit))
+		d.done(pos+len(lit), pos+len(lit))
 		return literalToken(Kind(c)), nil
 	}
 	n := numberEnd(b[pos:])
@@ -401,7 +402,7 @@ func (d *decoder) readToken() (Token, error) {
 	}
 	l.count++
 	d.done(pos, pos+n)
-	return Token{src: &d.rawNumber, num: uint64(d.base + int64(pos))}, nil
+	return Token{src: &d.raw, num: uint64(d.base + int64(pos))}, nil
 }
 
 func (d *decoder) readTokenSlow() (Token, error) {
@@ -423,7 +424,7 @@ func (d *decoder) readTokenSlow() (Token, error) {
 		if err := d.st.push(c == '{'); err != nil {
 			return Token{}, d.failAt(err, pos, pointNext)
 		}
-		d.done(pos, pos+1)
+		d.done(pos+1, pos+1)
 		if c == '{' {
 			return BeginObject, nil
 		}
@@ -433,7 +434,7 @@ func (d *decoder) readTokenSlow() (Token, error) {
 			return Token{}, err
 		}
 		d.st.pop()
-		d.done(pos, pos+1)
+		d.done(pos+1, pos+1)
 		if c == '}' {
 			return EndObject, nil
 		}
@@ -457,15 +458,12 @@ func (d *decoder) readTokenSlow() (Token, error) {
 		}
 	}
 	d.st.last().count++
-	d.done(start, end)
-	switch k := kindOf(c); k {
-	case KindString:
-		return Token{src: &d.rawString, num: uint64(d.base + int64(start))}, nil
-	case KindNumber:
-		return Token{src: &d.rawNumber, num: uint64(d.base + int64(start))}, nil
-	default:
+	if k := kindOf(c); k != KindString && k != KindNumber {
+		d.done(end, end) // a literal isn't in the buffer after
 		return literalToken(k), nil
 	}
+	d.done(start, end)
+	return Token{src: &d.raw, num: uint64(d.base + int64(start))}, nil
 }
 
 // closeError is the error of the end delimiter at pos, or nil if it closes the innermost object or array.
@@ -703,22 +701,23 @@ func (d *decoder) readValue() (int, int, error) {
 	}
 }
 
-// cutError is the error of the reader, err, in a value which the buffer cuts at rp: within an object or array of
-// the value, where the error has a pointer, it is shown there, where the value ends as the end of the input
-// would be, at the start of a number which is cut.
+// cutError is the error of the reader, err, in a value which the buffer cuts at rp: where the levels which the
+// value opened have a pointer, it is shown there, where the value ends as the end of the input would be: at the
+// start of a number which is cut, and after the part of a literal.
 func (d *decoder) cutError(rp *resumePoint, err error) error {
-	if d.st.depth() == rp.base {
-		return err
-	}
-	ptr := d.st.pointer(int(rp.where))
-	if ptr == "" {
+	if len(d.st.pointerBytes(int(rp.where), rp.base)) == 0 {
 		return err
 	}
 	pos := rp.pos + rp.tok
-	if rp.tok > 0 && kindOf(d.buf[rp.pos]) == KindNumber {
-		pos = rp.pos
+	if rp.pos < len(d.buf) { // a token which is cut
+		switch kindOf(d.buf[rp.pos]) {
+		case KindNumber:
+			pos = rp.pos
+		case KindNull, KindTrue, KindFalse:
+			pos = rp.pos + rp.lit
+		}
 	}
-	return &SyntacticError{ByteOffset: d.base + int64(pos), JSONPointer: ptr, Err: err}
+	return &SyntacticError{ByteOffset: d.base + int64(pos), JSONPointer: d.st.pointer(int(rp.where)), Err: err}
 }
 
 // stillCut reads the input which a fetch added to a value which the buffer cut, and reports whether the value is

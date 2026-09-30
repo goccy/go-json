@@ -211,11 +211,10 @@ func Uint(n uint64) Token {
 // Clone returns a copy of the token whose value is not in the buffer of a Decoder: it stays valid after the
 // following calls of the Decoder. A token which a constructor made is returned as it is.
 func (t Token) Clone() Token {
-	src := t.source()
-	if src.dec == nil {
+	if t.source().dec == nil {
 		return t
 	}
-	if src.kind == KindString {
+	if t.kind() == KindString {
 		return Token{src: &rawStringSource, str: string(t.raw())}
 	}
 	return Token{src: &rawNumberSource, str: string(t.raw())}
@@ -240,19 +239,29 @@ func (t Token) checkValid() {
 
 // Kind returns the kind of the token. It panics for a raw token which the decoder has moved past.
 func (t Token) Kind() Kind {
+	return t.kind()
+}
+
+// kind is the kind of t. The kind of a raw token is the one of the text of the decoder at its offset, which a
+// Reset of the decoder may change, as encoding/json/jsontext reads it.
+func (t Token) kind() Kind {
+	src := t.source()
+	if src.dec == nil {
+		return src.kind
+	}
 	t.checkValid()
-	return t.source().kind
+	return kindOf(src.dec.buf[src.dec.prevStart])
 }
 
 // Bool returns the value of a JSON boolean. It panics if the token is not a JSON boolean.
 func (t Token) Bool() bool {
-	switch t.source().kind {
+	switch t.kind() {
 	case KindTrue:
 		return true
 	case KindFalse:
 		return false
 	}
-	panic("invalid JSON token kind: " + t.source().kind.String())
+	panic("invalid JSON token kind: " + t.kind().String())
 }
 
 // String returns the unescaped value of a JSON string. For a token of another kind, it returns its raw JSON
@@ -271,13 +280,14 @@ func (t Token) String() string {
 func (t Token) text() (string, []byte) {
 	switch t.source().form {
 	case formNone:
-		if t.source().kind == KindInvalid {
+		if t.kind() == KindInvalid {
 			return "<invalid jsontext.Token>", nil
 		}
-		return t.source().kind.String(), nil
+		return t.kind().String(), nil
 	case formRaw:
+		k := t.kind()
 		b := t.raw()
-		if t.source().kind != KindString {
+		if k != KindString {
 			return "", b
 		}
 		if v := b[1 : len(b)-1]; bytes.IndexByte(v, '\\') < 0 && utf8.Valid(v) {
@@ -321,8 +331,8 @@ func (e *numError) Unwrap() error { return e.err }
 
 // checkNumber panics unless the token is a JSON number.
 func (t Token) checkNumber() {
-	if t.source().kind != KindNumber {
-		panic("invalid JSON token kind: " + t.source().kind.String())
+	if t.kind() != KindNumber {
+		panic("invalid JSON token kind: " + t.kind().String())
 	}
 }
 
@@ -420,7 +430,7 @@ func (t Token) Float32() (float32, error) {
 }
 
 func (t Token) float(bits int) (float64, error) {
-	if t.source().kind == KindString {
+	if t.kind() == KindString {
 		if f, ok := t.nonFinite(); ok {
 			return f, nil
 		}

@@ -83,15 +83,16 @@ func (s *stack) pointer(where int) Pointer {
 	if len(s.levels) == 1 {
 		return ""
 	}
-	return Pointer(s.pointerBytes(where))
+	return Pointer(s.pointerBytes(where, 0))
 }
 
 // namePointer is the pointer to the name of a member of the innermost object, which is not inserted.
 func (s *stack) namePointer(name []byte) Pointer {
-	return Pointer(appendPointerToken(s.pointerBytes(pointAt), name))
+	return Pointer(appendPointerToken(s.pointerBytes(pointAt, 0), name))
 }
 
-func (s *stack) pointerBytes(where int) []byte {
+// pointerBytes is the pointer of the place where, of the levels after the level of the depth from.
+func (s *stack) pointerBytes(where, from int) []byte {
 	var b []byte
 	n := len(s.levels)
 	switch where {
@@ -102,7 +103,7 @@ func (s *stack) pointerBytes(where int) []byte {
 		n--
 		where = pointLast
 	}
-	for i := 1; i < n; i++ {
+	for i := from + 1; i < n; i++ {
 		l := &s.levels[i]
 		innermost := i == n-1
 		switch {

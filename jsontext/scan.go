@@ -63,6 +63,7 @@ type resumePoint struct {
 	where uint8 // where the pointer of an error at the cut points
 	pos   int   // the start of the token which was cut, or the position of the place
 	tok   int   // the length of the part of the token which was taken, 0 if none
+	lit   int   // the length of the part of a literal which the buffer cuts, for the position of an error there
 	str   strFlags
 	num   numState
 	base  int // the depth of the stack before the value
@@ -196,6 +197,7 @@ value:
 		n, err = scanLiteral(b[i:], lit)
 		if err != nil {
 			if err == io.ErrUnexpectedEOF && !s.final {
+				rp.lit = n
 				return s.cut(atValue, i, pointNext, rp)
 			}
 			return i + n, s.fail(err, i+n, pointNext)

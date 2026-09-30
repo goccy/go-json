@@ -463,7 +463,10 @@ func TestStdDiffReaderErrors(t *testing.T) {
 		"error with the input": func(s string) io.Reader { return &dataThenErrBoom{[]byte(s)} },
 	}
 	inputs := []string{``, ` `, `123`, `tru`, `"ab`, `[`, `[[[[`, `[1,2`, `[12`, `[1e`, `["\u12`, `[1,"x`, `[1,2]`,
-		`{"a"`, `{"a":1`, `{"a":"b"`, `{"a":{"b":`, `{"a":[1,2]}`}
+		`{"a"`, `{"a":1`, `{"a":"b"`, `{"a":{"b":`, `{"a":[1,2]}`,
+		// a delimiter which the next token can't need, a value in an object or array, and a cut literal
+		`,`, `[,`, `{"a",`, `1 ,`, `[1:`, `{:`, `{"a":1:`, `{"a":{`, `[[1,`, `{"a":{"b":1,`, `[{`, `{"a":[1,`,
+		`[tru`, `[f`, `[[fa`, `{"a":fa`, `[1,tr`}
 	for name, newReader := range readers {
 		for _, in := range inputs {
 			for _, ops := range []string{"TTTT", "VVV", "TVVV", "SSS", "TSSS", "TTVV"} {
@@ -697,6 +700,33 @@ func TestStdDiffEdgeCases(t *testing.T) {
 				v, _ := d.ReadValue()
 				d.ReadToken() // io.EOF
 				s += string(v) + " "
+			}
+			return s
+		}},
+		{"a token after Reset", func() string {
+			var s string
+			for _, c := range [][2]string{{`"abc"`, "123"}, {`"abc"`, ""}, {"12", "true"}} {
+				d := jsontext.NewDecoder(bytes.NewBufferString(c[0]))
+				tok, _ := d.ReadToken()
+				d.Reset(bytes.NewBufferString(c[1]))
+				if c[1] != "" {
+					d.ReadToken()
+				}
+				s += recovered(func() string { return tok.Kind().String() }) + " " + recovered(tok.String) + " " +
+					recovered(func() string { return fmt.Sprint(tok.Int()) }) + " "
+			}
+			return s
+		}, func() string {
+			var s string
+			for _, c := range [][2]string{{`"abc"`, "123"}, {`"abc"`, ""}, {"12", "true"}} {
+				d := stdjsontext.NewDecoder(bytes.NewBufferString(c[0]))
+				tok, _ := d.ReadToken()
+				d.Reset(bytes.NewBufferString(c[1]))
+				if c[1] != "" {
+					d.ReadToken()
+				}
+				s += recovered(func() string { return tok.Kind().String() }) + " " + recovered(tok.String) + " " +
+					recovered(func() string { return fmt.Sprint(tok.Int()) }) + " "
 			}
 			return s
 		}},

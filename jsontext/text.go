@@ -842,20 +842,7 @@ func appendFloat(dst []byte, f float64, bits int) []byte {
 	if i := int64(f); float64(i) == f && i != 0 && -limit < i && i < limit {
 		return strconv.AppendInt(dst, i, 10)
 	}
-	abs := math.Abs(f)
-	fmt := byte('f')
-	if abs != 0 && (bits == 64 && (abs < 1e-6 || abs >= 1e21) || bits == 32 && (float32(abs) < 1e-6 || float32(abs) >= 1e21)) {
-		fmt = 'e'
-	}
-	dst = strconv.AppendFloat(dst, f, fmt, -1, bits)
-	if fmt == 'e' {
-		// the exponent has no leading zero: e-07 is e-7.
-		if n := len(dst); dst[n-4] == 'e' && dst[n-2] == '0' {
-			dst[n-2] = dst[n-1]
-			dst = dst[:n-1]
-		}
-	}
-	return dst
+	return appendShortestFloat(dst, f, bits)
 }
 
 // appendCanonicalNumber appends the JSON number b in the canonical form of RFC 8785: as a float64, saturated at

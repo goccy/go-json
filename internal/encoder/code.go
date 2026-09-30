@@ -954,9 +954,10 @@ const (
 	EmptyInt // an integer of NumBitSize bits which is 0
 	EmptyFloat32
 	EmptyFloat64
-	EmptyLen    // a string or a slice whose length is zero
-	EmptyMapLen // a map whose length is zero
-	EmptyAlways // an array of no element
+	EmptyStringLen // a string whose length is zero
+	EmptySliceLen  // a slice whose length is zero
+	EmptyMapLen    // a map whose length is zero
+	EmptyAlways    // an array of no element
 )
 
 // emptyKindOf returns what makes a value of the type empty.
@@ -973,8 +974,10 @@ func emptyKindOf(typ reflect.Type) EmptyKind {
 		return EmptyFloat32
 	case reflect.Float64:
 		return EmptyFloat64
-	case reflect.String, reflect.Slice:
-		return EmptyLen
+	case reflect.String:
+		return EmptyStringLen
+	case reflect.Slice:
+		return EmptySliceLen
 	case reflect.Map:
 		return EmptyMapLen
 	case reflect.Array:
@@ -1006,7 +1009,10 @@ func IsEmptyField(kind EmptyKind, bitSize uint8, p unsafe.Pointer) bool {
 		return *(*float32)(p) == 0
 	case EmptyFloat64:
 		return *(*float64)(p) == 0
-	case EmptyLen:
+	case EmptyStringLen:
+		// read as a string, not as a slice header, which is longer: the string may end its allocation.
+		return len(*(*string)(p)) == 0
+	case EmptySliceLen:
 		return (*runtime.SliceHeader)(p).Len == 0
 	case EmptyMapLen:
 		return MapLen(*(*unsafe.Pointer)(p)) == 0

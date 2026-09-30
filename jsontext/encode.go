@@ -95,24 +95,28 @@ func (e *encoder) init(w io.Writer) {
 	e.esc = e.cfg.escapes()
 	e.validUTF8 = !e.cfg.has(allowInvalidUTF8)
 	e.check = !e.cfg.has(allowDuplicateNames)
-	e.vs = valueScanner{
-		st:         &e.st,
-		validUTF8:  e.validUTF8,
-		checkNames: e.check,
-		lazyNames:  !e.check,
-		final:      true,
-		write:      true,
-		ws:         e.ws,
-		esc:        e.esc,
-		preserve:   e.cfg.has(preserveRawStrings),
-		canonInts:  e.cfg.has(canonicalizeRawInts),
-		canonFlts:  e.cfg.has(canonicalizeRawFloats),
-		reorder:    e.cfg.has(reorderRawObjects),
-		spaced:     e.ws.multiline || e.ws.colon || e.ws.comma,
-		lines:      e.vs.lines[:0],
-		scratch:    e.vs.scratch[:0],
-		ro:         e.vs.ro,
-	}
+	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
+	vs := &e.vs
+	vs.st = &e.st
+	vs.validUTF8 = e.validUTF8
+	vs.checkNames = e.check
+	vs.lazyNames = !e.check
+	vs.in = nil
+	vs.decoding = false
+	vs.final = true
+	vs.write = true
+	vs.out = nil
+	vs.ws = e.ws
+	vs.esc = e.esc
+	vs.preserve = e.cfg.has(preserveRawStrings)
+	vs.canonInts = e.cfg.has(canonicalizeRawInts)
+	vs.canonFlts = e.cfg.has(canonicalizeRawFloats)
+	vs.reorder = e.cfg.has(reorderRawObjects)
+	vs.run = 0
+	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
+	vs.wsFrom, vs.wsEnd = 0, 0
+	vs.lines = vs.lines[:0]
+	vs.scratch = vs.scratch[:0]
 }
 
 // Options returns the options of the encoder: the ones it was constructed or last reset with, and, for Multiline,

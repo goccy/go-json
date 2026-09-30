@@ -45,8 +45,8 @@ type valueScanner struct {
 
 	ro      reorderer // the members of the objects which are reordered, by level
 	scratch []byte
-	// open, if it is set, keeps the open objects of scanFast, which are otherwise in its frame: a scanner which
-	// is used again, as the ones of the functions of values are, doesn't clear them at every value.
+	// open, if it is set, keeps the open objects of scanObjects, which scanFast otherwise keeps in its frame: a
+	// scanner which is used again, as the ones of the functions of values are, doesn't clear them at every value.
 	open *[64]openObject
 }
 
@@ -111,12 +111,17 @@ var errCut = &scanError{err: io.ErrUnexpectedEOF}
 // scan reads the value at b[i:], and returns the position after it, and counts it in the innermost level of the
 // stack. At an error, the stack is left as it was.
 func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
-	count := s.st.last().count
-	rp := resumePoint{pos: i, base: s.st.depth()}
 	s.run, s.wsEnd, s.in = i, -1, b
 	if s.plain() {
 		out, names := len(s.out), len(s.st.names.ends)
-		if end, ok := s.scanFast(b, i); ok {
+		var end int
+		var ok bool
+		if s.open != nil {
+			end, ok = s.scanObjects(b, i, s.open)
+		} else {
+			end, ok = s.scanFast(b, i)
+		}
+		if ok {
 			s.in = nil
 			if s.write {
 				s.flush(b, end)
@@ -126,6 +131,8 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 		s.out, s.run = s.out[:out], i
 		s.st.names.truncate(names)
 	}
+	count := s.st.last().count
+	rp := resumePoint{pos: i, base: s.st.depth()}
 	end, err := s.resume(b, &rp)
 	s.in = nil
 	if err != nil {
@@ -148,9 +155,6 @@ func (s *valueScanner) plain() bool {
 // the value: resume reads it again from the start, and reports the errors. The names of the objects are checked
 // as resume checks them.
 func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
-	if s.open != nil {
-		return s.scanObjects(b, i, s.open)
-	}
 	// the open objects are in this frame, not in the one of scanObjects: the spilled registers of the loop are
 	// then near its stack pointer, where the CPUs of AMD Zen 4 read them without a stall.
 	var open [64]openObject

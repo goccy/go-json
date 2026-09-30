@@ -817,35 +817,3 @@ func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 	}
 	return b
 }
-
-// IsEmptyForMarshaler reports whether the value of a field written by a marshaler is empty for omitempty. p is
-// what the opcode is given: the value itself for a type flagged IsNilableTypeFlags, which the opcode loaded, and
-// else the address of the value, also for a type stored directly in an interface value whose marshaler is called
-// with the address.
-func IsEmptyForMarshaler(code *Opcode, p unsafe.Pointer) bool {
-	if code.Flags&IsNilableTypeFlags != 0 {
-		return isEmptyForMarshaler(reflect.ValueOf(interfaceOf(code, p)))
-	}
-	return isEmptyForMarshaler(reflect.NewAt(runtime.TypeOfPtr(code.Type), p).Elem())
-}
-
-// isEmptyForMarshaler reports whether the value is empty for omitempty, by its kind as encoding/json decides it:
-// a func or a chan is never empty.
-func isEmptyForMarshaler(rv reflect.Value) bool {
-	switch rv.Kind() {
-	case reflect.Bool:
-		return !rv.Bool()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return rv.Int() == 0
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return rv.Uint() == 0
-	case reflect.Float32, reflect.Float64:
-		return math.Float64bits(rv.Float()) == 0
-	case reflect.Interface, reflect.Ptr:
-		return rv.IsNil()
-	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
-		// the same as encoding/json: they are empty if the length is zero, even if they are not nil.
-		return rv.Len() == 0
-	}
-	return false
-}

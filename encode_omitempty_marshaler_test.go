@@ -3,6 +3,7 @@ package json_test
 import (
 	stdjson "encoding/json"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -174,6 +175,120 @@ func TestEncodeOmitEmptyWithTextMarshaler(t *testing.T) {
 				if string(got) != string(expected) {
 					t.Fatalf("call %d: expected %s but got %s", i, expected, got)
 				}
+			}
+			expectedIndent, err := stdjson.MarshalIndent(test.v, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotIndent, err := json.MarshalIndent(test.v, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(gotIndent) != string(expectedIndent) {
+				t.Fatalf("indent: expected %s but got %s", expectedIndent, gotIndent)
+			}
+		})
+	}
+}
+
+// omitempty decides that a field with a marshaler is empty by the kind of the field, as encoding/json does: a nil
+// func or chan is not empty, -0 is, and the integer checked is the one of the size of the field, also for a field
+// encoded by the generic field opcode ( a long key, or omitzero ).
+
+type omitEmptyKindFunc func()
+
+func (f omitEmptyKindFunc) MarshalJSON() ([]byte, error) {
+	if f == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"func"`), nil
+}
+
+type omitEmptyKindPtrReceiverFunc func()
+
+func (f *omitEmptyKindPtrReceiverFunc) MarshalJSON() ([]byte, error) {
+	if *f == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"func"`), nil
+}
+
+type omitEmptyKindTextFunc func()
+
+func (f omitEmptyKindTextFunc) MarshalText() ([]byte, error) {
+	if f == nil {
+		return []byte("nil"), nil
+	}
+	return []byte("func"), nil
+}
+
+type omitEmptyKindChan chan int
+
+func (c omitEmptyKindChan) MarshalJSON() ([]byte, error) {
+	if c == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"chan"`), nil
+}
+
+type omitEmptyKindFloat float64
+
+func (f omitEmptyKindFloat) MarshalJSON() ([]byte, error) {
+	return []byte(`"float"`), nil
+}
+
+type omitEmptyKindInt8 int8
+
+func (i omitEmptyKindInt8) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"int8:%d"`, int8(i))), nil
+}
+
+type omitEmptyKindPtrReceiverUint16 uint16
+
+func (u *omitEmptyKindPtrReceiverUint16) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"uint16:%d"`, uint16(*u))), nil
+}
+
+type omitEmptyKindFields struct {
+	F  omitEmptyKindFunc              `json:",omitempty"`
+	PF omitEmptyKindPtrReceiverFunc   `json:",omitempty"`
+	TF omitEmptyKindTextFunc          `json:",omitempty"`
+	C  omitEmptyKindChan              `json:",omitempty"`
+	Fl omitEmptyKindFloat             `json:",omitempty"`
+	I8 omitEmptyKindInt8              `json:",omitempty"`
+	U  omitEmptyKindPtrReceiverUint16 `json:",omitempty"`
+	B  int8
+	// the field of a long key and the one of omitzero are encoded by the generic field opcode.
+	ThisIsTheKeyOfAFieldLongerThanAChunkOfTheEncoder omitEmptyKindInt8 `json:",omitempty"`
+	Z                                                omitEmptyKindInt8 `json:",omitempty,omitzero"`
+	B2                                               int8
+}
+
+func TestEncodeOmitEmptyByTheKindOfTheMarshalerField(t *testing.T) {
+	negativeZero := omitEmptyKindFloat(math.Copysign(0, -1))
+	for _, test := range []struct {
+		name string
+		v    any
+	}{
+		{"zero fields", &omitEmptyKindFields{B: -1, B2: -1}},
+		{"non-zero fields", &omitEmptyKindFields{
+			F: func() {}, PF: func() {}, TF: func() {}, C: make(omitEmptyKindChan), Fl: 1, I8: 1, U: 0x100, B: -1,
+			ThisIsTheKeyOfAFieldLongerThanAChunkOfTheEncoder: 1, Z: 1, B2: -1,
+		}},
+		{"negative zero", &omitEmptyKindFields{Fl: negativeZero}},
+		{"slice", []omitEmptyKindFields{{B: -1}, {I8: -1, U: 1}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			expected, err := stdjson.Marshal(test.v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := json.Marshal(test.v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != string(expected) {
+				t.Fatalf("expected %s but got %s", expected, got)
 			}
 			expectedIndent, err := stdjson.MarshalIndent(test.v, "", "  ")
 			if err != nil {

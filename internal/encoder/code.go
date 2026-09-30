@@ -827,6 +827,17 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
 	return append(Opcodes{head}, codes...)
 }
 
+// checksEmptyAtAddr is whether the opcode of the field decides omitempty by EmptyKind from the address of the
+// field: the generic field opcode, and the opcodes of a field written by a marshaler, whose value may be of any
+// kind, as encoding/json decides it by the kind of the field whether or not it has a marshaler.
+func checksEmptyAtAddr(op OpType) bool {
+	switch op {
+	case OpStructFieldOmitEmpty, OpStructFieldOmitEmptyMarshalJSON, OpStructFieldOmitEmptyMarshalText:
+		return true
+	}
+	return false
+}
+
 // isLongKey is whether the key of the field is longer than a chunk: then the field is not encoded by one opcode
 // with its value, but by the generic field opcode, which writes a key of any length, and the opcode of the value.
 func (c *StructFieldCode) isLongKey(field *Opcode) bool {
@@ -863,13 +874,8 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		op = optimizeStructField(value, c.tag)
 	}
 	field.Op = op
-	if op == OpStructFieldOmitEmpty {
-		if c.tag.IsOmitEmpty {
-			field.EmptyKind = emptyKindOf(c.typ)
-		}
-		if c.tag.IsOmitZero {
-			field.ZeroKind = zeroKindOf(c.typ)
-		}
+	if op == OpStructFieldOmitEmpty && c.tag.IsOmitZero {
+		field.ZeroKind = zeroKindOf(c.typ)
 	}
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
@@ -879,6 +885,13 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		field.Flags |= NonEmptyInterfaceFlags
 	}
 	field.NumBitSize = value.NumBitSize
+	if c.tag.IsOmitEmpty && checksEmptyAtAddr(op) {
+		field.EmptyKind = emptyKindOf(c.typ)
+		if field.EmptyKind == EmptyInt {
+			// the opcode of the value of a marshaler has no size: the integer checked is the field.
+			field.NumBitSize = uint8(c.typ.Size() * 8)
+		}
+	}
 	field.PtrNum = value.PtrNum
 	field.FieldQuery = value.FieldQuery
 	field.Marshaler = value.Marshaler

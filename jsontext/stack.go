@@ -42,9 +42,18 @@ func (s *stack) push(object bool) error {
 		return errMaxDepth
 	}
 	s.last().count++
-	s.levels = append(s.levels, level{object: object, first: len(s.names.ends), last: -1})
+	if n := len(s.levels); n < cap(s.levels) {
+		s.levels = s.levels[:n+1]
+	} else {
+		s.grow()
+	}
+	// the level is written in place: an append of it would build it in a temporary, whose copy would load it
+	// by 16 bytes from narrower stores, which stalls the CPU.
+	*s.last() = level{object: object, first: len(s.names.ends), last: -1}
 	return nil
 }
+
+func (s *stack) grow() { s.levels = append(s.levels, level{}) }
 
 // pop closes the innermost object or array.
 func (s *stack) pop() {

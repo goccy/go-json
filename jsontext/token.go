@@ -1,0 +1,502 @@
+package jsontext
+
+import (
+	"math"
+	"strconv"
+)
+
+// Kind is the kind of a JSON token.
+//
+// It is a single byte, the first byte of the token in the grammar, except for numbers, whose kind is always
+// '0'.
+type Kind byte
+
+const (
+	KindInvalid     Kind = 0   // invalid kind
+	KindNull        Kind = 'n' // null
+	KindFalse       Kind = 'f' // false
+	KindTrue        Kind = 't' // true
+	KindString      Kind = '"' // string
+	KindNumber      Kind = '0' // number
+	KindBeginObject Kind = '{' // begin object
+	KindEndObject   Kind = '}' // end object
+	KindBeginArray  Kind = '[' // begin array
+	KindEndArray    Kind = ']' // end array
+)
+
+// String returns a string representation of k.
+func (k Kind) String() string {
+	switch k {
+	case KindInvalid:
+		return "invalid"
+	case KindNull:
+		return "null"
+	case KindFalse:
+		return "false"
+	case KindTrue:
+		return "true"
+	case KindString:
+		return "string"
+	case KindNumber:
+		return "number"
+	case KindBeginObject, KindEndObject, KindBeginArray, KindEndArray:
+		return string(rune(k))
+	}
+	return "<invalid jsontext.Kind: " + quoteChar([]byte{byte(k)}) + ">"
+}
+
+// kindOf is the kind of a token or value which starts with c, or KindInvalid.
+func kindOf(c byte) Kind {
+	switch c {
+	case 'n', 'f', 't', '"', '{', '}', '[', ']':
+		return Kind(c)
+	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return KindNumber
+	}
+	return KindInvalid
+}
+
+// The forms in which a Token holds its value.
+const (
+	formNone    = iota // a literal or a delimiter, whose kind is all of it
+	formRaw            // the text of the token: in the buffer of dec, or in str after Clone
+	formString         // a string, in str
+	formInt            // an int64, in num
+	formUint           // a uint64, in num
+	formFloat          // a float64, as its bits in num
+	formFloat32        // a float32, as the bits of its float64 value in num
+)
+
+// Token is a lexical JSON token, one of:
+//   - a JSON literal (i.e., null, true, or false)
+//   - a JSON string (e.g., "hello, world!")
+//   - a JSON number (e.g., 123.456)
+//   - a begin or end delimiter of a JSON object (i.e., { or } )
+//   - a begin or end delimiter of a JSON array (i.e., [ or ] )
+//
+// A Token can't hold a whole array or object, which a Value can. There is no Token for a comma or a colon,
+// which the structure implies.
+//
+// A Token holds its value in one of two forms:
+//
+//   - As raw JSON text in the buffer of a Decoder, as only Decoder.ReadToken makes it. Such a token is only
+//     valid until the next call of a method of the Decoder (e.g., Decoder.PeekKind, Decoder.ReadToken,
+//     Decoder.ReadValue, or Decoder.SkipValue). Token.Clone copies the text to a token which stays valid.
+//
+//   - As a Go value, as the constructors (e.g., String, Int, Uint, Float) make it. Such a token is valid
+//     forever.
+type Token struct {
+	_ [0]func() // not comparable
+
+	dec  *decoder // the decoder whose last token this is, for formRaw in its buffer
+	str  string
+	num  uint64 // the value of a number, or, in the buffer of dec, the offset of the token in the input
+	kind Kind
+	form uint8
+}
+
+var (
+	Null  = Token{kind: KindNull}
+	False = Token{kind: KindFalse}
+	True  = Token{kind: KindTrue}
+
+	BeginObject = Token{kind: KindBeginObject}
+	EndObject   = Token{kind: KindEndObject}
+	BeginArray  = Token{kind: KindBeginArray}
+	EndArray    = Token{kind: KindEndArray}
+)
+
+// Bool constructs a Token of a JSON boolean.
+func Bool(b bool) Token {
+	if b {
+		return True
+	}
+	return False
+}
+
+// String constructs a Token of a JSON string. The string should be valid UTF-8: invalid bytes may be mangled
+// as the Unicode replacement character.
+func String(s string) Token {
+	return Token{str: s, kind: KindString, form: formString}
+}
+
+// Float constructs a Token of a JSON number of a 64-bit floating-point number, formatted as ECMA-262, 10th
+// edition, section 7.1.12.1 and RFC 8785, section 3.2.2.3 do, except that -0 is formatted as -0. NaN, +Inf and
+// -Inf are JSON strings of the values "NaN", "Infinity" and "-Infinity".
+func Float(n float64) Token {
+	return Token{num: math.Float64bits(n), kind: floatKind(n), form: formFloat}
+}
+
+// Float32 constructs a Token of a JSON number of a 32-bit floating-point number, formatted as ECMA-262, 10th
+// edition, section 7.1.12.1 does, except that -0 is formatted as -0. NaN, +Inf and -Inf are JSON strings of the
+// values "NaN", "Infinity" and "-Infinity".
+//
+// Most JSON libraries and standards take JSON numbers as 64-bit floating-point numbers: use 32-bit precision
+// only if the decoder knows that the number has only 32-bit precision. In any other case, use Float.
+func Float32(n float32) Token {
+	f := float64(n)
+	return Token{num: math.Float64bits(f), kind: floatKind(f), form: formFloat32}
+}
+
+func floatKind(f float64) Kind {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return KindString
+	}
+	return KindNumber
+}
+
+// Int constructs a Token of a JSON number of an int64.
+func Int(n int64) Token {
+	return Token{num: uint64(n), kind: KindNumber, form: formInt}
+}
+
+// Uint constructs a Token of a JSON number of a uint64.
+func Uint(n uint64) Token {
+	return Token{num: n, kind: KindNumber, form: formUint}
+}
+
+// Clone returns a copy of the token whose value is not in the buffer of a Decoder: it stays valid after the
+// following calls of the Decoder. A token which a constructor made is returned as it is.
+func (t Token) Clone() Token {
+	if t.dec == nil {
+		return t
+	}
+	return Token{str: string(t.raw()), kind: t.kind, form: formRaw}
+}
+
+// raw is the text of a raw token. It panics if the decoder has moved past the token.
+func (t Token) raw() []byte {
+	if t.dec == nil {
+		return []byte(t.str)
+	}
+	if t.dec.prevOffset() != int64(t.num) {
+		panic("invalid jsontext.Token; it has been voided by a subsequent json.Decoder call")
+	}
+	return t.dec.prevBuffer()
+}
+
+// Kind returns the kind of the token.
+func (t Token) Kind() Kind {
+	return t.kind
+}
+
+// Bool returns the value of a JSON boolean. It panics if the token is not a JSON boolean.
+func (t Token) Bool() bool {
+	switch t.kind {
+	case KindTrue:
+		return true
+	case KindFalse:
+		return false
+	}
+	panic("invalid JSON token kind: " + t.kind.String())
+}
+
+// String returns the unescaped value of a JSON string. For a token of another kind, it returns its raw JSON
+// text.
+func (t Token) String() string {
+	switch t.form {
+	case formNone:
+		if t.kind == KindInvalid {
+			return "<invalid jsontext.Token>"
+		}
+		return t.kind.String()
+	case formRaw:
+		b := t.raw()
+		if t.kind == KindString {
+			s, _ := AppendUnquote(nil, b)
+			return string(s)
+		}
+		return string(b)
+	case formString:
+		return t.str
+	}
+	return string(t.appendNumber(nil))
+}
+
+// appendNumber appends the text of a number of a Go value: for a float which is not finite, the text of its
+// string, without the quotes.
+func (t Token) appendNumber(b []byte) []byte {
+	switch t.form {
+	case formInt:
+		return strconv.AppendInt(b, int64(t.num), 10)
+	case formUint:
+		return strconv.AppendUint(b, t.num, 10)
+	case formFloat:
+		return appendFloatText(b, math.Float64frombits(t.num), 64)
+	default:
+		return appendFloatText(b, math.Float64frombits(t.num), 32)
+	}
+}
+
+// numError is the error of a method of Token which reads a number.
+type numError struct {
+	method string
+	text   string
+	err    error
+}
+
+func (e *numError) Error() string {
+	return "jsontext.Token(" + e.text + ")." + e.method + " error: " + e.err.Error()
+}
+
+func (e *numError) Unwrap() error { return e.err }
+
+// checkNumber panics unless the token is a JSON number.
+func (t Token) checkNumber() {
+	if t.kind != KindNumber {
+		panic("invalid JSON token kind: " + t.kind.String())
+	}
+}
+
+// Int returns the signed integer value of a JSON number.
+//
+// It reports an error which matches strconv.ErrSyntax if the number is not in the restricted grammar of a
+// signed integer, and one which matches strconv.ErrRange if it is a signed integer out of the range of an
+// int64. It returns a reasonable value even with an error: the fraction is truncated toward zero, and a number
+// out of the range is saturated at the closest end.
+//
+// It panics if the token is not a JSON number.
+func (t Token) Int() (int64, error) {
+	t.checkNumber()
+	var n int64
+	var err error
+	switch t.form {
+	case formInt:
+		return int64(t.num), nil
+	case formUint:
+		if t.num > math.MaxInt64 {
+			n, err = math.MaxInt64, strconv.ErrRange
+		} else {
+			n = int64(t.num)
+		}
+	case formFloat, formFloat32:
+		n, err = floatToInt(math.Float64frombits(t.num))
+	default:
+		n, err = parseInt(t.raw())
+	}
+	if err != nil {
+		return n, &numError{"Int", t.String(), err}
+	}
+	return n, nil
+}
+
+// Uint returns the unsigned integer value of a JSON number.
+//
+// It reports an error which matches strconv.ErrSyntax if the number is not in the restricted grammar of an
+// unsigned integer, and one which matches strconv.ErrRange if it is an unsigned integer out of the range of a
+// uint64. It returns a reasonable value even with an error: the fraction is truncated toward zero, and a number
+// out of the range is saturated at the closest end.
+//
+// It panics if the token is not a JSON number.
+func (t Token) Uint() (uint64, error) {
+	t.checkNumber()
+	var n uint64
+	var err error
+	switch t.form {
+	case formUint:
+		return t.num, nil
+	case formInt:
+		if int64(t.num) < 0 {
+			err = strconv.ErrSyntax
+		} else {
+			n = t.num
+		}
+	case formFloat, formFloat32:
+		n, err = floatToUint(math.Float64frombits(t.num))
+	default:
+		n, err = parseUint(t.raw())
+	}
+	if err != nil {
+		return n, &numError{"Uint", t.String(), err}
+	}
+	return n, nil
+}
+
+// Float returns the floating-point value of a JSON number, parsed with 64 bits of precision.
+//
+// If the number is out of the range of a float64, it returns +Inf or -Inf with an error which matches
+// strconv.ErrRange.
+//
+// It returns NaN, +Inf or -Inf for a JSON string of the value "NaN", "Infinity" or "-Infinity".
+//
+// It panics if the token is not a JSON number or one of those JSON strings.
+func (t Token) Float() (float64, error) {
+	return t.float(64)
+}
+
+// Float32 returns the floating-point value of a JSON number, parsed with 32 bits of precision.
+//
+// If the number is out of the range of a float32, it returns +Inf or -Inf with an error which matches
+// strconv.ErrRange.
+//
+// It returns NaN, +Inf or -Inf for a JSON string of the value "NaN", "Infinity" or "-Infinity".
+//
+// It panics if the token is not a JSON number or one of those JSON strings.
+//
+// Most JSON libraries and standards take JSON numbers as 64-bit floating-point numbers: use this method only if
+// the number is known to have only 32 bits of precision (as Float32 writes it). In any other case, use
+// Token.Float.
+func (t Token) Float32() (float32, error) {
+	f, err := t.float(32)
+	return float32(f), err
+}
+
+func (t Token) float(bits int) (float64, error) {
+	if t.kind == KindString {
+		if f, ok := t.nonFinite(); ok {
+			return f, nil
+		}
+	}
+	t.checkNumber()
+	switch t.form {
+	case formInt:
+		return float64(int64(t.num)), nil
+	case formUint:
+		return float64(t.num), nil
+	case formFloat, formFloat32:
+		f := math.Float64frombits(t.num)
+		if bits == 32 && t.form == formFloat {
+			f = float64(float32(f))
+		}
+		return f, nil
+	}
+	s := string(t.raw())
+	f, err := strconv.ParseFloat(s, bits)
+	if err != nil {
+		// the grammar of a JSON number is in the one of ParseFloat: the only error is the range.
+		return f, &numError{"Float", s, strconv.ErrRange}
+	}
+	return f, nil
+}
+
+// nonFinite is the float of a JSON string of the value "NaN", "Infinity" or "-Infinity".
+func (t Token) nonFinite() (float64, bool) {
+	var s string
+	switch t.form {
+	case formFloat, formFloat32:
+		return math.Float64frombits(t.num), true
+	case formString:
+		s = t.str
+	case formRaw:
+		s = t.String()
+	}
+	switch s {
+	case "NaN":
+		return math.NaN(), true
+	case "Infinity":
+		return math.Inf(+1), true
+	case "-Infinity":
+		return math.Inf(-1), true
+	}
+	return 0, false
+}
+
+// floatToInt is f truncated toward zero and saturated in the range of an int64, with an error of the syntax
+// if f is not an integer, or else of the range if it is out of the range.
+func floatToInt(f float64) (int64, error) {
+	var err error
+	if f != math.Trunc(f) {
+		err = strconv.ErrSyntax
+	}
+	switch {
+	case f >= 1<<63:
+		return math.MaxInt64, orErr(err, strconv.ErrRange)
+	case f < -1<<63:
+		return math.MinInt64, orErr(err, strconv.ErrRange)
+	}
+	return int64(f), err
+}
+
+// floatToUint is floatToInt for a uint64: a negative number is out of the syntax of an unsigned integer.
+func floatToUint(f float64) (uint64, error) {
+	var err error
+	if f != math.Trunc(f) || math.Signbit(f) {
+		err = strconv.ErrSyntax
+	}
+	switch {
+	case f >= 1<<64:
+		return math.MaxUint64, orErr(err, strconv.ErrRange)
+	case f <= 0:
+		return 0, err
+	}
+	return uint64(f), err
+}
+
+func orErr(err, other error) error {
+	if err != nil {
+		return err
+	}
+	return other
+}
+
+// parseInt is Int of the text of a JSON number.
+func parseInt(b []byte) (int64, error) {
+	neg := len(b) > 0 && b[0] == '-'
+	digits := b
+	if neg {
+		digits = b[1:]
+	}
+	if n, ok := parseDigits(digits); ok {
+		if neg {
+			if n > 1<<63 {
+				return math.MinInt64, strconv.ErrRange
+			}
+			return -int64(n), nil
+		}
+		if n > math.MaxInt64 {
+			return math.MaxInt64, strconv.ErrRange
+		}
+		return int64(n), nil
+	} else if isDigits(digits) {
+		// an integer out of the range of a uint64
+		if neg {
+			return math.MinInt64, strconv.ErrRange
+		}
+		return math.MaxInt64, strconv.ErrRange
+	}
+	f, _ := strconv.ParseFloat(string(b), 64)
+	n, _ := floatToInt(f)
+	return n, strconv.ErrSyntax
+}
+
+// parseUint is Uint of the text of a JSON number.
+func parseUint(b []byte) (uint64, error) {
+	if n, ok := parseDigits(b); ok {
+		return n, nil
+	} else if isDigits(b) {
+		return math.MaxUint64, strconv.ErrRange
+	}
+	f, _ := strconv.ParseFloat(string(b), 64)
+	n, _ := floatToUint(f)
+	return n, strconv.ErrSyntax
+}
+
+// isDigits reports whether b is a JSON integer without a sign: 0, or digits which don't start with 0.
+func isDigits(b []byte) bool {
+	if len(b) == 0 || b[0] == '0' && len(b) > 1 {
+		return false
+	}
+	for _, c := range b {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// parseDigits is the value of an integer of isDigits, and false if b is not one or its value overflows a
+// uint64.
+func parseDigits(b []byte) (uint64, bool) {
+	if !isDigits(b) || len(b) > 20 {
+		return 0, false
+	}
+	var n uint64
+	for _, c := range b {
+		d := uint64(c - '0')
+		if n > (math.MaxUint64-d)/10 {
+			return 0, false
+		}
+		n = n*10 + d
+	}
+	return n, true
+}

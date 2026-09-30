@@ -1,0 +1,642 @@
+package jsontext
+
+import (
+	"encoding/binary"
+	"io"
+	"math"
+	"math/bits"
+	"strconv"
+	"unicode/utf16"
+	"unicode/utf8"
+)
+
+// The scanners of the text of a token take the text from its first byte, and return the number of bytes which
+// they took and an error. At an error, the number is the position of the error in the text: the character which
+// is invalid, or, at the end of the text, the end of what is complete.
+
+// isSpace reports whether c is JSON white space.
+func isSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
+}
+
+// skipSpace returns the position of the first byte of b from i which is not white space, or len(b).
+func skipSpace(b []byte, i int) int {
+	for i < len(b) && b[i] <= ' ' && isSpace(b[i]) {
+		i++
+	}
+	return i
+}
+
+// scanLiteral takes the literal lit ( null, true or false ) at the start of b.
+func scanLiteral(b []byte, lit string) (int, error) {
+	if len(b) >= len(lit) && string(b[:len(lit)]) == lit {
+		return len(lit), nil
+	}
+	for i := 0; i < len(lit); i++ {
+		if i == len(b) {
+			return i, io.ErrUnexpectedEOF
+		}
+		if b[i] != lit[i] {
+			return i, invalidChar(b[i:], "in literal "+lit+" (expecting "+strconv.QuoteRune(rune(lit[i]))+")")
+		}
+	}
+	return len(lit), nil
+}
+
+// literalOf is the literal of kind k.
+func literalOf(k Kind) string {
+	switch k {
+	case KindNull:
+		return "null"
+	case KindTrue:
+		return "true"
+	}
+	return "false"
+}
+
+// numState is the progress of a scan of a JSON number: what comes next, and the end of the longest complete
+// number which was taken.
+type numState struct {
+	next numPart
+	done int
+}
+
+type numPart uint8
+
+const (
+	numSign     numPart = iota // a minus sign or the first digit
+	numFirst                   // the first digit
+	numInt                     // the digits of the integer after the first one, which is not 0
+	numAfterInt                // a fraction, an exponent or the end
+	numDot                     // the first digit of the fraction
+	numFrac                    // the digits of the fraction after the first one
+	numAfterFrc                // an exponent or the end
+	numE                       // the sign of the exponent or its first digit
+	numExpFirst                // the first digit of the exponent
+	numExp                     // the digits of the exponent after the first one
+)
+
+// scanNumber takes the JSON number at the start of b. At an error, the number is the position of the invalid
+// character, or, if b ends before the number is complete, the end of the longest complete number which b
+// starts with, with io.ErrUnexpectedEOF. A number which may continue after the end of b is returned without an
+// error: a caller which may read more input continues it by scanNumberFrom.
+func scanNumber(b []byte) (int, error) {
+	n, st, err := scanNumberFrom(b, 0, numState{})
+	if err == io.ErrUnexpectedEOF {
+		n = st.done
+	}
+	return n, err
+}
+
+// scanNumberFrom continues the scan of the number which starts b at b[i:], where st was.
+func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
+	for {
+		if i == len(b) {
+			switch st.next {
+			case numSign, numFirst, numDot, numE, numExpFirst:
+				return i, st, io.ErrUnexpectedEOF
+			}
+			return i, st, nil
+		}
+		c := b[i]
+		switch st.next {
+		case numSign:
+			st.next = numFirst
+			if c == '-' {
+				i++
+			}
+			continue
+		case numFirst:
+			if c == '0' {
+				i++
+				st.next = numAfterInt
+			} else if '1' <= c && c <= '9' {
+				i = scanDigits(b, i+1)
+				st.next = numInt
+			} else {
+				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+			}
+			st.done = i
+			continue
+		case numInt:
+			i = scanDigits(b, i)
+			st.done = i
+			if i == len(b) {
+				continue
+			}
+			st.next = numAfterInt
+			continue
+		case numAfterInt, numAfterFrc:
+			if c == '.' && st.next == numAfterInt {
+				st.next = numDot
+			} else if c == 'e' || c == 'E' {
+				st.next = numE
+			} else {
+				return i, st, nil
+			}
+			i++
+			continue
+		case numDot:
+			if c < '0' || '9' < c {
+				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+			}
+			st.next = numFrac
+			i++
+			continue
+		case numFrac:
+			i = scanDigits(b, i)
+			st.done = i
+			if i < len(b) {
+				st.next = numAfterFrc
+			}
+			continue
+		case numE:
+			st.next = numExpFirst
+			if c == '+' || c == '-' {
+				i++
+			}
+			continue
+		case numExpFirst:
+			if c < '0' || '9' < c {
+				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+			}
+			st.next = numExp
+			i++
+			continue
+		case numExp:
+			i = scanDigits(b, i)
+			if i < len(b) {
+				return i, st, nil
+			}
+			continue
+		}
+	}
+}
+
+// scanDigits returns the position of the first byte of b from i which is not a digit, or len(b). Long runs of
+// digits, as the fractions of floats have, are looked at 8 bytes at a time.
+func scanDigits(b []byte, i int) int {
+	for i+8 <= len(b) {
+		// a digit XOR '0' is below 10: adding 0x76 to each byte of the low 7 bits carries into the top bit from
+		// 10 on, and any byte of 0x80 or more has its top bit already.
+		w := binary.LittleEndian.Uint64(b[i:]) ^ 0x3030303030303030
+		if m := ((w &^ 0x8080808080808080) + 0x7676767676767676 | w) & 0x8080808080808080; m != 0 {
+			return i + bits.TrailingZeros64(m)/8
+		}
+		i += 8
+	}
+	for i < len(b) && '0' <= b[i] && b[i] <= '9' {
+		i++
+	}
+	return i
+}
+
+// isInteger reports whether the JSON number b has no fraction and no exponent.
+func isInteger(b []byte) bool {
+	for _, c := range b {
+		if c == '.' || c == 'e' || c == 'E' {
+			return false
+		}
+	}
+	return true
+}
+
+// strFlags describe a JSON string.
+type strFlags uint8
+
+const (
+	strEscaped      strFlags = 1 << iota // it has an escape sequence
+	strNonCanonical                      // AppendQuote writes its value otherwise
+	strInvalidUTF8                       // it has invalid UTF-8, or an escaped surrogate which is not in a pair
+)
+
+// stringClass is the class of each byte in a JSON string: 0 for a character taken as it is, 1 for an escape
+// or a byte which ends the characters, 2 for the start of a character which is not ASCII.
+var stringClass = func() [256]uint8 {
+	var t [256]uint8
+	for c := range t {
+		switch {
+		case c < ' ':
+			t[c] = 1
+		case c == '"', c == '\\':
+			t[c] = 1
+		case c >= utf8.RuneSelf:
+			t[c] = 2
+		}
+	}
+	return t
+}()
+
+// strMode is how a string is scanned.
+type strMode uint8
+
+const (
+	strValid strMode = 1 << iota // invalid UTF-8 and escaped surrogates which are not in pairs are errors
+	strMore                      // the input may continue after the end of the buffer
+)
+
+func strModeOf(validUTF8, more bool) strMode {
+	var m strMode
+	if validUTF8 {
+		m |= strValid
+	}
+	if more {
+		m |= strMore
+	}
+	return m
+}
+
+// scanString takes the JSON string at the start of b, which starts with a quote. With strValid, invalid UTF-8
+// and escaped surrogates which are not in pairs are errors; else they are reported by strInvalidUTF8. If b
+// ends before the string, the error is io.ErrUnexpectedEOF at the start of the character which is not
+// complete, from which scanStringFrom continues when there is more input. A character which may be complete
+// only with more input is taken as it is unless the mode has strMore.
+func scanString(b []byte, mode strMode) (int, strFlags, error) {
+	return scanStringFrom(b, 1, 0, mode)
+}
+
+// scanStringFrom continues the scan of the string which starts b at b[i:], with the flags of b[:i].
+func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlags, error) {
+	for {
+		// the characters taken as they are
+		for i < len(b) && stringClass[b[i]] == 0 {
+			i++
+		}
+		if i == len(b) {
+			return i, flags, io.ErrUnexpectedEOF
+		}
+		switch c := b[i]; {
+		case c == '"':
+			return i + 1, flags, nil
+		case c == '\\':
+			n, r, err := scanEscape(b[i:], mode)
+			if err != nil {
+				return i, flags, err
+			}
+			flags |= strEscaped
+			if r < 0 {
+				flags |= strInvalidUTF8 | strNonCanonical
+			} else if !isCanonicalEscape(b[i:i+n], r) {
+				flags |= strNonCanonical
+			}
+			i += n
+		case c < ' ':
+			return i, flags, invalidChar(b[i:], "in string (expecting non-control character)")
+		default:
+			r, n := utf8.DecodeRune(b[i:])
+			if r == utf8.RuneError && n == 1 {
+				if !utf8.FullRune(b[i:]) {
+					return i, flags, io.ErrUnexpectedEOF
+				}
+				if mode&strValid != 0 {
+					return i, flags, errInvalidUTF8
+				}
+				flags |= strInvalidUTF8 | strNonCanonical
+			}
+			i += n
+		}
+	}
+}
+
+// isCanonicalEscape reports whether the escape sequence e of r is the one which AppendQuote writes.
+func isCanonicalEscape(e []byte, r rune) bool {
+	if r >= ' ' && r != '"' && r != '\\' {
+		return false // written as it is
+	}
+	switch r {
+	case '"', '\\', '\b', '\f', '\n', '\r', '\t':
+		return len(e) == 2
+	}
+	return len(e) == 6 && e[4] == hexDigits[r>>4] && e[5] == hexDigits[r&0xf]
+}
+
+const hexDigits = "0123456789abcdef"
+
+// scanEscape takes the escape sequence at the start of b, and returns its length and the rune: -1 for an
+// escaped surrogate which is not in a pair, which is an error with strValid.
+func scanEscape(b []byte, mode strMode) (int, rune, error) {
+	if len(b) < 2 {
+		return 0, 0, io.ErrUnexpectedEOF
+	}
+	switch b[1] {
+	case '"', '\\', '/':
+		return 2, rune(b[1]), nil
+	case 'b':
+		return 2, '\b', nil
+	case 'f':
+		return 2, '\f', nil
+	case 'n':
+		return 2, '\n', nil
+	case 'r':
+		return 2, '\r', nil
+	case 't':
+		return 2, '\t', nil
+	case 'u':
+		r, err := scanHex4(b)
+		if err != nil {
+			return 0, 0, err
+		}
+		if !utf16.IsSurrogate(r) {
+			return 6, r, nil
+		}
+		// a surrogate pair is two escape sequences
+		if r < 0xdc00 && len(b) >= 12 && b[6] == '\\' && b[7] == 'u' {
+			if r2, err := scanHex4(b[6:]); err == nil {
+				if pair := utf16.DecodeRune(r, r2); pair != utf8.RuneError {
+					return 12, pair, nil
+				}
+			}
+		} else if len(b) < 12 && isPrefixOfLowSurrogate(b[6:]) && mode&(strMore|strValid) != 0 {
+			// the escape sequence of the low surrogate may follow, or, at the end of the input, it is cut
+			return 0, 0, io.ErrUnexpectedEOF
+		}
+		if mode&strValid != 0 {
+			return 0, 0, invalidEscape(b[:min(len(b), 12)], "surrogate pair")
+		}
+		return 6, -1, nil
+	}
+	return 0, 0, invalidEscape(b[:2], "escape sequence")
+}
+
+// isPrefixOfLowSurrogate reports whether b may be the start of the escape sequence of a low surrogate, from
+// \udc00 to \udfff.
+func isPrefixOfLowSurrogate(b []byte) bool {
+	for i, c := range b {
+		switch {
+		case i == 0 && c != '\\', i == 1 && c != 'u', i == 2 && c|0x20 != 'd':
+			return false
+		case i == 3 && (hexValue(c) < 0xc), i > 3 && hexValue(c) < 0:
+			return false
+		}
+	}
+	return true
+}
+
+// scanHex4 is the value of the escape sequence \uXXXX at the start of b.
+func scanHex4(b []byte) (rune, error) {
+	var r rune
+	for i := 2; i < 6; i++ {
+		if i == len(b) {
+			return 0, io.ErrUnexpectedEOF
+		}
+		v := hexValue(b[i])
+		if v < 0 {
+			return 0, invalidEscape(b[:min(len(b), 6)], "escape sequence")
+		}
+		r = r<<4 | rune(v)
+	}
+	return r, nil
+}
+
+func hexValue(c byte) int {
+	switch {
+	case '0' <= c && c <= '9':
+		return int(c - '0')
+	case 'a' <= c && c <= 'f':
+		return int(c - 'a' + 10)
+	case 'A' <= c && c <= 'F':
+		return int(c - 'A' + 10)
+	}
+	return -1
+}
+
+// appendUnquoted appends the value of the JSON string s, which scanString took without an error: an escaped
+// surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD.
+func appendUnquoted(dst, s []byte) []byte {
+	s = s[1:] // the closing quote stays: an escape sequence at the end is followed by it
+	for len(s) > 1 {
+		i := 0
+		for i < len(s)-1 && s[i] != '\\' && s[i] < utf8.RuneSelf {
+			i++
+		}
+		dst = append(dst, s[:i]...)
+		s = s[i:]
+		if len(s) == 1 {
+			break
+		}
+		if s[0] == '\\' {
+			n, r, err := scanEscape(s, 0)
+			if err != nil {
+				return dst // the end of a string which is not complete
+			}
+			dst = utf8.AppendRune(dst, r) // U+FFFD for -1
+			s = s[n:]
+			continue
+		}
+		r, n := utf8.DecodeRune(s)
+		if r == utf8.RuneError && n == 1 {
+			dst = append(dst, "�"...)
+		} else {
+			dst = append(dst, s[:n]...)
+		}
+		s = s[n:]
+	}
+	return dst
+}
+
+// escapeFlags are the characters which a quoted string escapes besides the ones which JSON requires.
+type escapeFlags uint8
+
+const (
+	escapeHTML escapeFlags = 1 << iota // '<', '>' and '&'
+	escapeJS                           // U+2028 and U+2029
+)
+
+func (c *config) escapes() escapeFlags {
+	var e escapeFlags
+	if c.has(escapeForHTML) {
+		e |= escapeHTML
+	}
+	if c.has(escapeForJS) {
+		e |= escapeJS
+	}
+	return e
+}
+
+// needsEscapeASCII reports for each ASCII character whether a quoted string escapes it: 1 always, 2 for HTML.
+var needsEscapeASCII = func() [utf8.RuneSelf]uint8 {
+	var t [utf8.RuneSelf]uint8
+	for c := range t {
+		switch {
+		case c < ' ', c == '"', c == '\\':
+			t[c] = 1
+		case c == '<', c == '>', c == '&':
+			t[c] = 2
+		}
+	}
+	return t
+}()
+
+// appendQuoted appends s as a JSON string of the canonical form of RFC 8785, section 3.2.2.2, with the
+// escapes of esc. Invalid UTF-8 is written as U+FFFD, and reported by false.
+func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags) ([]byte, bool) {
+	valid := true
+	dst = append(dst, '"')
+	start := 0
+	for i := 0; i < len(s); {
+		c := s[i]
+		if c < utf8.RuneSelf {
+			if needsEscapeASCII[c] == 0 || needsEscapeASCII[c] == 2 && esc&escapeHTML == 0 {
+				i++
+				continue
+			}
+			dst = append(dst, s[start:i]...)
+			dst = appendEscapedASCII(dst, c)
+			i++
+			start = i
+			continue
+		}
+		r, n := utf8.DecodeRuneInString(string(s[i:min(i+utf8.UTFMax, len(s))]))
+		switch {
+		case r == utf8.RuneError && n == 1:
+			dst = append(dst, s[start:i]...)
+			dst = append(dst, "�"...)
+			valid = false
+		case (r == ' ' || r == ' ') && esc&escapeJS != 0:
+			dst = append(dst, s[start:i]...)
+			dst = append(dst, `\u202`...)
+			dst = append(dst, hexDigits[r&0xf])
+		default:
+			i += n
+			continue
+		}
+		i += n
+		start = i
+	}
+	dst = append(dst, s[start:]...)
+	return append(dst, '"'), valid
+}
+
+// appendEscapedASCII appends the escape sequence of the ASCII character c.
+func appendEscapedASCII(dst []byte, c byte) []byte {
+	switch c {
+	case '"', '\\':
+		return append(dst, '\\', c)
+	case '\b':
+		return append(dst, `\b`...)
+	case '\f':
+		return append(dst, `\f`...)
+	case '\n':
+		return append(dst, `\n`...)
+	case '\r':
+		return append(dst, `\r`...)
+	case '\t':
+		return append(dst, `\t`...)
+	}
+	return append(dst, '\\', 'u', '0', '0', hexDigits[c>>4], hexDigits[c&0xf])
+}
+
+// appendRawString appends the JSON string s, which scanString took with the flags f, as the options want it:
+// requoted unless it is canonical, or as it is with PreserveRawStrings, whose escapes are kept and whose invalid
+// UTF-8 is kept as it is; the characters of esc are escaped in any case.
+func appendRawString(dst, s []byte, f strFlags, esc escapeFlags, preserve bool) []byte {
+	if !preserve {
+		if f&strNonCanonical != 0 || esc != 0 && needsExtraEscape(s, esc) {
+			var buf [64]byte
+			v := appendUnquoted(buf[:0], s)
+			dst, _ = appendQuoted(dst, v, esc)
+			return dst
+		}
+		return append(dst, s...)
+	}
+	if esc == 0 || !needsExtraEscape(s, esc) {
+		return append(dst, s...)
+	}
+	start := 0
+	for i := 0; i < len(s); {
+		c := s[i]
+		switch {
+		case c == '\\':
+			i += 2 // an escape sequence, whose second character is not one of esc
+			continue
+		case c == '<' || c == '>' || c == '&':
+			if esc&escapeHTML != 0 {
+				dst = append(dst, s[start:i]...)
+				dst = appendEscapedHTML(dst, c)
+				i++
+				start = i
+				continue
+			}
+		case c == 0xe2 && esc&escapeJS != 0 && i+2 < len(s) && s[i+1] == 0x80 && (s[i+2] == 0xa8 || s[i+2] == 0xa9):
+			dst = append(dst, s[start:i]...)
+			dst = append(dst, `\u202`...)
+			dst = append(dst, hexDigits[s[i+2]-0xa0])
+			i += 3
+			start = i
+			continue
+		}
+		i++
+	}
+	return append(dst, s[start:]...)
+}
+
+func appendEscapedHTML(dst []byte, c byte) []byte {
+	return append(dst, '\\', 'u', '0', '0', hexDigits[c>>4], hexDigits[c&0xf])
+}
+
+// needsExtraEscape reports whether the string s has a character of esc which is not escaped.
+func needsExtraEscape(s []byte, esc escapeFlags) bool {
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '\\':
+			i++
+		case c == '<' || c == '>' || c == '&':
+			if esc&escapeHTML != 0 {
+				return true
+			}
+		case c == 0xe2:
+			if esc&escapeJS != 0 && i+2 < len(s) && s[i+1] == 0x80 && (s[i+2] == 0xa8 || s[i+2] == 0xa9) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// appendFloatText appends f as a JSON number of the given precision, as ECMA-262 formats numbers, except that
+// -0 is -0: NaN and the infinities are appended as "NaN", "Infinity" and "-Infinity", without quotes.
+func appendFloatText(dst []byte, f float64, bits int) []byte {
+	switch {
+	case math.IsNaN(f):
+		return append(dst, "NaN"...)
+	case math.IsInf(f, +1):
+		return append(dst, "Infinity"...)
+	case math.IsInf(f, -1):
+		return append(dst, "-Infinity"...)
+	}
+	return appendFloat(dst, f, bits)
+}
+
+// appendFloat appends f as ECMA-262, 10th edition, section 7.1.12.1 formats a number, except that -0 is -0.
+func appendFloat(dst []byte, f float64, bits int) []byte {
+	if bits == 32 {
+		f = float64(float32(f))
+	}
+	abs := math.Abs(f)
+	fmt := byte('f')
+	if abs != 0 && (bits == 64 && (abs < 1e-6 || abs >= 1e21) || bits == 32 && (float32(abs) < 1e-6 || float32(abs) >= 1e21)) {
+		fmt = 'e'
+	}
+	dst = strconv.AppendFloat(dst, f, fmt, -1, bits)
+	if fmt == 'e' {
+		// the exponent has no leading zero: e-07 is e-7.
+		if n := len(dst); dst[n-4] == 'e' && dst[n-2] == '0' {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+	}
+	return dst
+}
+
+// appendCanonicalNumber appends the JSON number b in the canonical form of RFC 8785: as a float64, saturated at
+// the largest finite values, with -0 as 0.
+func appendCanonicalNumber(dst, b []byte) []byte {
+	f, _ := strconv.ParseFloat(string(b), 64)
+	if math.IsInf(f, 0) {
+		f = math.Copysign(math.MaxFloat64, f)
+	}
+	if f == 0 {
+		f = 0
+	}
+	return appendFloat(dst, f, 64)
+}

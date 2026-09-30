@@ -1487,17 +1487,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldOmitEmptyMarshalJSON:
 			p := load(ctxptr, code.Idx)
 			p = unsafe.Add(p, code.Offset)
+			// empty by the kind of the field, as encoding/json decides it: a nil func or chan is not.
+			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) {
+				code = code.NextField
+				break
+			}
 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
 				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				code = code.NextField
-				break
-			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
-				code = code.NextField
-				break
 			}
 			b = appendStructKey(ctx, code, b)
 			bb, err := appendMarshalJSON(ctx, code, b, p)
@@ -1554,17 +1550,13 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldOmitEmptyMarshalText:
 			p := load(ctxptr, code.Idx)
 			p = unsafe.Add(p, code.Offset)
+			// empty by the kind of the field, as encoding/json decides it: a nil func or chan is not.
+			if encoder.IsEmptyField(code.EmptyKind, code.NumBitSize, p) {
+				code = code.NextField
+				break
+			}
 			if (code.Flags & encoder.IsNilableTypeFlags) != 0 {
 				p = ptrToPtr(p)
-			}
-			if p == nil && (code.Flags&encoder.NilCheckFlags) != 0 {
-				code = code.NextField
-				break
-			}
-			iface := ptrToInterface(code, p)
-			if (code.Flags&encoder.NilCheckFlags) != 0 && encoder.IsNilForMarshaler(iface) {
-				code = code.NextField
-				break
 			}
 			b = appendStructKey(ctx, code, b)
 			bb, err := appendMarshalText(ctx, code, b, p)

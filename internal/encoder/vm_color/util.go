@@ -80,13 +80,6 @@ func ptrToNPtr(p unsafe.Pointer, ptrNum uint8) unsafe.Pointer {
 	return p
 }
 
-func ptrToInterface(code *encoder.Opcode, p unsafe.Pointer) any {
-	return *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: p,
-	}))
-}
-
 func appendInt(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer, code *encoder.Opcode) []byte {
 	format := ctx.Option.ColorScheme.Int
 	b = append(b, format.Header...)

@@ -45,7 +45,7 @@ const (
 
 type Opcode struct {
 	Op         OpType    // operation type
-	EmptyKind  EmptyKind // what makes the value of the field empty for omitempty, for the generic field opcode
+	EmptyKind  EmptyKind // what makes the value of the field empty for omitempty, for the generic field opcode and the ones of a marshaler
 	ZeroKind   ZeroKind  // what makes the value of the field zero for omitzero, for the generic field opcode
 	Idx        uint32    // offset to access ptr
 	Next       *Opcode   // next opcode

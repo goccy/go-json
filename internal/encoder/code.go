@@ -827,6 +827,17 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
 	return append(Opcodes{head}, codes...)
 }
 
+// checksEmptyAtAddr is whether the opcode of the field decides omitempty by EmptyKind from the address of the
+// field: the generic field opcode, and the opcodes of a field written by a marshaler, whose value may be of any
+// kind, as encoding/json decides it by the kind of the field whether or not it has a marshaler.
+func checksEmptyAtAddr(op OpType) bool {
+	switch op {
+	case OpStructFieldOmitEmpty, OpStructFieldOmitEmptyMarshalJSON, OpStructFieldOmitEmptyMarshalText:
+		return true
+	}
+	return false
+}
+
 // isLongKey is whether the key of the field is longer than a chunk: then the field is not encoded by one opcode
 // with its value, but by the generic field opcode, which writes a key of any length, and the opcode of the value.
 func (c *StructFieldCode) isLongKey(field *Opcode) bool {
@@ -863,13 +874,8 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		op = optimizeStructField(value, c.tag)
 	}
 	field.Op = op
-	if op == OpStructFieldOmitEmpty {
-		if c.tag.IsOmitEmpty {
-			field.EmptyKind = emptyKindOf(c.typ)
-		}
-		if c.tag.IsOmitZero {
-			field.ZeroKind = zeroKindOf(c.typ)
-		}
+	if op == OpStructFieldOmitEmpty && c.tag.IsOmitZero {
+		field.ZeroKind = zeroKindOf(c.typ)
 	}
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
@@ -879,6 +885,13 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		field.Flags |= NonEmptyInterfaceFlags
 	}
 	field.NumBitSize = value.NumBitSize
+	if c.tag.IsOmitEmpty && checksEmptyAtAddr(op) {
+		field.EmptyKind = emptyKindOf(c.typ)
+		if field.EmptyKind == EmptyInt {
+			// the opcode of the value of a marshaler has no size: the integer checked is the field.
+			field.NumBitSize = uint8(c.typ.Size() * 8)
+		}
+	}
 	field.PtrNum = value.PtrNum
 	field.FieldQuery = value.FieldQuery
 	field.Marshaler = value.Marshaler
@@ -941,9 +954,10 @@ const (
 	EmptyInt // an integer of NumBitSize bits which is 0
 	EmptyFloat32
 	EmptyFloat64
-	EmptyLen    // a string or a slice whose length is zero
-	EmptyMapLen // a map whose length is zero
-	EmptyAlways // an array of no element
+	EmptyStringLen // a string whose length is zero
+	EmptySliceLen  // a slice whose length is zero
+	EmptyMapLen    // a map whose length is zero
+	EmptyAlways    // an array of no element
 )
 
 // emptyKindOf returns what makes a value of the type empty.
@@ -960,8 +974,10 @@ func emptyKindOf(typ reflect.Type) EmptyKind {
 		return EmptyFloat32
 	case reflect.Float64:
 		return EmptyFloat64
-	case reflect.String, reflect.Slice:
-		return EmptyLen
+	case reflect.String:
+		return EmptyStringLen
+	case reflect.Slice:
+		return EmptySliceLen
 	case reflect.Map:
 		return EmptyMapLen
 	case reflect.Array:
@@ -993,7 +1009,10 @@ func IsEmptyField(kind EmptyKind, bitSize uint8, p unsafe.Pointer) bool {
 		return *(*float32)(p) == 0
 	case EmptyFloat64:
 		return *(*float64)(p) == 0
-	case EmptyLen:
+	case EmptyStringLen:
+		// read as a string, not as a slice header, which is longer: the string may end its allocation.
+		return len(*(*string)(p)) == 0
+	case EmptySliceLen:
 		return (*runtime.SliceHeader)(p).Len == 0
 	case EmptyMapLen:
 		return MapLen(*(*unsafe.Pointer)(p)) == 0
@@ -1011,12 +1030,28 @@ func (c *StructFieldCode) structKey(ctx *compileContext) string {
 	return PaddedKey(fmt.Sprintf(`"%s":`, c.key))
 }
 
+// callsMarshalerWithAddr is whether the value of the field is written by a marshaler whose method is on the
+// pointer, which is called with the address of the field: the value is not loaded from the address, also for a
+// type which is stored directly in an interface value.
+func (c *StructFieldCode) callsMarshalerWithAddr() bool {
+	if c.isAddrForMarshaler {
+		return true
+	}
+	switch value := c.value.(type) {
+	case *MarshalJSONCode:
+		return value.isAddrForMarshaler
+	case *MarshalTextCode:
+		return value.isAddrForMarshaler
+	}
+	return false
+}
+
 func (c *StructFieldCode) flags() OpFlags {
 	var flags OpFlags
 	if c.isTaggedKey {
 		flags |= IsTaggedKeyFlags
 	}
-	if c.isNilableType {
+	if c.isNilableType && !c.callsMarshalerWithAddr() {
 		flags |= IsNilableTypeFlags
 	}
 	if c.isNilCheck {
@@ -1176,7 +1211,8 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMarshalerContext {
 		code.Flags |= MarshalerContextFlags
 	}
-	if c.isNilableType {
+	// a method on the pointer is called with the address of the value, which is not loaded from it.
+	if c.isNilableType && !c.isAddrForMarshaler {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -1185,14 +1221,12 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-// marshalerCall returns the direct call of the method, or nil if the method is called through the interface:
-// a value of the size of a pointer whose method is on the pointer is copied first, see addrForMarshaler.
+// marshalerCall returns the direct call of the method, or nil if the method is called through the interface.
+// A method on the pointer is called with the address of the value, which the opcode is given, as encoding/json
+// calls it with the address of an addressable value.
 func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
 	recv := c.typ
 	if c.isAddrForMarshaler {
-		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
-			return nil
-		}
 		recv = reflect.PointerTo(c.typ)
 	}
 	iface := marshalJSONInterface
@@ -1245,7 +1279,8 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMapKey {
 		code.Flags |= MapKeyFlags
 	}
-	if c.isNilableType {
+	// a method on the pointer is called with the address of the value, which is not loaded from it.
+	if c.isNilableType && !c.isAddrForMarshaler {
 		code.Flags |= IsNilableTypeFlags
 	} else {
 		code.Flags &= ^IsNilableTypeFlags
@@ -1259,9 +1294,6 @@ func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 func (c *MarshalTextCode) marshalerCall() *MarshalerCall {
 	recv := c.typ
 	if c.isAddrForMarshaler {
-		if c.typ.Size() == unsafe.Sizeof(unsafe.Pointer(nil)) {
-			return nil
-		}
 		recv = reflect.PointerTo(c.typ)
 	}
 	return newMarshalerCall(recv, marshalTextInterface)

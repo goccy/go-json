@@ -201,3 +201,25 @@ func TestEncodeVeryLongKey(t *testing.T) {
 		}
 	}
 }
+
+// A string checked for omitempty by the generic field opcode may end its allocation: it is read as a string, not
+// as a slice header, which is longer ( the race detector checks the conversion of the pointer ).
+type longKeyLastString struct {
+	ThisIsTheKeyOfAStringFieldLongerThanAChunkOfTheEncoder string `json:",omitempty"`
+}
+
+func TestEncodeLongKeyOmitEmptyStringAtTheEnd(t *testing.T) {
+	for _, v := range []*longKeyLastString{{}, {ThisIsTheKeyOfAStringFieldLongerThanAChunkOfTheEncoder: "a"}} {
+		expected, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(expected) {
+			t.Fatalf("expected %s but got %s", expected, got)
+		}
+	}
+}

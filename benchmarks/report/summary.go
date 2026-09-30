@@ -93,14 +93,22 @@ func (s *Site) Summary() string {
 	for _, r := range s.Runs {
 		date, goVersion = r.GeneratedAt.Format("2006-01-02"), r.GoVersion
 		for _, op := range []string{OpEncode, OpDecode} {
-			p := panel{title: fmt.Sprintf("%s · %s", opTitle(op), r.GOARCH)}
+			var shown []string
+			for _, c := range r.configsOf("std") {
+				if !strings.Contains(c.ID, "/of") && r.measured("live-heap", op, c.ID) {
+					shown = append(shown, c.ID)
+				}
+			}
+			// the libraries are compared on the same payloads: the ones which all of them do alike
+			payloads := r.sharedPayloads("live-heap", op, "std", shown)
+			p := panel{title: fmt.Sprintf("%s · %s · %d of %d payloads", opTitle(op), r.GOARCH, len(payloads), len(r.Payloads))}
 			// the configurations which behave as encoding/json first, then the others, marked
 			for _, differs := range []bool{false, true} {
 				for _, c := range r.configsOf("std") {
 					if strings.Contains(c.ID, "/of") || (len(failedProbes(r, c.ID)) > 0) != differs {
 						continue
 					}
-					if ratio := meanRatio(r, "live-heap", op, "std", c.ID); ratio > 0 {
+					if ratio := meanRatio(r, "live-heap", op, "std", c.ID, payloads); ratio > 0 {
 						label := trimLabel(c.Title)
 						if differs {
 							label += " †"
@@ -141,7 +149,7 @@ func (s *Site) Summary() string {
 	b.WriteString(`</defs>`)
 	fmt.Fprintf(&b, `<rect x="0.5" y="0.5" width="%d" height="%d" rx="6" fill="#ffffff" stroke="#d1d9e0"/>`, width-1, height-1)
 	fmt.Fprintf(&b, `<text class="h" x="%d" y="%d">Speed relative to encoding/json, with the same behavior as encoding/json ( higher is faster )</text>`, pad, pad+14)
-	fmt.Fprintf(&b, `<text class="m" x="%d" y="%d">%s · %s · with a live heap of 64 MB · geometric mean over the payloads</text>`, pad, pad+32, date, template.HTMLEscapeString(goVersion))
+	fmt.Fprintf(&b, `<text class="m" x="%d" y="%d">%s · %s · with a live heap of 64 MB · geometric mean over the payloads which every library does alike</text>`, pad, pad+32, date, template.HTMLEscapeString(goVersion))
 	for i, p := range panels {
 		x := pad + (i%cols)*((width-2*pad)/cols)
 		y := pad + 44 + (i/cols)*(panelH+panelGap)
@@ -217,18 +225,13 @@ func trimLabel(s string) string {
 
 // meanRatio returns the geometric mean over the payloads of the speed of a configuration relative to the baseline
 // of the category, or 0 if it is measured on none of them.
-func meanRatio(r *Run, cond, op, category, config string) float64 {
-	var base string
-	for _, c := range r.Categories {
-		if c.ID == category {
-			base = c.Baseline
-		}
-	}
+func meanRatio(r *Run, cond, op, category, config string, payloads []string) float64 {
+	base := r.baselineOf(category)
 	var logSum float64
 	var n int
-	for _, p := range r.Payloads {
-		b := r.result(cond, op, p.ID, base)
-		x := r.result(cond, op, p.ID, config)
+	for _, p := range payloads {
+		b := r.result(cond, op, p, base)
+		x := r.result(cond, op, p, config)
 		if b == nil || x == nil {
 			continue
 		}

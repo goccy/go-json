@@ -14,7 +14,9 @@ func testRun(arch string) *Run {
 		Libraries:  []Library{{Name: "encoding/json", Module: "std", Version: "go1.27.1"}, {Name: "goccy/go-json", Module: "github.com/goccy/go-json", Version: "0123456789abcdef"}},
 		Categories: []Category{{ID: "std", Title: "Same behavior as encoding/json", Baseline: "encoding/json"}},
 		Conditions: []Condition{{ID: "live-heap", Title: "With a live heap"}},
-		Payloads:   []Payload{{ID: "small", Title: "Small struct", Bytes: 100}, {ID: "large", Title: "Large struct", Bytes: 1000}},
+		Payloads: []Payload{
+			{ID: "small", Title: "Small struct", Bytes: 100}, {ID: "medium", Title: "Medium struct", Bytes: 500}, {ID: "large", Title: "Large struct", Bytes: 1000},
+		},
 		Configs: []Config{
 			{ID: "encoding/json", Library: "encoding/json", Category: "std", Title: "encoding/json"},
 			{ID: "go-json", Library: "goccy/go-json", Category: "std", Title: "goccy/go-json"},
@@ -30,7 +32,12 @@ func testRun(arch string) *Run {
 			{Condition: "live-heap", Op: OpDecode, Payload: "large", Config: "encoding/json", NsPerOp: 4000},
 			{Condition: "live-heap", Op: OpDecode, Payload: "large", Config: "go-json", NsPerOp: 2000},
 			{Condition: "live-heap", Op: OpDecode, Payload: "small", Config: "other", NsPerOp: 50},
+			{Condition: "live-heap", Op: OpDecode, Payload: "large", Config: "other", NsPerOp: 1000},
+			// on medium, the result of other differs, so it isn't measured: medium is out of the means of every library
+			{Condition: "live-heap", Op: OpDecode, Payload: "medium", Config: "encoding/json", NsPerOp: 2000},
+			{Condition: "live-heap", Op: OpDecode, Payload: "medium", Config: "go-json", NsPerOp: 100},
 		},
+		Differences: []Exclusion{{Op: OpDecode, Payload: "medium", Config: "other", Reason: "the decoded value differs from encoding/json's"}},
 	}
 }
 
@@ -56,7 +63,9 @@ func TestRender(t *testing.T) {
 		t.Error("the runs are not ordered by architecture")
 	}
 	svg := site.Summary()
-	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || !strings.Contains(svg, "other &lt;lib&gt; †") ||
+	// the means are over small and large, which every library does alike: go-json 2.83x and not 5.43x with medium
+	if !strings.HasPrefix(svg, "<svg") || !strings.Contains(svg, "2.83x") || !strings.Contains(svg, "5.66x") ||
+		!strings.Contains(svg, "2 of 3 payloads") || !strings.Contains(svg, "other &lt;lib&gt; †") ||
 		!strings.Contains(svg, `fill="#0969da"`) || !strings.Contains(svg, `fill="url(#h`) {
 		t.Errorf("unexpected summary: %s", svg)
 	}

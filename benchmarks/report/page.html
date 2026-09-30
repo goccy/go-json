@@ -106,7 +106,7 @@ code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size:
 <main>
 <h1>Go JSON Benchmarks</h1>
 <p class="lead">The JSON libraries of Go, compared doing the same work.</p>
-<p>Every library is measured on the same machine of GitHub Actions, by turns, in amd64 and arm64. Libraries are compared within categories of behavior, which every run checks: a library which behaves differently from its category is still shown, apart and marked with <span class="mark">†</span>, with what differs.</p>
+<p>Every library is measured on the same machine of GitHub Actions, by turns, in amd64 and arm64. Libraries are compared within categories of behavior, which every run checks: a library which behaves differently from its category is still shown, apart and marked with <span class="mark">†</span>, with what differs, but a result which differs from the one of the category is not the same work and is not compared.</p>
 <div class="meta">
   <span><b>Measured</b> {{.Generated}}</span>
   <span><b>Go</b> {{.GoVersion}}</span>
@@ -133,7 +133,7 @@ code { background: var(--soft); padding: 1px 5px; border-radius: 4px; font-size:
   <li><b>The results depend on the CPU.</b> The machines of GitHub Actions are not the same from run to run, and a library may choose its code by the extensions of the instruction set of the CPU, such as AVX-512: segmentio/encoding, for example, decodes several times faster on a CPU with AVX-512 than on one without it, which can change the order of the libraries. The CPU of each run and its extensions are shown with the results; compare the libraries within a run, not the runs with each other.</li>
   <li><b>Same machine, by turns.</b> Every library of a run is measured on the same machine, by turns, in several rounds, and the median of the rounds is shown, so that a change of the machine during the run affects every library alike. The machines of GitHub Actions differ from run to run, so the results of different runs are not compared.</li>
   <li><b>Categories of behavior.</b> A library with an option which makes it do less work is not compared with one doing more: the libraries are grouped in categories of what they do, which every run checks on probes, small inputs which tell a behavior apart ( below ). A library which fails a probe its category requires is shown apart, marked with <span class="mark">†</span>.</li>
-  <li><b>Same results.</b> On every payload, a decoded value is compared with the one encoding/json decodes, and an encoded value with encoding/json's output, byte for byte ( as a JSON value where the keys of a map may be in any order ). A result which differs is marked with <span class="mark">‡</span>.</li>
+  <li><b>Same results.</b> On every payload, a decoded value is compared with the one encoding/json decodes, and an encoded value with encoding/json's output, byte for byte ( as a JSON value where the keys of a map may be in any order ). A result which differs is not the same work, as a decode which leaves the fields of a struct empty: it is not measured, and is marked with <span class="mark">‡</span>, with what differs. The means over the payloads compare the libraries on the same payloads, the ones which all of them do alike.</li>
   <li><b>Same calls.</b> A value is decoded into a new value for each operation, and the encoders encode a pointer to the value. sonic's fastest configuration decodes from a string, as it is at its fastest: the string is made once, outside of the measurement.</li>
   <li><b>A real program's heap.</b> "With a live heap of 64 MB" is the condition of a real program, which keeps its own data: the GC runs as often for every library. "Without a live heap" favors a library which keeps more memory alive, as the GC then runs less often.</li>
 </ul>
@@ -280,7 +280,6 @@ const D = {{.}};
         const bar = el("div", { class: "bar" + (r.differs ? " differs" : ""), style: "width:" + w + "%;background-color:" + color(c.library) });
         bar.dataset.tip = r.tip;
         const val = el("span", { class: "value", style: "left:calc(" + w + "% + 6px)" }, r.text,
-          r.mark ? el("span", { class: "mark" }, " ‡") : null,
           r.sub ? el("span", { class: "x" + (r.good ? " good" : "") }, r.sub) : null);
         val.dataset.tip = r.tip;
         track.append(bar, val);
@@ -320,14 +319,19 @@ const D = {{.}};
           el("ul", {}, cat.requires.map((d) => el("li", {}, d)))));
       }
 
-      // overview: the geometric mean over the payloads, relative to the baseline
+      // overview: the geometric mean over the payloads, relative to the baseline. The configurations are compared on
+      // the same payloads, the ones which all of them do alike: a result which differs from the baseline's is not the
+      // same work, and is not measured.
+      const shared = payloads.filter((p) => result(state.cond, state.op, p.id, cat.baseline) &&
+        cfgs.every((c) => result(state.cond, state.op, p.id, c.id)));
       const ov = el("div", { class: "overview" });
       const lower = state.metric !== "speed" && state.metric !== "time";
-      ov.append(el("h3", {}, OPS[state.op] + " · geometric mean over the payloads · " +
+      ov.append(el("h3", {}, OPS[state.op] + " · geometric mean over the " + shared.length + " of " + payloads.length +
+        " payloads which every library does alike · " +
         (lower ? METRICS[state.metric].title.toLowerCase() + " relative to " + configs[cat.baseline].title + ", lower is better" : "speed relative to " + configs[cat.baseline].title + ", higher is faster")));
       const ovRows = cfgs.map((c) => {
         let s = 0, n = 0;
-        for (const p of payloads) {
+        for (const p of shared) {
           const r = result(state.cond, state.op, p.id, c.id), b = result(state.cond, state.op, p.id, cat.baseline);
           if (!r || !b) continue;
           const x = lower ? (state.metric === "bytes" ? r.bytesPerOp / b.bytesPerOp : r.allocsPerOp / b.allocsPerOp) : b.nsPerOp / r.nsPerOp;
@@ -347,13 +351,15 @@ const D = {{.}};
         const base = result(state.cond, state.op, p.id, cat.baseline);
         const rows = cfgs.map((c) => {
           const r = result(state.cond, state.op, p.id, c.id);
-          if (!r) return { config: c.id, value: null, missing: exclusion(state.op, p.id, c.id) ? "fails: " + exclusion(state.op, p.id, c.id) : "not measured", differs: differs(c.id) };
+          if (!r) {
+            const diff = difference(state.op, p.id, c.id), fail = exclusion(state.op, p.id, c.id);
+            return { config: c.id, value: null, missing: diff ? "‡ not compared: " + diff : fail ? "fails: " + fail : "not measured", differs: differs(c.id) };
+          }
           const v = metricOf(r, base);
           const [text] = label(v, r, base);
-          const diff = difference(state.op, p.id, c.id);
-          return { config: c.id, value: v, text, base: c.id === cat.baseline, differs: differs(c.id), mark: !!diff,
+          return { config: c.id, value: v, text, base: c.id === cat.baseline, differs: differs(c.id),
             tip: c.title + ": " + fmtNs(r.nsPerOp) + "/op" + (base ? " ( " + fmtX(base.nsPerOp / r.nsPerOp) + " the speed of " + configs[cat.baseline].title + " )" : "") +
-              ", " + fmtBytes(r.bytesPerOp) + "/op, " + r.allocsPerOp + " allocs/op" + (diff ? " · ‡ " + diff : "") };
+              ", " + fmtBytes(r.bytesPerOp) + "/op, " + r.allocsPerOp + " allocs/op" };
         });
         grid.append(el("div", { class: "card" }, el("h4", {}, p.title), el("p", { class: "sub" }, p.description + " " + fmtBytes(p.bytes) + " of JSON."),
           bars(rows, { one: state.metric === "speed", scale: 0.62 })));
@@ -373,7 +379,7 @@ const D = {{.}};
       }
       for (const c of cfgs) for (const p of payloads) {
         const d = difference(state.op, p.id, c.id);
-        if (d) notes.push(el("li", {}, el("span", { class: "mark" }, "‡ "), c.title + " on " + p.title + ": " + d));
+        if (d) notes.push(el("li", {}, el("span", { class: "mark" }, "‡ "), c.title + " on " + p.title + ": " + d + ", so it is not the same work, and not compared"));
       }
       if (notes.length) sec.append(el("ul", { class: "notes" }, notes));
 

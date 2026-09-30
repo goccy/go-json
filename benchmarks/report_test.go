@@ -46,9 +46,11 @@ import (
 //
 // What a category requires is checked, not assumed: every configuration is run on the probes of its category, small
 // inputs which tell a behavior apart, and the result of every configuration on every payload is compared with the
-// one of the baseline of the category ( see checkPayload ). A configuration which behaves differently is still
-// measured: the report shows it apart from the others of its category, with what differs. Only an operation which
-// fails on a payload is not measured.
+// one of the baseline of the category ( see checkPayload ). A configuration which fails a probe is still measured:
+// the report shows it apart from the others of its category, with what differs. But a result on a payload which
+// differs from the baseline's is not the same work, as a decode which leaves the fields of a struct empty, so it is
+// not measured, as an operation which fails on a payload: the report says why, and compares the configurations
+// only on the payloads which all of them do alike.
 
 // reportCategories are the categories of the configurations. The category of encoding/json/v2 is added where Go
 // has it ( report_v2_test.go ).
@@ -408,7 +410,9 @@ func TestReport(t *testing.T) {
 					continue
 				}
 				if diff != "" {
+					// not the same work: not compared
 					run.Differences = append(run.Differences, report.Exclusion{Op: op, Payload: p.ID, Config: c.ID, Reason: diff})
+					continue
 				}
 				if only != nil && !only.MatchString(c.ID+"/"+op+"/"+p.ID) {
 					continue
@@ -545,6 +549,12 @@ func checkPayload(c *reportConfig, op string, p *reportPayload) (string, error) 
 	if err != nil || c == base {
 		return "", err
 	}
+	// A configuration which doesn't sort the keys of a map, where the category requires it, skips work on every
+	// payload with a map of several keys, but its output shows it only by chance: the order of the keys depends on
+	// the hash of the map, and may be the sorted one. So the payload is told apart by its value, not by the output.
+	if requires(c.Category, "sort-map-keys") && hasMap(reflect.ValueOf(p.value)) && failsProbe(c, "sort-map-keys") {
+		return "the keys of a map are not sorted", nil
+	}
 	want, err := base.marshal(p.value)
 	if err != nil {
 		return "", fmt.Errorf("the baseline fails: %w", err)
@@ -557,6 +567,60 @@ func checkPayload(c *reportConfig, op string, p *reportPayload) (string, error) 
 		return "the output is not the same JSON value as " + base.Title + "'s", nil
 	}
 	return "", nil
+}
+
+// requires reports whether the category requires the behavior of the probe.
+func requires(category, probe string) bool {
+	for _, p := range reportProbes {
+		if p.id == probe {
+			for _, c := range p.categories {
+				if c == category {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// failsProbe reports whether the configuration fails the probe.
+func failsProbe(c *reportConfig, probe string) bool {
+	for _, p := range reportProbes {
+		if p.id == probe {
+			return safeProbe(p, c) != ""
+		}
+	}
+	panic("no probe " + probe)
+}
+
+// hasMap reports whether the value holds a map of several keys, whose order an encoder chooses.
+func hasMap(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		return !v.IsNil() && hasMap(v.Elem())
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if hasMap(v.Field(i)) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if hasMap(v.Index(i)) {
+				return true
+			}
+		}
+	case reflect.Map:
+		if v.Len() > 1 {
+			return true
+		}
+		for it := v.MapRange(); it.Next(); {
+			if hasMap(it.Value()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // sameJSON reports whether a and b are the same JSON value, whatever the order of the keys of their objects.

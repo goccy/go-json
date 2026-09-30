@@ -39,7 +39,7 @@ type Run struct {
 	Probes     []ProbeResult `json:"probes"`
 	Results    []Result      `json:"results"`
 	// Differences are the payloads on which the result of a configuration is not the one of its category: it is
-	// measured, and shown with the difference.
+	// not the same work, so it is not measured, and the report shows the difference instead.
 	Differences []Exclusion `json:"differences"`
 	// Exclusions are the payloads on which an operation of a configuration fails, which is not measured.
 	Exclusions []Exclusion `json:"exclusions"`
@@ -175,6 +175,45 @@ func find(es []Exclusion, op, payload, config string) string {
 		}
 	}
 	return ""
+}
+
+// baselineOf returns the configuration which is the baseline of a category.
+func (r *Run) baselineOf(category string) string {
+	for _, c := range r.Categories {
+		if c.ID == category {
+			return c.Baseline
+		}
+	}
+	return ""
+}
+
+// measured reports whether the configuration is measured on any payload.
+func (r *Run) measured(cond, op, config string) bool {
+	for _, p := range r.Payloads {
+		if r.result(cond, op, p.ID, config) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// sharedPayloads returns the payloads on which the baseline of the category and every one of the configurations
+// are measured: the ones which all of them do alike, on which they are compared. A configuration whose result
+// differs from the baseline's on a payload, or which fails on it, isn't measured there ( Run.Differences and
+// Run.Exclusions ).
+func (r *Run) sharedPayloads(cond, op, category string, configs []string) []string {
+	base := r.baselineOf(category)
+	var ps []string
+	for _, p := range r.Payloads {
+		ok := r.result(cond, op, p.ID, base) != nil
+		for _, c := range configs {
+			ok = ok && r.result(cond, op, p.ID, c) != nil
+		}
+		if ok {
+			ps = append(ps, p.ID)
+		}
+	}
+	return ps
 }
 
 // configsOf returns the configurations of a category, in their order.

@@ -1,7 +1,6 @@
-package gojsonserver
+package gql
 
 import (
-	"context"
 	"fmt"
 	"sort"
 
@@ -103,9 +102,6 @@ func (b *selectionBuilder) fields(sets []ast.SelectionSet, typeName string) ([]j
 			field = json.FieldOf(f.Name, sub)
 		case ast.Union, ast.Interface:
 			// the value is written by its resolver, with the selection of its type.
-			if info == nil {
-				info = &fieldInfo{field: f}
-			}
 			info.byType = map[string]*json.Selection{}
 			for _, t := range b.schema.GetPossibleTypes(named) {
 				sub, err := b.selection(subSets, t.Name)
@@ -118,20 +114,15 @@ func (b *selectionBuilder) fields(sets []ast.SelectionSet, typeName string) ([]j
 		default:
 			field = json.Field(f.Name)
 		}
-		field = field.As(key)
-		if info != nil {
-			field = field.With(info)
-		}
+		field = field.As(key).With(info)
 		fields = append(fields, field)
 	}
 	return fields, nil
 }
 
-// info returns what the resolver of the field is given, or nil if the field has no arguments.
+// info returns what the resolver of the field is given: the field of the query, for the place of an error, and
+// its arguments if they don't depend on the variables.
 func (b *selectionBuilder) info(f *ast.Field) *fieldInfo {
-	if len(f.Definition.Arguments) == 0 {
-		return nil
-	}
 	info := &fieldInfo{field: f}
 	if !argumentsUseVariables(f.Arguments) {
 		info.args = f.ArgumentMap(nil)
@@ -207,69 +198,4 @@ func collectVariables(v *ast.Value, f func(name string)) {
 	for _, child := range v.Children {
 		collectVariables(child.Value, f)
 	}
-}
-
-// resolve returns the state of the request and the arguments of the field whose value a resolver writes,
-// after the fetch of the store which the resolver makes, unless the field has been fetched by a batch.
-func resolve(ctx context.Context) (*requestState, map[string]any, error) {
-	state, _ := ctx.Value(requestStateKey{}).(*requestState)
-	if state == nil {
-		return nil, nil, fmt.Errorf("a resolver is called without its request")
-	}
-	field := json.SelectedFieldFromContext(ctx)
-	if field == nil {
-		return nil, nil, fmt.Errorf("a resolver is called without its field")
-	}
-	if !state.batched[field] {
-		state.store.Fetch()
-	}
-	info, _ := field.Value.(*fieldInfo)
-	if info == nil {
-		return state, nil, nil
-	}
-	if info.args != nil {
-		return state, info.args, nil
-	}
-	return state, info.field.ArgumentMap(state.variables), nil
-}
-
-// prefetch fetches the fields with resolvers which the elements of a list select, each once for the whole list,
-// as the batch of a data loader does: the resolvers of the elements don't fetch them again. The fields are known
-// before the list is written, since they are in the selection of the elements.
-func (s *requestState) prefetch(sel *json.Selection) {
-	if sel == nil {
-		return
-	}
-	for _, field := range sel.Fields {
-		if _, ok := field.Value.(*fieldInfo); !ok || s.batched[field] {
-			continue
-		}
-		s.store.Fetch()
-		if s.batched == nil {
-			s.batched = map[*json.SelectedField]bool{}
-		}
-		s.batched[field] = true
-	}
-}
-
-// intArgument returns the argument of an Int, or nil if it is null.
-func intArgument(args map[string]any, name string) *int {
-	var n int
-	switch v := args[name].(type) {
-	case int:
-		n = v
-	case int64:
-		n = int(v)
-	case float64:
-		n = int(v)
-	case json.Number:
-		i, err := v.Int64()
-		if err != nil {
-			return nil
-		}
-		n = int(i)
-	default:
-		return nil
-	}
-	return &n
 }

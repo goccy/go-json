@@ -17,6 +17,7 @@ type User {
   active: Boolean!
   posts(first: Int = 10): [Post!]!
   friends(first: Int = 10): [User!]!
+  secret: String
 }
 
 type Post {

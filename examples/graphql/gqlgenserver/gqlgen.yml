@@ -10,8 +10,10 @@ model:
   package: gqlgenserver
 
 resolver:
-  layout: single-file
-  filename: resolver.go
+  layout: follow-schema
+  dir: .
+  package: gqlgenserver
+  filename_template: "{name}.resolvers.go"
   type: Resolver
 
 models:

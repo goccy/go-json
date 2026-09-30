@@ -18,19 +18,20 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "the address to listen on")
 	server := flag.String("server", "go-json", "the server to run: go-json or gqlgen")
+	loaderWait := flag.Duration("loader-wait", 0, "the wait of the data loaders of a request, or 0 for none ( go-json then resolves by batches )")
 	flag.Parse()
 
 	s := store.New(1000, 5, 5)
 	var handler http.Handler
 	switch *server {
 	case "go-json":
-		h, err := gojsonserver.NewHandler(graphql.Schema, s)
+		h, err := gojsonserver.NewHandler(graphql.Schema, s, gojsonserver.Options{LoaderWait: *loaderWait})
 		if err != nil {
 			log.Fatal(err)
 		}
 		handler = h
 	case "gqlgen":
-		handler = gqlgenserver.NewHandler(s)
+		handler = gqlgenserver.NewHandler(s, gqlgenserver.Options{LoaderWait: *loaderWait})
 	default:
 		log.Fatalf("unknown server %q", *server)
 	}

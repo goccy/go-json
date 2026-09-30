@@ -70,6 +70,7 @@ type ComplexityRoot struct {
 		Name    func(childComplexity int) int
 		Posts   func(childComplexity int, first *int) int
 		Score   func(childComplexity int) int
+		Secret  func(childComplexity int) int
 	}
 }
 
@@ -89,6 +90,7 @@ type QueryResolver interface {
 type UserResolver interface {
 	Posts(ctx context.Context, obj *store.User, first *int) ([]*store.Post, error)
 	Friends(ctx context.Context, obj *store.User, first *int) ([]*store.User, error)
+	Secret(ctx context.Context, obj *store.User) (*string, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -285,6 +287,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.User.Score(childComplexity), true
+	case "User.secret":
+		if e.ComplexityRoot.User.Secret == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.Secret(childComplexity), true
 
 	}
 	return 0, false
@@ -372,6 +380,7 @@ type User {
   active: Boolean!
   posts(first: Int = 10): [Post!]!
   friends(first: Int = 10): [User!]!
+  secret: String
 }
 
 type Post {
@@ -449,6 +458,8 @@ func (ec *executionContext) childFields_User(ctx context.Context, field graphql.
 		return ec.fieldContext_User_posts(ctx, field)
 	case "friends":
 		return ec.fieldContext_User_friends(ctx, field)
+	case "secret":
+		return ec.fieldContext_User_secret(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 }
@@ -1517,6 +1528,29 @@ func (ec *executionContext) fieldContext_User_friends(ctx context.Context, field
 		return fc, err
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _User_secret(ctx context.Context, field graphql.CollectedField, obj *store.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_secret(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.User().Secret(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_User_secret(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -2997,6 +3031,44 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 				}()
 				res = ec._User_friends(ctx, field, obj)
 				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "secret":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._User_secret(ctx, field, obj)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res

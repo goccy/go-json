@@ -22,6 +22,7 @@ import (
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	segmentio "github.com/segmentio/encoding/json"
+	vjson "github.com/velox-io/json"
 )
 
 // The benchmark report compares the JSON libraries of Go doing the same work. It is run by TestReport when
@@ -142,11 +143,20 @@ func segmentioUnmarshal(flags segmentio.ParseFlags) func([]byte) func(any) error
 	})
 }
 
+func veloxMarshal(opts ...vjson.MarshalOption) func(any) ([]byte, error) {
+	return func(v any) ([]byte, error) { return vjson.Marshal(v, opts...) }
+}
+
+func veloxUnmarshal(opts ...vjson.Option) func([]byte) func(any) error {
+	return stdUnmarshal(func(data []byte, v any) error { return vjson.Unmarshal(data, v, opts...) })
+}
+
 const (
 	goJSONModule    = "github.com/goccy/go-json"
 	sonicModule     = "github.com/bytedance/sonic"
 	jsoniterModule  = "github.com/json-iterator/go"
 	segmentioModule = "github.com/segmentio/encoding"
+	veloxModule     = "github.com/velox-io/json"
 )
 
 // reportConfigs are the configurations measured, by category; the first of a category is its baseline. The
@@ -184,6 +194,11 @@ var reportConfigs = []*reportConfig{
 			Setting: "json.Marshal / json.Unmarshal"},
 		module: segmentioModule, marshal: segmentio.Marshal, unmarshal: stdUnmarshal(segmentio.Unmarshal),
 	},
+	{
+		Config: report.Config{ID: "std/velox", Library: "velox-io/json", Category: "std", Title: "velox-io/json",
+			Setting: "json.Marshal( WithStdCompat ) / json.Unmarshal( WithZeroCopy( false ), WithStrictScan )"},
+		module: veloxModule, marshal: veloxMarshal(vjson.WithStdCompat()), unmarshal: veloxUnmarshal(vjson.WithZeroCopy(false), vjson.WithStrictScan()),
+	},
 
 	// fast
 	{
@@ -218,6 +233,11 @@ var reportConfigs = []*reportConfig{
 			Setting: "json.Append( 0 ) / json.Parse( ZeroCopy )"},
 		module: segmentioModule, marshal: segmentioMarshal(0), unmarshal: segmentioUnmarshal(segmentio.ZeroCopy),
 	},
+	{
+		Config: report.Config{ID: "fast/velox", Library: "velox-io/json", Category: "fast", Title: "velox-io/json",
+			Setting: "json.Marshal( WithStdCompat, WithoutEscapeHTML ) / json.Unmarshal( WithStrictScan )"},
+		module: veloxModule, marshal: veloxMarshal(vjson.WithStdCompat(), vjson.WithoutEscapeHTML()), unmarshal: veloxUnmarshal(vjson.WithStrictScan()),
+	},
 }
 
 // the configurations of "fastest"
@@ -251,6 +271,11 @@ func init() {
 			Config: report.Config{ID: "fastest/segmentio", Library: "segmentio/encoding", Category: "fastest", Title: "segmentio/encoding",
 				Setting: "json.Append( TrustRawMessage ) / json.Parse( ZeroCopy )"},
 			module: segmentioModule, marshal: segmentioMarshal(segmentio.TrustRawMessage), unmarshal: segmentioUnmarshal(segmentio.ZeroCopy),
+		},
+		&reportConfig{
+			Config: report.Config{ID: "fastest/velox", Library: "velox-io/json", Category: "fastest", Title: "velox-io/json",
+				Setting: "json.Marshal( WithFastEscape ) / json.Unmarshal"},
+			module: veloxModule, marshal: veloxMarshal(vjson.WithFastEscape()), unmarshal: veloxUnmarshal(),
 		},
 	)
 }

@@ -13,6 +13,7 @@ import (
 	gojson "github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	segmentio "github.com/segmentio/encoding/json"
+	vjson "github.com/velox-io/json"
 )
 
 // The configurations of encoding/json/v2, where Go has it, and the category of its behavior.
@@ -90,6 +91,13 @@ func init() {
 			Config: report.Config{ID: "v2/segmentio", Library: "segmentio/encoding", Category: "v2", Title: "segmentio/encoding",
 				Setting: "json.Append( 0 ) / json.Parse( DontMatchCaseInsensitiveStructFields )"},
 			module: segmentioModule, marshal: segmentioMarshal(0), unmarshal: segmentioUnmarshal(segmentio.DontMatchCaseInsensitiveStructFields),
+		},
+		{
+			Config: report.Config{ID: "v2/velox", Library: "velox-io/json", Category: "v2", Title: "velox-io/json",
+				Setting: "json.Marshal( WithStdCompat, WithoutEscapeHTML ) / json.Unmarshal( WithZeroCopy( false ), WithStrictScan )"},
+			module:    veloxModule,
+			marshal:   veloxMarshal(vjson.WithStdCompat(), vjson.WithoutEscapeHTML()),
+			unmarshal: veloxUnmarshal(vjson.WithZeroCopy(false), vjson.WithStrictScan()),
 		},
 	}
 	insertAfter("std/encoding/json", std)

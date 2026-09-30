@@ -45,11 +45,13 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 | [jettison](https://github.com/wI2L/jettison) | yes | no | no |
 | [simdjson-go](https://github.com/minio/simdjson-go) | no | yes | no |
 | [bytedance/sonic](https://github.com/bytedance/sonic) | yes | yes | partial |
+| [velox-io/json](https://github.com/velox-io/json) | yes | yes | partial |
 | goccy/go-json | yes | yes | yes |
 
 - `json-iterator/go` isn't compatible with `encoding/json` in many ways (e.g. https://github.com/json-iterator/go/issues/229 ), but it hasn't been supported for a long time.
 - `segmentio/encoding/json` is well supported for encoders, but some are not supported for decoder APIs such as `Token` ( streaming decode )
 - `bytedance/sonic` is compatible with `encoding/json` in its `ConfigStd` configuration; by default it doesn't escape HTML, sort the keys of maps or validate strings. It decodes and encodes by native code: SIMD code and, on amd64, code generated at run time. The benchmarks of this repository compare go-json with sonic in both configurations ( see below ).
+- `velox-io/json` decodes and encodes by native code, and has no option for some behaviors of `encoding/json`: the keys of an object match the fields only by their case, the keys of a map are not sorted, and the output of a Marshaler is neither compacted nor escaped. With its default options, the decoded strings refer to the input, and a control character or invalid UTF-8 in a string is not checked. The benchmark report shows it in every category, marked where it behaves differently ( see below ).
 
 ## Other libraries
 

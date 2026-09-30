@@ -1,6 +1,6 @@
 module benchmark
 
-go 1.23
+go 1.24.0
 
 require (
 	github.com/bytedance/sonic v1.15.4
@@ -11,6 +11,7 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/segmentio/encoding v0.3.4
 	github.com/valyala/fastjson v1.6.3
+	github.com/velox-io/json v0.3.0
 	github.com/wI2L/jettison v0.7.4
 )
 

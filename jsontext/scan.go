@@ -2,6 +2,7 @@ package jsontext
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"slices"
 	"unicode/utf16"
@@ -409,7 +410,14 @@ func (s *valueScanner) skipSpace(b []byte, i int) int {
 	case s.spaced:
 		s.wsFrom, s.wsEnd = i, end
 	default:
-		s.flush(b, i)
+		// a short run, as a token between spaces is, is copied by a word without a call of memmove.
+		if n := i - s.run; n <= 8 && s.run+8 <= len(b) && cap(s.out)-len(s.out) >= 8 {
+			k := len(s.out)
+			binary.LittleEndian.PutUint64(s.out[k:k+8], binary.LittleEndian.Uint64(b[s.run:]))
+			s.out = s.out[:k+n]
+		} else {
+			s.flush(b, i)
+		}
 		s.run = end
 	}
 	return end

@@ -271,7 +271,10 @@ func (d *decoder) beforeToken(peek bool) (int, error) {
 	need := d.delimBefore(d.buf[pos], peek)
 	if c := d.buf[pos]; c == ',' || c == ':' {
 		found = c
-		if pos, err = d.skip(pos + 1); err != nil {
+		base := d.base
+		pos, err = d.skip(pos + 1)
+		at -= int(d.base - base) // the input which a fetch dropped
+		if err != nil {
 			// at the end of the input, or an error of the reader, a delimiter which the next token can't need is
 			// reported first
 			if found == need {
@@ -663,6 +666,16 @@ func (d *decoder) readValue() (int, int, error) {
 	// a value where a name is must be a string, which is reported once the value is read.
 	name := l.needName()
 	count := l.count
+	if d.vs.final = d.rerr == io.EOF; !name && (d.bb != nil || d.vs.final) {
+		// the value is whole in the buffer, unless it is not valid: the buffer has all the input which there is.
+		// From another reader, a buffer which cuts the value would be scanned twice.
+		names := len(d.st.names.ends)
+		if end, ok := d.vs.scanFast(d.buf, pos); ok {
+			d.done(pos, end)
+			return pos, end, nil
+		}
+		d.st.names.truncate(names)
+	}
 	rp := resumePoint{pos: pos, base: d.st.depth()}
 	start := pos
 	for {

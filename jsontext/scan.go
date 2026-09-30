@@ -111,6 +111,18 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 	count := s.st.last().count
 	rp := resumePoint{pos: i, base: s.st.depth()}
 	s.run, s.wsEnd, s.in = i, -1, b
+	if s.plain() {
+		out, names := len(s.out), len(s.st.names.ends)
+		if end, ok := s.scanFast(b, i); ok {
+			s.in = nil
+			if s.write {
+				s.flush(b, end)
+			}
+			return end, nil
+		}
+		s.out, s.run = s.out[:out], i
+		s.st.names.truncate(names)
+	}
 	end, err := s.resume(b, &rp)
 	s.in = nil
 	if err != nil {
@@ -119,6 +131,134 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 		s.flush(b, end)
 	}
 	return end, err
+}
+
+// plain reports whether scanFast may read a value: its output, if it is written, is the input without white
+// space, whose strings and numbers are kept as they are unless they are not canonical.
+func (s *valueScanner) plain() bool {
+	return !s.spaced && !s.reorder && !s.canonInts && !s.canonFlts && s.esc == 0
+}
+
+// scanFast reads the value at b[i:] as resume does, in one loop which keeps the open objects and arrays as the
+// bits of a word, without the levels of the stack or a resume point. It gives up, and reports false, where the
+// value is not valid, where a string must be rewritten, deeper than 64 levels, and where the buffer may cut
+// the value: resume reads it again from the start, and reports the errors. The names of the objects are checked
+// as resume checks them.
+func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
+	var objects uint64 // the bit of each open level which is an object, the innermost the lowest
+	depth := 0
+	names := &s.st.names
+	var starts [64]int32 // for each open object, the index of its first name
+	var bits [64]uint64  // and the bits of its names ( nameBit )
+	var ok bool
+	limit := min(64, maxDepth-s.st.depth()) // the levels which the value may open
+	mode := strModeOf(s.validUTF8, false)
+	var n int
+	var f strFlags
+	var err error
+
+value:
+	if i = s.skip(b, i); i == len(b) {
+		return i, false
+	}
+	switch c := b[i]; c {
+	case '{', '[':
+		if depth == limit {
+			return i, false
+		}
+		objects <<= 1
+		if c == '{' {
+			objects |= 1
+			starts[depth], bits[depth] = int32(len(names.ends)), 0
+		}
+		depth++
+		i++
+		if i = s.skip(b, i); i == len(b) {
+			return i, false
+		}
+		if c := b[i]; c == '}' && objects&1 != 0 || c == ']' && objects&1 == 0 {
+			i++
+			goto closed
+		}
+		if objects&1 != 0 {
+			goto name
+		}
+		goto value
+	case '"':
+		if n, ok = simpleStringEnd(b[i:]); !ok {
+			if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
+				return i, false
+			}
+		}
+		i += n
+	case 'n', 't', 'f':
+		if n, err = scanLiteral(b[i:], literalOf(Kind(c))); err != nil {
+			return i, false
+		}
+		i += n
+	default:
+		// a number which the buffer ends may continue after it
+		if n = numberEnd(b[i:]); n < 0 || i+n == len(b) && !s.final {
+			return i, false
+		}
+		i += n
+	}
+
+next:
+	if depth == 0 {
+		s.st.last().count++
+		return i, true
+	}
+	if i = s.skip(b, i); i == len(b) {
+		return i, false
+	}
+	switch c := b[i]; {
+	case c == ',':
+		i++
+		if objects&1 != 0 {
+			goto name
+		}
+		goto value
+	case c == '}' && objects&1 != 0, c == ']' && objects&1 == 0:
+		i++
+		goto closed
+	}
+	return i, false
+
+closed:
+	depth--
+	if objects&1 != 0 {
+		names.truncate(int(starts[depth]))
+	}
+	objects >>= 1
+	goto next
+
+name:
+	if i = s.skip(b, i); i == len(b) || b[i] != '"' {
+		return i, false
+	}
+	f = 0
+	if n, ok = simpleStringEnd(b[i:]); !ok {
+		if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
+			return i, false
+		}
+	}
+	if s.checkNames {
+		name := unquotedName(&s.scratch, b[i:i+n], f)
+		k := depth - 1
+		if bit := nameBit(name); bits[k]&bit == 0 {
+			bits[k] |= bit
+		} else if names.has(int(starts[k]), name) {
+			return i, false
+		}
+		names.add(int(starts[k]), name)
+	}
+	i += n
+	if i = s.skip(b, i); i == len(b) || b[i] != ':' {
+		return i, false
+	}
+	i++
+	goto value
 }
 
 // restore pops the levels of a value which was not read to its end.

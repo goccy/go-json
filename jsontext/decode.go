@@ -225,6 +225,7 @@ func (d *decoder) endError(pos int, err error, where int) error {
 // be followed by a read call.
 func (d *Decoder) PeekKind() Kind {
 	s := &d.d
+	s.invalidate()
 	pos, err := s.beforeToken(true)
 	s.peekErr = nil // an error of an earlier PeekKind is replaced
 	if err != nil {
@@ -333,6 +334,7 @@ func (d *Decoder) ReadToken() (Token, error) {
 // readToken reads the next token in one loop where the token and the delimiter before it are valid and whole in
 // the buffer, as most tokens are, and else by readTokenSlow, from the same state.
 func (d *decoder) readToken() (Token, error) {
+	d.invalidate()
 	b := d.buf
 	pos := skipWS(b, d.pos)
 	if pos >= len(b) || len(d.st.levels) == 1 || d.peekErr != nil {
@@ -490,6 +492,16 @@ func (d *decoder) done(start, end int) {
 	d.prevStart, d.prevEnd, d.pos = start, end, end
 }
 
+// invalidate voids the last token or value, as every call which reads does, even one which fails, as
+// encoding/json/jsontext does to catch a use of it: a raw Token of it panics, and the first byte of a Value of it
+// is overwritten. The input of a bytes.Buffer, whose array the decoder reads, stays as it is.
+func (d *decoder) invalidate() {
+	if d.bb == nil && d.prevEnd > d.prevStart {
+		d.buf[d.prevStart] = '#'
+		d.prevStart = d.prevEnd
+	}
+}
+
 // insertName adds the name of the string at buf[start:end] to the innermost object.
 func (d *decoder) insertName(start, end int, f strFlags) error {
 	name := unquotedName(&d.vs.scratch, d.buf[start:end], f)
@@ -616,6 +628,7 @@ func (d *Decoder) SkipValue() error {
 }
 
 func (d *decoder) readValue() (int, int, error) {
+	d.invalidate()
 	if err := d.peekErr; err != nil {
 		d.peekErr = nil
 		return 0, 0, err
@@ -771,6 +784,9 @@ func (d *Decoder) StackPointer() Pointer {
 
 // index is StackIndex of the stack.
 func (s *stack) index(i int) (Kind, int64) {
+	if i > s.depth() {
+		_ = s.levels[1:][i] // the panic of encoding/json/jsontext, whose stack has the levels of the depth
+	}
 	l := s.levels[i]
 	switch {
 	case i == 0:

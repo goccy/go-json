@@ -615,6 +615,91 @@ func TestStdDiffEdgeCases(t *testing.T) {
 		{"Float(2⁶⁴).Uint", func() string { return fmt.Sprint(jsontext.Float(1 << 64).Uint()) }, func() string { return fmt.Sprint(stdjsontext.Float(1 << 64).Uint()) }},
 		{"Float32(2⁶³).Int", func() string { return fmt.Sprint(jsontext.Float32(1 << 63).Int()) }, func() string { return fmt.Sprint(stdjsontext.Float32(1 << 63).Int()) }},
 		{"Kind of a voided token", voided, stdVoided},
+		{"Options of Multiline after SpaceAfterComma", func() string {
+			var b bytes.Buffer
+			jsontext.NewEncoder(&b, jsontext.SpaceAfterComma(true), jsontext.NewEncoder(io.Discard, jsontext.Multiline(true)).Options()).WriteValue(jsontext.Value(`[1,2]`))
+			return b.String()
+		}, func() string {
+			var b bytes.Buffer
+			stdjsontext.NewEncoder(&b, stdjsontext.SpaceAfterComma(true), stdjsontext.NewEncoder(io.Discard, stdjsontext.Multiline(true)).Options()).WriteValue(stdjsontext.Value(`[1,2]`))
+			return b.String()
+		}},
+		{"AppendUnquote to nil", func() string {
+			var s string
+			for _, in := range []string{``, `""`, `"\u"`, `x`} {
+				b, err := jsontext.AppendUnquote(nil, in)
+				s += fmt.Sprintf("%#v %v ", b, err)
+			}
+			return s
+		}, func() string {
+			var s string
+			for _, in := range []string{``, `""`, `"\u"`, `x`} {
+				b, err := stdjsontext.AppendUnquote(nil, in)
+				s += fmt.Sprintf("%#v %v ", b, err)
+			}
+			return s
+		}},
+		{"Decoder.StackIndex beyond the depth", func() string {
+			d := jsontext.NewDecoder(strings.NewReader(`[1]`))
+			d.ReadToken()
+			return recovered(func() string { d.StackIndex(2); return "" })
+		}, func() string {
+			d := stdjsontext.NewDecoder(strings.NewReader(`[1]`))
+			d.ReadToken()
+			return recovered(func() string { d.StackIndex(2); return "" })
+		}},
+		{"Encoder.StackIndex beyond the depth", func() string {
+			e := jsontext.NewEncoder(io.Discard)
+			e.WriteToken(jsontext.BeginArray)
+			return recovered(func() string { e.StackIndex(3); return "" })
+		}, func() string {
+			e := stdjsontext.NewEncoder(io.Discard)
+			e.WriteToken(stdjsontext.BeginArray)
+			return recovered(func() string { e.StackIndex(3); return "" })
+		}},
+		{"tokens and values after the next call", func() string {
+			var s string
+			for _, r := range []func(string) io.Reader{
+				func(in string) io.Reader { return strings.NewReader(in) },
+				func(in string) io.Reader { return bytes.NewBufferString(in) },
+			} {
+				d := jsontext.NewDecoder(r(`"abc" 12`))
+				tok, _ := d.ReadToken()
+				d.PeekKind()
+				s += recovered(tok.String) + " "
+				d = jsontext.NewDecoder(r(`[1 2]`))
+				d.ReadToken()
+				tok, _ = d.ReadToken()
+				d.ReadToken() // an error
+				s += recovered(tok.String) + " "
+				d = jsontext.NewDecoder(r(`"abc"`))
+				v, _ := d.ReadValue()
+				d.ReadToken() // io.EOF
+				s += string(v) + " "
+			}
+			return s
+		}, func() string {
+			var s string
+			for _, r := range []func(string) io.Reader{
+				func(in string) io.Reader { return strings.NewReader(in) },
+				func(in string) io.Reader { return bytes.NewBufferString(in) },
+			} {
+				d := stdjsontext.NewDecoder(r(`"abc" 12`))
+				tok, _ := d.ReadToken()
+				d.PeekKind()
+				s += recovered(tok.String) + " "
+				d = stdjsontext.NewDecoder(r(`[1 2]`))
+				d.ReadToken()
+				tok, _ = d.ReadToken()
+				d.ReadToken() // an error
+				s += recovered(tok.String) + " "
+				d = stdjsontext.NewDecoder(r(`"abc"`))
+				v, _ := d.ReadValue()
+				d.ReadToken() // io.EOF
+				s += string(v) + " "
+			}
+			return s
+		}},
 		{"SyntacticError without Err", func() string { return (&jsontext.SyntacticError{ByteOffset: 5, JSONPointer: "/a"}).Error() },
 			func() string { return (&stdjsontext.SyntacticError{ByteOffset: 5, JSONPointer: "/a"}).Error() }},
 		{"Encoder.Reset from a bytes.Buffer", func() string {

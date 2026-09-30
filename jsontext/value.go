@@ -225,6 +225,7 @@ func AppendQuote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error)
 // JSON string, without white space around it. Invalid UTF-8 is appended as the Unicode replacement character,
 // and reported by an error at the end. Bytes after the string are an error. dst must not overlap src.
 func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error) {
+	dst = slices.Grow(dst, len(src)) // not nil, as encoding/json/jsontext returns it, when src isn't empty
 	b := []byte(src)
 	if len(b) == 0 || b[0] != '"' {
 		var err error = &SyntacticError{Err: invalidChar(b, "at start of string (expecting '\"')")}

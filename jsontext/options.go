@@ -90,14 +90,15 @@ type whitespace struct {
 	prefix       string
 }
 
-// A multiline output has a space after a colon and the indentation of a tab unless they were set otherwise: they
-// are set in c, which the options of an Encoder show.
+// A multiline output has a space after a colon, no space after a comma, and the indentation of a tab unless they
+// were set otherwise: they are set in c, which the options of an Encoder show.
 func (c *config) whitespace() whitespace {
 	if c.has(multiline) {
 		if c.set&spaceAfterColon == 0 {
 			c.set |= spaceAfterColon
 			c.value |= spaceAfterColon
 		}
+		c.set |= spaceAfterComma // false, unless it was set true
 		if c.set&indentSet == 0 {
 			c.set |= indentSet
 			c.indent = "\t"

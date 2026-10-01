@@ -583,6 +583,89 @@ func TestStdDiffCutEscapes(t *testing.T) {
 	}
 }
 
+// TestStdDiffZeroCoders compares the methods of an Encoder and a Decoder which are zero values, each called first
+// and then in turn with the others.
+func TestStdDiffZeroCoders(t *testing.T) {
+	decoderCalls := map[string][2]func(*jsontext.Decoder, *stdjsontext.Decoder) string{
+		"ReadToken": {
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { tok, err := d.ReadToken(); return tok.String() + errorString(err) },
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { tok, err := d.ReadToken(); return tok.String() + errorString(err) },
+		},
+		"ReadValue": {
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { v, err := d.ReadValue(); return string(v) + errorString(err) },
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { v, err := d.ReadValue(); return string(v) + errorString(err) },
+		},
+		"SkipValue": {
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { return errorString(d.SkipValue()) },
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { return errorString(d.SkipValue()) },
+		},
+		"PeekKind": {
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { return d.PeekKind().String() },
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { return d.PeekKind().String() },
+		},
+		"state": {
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string {
+				k, l := d.StackIndex(0)
+				return fmt.Sprint(d.InputOffset(), d.StackDepth(), k, l, d.StackPointer(), len(d.UnreadBuffer()), d.Options() != nil)
+			},
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string {
+				k, l := d.StackIndex(0)
+				return fmt.Sprint(d.InputOffset(), d.StackDepth(), k, l, d.StackPointer(), len(d.UnreadBuffer()), d.Options() != nil)
+			},
+		},
+	}
+	encoderCalls := map[string][2]func(*jsontext.Encoder, *stdjsontext.Encoder) string{
+		"WriteToken": {
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return errorString(e.WriteToken(jsontext.BeginArray)) },
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string { return errorString(e.WriteToken(stdjsontext.BeginArray)) },
+		},
+		"WriteValue": {
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return errorString(e.WriteValue(jsontext.Value(`{"a":1}`))) },
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string { return errorString(e.WriteValue(stdjsontext.Value(`{"a":1}`))) },
+		},
+		"AvailableBuffer": {
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return fmt.Sprint(len(e.AvailableBuffer())) },
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string { return fmt.Sprint(len(e.AvailableBuffer())) },
+		},
+		"state": {
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string {
+				k, l := e.StackIndex(0)
+				return fmt.Sprint(e.OutputOffset(), e.StackDepth(), k, l, e.StackPointer(), e.Options() != nil)
+			},
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string {
+				k, l := e.StackIndex(0)
+				return fmt.Sprint(e.OutputOffset(), e.StackDepth(), k, l, e.StackPointer(), e.Options() != nil)
+			},
+		},
+	}
+	for first := range decoderCalls {
+		var d jsontext.Decoder
+		var s stdjsontext.Decoder
+		var got, want string
+		for _, name := range append([]string{first}, "ReadToken", "ReadValue", "SkipValue", "PeekKind", "state") {
+			calls := decoderCalls[name]
+			got += recovered(func() string { return calls[0](&d, nil) }) + " "
+			want += recovered(func() string { return calls[1](nil, &s) }) + " "
+		}
+		if got != want {
+			t.Errorf("Decoder zero value, %s first:\ngot:  %s\nwant: %s", first, got, want)
+		}
+	}
+	for first := range encoderCalls {
+		var e jsontext.Encoder
+		var s stdjsontext.Encoder
+		var got, want string
+		for _, name := range append([]string{first}, "WriteToken", "WriteValue", "AvailableBuffer", "state") {
+			calls := encoderCalls[name]
+			got += recovered(func() string { return calls[0](&e, nil) }) + " "
+			want += recovered(func() string { return calls[1](nil, &s) }) + " "
+		}
+		if got != want {
+			t.Errorf("Encoder zero value, %s first:\ngot:  %s\nwant: %s", first, got, want)
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

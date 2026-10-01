@@ -69,26 +69,37 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	if r == nil {
 		panic("jsontext: invalid nil io.Reader")
 	}
-	s := &d.d
+	d.d.reset(r, opts)
+}
+
+// setUp sets up a decoder which is a zero value, as one whose input is empty, as encoding/json/jsontext takes it.
+func (d *decoder) setUp() {
+	if len(d.st.levels) == 0 {
+		d.reset(nil, nil)
+	}
+}
+
+// reset resets the decoder to read from r, which is nil for no input, with the options.
+func (d *decoder) reset(r io.Reader, opts []Options) {
 	var c config // opts may hold the options of d, which Options returned
 	c.apply(opts)
-	s.cfg = c
-	s.st.reset()
-	s.r = r
-	s.bb, _ = r.(*bytes.Buffer)
-	if s.shared {
-		s.buf, s.shared = nil, false
+	d.cfg = c
+	d.st.reset()
+	d.r = r
+	d.bb, _ = r.(*bytes.Buffer)
+	if d.shared {
+		d.buf, d.shared = nil, false
 	}
-	s.buf = s.buf[:0]
-	s.base, s.pos, s.prevStart, s.prevEnd = 0, 0, 0, 0
-	s.rerr, s.peekErr = nil, nil
-	s.raw = tokenSource{dec: s, form: formRaw}
-	s.vs = valueScanner{
-		st:         &s.st,
-		validUTF8:  !s.cfg.has(allowInvalidUTF8),
-		checkNames: !s.cfg.has(allowDuplicateNames),
+	d.buf = d.buf[:0]
+	d.base, d.pos, d.prevStart, d.prevEnd = 0, 0, 0, 0
+	d.rerr, d.peekErr = nil, nil
+	d.raw = tokenSource{dec: d, form: formRaw}
+	d.vs = valueScanner{
+		st:         &d.st,
+		validUTF8:  !d.cfg.has(allowInvalidUTF8),
+		checkNames: !d.cfg.has(allowDuplicateNames),
 		decoding:   true,
-		scratch:    s.vs.scratch[:0],
+		scratch:    d.vs.scratch[:0],
 	}
 }
 
@@ -110,6 +121,10 @@ const minRead = 512
 func (d *decoder) fetch() (int, error) {
 	if d.rerr != nil {
 		return 0, d.rerr
+	}
+	if d.r == nil {
+		d.rerr = io.EOF // a zero value
+		return 0, io.EOF
 	}
 	if d.bb != nil {
 		switch {
@@ -242,6 +257,7 @@ func (d *Decoder) PeekKind() Kind {
 // A comma or a colon is taken first, and then compared with the delimiter which the next token needs: one which
 // is not needed, or not the one needed, is an invalid character itself.
 func (d *decoder) beforeToken(peek bool) (int, error) {
+	d.setUp()
 	// an error of the reader, even io.EOF, ends only the call which met it: the next one reads again.
 	d.rerr = nil
 	// most tokens have the delimiter which they need, with some white space, in the buffer.
@@ -801,6 +817,7 @@ func (d *Decoder) UnreadBuffer() []byte {
 // top level, before any token, after a top-level value and between top-level values, 1 in a top-level object
 // or array, and so on.
 func (d *Decoder) StackDepth() int {
+	d.d.setUp()
 	return d.d.st.depth()
 }
 
@@ -808,11 +825,13 @@ func (d *Decoder) StackDepth() int {
 // Decoder.StackDepth: KindInvalid for the level 0, KindBeginObject for an object, KindBeginArray for an array.
 // The length of an object counts its names and values: a complete object has an even length.
 func (d *Decoder) StackIndex(i int) (Kind, int64) {
+	d.d.setUp()
 	return d.d.st.index(i)
 }
 
 // StackPointer returns a JSON Pointer (RFC 6901) to the last value which was read.
 func (d *Decoder) StackPointer() Pointer {
+	d.d.setUp()
 	return d.d.st.pointer(pointLast)
 }
 

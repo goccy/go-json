@@ -84,7 +84,15 @@ func (e *encoder) reset(w io.Writer, opts []Options) {
 	e.init(w)
 }
 
-// init resets the state of the encoder to write to w with the options of e.cfg.
+// setUp sets up an encoder which is a zero value, as one with no writer, which keeps its output, as
+// encoding/json/jsontext takes it.
+func (e *encoder) setUp() {
+	if len(e.st.levels) == 0 {
+		e.init(nil)
+	}
+}
+
+// init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
 	e.st.reset()
 	if e.bb != nil {
@@ -173,6 +181,7 @@ func (e *Encoder) AvailableBuffer() []byte {
 // before any token, after a top-level value and between top-level values, 1 in a top-level object or array, and
 // so on.
 func (e *Encoder) StackDepth() int {
+	e.e.setUp()
 	return e.e.st.depth()
 }
 
@@ -180,11 +189,13 @@ func (e *Encoder) StackDepth() int {
 // Encoder.StackDepth: KindInvalid for the level 0, KindBeginObject for an object, KindBeginArray for an array.
 // The length of an object counts its names and values: a complete object has an even length.
 func (e *Encoder) StackIndex(i int) (Kind, int64) {
+	e.e.setUp()
 	return e.e.st.index(i)
 }
 
 // StackPointer returns a JSON Pointer (RFC 6901) to the last value which was written.
 func (e *Encoder) StackPointer() Pointer {
+	e.e.setUp()
 	return e.e.st.pointer(pointLast)
 }
 
@@ -234,6 +245,7 @@ func (e *Encoder) WriteToken(t Token) error {
 }
 
 func (e *encoder) writeToken(t Token) error {
+	e.setUp()
 	k := t.Kind()
 	l := e.st.last()
 	if misplaced(l, k, e.st.depth()) {
@@ -392,6 +404,9 @@ func (e *encoder) endOutput() error {
 	if e.st.depth() > 0 {
 		return e.flush()
 	}
+	if e.w == nil {
+		return nil // a zero value, which keeps its output without the line feed of a stream
+	}
 	if !e.cfg.has(omitTopLevelNewline) {
 		e.buf = append(e.buf, '\n')
 	}
@@ -432,6 +447,7 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
+	e.setUp()
 	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
 		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
 		v = bytes.Clone(v)

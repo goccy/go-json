@@ -294,6 +294,7 @@ const (
 	strEscaped      strFlags = 1 << iota // it has an escape sequence
 	strNonCanonical                      // AppendQuote writes its value otherwise
 	strInvalidUTF8                       // it has invalid UTF-8, or an escaped surrogate which is not in a pair
+	strHighCut                           // without strValid, a high surrogate ends the buffer, which a low one may pair
 )
 
 // stringClass is the class of each byte in a JSON string: 0 for a character taken as it is, 1 for an escape
@@ -393,6 +394,12 @@ func scanString(b []byte, mode strMode) (int, strFlags, error) {
 
 // scanStringFrom continues the scan of the string which starts b at b[i:], with the flags of b[:i].
 func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlags, error) {
+	if flags&strHighCut != 0 {
+		var cut bool
+		if i, flags, cut = pairHighCut(b, i, flags); cut {
+			return i, flags, io.ErrUnexpectedEOF
+		}
+	}
 	for {
 		// the characters taken as they are: ASCII other than a quote, a backslash and a control character
 		if i < len(b) && stringClass[b[i]] == 0 {
@@ -421,7 +428,9 @@ func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlag
 				return i, flags, err
 			}
 			flags |= strEscaped
-			if r < 0 {
+			if r == highCut {
+				flags |= strHighCut | strNonCanonical
+			} else if r < 0 {
 				flags |= strInvalidUTF8 | strNonCanonical
 			} else if !isCanonicalEscape(b[i:i+n], r) {
 				flags |= strNonCanonical
@@ -484,8 +493,28 @@ func isCanonicalEscape(e []byte, r rune) bool {
 
 const hexDigits = "0123456789abcdef"
 
+// highCut is the rune of scanEscape for a high surrogate which the end of the buffer cuts from the escape
+// sequence which may pair it, without strValid: encoding/json/jsontext takes it alone, and so does the scan,
+// which pairs it when it continues.
+const highCut = -2
+
+// pairHighCut takes the escape sequence at b[i:] after a high surrogate which was cut from it, as the flags tell:
+// it pairs a low surrogate, else the high one is not in a pair. It reports whether b ends in it.
+func pairHighCut(b []byte, i int, flags strFlags) (int, strFlags, bool) {
+	if i+6 > len(b) && isPrefixOfLowSurrogate(b[i:]) {
+		return i, flags, true
+	}
+	flags &^= strHighCut
+	if i+6 <= len(b) && b[i] == '\\' && b[i+1] == 'u' {
+		if r := hex4(b[i+2:]); r >= 0xdc00 && r < 0xe000 {
+			return i + 6, flags, false
+		}
+	}
+	return i, flags | strInvalidUTF8, false
+}
+
 // scanEscape takes the escape sequence at the start of b, and returns its length and the rune: -1 for an
-// escaped surrogate which is not in a pair, which is an error with strValid.
+// escaped surrogate which is not in a pair, which is an error with strValid, and highCut.
 func scanEscape(b []byte, mode strMode) (int, rune, error) {
 	if len(b) < 2 {
 		return 0, 0, io.ErrUnexpectedEOF
@@ -504,10 +533,8 @@ func scanEscape(b []byte, mode strMode) (int, rune, error) {
 	case 't':
 		return 2, '\t', nil
 	case 'u':
-		// with more input, the error of an escape sequence waits for the bytes which its message shows.
-		if len(b) < 6 && mode&strMore != 0 {
-			return 0, 0, io.ErrUnexpectedEOF
-		}
+		// a cut escape sequence waits for more input while its bytes may still be valid: scanHex4 reports the
+		// error of a byte which is not a digit at once, as encoding/json/jsontext does.
 		r, err := scanHex4(b)
 		if err != nil {
 			return 0, 0, err
@@ -515,9 +542,16 @@ func scanEscape(b []byte, mode strMode) (int, rune, error) {
 		if !utf16.IsSurrogate(r) {
 			return 6, r, nil
 		}
-		// a surrogate pair is two escape sequences, which the error shows.
-		if len(b) < 12 && mode&strMore != 0 {
-			return 0, 0, io.ErrUnexpectedEOF
+		// a surrogate pair is two escape sequences, which the error shows: the input waits for the second one
+		// while it may be the escape sequence of a low surrogate, or, at the end of the input, it is cut.
+		// Without strValid, a high surrogate is taken alone, as encoding/json/jsontext takes it.
+		if len(b) < 12 && isPrefixOfLowSurrogate(b[6:]) {
+			if mode&strValid != 0 {
+				return 0, 0, io.ErrUnexpectedEOF
+			}
+			if r < 0xdc00 && mode&strMore != 0 {
+				return 6, highCut, nil
+			}
 		}
 		if r < 0xdc00 && len(b) >= 12 && b[6] == '\\' && b[7] == 'u' {
 			if r2, err := scanHex4(b[6:]); err == nil {
@@ -525,9 +559,6 @@ func scanEscape(b []byte, mode strMode) (int, rune, error) {
 					return 12, pair, nil
 				}
 			}
-		} else if len(b) < 12 && isPrefixOfLowSurrogate(b[6:]) && mode&(strMore|strValid) != 0 {
-			// the escape sequence of the low surrogate may follow, or, at the end of the input, it is cut
-			return 0, 0, io.ErrUnexpectedEOF
 		}
 		if mode&strValid != 0 {
 			return 0, 0, invalidEscape(b[:min(len(b), 12)], "surrogate pair")

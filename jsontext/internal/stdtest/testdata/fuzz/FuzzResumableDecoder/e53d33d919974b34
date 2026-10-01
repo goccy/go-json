@@ -1,3 +1,0 @@
-go test fuzz v1
-int64(0)
-[]byte("\"\\u0X0")

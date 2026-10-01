@@ -535,6 +535,54 @@ func TestStdDiffReaderErrors(t *testing.T) {
 	}
 }
 
+// TestStdDiffCutEscapes compares the errors of escape sequences which are cut by the reads, or followed by a
+// reader error: an error which the bytes read already show is reported, without a wait for more input.
+func TestStdDiffCutEscapes(t *testing.T) {
+	readers := map[string]func(string) io.Reader{
+		"whole":                  func(s string) io.Reader { return strings.NewReader(s) },
+		"by bytes":               func(s string) io.Reader { return iotest.OneByteReader(strings.NewReader(s)) },
+		"whole then an error":    func(s string) io.Reader { return io.MultiReader(strings.NewReader(s), iotest.ErrReader(errBoom)) },
+		"by bytes then an error": func(s string) io.Reader { return io.MultiReader(iotest.OneByteReader(strings.NewReader(s)), iotest.ErrReader(errBoom)) },
+	}
+	var inputs []string
+	for _, esc := range []string{`\u0X0`, `\u12`, `\u`, `\ud800000`, `\ud800"`, `\ud800x`, `\ud800\u12`, `\ud800\udc`,
+		`\ud800\udcxx`, `\ud800\ud800`, `\udc00\udc00`, `\udc00x`, `\ud800\`, `\ud800\x`, `\ud83d\ude00"`, `\ud83d\ude00\ud83d\udE00\ud83d"`, `\ud83d\ud83d\ude00"`} {
+		inputs = append(inputs, `"`+esc, `["`+esc, `{"a":"`+esc, `{"`+esc, `{"`+esc+`:1}`, `["`+esc+`]`)
+	}
+	for name, newReader := range readers {
+		for _, in := range inputs {
+			for _, invalid := range []bool{false, true} {
+				for _, op := range []string{"token", "value", "skip"} {
+					d := jsontext.NewDecoder(newReader(in), jsontext.AllowInvalidUTF8(invalid))
+					s := stdjsontext.NewDecoder(newReader(in), stdjsontext.AllowInvalidUTF8(invalid))
+					var got, want string
+					for range 3 {
+						var out, stdOut string
+						var err, stdErr error
+						switch op {
+						case "token":
+							tok, e := d.ReadToken()
+							stdTok, stdE := s.ReadToken()
+							out, err, stdOut, stdErr = tok.String(), e, stdTok.String(), stdE
+						case "value":
+							v, e := d.ReadValue()
+							stdV, stdE := s.ReadValue()
+							out, err, stdOut, stdErr = string(v), e, string(stdV), stdE
+						default:
+							err, stdErr = d.SkipValue(), s.SkipValue()
+						}
+						got += fmt.Sprintf("[%q %s | %d %q] ", out, errorString(err), d.InputOffset(), d.StackPointer())
+						want += fmt.Sprintf("[%q %s | %d %q] ", stdOut, errorString(stdErr), s.InputOffset(), s.StackPointer())
+					}
+					if got != want {
+						t.Errorf("%s of %q read %s, AllowInvalidUTF8(%v):\ngot:  %s\nwant: %s", op, in, name, invalid, got, want)
+					}
+				}
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

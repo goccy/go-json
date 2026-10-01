@@ -570,7 +570,8 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 	}
 	for {
 		b := d.buf[pos:]
-		var cut bool // the token may continue after the buffer
+		var cut bool      // the token may continue after the buffer
+		var cutChar error // the error of an invalid character which the buffer cuts, read again to show it whole
 		switch c {
 		case '"':
 			if n > 0 && plainEnd(b, n) == len(b) {
@@ -601,6 +602,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			}
 		} else if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
 			// an invalid character which the buffer cuts is shown whole: the token is scanned again with more
+			cutChar = d.failAt(err, pos+n, where)
 			n, f, st = 0, 0, numState{}
 		} else {
 			break
@@ -608,6 +610,9 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		shift, ferr := d.fetch()
 		pos -= shift
 		if ferr != nil && ferr != io.EOF {
+			if cutChar != nil {
+				return pos, pos, 0, cutChar // the error which the input read shows, as far as it was read
+			}
 			return pos, pos, 0, ferr
 		}
 	}
@@ -714,19 +719,23 @@ func (d *decoder) readValue() (int, int, error) {
 			d.done(start, end)
 			return start, end, nil
 		}
+		var cutChar error // the error of an invalid character which the buffer cuts, read again to show it whole
 		if serr != errCut {
 			d.vs.restore(rp.base, count)
-			if _, ok := serr.err.(*textError); ok && d.rerr == nil && !utf8.FullRune(d.buf[serr.pos:]) {
-				// an invalid character which the buffer cuts is shown whole: the value is read again with more
-				rp = resumePoint{pos: start, base: rp.base}
-			} else {
-				return 0, 0, &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
+			cutChar = &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
+			if _, ok := serr.err.(*textError); !ok || d.rerr != nil || utf8.FullRune(d.buf[serr.pos:]) {
+				return 0, 0, cutChar
 			}
+			// an invalid character which the buffer cuts is shown whole: the value is read again with more
+			rp = resumePoint{pos: start, base: rp.base}
 		}
 		for {
 			shift, ferr := d.fetch()
 			rp.pos -= shift
 			start -= shift
+			if ferr != nil && ferr != io.EOF && cutChar != nil {
+				return 0, 0, cutChar // the error which the input read shows, as far as it was read
+			}
 			if ferr != nil && ferr != io.EOF {
 				err := d.cutError(&rp, ferr)
 				d.vs.restore(rp.base, count)

@@ -488,7 +488,9 @@ func TestStdDiffReaderErrors(t *testing.T) {
 		`{"a"`, `{"a":1`, `{"a":"b"`, `{"a":{"b":`, `{"a":[1,2]}`,
 		// a delimiter which the next token can't need, a value in an object or array, and a cut literal
 		`,`, `[,`, `{"a",`, `1 ,`, `[1:`, `{:`, `{"a":1:`, `{"a":{`, `[[1,`, `{"a":{"b":1,`, `[{`, `{"a":[1,`,
-		`[tru`, `[f`, `[[fa`, `{"a":fa`, `[1,tr`}
+		`[tru`, `[f`, `[[fa`, `{"a":fa`, `[1,tr`,
+		// an invalid character which the end of the input cuts
+		"[1\xeb", "\"\xeb", "[\xeb", "{\"a\":\xe6\x97", "\"1\xeb", "1 \xeb", "{\"a\"\xeb", "{\xeb", "tru\xeb", "[\"a\xe6\x97"}
 	for name, newReader := range readers {
 		for _, in := range inputs {
 			for _, ops := range []string{"TTTT", "VVV", "TVVV", "SSS", "TSSS", "TTVV"} {
@@ -539,10 +541,12 @@ func TestStdDiffReaderErrors(t *testing.T) {
 // reader error: an error which the bytes read already show is reported, without a wait for more input.
 func TestStdDiffCutEscapes(t *testing.T) {
 	readers := map[string]func(string) io.Reader{
-		"whole":                  func(s string) io.Reader { return strings.NewReader(s) },
-		"by bytes":               func(s string) io.Reader { return iotest.OneByteReader(strings.NewReader(s)) },
-		"whole then an error":    func(s string) io.Reader { return io.MultiReader(strings.NewReader(s), iotest.ErrReader(errBoom)) },
-		"by bytes then an error": func(s string) io.Reader { return io.MultiReader(iotest.OneByteReader(strings.NewReader(s)), iotest.ErrReader(errBoom)) },
+		"whole":               func(s string) io.Reader { return strings.NewReader(s) },
+		"by bytes":            func(s string) io.Reader { return iotest.OneByteReader(strings.NewReader(s)) },
+		"whole then an error": func(s string) io.Reader { return io.MultiReader(strings.NewReader(s), iotest.ErrReader(errBoom)) },
+		"by bytes then an error": func(s string) io.Reader {
+			return io.MultiReader(iotest.OneByteReader(strings.NewReader(s)), iotest.ErrReader(errBoom))
+		},
 	}
 	var inputs []string
 	for _, esc := range []string{`\u0X0`, `\u12`, `\u`, `\ud800000`, `\ud800"`, `\ud800x`, `\ud800\u12`, `\ud800\udc`,
@@ -588,12 +592,24 @@ func TestStdDiffCutEscapes(t *testing.T) {
 func TestStdDiffZeroCoders(t *testing.T) {
 	decoderCalls := map[string][2]func(*jsontext.Decoder, *stdjsontext.Decoder) string{
 		"ReadToken": {
-			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { tok, err := d.ReadToken(); return tok.String() + errorString(err) },
-			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { tok, err := d.ReadToken(); return tok.String() + errorString(err) },
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string {
+				tok, err := d.ReadToken()
+				return tok.String() + errorString(err)
+			},
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string {
+				tok, err := d.ReadToken()
+				return tok.String() + errorString(err)
+			},
 		},
 		"ReadValue": {
-			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { v, err := d.ReadValue(); return string(v) + errorString(err) },
-			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string { v, err := d.ReadValue(); return string(v) + errorString(err) },
+			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string {
+				v, err := d.ReadValue()
+				return string(v) + errorString(err)
+			},
+			func(_ *jsontext.Decoder, d *stdjsontext.Decoder) string {
+				v, err := d.ReadValue()
+				return string(v) + errorString(err)
+			},
 		},
 		"SkipValue": {
 			func(d *jsontext.Decoder, _ *stdjsontext.Decoder) string { return errorString(d.SkipValue()) },
@@ -616,12 +632,20 @@ func TestStdDiffZeroCoders(t *testing.T) {
 	}
 	encoderCalls := map[string][2]func(*jsontext.Encoder, *stdjsontext.Encoder) string{
 		"WriteToken": {
-			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return errorString(e.WriteToken(jsontext.BeginArray)) },
-			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string { return errorString(e.WriteToken(stdjsontext.BeginArray)) },
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string {
+				return errorString(e.WriteToken(jsontext.BeginArray))
+			},
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string {
+				return errorString(e.WriteToken(stdjsontext.BeginArray))
+			},
 		},
 		"WriteValue": {
-			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return errorString(e.WriteValue(jsontext.Value(`{"a":1}`))) },
-			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string { return errorString(e.WriteValue(stdjsontext.Value(`{"a":1}`))) },
+			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string {
+				return errorString(e.WriteValue(jsontext.Value(`{"a":1}`)))
+			},
+			func(_ *jsontext.Encoder, e *stdjsontext.Encoder) string {
+				return errorString(e.WriteValue(stdjsontext.Value(`{"a":1}`)))
+			},
 		},
 		"AvailableBuffer": {
 			func(e *jsontext.Encoder, _ *stdjsontext.Encoder) string { return fmt.Sprint(len(e.AvailableBuffer())) },

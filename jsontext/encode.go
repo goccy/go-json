@@ -322,7 +322,7 @@ func misplaced(l *level, k Kind, depth int) bool {
 func (e *encoder) misplacedError(l *level, k Kind) error {
 	switch {
 	case k == KindInvalid:
-		return e.failAt(errInvalidToken, len(e.buf), pointNext)
+		return e.failAt(errInvalidToken, len(e.buf)+e.delimLen(k), pointNext)
 	case k != KindEndObject && k != KindEndArray:
 		return e.failAt(ErrNonStringName, len(e.buf)+e.delimLen(k), pointAt)
 	case e.st.depth() == 0 || l.object != (k == KindEndObject):

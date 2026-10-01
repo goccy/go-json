@@ -666,6 +666,46 @@ func TestStdDiffZeroCoders(t *testing.T) {
 	}
 }
 
+// TestStdDiffInvalidToken compares the error of a Token which is the zero value, written after each prefix of a
+// stream, with the white space options: its offset is after the delimiter and the white space before it.
+func TestStdDiffInvalidToken(t *testing.T) {
+	prefixes := []string{``, `[`, `[1`, `{`, `{"a"`, `{"a":1`, `[[`, `{"a":[1`, `1`}
+	optionSets := [][2][]any{
+		{},
+		{[]any{jsontext.Multiline(true)}, []any{stdjsontext.Multiline(true)}},
+		{[]any{jsontext.SpaceAfterColon(true), jsontext.SpaceAfterComma(true)}, []any{stdjsontext.SpaceAfterColon(true), stdjsontext.SpaceAfterComma(true)}},
+	}
+	for _, prefix := range prefixes {
+		for _, opts := range optionSets {
+			var b, sb bytes.Buffer
+			var o []jsontext.Options
+			for _, x := range opts[0] {
+				o = append(o, x.(jsontext.Options))
+			}
+			var so []stdjsontext.Options
+			for _, x := range opts[1] {
+				so = append(so, x.(stdjsontext.Options))
+			}
+			e, s := jsontext.NewEncoder(&b, o...), stdjsontext.NewEncoder(&sb, so...)
+			d, sd := jsontext.NewDecoder(strings.NewReader(prefix)), stdjsontext.NewDecoder(strings.NewReader(prefix))
+			for {
+				tok, err := d.ReadToken()
+				stdTok, stdErr := sd.ReadToken()
+				if err != nil || stdErr != nil {
+					break
+				}
+				e.WriteToken(tok)
+				s.WriteToken(stdTok)
+			}
+			got := errorString(e.WriteToken(jsontext.Token{}))
+			want := errorString(s.WriteToken(stdjsontext.Token{}))
+			if got != want {
+				t.Errorf("WriteToken(Token{}) after %q, %d options:\ngot:  %s\nwant: %s", prefix, len(o), got, want)
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

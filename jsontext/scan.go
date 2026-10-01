@@ -169,11 +169,12 @@ type openObject struct {
 }
 
 // scanObjects is scanFast, which keeps the open objects in open by their depth in the value.
+//
+//nolint:maintidx // one loop of gotos over the grammar, whose tokens are read in it without calls
 func (s *valueScanner) scanObjects(b []byte, i int, open *[64]openObject) (int, bool) {
 	var objects uint64 // the bit of each open level which is an object, the innermost the lowest
 	depth := 0
 	names := &s.st.names
-	var ok bool
 	limit := min(64, maxDepth-s.st.depth()) // the levels which the value may open
 	mode := strModeOf(s.validUTF8, false)
 	var n int
@@ -208,23 +209,56 @@ value:
 		}
 		goto value
 	case '"':
-		if n, ok = simpleStringEnd(b[i:]); !ok {
-			if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
-				return i, false
-			}
-		}
-		i += n
-	case 'n', 't', 'f':
-		if n, err = scanLiteral(b[i:], literalOf(Kind(c))); err != nil {
+		// a string of plain characters costs one call; scanStringFrom takes the others from where it stops
+		if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
+			n++
+		} else if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
 			return i, false
 		}
 		i += n
+	case 'n':
+		// the literals are compared in the loop, without a call
+		if len(b)-i < 4 || string(b[i:i+4]) != "null" {
+			return i, false
+		}
+		i += 4
+	case 't':
+		if len(b)-i < 4 || string(b[i:i+4]) != "true" {
+			return i, false
+		}
+		i += 4
+	case 'f':
+		if len(b)-i < 5 || string(b[i:i+5]) != "false" {
+			return i, false
+		}
+		i += 5
 	default:
-		// a number which the buffer ends may continue after it
-		if n = numberEnd(b[i:]); n < 0 || i+n == len(b) && !s.final {
-			return i, false
+		// a number of the common forms, an integer and its fraction, is read in the loop: the digits of the
+		// integer by bytes, and the ones of the fraction 8 bytes at a time. numberEnd reads the others. A number
+		// which the buffer ends may continue after it.
+		j := i
+		if c == '-' {
+			j++
 		}
-		i += n
+		if j < len(b) && '1' <= b[j] && b[j] <= '9' {
+			for j++; j < len(b) && '0' <= b[j] && b[j] <= '9'; {
+				j++
+			}
+		} else if j < len(b) && b[j] == '0' {
+			j++
+		} else {
+			j = i
+		}
+		if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
+			j = scanDigits(b, j+2)
+		}
+		if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
+			i = j
+		} else if n = numberEnd(b[i:]); n < 0 {
+			return i, false
+		} else {
+			i += n
+		}
 	}
 
 next:
@@ -261,10 +295,10 @@ name:
 		return i, false
 	}
 	f = 0
-	if n, ok = simpleStringEnd(b[i:]); !ok {
-		if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
-			return i, false
-		}
+	if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
+		n++
+	} else if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
+		return i, false
 	}
 	if s.checkNames {
 		name := unquotedName(&s.scratch, b[i:i+n], f)

@@ -1,0 +1,37 @@
+type Query {
+  user(id: ID!): User
+  users(first: Int = 10): [User!]!
+  posts(first: Int = 10): [Post!]!
+  search(text: String!, first: Int = 10): [SearchResult!]!
+}
+
+union SearchResult = User | Post
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  bio: String
+  age: Int!
+  score: Float!
+  active: Boolean!
+  posts(first: Int = 10): [Post!]!
+  friends(first: Int = 10): [User!]!
+  secret: String
+}
+
+type Post {
+  id: ID!
+  title: String!
+  body: String!
+  tags: [String!]!
+  likes: Int!
+  author: User!
+  comments(first: Int = 10): [Comment!]!
+}
+
+type Comment {
+  id: ID!
+  body: String!
+  author: User!
+}

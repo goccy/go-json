@@ -1,7 +1,6 @@
 package json_test
 
 import (
-	"context"
 	stdjson "encoding/json"
 	"reflect"
 	"testing"
@@ -453,8 +452,8 @@ func assertEncodedAsStd(t *testing.T, v any) {
 	}
 }
 
-// A struct encoded by a jump, a recursive one or a large one in many places, is filtered by the field query
-// of its own place.
+// A struct encoded by a jump, a recursive one or a large one in many places, is filtered by the selection of
+// its own place.
 
 type queryRecursive struct {
 	Name  string
@@ -463,7 +462,7 @@ type queryRecursive struct {
 	List  []queryRecursive
 }
 
-func TestEncodeFieldQueryOfJumpedStructs(t *testing.T) {
+func TestEncodeSelectionOfJumpedStructs(t *testing.T) {
 	recursive := &queryRecursive{
 		Name: "a", Other: "o",
 		Child: &queryRecursive{Name: "b", Other: "p", Child: &queryRecursive{Name: "c", Other: "q"}},
@@ -482,48 +481,47 @@ func TestEncodeFieldQueryOfJumpedStructs(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		v      any
-		fields []json.FieldQueryString
+		fields []json.SelectionField
 		want   string
 	}{
 		{
 			name:   "recursive",
 			v:      recursive,
-			fields: []json.FieldQueryString{"Name", json.BuildSubFieldQuery("Child").Fields("Name")},
+			fields: []json.SelectionField{json.Field("Name"), json.Field("Child", json.Field("Name"))},
 			want:   `{"Name":"a","Child":{"Name":"b"}}`,
 		},
 		{
 			name:   "recursive whole child",
 			v:      recursive,
-			fields: []json.FieldQueryString{"Other", "Child", "List"},
+			fields: []json.SelectionField{json.Field("Other"), json.Field("Child"), json.Field("List")},
 			want:   `{"Other":"o","Child":` + std(recursive.Child) + `,"List":` + std(recursive.List) + `}`,
 		},
 		{
 			name: "recursive nested",
 			v:    recursive,
-			fields: []json.FieldQueryString{
-				json.BuildSubFieldQuery("Child").Fields("Other", json.BuildSubFieldQuery("Child").Fields("Name")),
+			fields: []json.SelectionField{
+				json.Field("Child", json.Field("Other"), json.Field("Child", json.Field("Name"))),
 			},
 			want: `{"Child":{"Other":"p","Child":{"Name":"c"}}}`,
 		},
 		{
 			name: "shared",
 			v:    holder,
-			fields: []json.FieldQueryString{
-				json.BuildSubFieldQuery("A").Fields("F001"),
-				json.BuildSubFieldQuery("B").Fields("F002", "F139"),
-				"C",
-				json.BuildSubFieldQuery("P").Fields(json.BuildSubFieldQuery("B").Fields("F004"), "C"),
+			fields: []json.SelectionField{
+				json.Field("A", json.Field("F001")),
+				json.Field("B", json.Field("F002"), json.Field("F139")),
+				json.Field("C"),
+				json.Field("P", json.Field("B", json.Field("F004")), json.Field("C")),
 			},
 			want: `{"A":{"F001":1},"B":{"F002":1002,"F139":1139},"C":` + std(c) + `,"P":{"B":{"F004":1004},"C":` + std(c) + `}}`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			query, err := json.BuildFieldQuery(tt.fields...)
+			sel, err := json.Select(tt.fields...)
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx := json.SetFieldQueryToContext(context.Background(), query)
-			got, err := json.MarshalContext(ctx, tt.v)
+			got, err := json.MarshalWithOption(tt.v, json.WithSelection(sel))
 			if err != nil {
 				t.Fatal(err)
 			}

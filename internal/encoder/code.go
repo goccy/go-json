@@ -11,7 +11,8 @@ import (
 type Code interface {
 	Kind() CodeKind
 	ToOpcode(*compileContext) Opcodes
-	Filter(*FieldQuery) Code
+	// Filter returns the code which writes only what the selection selects.
+	Filter(*Selection) Code
 }
 
 type AnonymousCode interface {
@@ -84,7 +85,7 @@ func (c *IntCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *IntCode) Filter(_ *FieldQuery) Code {
+func (c *IntCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -114,7 +115,7 @@ func (c *UintCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *UintCode) Filter(_ *FieldQuery) Code {
+func (c *UintCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -150,7 +151,7 @@ func (c *FloatCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *FloatCode) Filter(_ *FieldQuery) Code {
+func (c *FloatCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -183,7 +184,7 @@ func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *StringCode) Filter(_ *FieldQuery) Code {
+func (c *StringCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -208,7 +209,7 @@ func (c *BoolCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *BoolCode) Filter(_ *FieldQuery) Code {
+func (c *BoolCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -233,7 +234,7 @@ func (c *BytesCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *BytesCode) Filter(_ *FieldQuery) Code {
+func (c *BytesCode) Filter(_ *Selection) Code {
 	return c
 }
 
@@ -272,8 +273,8 @@ func (c *SliceCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
-func (c *SliceCode) Filter(_ *FieldQuery) Code {
-	return c
+func (c *SliceCode) Filter(sel *Selection) Code {
+	return &SliceCode{typ: c.typ, value: c.value.Filter(sel)}
 }
 
 type ArrayCode struct {
@@ -318,8 +319,8 @@ func (c *ArrayCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(codes...).Add(elemCode).Add(end)
 }
 
-func (c *ArrayCode) Filter(_ *FieldQuery) Code {
-	return c
+func (c *ArrayCode) Filter(sel *Selection) Code {
+	return &ArrayCode{typ: c.typ, value: c.value.Filter(sel)}
 }
 
 type MapCode struct {
@@ -410,8 +411,9 @@ func (c *MapCode) isStringKey() bool {
 	return ok && !key.isPtr && key.typ != jsonNumberType
 }
 
-func (c *MapCode) Filter(_ *FieldQuery) Code {
-	return c
+// Filter filters the values of the map: the keys are data, not the fields of an object.
+func (c *MapCode) Filter(sel *Selection) Code {
+	return &MapCode{typ: c.typ, key: c.key, value: c.value.Filter(sel)}
 }
 
 type StructCode struct {
@@ -423,9 +425,9 @@ type StructCode struct {
 	isRecursive               bool
 	// isHiddenByItself is whether the struct is a recursive one embedded in itself, which has nothing to write.
 	isHiddenByItself bool
-	// fieldQuery is the query which the fields of a recursive struct are filtered by: the code which is jumped
-	// to is filtered by it when the recursive codes are linked.
-	fieldQuery *FieldQuery
+	// selection is the selection which the fields of a recursive struct are filtered by: the code which is
+	// jumped to is filtered by it when the recursive codes are linked.
+	selection *Selection
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -495,7 +497,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
 		recursive.Type = runtime.TypePtr(c.typ)
-		recursive.FieldQuery = c.fieldQuery
+		recursive.Selected = selectedOf(c.selection)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -602,7 +604,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true})
 		recursive.Type = runtime.TypePtr(c.typ)
-		recursive.FieldQuery = c.fieldQuery
+		recursive.Selected = selectedOf(c.selection)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -682,41 +684,42 @@ func (c *StructCode) enableIndirect() {
 	structCode.enableIndirect()
 }
 
-func (c *StructCode) Filter(query *FieldQuery) Code {
+// Filter returns the struct of the fields which the selection selects, in the order of the selection, each
+// written with the key of its selection. A field is selected twice under two keys if the selection has it so.
+//
+// A field of a struct embedded as a value is in the memory of the struct at its offset: it is written where it
+// is selected, as a field of the struct itself. The fields of a struct embedded by a pointer are written only if
+// the pointer is not nil, so they stay in the embedded struct, which is filtered by the whole selection: they
+// are written together, where the first of them is selected. The fields of an embedded struct which is encoded
+// by a jump ( a recursive or a shared one ) are not known until the code is linked, so it is put after the
+// other fields.
+func (c *StructCode) Filter(sel *Selection) Code {
 	if c.isRecursive {
 		// the code of a recursive struct is a jump: the code which is jumped to is filtered when it is linked.
 		filtered := *c
-		filtered.fieldQuery = query
+		filtered.selection = sel
 		return &filtered
 	}
-	fieldMap := map[string]*FieldQuery{}
-	for _, field := range query.Fields {
-		fieldMap[field.Name] = field
+	fields := make([]*StructFieldCode, 0, len(sel.Fields))
+	placed := map[*StructFieldCode]bool{}
+	for _, selected := range sel.Fields {
+		found, ok := c.selectedField(selected.Name, 0)
+		switch {
+		case !ok:
+		case found.isEmbedded:
+			if !placed[found.field] {
+				placed[found.field] = true
+				fields = append(fields, found.field.filterEmbedded(sel, found.offset))
+			}
+		default:
+			fields = append(fields, found.field.selected(selected, found.offset))
+		}
 	}
-	fields := make([]*StructFieldCode, 0, len(c.fields))
-	for _, field := range c.fields {
-		query, exists := fieldMap[field.key]
-		if !exists {
-			continue
+	c.eachJumpedEmbedded(0, func(field *StructFieldCode, offset uintptr) {
+		if !placed[field] {
+			fields = append(fields, field.filterEmbedded(sel, offset))
 		}
-		fieldCode := &StructFieldCode{
-			typ:                field.typ,
-			key:                field.key,
-			tag:                field.tag,
-			value:              field.value,
-			offset:             field.offset,
-			isAnonymous:        field.isAnonymous,
-			isTaggedKey:        field.isTaggedKey,
-			isNilableType:      field.isNilableType,
-			isNilCheck:         field.isNilCheck,
-			isAddrForMarshaler: field.isAddrForMarshaler,
-			isNextOpPtrType:    field.isNextOpPtrType,
-		}
-		if len(query.Fields) > 0 {
-			fieldCode.value = fieldCode.value.Filter(query)
-		}
-		fields = append(fields, fieldCode)
-	}
+	})
 	return &StructCode{
 		typ:                       c.typ,
 		fields:                    fields,
@@ -725,6 +728,114 @@ func (c *StructCode) Filter(query *FieldQuery) Code {
 		isIndirect:                c.isIndirect,
 		isRecursive:               c.isRecursive,
 	}
+}
+
+// foundField is a field which a selection selects, found by selectedField.
+type foundField struct {
+	// field is the field, or the struct embedded by a pointer or encoded by a jump which has it.
+	field *StructFieldCode
+	// isEmbedded is whether field is the embedded struct which has the field.
+	isEmbedded bool
+	// offset is the offset of the struct embedded as a value which field is in, from the struct: the fields of
+	// such a struct are written as the fields of the struct itself.
+	offset uintptr
+}
+
+// selectedField returns the field of the struct whose key is name, or the embedded struct which has it, whose
+// offset is from the struct of offset base.
+func (c *StructCode) selectedField(name string, base uintptr) (foundField, bool) {
+	for _, f := range c.fields {
+		structCode := f.getAnonymousStruct()
+		if structCode == nil {
+			if f.key == name {
+				return foundField{field: f, offset: base}, true
+			}
+			continue
+		}
+		if !structCode.hasKey(name) {
+			continue
+		}
+		if _, isPtr := f.value.(*PtrCode); isPtr || structCode.isRecursive {
+			return foundField{field: f, isEmbedded: true, offset: base}, true
+		}
+		return structCode.selectedField(name, base+f.offset)
+	}
+	return foundField{}, false
+}
+
+// eachJumpedEmbedded calls fn with each struct embedded in the struct, or in a struct embedded in it as a value,
+// which is encoded by a jump, and with the offset of the struct embedded as a value which it is in.
+func (c *StructCode) eachJumpedEmbedded(base uintptr, fn func(field *StructFieldCode, offset uintptr)) {
+	for _, f := range c.fields {
+		structCode := f.getAnonymousStruct()
+		if structCode == nil {
+			continue
+		}
+		if structCode.isRecursive {
+			fn(f, base)
+			continue
+		}
+		if _, isPtr := f.value.(*PtrCode); !isPtr {
+			structCode.eachJumpedEmbedded(base+f.offset, fn)
+		}
+	}
+}
+
+// hasKey is whether the struct writes a field of the key, itself or by a struct embedded in it.
+func (c *StructCode) hasKey(name string) bool {
+	for _, f := range c.fields {
+		if structCode := f.getAnonymousStruct(); structCode != nil {
+			if structCode.hasKey(name) {
+				return true
+			}
+			continue
+		}
+		if f.key == name {
+			return true
+		}
+	}
+	return false
+}
+
+// selected returns the field written as the selected field selects it, whose offset is from the struct of
+// offset base.
+func (c *StructFieldCode) selected(selected *SelectedField, base uintptr) *StructFieldCode {
+	field := *c
+	field.offset += base
+	field.key = selected.Key
+	if selected.Sub != nil {
+		field.value = c.value.Filter(selected.Sub)
+	}
+	field.value = withSelectedField(field.value, selected)
+	return &field
+}
+
+// withSelectedField gives the selected field to MarshalJSON(context.Context) which writes the value of it.
+func withSelectedField(code Code, selected *SelectedField) Code {
+	switch c := code.(type) {
+	case *MarshalJSONCode:
+		if c.isMarshalerContext {
+			marshaler := *c
+			marshaler.selected = selected
+			return &marshaler
+		}
+	case *PtrCode:
+		if value := withSelectedField(c.value, selected); value != c.value {
+			ptr := *c
+			ptr.value = value
+			return &ptr
+		}
+	}
+	return code
+}
+
+// filterEmbedded returns the embedded struct filtered by the selection of the struct it is embedded in, whose
+// offset is from the struct of offset base.
+func (c *StructFieldCode) filterEmbedded(sel *Selection, base uintptr) *StructFieldCode {
+	field := *c
+	field.offset += base
+	field.value = c.value.Filter(sel)
+	return &field
 }
 
 type StructFieldCode struct {
@@ -893,7 +1004,7 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		}
 	}
 	field.PtrNum = value.PtrNum
-	field.FieldQuery = value.FieldQuery
+	field.Selected = value.Selected
 	field.Marshaler = value.Marshaler
 
 	fieldCodes := Opcodes{field}
@@ -1156,9 +1267,9 @@ func isEnableStructEndOptimization(value Code) bool {
 }
 
 type InterfaceCode struct {
-	typ        reflect.Type
-	fieldQuery *FieldQuery
-	isPtr      bool
+	typ       reflect.Type
+	selection *Selection
+	isPtr     bool
 }
 
 func (c *InterfaceCode) Kind() CodeKind {
@@ -1173,7 +1284,7 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 	default:
 		code = newOpCode(ctx, c.typ, OpInterface)
 	}
-	code.FieldQuery = c.fieldQuery
+	code.Selected = selectedOf(c.selection)
 	if c.typ.NumMethod() > 0 {
 		code.Flags |= NonEmptyInterfaceFlags
 	}
@@ -1181,17 +1292,20 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{code}
 }
 
-func (c *InterfaceCode) Filter(query *FieldQuery) Code {
+// Filter lets the value which the interface value holds be filtered by the selection when it is encoded.
+func (c *InterfaceCode) Filter(sel *Selection) Code {
 	return &InterfaceCode{
-		typ:        c.typ,
-		fieldQuery: query,
-		isPtr:      c.isPtr,
+		typ:       c.typ,
+		selection: sel,
+		isPtr:     c.isPtr,
 	}
 }
 
 type MarshalJSONCode struct {
-	typ                reflect.Type
-	fieldQuery         *FieldQuery
+	typ reflect.Type
+	// selected is the selected field whose value the code writes, which MarshalJSON(context.Context) is given
+	// by its context.
+	selected           *SelectedField
 	isAddrForMarshaler bool
 	isNilableType      bool
 	isMarshalerContext bool
@@ -1203,7 +1317,7 @@ func (c *MarshalJSONCode) Kind() CodeKind {
 
 func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx, c.typ, OpMarshalJSON)
-	code.FieldQuery = c.fieldQuery
+	code.Selected = c.selected
 	code.Marshaler = c.marshalerCall()
 	if c.isAddrForMarshaler {
 		code.Flags |= AddrForMarshalerFlags
@@ -1236,10 +1350,11 @@ func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
 	return newMarshalerCall(recv, iface)
 }
 
-func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
+// Filter gives the selection to MarshalJSON(context.Context) by its context ( SelectionFromContext ).
+func (c *MarshalJSONCode) Filter(sel *Selection) Code {
 	return &MarshalJSONCode{
 		typ:                c.typ,
-		fieldQuery:         query,
+		selected:           selectedOf(sel),
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
 		isMarshalerContext: c.isMarshalerContext,
@@ -1248,7 +1363,6 @@ func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
 
 type MarshalTextCode struct {
 	typ                reflect.Type
-	fieldQuery         *FieldQuery
 	isAddrForMarshaler bool
 	isNilableType      bool
 	// isInterfaceMapKey is whether the code is the one of the key of a map of an interface type, whose name is
@@ -1264,7 +1378,6 @@ func (c *MarshalTextCode) Kind() CodeKind {
 
 func (c *MarshalTextCode) ToOpcode(ctx *compileContext) Opcodes {
 	code := newOpCode(ctx, c.typ, OpMarshalText)
-	code.FieldQuery = c.fieldQuery
 	if c.isInterfaceMapKey {
 		// the opcode is given the address of the key, whose name AppendMarshalText makes without a marshaler.
 		code.Flags |= InterfaceMapKeyFlags
@@ -1299,15 +1412,8 @@ func (c *MarshalTextCode) marshalerCall() *MarshalerCall {
 	return newMarshalerCall(recv, marshalTextInterface)
 }
 
-func (c *MarshalTextCode) Filter(query *FieldQuery) Code {
-	return &MarshalTextCode{
-		typ:                c.typ,
-		fieldQuery:         query,
-		isAddrForMarshaler: c.isAddrForMarshaler,
-		isNilableType:      c.isNilableType,
-		isInterfaceMapKey:  c.isInterfaceMapKey,
-		isMapKey:           c.isMapKey,
-	}
+func (c *MarshalTextCode) Filter(_ *Selection) Code {
+	return c
 }
 
 type PtrCode struct {
@@ -1340,10 +1446,10 @@ func (c *PtrCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	return codes
 }
 
-func (c *PtrCode) Filter(query *FieldQuery) Code {
+func (c *PtrCode) Filter(sel *Selection) Code {
 	return &PtrCode{
 		typ:    c.typ,
-		value:  c.value.Filter(query),
+		value:  c.value.Filter(sel),
 		ptrNum: c.ptrNum,
 	}
 }

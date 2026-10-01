@@ -2,7 +2,6 @@ package benchmark
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -889,15 +888,8 @@ func Benchmark_Encode_FilterByMap(b *testing.B) {
 	}
 }
 
-func Benchmark_Encode_FilterByFieldQuery(b *testing.B) {
-	query, err := gojson.BuildFieldQuery(
-		"XA",
-		"XB",
-		gojson.BuildSubFieldQuery("XC").Fields(
-			"YA",
-			"YB",
-		),
-	)
+func Benchmark_Encode_FilterBySelection(b *testing.B) {
+	sel, err := gojson.ParseSelection(`XA XB XC { YA YB }`)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -913,10 +905,9 @@ func Benchmark_Encode_FilterByFieldQuery(b *testing.B) {
 		XD: true,
 		XE: 5,
 	}
-	ctx := gojson.SetFieldQueryToContext(context.Background(), query)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if _, err := gojson.MarshalContext(ctx, v); err != nil {
+		if _, err := gojson.MarshalWithOption(v, gojson.WithSelection(sel)); err != nil {
 			b.Fatal(err)
 		}
 	}

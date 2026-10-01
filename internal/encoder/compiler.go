@@ -13,7 +13,8 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new.
+// CompileToGetCodeSet returns the opcodes of the type, compiling them if the type is new. They are not
+// filtered by a selection: see RuntimeContext.SelectCodeSet.
 func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, error) {
 	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
@@ -22,7 +23,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
 	for i := range set {
 		if set[i].typeptr == key {
-			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
+			return set[i].codeSet, nil
 		}
 	}
 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
@@ -32,7 +33,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	// the type takes the first entry of its set, and the one encoded before it is kept in the second.
 	copy(set[1:], set[:])
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
-	return getFilteredCodeSetIfNeeded(ctx, codeSet)
+	return codeSet, nil
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose
@@ -41,8 +42,8 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 	return typeptr | uintptr(c.Option.Flag&OptimizeFieldOrderOption)/uintptr(OptimizeFieldOrderOption)
 }
 
-// RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
-// may filter the fields, or nil: then CompileToGetCodeSet is to be called.
+// RecentCodeSet returns the opcodes of the type if the context encoded it recently, or nil: then
+// CompileToGetCodeSet is to be called.
 //
 // A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
@@ -50,13 +51,11 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
-	if c.Option.Flag&ContextOption == 0 {
-		if set[0].typeptr == key {
-			return set[0].codeSet
-		}
-		if set[1].typeptr == key {
-			return set[1].codeSet
-		}
+	if set[0].typeptr == key {
+		return set[0].codeSet
+	}
+	if set[1].typeptr == key {
+		return set[1].codeSet
 	}
 	return nil
 }
@@ -65,7 +64,7 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 	return (uint64(typeptr) * runtime.TypeHashMultiplier) >> recentCodeSetHashShift
 }
 
-// compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
+// compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the table of the context.
 // The opcodes with the fields ordered by the encoder are cached apart from the ones in the order of the struct.
 func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*OpcodeSet, error) {
 	cache := &cachedOpcodeSets
@@ -96,31 +95,6 @@ var (
 	cachedOptimizedOpcodeSets runtime.TypeCache[OpcodeSet]
 )
 
-func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
-	if (ctx.Option.Flag & ContextOption) == 0 {
-		return codeSet, nil
-	}
-	query := FieldQueryFromContext(ctx.Option.Context)
-	if query == nil {
-		return codeSet, nil
-	}
-	ctx.Option.Flag |= FieldQueryOption
-	cacheCodeSet := codeSet.getQueryCache(query.Hash())
-	if cacheCodeSet != nil {
-		return cacheCodeSet, nil
-	}
-	// the fields of the code are already in their order: the compiler orders only the fields of the recursive
-	// structs it compiles when it links them, as the code was compiled.
-	compiler := newCompiler(ctx.Option.Flag&OptimizeFieldOrderOption != 0)
-	compiler.isFiltered = true
-	queryCodeSet, err := compiler.codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
-	if err != nil {
-		return nil, err
-	}
-	codeSet.setQueryCache(query.Hash(), queryCodeSet)
-	return queryCodeSet, nil
-}
-
 type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
 	// optimizeFieldOrder is whether the fields of a struct are ordered as they are encoded fastest.
@@ -136,7 +110,7 @@ type Compiler struct {
 	// nextIsEmbedded is whether the struct compiled next is an embedded struct, whose fields are written to
 	// the JSON object of the struct which embeds it.
 	nextIsEmbedded bool
-	// isFiltered is whether the code being compiled to opcodes is filtered by a field query: then the opcodes
+	// isFiltered is whether the code being compiled to opcodes is filtered by a selection: then the opcodes
 	// which a struct has in one place are not the ones of the struct in another.
 	isFiltered bool
 }
@@ -242,7 +216,6 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
 		Scalar:                   scalarOpcode(noescapeKeyCode),
 		Code:                     code,
-		QueryCache:               map[string]*OpcodeSet{},
 	}, nil
 }
 
@@ -1149,7 +1122,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	type recursiveTarget struct {
 		typeptr  uintptr
 		embedded bool
-		query    *FieldQuery
+		sel      *Selection
 	}
 	recursiveCodes := map[recursiveTarget]*CompiledCode{}
 	// maxFrameLength is the length of the longest frame which a recursive code is jumped from.
@@ -1157,7 +1130,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
-		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery}
+		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, sel: recursive.Selected.Selection()}
 		typeptr := target.typeptr
 		if recursiveCode, ok := recursiveCodes[target]; ok {
 			*recursive.Jmp = *recursiveCode
@@ -1168,15 +1141,15 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 			// structTypeToCodes has the opcodes of the struct itself, with the braces and the check of nil.
 			// - A recursive struct which is embedded jumps to the opcodes only of the fields.
 			// - A struct which has been compiled only as an embedded struct is not in structTypeToCodes.
-			// - The opcodes of a struct filtered by a field query are filtered by the query of their place,
+			// - The opcodes of a struct filtered by a selection are filtered by the selection of their place,
 			//   and the struct is filtered by the query of the code which jumps to it.
 			// In these cases the opcodes to jump to are compiled here.
 			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), false, target.embedded, false)
 			if err != nil {
 				return err
 			}
-			if target.query != nil {
-				structCode = structCode.Filter(target.query).(*StructCode)
+			if target.sel != nil {
+				structCode = structCode.Filter(target.sel).(*StructCode)
 			}
 			structCode.enableIndirect()
 			if target.embedded {

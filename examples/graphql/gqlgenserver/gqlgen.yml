@@ -1,0 +1,41 @@
+schema:
+  - ../schema.graphqls
+
+exec:
+  filename: generated.go
+  package: gqlgenserver
+
+model:
+  filename: models_gen.go
+  package: gqlgenserver
+
+resolver:
+  layout: follow-schema
+  dir: .
+  package: gqlgenserver
+  filename_template: "{name}.resolvers.go"
+  type: Resolver
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+  User:
+    model: github.com/goccy/go-json/examples/graphql/store.User
+    fields:
+      posts:
+        resolver: true
+      friends:
+        resolver: true
+  Post:
+    model: github.com/goccy/go-json/examples/graphql/store.Post
+    fields:
+      comments:
+        resolver: true
+  Comment:
+    model: github.com/goccy/go-json/examples/graphql/store.Comment
+  SearchResult:
+    model: github.com/goccy/go-json/examples/graphql/store.SearchResult

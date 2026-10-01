@@ -15,7 +15,8 @@ const (
 	ColorizeOption
 	ContextOption
 	NormalizeUTF8Option
-	FieldQueryOption
+	// SelectionOption is set when the call writes only the fields of Option.Selection.
+	SelectionOption
 	// OptimizeFieldOrderOption lets the encoder order the fields of a struct as it encodes them fastest:
 	// the fields of the same kind together, and a recursive field last. The opcodes of a type are compiled
 	// for it apart from the ones for the order of the struct.
@@ -26,6 +27,7 @@ type Option struct {
 	Flag        OptionFlag
 	ColorScheme *ColorScheme
 	Context     context.Context
+	Selection   *Selection
 	DebugOut    io.Writer
 	DebugDOTOut io.WriteCloser
 }

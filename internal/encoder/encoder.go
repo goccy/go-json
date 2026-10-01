@@ -74,12 +74,10 @@ type OpcodeSet struct {
 	EndCode                  *Opcode
 	// Scalar is the opcode of the value if the type is encoded by a single opcode of a scalar ( a number,
 	// a string, a bool, ... ), or nil. Such a value held by an interface value is encoded without a frame.
-	Scalar     *Opcode
-	Code       Code
-	QueryCache map[string]*OpcodeSet
+	Scalar *Opcode
+	Code   Code
 	// values is the pool of the values of Type in the heap, which MarshalOf copies its argument to.
-	values  sync.Pool
-	cacheMu sync.RWMutex
+	values sync.Pool
 }
 
 // ValueShape classifies a type by what a nil data word of an interface value of the type means.
@@ -153,19 +151,6 @@ func (s *OpcodeSet) TakeValue(ctx *RuntimeContext) unsafe.Pointer {
 		ctx.value = reflect.New(s.Type).UnsafePointer()
 	}
 	return ctx.value
-}
-
-func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
-	s.cacheMu.RLock()
-	codeSet := s.QueryCache[hash]
-	s.cacheMu.RUnlock()
-	return codeSet
-}
-
-func (s *OpcodeSet) setQueryCache(hash string, codeSet *OpcodeSet) {
-	s.cacheMu.Lock()
-	s.QueryCache[hash] = codeSet
-	s.cacheMu.Unlock()
 }
 
 type CompiledCode struct {
@@ -553,8 +538,8 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	var err error
 	if (code.Flags & MarshalerContextFlags) != 0 {
 		stdctx := ctx.marshalerContext()
-		if ctx.Option.Flag&FieldQueryOption != 0 {
-			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
+		if ctx.Option.Flag&SelectionOption != 0 {
+			stdctx = ContextWithSelectedField(stdctx, code.Selected)
 		}
 		bb, err = m.callContext(p, stdctx)
 	} else {
@@ -601,8 +586,8 @@ func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 			return AppendNull(ctx, b), nil
 		}
 		stdctx := ctx.marshalerContext()
-		if ctx.Option.Flag&FieldQueryOption != 0 {
-			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
+		if ctx.Option.Flag&SelectionOption != 0 {
+			stdctx = ContextWithSelectedField(stdctx, code.Selected)
 		}
 		b, err := marshaler.MarshalJSON(stdctx)
 		if err != nil {

@@ -215,6 +215,7 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	// The context of a call must neither be kept by the pool nor be seen by the next call,
 	// which may not be given a context at all.
 	ctx.Option.Context = nil
+	ctx.Option.Selection = nil
 	ctx.releaseValues()
 	runtimeContextPool.Put(ctx)
 }

@@ -106,9 +106,12 @@ func roundOdd(g *[2]uint64, cp uint64) uint64 {
 }
 
 // ⌊e·log₁₀2⌋, ⌊log₁₀(¾·2ᵉ)⌋ and ⌊e·log₂10⌋, exact for the exponents of floats.
-func floorLog10Pow2(e int) int              { return (e * 661971961083) >> 41 }
-func floorLog10ThreeQuartersPow2(e int) int { return (e*661971961083 - 274743187321) >> 41 }
-func floorLog2Pow10(e int) int              { return (e * 913124641741) >> 38 }
+// They take 64 bits, which an int of 32 bits doesn't have.
+func floorLog10Pow2(e int) int { return int(int64(e) * 661971961083 >> 41) }
+func floorLog10ThreeQuartersPow2(e int) int {
+	return int((int64(e)*661971961083 - 274743187321) >> 41)
+}
+func floorLog2Pow10(e int) int { return int(int64(e) * 913124641741 >> 38) }
 
 // appendShortestFloat appends the finite float f of the size, 64 or 32, as ECMA-262, 10th edition, section
 // 7.1.12.1 formats a number, except that -0 is -0.

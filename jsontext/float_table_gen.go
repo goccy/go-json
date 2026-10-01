@@ -18,7 +18,7 @@ const (
 	kMax = 292
 )
 
-func floorLog2Pow10(e int) int { return (e * 913124641741) >> 38 }
+func floorLog2Pow10(e int) int { return int(int64(e) * 913124641741 >> 38) }
 
 func main() {
 	var b bytes.Buffer

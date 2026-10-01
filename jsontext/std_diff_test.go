@@ -450,6 +450,22 @@ func (r *dataThenErrBoom) Read(p []byte) (int, error) {
 	return n, errBoom
 }
 
+// noInput returns n with no error 150 times before each read of r.
+type noInput struct {
+	r     io.Reader
+	n     int
+	empty int
+}
+
+func (r *noInput) Read(p []byte) (int, error) {
+	if r.empty < 150 {
+		r.empty++
+		return r.n, nil
+	}
+	r.empty = 0
+	return r.r.Read(p)
+}
+
 // TestStdDiffReaderErrors compares reads from readers which fail after the input, or with it, and from a
 // bytes.Buffer which is written to after the decoder read it.
 func TestStdDiffReaderErrors(t *testing.T) {
@@ -461,6 +477,12 @@ func TestStdDiffReaderErrors(t *testing.T) {
 			return io.MultiReader(iotest.OneByteReader(strings.NewReader(s)), iotest.ErrReader(errBoom))
 		},
 		"error with the input": func(s string) io.Reader { return &dataThenErrBoom{[]byte(s)} },
+		"error after reads of no input": func(s string) io.Reader {
+			return io.MultiReader(&noInput{r: strings.NewReader(s), n: 0}, iotest.ErrReader(errBoom))
+		},
+		"error after reads of a negative count": func(s string) io.Reader {
+			return io.MultiReader(&noInput{r: strings.NewReader(s), n: -1}, iotest.ErrReader(errBoom))
+		},
 	}
 	inputs := []string{``, ` `, `123`, `tru`, `"ab`, `[`, `[[[[`, `[1,2`, `[12`, `[1e`, `["\u12`, `[1,"x`, `[1,2]`,
 		`{"a"`, `{"a":1`, `{"a":"b"`, `{"a":{"b":`, `{"a":[1,2]}`,
@@ -509,6 +531,54 @@ func TestStdDiffReaderErrors(t *testing.T) {
 		got, want = got+b.String(), want+stdB.String()
 		if got != want {
 			t.Errorf("ReadToken of %q, written to after the second:\ngot:  %s\nwant: %s", in, got, want)
+		}
+	}
+}
+
+// countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
+type countWriter struct {
+	b   bytes.Buffer
+	n   func(int) int
+	sum int64
+}
+
+func (w *countWriter) Write(p []byte) (int, error) {
+	w.b.Write(p)
+	n := w.n(len(p))
+	w.sum += int64(n)
+	return n, nil
+}
+
+// TestStdDiffWriterCounts compares the output with writers which report a count other than the length of their
+// input, with no error: the output is taken as written, whatever the count. The offset is the sum of the counts
+// after each top-level value; it differs from the one of encoding/json/jsontext, which writes at other times.
+func TestStdDiffWriterCounts(t *testing.T) {
+	counts := map[string]func(int) int{
+		"zero":      func(int) int { return 0 },
+		"negative":  func(int) int { return -1 },
+		"half":      func(n int) int { return n / 2 },
+		"too large": func(n int) int { return n + 3 },
+	}
+	in := `[1,"a",{"b":[true,null]},` + strings.Repeat(`"`+strings.Repeat("x", 300)+`",`, 40) + `2] 3 `
+	for name, count := range counts {
+		w, stdW := &countWriter{n: count}, &countWriter{n: count}
+		e, s := jsontext.NewEncoder(w), stdjsontext.NewEncoder(stdW)
+		d, sd := jsontext.NewDecoder(strings.NewReader(in+in)), stdjsontext.NewDecoder(strings.NewReader(in+in))
+		for {
+			tok, err := d.ReadToken()
+			stdTok, stdErr := sd.ReadToken()
+			if err != nil || stdErr != nil {
+				break
+			}
+			if err, stdErr := e.WriteToken(tok), s.WriteToken(stdTok); errorString(err) != errorString(stdErr) {
+				t.Errorf("WriteToken(%v) to a writer which reports a count of %s = %v, want %v", tok, name, err, stdErr)
+			}
+			if e.StackDepth() == 0 && e.OutputOffset() != w.sum {
+				t.Errorf("OutputOffset after a value to a writer which reports a count of %s = %d, want %d", name, e.OutputOffset(), w.sum)
+			}
+		}
+		if w.b.String() != stdW.b.String() {
+			t.Errorf("output to a writer which reports a count of %s:\ngot:  %s\nwant: %s", name, w.b.String(), stdW.b.String())
 		}
 	}
 }

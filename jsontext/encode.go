@@ -405,9 +405,13 @@ func (e *encoder) flush() error {
 	}
 	n, err := e.w.Write(e.buf)
 	e.base += int64(n)
-	if e.bb != nil {
+	switch {
+	case e.bb != nil:
 		e.buf = e.bb.AvailableBuffer()
-	} else {
+	case err == nil || n >= len(e.buf):
+		// the output is written, as encoding/json/jsontext takes it where the writer reports no error, whatever n
+		e.buf = e.buf[:0]
+	case n > 0:
 		e.buf = e.buf[:copy(e.buf, e.buf[n:])]
 	}
 	if err != nil {

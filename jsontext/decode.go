@@ -135,24 +135,22 @@ func (d *decoder) fetch() (int, error) {
 	if cap(d.buf)-len(d.buf) < minRead || d.shared {
 		shift = d.makeRoom(minRead)
 	}
-	for tries := 0; ; tries++ {
+	for {
 		n, err := d.r.Read(d.buf[len(d.buf):cap(d.buf)])
-		d.buf = d.buf[:len(d.buf)+n]
 		if n > 0 {
 			// an error which comes with input is dropped, as encoding/json/jsontext drops it: the reader reports
 			// it again at the next read, if it lasts.
+			d.buf = d.buf[:len(d.buf)+n]
 			return shift, nil
 		}
-		if err == nil && n == 0 && tries == 100 {
-			err = io.ErrNoProgress
+		if err == nil {
+			continue // no input, which encoding/json/jsontext reads again for, as long as it takes
 		}
-		if err != nil && err != io.EOF {
+		if err != io.EOF {
 			err = &ioError{err: err}
 		}
-		if err != nil {
-			d.rerr = err
-			return shift, err
-		}
+		d.rerr = err
+		return shift, err
 	}
 }
 

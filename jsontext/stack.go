@@ -193,11 +193,14 @@ func (n *names) reset() {
 	n.indexes = n.indexes[:0]
 }
 
-// truncate drops the names from the index first on: the names of an object which is closed.
+// truncate drops the names from the index first on: the names of an object which is closed, or of the objects
+// which a scan that gave up added, whose indexes are dropped too.
 func (n *names) truncate(first int) {
-	if k := len(n.indexes); k > 0 && n.indexes[k-1].first >= first {
-		n.indexes = n.indexes[:k-1]
+	k := len(n.indexes)
+	for k > 0 && n.indexes[k-1].first >= first {
+		k--
 	}
+	n.indexes = n.indexes[:k]
 	n.buf = n.buf[:n.start(first)]
 	n.ends = n.ends[:first]
 }

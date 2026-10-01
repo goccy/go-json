@@ -576,6 +576,30 @@ func TestStdDiffCoderOptions(t *testing.T) {
 	}
 }
 
+// TestStdDiffNestedIndexedObjects reads nested objects of so many names that both have an index of their names,
+// with an inner value which the fast scan gives up on, valid or not: the scan which reads it again finds the
+// names of none of them.
+func TestStdDiffNestedIndexedObjects(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("{")
+	for i := range 70 {
+		fmt.Fprintf(&b, `"a%d":1,`, i)
+	}
+	b.WriteString(`"z":{`)
+	for i := range 70 {
+		fmt.Fprintf(&b, `"b%d":1,`, i)
+	}
+	head := b.String()
+	for _, tail := range []string{
+		`"x":tru}}`,
+		`"b1":2}}`,
+		`"x":"A"}}`,
+		`"x":` + strings.Repeat("[", 64) + strings.Repeat("]", 64) + `}}`,
+	} {
+		assertStdDiff(t, []byte(head+tail))
+	}
+}
+
 // TestStdDiffSameOptionsAgain uses the functions of values, and an encoder which is reset, again with the options
 // of their last use, after uses which change how they scan.
 func TestStdDiffSameOptionsAgain(t *testing.T) {

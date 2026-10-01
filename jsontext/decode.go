@@ -749,17 +749,16 @@ func (d *decoder) readValue() (int, int, error) {
 			d.done(start, end)
 			return start, end, nil
 		}
-		var cutChar error // the error of an invalid character which the buffer cuts, read again to show it whole
+		cutChar := false // an invalid character which the buffer cuts, read again to show it whole
 		if serr != errCut {
 			d.vs.restore(rp.base, count)
-			cutChar = &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
 			if _, ok := serr.err.(*textError); !ok || d.rerr != nil || utf8.FullRune(d.buf[serr.pos:]) {
-				return 0, 0, cutChar
+				return 0, 0, &SyntacticError{ByteOffset: d.base + int64(serr.pos), JSONPointer: serr.ptr, Err: serr.err}
 			}
-			// an invalid character which the buffer cuts is shown whole: the value is read again with more
+			// the value is read again with more input
 			rp = resumePoint{pos: start, base: rp.base}
-		}
-		if serr == errCut && d.rerr == io.EOF {
+			cutChar = true
+		} else if d.rerr == io.EOF {
 			// the end of the input ended a number at the end of the buffer: the reader is read again for the
 			// rest of the value, as encoding/json/jsontext reads it.
 			d.rerr = nil
@@ -768,16 +767,16 @@ func (d *decoder) readValue() (int, int, error) {
 			shift, ferr := d.fetch()
 			rp.pos -= shift
 			start -= shift
-			if ferr != nil && ferr != io.EOF && cutChar != nil {
-				return 0, 0, cutChar // the error which the input read shows, as far as it was read
-			}
-			if ferr != nil && ferr != io.EOF {
+			if ferr != nil {
+				// at the end of the input, the value is scanned to its end; an error of the reader is the error
+				// of the value, but after an invalid character, whose error the scan finds again as far as the
+				// input was read.
+				if ferr == io.EOF || cutChar {
+					break
+				}
 				err := d.cutError(&rp, ferr)
 				d.vs.restore(rp.base, count)
 				return 0, 0, err
-			}
-			if ferr != nil {
-				break
 			}
 			if rp.tok == 0 && rp.pos+1 == len(d.buf) && isSpace(d.buf[rp.pos]) {
 				rp.pos++ // a byte of white space, as a slow reader gives them, without a call

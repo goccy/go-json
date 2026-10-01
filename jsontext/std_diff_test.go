@@ -929,6 +929,25 @@ func TestStdDiffReorderEqualNames(t *testing.T) {
 	}
 }
 
+// TestStdDiffEscapeErrorQuotes compares the errors of invalid escape sequences which U+FFFD, a backquote, white
+// space or invalid UTF-8 follows, whose text is quoted as a Go string.
+func TestStdDiffEscapeErrorQuotes(t *testing.T) {
+	for _, esc := range []string{`\ud800`, `\uZ`, `\u12`, `\ud800\u12`, `\x`} {
+		for _, after := range []string{"\uFFFD", "\uFFFDa\"", "`", " ", "\xff", "\u00e9", "a", "\t"} {
+			in := `"` + esc + after + `"`
+			v, stdV := jsontext.Value(in), stdjsontext.Value(in)
+			got := errorString(v.Format())
+			want := errorString(stdV.Format())
+			_, err := jsontext.NewDecoder(strings.NewReader(in)).ReadToken()
+			_, stdErr := stdjsontext.NewDecoder(strings.NewReader(in)).ReadToken()
+			got, want = got+" "+errorString(err), want+" "+errorString(stdErr)
+			if got != want {
+				t.Errorf("errors of %q:\ngot:  %s\nwant: %s", in, got, want)
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

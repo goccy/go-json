@@ -165,12 +165,13 @@ func quoteChar(b []byte) string {
 }
 
 // invalidEscape is the error of the escape sequence at the start of b, which is quoted by backquotes if it
-// can be read so, and else as a Go string.
+// can be read so, and else as a Go string: as encoding/json/jsontext quotes it, U+FFFD, whether it is in b or
+// stands for invalid UTF-8, is quoted so.
 func invalidEscape(b []byte, what string) error {
 	s := string(b)
 	q := "`" + s + "`"
-	if !utf8.ValidString(s) || strings.ContainsFunc(s, func(r rune) bool {
-		return r == '`' || unicode.IsSpace(r) || !unicode.IsPrint(r)
+	if strings.ContainsFunc(s, func(r rune) bool {
+		return r == '`' || r == utf8.RuneError || unicode.IsSpace(r) || !unicode.IsPrint(r)
 	}) {
 		q = strconv.Quote(s)
 	}

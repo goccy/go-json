@@ -154,8 +154,12 @@ func (v *Value) format(first, opts []Options) error {
 	e := getEncoder(opts, first...)
 	e.buf = slices.Grow(e.buf, len(*v))
 	defer putEncoder(e)
+	e.vs.keep = true
 	if err := e.writeValue(*v); err != nil {
 		return err
+	}
+	if e.vs.kept {
+		return nil // v is formatted already
 	}
 	if !bytes.Equal(*v, e.buf) {
 		*v = append((*v)[:0], e.buf...)
@@ -171,9 +175,13 @@ func AppendFormat[Bytes ~[]byte | ~string](dst []byte, src Bytes, opts ...Option
 	e := getEncoder(opts)
 	defer putEncoder(e)
 	e.buf = slices.Grow(e.buf, len(src))
+	e.vs.keep = true
 	// the value is only read, which a string may be without a copy.
 	if err := e.writeValue(readOnlyBytes(src)); err != nil {
 		return append(dst, src...), err
+	}
+	if e.vs.kept {
+		return append(dst, src...), nil // src is formatted already
 	}
 	return append(dst, e.buf...), nil
 }

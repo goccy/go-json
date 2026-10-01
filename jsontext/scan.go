@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
 	"slices"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -48,6 +49,15 @@ type valueScanner struct {
 	// open, if it is set, keeps the open objects of scanObjects, which scanFast otherwise keeps in its frame: a
 	// scanner which is used again, as the ones of the functions of values are, doesn't clear them at every value.
 	open *[64]openObject
+
+	// the single spaces which scanObjects dropped from a written value and didn't append the run before yet: the
+	// output is appended by them when the scan ends, without a call at each one
+	ngaps int
+	gaps  [32]int32 // the positions, which scanObjects takes for buffers below 2 GiB
+
+	// keep is set by the functions which format a value: a written value whose output is all of its input, which
+	// no part of the scan appended yet, isn't appended at its end, and kept reports it.
+	keep, kept bool
 }
 
 // The places in a value where a scan continues.
@@ -111,7 +121,7 @@ var errCut = &scanError{err: io.ErrUnexpectedEOF}
 // scan reads the value at b[i:], and returns the position after it, and counts it in the innermost level of the
 // stack. At an error, the stack is left as it was.
 func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
-	s.run, s.wsEnd, s.in = i, -1, b
+	s.run, s.wsEnd, s.in, s.kept = i, -1, b, false
 	if s.plain() {
 		out, names := len(s.out), len(s.st.names.ends)
 		var end int
@@ -124,11 +134,11 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 		if ok {
 			s.in = nil
 			if s.write {
-				s.flush(b, end)
+				s.finish(b, i, end)
 			}
 			return end, nil
 		}
-		s.out, s.run = s.out[:out], i
+		s.out, s.run, s.ngaps = s.out[:out], i, 0
 		s.st.names.truncate(names)
 	}
 	count := s.st.last().count
@@ -138,9 +148,21 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 	if err != nil {
 		s.restore(rp.base, count)
 	} else if s.write {
-		s.flush(b, end)
+		s.finish(b, i, end)
 	}
 	return end, err
+}
+
+// finish appends the rest of the output of the written value b[i:end], or, if keep is set and the output is all of
+// b, which the scan didn't append any part of, leaves it out and sets kept.
+func (s *valueScanner) finish(b []byte, i, end int) {
+	if s.ngaps > 0 {
+		s.flushGaps(b)
+	} else if s.keep && s.run == i && i == 0 && end == len(b) {
+		s.kept = true
+		return
+	}
+	s.flush(b, end)
 }
 
 // plain reports whether scanFast may read a value: its output, if it is written, is the input without white
@@ -172,7 +194,12 @@ type openObject struct {
 //
 //nolint:maintidx // one loop of gotos over the grammar, whose tokens are read in it without calls
 func (s *valueScanner) scanObjects(b []byte, i int, open *[64]openObject) (int, bool) {
+	if len(b) > math.MaxInt32 {
+		return i, false // resume reads a buffer whose positions don't fit the gaps
+	}
 	var objects uint64 // the bit of each open level which is an object, the innermost the lowest
+	ngaps := s.ngaps   // the single spaces in gaps, in a register while the value is scanned
+	var ok bool
 	depth := 0
 	names := &s.st.names
 	limit := min(64, maxDepth-s.st.depth()) // the levels which the value may open
@@ -182,7 +209,11 @@ func (s *valueScanner) scanObjects(b []byte, i int, open *[64]openObject) (int, 
 	var err error
 
 value:
-	if i = s.skip(b, i); i == len(b) {
+	if i < len(b) && b[i] <= ' ' {
+		goto space1
+	}
+space1Back:
+	if i == len(b) {
 		return i, false
 	}
 	switch c := b[i]; c {
@@ -197,17 +228,7 @@ value:
 		}
 		depth++
 		i++
-		if i = s.skip(b, i); i == len(b) {
-			return i, false
-		}
-		if c := b[i]; c == '}' && objects&1 != 0 || c == ']' && objects&1 == 0 {
-			i++
-			goto closed
-		}
-		if objects&1 != 0 {
-			goto name
-		}
-		goto value
+		goto opened
 	case '"':
 		// a string of plain characters costs one call; scanStringFrom takes the others from where it stops
 		if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
@@ -264,9 +285,14 @@ value:
 next:
 	if depth == 0 {
 		s.st.last().count++
+		s.ngaps = ngaps
 		return i, true
 	}
-	if i = s.skip(b, i); i == len(b) {
+	if i < len(b) && b[i] <= ' ' {
+		goto space2
+	}
+space2Back:
+	if i == len(b) {
 		return i, false
 	}
 	switch c := b[i]; {
@@ -290,8 +316,29 @@ closed:
 	objects >>= 1
 	goto next
 
+opened:
+	if i < len(b) && b[i] <= ' ' {
+		goto space3
+	}
+space3Back:
+	if i == len(b) {
+		return i, false
+	}
+	if c := b[i]; c == '}' && objects&1 != 0 || c == ']' && objects&1 == 0 {
+		i++
+		goto closed
+	}
+	if objects&1 != 0 {
+		goto name
+	}
+	goto value
+
 name:
-	if i = s.skip(b, i); i == len(b) || b[i] != '"' {
+	if i < len(b) && b[i] <= ' ' {
+		goto space4
+	}
+space4Back:
+	if i == len(b) || b[i] != '"' {
 		return i, false
 	}
 	f = 0
@@ -315,11 +362,62 @@ name:
 		names.add(o.first, name)
 	}
 	i += n
-	if i = s.skip(b, i); i == len(b) || b[i] != ':' {
+	if i < len(b) && b[i] <= ' ' {
+		goto space5
+	}
+space5Back:
+	if i == len(b) || b[i] != ':' {
 		return i, false
 	}
 	i++
 	goto value
+
+	// the white space before the tokens, which the loop jumps out to, so that it doesn't lie between them
+space1:
+	if ngaps, ok = s.oneSpace(b, i, ngaps); ok {
+		i++
+	} else {
+		s.ngaps = ngaps
+		i = s.skipSpace(b, i)
+		ngaps = s.ngaps
+	}
+	goto space1Back
+space2:
+	if ngaps, ok = s.oneSpace(b, i, ngaps); ok {
+		i++
+	} else {
+		s.ngaps = ngaps
+		i = s.skipSpace(b, i)
+		ngaps = s.ngaps
+	}
+	goto space2Back
+space3:
+	if ngaps, ok = s.oneSpace(b, i, ngaps); ok {
+		i++
+	} else {
+		s.ngaps = ngaps
+		i = s.skipSpace(b, i)
+		ngaps = s.ngaps
+	}
+	goto space3Back
+space4:
+	if ngaps, ok = s.oneSpace(b, i, ngaps); ok {
+		i++
+	} else {
+		s.ngaps = ngaps
+		i = s.skipSpace(b, i)
+		ngaps = s.ngaps
+	}
+	goto space4Back
+space5:
+	if ngaps, ok = s.oneSpace(b, i, ngaps); ok {
+		i++
+	} else {
+		s.ngaps = ngaps
+		i = s.skipSpace(b, i)
+		ngaps = s.ngaps
+	}
+	goto space5Back
 }
 
 // restore pops the levels of a value which was not read to its end.
@@ -631,6 +729,35 @@ func (s *valueScanner) flush(b []byte, i int) {
 	s.run = i
 }
 
+// flushGaps appends the runs of the input before the single spaces which scanObjects dropped, short ones by a word.
+func (s *valueScanner) flushGaps(b []byte) {
+	out, run := s.out, s.run // in registers, not in the scanner, while the runs are appended
+	for _, g32 := range s.gaps[:s.ngaps] {
+		g := int(g32)
+		if n := g - run; n <= 8 && run+8 <= len(b) && cap(out)-len(out) >= 8 {
+			k := len(out)
+			binary.LittleEndian.PutUint64(out[k:k+8], binary.LittleEndian.Uint64(b[run:]))
+			out = out[:k+n]
+		} else {
+			out = append(out, b[run:g]...)
+		}
+		run = g + 1
+	}
+	s.out, s.run, s.ngaps = out, run, 0
+}
+
+// oneSpace reports whether b[i] is a single space before a token, the most common white space, which scanObjects
+// skips without a call: a written value keeps it in gaps, and so does one which isn't, without counting it, as
+// long as there is room. k is the number of the gaps, which scanObjects keeps in a register while it scans, and
+// it returns the new one. It is inlined.
+func (s *valueScanner) oneSpace(b []byte, i, k int) (int, bool) {
+	if k < len(s.gaps) && i+1 < len(b) && b[i] == ' ' && b[i+1] > ' ' {
+		s.gaps[k] = int32(i)
+		return k + int(bit(s.write)), true
+	}
+	return k, false
+}
+
 // skip skips the white space at b[i:], which a written value doesn't have. It is inlined where there is none.
 func (s *valueScanner) skip(b []byte, i int) int {
 	if i < len(b) && b[i] <= ' ' {
@@ -655,6 +782,9 @@ func (s *valueScanner) skipSpace(b []byte, i int) int {
 	case s.spaced:
 		s.wsFrom, s.wsEnd = i, end
 	default:
+		if s.ngaps > 0 {
+			s.flushGaps(b)
+		}
 		// a short run, as a token between spaces is, is copied by a word without a call of memmove.
 		if n := i - s.run; n <= 8 && s.run+8 <= len(b) && cap(s.out)-len(s.out) >= 8 {
 			k := len(s.out)

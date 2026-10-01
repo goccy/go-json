@@ -102,7 +102,7 @@ func (e *encoder) init(w io.Writer) {
 	}
 	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
 	vs := &e.vs
-	vs.write = true
+	vs.write, vs.keep = true, false
 	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
 	vs.run = 0
 	vs.wsFrom, vs.wsEnd = 0, 0

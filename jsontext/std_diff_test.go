@@ -898,6 +898,37 @@ func TestStdDiffCopiedCoders(t *testing.T) {
 	}
 }
 
+// TestStdDiffReorderEqualNames compares objects which ReorderRawObjects and Canonicalize sort, whose members have
+// the same names: they are ordered by their values, in UTF-16 order, where a byte of invalid UTF-8 is U+FFFD.
+func TestStdDiffReorderEqualNames(t *testing.T) {
+	values := []string{`"😀"`, `"｡"`, "\"\xff\"", `"\uFFFE"`, `"\uFFFD"`, "\"\uFFFD\"", `"\ud83d\ude00"`, `"a"`, `1`, `[1]`,
+		`{"b":2}`, `"\u0061"`, "\"\xfe\"", `"\uE000"`, `"\uD7FF"`, "\"\ue000\""}
+	for _, x := range values {
+		for _, y := range values {
+			for _, name := range []string{`"a"`, "\"\xff\"", `"\uFFFD"`} {
+				in := "{" + name + ":" + x + "," + name + ":" + y + "}"
+				for _, multiline := range []bool{false, true} {
+					opts := []jsontext.Options{jsontext.ReorderRawObjects(true), jsontext.AllowDuplicateNames(true),
+						jsontext.AllowInvalidUTF8(true), jsontext.PreserveRawStrings(true), jsontext.Multiline(multiline)}
+					stdOpts := []stdjsontext.Options{stdjsontext.ReorderRawObjects(true), stdjsontext.AllowDuplicateNames(true),
+						stdjsontext.AllowInvalidUTF8(true), stdjsontext.PreserveRawStrings(true), stdjsontext.Multiline(multiline)}
+					got, err := jsontext.AppendFormat(nil, []byte(in), opts...)
+					want, stdErr := stdjsontext.AppendFormat(nil, []byte(in), stdOpts...)
+					if string(got) != string(want) || errorString(err) != errorString(stdErr) {
+						t.Errorf("AppendFormat(%q), multiline %v = %q, %v; want %q, %v", in, multiline, got, err, want, stdErr)
+					}
+				}
+				v, stdV := jsontext.Value(in), stdjsontext.Value(in)
+				err := v.Canonicalize(jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true))
+				stdErr := stdV.Canonicalize(stdjsontext.AllowDuplicateNames(true), stdjsontext.AllowInvalidUTF8(true))
+				if string(v) != string(stdV) || errorString(err) != errorString(stdErr) {
+					t.Errorf("Canonicalize(%q) = %q, %v; want %q, %v", in, v, err, stdV, stdErr)
+				}
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

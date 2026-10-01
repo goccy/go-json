@@ -998,13 +998,12 @@ func (r *reorderer) close(out []byte) []byte {
 		}
 		r.members = r.members[:o.members]
 	}()
-	// members of the same name, or of names which are the same once invalid UTF-8 is mangled, are ordered by
-	// their output.
+	// members of the same name are ordered by their output, from the name on, in the same order.
 	compare := func(a, b member) int {
 		if c := compareNames(r.names[a.name:a.nameEnd], r.names[b.name:b.nameEnd]); c != 0 {
 			return c
 		}
-		return bytes.Compare(out[a.start:a.end], out[b.start:b.end])
+		return compareNames(bytes.TrimLeft(out[a.start:a.end], ", \n\r\t"), bytes.TrimLeft(out[b.start:b.end], ", \n\r\t"))
 	}
 	if len(members) < 2 || slices.IsSortedFunc(members, compare) {
 		return out
@@ -1025,7 +1024,8 @@ func (r *reorderer) close(out []byte) []byte {
 	return append(out[:o.start], buf...)
 }
 
-// compareNames orders names by their UTF-16 code units, as RFC 8785, section 3.2.3 does.
+// compareNames orders names by their UTF-16 code units, as RFC 8785, section 3.2.3 does. A byte of invalid UTF-8
+// is U+FFFD, which is ordered by its bytes where the other is U+FFFD too, as encoding/json/jsontext orders it.
 func compareNames(x, y []byte) int {
 	for len(x) > 0 && len(y) > 0 {
 		rx, nx := utf8.DecodeRune(x)
@@ -1036,6 +1036,9 @@ func compareNames(x, y []byte) int {
 				return int(ux[0]) - int(uy[0])
 			}
 			return int(ux[1]) - int(uy[1])
+		}
+		if rx == utf8.RuneError && (nx == 1 || ny == 1) && x[0] != y[0] {
+			return int(x[0]) - int(y[0])
 		}
 		x, y = x[nx:], y[ny:]
 	}

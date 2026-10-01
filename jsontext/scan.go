@@ -335,7 +335,6 @@ func (s *valueScanner) restore(base int, count int64) {
 func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 	var err error
 	var n int
-	var ok bool
 	i := rp.pos
 	base := rp.base
 	ws := wsNone     // the white space which a written value has before the next token
@@ -378,7 +377,9 @@ value:
 		if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
-		} else if n, ok = simpleStringEnd(b[i:]); !ok {
+		} else if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
+			n++ // a string of plain characters costs one call
+		} else {
 			n, f, err = scanStringFrom(b[i:], n, 0, strModeOf(s.validUTF8, !s.final))
 		}
 		if err != nil {
@@ -420,8 +421,29 @@ value:
 		if rp.tok > 0 {
 			n, st, err = scanNumberFrom(b[i:], rp.tok, rp.num)
 			rp.tok = 0
-		} else if n = numberEnd(b[i:]); n < 0 {
-			n, st, err = scanNumberFrom(b[i:], 0, numState{})
+		} else {
+			// a number of the common forms is read here as scanObjects reads it, and the others by numberEnd
+			j := i
+			if c == '-' {
+				j++
+			}
+			if j < len(b) && '1' <= b[j] && b[j] <= '9' {
+				for j++; j < len(b) && '0' <= b[j] && b[j] <= '9'; {
+					j++
+				}
+			} else if j < len(b) && b[j] == '0' {
+				j++
+			} else {
+				j = i
+			}
+			if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
+				j = scanDigits(b, j+2)
+			}
+			if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
+				n = j - i
+			} else if n = numberEnd(b[i:]); n < 0 {
+				n, st, err = scanNumberFrom(b[i:], 0, numState{})
+			}
 		}
 		if i+n == len(b) && !s.final && (err == nil || err == io.ErrUnexpectedEOF) {
 			rp.tok, rp.num = n, st
@@ -523,7 +545,9 @@ name:
 		if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
-		} else if n, ok = simpleStringEnd(b[i:]); !ok {
+		} else if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
+			n++ // a string of plain characters costs one call
+		} else {
 			n, f, err = scanStringFrom(b[i:], n, 0, strModeOf(s.validUTF8, !s.final))
 		}
 		if err != nil {

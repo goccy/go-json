@@ -426,6 +426,10 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
+	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
+		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
+		v = bytes.Clone(v)
+	}
 	l := e.st.last()
 	k := v.Kind()
 	name := l.needName()

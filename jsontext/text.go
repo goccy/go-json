@@ -724,6 +724,15 @@ func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags)
 	return append(dst, '"'), valid
 }
 
+// overlaps reports whether the bytes of a and the array of b, to its capacity, share memory.
+func overlaps(a, b []byte) bool {
+	if len(a) == 0 || cap(b) == 0 {
+		return false
+	}
+	a0, b0 := uintptr(unsafe.Pointer(unsafe.SliceData(a))), uintptr(unsafe.Pointer(unsafe.SliceData(b)))
+	return a0 < b0+uintptr(cap(b)) && b0 < a0+uintptr(len(a))
+}
+
 // readOnlyBytes is the bytes of s, a string or a []byte, without a copy: they must not be written to. A string
 // and a slice both start with the pointer to their bytes, which has the length after it.
 func readOnlyBytes[Bytes ~[]byte | ~string](s Bytes) []byte {

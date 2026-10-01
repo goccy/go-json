@@ -59,6 +59,27 @@ func TestWriteValueInAvailableBuffer(t *testing.T) {
 	}
 }
 
+// TestWriteValueInBytesBufferSpace writes top-level values built in the free space of the bytes.Buffer which the
+// encoder writes to, where the output goes before the value is read.
+func TestWriteValueInBytesBufferSpace(t *testing.T) {
+	for _, in := range []string{
+		`[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]`,
+		`{"a": 1, "bb": [true, false, null], "c":  "dddddddddd" }`,
+		`[ 1,  2,  3,  4,  5 ]`,
+	} {
+		var want bytes.Buffer
+		jsontext.NewEncoder(&want).WriteValue(jsontext.Value(in))
+		var got bytes.Buffer
+		got.Grow(1024)
+		if err := jsontext.NewEncoder(&got).WriteValue(append(got.AvailableBuffer(), in...)); err != nil {
+			t.Fatalf("WriteValue(%q) in the free space of the bytes.Buffer: %v", in, err)
+		}
+		if got.String() != want.String() {
+			t.Errorf("WriteValue(%q) in the free space of the bytes.Buffer = %q, want %q", in, got.String(), want.String())
+		}
+	}
+}
+
 // TestAppendFloatIntegers checks integers below 1e21, which are formatted by their shortest digits without an
 // exponent, against strconv, in both precisions.
 func TestAppendFloatIntegers(t *testing.T) {

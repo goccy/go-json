@@ -248,6 +248,9 @@ func (n *names) has(first int, name []byte) bool {
 func (n *names) add(first int, name []byte) {
 	n.buf = append(n.buf, name...)
 	n.ends = append(n.ends, len(n.buf))
+	if len(n.indexes) == 0 && len(n.ends)-first <= maxLinearNames && len(n.buf) <= maxLinearBytes {
+		return // no object has an index, nor needs one: the names of all of them are few
+	}
 	if x := n.index(first); x != nil {
 		x.hashes = append(x.hashes, maphash.Bytes(nameSeed, name))
 		if 2*len(x.hashes) > len(x.slots) {

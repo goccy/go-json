@@ -820,6 +820,84 @@ func TestStdDiffEOFThenMore(t *testing.T) {
 	}
 }
 
+// TestStdDiffCopiedCoders compares a Decoder and an Encoder which are copied by value after k calls, when the copy
+// or the coder it was copied from is used on its own: the copy reads and writes on its own, and the other keeps
+// its state.
+func TestStdDiffCopiedCoders(t *testing.T) {
+	const in = `[1,{"a":[2,"x",3]},4,{"b":{"c":true}}] 5 {"d":[null]}`
+	for k := range 8 {
+		for _, useCopy := range []bool{false, true} {
+			for _, ops := range []string{"TTTTTTTTTTTTTTTTTTTT", "VVVVVVVVVV", "TVTVTVTVTVTVTV", "TTSTSTTSS"} {
+				d := jsontext.NewDecoder(strings.NewReader(in))
+				s := stdjsontext.NewDecoder(strings.NewReader(in))
+				var got, want string
+				for i, op := range ops {
+					if i == k {
+						d2, s2 := *d, *s
+						if useCopy {
+							d, s = &d2, &s2
+						}
+					}
+					var out, stdOut string
+					var err, stdErr error
+					switch op {
+					case 'T':
+						tok, e := d.ReadToken()
+						stdTok, stdE := s.ReadToken()
+						out, err = recovered(tok.String), e
+						stdOut, stdErr = recovered(stdTok.String), stdE
+					case 'V':
+						v, e := d.ReadValue()
+						stdV, stdE := s.ReadValue()
+						out, err, stdOut, stdErr = string(v), e, string(stdV), stdE
+					default:
+						err, stdErr = d.SkipValue(), s.SkipValue()
+					}
+					got += fmt.Sprintf("[%s %s %d %d %q] ", out, errorString(err), d.InputOffset(), d.StackDepth(), d.StackPointer())
+					want += fmt.Sprintf("[%s %s %d %d %q] ", stdOut, errorString(stdErr), s.InputOffset(), s.StackDepth(), s.StackPointer())
+				}
+				if got != want {
+					t.Errorf("%s with a Decoder copied after %d calls, the copy used %v:\ngot:  %s\nwant: %s", ops, k, useCopy, got, want)
+				}
+			}
+			var b, sb bytes.Buffer
+			e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
+			d, sd := jsontext.NewDecoder(strings.NewReader(in)), stdjsontext.NewDecoder(strings.NewReader(in))
+			var got, want string
+			for i := 0; ; i++ {
+				if i == k {
+					e2, s2 := *e, *s
+					if useCopy {
+						e, s = &e2, &s2
+					}
+				}
+				var err, stdErr error
+				if i%3 == 2 {
+					v, err1 := d.ReadValue()
+					stdV, err2 := sd.ReadValue()
+					if err1 != nil || err2 != nil {
+						break
+					}
+					err, stdErr = e.WriteValue(v), s.WriteValue(stdV)
+				} else {
+					tok, err1 := d.ReadToken()
+					stdTok, err2 := sd.ReadToken()
+					if err1 != nil || err2 != nil {
+						break
+					}
+					err, stdErr = e.WriteToken(tok), s.WriteToken(stdTok)
+				}
+				got += fmt.Sprintf("[%s %d %d %q] ", errorString(err), e.OutputOffset(), e.StackDepth(), e.StackPointer())
+				want += fmt.Sprintf("[%s %d %d %q] ", errorString(stdErr), s.OutputOffset(), s.StackDepth(), s.StackPointer())
+			}
+			got, want = got+b.String(), want+sb.String()
+			if got != want {
+				t.Errorf("an Encoder copied after %d calls, the copy used %v:\ngot:  %s\nwant: %s", k, useCopy, got, want)
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"math/bits"
+	"slices"
 )
 
 // Encoder is a streaming encoder of raw JSON tokens and values. It writes a stream of top-level JSON values,
@@ -92,6 +93,16 @@ func (e *encoder) setUp() {
 	if len(e.st.levels) == 0 {
 		e.init(nil)
 	}
+}
+
+// relink points the scanner of an encoder which was copied since it was set up to the copy, which takes arrays of
+// its own: it writes on its own as a copy of an encoder of encoding/json/jsontext does, and the encoder it was
+// copied from keeps its state.
+func (e *encoder) relink() {
+	e.vs.st = &e.st
+	e.st.own()
+	e.buf = slices.Clone(e.buf) // the output which is not written yet, which a flush writes as any output
+	e.vs.lines, e.vs.scratch, e.vs.ro, e.avail = nil, nil, reorderer{}, nil
 }
 
 // writeTokenZero is writeToken of a zero value, which is set up first.
@@ -263,6 +274,10 @@ func (e *encoder) writeToken(t Token) error {
 	levels := e.st.levels
 	if len(levels) == 0 {
 		return e.writeTokenZero(t)
+	}
+	if e.vs.st != &e.st {
+		e.relink()
+		levels = e.st.levels
 	}
 	k := t.Kind()
 	l := &levels[len(levels)-1] // with no check of the index, which the zero value checked
@@ -470,6 +485,9 @@ func (e *encoder) writeValue(v Value) error {
 		return e.writeValueZero(v)
 	}
 	e.maxValue |= len(v)
+	if e.vs.st != &e.st {
+		e.relink()
+	}
 	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
 		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
 		v = bytes.Clone(v)

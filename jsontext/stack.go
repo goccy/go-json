@@ -2,6 +2,7 @@ package jsontext
 
 import (
 	"hash/maphash"
+	"slices"
 	"strconv"
 )
 
@@ -24,6 +25,19 @@ type level struct {
 type stack struct {
 	levels []level
 	names  names
+}
+
+// own gives the stack arrays of its own: the ones of a coder which was copied are shared with the coder it was
+// copied from, whose state they hold too.
+func (s *stack) own() {
+	s.levels = slices.Clone(s.levels)
+	s.names.buf = slices.Clone(s.names.buf)
+	s.names.ends = slices.Clone(s.names.ends)
+	s.names.indexes = slices.Clone(s.names.indexes)
+	for k := range s.names.indexes {
+		x := &s.names.indexes[k]
+		x.slots, x.hashes = slices.Clone(x.slots), slices.Clone(x.hashes)
+	}
 }
 
 func (s *stack) reset() {

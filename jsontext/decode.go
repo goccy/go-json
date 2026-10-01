@@ -3,6 +3,7 @@ package jsontext
 import (
 	"bytes"
 	"io"
+	"slices"
 	"unicode/utf8"
 )
 
@@ -77,6 +78,19 @@ func (d *decoder) setUp() {
 	if len(d.st.levels) == 0 {
 		d.reset(nil, nil)
 	}
+}
+
+// relink points the source of the tokens and the scanner of a decoder which was copied since it was set up to the
+// copy, which takes arrays of its own: it reads on its own as a copy of a decoder of encoding/json/jsontext does,
+// and the decoder it was copied from keeps its state.
+func (d *decoder) relink() {
+	d.raw.dec = d
+	d.vs.st = &d.st
+	d.st.own()
+	if !d.shared {
+		d.buf = slices.Clone(d.buf) // the input which the decoder moves and reads into
+	}
+	d.vs.scratch = nil
 }
 
 // reset resets the decoder to read from r, which is nil for no input, with the options.
@@ -258,6 +272,9 @@ func (d *Decoder) PeekKind() Kind {
 // is not needed, or not the one needed, is an invalid character itself.
 func (d *decoder) beforeToken(peek bool) (int, error) {
 	d.setUp()
+	if d.raw.dec != d {
+		d.relink()
+	}
 	// an error of the reader, even io.EOF, ends only the call which met it: the next one reads again.
 	d.rerr = nil
 	// most tokens have the delimiter which they need, with some white space, in the buffer.
@@ -356,6 +373,9 @@ func (d *Decoder) ReadToken() (Token, error) {
 // readToken reads the next token in one loop where the token and the delimiter before it are valid and whole in
 // the buffer, as most tokens are, and else by readTokenSlow, from the same state.
 func (d *decoder) readToken() (Token, error) {
+	if d.raw.dec != d {
+		d.relink()
+	}
 	d.invalidate()
 	b := d.buf
 	pos := skipWS(b, d.pos)

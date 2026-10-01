@@ -1,6 +1,7 @@
 package jsontext
 
 import (
+	"encoding/binary"
 	"math"
 	"math/bits"
 )
@@ -194,13 +195,18 @@ func appendShortestFloat(dst []byte, f float64, size int) []byte {
 	return dst
 }
 
-// put8Digits writes the eight digits of v, which is below 10⁸, to b.
+// put8Digits writes the eight digits of v, which is below 10⁸, to b, by dividing the parts of v in the lanes of
+// a word at once: its halves of four digits, then their halves of two digits, then their digits, the first one
+// in the lowest lane, which is the first byte that the word is stored as.
 func put8Digits(b []byte, v uint32) {
-	hi, lo := v/1e4, v%1e4
-	copy(b[0:2], twoDigits[hi/100*2:])
-	copy(b[2:4], twoDigits[hi%100*2:])
-	copy(b[4:6], twoDigits[lo/100*2:])
-	copy(b[6:8], twoDigits[lo%100*2:])
+	x := uint64(v/1e4) | uint64(v%1e4)<<32
+	// n/100 is n·10486 >> 20 for n below 10⁴, and n/10 is n·103 >> 10 for n below 100: the products don't
+	// reach the bits of the lanes which are kept.
+	q := x * 10486 >> 20 & 0x0000007f_0000007f
+	x = q | (x-q*100)<<16
+	q = x * 103 >> 10 & 0x000f000f_000f000f
+	x = q | (x-q*10)<<8
+	binary.LittleEndian.PutUint64(b, x|0x30303030_30303030)
 }
 
 // twoDigits are the numbers from 00 to 99.

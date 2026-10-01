@@ -87,38 +87,43 @@ func (e *encoder) reset(w io.Writer, opts []Options) {
 	e.init(w)
 }
 
-// setUp sets up an encoder which is a zero value, as one with no writer, which keeps its output, as
-// encoding/json/jsontext takes it.
+// ready reports whether the encoder is set up: its scanner points to its stack.
+func (e *encoder) ready() bool { return e.vs.st == &e.st }
+
+// setUp sets up an encoder which is not ready: a zero value, as one with no writer, which keeps its output, as
+// encoding/json/jsontext takes it, or a copy of an encoder, which takes pointers and arrays of its own: it writes
+// on its own as a copy of an encoder of encoding/json/jsontext does, and the encoder it was copied from keeps its
+// state.
 func (e *encoder) setUp() {
 	if len(e.st.levels) == 0 {
 		e.init(nil)
+		return
 	}
-}
-
-// relink points the scanner of an encoder which was copied since it was set up to the copy, which takes arrays of
-// its own: it writes on its own as a copy of an encoder of encoding/json/jsontext does, and the encoder it was
-// copied from keeps its state.
-func (e *encoder) relink() {
 	e.vs.st = &e.st
 	e.st.own()
 	e.buf = slices.Clone(e.buf) // the output which is not written yet, which a flush writes as any output
 	e.vs.lines, e.vs.scratch, e.vs.ro, e.avail = nil, nil, reorderer{}, nil
 }
 
-// writeTokenZero is writeToken of a zero value, which is set up first.
-func (e *encoder) writeTokenZero(t Token) error {
+// writeTokenSetUp is writeToken of an encoder which is not ready, which is set up first.
+func (e *encoder) writeTokenSetUp(t Token) error {
 	e.setUp()
 	return e.writeToken(t)
 }
 
-// writeValueZero is writeValue of a zero value, which is set up first.
-func (e *encoder) writeValueZero(v Value) error {
+// writeValueSetUp is writeValue of an encoder which is not ready, which is set up first.
+func (e *encoder) writeValueSetUp(v Value) error {
 	e.setUp()
 	return e.writeValue(v)
 }
 
 // init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
+	if !e.ready() {
+		// a zero value, or a copy, whose arrays are the ones of the encoder it was copied from
+		e.st, e.buf, e.avail = stack{}, nil, nil
+		e.vs.st, e.vs.lines, e.vs.scratch, e.vs.ro = &e.st, nil, nil, reorderer{}
+	}
 	e.st.reset()
 	if e.bb != nil {
 		e.buf = nil // the array of the bytes.Buffer written before, which stays its own
@@ -135,9 +140,6 @@ func (e *encoder) init(w io.Writer) {
 	}
 	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
 	vs := &e.vs
-	if vs.st != &e.st {
-		vs.st = &e.st // an encoder which was copied since it was set up
-	}
 	vs.write, vs.keep = true, false
 	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
 	vs.run = 0
@@ -207,7 +209,9 @@ func (e *Encoder) AvailableBuffer() []byte {
 // before any token, after a top-level value and between top-level values, 1 in a top-level object or array, and
 // so on.
 func (e *Encoder) StackDepth() int {
-	e.e.setUp()
+	if !e.e.ready() {
+		e.e.setUp()
+	}
 	return e.e.st.depth()
 }
 
@@ -215,13 +219,17 @@ func (e *Encoder) StackDepth() int {
 // Encoder.StackDepth: KindInvalid for the level 0, KindBeginObject for an object, KindBeginArray for an array.
 // The length of an object counts its names and values: a complete object has an even length.
 func (e *Encoder) StackIndex(i int) (Kind, int64) {
-	e.e.setUp()
+	if !e.e.ready() {
+		e.e.setUp()
+	}
 	return e.e.st.index(i)
 }
 
 // StackPointer returns a JSON Pointer (RFC 6901) to the last value which was written.
 func (e *Encoder) StackPointer() Pointer {
-	e.e.setUp()
+	if !e.e.ready() {
+		e.e.setUp()
+	}
 	return e.e.st.pointer(pointLast)
 }
 
@@ -271,16 +279,11 @@ func (e *Encoder) WriteToken(t Token) error {
 }
 
 func (e *encoder) writeToken(t Token) error {
-	levels := e.st.levels
-	if len(levels) == 0 {
-		return e.writeTokenZero(t)
-	}
-	if e.vs.st != &e.st {
-		e.relink()
-		levels = e.st.levels
+	if !e.ready() {
+		return e.writeTokenSetUp(t)
 	}
 	k := t.Kind()
-	l := &levels[len(levels)-1] // with no check of the index, which the zero value checked
+	l := e.st.last()
 	if misplaced(l, k, e.st.depth()) {
 		return e.misplacedError(l, k)
 	}
@@ -480,19 +483,15 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
-	levels := e.st.levels
-	if len(levels) == 0 {
-		return e.writeValueZero(v)
+	if !e.ready() {
+		return e.writeValueSetUp(v)
 	}
 	e.maxValue |= len(v)
-	if e.vs.st != &e.st {
-		e.relink()
-	}
 	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
 		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
 		v = bytes.Clone(v)
 	}
-	l := &levels[len(levels)-1] // with no check of the index, which the zero value checked
+	l := e.st.last()
 	k := v.Kind()
 	name := l.needName()
 	b := e.appendDelim(e.buf, k)

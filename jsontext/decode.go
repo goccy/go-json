@@ -73,17 +73,18 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	d.d.reset(r, opts)
 }
 
-// setUp sets up a decoder which is a zero value, as one whose input is empty, as encoding/json/jsontext takes it.
+// ready reports whether the decoder is set up: the source of its tokens points to it.
+func (d *decoder) ready() bool { return d.raw.dec == d }
+
+// setUp sets up a decoder which is not ready: a zero value, as one whose input is empty, as
+// encoding/json/jsontext takes it, or a copy of a decoder, which takes pointers and arrays of its own: it reads
+// on its own as a copy of a decoder of encoding/json/jsontext does, and the decoder it was copied from keeps its
+// state.
 func (d *decoder) setUp() {
 	if len(d.st.levels) == 0 {
 		d.reset(nil, nil)
+		return
 	}
-}
-
-// relink points the source of the tokens and the scanner of a decoder which was copied since it was set up to the
-// copy, which takes arrays of its own: it reads on its own as a copy of a decoder of encoding/json/jsontext does,
-// and the decoder it was copied from keeps its state.
-func (d *decoder) relink() {
 	d.raw.dec = d
 	d.vs.st = &d.st
 	d.st.own()
@@ -98,6 +99,13 @@ func (d *decoder) reset(r io.Reader, opts []Options) {
 	var c config // opts may hold the options of d, which Options returned
 	c.apply(opts)
 	d.cfg = c
+	if !d.ready() {
+		// a zero value, or a copy, whose arrays are the ones of the decoder it was copied from
+		d.st, d.vs.scratch = stack{}, nil
+		if !d.shared {
+			d.buf = nil
+		}
+	}
 	d.st.reset()
 	d.r = r
 	d.bb, _ = r.(*bytes.Buffer)
@@ -255,6 +263,9 @@ func (d *decoder) endError(pos int, err error, where int) error {
 // be followed by a read call.
 func (d *Decoder) PeekKind() Kind {
 	s := &d.d
+	if !s.ready() {
+		s.setUp()
+	}
 	s.invalidate()
 	pos, err := s.beforeToken(true)
 	s.peekErr = nil // an error of an earlier PeekKind is replaced
@@ -271,10 +282,6 @@ func (d *Decoder) PeekKind() Kind {
 // A comma or a colon is taken first, and then compared with the delimiter which the next token needs: one which
 // is not needed, or not the one needed, is an invalid character itself.
 func (d *decoder) beforeToken(peek bool) (int, error) {
-	d.setUp()
-	if d.raw.dec != d {
-		d.relink()
-	}
 	// an error of the reader, even io.EOF, ends only the call which met it: the next one reads again.
 	d.rerr = nil
 	// most tokens have the delimiter which they need, with some white space, in the buffer.
@@ -373,8 +380,8 @@ func (d *Decoder) ReadToken() (Token, error) {
 // readToken reads the next token in one loop where the token and the delimiter before it are valid and whole in
 // the buffer, as most tokens are, and else by readTokenSlow, from the same state.
 func (d *decoder) readToken() (Token, error) {
-	if d.raw.dec != d {
-		d.relink()
+	if !d.ready() {
+		d.setUp()
 	}
 	d.invalidate()
 	b := d.buf
@@ -590,8 +597,8 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 	}
 	for {
 		b := d.buf[pos:]
-		var cut bool      // the token may continue after the buffer
-		var cutChar error // the error of an invalid character which the buffer cuts, read again to show it whole
+		var cut bool     // the token may continue after the buffer
+		var cutChar bool // an invalid character which the buffer cuts, read again to show it whole
 		switch c {
 		case '"':
 			if n > 0 && plainEnd(b, n) == len(b) {
@@ -622,7 +629,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			}
 		} else if _, ok := err.(*textError); ok && d.rerr == nil && !utf8.FullRune(b[n:]) {
 			// an invalid character which the buffer cuts is shown whole: the token is scanned again with more
-			cutChar = d.failAt(err, pos+n, where)
+			cutChar = true
 			n, f, st = 0, 0, numState{}
 		} else {
 			break
@@ -630,8 +637,8 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		shift, ferr := d.fetch()
 		pos -= shift
 		if ferr != nil && ferr != io.EOF {
-			if cutChar != nil {
-				return pos, pos, 0, cutChar // the error which the input read shows, as far as it was read
+			if cutChar {
+				continue // the error which the input read shows, as far as it was read, which the scan finds again
 			}
 			return pos, pos, 0, ferr
 		}
@@ -681,6 +688,9 @@ func (d *Decoder) SkipValue() error {
 }
 
 func (d *decoder) readValue() (int, int, error) {
+	if !d.ready() {
+		d.setUp()
+	}
 	d.invalidate()
 	if err := d.peekErr; err != nil {
 		d.peekErr = nil
@@ -851,7 +861,9 @@ func (d *Decoder) UnreadBuffer() []byte {
 // top level, before any token, after a top-level value and between top-level values, 1 in a top-level object
 // or array, and so on.
 func (d *Decoder) StackDepth() int {
-	d.d.setUp()
+	if !d.d.ready() {
+		d.d.setUp()
+	}
 	return d.d.st.depth()
 }
 
@@ -859,13 +871,17 @@ func (d *Decoder) StackDepth() int {
 // Decoder.StackDepth: KindInvalid for the level 0, KindBeginObject for an object, KindBeginArray for an array.
 // The length of an object counts its names and values: a complete object has an even length.
 func (d *Decoder) StackIndex(i int) (Kind, int64) {
-	d.d.setUp()
+	if !d.d.ready() {
+		d.d.setUp()
+	}
 	return d.d.st.index(i)
 }
 
 // StackPointer returns a JSON Pointer (RFC 6901) to the last value which was read.
 func (d *Decoder) StackPointer() Pointer {
-	d.d.setUp()
+	if !d.d.ready() {
+		d.d.setUp()
+	}
 	return d.d.st.pointer(pointLast)
 }
 

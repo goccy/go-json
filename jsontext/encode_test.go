@@ -2,10 +2,12 @@ package jsontext_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math"
 	"math/rand/v2"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/goccy/go-json/jsontext"
@@ -129,5 +131,63 @@ func TestAppendFloatIntegers(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestResetCopiedCoders resets a copy of a Decoder and of an Encoder, which reads or writes something else, in turn
+// with the coder it was copied from: each one reads and writes as a coder which was not copied. (The coders of
+// encoding/json/jsontext share their buffers with their copies, which corrupts the reads and writes of both.)
+func TestResetCopiedCoders(t *testing.T) {
+	const in, in2 = `{"a":[1,{"b":2}],"c":"d"} [3]`, `[true,{"x":null}]`
+	readAll := func(d *jsontext.Decoder) string {
+		var s string
+		for range 12 {
+			tok, err := d.ReadToken()
+			s += fmt.Sprintf("[%s %v %q] ", tok, err, d.StackPointer())
+		}
+		return s
+	}
+	ref := jsontext.NewDecoder(strings.NewReader(in))
+	ref.ReadToken()
+	ref.ReadToken()
+	d := jsontext.NewDecoder(strings.NewReader(in))
+	d.ReadToken()
+	d.ReadToken()
+	c := *d
+	c.Reset(strings.NewReader(in2))
+	var got, gotCopy string
+	for range 12 {
+		tok, err := d.ReadToken()
+		got += fmt.Sprintf("[%s %v %q] ", tok, err, d.StackPointer())
+		tok, err = c.ReadToken()
+		gotCopy += fmt.Sprintf("[%s %v %q] ", tok, err, c.StackPointer())
+	}
+	if want := readAll(ref); got != want {
+		t.Errorf("a Decoder whose copy was reset:\ngot:  %s\nwant: %s", got, want)
+	}
+	if want := readAll(jsontext.NewDecoder(strings.NewReader(in2))); gotCopy != want {
+		t.Errorf("a copy of a Decoder, which was reset:\ngot:  %s\nwant: %s", gotCopy, want)
+	}
+
+	var b, b2 bytes.Buffer
+	e := jsontext.NewEncoder(&b)
+	e.WriteToken(jsontext.BeginObject)
+	e.WriteToken(jsontext.String("a"))
+	ec := *e
+	ec.Reset(&b2)
+	for _, v := range []string{`[1]`, `"b"`, `{"c":2}`} {
+		if err := e.WriteValue(jsontext.Value(v)); err != nil {
+			t.Fatal(err)
+		}
+		if err := ec.WriteValue(jsontext.Value(v)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e.WriteToken(jsontext.EndObject)
+	if want := "{\"a\":[1],\"b\":{\"c\":2}}\n"; b.String() != want {
+		t.Errorf("output of an Encoder whose copy was reset = %q, want %q", b.String(), want)
+	}
+	if want := "[1]\n\"b\"\n{\"c\":2}\n"; b2.String() != want {
+		t.Errorf("output of a copy of an Encoder, which was reset = %q, want %q", b2.String(), want)
 	}
 }

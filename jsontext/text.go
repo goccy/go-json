@@ -162,10 +162,15 @@ func numberEnd(b []byte) int {
 	return i
 }
 
+// inDigits reports whether the number is in a run of digits, which more digits continue without a change of state.
+func (st numState) inDigits() bool {
+	return st.next == numInt || st.next == numFrac || st.next == numExp
+}
+
 // scanNumberFrom continues the scan of the number which starts b at b[i:], where st was.
 func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 	// the digits which continue a run of digits to the end of b, as a slow reader gives them, change no state
-	if st.next == numInt || st.next == numFrac || st.next == numExp {
+	if st.inDigits() {
 		if i = scanDigits(b, i); i == len(b) {
 			st.done = i
 			return i, st, nil

@@ -570,6 +570,13 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			n, err = scanLiteral(b, literalOf(Kind(c)))
 			cut = err == io.ErrUnexpectedEOF
 		default:
+			if st.inDigits() && n > 0 {
+				if j := scanDigits(b, n); j == len(b) {
+					// digits continue the number to the end of the buffer, as a slow reader gives them
+					n, st.done, cut = j, j, true
+					break
+				}
+			}
 			n, st, err = scanNumberFrom(b, n, st)
 			cut = err == nil && n == len(b) || err == io.ErrUnexpectedEOF
 		}
@@ -711,7 +718,14 @@ func (d *decoder) readValue() (int, int, error) {
 				d.vs.restore(rp.base, count)
 				return 0, 0, err
 			}
-			if ferr != nil || !d.stillCut(&rp) {
+			if ferr != nil {
+				break
+			}
+			if rp.tok == 0 && rp.pos+1 == len(d.buf) && isSpace(d.buf[rp.pos]) {
+				rp.pos++ // a byte of white space, as a slow reader gives them, without a call
+				continue
+			}
+			if !d.stillCut(&rp) {
 				break
 			}
 		}
@@ -748,6 +762,10 @@ func (d *decoder) stillCut(rp *resumePoint) bool {
 	}
 	// a string or a number, which a cut token is
 	if b[rp.pos] == '"' {
+		if j := plainEnd(b, rp.pos+rp.tok); j == len(b) {
+			rp.tok = j - rp.pos // plain characters continue the string, which costs one call
+			return true
+		}
 		n, f, err := scanStringFrom(b[rp.pos:], rp.tok, rp.str, strModeOf(d.vs.validUTF8, true))
 		if err == io.ErrUnexpectedEOF {
 			rp.tok, rp.str = n, f

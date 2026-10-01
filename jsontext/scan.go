@@ -374,7 +374,11 @@ value:
 		goto opened
 	case '"':
 		var f strFlags
-		if rp.tok > 0 {
+		if rp.tok > 0 && !s.final && plainEnd(b, i+rp.tok) == len(b) {
+			// plain characters continue the string to the end of the buffer, as a slow reader gives them
+			rp.tok = len(b) - i
+			return s.cut(atValue, i, pointNext, rp)
+		} else if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
 		} else if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {
@@ -542,7 +546,11 @@ name:
 	}
 	{
 		var f strFlags
-		if rp.tok > 0 {
+		if rp.tok > 0 && !s.final && plainEnd(b, i+rp.tok) == len(b) {
+			// plain characters continue the string to the end of the buffer, as a slow reader gives them
+			rp.tok = len(b) - i
+			return s.cut(atName, i, pointAt, rp)
+		} else if rp.tok > 0 {
 			n, f, err = scanStringFrom(b[i:], rp.tok, rp.str, strModeOf(s.validUTF8, !s.final))
 			rp.tok = 0
 		} else if n = plainEnd(b, i+1) - i; i+n < len(b) && b[i+n] == '"' {

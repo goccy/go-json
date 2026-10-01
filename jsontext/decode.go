@@ -559,6 +559,11 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		var cut bool // the token may continue after the buffer
 		switch c {
 		case '"':
+			if n > 0 && plainEnd(b, n) == len(b) {
+				// plain characters continue the string to the end of the buffer, as a slow reader gives them
+				n, cut = len(b), true
+				break
+			}
 			n, f, err = scanStringFrom(b, max(n, 1), f, strModeOf(validUTF8, d.rerr != io.EOF))
 			cut = err == io.ErrUnexpectedEOF
 		case 'n', 't', 'f':

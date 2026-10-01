@@ -102,6 +102,9 @@ func (e *encoder) init(w io.Writer) {
 	}
 	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
 	vs := &e.vs
+	if vs.st != &e.st {
+		vs.st = &e.st // an encoder which was copied since it was set up
+	}
 	vs.write, vs.keep = true, false
 	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
 	vs.run = 0
@@ -118,7 +121,6 @@ func (e *encoder) derive() {
 	e.validUTF8 = !e.cfg.has(allowInvalidUTF8)
 	e.check = !e.cfg.has(allowDuplicateNames)
 	vs := &e.vs
-	vs.st = &e.st
 	vs.validUTF8 = e.validUTF8
 	vs.checkNames = e.check
 	vs.lazyNames = !e.check

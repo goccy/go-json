@@ -80,6 +80,31 @@ func TestWriteValueInBytesBufferSpace(t *testing.T) {
 	}
 }
 
+// TestResetCopiedEncoder resets with the same options an encoder which was copied after it was used, as an
+// element of a slice which grew is: its values go to its own stack.
+func TestResetCopiedEncoder(t *testing.T) {
+	type holder struct{ enc jsontext.Encoder }
+	var b bytes.Buffer
+	hs := []holder{{}}
+	hs[0].enc.Reset(&b)
+	hs = append(hs, holder{}) // the first element is copied
+	e := &hs[0].enc
+	e.Reset(&b)
+	e.WriteToken(jsontext.BeginObject)
+	for _, v := range []string{`"a"`, `1`, `"b"`, `{"c":2}`} {
+		if err := e.WriteValue(jsontext.Value(v)); err != nil {
+			t.Fatalf("WriteValue(%s): %v", v, err)
+		}
+	}
+	if err := e.WriteValue(jsontext.Value(`"a"`)); err == nil {
+		t.Errorf("WriteValue of a duplicate name: no error")
+	}
+	e.WriteToken(jsontext.EndObject)
+	if want := "{\"a\":1,\"b\":{\"c\":2}}\n"; b.String() != want {
+		t.Errorf("output = %q, want %q", b.String(), want)
+	}
+}
+
 // TestAppendFloatIntegers checks integers below 1e21, which are formatted by their shortest digits without an
 // exponent, against strconv, in both precisions.
 func TestAppendFloatIntegers(t *testing.T) {

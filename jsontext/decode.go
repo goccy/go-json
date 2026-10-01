@@ -729,6 +729,11 @@ func (d *decoder) readValue() (int, int, error) {
 			// an invalid character which the buffer cuts is shown whole: the value is read again with more
 			rp = resumePoint{pos: start, base: rp.base}
 		}
+		if serr == errCut && d.rerr == io.EOF {
+			// the end of the input ended a number at the end of the buffer: the reader is read again for the
+			// rest of the value, as encoding/json/jsontext reads it.
+			d.rerr = nil
+		}
 		for {
 			shift, ferr := d.fetch()
 			rp.pos -= shift

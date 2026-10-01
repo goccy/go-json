@@ -28,6 +28,9 @@ type valueScanner struct {
 	in        []byte
 	decoding  bool // the messages and the offsets of the errors of a decoder
 	final     bool // the end of the input is the end of the buffer
+	// numEnd is 1 plus the end of the buffer, where the end of the input ended a number in the current resume of
+	// a decoder, or 0: as encoding/json/jsontext, the decoder reads again for the rest of the value.
+	numEnd int
 
 	// the output, when the value is written
 	write     bool
@@ -438,6 +441,7 @@ func (s *valueScanner) resume(b []byte, rp *resumePoint) (int, *scanError) {
 	var n int
 	i := rp.pos
 	base := rp.base
+	s.numEnd = 0
 	ws := wsNone     // the white space which a written value has before the next token
 	l := s.st.last() // the innermost level, which a push and a close change
 	switch rp.at {
@@ -550,9 +554,14 @@ value:
 				n, st, err = scanNumberFrom(b[i:], 0, numState{})
 			}
 		}
-		if i+n == len(b) && !s.final && (err == nil || err == io.ErrUnexpectedEOF) {
-			rp.tok, rp.num = n, st
-			return s.cut(atValue, i, pointNext, rp)
+		if i+n == len(b) && (err == nil || err == io.ErrUnexpectedEOF) {
+			if !s.final {
+				rp.tok, rp.num = n, st
+				return s.cut(atValue, i, pointNext, rp)
+			}
+			if err == nil && s.decoding {
+				s.numEnd = len(b) + 1
+			}
 		}
 		if err != nil {
 			// a decoder reports a number which the input cuts at its start.
@@ -707,7 +716,7 @@ colon:
 // cut is the end of the scan at the end of the buffer, at the place at, where the token or the place starts at
 // i: the input continues, or the value is not complete.
 func (s *valueScanner) cut(at uint8, i int, where int, rp *resumePoint) (int, *scanError) {
-	if s.final {
+	if s.final && i+1 != s.numEnd {
 		pos := i + rp.tok
 		if rp.tok == 0 {
 			pos = i

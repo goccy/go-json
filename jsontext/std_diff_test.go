@@ -757,6 +757,69 @@ func TestStdDiffAvailableBuffer(t *testing.T) {
 	}
 }
 
+// eofBetween returns its chunks in turn, with io.EOF between them, and then tail.
+type eofBetween struct {
+	chunks []string
+	eof    bool
+	tail   error
+}
+
+func (r *eofBetween) Read(p []byte) (int, error) {
+	if r.eof {
+		r.eof = false
+		return 0, io.EOF
+	}
+	if len(r.chunks) == 0 {
+		return 0, r.tail
+	}
+	n := copy(p, r.chunks[0])
+	r.chunks[0] = r.chunks[0][n:]
+	if r.chunks[0] == "" {
+		r.chunks, r.eof = r.chunks[1:], true
+	}
+	return n, nil
+}
+
+// TestStdDiffEOFThenMore compares reads from a reader which reports io.EOF and then gives more input: the end of
+// the input ends a number, after which encoding/json/jsontext reads again for the rest of a value.
+func TestStdDiffEOFThenMore(t *testing.T) {
+	cases := [][]string{
+		{`{"a":1`, `}`}, {`[1`, `]`}, {`[1`, `,2]`}, {`{"a":1`, `,"b":2}`}, {`1`, `2`}, {`[12`, `3]`}, {`{"a":-1`, ` }`},
+		{`[[1`, `]]`}, {`{"a":[1.5`, `e3]}`}, {`[1`, `,2`, `]`}, {`[1,2`, `,3`, `]`}, {`[-`, `1]`}, {`[1.`, `5]`},
+		{`["a"`, `]`}, {`[true`, `]`}, {`{"a"`, `:1}`}, {`[1 `, `]`}, {`[1`, ``, `]`}, {`{"a":1`, `}`, `[2`, `]`},
+	}
+	for _, c := range cases {
+		for _, op := range []string{"token", "value", "skip"} {
+			for _, tail := range []error{io.EOF, errBoom} {
+				d := jsontext.NewDecoder(&eofBetween{chunks: append([]string(nil), c...), tail: tail})
+				s := stdjsontext.NewDecoder(&eofBetween{chunks: append([]string(nil), c...), tail: tail})
+				var got, want string
+				for range 6 {
+					switch op {
+					case "token":
+						tok, err := d.ReadToken()
+						stdTok, stdErr := s.ReadToken()
+						got += fmt.Sprintf("[%s %s %d] ", tok, errorString(err), d.InputOffset())
+						want += fmt.Sprintf("[%s %s %d] ", stdTok, errorString(stdErr), s.InputOffset())
+					case "value":
+						v, err := d.ReadValue()
+						stdV, stdErr := s.ReadValue()
+						got += fmt.Sprintf("[%s %s %d] ", v, errorString(err), d.InputOffset())
+						want += fmt.Sprintf("[%s %s %d] ", stdV, errorString(stdErr), s.InputOffset())
+					default:
+						err, stdErr := d.SkipValue(), s.SkipValue()
+						got += fmt.Sprintf("[%s %d] ", errorString(err), d.InputOffset())
+						want += fmt.Sprintf("[%s %d] ", errorString(stdErr), s.InputOffset())
+					}
+				}
+				if got != want {
+					t.Errorf("%s of %q, then %v:\ngot:  %s\nwant: %s", op, c, tail, got, want)
+				}
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

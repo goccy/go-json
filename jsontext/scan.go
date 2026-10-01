@@ -301,7 +301,10 @@ name:
 		return i, false
 	}
 	if s.checkNames {
-		name := unquotedName(&s.scratch, b[i:i+n], f)
+		name := b[i+1 : i+n-1] // a name without escape sequences is the bytes between its quotes, without a call
+		if f&(strEscaped|strInvalidUTF8) != 0 {
+			name = unquotedName(&s.scratch, b[i:i+n], f)
+		}
 		k := depth - 1
 		o := &open[k]
 		if bit := nameBit(name); o.bits&bit == 0 {
@@ -568,8 +571,14 @@ name:
 		name := b[i : i+n]
 		if s.lazyNames {
 			l.last, l.named = -2-i, l.count+1
-		} else if unquoted := unquotedName(&s.scratch, name, f); !s.st.insertName(unquoted, s.checkNames) {
-			return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(unquoted)}
+		} else {
+			unquoted := name[1 : len(name)-1] // a name without escape sequences, without a call
+			if f&(strEscaped|strInvalidUTF8) != 0 {
+				unquoted = unquotedName(&s.scratch, name, f)
+			}
+			if !s.st.insertName(unquoted, s.checkNames) {
+				return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(unquoted)}
+			}
 		}
 		l.count++
 		if s.write {

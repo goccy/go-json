@@ -92,6 +92,18 @@ func (e *encoder) setUp() {
 	}
 }
 
+// writeTokenZero is writeToken of a zero value, which is set up first.
+func (e *encoder) writeTokenZero(t Token) error {
+	e.setUp()
+	return e.writeToken(t)
+}
+
+// writeValueZero is writeValue of a zero value, which is set up first.
+func (e *encoder) writeValueZero(v Value) error {
+	e.setUp()
+	return e.writeValue(v)
+}
+
 // init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
 	e.st.reset()
@@ -245,9 +257,12 @@ func (e *Encoder) WriteToken(t Token) error {
 }
 
 func (e *encoder) writeToken(t Token) error {
-	e.setUp()
+	levels := e.st.levels
+	if len(levels) == 0 {
+		return e.writeTokenZero(t)
+	}
 	k := t.Kind()
-	l := e.st.last()
+	l := &levels[len(levels)-1] // with no check of the index, which the zero value checked
 	if misplaced(l, k, e.st.depth()) {
 		return e.misplacedError(l, k)
 	}
@@ -447,12 +462,15 @@ func (e *Encoder) WriteValue(v Value) error {
 }
 
 func (e *encoder) writeValue(v Value) error {
-	e.setUp()
+	levels := e.st.levels
+	if len(levels) == 0 {
+		return e.writeValueZero(v)
+	}
 	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
 		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
 		v = bytes.Clone(v)
 	}
-	l := e.st.last()
+	l := &levels[len(levels)-1] // with no check of the index, which the zero value checked
 	k := v.Kind()
 	name := l.needName()
 	b := e.appendDelim(e.buf, k)

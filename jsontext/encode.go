@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"math/bits"
 )
 
 // Encoder is a streaming encoder of raw JSON tokens and values. It writes a stream of top-level JSON values,
@@ -55,7 +56,8 @@ type encoder struct {
 	validUTF8 bool
 	check     bool // check duplicate names
 
-	avail []byte // the buffer of AvailableBuffer, which the output doesn't share
+	avail    []byte // the buffer of AvailableBuffer, which the output doesn't share
+	maxValue int    // the OR of the lengths of the values written since the last reset, which sizes avail
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -116,7 +118,7 @@ func (e *encoder) init(w io.Writer) {
 	if e.bb != nil {
 		e.buf = e.bb.AvailableBuffer()
 	}
-	e.base = 0
+	e.base, e.maxValue = 0, 0
 	if !e.derivedOK || !e.cfg.same(&e.derived) {
 		e.derive()
 	}
@@ -182,9 +184,10 @@ func (e *Encoder) OutputOffset() int64 {
 // WriteValue takes a valid JSON value: a Value built as raw bytes takes more care than a Token of a
 // constructor such as String.
 func (e *Encoder) AvailableBuffer() []byte {
-	// a buffer of its own: the room of the output would be written over by the value built in it.
-	if e.e.avail == nil {
-		e.e.avail = make([]byte, 0, 64)
+	// a buffer of its own: the room of the output would be written over by the value built in it. Its capacity
+	// is the power of two above the values written, as the one of encoding/json/jsontext.
+	if n := 1 << bits.Len(uint(e.e.maxValue|63)); cap(e.e.avail) < n {
+		e.e.avail = make([]byte, 0, n)
 	}
 	return e.e.avail[:0]
 }
@@ -466,6 +469,7 @@ func (e *encoder) writeValue(v Value) error {
 	if len(levels) == 0 {
 		return e.writeValueZero(v)
 	}
+	e.maxValue |= len(v)
 	if e.bb != nil && overlaps(v, e.buf[len(e.buf):]) {
 		// a value in the free space of the bytes.Buffer, whose output is written over it before it is read
 		v = bytes.Clone(v)

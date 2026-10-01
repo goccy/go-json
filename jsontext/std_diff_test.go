@@ -706,6 +706,33 @@ func TestStdDiffInvalidToken(t *testing.T) {
 	}
 }
 
+// TestStdDiffAvailableBuffer compares the capacity of AvailableBuffer after values of several lengths, which it
+// follows, and after a Reset, which forgets them.
+func TestStdDiffAvailableBuffer(t *testing.T) {
+	var b, sb bytes.Buffer
+	e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
+	var got, want string
+	for _, n := range []int{0, 10, 70, 300, 64, 5000, 3} {
+		if n > 0 {
+			v := `"` + strings.Repeat("x", n-2) + `"`
+			if n < 2 {
+				v = "1"
+			}
+			e.WriteValue(jsontext.Value(v))
+			s.WriteValue(stdjsontext.Value(v))
+		}
+		got += fmt.Sprint(cap(e.AvailableBuffer()), len(e.AvailableBuffer()), " ")
+		want += fmt.Sprint(cap(s.AvailableBuffer()), len(s.AvailableBuffer()), " ")
+		if n == 5000 {
+			e.Reset(&b)
+			s.Reset(&sb)
+		}
+	}
+	if got != want {
+		t.Errorf("capacities of AvailableBuffer:\ngot:  %s\nwant: %s", got, want)
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

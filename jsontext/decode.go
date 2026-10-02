@@ -67,7 +67,10 @@ func NewDecoder(r io.Reader, opts ...Options) *Decoder {
 
 // Reset resets the decoder to read from r anew, with the options.
 func (d *Decoder) Reset(r io.Reader, opts ...Options) {
-	if r == nil {
+	switch {
+	case d == nil:
+		panic("jsontext: invalid nil Decoder")
+	case r == nil:
 		panic("jsontext: invalid nil io.Reader")
 	}
 	d.d.reset(r, opts)
@@ -665,7 +668,7 @@ func (d *Decoder) ReadValue() (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.buf[start:end], nil
+	return s.buf[start:end:end], nil // without the room after it, which is the input after the value
 }
 
 // SkipValue skips the next value. An object or array is read token by token, as ReadToken reads it, so that

@@ -948,6 +948,89 @@ func TestStdDiffEscapeErrorQuotes(t *testing.T) {
 	}
 }
 
+// TestStdDiffAppendToReadValue appends to each value which ReadValue returns, which has no room after it: the
+// input after it, which the decoder reads next, stays as it is.
+func TestStdDiffAppendToReadValue(t *testing.T) {
+	const in = `[1,2] {"a":3} "x" 4`
+	for _, newReader := range []func() io.Reader{
+		func() io.Reader { return strings.NewReader(in) },
+		func() io.Reader { return bytes.NewBufferString(in) },
+		func() io.Reader { return iotest.OneByteReader(strings.NewReader(in)) },
+	} {
+		d, s := jsontext.NewDecoder(newReader()), stdjsontext.NewDecoder(newReader())
+		var got, want string
+		for range 5 {
+			v, err := d.ReadValue()
+			stdV, stdErr := s.ReadValue()
+			got += fmt.Sprintf("[%s %s %d] ", v, errorString(err), cap(v)-len(v))
+			want += fmt.Sprintf("[%s %s %d] ", stdV, errorString(stdErr), cap(stdV)-len(stdV))
+			_ = append(v, "XXXXXXXXXXXX"...)
+			_ = append(stdV, "XXXXXXXXXXXX"...)
+		}
+		if got != want {
+			t.Errorf("ReadValue, appended to:\ngot:  %s\nwant: %s", got, want)
+		}
+	}
+}
+
+// TestStdDiffAvailableBufferAfterReset compares the capacity of AvailableBuffer after a Reset, which keeps it, of
+// an Encoder and of a copy of it.
+func TestStdDiffAvailableBufferAfterReset(t *testing.T) {
+	long := `"` + strings.Repeat("x", 5000) + `"`
+	for _, how := range []string{"reset", "reset then copy", "copy then reset", "copy"} {
+		var b, sb bytes.Buffer
+		e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
+		e.WriteValue(jsontext.Value(long))
+		s.WriteValue(stdjsontext.Value(long))
+		e.AvailableBuffer()
+		s.AvailableBuffer()
+		switch how {
+		case "reset":
+			e.Reset(&b)
+			s.Reset(&sb)
+		case "reset then copy":
+			e.Reset(&b)
+			s.Reset(&sb)
+			e2, s2 := *e, *s
+			e, s = &e2, &s2
+		case "copy then reset":
+			e2, s2 := *e, *s
+			e, s = &e2, &s2
+			e.Reset(&b)
+			s.Reset(&sb)
+		default:
+			e2, s2 := *e, *s
+			e, s = &e2, &s2
+		}
+		e.WriteValue(jsontext.Value("1"))
+		s.WriteValue(stdjsontext.Value("1"))
+		if got, want := cap(e.AvailableBuffer()), cap(s.AvailableBuffer()); got != want {
+			t.Errorf("capacity of AvailableBuffer after %s = %d, want %d", how, got, want)
+		}
+	}
+}
+
+// TestStdDiffResetNil compares the panics of a Reset of a nil Decoder or Encoder, and of a nil reader or writer.
+func TestStdDiffResetNil(t *testing.T) {
+	var nilDecoder *jsontext.Decoder
+	var nilStdDecoder *stdjsontext.Decoder
+	var nilEncoder *jsontext.Encoder
+	var nilStdEncoder *stdjsontext.Encoder
+	cases := [][2]func() string{
+		{func() string { nilDecoder.Reset(nil); return "" }, func() string { nilStdDecoder.Reset(nil); return "" }},
+		{func() string { nilDecoder.Reset(strings.NewReader("")); return "" }, func() string { nilStdDecoder.Reset(strings.NewReader("")); return "" }},
+		{func() string { new(jsontext.Decoder).Reset(nil); return "" }, func() string { new(stdjsontext.Decoder).Reset(nil); return "" }},
+		{func() string { nilEncoder.Reset(nil); return "" }, func() string { nilStdEncoder.Reset(nil); return "" }},
+		{func() string { nilEncoder.Reset(new(bytes.Buffer)); return "" }, func() string { nilStdEncoder.Reset(new(bytes.Buffer)); return "" }},
+		{func() string { new(jsontext.Encoder).Reset(nil); return "" }, func() string { new(stdjsontext.Encoder).Reset(nil); return "" }},
+	}
+	for i, c := range cases {
+		if got, want := recovered(c[0]), recovered(c[1]); got != want {
+			t.Errorf("case %d: %s, want %s", i, got, want)
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

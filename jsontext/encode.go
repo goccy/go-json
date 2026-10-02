@@ -74,7 +74,10 @@ func NewEncoder(w io.Writer, opts ...Options) *Encoder {
 
 // Reset resets the encoder to write to w anew, with the options.
 func (e *Encoder) Reset(w io.Writer, opts ...Options) {
-	if w == nil {
+	switch {
+	case e == nil:
+		panic("jsontext: invalid nil Encoder")
+	case w == nil:
 		panic("jsontext: invalid nil io.Writer")
 	}
 	e.e.reset(w, opts)
@@ -102,7 +105,8 @@ func (e *encoder) setUp() {
 	e.vs.st = &e.st
 	e.st.own()
 	e.buf = slices.Clone(e.buf) // the output which is not written yet, which a flush writes as any output
-	e.vs.lines, e.vs.scratch, e.vs.ro, e.avail = nil, nil, reorderer{}, nil
+	e.vs.lines, e.vs.scratch, e.vs.ro = nil, nil, reorderer{}
+	e.avail = make([]byte, 0, cap(e.avail)) // of the capacity it had, which a Reset keeps
 }
 
 // writeTokenSetUp is writeToken of an encoder which is not ready, which is set up first.
@@ -121,7 +125,8 @@ func (e *encoder) writeValueSetUp(v Value) error {
 func (e *encoder) init(w io.Writer) {
 	if !e.ready() {
 		// a zero value, or a copy, whose arrays are the ones of the encoder it was copied from
-		e.st, e.buf, e.avail = stack{}, nil, nil
+		e.st, e.buf = stack{}, nil
+		e.avail = make([]byte, 0, cap(e.avail)) // of the capacity it had, which a Reset keeps
 		e.vs.st, e.vs.lines, e.vs.scratch, e.vs.ro = &e.st, nil, nil, reorderer{}
 	}
 	e.st.reset()

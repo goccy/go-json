@@ -28,16 +28,44 @@ type stack struct {
 }
 
 // own gives the stack arrays of its own: the ones of a coder which was copied are shared with the coder it was
-// copied from, whose state they hold too.
+// copied from, whose state they hold too. The indexes of the names are made again where an object needs one.
+// If the other coder changed the arrays since the copy, which interleaved use of both does, the names may not
+// fit the levels: they are dropped then, so that the copy, whose reads or writes are not defined, doesn't panic.
 func (s *stack) own() {
 	s.levels = slices.Clone(s.levels)
 	s.names.buf = slices.Clone(s.names.buf)
 	s.names.ends = slices.Clone(s.names.ends)
-	s.names.indexes = slices.Clone(s.names.indexes)
-	for k := range s.names.indexes {
-		x := &s.names.indexes[k]
-		x.slots, x.hashes = slices.Clone(x.slots), slices.Clone(x.hashes)
+	s.names.indexes = nil
+	if !s.namesFit() {
+		s.names.buf, s.names.ends = s.names.buf[:0], s.names.ends[:0]
+		for k := range s.levels {
+			if l := &s.levels[k]; l.object {
+				l.first, l.last, l.named, l.bits = 0, -1, 0, 0
+			}
+		}
 	}
+}
+
+// namesFit reports whether the names are where the levels of the objects say they are.
+func (s *stack) namesFit() bool {
+	n := &s.names
+	for k, end := range n.ends {
+		if end > len(n.buf) || k > 0 && end < n.ends[k-1] {
+			return false
+		}
+	}
+	first := 0
+	for _, l := range s.levels {
+		if !l.object {
+			continue
+		}
+		// a last name before -1 is a position in the input of a scan, which ends with the scan.
+		if l.first < first || l.first > len(n.ends) || l.last >= len(n.ends) || l.last < -1 || l.last >= 0 && l.last < l.first {
+			return false
+		}
+		first = l.first
+	}
+	return true
 }
 
 func (s *stack) reset() {

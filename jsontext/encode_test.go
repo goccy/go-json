@@ -6,9 +6,11 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/goccy/go-json/jsontext"
 )
@@ -189,5 +191,78 @@ func TestResetCopiedCoders(t *testing.T) {
 	}
 	if want := "[1]\n\"b\"\n{\"c\":2}\n"; b2.String() != want {
 		t.Errorf("output of a copy of an Encoder, which was reset = %q, want %q", b2.String(), want)
+	}
+}
+
+// TestInterleavedCopiedCoders uses a Decoder or an Encoder and a copy of it in turn, in random orders, which
+// encoding/json/jsontext doesn't define either: their reads and writes may be wrong, but none panics.
+func TestInterleavedCopiedCoders(t *testing.T) {
+	r := rand.New(rand.NewPCG(3, 4))
+	values := []string{`"a"`, `"b"`, `1`, `[1,2]`, `{"x":1}`, `{"a":{"b":[1]}}`, `"a"`, `true`, `{`, `"`}
+	tokens := []jsontext.Token{jsontext.BeginObject, jsontext.EndObject, jsontext.BeginArray, jsontext.EndArray,
+		jsontext.String("a"), jsontext.String("b"), jsontext.String("a"), jsontext.Int(1), jsontext.Null}
+	const in = `{"a":[1,{"b":2,"c":[3,4]}],"d":{"e":"f","g":[{"h":null}]}} [5,6] {"i":true}`
+	for range 3000 {
+		opts := []jsontext.Options{jsontext.AllowDuplicateNames(r.IntN(2) == 0), jsontext.Multiline(r.IntN(2) == 0),
+			jsontext.ReorderRawObjects(r.IntN(4) == 0)}
+		var b bytes.Buffer
+		var w io.Writer = &b
+		if r.IntN(2) == 0 {
+			w = struct{ io.Writer }{&b}
+		}
+		var rd io.Reader = strings.NewReader(in)
+		switch r.IntN(3) {
+		case 1:
+			rd = bytes.NewBufferString(in)
+		case 2:
+			rd = iotest.OneByteReader(strings.NewReader(in))
+		}
+		encoders := []*jsontext.Encoder{jsontext.NewEncoder(w, opts...)}
+		decoders := []*jsontext.Decoder{jsontext.NewDecoder(rd, opts...)}
+		copyAt := r.IntN(20)
+		for step := range 40 {
+			if step == copyAt {
+				ec, dc := *encoders[0], *decoders[0]
+				encoders, decoders = append(encoders, &ec), append(decoders, &dc)
+			}
+			e, d := encoders[r.IntN(len(encoders))], decoders[r.IntN(len(decoders))]
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						t.Fatalf("panic at step %d: %v\n%s", step, p, debug.Stack())
+					}
+				}()
+				switch r.IntN(9) {
+				case 0, 1:
+					e.WriteToken(tokens[r.IntN(len(tokens))])
+				case 2, 3:
+					e.WriteValue(jsontext.Value(values[r.IntN(len(values))]))
+				case 4:
+					d.ReadToken()
+				case 5:
+					d.ReadValue()
+				case 6:
+					d.SkipValue()
+				case 7:
+					d.PeekKind()
+				default:
+					switch r.IntN(4) {
+					case 0:
+						e.Reset(w, opts...)
+					case 1:
+						d.Reset(strings.NewReader(in), opts...)
+					case 2:
+						e.WriteValue(append(e.AvailableBuffer(), values[r.IntN(len(values))]...))
+					}
+				}
+				_, _ = e.StackPointer(), d.StackPointer()
+				for i := range e.StackDepth() + 1 {
+					e.StackIndex(i)
+				}
+				for i := range d.StackDepth() + 1 {
+					d.StackIndex(i)
+				}
+			}()
+		}
 	}
 }

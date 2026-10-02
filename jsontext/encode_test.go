@@ -384,3 +384,19 @@ func TestCopiedCodersManyNames(t *testing.T) {
 	}
 }
 
+// TestAppendUnquoteOverlap unquotes a string in the room of dst, at every offset, which the caller must not give:
+// AppendUnquote doesn't panic, and appends the string which src was.
+func TestAppendUnquoteOverlap(t *testing.T) {
+	for _, src := range []string{"\"\xff\xff\xff\xff\"", "\"\xffabc\"", "\"\u00e9\xff\xffxy\"", "\"\xf4\x90\x80\x80.fnvf\"",
+		"\"\xed\xa0\x80o\"", `"a\u00e9\n"`, "\"\xff"} {
+		want, wantErr := jsontext.AppendUnquote(nil, src)
+		for k := range len(src) + 1 {
+			b := append(make([]byte, 0, 64), src...)
+			got, err := jsontext.AppendUnquote(b[:k], b)
+			if string(got[k:]) != string(want) || fmt.Sprint(err) != fmt.Sprint(wantErr) {
+				t.Errorf("AppendUnquote(src[:%d], %q) = %q, %v; want %q, %v", k, src, got[k:], err, want, wantErr)
+			}
+		}
+	}
+}
+

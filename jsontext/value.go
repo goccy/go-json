@@ -243,6 +243,11 @@ func AppendQuote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error)
 func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error) {
 	dst = slices.Grow(dst, len(src)) // not nil, as encoding/json/jsontext returns it, when src isn't empty
 	b := []byte(src)
+	if overlaps(b, dst[len(dst):]) {
+		// src in the room of dst, which the caller must not give: the output would be written over src, which
+		// is read from a copy, so that it doesn't panic.
+		b = bytes.Clone(b)
+	}
 	if len(b) == 0 || b[0] != '"' {
 		var err error = &SyntacticError{Err: invalidChar(b, "at start of string (expecting '\"')")}
 		if len(b) == 0 {

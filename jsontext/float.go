@@ -10,7 +10,7 @@ import (
 // Schubfach way to render doubles" (2020): of the decimals which round to the float, the one of the fewest
 // digits, and of those, the one closest to the float, or the one of an even last digit where two are as close.
 
-//go:generate go run float_table_gen.go
+//go:generate go run ../internal/cmd/float_table float_table.go
 
 // The range of the exponents k of the powers of ten of floatPow10.
 const (

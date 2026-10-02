@@ -36,7 +36,7 @@ golangci-lint: | $(BIN_DIR)
 
 .PHONY: generate
 generate:
-	go generate ./internal/...
+	go generate ./internal/... ./jsontext/...
 
 # Fails if the benchmarks of go-json under ./benchmarks are degraded compared with the master branch:
 # their mean is slower beyond -tolerance, or one of them is slower beyond -single-tolerance.

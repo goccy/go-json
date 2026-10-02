@@ -1051,6 +1051,88 @@ func TestStdDiffBytesBufferRoom(t *testing.T) {
 	}
 }
 
+// TestStdDiffCopyAtEveryCall reads and writes the inputs of FuzzStdDiff with a Decoder and an Encoder which are
+// copied before every call, only the copy used, against coders of encoding/json/jsontext which are not copied: a
+// copy takes the state of the coder it was copied from, whatever it is.
+func TestStdDiffCopyAtEveryCall(t *testing.T) {
+	inputs := append([]string{
+		`{"a":[1,{"b":2,"c":[3,{"d":4}]}],"e":{"f":{"g":[]}},"h":"i"} [5,{"j":6}] {"k":{"l":{"m":{"n":7}}}}`,
+		`{"a":1,"a":2}`, `{"a":{"b":1,"b":2}}`, `[{"a":1},{"a":1,"a":1}]`, `{"a":1,"b":[1,2,}`,
+	}, stdDiffInputs...)
+	big := `{`
+	for i := range 80 {
+		big += fmt.Sprintf(`"n%d":{"m%d":[%d]},`, i, i, i)
+	}
+	inputs = append(inputs, big+`"z":0}`)
+	for _, in := range inputs {
+		for _, dup := range []bool{false, true} {
+			for _, ops := range []string{"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT", "VVVVVV", "TVTTVTTTVTTTTV", "TSTSTTSTSS"} {
+				// bytes.Buffer readers, from which encoding/json/jsontext names the member of an error rightly
+				d := jsontext.NewDecoder(bytes.NewBufferString(in), jsontext.AllowDuplicateNames(dup))
+				s := stdjsontext.NewDecoder(bytes.NewBufferString(in), stdjsontext.AllowDuplicateNames(dup))
+				var got, want string
+				for _, op := range ops {
+					c := *d
+					d = &c
+					var out, stdOut string
+					var err, stdErr error
+					switch op {
+					case 'T':
+						tok, e := d.ReadToken()
+						stdTok, stdE := s.ReadToken()
+						out, err, stdOut, stdErr = tok.String(), e, stdTok.String(), stdE
+					case 'V':
+						v, e := d.ReadValue()
+						stdV, stdE := s.ReadValue()
+						out, err, stdOut, stdErr = string(v), e, string(stdV), stdE
+					default:
+						err, stdErr = d.SkipValue(), s.SkipValue()
+					}
+					got += fmt.Sprintf("[%s %s %d %d %q] ", out, errorString(err), d.InputOffset(), d.StackDepth(), d.StackPointer())
+					want += fmt.Sprintf("[%s %s %d %d %q] ", stdOut, errorString(stdErr), s.InputOffset(), s.StackDepth(), s.StackPointer())
+				}
+				if got != want {
+					t.Errorf("%s of %q, AllowDuplicateNames(%v), copied at every call:\ngot:  %s\nwant: %s", ops, in, dup, got, want)
+				}
+			}
+			// the tokens of the input, every third one written as a value
+			var b, sb bytes.Buffer
+			e := jsontext.NewEncoder(&b, jsontext.AllowDuplicateNames(dup))
+			s := stdjsontext.NewEncoder(&sb, stdjsontext.AllowDuplicateNames(dup))
+			d, sd := jsontext.NewDecoder(strings.NewReader(in), jsontext.AllowDuplicateNames(true)), stdjsontext.NewDecoder(strings.NewReader(in), stdjsontext.AllowDuplicateNames(true))
+			var got, want string
+			for i := 0; ; i++ {
+				c := *e
+				e = &c
+				var err, stdErr error
+				if i%3 == 2 {
+					v, err1 := d.ReadValue()
+					stdV, err2 := sd.ReadValue()
+					if err1 != nil || err2 != nil {
+						break
+					}
+					err, stdErr = e.WriteValue(v), s.WriteValue(stdV)
+				} else {
+					tok, err1 := d.ReadToken()
+					stdTok, err2 := sd.ReadToken()
+					if err1 != nil || err2 != nil {
+						break
+					}
+					err, stdErr = e.WriteToken(tok), s.WriteToken(stdTok)
+				}
+				got += fmt.Sprintf("[%s %d %d %q] ", errorString(err), e.OutputOffset(), e.StackDepth(), e.StackPointer())
+				want += fmt.Sprintf("[%s %d %d %q] ", errorString(stdErr), s.OutputOffset(), s.StackDepth(), s.StackPointer())
+			}
+			if e.StackDepth() == 0 { // the output of a value which is not complete is written at other times
+				got, want = got+b.String(), want+sb.String()
+			}
+			if got != want {
+				t.Errorf("writes of %q, AllowDuplicateNames(%v), copied at every call:\ngot:  %s\nwant: %s", in, dup, got, want)
+			}
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

@@ -266,3 +266,61 @@ func TestInterleavedCopiedCoders(t *testing.T) {
 		}
 	}
 }
+
+// TestCopiedCodersChangedBefore uses copies of a Decoder and of an Encoder after the coder they were copied from
+// closed an object, or failed in a value, which changed the arrays which they share: the copies don't panic.
+func TestCopiedCodersChangedBefore(t *testing.T) {
+	noPanic := func(name string, f func()) {
+		t.Helper()
+		defer func() {
+			if p := recover(); p != nil {
+				t.Errorf("%s: panic: %v\n%s", name, p, debug.Stack())
+			}
+		}()
+		f()
+	}
+	noPanic("a copy of a Decoder whose inner object was closed", func() {
+		d0 := jsontext.NewDecoder(strings.NewReader(`{"x":1,"y":{"y":1},"k":2}`))
+		for range 7 {
+			d0.ReadToken()
+		}
+		d1 := *d0
+		d0.ReadToken()
+		d0.ReadToken()
+		d1.ReadToken()
+		d1.StackPointer()
+		d1.ReadToken()
+		d1.ReadToken()
+		d1.StackPointer()
+	})
+	noPanic("a copy of an Encoder whose inner object was closed", func() {
+		var b bytes.Buffer
+		e0 := jsontext.NewEncoder(&b, jsontext.WithIndentPrefix("  "))
+		for _, tok := range []jsontext.Token{jsontext.BeginObject, jsontext.String("x"), jsontext.String("y"),
+			jsontext.String("y"), jsontext.BeginObject, jsontext.String("y"), jsontext.String("n20")} {
+			e0.WriteToken(tok)
+		}
+		e5 := *e0
+		e0.WriteToken(jsontext.EndObject)
+		e0.WriteToken(jsontext.String("k"))
+		e6 := e5
+		e6.WriteToken(jsontext.EndObject)
+		e6.StackPointer()
+		e6.WriteToken(jsontext.String("k"))
+		e6.StackPointer()
+	})
+	noPanic("a copy of an Encoder whose value failed", func() {
+		var b bytes.Buffer
+		e0 := jsontext.NewEncoder(&b, jsontext.AllowDuplicateNames(true), jsontext.EscapeForHTML(true))
+		e0.WriteToken(jsontext.BeginObject)
+		e1 := *e0
+		e0.WriteValue(jsontext.Value(`{"a":1}`))
+		e1.WriteToken(jsontext.BeginObject)
+		e1.WriteValue(jsontext.Value(`"x"`))
+		e1.WriteValue(jsontext.Value(`{"a":{"b":x}}`))
+		e1.WriteValue(jsontext.Value(`1`))
+		e1.WriteToken(jsontext.EndObject)
+		e1.WriteToken(jsontext.String("k"))
+		e1.StackPointer()
+	})
+}

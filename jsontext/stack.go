@@ -30,23 +30,22 @@ type stack struct {
 // own gives the stack arrays of its own: the ones of a coder which was copied are shared with the coder it was
 // copied from, whose state they hold too. The indexes of the names are made again where an object needs one.
 // If the other coder changed the arrays since the copy, which interleaved use of both does, the names may not
-// fit the levels: they are dropped then, so that the copy, whose reads or writes are not defined, doesn't panic.
+// fit the levels: they are made again then, as empty names where the levels need one, so that the copy, whose
+// reads or writes are not defined, keeps a state which doesn't panic.
 func (s *stack) own() {
 	s.levels = slices.Clone(s.levels)
 	s.names.buf = slices.Clone(s.names.buf)
 	s.names.ends = slices.Clone(s.names.ends)
 	s.names.indexes = nil
 	if !s.namesFit() {
-		s.names.buf, s.names.ends = s.names.buf[:0], s.names.ends[:0]
-		for k := range s.levels {
-			if l := &s.levels[k]; l.object {
-				l.first, l.last, l.named, l.bits = 0, -1, 0, 0
-			}
-		}
+		s.refit()
 	}
 }
 
-// namesFit reports whether the names are where the levels of the objects say they are.
+// namesFit reports whether the levels and the names are in the state which reads and writes keep: an object
+// which is not the deepest level has the name of the value which is open in it, its last one; the names of an
+// object follow the ones of the object around it; and the deepest object has its last name, if it has one, at
+// the end of the names.
 func (s *stack) namesFit() bool {
 	n := &s.names
 	for k, end := range n.ends {
@@ -54,18 +53,55 @@ func (s *stack) namesFit() bool {
 			return false
 		}
 	}
-	first := 0
-	for _, l := range s.levels {
+	if len(s.levels) == 0 || s.levels[0].object {
+		return false
+	}
+	next := 0 // the index of the first name of the next object
+	deepest := len(s.levels) - 1
+	for k, l := range s.levels {
 		if !l.object {
 			continue
 		}
-		// a last name before -1 is a position in the input of a scan, which ends with the scan.
-		if l.first < first || l.first > len(n.ends) || l.last >= len(n.ends) || l.last < -1 || l.last >= 0 && l.last < l.first {
+		if l.first != next {
 			return false
 		}
-		first = l.first
+		if k < deepest {
+			// its name and the value which is open in it are counted
+			if l.count%2 == 1 || l.count == 0 || l.last < l.first || l.last >= len(n.ends) {
+				return false
+			}
+			next = l.last + 1
+			continue
+		}
+		// the deepest level, which has no name before its first member
+		if l.last == -1 {
+			return l.count == 0 && len(n.ends) == l.first
+		}
+		return l.last >= l.first && l.last == len(n.ends)-1
 	}
-	return true
+	return len(n.ends) == next
+}
+
+// refit makes the names again for the levels, which namesFit takes: an object which is not the deepest level, or
+// which has members, has an empty name.
+func (s *stack) refit() {
+	n := &s.names
+	n.buf, n.ends = n.buf[:0], n.ends[:0]
+	s.levels[0].object = false
+	for k := range s.levels {
+		l := &s.levels[k]
+		if !l.object {
+			continue
+		}
+		l.first, l.last, l.named, l.bits = len(n.ends), -1, 0, 0
+		if k < len(s.levels)-1 {
+			l.count = max(l.count&^1, 2) // its name and the value which is open in it
+		}
+		if l.count > 0 {
+			n.ends = append(n.ends, len(n.buf))
+			l.last, l.named = l.first, (l.count-1)|1 // the count after the name, before its value
+		}
+	}
 }
 
 func (s *stack) reset() {

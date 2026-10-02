@@ -359,7 +359,13 @@ func (n *names) indexObject(first int) {
 	for i := first; i < len(n.ends); i++ {
 		x.hashes = append(x.hashes, maphash.Bytes(nameSeed, n.get(i)))
 	}
-	x.rebuild(4 * maxLinearNames)
+	// a table of a quarter of its slots used at most: an object of a copy, whose indexes were dropped, may have
+	// many names already.
+	size := 4 * maxLinearNames
+	for 2*len(x.hashes) > size {
+		size *= 2
+	}
+	x.rebuild(size)
 }
 
 // rebuild makes the table of the given size, a power of two, of all the names.

@@ -110,7 +110,7 @@ func (d *decoder) reset(r io.Reader, opts []Options) {
 		}
 	}
 	d.st.reset()
-	if d.shared || d.bb != nil {
+	if _, wasBuffer := d.r.(*bytes.Buffer); d.shared || wasBuffer {
 		// the buffer of a bytes.Buffer which was read before is dropped, as encoding/json/jsontext drops it
 		d.buf, d.shared = nil, false
 	}

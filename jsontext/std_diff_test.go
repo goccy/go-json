@@ -1184,6 +1184,26 @@ func TestStdDiffAppendCapacities(t *testing.T) {
 	}
 }
 
+// TestStdDiffAppendFloatRoom compares AppendFloat to a dst of every room around the length of the text, for
+// numbers whose exponent has one digit, which strconv appends with two.
+func TestStdDiffAppendFloatRoom(t *testing.T) {
+	for _, f := range []float64{1e-7, 1e-8, 5e-9, -2.5e-9, 1.234e-7, 1e21, 1e-6, 0.000123, 123.456, -0.0, 1, 1e100} {
+		for _, bits := range []int{32, 64} {
+			for room := range 30 {
+				for _, l := range []int{0, 3} {
+					dst, stdDst := make([]byte, l, l+room), make([]byte, l, l+room)
+					got := jsontext.AppendFloat(dst, f, bits)
+					want := stdjsontext.AppendFloat(stdDst, f, bits)
+					if string(got) != string(want) || cap(got) != cap(want) || string(dst[:cap(dst)]) != string(stdDst[:cap(stdDst)]) {
+						t.Errorf("AppendFloat(%d/%d, %v, %d) = %q (cap %d, dst %q), want %q (cap %d, dst %q)", l, l+room, f, bits,
+							got, cap(got), dst[:cap(dst)], want, cap(want), stdDst[:cap(stdDst)])
+					}
+				}
+			}
+		}
+	}
+}
+
 // TestStdDiffUnreadBufferAfterReset compares the buffer of a Decoder reset to a bytes.Buffer before it reads it,
 // after other readers.
 func TestStdDiffUnreadBufferAfterReset(t *testing.T) {
@@ -1197,6 +1217,9 @@ func TestStdDiffUnreadBufferAfterReset(t *testing.T) {
 				d.ReadToken()
 				s.ReadToken()
 			}
+			// a nil bytes.Buffer, which isn't read
+			d.Reset((*bytes.Buffer)(nil))
+			s.Reset((*bytes.Buffer)(nil))
 			var got, want string
 			for range 3 {
 				d.Reset(bytes.NewBufferString("[3]"))

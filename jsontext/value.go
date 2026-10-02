@@ -303,7 +303,8 @@ func AppendFloat(dst []byte, src float64, bits int) []byte {
 	}
 	var buf [32]byte
 	text := appendFloat(buf[:0], src, bits)
-	if cap(dst)-len(dst) >= len(text) {
+	// strconv appends an exponent of one digit as two, and drops the zero then: such a text takes a byte more.
+	if n := len(text); cap(dst)-len(dst) >= n && (n < 3 || text[n-3] != 'e') {
 		return append(dst, text...)
 	}
 	return appendGrownAsStrconv(dst, text)

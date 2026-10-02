@@ -324,3 +324,63 @@ func TestCopiedCodersChangedBefore(t *testing.T) {
 		e1.StackPointer()
 	})
 }
+
+// TestCopiedCodersManyNames copies a Decoder and an Encoder in an object of many names, whose index the copy makes
+// again, and reads or writes on with the copy only: it reads and writes as a coder which was not copied.
+func TestCopiedCodersManyNames(t *testing.T) {
+	members := func(n int) string {
+		var b strings.Builder
+		for i := range n {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			fmt.Fprintf(&b, `"n%d":%d`, i, i)
+		}
+		return b.String()
+	}
+	for _, in := range []string{`{` + members(400) + `}`, `{` + members(300) + `,"in":{"a":1},` + members(10) + `,"n5":0}`} {
+		for _, at := range []int{1 + 2*255, 1 + 2*300, 1 + 2*301 + 2} {
+			read := func(copyAt int) string {
+				d := jsontext.NewDecoder(strings.NewReader(in))
+				var out string
+				for i := 0; ; i++ {
+					if i == copyAt {
+						c := *d
+						d = &c
+					}
+					tok, err := d.ReadToken()
+					if err != nil {
+						return out + err.Error()
+					}
+					out += tok.String() + " "
+				}
+			}
+			if got, want := read(at), read(-1); got != want {
+				t.Errorf("a Decoder copied after %d tokens:\ngot:  %s\nwant: %s", at, got, want)
+			}
+		}
+	}
+	write := func(copyAt int) string {
+		var b bytes.Buffer
+		e := jsontext.NewEncoder(&b)
+		e.WriteToken(jsontext.BeginObject)
+		var errs string
+		for i := range 400 {
+			if i == copyAt {
+				c := *e
+				e = &c
+			}
+			name := "n" + strconv.Itoa(i%350)
+			errs += fmt.Sprint(e.WriteToken(jsontext.String(name)), " ")
+			e.WriteToken(jsontext.Int(int64(i)))
+		}
+		e.WriteToken(jsontext.EndObject)
+		return errs + b.String()
+	}
+	for _, at := range []int{255, 300, 349} {
+		if got, want := write(at), write(-1); got != want {
+			t.Errorf("an Encoder copied after %d members: %d bytes, want %d", at, len(got), len(want))
+		}
+	}
+}
+

@@ -463,6 +463,11 @@ func (e *encoder) flush() error {
 	e.base += int64(n)
 	switch {
 	case e.bb != nil:
+		// the room of the buffer is kept at a quarter of its length at least, as encoding/json/jsontext keeps it,
+		// so that the output after it doesn't make the encoder grow it.
+		if avail := e.bb.Available(); avail < e.bb.Len()/4 {
+			e.bb.Grow(avail + 1)
+		}
 		e.buf = e.bb.AvailableBuffer()
 	case err == nil || n >= len(e.buf):
 		// the output is written, as encoding/json/jsontext takes it where the writer reports no error, whatever n

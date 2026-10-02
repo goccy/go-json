@@ -1031,6 +1031,26 @@ func TestStdDiffResetNil(t *testing.T) {
 	}
 }
 
+// TestStdDiffBytesBufferRoom compares the length and the capacity of a bytes.Buffer which an Encoder writes
+// top-level values of several lengths to: the encoder keeps room in it after each value.
+func TestStdDiffBytesBufferRoom(t *testing.T) {
+	for _, lengths := range [][]int{{50}, {100}, {1000}, {10, 70, 300, 5000}, {3, 3, 3, 3, 3, 3, 3, 3}, {20000, 1}} {
+		var b, sb bytes.Buffer
+		e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
+		var got, want string
+		for _, n := range lengths {
+			v := `"` + strings.Repeat("x", n) + `"`
+			e.WriteValue(jsontext.Value(v))
+			s.WriteValue(stdjsontext.Value(v))
+			got += fmt.Sprint(b.Len(), b.Cap(), len(e.AvailableBuffer()), " ")
+			want += fmt.Sprint(sb.Len(), sb.Cap(), len(s.AvailableBuffer()), " ")
+		}
+		if got != want {
+			t.Errorf("values of lengths %v to a bytes.Buffer:\ngot:  %s\nwant: %s", lengths, got, want)
+		}
+	}
+}
+
 // countWriter keeps what it is given, and reports n(len(p)) written with no error, which it sums.
 type countWriter struct {
 	b   bytes.Buffer

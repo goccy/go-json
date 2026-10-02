@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"regexp"
 	"strings"
@@ -1128,6 +1129,87 @@ func TestStdDiffCopyAtEveryCall(t *testing.T) {
 			}
 			if got != want {
 				t.Errorf("writes of %q, AllowDuplicateNames(%v), copied at every call:\ngot:  %s\nwant: %s", in, dup, got, want)
+			}
+		}
+	}
+}
+
+// TestStdDiffAppendCapacities compares AppendQuote and AppendFloat, which grow dst as encoding/json/jsontext grows
+// it: the capacity of the result, and the bytes of a dst which has less room than the result, which are not
+// written to.
+func TestStdDiffAppendCapacities(t *testing.T) {
+	r := rand.New(rand.NewPCG(5, 6))
+	pieces := []string{"a", "abcdefgh", "\"", "\\", "\n", "\x01", "<", "日本", "\xff", "\u2028", "😀", " "}
+	dsts := func() [][]byte {
+		return [][]byte{nil, []byte("0")[:0], make([]byte, 5, 8), make([]byte, 3, 40), make([]byte, 0, 23)}
+	}
+	for range 20000 {
+		var s string
+		for range r.IntN(30) {
+			s += pieces[r.IntN(len(pieces))]
+		}
+		stdDsts := dsts()
+		for i, dst := range dsts() {
+			got, err := jsontext.AppendQuote(dst, s)
+			want, stdErr := stdjsontext.AppendQuote(stdDsts[i], s)
+			if string(got) != string(want) || cap(got) != cap(want) || errorString(err) != errorString(stdErr) ||
+				string(dst[:cap(dst)]) != string(stdDsts[i][:cap(stdDsts[i])]) {
+				t.Fatalf("AppendQuote(%d/%d, %q) = %q (cap %d, dst %q), want %q (cap %d, dst %q)", len(dst), cap(dst), s,
+					got, cap(got), dst[:cap(dst)], want, cap(want), stdDsts[i][:cap(stdDsts[i])])
+			}
+		}
+		f := math.Float64frombits(r.Uint64())
+		switch r.IntN(4) {
+		case 0:
+			f = math.Trunc(r.Float64() * math.Pow(10, float64(r.IntN(22))))
+		case 1:
+			f = r.Float64() * math.Pow(10, float64(r.IntN(40)-20))
+		}
+		for _, bits := range []int{32, 64} {
+			stdDsts := dsts()
+			for i, dst := range dsts() {
+				got := recovered(func() string {
+					b := jsontext.AppendFloat(dst, f, bits)
+					return fmt.Sprint(string(b), cap(b))
+				})
+				want := recovered(func() string {
+					b := stdjsontext.AppendFloat(stdDsts[i], f, bits)
+					return fmt.Sprint(string(b), cap(b))
+				})
+				if got != want {
+					t.Fatalf("AppendFloat(%d/%d, %v, %d) = %s, want %s", len(dst), cap(dst), f, bits, got, want)
+				}
+			}
+		}
+	}
+}
+
+// TestStdDiffUnreadBufferAfterReset compares the buffer of a Decoder reset to a bytes.Buffer before it reads it,
+// after other readers.
+func TestStdDiffUnreadBufferAfterReset(t *testing.T) {
+	for _, first := range []func() io.Reader{
+		func() io.Reader { return strings.NewReader("1 2") },
+		func() io.Reader { return bytes.NewBufferString("1 2") },
+	} {
+		for _, read := range []bool{false, true} {
+			d, s := jsontext.NewDecoder(first()), stdjsontext.NewDecoder(first())
+			if read {
+				d.ReadToken()
+				s.ReadToken()
+			}
+			var got, want string
+			for range 3 {
+				d.Reset(bytes.NewBufferString("[3]"))
+				s.Reset(bytes.NewBufferString("[3]"))
+				got += fmt.Sprint(len(d.UnreadBuffer()), cap(d.UnreadBuffer()) == 0, " ")
+				want += fmt.Sprint(len(s.UnreadBuffer()), cap(s.UnreadBuffer()) == 0, " ")
+			}
+			d.ReadToken()
+			s.ReadToken()
+			got += fmt.Sprintf("%q %d", d.UnreadBuffer(), cap(d.UnreadBuffer()))
+			want += fmt.Sprintf("%q %d", s.UnreadBuffer(), cap(s.UnreadBuffer()))
+			if got != want {
+				t.Errorf("UnreadBuffer after Reset to a bytes.Buffer, read %v:\ngot:  %s\nwant: %s", read, got, want)
 			}
 		}
 	}

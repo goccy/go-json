@@ -227,6 +227,9 @@ func putEncoder(e *encoder) {
 // the extended buffer. Invalid UTF-8 is appended as the Unicode replacement character, and reported by an error
 // at the end. dst must not overlap src.
 func AppendQuote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error) {
+	// the room of the quoted src is made first, as encoding/json/jsontext makes it: a dst which has less isn't
+	// written to.
+	dst = slices.Grow(dst, len(src)+2)
 	dst, valid := appendQuoted(dst, src, 0)
 	if !valid {
 		return dst, &SyntacticError{Err: errInvalidUTF8}
@@ -298,5 +301,44 @@ func AppendFloat(dst []byte, src float64, bits int) []byte {
 	if math.IsNaN(src) || math.IsInf(src, 0) {
 		return strconv.AppendFloat(dst, src, 'g', -1, bits)
 	}
-	return appendFloat(dst, src, bits)
+	var buf [32]byte
+	text := appendFloat(buf[:0], src, bits)
+	if cap(dst)-len(dst) >= len(text) {
+		return append(dst, text...)
+	}
+	return appendGrownAsStrconv(dst, text)
+}
+
+// appendGrownAsStrconv appends the text of a finite float to a dst which has less room, by the appends of
+// strconv.AppendFloat, which encoding/json/jsontext calls: dst grows by the same steps, to the same capacity. A
+// number with an exponent is appended a byte at a time, but its digits after the point and its exponent, which
+// has two digits at least; another one a byte at a time.
+func appendGrownAsStrconv(dst, text []byte) []byte {
+	e := bytes.IndexByte(text, 'e')
+	if e < 0 {
+		for _, c := range text { //nolint:staticcheck // a byte at a time, which grows dst by the steps of strconv
+			dst = append(dst, c)
+		}
+		return dst
+	}
+	i := 0
+	if text[0] == '-' {
+		dst = append(dst, '-')
+		i++
+	}
+	dst = append(dst, text[i])
+	if i+1 < e { // .digits
+		dst = append(dst, '.')
+		dst = append(dst, text[i+2:e]...)
+	}
+	dst = append(dst, 'e')
+	dst = append(dst, text[e+1])
+	if exp := text[e+2:]; len(exp) == 1 {
+		dst = append(dst, '0', exp[0])
+		dst[len(dst)-2] = exp[0]
+		dst = dst[:len(dst)-1]
+	} else {
+		dst = append(dst, exp...)
+	}
+	return dst
 }

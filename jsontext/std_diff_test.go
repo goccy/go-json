@@ -1204,6 +1204,34 @@ func TestStdDiffAppendFloatRoom(t *testing.T) {
 	}
 }
 
+// TestStdDiffAppendUnquoteRoom compares AppendUnquote to a dst of every room, of strings whose invalid UTF-8,
+// written as U+FFFD, makes the output longer than the input: the bytes of the array of dst too.
+func TestStdDiffAppendUnquoteRoom(t *testing.T) {
+	r := rand.New(rand.NewPCG(7, 8))
+	pieces := []string{"a", "abc", "\xff", "\xe6\x97", "日", "😀", `\n`, `\u00e9`, `\ud83d\ude00`, `\ud800`, `\"`, " "}
+	for range 3000 {
+		src := `"`
+		for range r.IntN(12) {
+			src += pieces[r.IntN(len(pieces))]
+		}
+		if r.IntN(8) > 0 {
+			src += `"`
+		}
+		for room := range 40 {
+			for _, l := range []int{0, 2} {
+				dst, stdDst := bytes.Repeat([]byte("#"), l+room)[:l], bytes.Repeat([]byte("#"), l+room)[:l]
+				got, err := jsontext.AppendUnquote(dst, src)
+				want, stdErr := stdjsontext.AppendUnquote(stdDst, src)
+				if string(got) != string(want) || cap(got) != cap(want) || errorString(err) != errorString(stdErr) ||
+					string(dst[:cap(dst)]) != string(stdDst[:cap(stdDst)]) {
+					t.Fatalf("AppendUnquote(%d/%d, %q) = %q (cap %d, dst %q, %v), want %q (cap %d, dst %q, %v)", l, l+room, src,
+						got, cap(got), dst[:cap(dst)], err, want, cap(want), stdDst[:cap(stdDst)], stdErr)
+				}
+			}
+		}
+	}
+}
+
 // TestStdDiffUnreadBufferAfterReset compares the buffer of a Decoder reset to a bytes.Buffer before it reads it,
 // after other readers.
 func TestStdDiffUnreadBufferAfterReset(t *testing.T) {

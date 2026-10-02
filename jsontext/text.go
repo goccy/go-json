@@ -640,9 +640,20 @@ var hexTable = func() [256]int8 {
 func appendUnquoted(dst, s []byte) []byte {
 	s = s[1:] // the closing quote stays: an escape sequence at the end is followed by it
 	for len(s) > 1 {
+		// the characters taken as they are, valid UTF-8 which is not an escape sequence, are appended at once, as
+		// encoding/json/jsontext appends them: a dst which grows for the U+FFFD of invalid UTF-8 after them grows
+		// before they are written.
 		i := 0
-		for i < len(s)-1 && s[i] != '\\' && s[i] < utf8.RuneSelf {
-			i++
+		for i < len(s)-1 && s[i] != '\\' {
+			if s[i] < utf8.RuneSelf {
+				i++
+				continue
+			}
+			r, n := utf8.DecodeRune(s[i:])
+			if r == utf8.RuneError && n == 1 {
+				break
+			}
+			i += n
 		}
 		dst = append(dst, s[:i]...)
 		s = s[i:]
@@ -658,13 +669,8 @@ func appendUnquoted(dst, s []byte) []byte {
 			s = s[n:]
 			continue
 		}
-		r, n := utf8.DecodeRune(s)
-		if r == utf8.RuneError && n == 1 {
-			dst = append(dst, "�"...)
-		} else {
-			dst = append(dst, s[:n]...)
-		}
-		s = s[n:]
+		dst = append(dst, "�"...) // a byte of invalid UTF-8
+		s = s[1:]
 	}
 	return dst
 }

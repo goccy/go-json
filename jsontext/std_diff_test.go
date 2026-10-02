@@ -1232,6 +1232,38 @@ func TestStdDiffAppendUnquoteRoom(t *testing.T) {
 	}
 }
 
+// keepWriter keeps each slice which it is given.
+type keepWriter struct{ kept [][]byte }
+
+func (w *keepWriter) Write(p []byte) (int, error) {
+	w.kept = append(w.kept, p)
+	return len(p), nil
+}
+
+// TestStdDiffEncoderResetAfterBuffer resets an Encoder to a writer after a bytes.Buffer, nil or not, which it
+// wrote to or not: the output to the writer before is not written over.
+func TestStdDiffEncoderResetAfterBuffer(t *testing.T) {
+	for _, between := range []func() io.Writer{
+		func() io.Writer { return (*bytes.Buffer)(nil) },
+		func() io.Writer { return new(bytes.Buffer) },
+	} {
+		w, stdW := new(keepWriter), new(keepWriter)
+		e, s := jsontext.NewEncoder(w), stdjsontext.NewEncoder(stdW)
+		e.WriteValue(jsontext.Value(`"aaaaaaaa"`))
+		s.WriteValue(stdjsontext.Value(`"aaaaaaaa"`))
+		e.Reset(between())
+		s.Reset(between())
+		w2, stdW2 := new(keepWriter), new(keepWriter)
+		e.Reset(w2)
+		s.Reset(stdW2)
+		e.WriteValue(jsontext.Value(`"bbbbbbbb"`))
+		s.WriteValue(stdjsontext.Value(`"bbbbbbbb"`))
+		if got, want := fmt.Sprintf("%q %q", w.kept, w2.kept), fmt.Sprintf("%q %q", stdW.kept, stdW2.kept); got != want {
+			t.Errorf("output to the writers before and after a Reset to %T:\ngot:  %s\nwant: %s", between(), got, want)
+		}
+	}
+}
+
 // TestStdDiffUnreadBufferAfterReset compares the buffer of a Decoder reset to a bytes.Buffer before it reads it,
 // after other readers.
 func TestStdDiffUnreadBufferAfterReset(t *testing.T) {

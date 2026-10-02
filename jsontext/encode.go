@@ -130,8 +130,8 @@ func (e *encoder) init(w io.Writer) {
 		e.vs.st, e.vs.lines, e.vs.scratch, e.vs.ro = &e.st, nil, nil, reorderer{}
 	}
 	e.st.reset()
-	if e.bb != nil {
-		e.buf = nil // the array of the bytes.Buffer written before, which stays its own
+	if _, wasBuffer := e.w.(*bytes.Buffer); wasBuffer {
+		e.buf = nil // the array of the bytes.Buffer written before, which stays its own, or of a nil one
 	}
 	e.w = w
 	e.bb, _ = w.(*bytes.Buffer)

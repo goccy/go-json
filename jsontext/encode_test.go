@@ -399,4 +399,3 @@ func TestAppendUnquoteOverlap(t *testing.T) {
 		}
 	}
 }
-

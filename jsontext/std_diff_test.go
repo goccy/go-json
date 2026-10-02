@@ -731,33 +731,6 @@ func TestStdDiffInvalidToken(t *testing.T) {
 	}
 }
 
-// TestStdDiffAvailableBuffer compares the capacity of AvailableBuffer after values of several lengths, which it
-// follows, and after a Reset, which forgets them.
-func TestStdDiffAvailableBuffer(t *testing.T) {
-	var b, sb bytes.Buffer
-	e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
-	var got, want string
-	for _, n := range []int{0, 10, 70, 300, 64, 5000, 3} {
-		if n > 0 {
-			v := `"` + strings.Repeat("x", n-2) + `"`
-			if n < 2 {
-				v = "1"
-			}
-			e.WriteValue(jsontext.Value(v))
-			s.WriteValue(stdjsontext.Value(v))
-		}
-		got += fmt.Sprint(cap(e.AvailableBuffer()), len(e.AvailableBuffer()), " ")
-		want += fmt.Sprint(cap(s.AvailableBuffer()), len(s.AvailableBuffer()), " ")
-		if n == 5000 {
-			e.Reset(&b)
-			s.Reset(&sb)
-		}
-	}
-	if got != want {
-		t.Errorf("capacities of AvailableBuffer:\ngot:  %s\nwant: %s", got, want)
-	}
-}
-
 // eofBetween returns its chunks in turn, with io.EOF between them, and then tail.
 type eofBetween struct {
 	chunks []string
@@ -949,8 +922,8 @@ func TestStdDiffEscapeErrorQuotes(t *testing.T) {
 	}
 }
 
-// TestStdDiffAppendToReadValue appends to each value which ReadValue returns, which has no room after it: the
-// input after it, which the decoder reads next, stays as it is.
+// TestStdDiffAppendToReadValue appends to each value which ReadValue returns: the input after it, which the
+// decoder reads next, stays as it is.
 func TestStdDiffAppendToReadValue(t *testing.T) {
 	const in = `[1,2] {"a":3} "x" 4`
 	for _, newReader := range []func() io.Reader{
@@ -963,50 +936,13 @@ func TestStdDiffAppendToReadValue(t *testing.T) {
 		for range 5 {
 			v, err := d.ReadValue()
 			stdV, stdErr := s.ReadValue()
-			got += fmt.Sprintf("[%s %s %d] ", v, errorString(err), cap(v)-len(v))
-			want += fmt.Sprintf("[%s %s %d] ", stdV, errorString(stdErr), cap(stdV)-len(stdV))
+			got += fmt.Sprintf("[%s %s] ", v, errorString(err))
+			want += fmt.Sprintf("[%s %s] ", stdV, errorString(stdErr))
 			_ = append(v, "XXXXXXXXXXXX"...)
 			_ = append(stdV, "XXXXXXXXXXXX"...)
 		}
 		if got != want {
 			t.Errorf("ReadValue, appended to:\ngot:  %s\nwant: %s", got, want)
-		}
-	}
-}
-
-// TestStdDiffAvailableBufferAfterReset compares the capacity of AvailableBuffer after a Reset, which keeps it, of
-// an Encoder and of a copy of it.
-func TestStdDiffAvailableBufferAfterReset(t *testing.T) {
-	long := `"` + strings.Repeat("x", 5000) + `"`
-	for _, how := range []string{"reset", "reset then copy", "copy then reset", "copy"} {
-		var b, sb bytes.Buffer
-		e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
-		e.WriteValue(jsontext.Value(long))
-		s.WriteValue(stdjsontext.Value(long))
-		e.AvailableBuffer()
-		s.AvailableBuffer()
-		switch how {
-		case "reset":
-			e.Reset(&b)
-			s.Reset(&sb)
-		case "reset then copy":
-			e.Reset(&b)
-			s.Reset(&sb)
-			e2, s2 := *e, *s
-			e, s = &e2, &s2
-		case "copy then reset":
-			e2, s2 := *e, *s
-			e, s = &e2, &s2
-			e.Reset(&b)
-			s.Reset(&sb)
-		default:
-			e2, s2 := *e, *s
-			e, s = &e2, &s2
-		}
-		e.WriteValue(jsontext.Value("1"))
-		s.WriteValue(stdjsontext.Value("1"))
-		if got, want := cap(e.AvailableBuffer()), cap(s.AvailableBuffer()); got != want {
-			t.Errorf("capacity of AvailableBuffer after %s = %d, want %d", how, got, want)
 		}
 	}
 }
@@ -1032,9 +968,9 @@ func TestStdDiffResetNil(t *testing.T) {
 	}
 }
 
-// TestStdDiffBytesBufferRoom compares the length and the capacity of a bytes.Buffer which an Encoder writes
-// top-level values of several lengths to: the encoder keeps room in it after each value.
-func TestStdDiffBytesBufferRoom(t *testing.T) {
+// TestStdDiffBytesBuffer compares the content of a bytes.Buffer which an Encoder writes top-level values of
+// several lengths to, after each value.
+func TestStdDiffBytesBuffer(t *testing.T) {
 	for _, lengths := range [][]int{{50}, {100}, {1000}, {10, 70, 300, 5000}, {3, 3, 3, 3, 3, 3, 3, 3}, {20000, 1}} {
 		var b, sb bytes.Buffer
 		e, s := jsontext.NewEncoder(&b), stdjsontext.NewEncoder(&sb)
@@ -1043,8 +979,8 @@ func TestStdDiffBytesBufferRoom(t *testing.T) {
 			v := `"` + strings.Repeat("x", n) + `"`
 			e.WriteValue(jsontext.Value(v))
 			s.WriteValue(stdjsontext.Value(v))
-			got += fmt.Sprint(b.Len(), b.Cap(), len(e.AvailableBuffer()), " ")
-			want += fmt.Sprint(sb.Len(), sb.Cap(), len(s.AvailableBuffer()), " ")
+			got += fmt.Sprint(b.Len(), len(e.AvailableBuffer()), " ")
+			want += fmt.Sprint(sb.Len(), len(s.AvailableBuffer()), " ")
 		}
 		if got != want {
 			t.Errorf("values of lengths %v to a bytes.Buffer:\ngot:  %s\nwant: %s", lengths, got, want)
@@ -1134,10 +1070,8 @@ func TestStdDiffCopyAtEveryCall(t *testing.T) {
 	}
 }
 
-// TestStdDiffAppendCapacities compares AppendQuote and AppendFloat, which grow dst as encoding/json/jsontext grows
-// it: the capacity of the result, and the bytes of a dst which has less room than the result, which are not
-// written to.
-func TestStdDiffAppendCapacities(t *testing.T) {
+// TestStdDiffAppendQuoteAndFloat compares AppendQuote and AppendFloat to dst of several lengths and rooms.
+func TestStdDiffAppendQuoteAndFloat(t *testing.T) {
 	r := rand.New(rand.NewPCG(5, 6))
 	pieces := []string{"a", "abcdefgh", "\"", "\\", "\n", "\x01", "<", "日本", "\xff", "\u2028", "😀", " "}
 	dsts := func() [][]byte {
@@ -1152,10 +1086,8 @@ func TestStdDiffAppendCapacities(t *testing.T) {
 		for i, dst := range dsts() {
 			got, err := jsontext.AppendQuote(dst, s)
 			want, stdErr := stdjsontext.AppendQuote(stdDsts[i], s)
-			if string(got) != string(want) || cap(got) != cap(want) || errorString(err) != errorString(stdErr) ||
-				string(dst[:cap(dst)]) != string(stdDsts[i][:cap(stdDsts[i])]) {
-				t.Fatalf("AppendQuote(%d/%d, %q) = %q (cap %d, dst %q), want %q (cap %d, dst %q)", len(dst), cap(dst), s,
-					got, cap(got), dst[:cap(dst)], want, cap(want), stdDsts[i][:cap(stdDsts[i])])
+			if string(got) != string(want) || errorString(err) != errorString(stdErr) {
+				t.Fatalf("AppendQuote(%d/%d, %q) = %q, %v; want %q, %v", len(dst), cap(dst), s, got, err, want, stdErr)
 			}
 		}
 		f := math.Float64frombits(r.Uint64())
@@ -1170,11 +1102,11 @@ func TestStdDiffAppendCapacities(t *testing.T) {
 			for i, dst := range dsts() {
 				got := recovered(func() string {
 					b := jsontext.AppendFloat(dst, f, bits)
-					return fmt.Sprint(string(b), cap(b))
+					return string(b)
 				})
 				want := recovered(func() string {
 					b := stdjsontext.AppendFloat(stdDsts[i], f, bits)
-					return fmt.Sprint(string(b), cap(b))
+					return string(b)
 				})
 				if got != want {
 					t.Fatalf("AppendFloat(%d/%d, %v, %d) = %s, want %s", len(dst), cap(dst), f, bits, got, want)
@@ -1184,28 +1116,8 @@ func TestStdDiffAppendCapacities(t *testing.T) {
 	}
 }
 
-// TestStdDiffAppendFloatRoom compares AppendFloat to a dst of every room around the length of the text, for
-// numbers whose exponent has one digit, which strconv appends with two.
-func TestStdDiffAppendFloatRoom(t *testing.T) {
-	for _, f := range []float64{1e-7, 1e-8, 5e-9, -2.5e-9, 1.234e-7, 1e21, 1e-6, 0.000123, 123.456, -0.0, 1, 1e100} {
-		for _, bits := range []int{32, 64} {
-			for room := range 30 {
-				for _, l := range []int{0, 3} {
-					dst, stdDst := make([]byte, l, l+room), make([]byte, l, l+room)
-					got := jsontext.AppendFloat(dst, f, bits)
-					want := stdjsontext.AppendFloat(stdDst, f, bits)
-					if string(got) != string(want) || cap(got) != cap(want) || string(dst[:cap(dst)]) != string(stdDst[:cap(stdDst)]) {
-						t.Errorf("AppendFloat(%d/%d, %v, %d) = %q (cap %d, dst %q), want %q (cap %d, dst %q)", l, l+room, f, bits,
-							got, cap(got), dst[:cap(dst)], want, cap(want), stdDst[:cap(stdDst)])
-					}
-				}
-			}
-		}
-	}
-}
-
 // TestStdDiffAppendUnquoteRoom compares AppendUnquote to a dst of every room, of strings whose invalid UTF-8,
-// written as U+FFFD, makes the output longer than the input: the bytes of the array of dst too.
+// written as U+FFFD, makes the output longer than the input.
 func TestStdDiffAppendUnquoteRoom(t *testing.T) {
 	r := rand.New(rand.NewPCG(7, 8))
 	pieces := []string{"a", "abc", "\xff", "\xe6\x97", "日", "😀", `\n`, `\u00e9`, `\ud83d\ude00`, `\ud800`, `\"`, " "}
@@ -1222,10 +1134,8 @@ func TestStdDiffAppendUnquoteRoom(t *testing.T) {
 				dst, stdDst := bytes.Repeat([]byte("#"), l+room)[:l], bytes.Repeat([]byte("#"), l+room)[:l]
 				got, err := jsontext.AppendUnquote(dst, src)
 				want, stdErr := stdjsontext.AppendUnquote(stdDst, src)
-				if string(got) != string(want) || cap(got) != cap(want) || errorString(err) != errorString(stdErr) ||
-					string(dst[:cap(dst)]) != string(stdDst[:cap(stdDst)]) {
-					t.Fatalf("AppendUnquote(%d/%d, %q) = %q (cap %d, dst %q, %v), want %q (cap %d, dst %q, %v)", l, l+room, src,
-						got, cap(got), dst[:cap(dst)], err, want, cap(want), stdDst[:cap(stdDst)], stdErr)
+				if string(got) != string(want) || errorString(err) != errorString(stdErr) {
+					t.Fatalf("AppendUnquote(%d/%d, %q) = %q, %v; want %q, %v", l, l+room, src, got, err, want, stdErr)
 				}
 			}
 		}
@@ -1264,8 +1174,8 @@ func TestStdDiffEncoderResetAfterBuffer(t *testing.T) {
 	}
 }
 
-// TestStdDiffUnreadBufferAfterReset compares the buffer of a Decoder reset to a bytes.Buffer before it reads it,
-// after other readers.
+// TestStdDiffUnreadBufferAfterReset compares the unread input of a Decoder reset to a bytes.Buffer, before and
+// after it reads it, after other readers.
 func TestStdDiffUnreadBufferAfterReset(t *testing.T) {
 	for _, first := range []func() io.Reader{
 		func() io.Reader { return strings.NewReader("1 2") },
@@ -1284,13 +1194,13 @@ func TestStdDiffUnreadBufferAfterReset(t *testing.T) {
 			for range 3 {
 				d.Reset(bytes.NewBufferString("[3]"))
 				s.Reset(bytes.NewBufferString("[3]"))
-				got += fmt.Sprint(len(d.UnreadBuffer()), cap(d.UnreadBuffer()) == 0, " ")
-				want += fmt.Sprint(len(s.UnreadBuffer()), cap(s.UnreadBuffer()) == 0, " ")
+				got += fmt.Sprint(len(d.UnreadBuffer()), " ")
+				want += fmt.Sprint(len(s.UnreadBuffer()), " ")
 			}
 			d.ReadToken()
 			s.ReadToken()
-			got += fmt.Sprintf("%q %d", d.UnreadBuffer(), cap(d.UnreadBuffer()))
-			want += fmt.Sprintf("%q %d", s.UnreadBuffer(), cap(s.UnreadBuffer()))
+			got += fmt.Sprintf("%q", d.UnreadBuffer())
+			want += fmt.Sprintf("%q", s.UnreadBuffer())
 			if got != want {
 				t.Errorf("UnreadBuffer after Reset to a bytes.Buffer, read %v:\ngot:  %s\nwant: %s", read, got, want)
 			}

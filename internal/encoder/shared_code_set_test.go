@@ -172,7 +172,7 @@ func BenchmarkRecentCodeSetsByTurns(b *testing.B) {
 					if ctx.RecentCodeSet(typeptr) != nil {
 						continue
 					}
-					if codeSet := ctx.SharedCodeSets().Load(typeptr); codeSet != nil {
+					if codeSet := ctx.SharedCodeSets().LoadFirst(typeptr); codeSet != nil {
 						ctx.RememberCodeSet(typeptr, codeSet)
 						continue
 					}

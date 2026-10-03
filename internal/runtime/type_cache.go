@@ -24,6 +24,12 @@ func (c *TypeCache[T]) Load(typ uintptr) *T {
 	return (*T)(c.cache.load(typ))
 }
 
+// LoadFirst returns the value for the type if it is in the entry the type is hashed to, or nil: then Load is to be
+// called. It is smaller than Load, without a loop.
+func (c *TypeCache[T]) LoadFirst(typ uintptr) *T {
+	return (*T)(c.cache.loadFirst(typ))
+}
+
 // Store sets the value for the type, and returns the value which the table has for the type:
 // it is the value which was stored first if the type was compiled by more than one goroutine at a time.
 func (c *TypeCache[T]) Store(typ uintptr, v *T) *T {
@@ -75,6 +81,17 @@ func (t *typeTable) index(typ uintptr) uintptr {
 // the check of the bounds is not worth its cost on this path, which every Marshal and Unmarshal takes.
 func (t *typeTable) entry(index uintptr) *typeEntry {
 	return (*typeEntry)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(t.entries)), index*unsafe.Sizeof(typeEntry{})))
+}
+
+func (c *typeCache) loadFirst(typ uintptr) unsafe.Pointer {
+	t := (*typeTable)(atomic.LoadPointer(&c.table))
+	if t == nil {
+		return nil
+	}
+	if e := t.entry(t.index(typ)); atomic.LoadUintptr(&e.typ) == typ {
+		return atomic.LoadPointer(&e.value)
+	}
+	return nil
 }
 
 // load looks at the entries from the one the type is hashed to, up to the type or a free entry.

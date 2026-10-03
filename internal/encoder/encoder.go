@@ -526,6 +526,10 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			}
 		}
 	}
+	// an integer without a sign, the most common number, is decided here without a call
+	if nonDigits == 0 && (src[0] != '0' || l == 1) {
+		return b[:len(b)+l], nil
+	}
 	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {
 		return nil, invalidNumberError(n, false)
 	}

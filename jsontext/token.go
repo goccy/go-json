@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/goccy/go-json/internal/intfmt"
 	"github.com/goccy/go-json/internal/jsonnum"
 )
 
@@ -316,9 +317,9 @@ func (t Token) text() (string, []byte) {
 func (t Token) appendNumber(b []byte) []byte {
 	switch t.source().form {
 	case formInt:
-		return strconv.AppendInt(b, int64(t.num), 10)
+		return intfmt.AppendInt(b, int64(t.num))
 	case formUint:
-		return strconv.AppendUint(b, t.num, 10)
+		return intfmt.AppendUint(b, t.num)
 	case formFloat:
 		return appendFloatText(b, math.Float64frombits(t.num), 64)
 	default:

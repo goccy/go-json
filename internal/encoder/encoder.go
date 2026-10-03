@@ -483,7 +483,7 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
-	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+	if k, place := jsonnum.Scan(unsafe.Slice(unsafe.StringData(string(n)), len(n))); place != jsonnum.Valid || k != len(n) {
 		return nil, invalidNumberError(n, false)
 	}
 	return append(b, n...), nil
@@ -495,7 +495,7 @@ func AppendNumberString(_ *RuntimeContext, b []byte, n json.Number) ([]byte, err
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
-	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+	if k, place := jsonnum.Scan(unsafe.Slice(unsafe.StringData(string(n)), len(n))); place != jsonnum.Valid || k != len(n) {
 		return nil, invalidNumberError(n, true)
 	}
 	return append(b, n...), nil

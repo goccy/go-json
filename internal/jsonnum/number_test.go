@@ -7,21 +7,28 @@ import (
 	"testing"
 )
 
-// AllDigits is true only when every byte of the word is a digit, whatever the other bytes are.
-func TestAllDigits(t *testing.T) {
+// NonDigits has the bits of the bytes which are not digits, whatever the other bytes are, but for the byte after
+// one of 0xFA or more, which it may set as well.
+func TestNonDigits(t *testing.T) {
 	for pos := 0; pos < 8; pos++ {
 		for c := 0; c < 256; c++ {
-			for _, fill := range []byte{'0', '5', '9'} {
+			for _, fill := range []byte{'0', '5', '9', 'a', 0xff} {
 				var w uint64
+				var b [8]byte
 				for i := 0; i < 8; i++ {
-					b := uint64(fill)
+					b[i] = fill
 					if i == pos {
-						b = uint64(c)
+						b[i] = byte(c)
 					}
-					w |= b << (8 * i)
+					w |= uint64(b[i]) << (8 * i)
 				}
-				if want := '0' <= c && c <= '9'; AllDigits(w) != want {
-					t.Fatalf("byte %#x at %d among %q: got %v", c, pos, fill, !want)
+				got := NonDigits(w)
+				for i := 0; i < 8; i++ {
+					want := b[i] < '0' || b[i] > '9'
+					set := got&(1<<i) != 0
+					if set != want && !(set && i > 0 && b[i-1] >= 0xfa) {
+						t.Fatalf("% x: bit %d is %v, want %v", b, i, set, want)
+					}
 				}
 			}
 		}

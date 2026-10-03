@@ -64,12 +64,59 @@ func IsValid(b []byte) bool {
 	return accepting[st>>8]
 }
 
-// AllDigits reports whether the 8 bytes of w are digits. It is small enough to be inlined.
-func AllDigits(w uint64) bool {
+// NonDigits has the bit i of each byte i of w, a little-endian word, which is not a digit; a byte of 0xFA or
+// more may set the bit of the byte after it too, which is not a digit then either way but a caller which takes a
+// set bit for a byte to look at. It is small enough to be inlined.
+func NonDigits(w uint64) uint8 {
 	const lsb = 0x0101010101010101
-	// the high nibble of every byte is 3, and adding 6 to the low one, which carries into the high one for 10 to
-	// 15, leaves it 3: no byte carries into the next.
-	return w&(lsb*0xf0) == lsb*0x30 && (w+lsb*6)&(lsb*0xf0) == lsb*0x30
+	// a digit has the high nibble 3, which adding 6 to it keeps: the bytes of x are 0 for the digits
+	x := ((w & (lsb * 0xf0)) ^ (lsb * 0x30)) | (((w + lsb*6) & (lsb * 0xf0)) ^ (lsb * 0x30))
+	// the top bit of each byte which is not 0, without a carry between the bytes
+	m := (((x & (lsb * 0x7f)) + lsb*0x7f) | x) & (lsb * 0x80)
+	// the top bits gathered into a byte, of the byte i in the bit i
+	return uint8((m >> 7) * 0x0102040810204080 >> 56)
+}
+
+// ValidByNonDigits reports whether b is a JSON number by nonDigits, the bits of its bytes which are not digits
+// ( see NonDigits ): true if it is one, and false if it may not be, which IsValid then decides. The bytes which
+// are not digits are a sign, a decimal point, the exponent and its sign, each at most once and in its place,
+// whose bits are cleared one by one: a bit left is a byte which the grammar doesn't have there.
+func ValidByNonDigits(b []byte, nonDigits uint) bool {
+	l := len(b)
+	start := 0
+	if b[0] == '-' {
+		nonDigits &^= 1
+		start = 1
+	}
+	if start >= l || nonDigits&(1<<start) != 0 {
+		return false // no digit first
+	}
+	if b[start] == '0' && start+1 < l && nonDigits&(1<<(start+1)) == 0 {
+		return false // a leading zero
+	}
+	if nonDigits == 0 {
+		return true
+	}
+	p := bits.TrailingZeros(nonDigits)
+	if b[p] == '.' {
+		if p+1 >= l || nonDigits&(1<<(p+1)) != 0 {
+			return false // no digit after the decimal point
+		}
+		if nonDigits &^= 1 << p; nonDigits == 0 {
+			return true
+		}
+		p = bits.TrailingZeros(nonDigits)
+	}
+	if b[p]|0x20 != 'e' {
+		return false
+	}
+	nonDigits &^= 1 << p
+	if p+1 < l && (b[p+1] == '+' || b[p+1] == '-') {
+		nonDigits &^= 1 << (p + 1)
+		p++
+	}
+	// digits after the exponent, and nothing else
+	return p+1 < l && nonDigits == 0
 }
 
 // The states of IsValid: where a number is, after the bytes before.

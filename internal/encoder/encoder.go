@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -477,44 +478,55 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 // AppendNumber appends n, which must be a JSON number by its grammar, as encoding/json writes a json.Number: an
 // empty one as 0.
 //
-// The VM calls it through a variable: its body is not a call of another function, which would be a second call
-// for every number.
+// A number of up to 24 bytes is copied by the words which overlap, without a call of memmove, and the bytes which
+// are not digits are found in the words as they are loaded, which the grammar is checked by at once ( see
+// jsonnum.ValidByNonDigits ): only a number which they don't decide goes through the grammar a byte at a time.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	l := len(n)
 	if l == 0 {
 		return append(b, '0'), nil
 	}
-	if l > 16 {
+	if l > 24 {
 		if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), l)) {
 			return nil, invalidNumberError(n, false)
 		}
 		return append(b, n...), nil
 	}
-	// a number of up to 16 bytes is copied by the words which overlap, whose bytes are checked for digits: an
-	// integer without a leading zero is valid without the check of its grammar.
 	if cap(b)-len(b) < l {
 		b = growForNumber(b, l)
 	}
-	src := unsafe.Pointer(unsafe.StringData(string(n)))
-	dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b))
-	digits := false
+	src := unsafe.Slice(unsafe.StringData(string(n)), l)
+	dst := b[len(b) : len(b)+l]
+	// nonDigits has the bit i of each byte i of n which is not a digit
+	var nonDigits uint
 	switch {
+	case l > 16:
+		first, mid, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[8:]), binary.LittleEndian.Uint64(src[l-8:])
+		binary.LittleEndian.PutUint64(dst, first)
+		binary.LittleEndian.PutUint64(dst[8:], mid)
+		binary.LittleEndian.PutUint64(dst[l-8:], last)
+		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(mid))<<8 | uint(jsonnum.NonDigits(last))<<(l-8)
 	case l >= 8:
-		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, l-8))
-		*(*uint64)(dst) = first
-		*(*uint64)(unsafe.Add(dst, l-8)) = last
-		digits = jsonnum.AllDigits(first) && jsonnum.AllDigits(last)
+		first, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[l-8:])
+		binary.LittleEndian.PutUint64(dst, first)
+		binary.LittleEndian.PutUint64(dst[l-8:], last)
+		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(last))<<(l-8)
 	case l >= 4:
-		first, last := *(*uint32)(src), *(*uint32)(unsafe.Add(src, l-4))
-		*(*uint32)(dst) = first
-		*(*uint32)(unsafe.Add(dst, l-4)) = last
-		digits = jsonnum.AllDigits(uint64(first) | uint64(last)<<32)
+		first, last := binary.LittleEndian.Uint32(src), binary.LittleEndian.Uint32(src[l-4:])
+		binary.LittleEndian.PutUint32(dst, first)
+		binary.LittleEndian.PutUint32(dst[l-4:], last)
+		m := uint(jsonnum.NonDigits(uint64(first) | uint64(last)<<32))
+		nonDigits = m&0xf | m>>4<<(l-4)
 	default:
 		for i := 0; i < l; i++ {
-			*(*byte)(unsafe.Add(dst, i)) = n[i]
+			c := src[i]
+			dst[i] = c
+			if c-'0' > 9 {
+				nonDigits |= 1 << i
+			}
 		}
 	}
-	if !(digits && n[0] != '0') && !jsonnum.IsValid(unsafe.Slice((*byte)(src), l)) {
+	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {
 		return nil, invalidNumberError(n, false)
 	}
 	return b[:len(b)+l], nil
@@ -522,45 +534,12 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 
 // AppendNumberString is AppendNumber of a json.Number of a field with the option string, which the caller
 // quotes: its error shows the number quoted, as encoding/json shows it.
-func AppendNumberString(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
-	l := len(n)
-	if l == 0 {
-		return append(b, '0'), nil
-	}
-	if l > 16 {
-		if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), l)) {
-			return nil, invalidNumberError(n, true)
-		}
-		return append(b, n...), nil
-	}
-	// a number of up to 16 bytes is copied by the words which overlap, whose bytes are checked for digits: an
-	// integer without a leading zero is valid without the check of its grammar.
-	if cap(b)-len(b) < l {
-		b = growForNumber(b, l)
-	}
-	src := unsafe.Pointer(unsafe.StringData(string(n)))
-	dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b))
-	digits := false
-	switch {
-	case l >= 8:
-		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, l-8))
-		*(*uint64)(dst) = first
-		*(*uint64)(unsafe.Add(dst, l-8)) = last
-		digits = jsonnum.AllDigits(first) && jsonnum.AllDigits(last)
-	case l >= 4:
-		first, last := *(*uint32)(src), *(*uint32)(unsafe.Add(src, l-4))
-		*(*uint32)(dst) = first
-		*(*uint32)(unsafe.Add(dst, l-4)) = last
-		digits = jsonnum.AllDigits(uint64(first) | uint64(last)<<32)
-	default:
-		for i := 0; i < l; i++ {
-			*(*byte)(unsafe.Add(dst, i)) = n[i]
-		}
-	}
-	if !(digits && n[0] != '0') && !jsonnum.IsValid(unsafe.Slice((*byte)(src), l)) {
+func AppendNumberString(ctx *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	out, err := AppendNumber(ctx, b, n)
+	if err != nil {
 		return nil, invalidNumberError(n, true)
 	}
-	return b[:len(b)+l], nil
+	return out, nil
 }
 
 // growForNumber returns b with room for n bytes more, growing as append does.

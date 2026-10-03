@@ -9,28 +9,17 @@ import (
 // TypeCache is a table of the values for the types, which is looked up by the address of a type
 // without a lock.
 //
-// A lookup costs what the lookup of an array does: the table is buckets of a cache line, one of which a type is
-// hashed to, and the table keeps every type in its bucket, so a lookup reads the bucket and compares the types
-// in it, and nothing else. It is made larger when a type would have no room in its bucket, which happens only
-// when a type is stored: the types of a program are stored once each. The table used to be an array with a slot
-// for every address a type of the program can be at, found from the type links of the runtime, and then a hash
-// table with open addressing, whose lookup depended on where the other types were.
+// It is a hash table with open addressing. It used to be an array which had a slot for every address a type of
+// the program can be at, which was found from the type links of the runtime: that needed a linkname, a scan of
+// every type at the start, memory in proportion to the size of the program, and a fallback for the types which
+// are not in the type links. A lookup of this table costs about the same, and it has none of them.
 //
-// Init must be called before the table is used: a lookup reads a table which is always there, without a check.
+// The zero value is ready to use.
 type TypeCache[T any] struct {
 	cache typeCache
 }
 
-// Init makes the table empty. It is called once, before the table is used, and allocates nothing: the empty
-// table is one which every TypeCache shares, and which a store replaces, as it replaces any table.
-func (c *TypeCache[T]) Init() {
-	atomic.StorePointer(&c.cache.table, emptyTypeTable)
-}
-
-// emptyTypeTable is the table of a TypeCache which has no type yet: its buckets are never written.
-var emptyTypeTable = tableWord(newTypeBuckets(minTypeBucketBits), 64-minTypeBucketBits)
-
-// Load returns the value for the type, or nil. It is inlined into the callers.
+// Load returns the value for the type, or nil. It is small enough to be inlined into its callers.
 func (c *TypeCache[T]) Load(typ uintptr) *T {
 	return (*T)(c.cache.load(typ))
 }
@@ -41,123 +30,111 @@ func (c *TypeCache[T]) Store(typ uintptr, v *T) *T {
 	return (*T)(c.cache.store(typ, unsafe.Pointer(v)))
 }
 
-// typeBucketSize is the number of the types of a bucket: the types and their values fill a cache line.
-const typeBucketSize = 4
-
-// typeBucket is the types of a bucket and their values. The values are words which the GC doesn't scan, as the
-// types are, so that the buckets cost the GC nothing however many they are: typeCache.refs keeps the values alive.
-type typeBucket struct {
-	types  [typeBucketSize]uintptr
-	values [typeBucketSize]uintptr
-}
-
-// typeCache is TypeCache for the values as pointers, so that its lookups are not generic code, which the compiler
-// doesn't inline.
-//
-// A table is never written after it is published: a type is stored by a new table with the type, which replaces
-// the table. So a lookup reads the table with one atomic load, of the word which has both the address of the
-// buckets and the shift which makes the index of a bucket from the hash, and the bucket with plain loads, which the
-// atomic load orders after the writes of the table: they cost what the loads of an array do. The buckets are
-// aligned to their size, a cache line, so the shift fits in the low bits of their address, and the word points
-// into the first bucket, which keeps the buckets alive.
+// typeCache is TypeCache for the values as pointers, so that its lookup is not generic code, which the compiler
+// inlines less.
 type typeCache struct {
-	table unsafe.Pointer // the first bucket plus the shift ( see tableWord ), read and written atomically
-	// mu is for the writers, and count is the number of the types and refs the values, which it guards.
-	mu    sync.Mutex
-	count int
-	refs  []unsafe.Pointer
+	table unsafe.Pointer // *typeTable, read and written atomically
+	// mu is for the writers. A value is stored only when a type is compiled.
+	mu sync.Mutex
 }
+
+type typeTable struct {
+	entries []typeEntry
+	// shift makes an index of entries from the hash.
+	shift uint
+	// count is the number of the entries in use. It is guarded by typeCache.mu.
+	count int
+}
+
+// typeEntry is written once: the value, and then the type, which makes it visible.
+type typeEntry struct {
+	typ   uintptr        // read and written atomically
+	value unsafe.Pointer // read and written atomically
+}
+
+const (
+	minTypeTableBits = 6
+)
 
 // TypeHashMultiplier is the multiplier of the Fibonacci hashing of the address of a type: the top bits of the
 // product spread the addresses, which are aligned and close to each other, over a table.
 const TypeHashMultiplier = 0x9E3779B97F4A7C15
 
-// minTypeBucketBits is the log2 of the number of the buckets of a new table.
-const minTypeBucketBits = 4
-
-func (c *typeCache) load(typ uintptr) unsafe.Pointer {
-	table := atomic.LoadPointer(&c.table)
-	shift := uintptr(table) % typeBucketAlign
-	b := (*typeBucket)(unsafe.Add(table, uintptr((uint64(typ)*TypeHashMultiplier)>>shift)*unsafe.Sizeof(typeBucket{})-shift))
-	for i := range b.types {
-		if b.types[i] == typ {
-			// the value is the address it is: it is kept alive by typeCache.refs, and a value in the heap doesn't
-			// move.
-			return *(*unsafe.Pointer)(unsafe.Pointer(&b.values[i]))
-		}
+func newTypeTable(bits uint) *typeTable {
+	return &typeTable{
+		entries: make([]typeEntry, 1<<bits),
+		shift:   64 - bits,
 	}
-	return nil
 }
 
-// typeBucketAlign is the alignment of the buckets, which is their size: newTypeBuckets aligns them.
-const typeBucketAlign = unsafe.Sizeof(typeBucket{})
+func (t *typeTable) index(typ uintptr) uintptr {
+	return uintptr((uint64(typ) * TypeHashMultiplier) >> t.shift)
+}
 
-// tableWord is the word of the table of the buckets: the address of the first bucket plus the shift.
-func tableWord(buckets []typeBucket, shift uint64) unsafe.Pointer {
-	return unsafe.Add(unsafe.Pointer(&buckets[0]), shift)
+// entry returns the entry of the index, which is always less than the length:
+// the check of the bounds is not worth its cost on this path, which every Marshal and Unmarshal takes.
+func (t *typeTable) entry(index uintptr) *typeEntry {
+	return (*typeEntry)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(t.entries)), index*unsafe.Sizeof(typeEntry{})))
+}
+
+// load looks at the entries from the one the type is hashed to, up to the type or a free entry.
+func (c *typeCache) load(typ uintptr) unsafe.Pointer {
+	t := (*typeTable)(atomic.LoadPointer(&c.table))
+	if t == nil {
+		return nil
+	}
+	mask := uintptr(len(t.entries) - 1)
+	for i := t.index(typ); ; i = (i + 1) & mask {
+		e := t.entry(i)
+		switch atomic.LoadUintptr(&e.typ) {
+		case typ:
+			return atomic.LoadPointer(&e.value)
+		case 0:
+			return nil
+		}
+	}
 }
 
 func (c *typeCache) store(typ uintptr, v unsafe.Pointer) unsafe.Pointer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	t := (*typeTable)(atomic.LoadPointer(&c.table))
+	if t == nil {
+		t = newTypeTable(minTypeTableBits)
+		atomic.StorePointer(&c.table, unsafe.Pointer(t))
+	}
 	if existing := c.load(typ); existing != nil {
 		return existing
 	}
-	c.refs = append(c.refs, v)
-	table := atomic.LoadPointer(&c.table)
-	shift := uintptr(table) % typeBucketAlign
-	old := unsafe.Slice((*typeBucket)(unsafe.Add(table, -shift)), 1<<(64-shift))
-	bits := uint64(64 - shift)
-	// the new table has the types of the table and the type, each in its bucket: it is larger when a bucket has no
-	// room for them, and when there are more types than buckets, so that most of the types are the first of their
-	// buckets and a lookup finds them by its first comparison.
-	for c.count+1 > 1<<bits {
-		bits++
-	}
-	for ; ; bits++ {
-		buckets := newTypeBuckets(bits)
-		if rehashTypeBuckets(old, buckets, 64-bits) && insertTypeBucket(buckets, 64-bits, typ, v) {
-			atomic.StorePointer(&c.table, tableWord(buckets, 64-bits))
-			break
+	// the table is at most half full, so a lookup ends after a few entries.
+	if (t.count+1)*2 > len(t.entries) {
+		grown := newTypeTable(64 - t.shift + 1)
+		for i := range t.entries {
+			e := &t.entries[i]
+			if typ := atomic.LoadUintptr(&e.typ); typ != 0 {
+				grown.insert(typ, atomic.LoadPointer(&e.value))
+			}
 		}
+		grown.insert(typ, v)
+		// the table gets visible after it has every value.
+		atomic.StorePointer(&c.table, unsafe.Pointer(grown))
+		return v
 	}
-	c.count++
+	t.insert(typ, v)
 	return v
 }
 
-// newTypeBuckets returns 1<<bits buckets, aligned to their size: one more is allocated, of which the part before
-// the alignment is left unused.
-func newTypeBuckets(bits uint64) []typeBucket {
-	buckets := make([]typeBucket, 1+1<<bits)
-	skip := (typeBucketAlign - uintptr(unsafe.Pointer(&buckets[0]))%typeBucketAlign) % typeBucketAlign
-	return unsafe.Slice((*typeBucket)(unsafe.Add(unsafe.Pointer(&buckets[0]), skip)), 1<<bits)
-}
-
-// rehashTypeBuckets puts the types of the buckets into the other buckets, and reports whether every one had room
-// in its bucket.
-func rehashTypeBuckets(from, to []typeBucket, toShift uint64) bool {
-	for i := range from {
-		for j, typ := range from[i].types {
-			if typ != 0 && !insertTypeBucketWord(to, toShift, typ, from[i].values[j]) {
-				return false
-			}
+func (t *typeTable) insert(typ uintptr, v unsafe.Pointer) {
+	mask := uintptr(len(t.entries) - 1)
+	for i := t.index(typ); ; i = (i + 1) & mask {
+		e := t.entry(i)
+		if atomic.LoadUintptr(&e.typ) == 0 {
+			// the value is set before the entry gets visible by the type.
+			atomic.StorePointer(&e.value, v)
+			atomic.StoreUintptr(&e.typ, typ)
+			t.count++
+			return
 		}
 	}
-	return true
-}
-
-func insertTypeBucket(buckets []typeBucket, shift uint64, typ uintptr, v unsafe.Pointer) bool {
-	return insertTypeBucketWord(buckets, shift, typ, uintptr(v))
-}
-
-func insertTypeBucketWord(buckets []typeBucket, shift uint64, typ, v uintptr) bool {
-	b := &buckets[(uint64(typ)*TypeHashMultiplier)>>shift]
-	for i := range b.types {
-		if b.types[i] == 0 {
-			b.types[i], b.values[i] = typ, v
-			return true
-		}
-	}
-	return false
 }

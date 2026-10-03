@@ -26,7 +26,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
 		}
 	}
-	if codeSet := ctx.SharedCodeSet(typeptr); codeSet != nil {
+	if codeSet := ctx.SharedCodeSets().Load(typeptr); codeSet != nil {
 		ctx.RememberCodeSet(typeptr, codeSet)
 		return codeSet, nil
 	}
@@ -45,7 +45,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 }
 
 // RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
-// may filter the fields, or nil: then SharedCodeSet, and CompileToGetCodeSet if that finds nothing either.
+// may filter the fields, or nil: then SharedCodeSets, and CompileToGetCodeSet if that finds nothing either.
 //
 // A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
@@ -64,19 +64,14 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	return nil
 }
 
-// SharedCodeSet returns the opcodes of the type if they are compiled and the context has no context which may
-// filter the fields, or nil: then CompileToGetCodeSet is to be called. The opcodes it finds are given to
-// RememberCodeSet.
-//
-// It looks the type up in the table shared by every goroutine, which costs about what the lookup of an array does
-// whatever the types of the program are and wherever the binary has them ( see runtime.TypeCache ), and is inlined
-// into the callers: a type which its set in the context doesn't hold, which depends on where the binary has the
-// types, costs a little more than one which it holds, and not a call.
-func (c *RuntimeContext) SharedCodeSet(typeptr uintptr) *OpcodeSet {
-	if c.Option.Flag&ContextOption != 0 {
-		return nil
-	}
-	return cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1].Load(typeptr)
+// SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context: the one of the
+// types in the order of their fields, the one with the fields ordered by the encoder, or, for a context which may
+// filter the fields, an empty one, so that CompileToGetCodeSet filters them. A type which the set of the context
+// doesn't hold is looked up in it by its Load, which, as this, is inlined into the callers: a type which its set
+// doesn't hold, which depends on where the binary has the types, costs a lookup of the table, and not a call
+// ( see runtime.TypeCache ). The opcodes it finds are given to RememberCodeSet.
+func (c *RuntimeContext) SharedCodeSets() *runtime.TypeCache[OpcodeSet] {
+	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1|c.Option.Flag/ContextOption&1<<1]
 }
 
 // RememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
@@ -109,12 +104,6 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*O
 	return cache.Store(typeptr, codeSet), nil
 }
 
-func init() {
-	for i := range cachedOpcodeSets {
-		cachedOpcodeSets[i].Init()
-	}
-}
-
 type marshalerContext interface {
 	MarshalJSON(context.Context) ([]byte, error)
 }
@@ -125,8 +114,8 @@ var (
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
 	// cachedOpcodeSets are the opcodes of the types in the order of their fields, and with the fields ordered by
-	// the encoder.
-	cachedOpcodeSets [2]runtime.TypeCache[OpcodeSet]
+	// the encoder; the other two are left empty, for the contexts which may filter the fields ( see SharedCodeSets ).
+	cachedOpcodeSets [4]runtime.TypeCache[OpcodeSet]
 )
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {

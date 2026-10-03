@@ -3,14 +3,12 @@ package runtime
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"unsafe"
 )
 
 func TestTypeCache(t *testing.T) {
 	var cache TypeCache[int]
-	cache.Init()
 	if cache.Load(0x1000) != nil {
 		t.Fatal("an empty cache has a value")
 	}
@@ -53,7 +51,6 @@ func TestTypeCache(t *testing.T) {
 
 func TestTypeCacheConcurrently(t *testing.T) {
 	var cache TypeCache[int]
-	cache.Init()
 	const (
 		workers = 16
 		num     = 2000
@@ -113,19 +110,15 @@ var keepTypeCacheTypes [][][80]byte
 
 var typeCacheSink *int
 
-// BenchmarkTypeCacheLoad looks up types by turns in tables of several sizes, and reports the bytes of the buckets
-// of a table for each of its types.
+// BenchmarkTypeCacheLoad looks up types by turns in tables of several sizes.
 func BenchmarkTypeCacheLoad(b *testing.B) {
 	for _, n := range []int{16, 1024, 8192} {
 		types := typeCacheTypes(n)
 		v := 1
 		var cache TypeCache[int]
-		cache.Init()
 		for _, typ := range types {
 			cache.Store(typ, &v)
 		}
-		table := atomic.LoadPointer(&cache.cache.table)
-		bytesPerType := float64(uintptr(1)<<(64-uintptr(table)%typeBucketAlign)*typeBucketAlign) / float64(n)
 		for _, k := range []int{1, 8, 128} {
 			if k > n {
 				continue
@@ -138,8 +131,25 @@ func BenchmarkTypeCacheLoad(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					typeCacheSink = cache.Load(look[i%k])
 				}
-				b.ReportMetric(bytesPerType, "bytes/type")
 			})
 		}
+	}
+}
+
+// BenchmarkTypeCacheStore stores n types one by one into an empty table, as a program compiles its types: the
+// table is made larger only when it gets half full, so the stores cost in proportion to n.
+func BenchmarkTypeCacheStore(b *testing.B) {
+	for _, n := range []int{100, 1000, 10000} {
+		types := typeCacheTypes(n)
+		v := 1
+		b.Run(fmt.Sprintf("%d types", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				var cache TypeCache[int]
+				for _, typ := range types {
+					cache.Store(typ, &v)
+				}
+			}
+		})
 	}
 }

@@ -17,7 +17,6 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/floatfmt"
-	"github.com/goccy/go-json/internal/jsonnum"
 	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
@@ -483,7 +482,7 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
-	if k, place := jsonnum.Scan(unsafe.Slice(unsafe.StringData(string(n)), len(n))); place != jsonnum.Valid || k != len(n) {
+	if !isValidNumberBranchy(string(n)) {
 		return nil, invalidNumberError(n, false)
 	}
 	return append(b, n...), nil
@@ -495,7 +494,7 @@ func AppendNumberString(_ *RuntimeContext, b []byte, n json.Number) ([]byte, err
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
-	if k, place := jsonnum.Scan(unsafe.Slice(unsafe.StringData(string(n)), len(n))); place != jsonnum.Valid || k != len(n) {
+	if !isValidNumberBranchy(string(n)) {
 		return nil, invalidNumberError(n, true)
 	}
 	return append(b, n...), nil
@@ -787,4 +786,47 @@ func AppendIndent(ctx *RuntimeContext, b []byte, indent uint32) []byte {
 		b = append(b, ctx.IndentStr...)
 	}
 	return b
+}
+
+// isValidNumberBranchy checks the grammar of a JSON number by branches, as encoding/json and sonic do.
+func isValidNumberBranchy(s string) bool {
+	if s == "" {
+		return false
+	}
+	if s[0] == '-' {
+		s = s[1:]
+		if s == "" {
+			return false
+		}
+	}
+	switch {
+	default:
+		return false
+	case s[0] == '0':
+		s = s[1:]
+	case '1' <= s[0] && s[0] <= '9':
+		s = s[1:]
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	}
+	if len(s) >= 2 && s[0] == '.' && '0' <= s[1] && s[1] <= '9' {
+		s = s[2:]
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	}
+	if len(s) >= 2 && (s[0] == 'e' || s[0] == 'E') {
+		s = s[1:]
+		if s[0] == '+' || s[0] == '-' {
+			s = s[1:]
+			if s == "" {
+				return false
+			}
+		}
+		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
+			s = s[1:]
+		}
+	}
+	return s == ""
 }

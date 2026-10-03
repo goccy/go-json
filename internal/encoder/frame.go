@@ -100,14 +100,10 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	}
 	codeSet := c.RecentCodeSet(uintptr(typ))
 	if codeSet == nil {
-		if codeSet = c.SharedCodeSet(uintptr(typ)); codeSet != nil {
-			c.RememberCodeSet(uintptr(typ), codeSet)
-		} else {
-			var err error
-			codeSet, err = CompileToGetCodeSet(c, uintptr(typ))
-			if err != nil {
-				return nil, nil, false, err
-			}
+		var err error
+		codeSet, err = CompileToGetCodeSet(c, uintptr(typ))
+		if err != nil {
+			return nil, nil, false, err
 		}
 	}
 	if codeSet.Scalar != nil {

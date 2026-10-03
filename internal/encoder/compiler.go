@@ -26,15 +26,15 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
 		}
 	}
-	if codeSet := ctx.SharedCodeSet(typeptr); codeSet != nil {
-		ctx.RememberCodeSet(typeptr, codeSet)
+	if codeSet := ctx.sharedCodeSet(typeptr); codeSet != nil {
+		ctx.rememberCodeSet(typeptr, codeSet)
 		return codeSet, nil
 	}
 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
 		return nil, err
 	}
-	ctx.RememberCodeSet(typeptr, codeSet)
+	ctx.rememberCodeSet(typeptr, codeSet)
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
@@ -45,7 +45,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 }
 
 // RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
-// may filter the fields, or nil: then SharedCodeSet, and CompileToGetCodeSet if that finds nothing either.
+// may filter the fields, or nil: then CompileToGetCodeSet is to be called.
 //
 // A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
@@ -64,24 +64,24 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	return nil
 }
 
-// SharedCodeSet returns the opcodes of the type if they are compiled and the context has no context which may
-// filter the fields, or nil: then CompileToGetCodeSet is to be called. The opcodes it finds are given to
-// RememberCodeSet.
+// sharedCodeSet returns the opcodes of the type if they are compiled and the context has no context which may
+// filter the fields, or nil. The opcodes it finds are given to rememberCodeSet.
 //
 // It looks the type up in the table shared by every goroutine, which costs about what the lookup of an array does
 // whatever the types of the program are and wherever the binary has them ( see runtime.TypeCache ), and is inlined
-// into the callers: a type which its set in the context doesn't hold, which depends on where the binary has the
-// types, costs a little more than one which it holds, and not a call.
-func (c *RuntimeContext) SharedCodeSet(typeptr uintptr) *OpcodeSet {
+// into CompileToGetCodeSet: a type which its set in the context doesn't hold, which depends on where the binary
+// has the types, costs the call of CompileToGetCodeSet and this lookup. The callers of RecentCodeSet in the VM are
+// left as they are, so that a type which its set holds costs nothing more there.
+func (c *RuntimeContext) sharedCodeSet(typeptr uintptr) *OpcodeSet {
 	if c.Option.Flag&ContextOption != 0 {
 		return nil
 	}
 	return cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1].Load(typeptr)
 }
 
-// RememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
+// rememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
 // before it is kept in the second.
-func (c *RuntimeContext) RememberCodeSet(typeptr uintptr, codeSet *OpcodeSet) {
+func (c *RuntimeContext) rememberCodeSet(typeptr uintptr, codeSet *OpcodeSet) {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
 	set[1] = set[0]

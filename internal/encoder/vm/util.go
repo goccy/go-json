@@ -7,19 +7,20 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// The functions which the template calls as appendInt, appendString and so on are the ones of the encoder
+// The functions which the template calls as appendInt, appendUint and so on are the ones of the encoder
 // package here, and the generator makes the VM call them directly: a call through a function variable is a load
 // and an indirect call, for every value the VM appends. appendScalar has them as variables for its own calls.
 var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
 	appendFloat64       = encoder.AppendFloat64
-	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
+	appendNumberString  = encoder.AppendNumberString
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 )
 
@@ -227,7 +228,7 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 		}
 		b = appendFloat64(ctx, b, v)
 	case encoder.OpString:
-		b = appendString(ctx, b, ptrToString(p))
+		b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 	case encoder.OpBool:
 		b = appendBool(ctx, b, ptrToBool(p))
 	case encoder.OpBytes:

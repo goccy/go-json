@@ -10,6 +10,8 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 // newTypeError returns the type error as encoding/json before Go 1.27, and with GOEXPERIMENT=nojsonv2, reports
@@ -104,7 +106,7 @@ func (ctx *RuntimeContext) stringOptionError(start, end int64, value []byte, typ
 	case c == '"':
 		if elem == jsonNumberType {
 			// a JSON string, whose bytes must be a number
-			if s, ok := unquoteBytes(value); ok && !isValidNumber(s) {
+			if s, ok := jsonstring.Unquote(value); ok && !jsonnum.IsValid(s) {
 				return 0, fmt.Errorf("json: invalid number literal, trying to unmarshal %q into Number", value)
 			}
 		}

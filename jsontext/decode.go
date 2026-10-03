@@ -5,6 +5,8 @@ import (
 	"io"
 	"slices"
 	"unicode/utf8"
+
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // Decoder is a streaming decoder of raw JSON tokens and values. It reads a stream of top-level JSON values,
@@ -234,14 +236,14 @@ func (d *decoder) skip(pos int) (int, error) {
 	}
 }
 
-// charError is the error of the invalid character at pos, which is not expected where the text says. A
+// charError is the error of the invalid character at pos, which is not expected at the place. A
 // character which the buffer cuts is read whole first, so that the error shows it as the input has it.
-func (d *decoder) charError(pos int, text string, where int) error {
+func (d *decoder) charError(pos int, place charPlace, where int) error {
 	for d.rerr == nil && !utf8.FullRune(d.buf[pos:]) {
 		shift, _ := d.fetch()
 		pos -= shift
 	}
-	return d.failAt(invalidChar(d.buf[pos:], text), pos, where)
+	return d.failAt(invalidChar(d.buf[pos:], place), pos, where)
 }
 
 // failAt is a SyntacticError at the position pos of the buffer, in the value where points.
@@ -334,7 +336,7 @@ func (d *decoder) beforeToken(peek bool) (int, error) {
 	case found == 0:
 		return pos, d.missingDelim(pos)
 	case need == 0:
-		return at, d.charError(at, "at start of value", pointAt)
+		return at, d.charError(at, placeStartOfValue, pointAt)
 	default:
 		// the delimiter of the other kind is reported as the character where the needed one is
 		return at, d.missingDelim(at)
@@ -363,16 +365,16 @@ func (d *decoder) missingDelim(pos int) error {
 	l := d.st.last()
 	switch {
 	case l.needValue():
-		return d.charError(pos, "after object name (expecting ':')", pointAt)
+		return d.charError(pos, placeAfterObjectName, pointAt)
 	case l.object:
 		// the end of an array in an object is reported in the level which contains the object.
 		where := pointAt
 		if d.buf[pos] == ']' {
 			where = pointOut
 		}
-		return d.charError(pos, "after object value (expecting ',' or '}')", where)
+		return d.charError(pos, placeAfterObjectValue, where)
 	}
-	return d.charError(pos, "after array element (expecting ',' or ']')", pointAt)
+	return d.charError(pos, placeAfterArrayElement, pointAt)
 }
 
 // ReadToken reads the next Token and advances the read offset. The token is only valid until the next Peek,
@@ -444,7 +446,7 @@ func (d *decoder) readToken() (Token, error) {
 		d.done(pos+len(lit), pos+len(lit))
 		return literalToken(Kind(c)), nil
 	}
-	n := numberEnd(b[pos:])
+	n := jsonnum.End(b[pos:])
 	if name || n < 0 {
 		return d.readTokenSlow()
 	}
@@ -520,15 +522,15 @@ func (d *decoder) closeError(pos int) error {
 	c := d.buf[pos]
 	switch {
 	case d.st.depth() == 0:
-		return d.charError(pos, "at start of value", pointAt)
+		return d.charError(pos, placeStartOfValue, pointAt)
 	case l.object != (c == '}'):
 		if l.needValue() {
-			return d.charError(pos, "after object value (expecting ',' or '}')", pointHere)
+			return d.charError(pos, placeAfterObjectValue, pointHere)
 		}
 		if l.object {
-			return d.charError(pos, "at start of value", pointAt)
+			return d.charError(pos, placeStartOfValue, pointAt)
 		}
-		return d.charError(pos, "at start of value", pointNext)
+		return d.charError(pos, placeStartOfValue, pointNext)
 	case l.needValue():
 		return d.failAt(errMissingValue, pos, pointAt)
 	}
@@ -564,7 +566,7 @@ func (d *decoder) insertName(start, end int, f strFlags) error {
 // or, if it has escape sequences or invalid UTF-8, its value unquoted in scratch.
 func unquotedName(scratch *[]byte, s []byte, f strFlags) []byte {
 	if f&(strEscaped|strInvalidUTF8) != 0 {
-		*scratch = appendUnquoted((*scratch)[:0], s)
+		*scratch = appendUnquoted((*scratch)[:0], s, f)
 		return *scratch
 	}
 	return s[1 : len(s)-1]
@@ -593,9 +595,9 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			if (c == ',' || c == ':') && d.st.last().count == 0 {
 				where = pointAt // a delimiter before the first value
 			}
-			return pos, pos, 0, d.charError(pos, "at start of value", where)
+			return pos, pos, 0, d.charError(pos, placeStartOfValue, where)
 		}
-		if n := numberEnd(d.buf[pos:]); n > 0 {
+		if n := jsonnum.End(d.buf[pos:]); n > 0 {
 			return pos, pos + n, 0, nil
 		}
 	}
@@ -617,7 +619,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			cut = err == io.ErrUnexpectedEOF
 		default:
 			if st.inDigits() && n > 0 {
-				if j := scanDigits(b, n); j == len(b) {
+				if j := jsonnum.ScanDigits(b, n); j == len(b) {
 					// digits continue the number to the end of the buffer, as a slow reader gives them
 					n, st.done, cut = j, j, true
 					break
@@ -714,7 +716,7 @@ func (d *decoder) readValue() (int, int, error) {
 				return 0, 0, err
 			}
 		}
-		return 0, 0, d.charError(pos, "at start of value", pointNext)
+		return 0, 0, d.charError(pos, placeStartOfValue, pointNext)
 	case l.needName() && c == '"':
 		start, end, f, err := d.scanToken(pos, pointAt)
 		if err != nil {

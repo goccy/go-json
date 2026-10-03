@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -14,9 +15,9 @@ var (
 	appendInt           = encoder.AppendInt
 	appendUint          = encoder.AppendUint
 	appendFloat64       = encoder.AppendFloat64
-	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
+	appendNumberString  = encoder.AppendNumberString
 	appendStructEnd     = encoder.AppendStructEndIndent
 	appendIndent        = encoder.AppendIndent
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
@@ -234,7 +235,7 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 		}
 		b = appendFloat64(ctx, b, v)
 	case encoder.OpString:
-		b = appendString(ctx, b, ptrToString(p))
+		b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 	case encoder.OpBool:
 		b = appendBool(ctx, b, ptrToBool(p))
 	case encoder.OpBytes:

@@ -5,12 +5,13 @@ import (
 	"io"
 	"math"
 	"math/bits"
-	"strconv"
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/floatfmt"
+	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 // The scanners of the text of a token take the text from its first byte, and return the number of bytes which
@@ -75,7 +76,7 @@ func scanLiteral(b []byte, lit string) (int, error) {
 			return i, io.ErrUnexpectedEOF
 		}
 		if b[i] != lit[i] {
-			return i, invalidChar(b[i:], "in literal "+lit+" (expecting "+strconv.QuoteRune(rune(lit[i]))+")")
+			return i, invalidLiteralChar(b[i:], lit, i)
 		}
 	}
 	return len(lit), nil
@@ -126,44 +127,6 @@ func scanNumber(b []byte) (int, error) {
 	return n, err
 }
 
-// numberEnd returns the end of the valid JSON number which starts b, if a byte which ends it follows it in b, or
-// -1: at an error and at a number which may continue after b, which scanNumberFrom takes.
-func numberEnd(b []byte) int {
-	i := 0
-	if i < len(b) && b[i] == '-' {
-		i++
-	}
-	switch {
-	case i == len(b):
-		return -1
-	case b[i] == '0':
-		i++
-	case '1' <= b[i] && b[i] <= '9':
-		i = scanDigits(b, i+1)
-	default:
-		return -1
-	}
-	if i < len(b) && b[i] == '.' {
-		if i++; i == len(b) || b[i] < '0' || '9' < b[i] {
-			return -1
-		}
-		i = scanDigits(b, i+1)
-	}
-	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
-		if i++; i < len(b) && (b[i] == '+' || b[i] == '-') {
-			i++
-		}
-		if i == len(b) || b[i] < '0' || '9' < b[i] {
-			return -1
-		}
-		i = scanDigits(b, i+1)
-	}
-	if i == len(b) {
-		return -1
-	}
-	return i
-}
-
 // inDigits reports whether the number is in a run of digits, which more digits continue without a change of state.
 func (st numState) inDigits() bool {
 	return st.next == numInt || st.next == numFrac || st.next == numExp
@@ -173,7 +136,7 @@ func (st numState) inDigits() bool {
 func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 	// the digits which continue a run of digits to the end of b, as a slow reader gives them, change no state
 	if st.inDigits() {
-		if i = scanDigits(b, i); i == len(b) {
+		if i = jsonnum.ScanDigits(b, i); i == len(b) {
 			st.done = i
 			return i, st, nil
 		}
@@ -199,15 +162,15 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 				i++
 				st.next = numAfterInt
 			} else if '1' <= c && c <= '9' {
-				i = scanDigits(b, i+1)
+				i = jsonnum.ScanDigits(b, i+1)
 				st.next = numInt
 			} else {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.done = i
 			continue
 		case numInt:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			st.done = i
 			if i == len(b) {
 				continue
@@ -226,13 +189,13 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			continue
 		case numDot:
 			if c < '0' || '9' < c {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.next = numFrac
 			i++
 			continue
 		case numFrac:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			st.done = i
 			if i < len(b) {
 				st.next = numAfterFrc
@@ -246,37 +209,19 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			continue
 		case numExpFirst:
 			if c < '0' || '9' < c {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.next = numExp
 			i++
 			continue
 		case numExp:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			if i < len(b) {
 				return i, st, nil
 			}
 			continue
 		}
 	}
-}
-
-// scanDigits returns the position of the first byte of b from i which is not a digit, or len(b). Long runs of
-// digits, as the fractions of floats have, are looked at 8 bytes at a time.
-func scanDigits(b []byte, i int) int {
-	for i+8 <= len(b) {
-		// a digit XOR '0' is below 10: adding 0x76 to each byte of the low 7 bits carries into the top bit from
-		// 10 on, and any byte of 0x80 or more has its top bit already.
-		w := binary.LittleEndian.Uint64(b[i:]) ^ 0x3030303030303030
-		if m := ((w &^ 0x8080808080808080) + 0x7676767676767676 | w) & 0x8080808080808080; m != 0 {
-			return i + bits.TrailingZeros64(m)/8
-		}
-		i += 8
-	}
-	for i < len(b) && '0' <= b[i] && b[i] <= '9' {
-		i++
-	}
-	return i
 }
 
 // isInteger reports whether the JSON number b has no fraction and no exponent.
@@ -439,7 +384,7 @@ func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlag
 			}
 			i += n
 		case c < ' ':
-			return i, flags, invalidChar(b[i:], "in string (expecting non-control character)")
+			return i, flags, invalidChar(b[i:], placeInString)
 		default:
 			// a run of characters which are not ASCII, and ASCII ones, validated at once, and a character at a
 			// time only if it is not valid.
@@ -637,42 +582,20 @@ var hexTable = func() [256]int8 {
 	return t
 }()
 
-// appendUnquoted appends the value of the JSON string s, which scanString took without an error: an escaped
-// surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD.
-func appendUnquoted(dst, s []byte) []byte {
-	s = s[1:] // the closing quote stays: an escape sequence at the end is followed by it
-	for len(s) > 1 {
-		// the characters taken as they are, valid UTF-8 which is not an escape sequence, are appended at once, as
-		// encoding/json/jsontext appends them: a dst which grows for the U+FFFD of invalid UTF-8 after them grows
-		// before they are written.
-		i := 0
-		for i < len(s)-1 && s[i] != '\\' {
-			if s[i] < utf8.RuneSelf {
-				i++
-				continue
-			}
-			r, n := utf8.DecodeRune(s[i:])
-			if r == utf8.RuneError && n == 1 {
-				break
-			}
-			i += n
-		}
-		dst = append(dst, s[:i]...)
-		s = s[i:]
-		if len(s) == 1 {
-			break
-		}
-		if s[0] == '\\' {
-			n, r, err := scanEscape(s, 0)
-			if err != nil {
-				return dst // the end of a string which is not complete
-			}
-			dst = utf8.AppendRune(dst, r) // U+FFFD for -1
-			s = s[n:]
-			continue
-		}
-		dst = append(dst, "�"...) // a byte of invalid UTF-8
-		s = s[1:]
+// appendUnquoted appends the value of the JSON string s, which scanString took with the flags f without an
+// error: an escaped surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD. dst doesn't
+// overlap s.
+func appendUnquoted(dst, s []byte, f strFlags) []byte {
+	v := s[1 : len(s)-1]
+	start := len(dst)
+	if f&strEscaped != 0 {
+		dst = jsonstring.AppendUnescaped(dst, v)
+	} else {
+		dst = append(dst, v...)
+	}
+	if f&strInvalidUTF8 != 0 {
+		// the value of an escape sequence is valid UTF-8, which the bytes before or after it don't make invalid
+		dst = jsonstring.ReplaceInvalidUTF8(dst, start)
 	}
 	return dst
 }
@@ -696,71 +619,10 @@ func (c *config) escapes() escapeFlags {
 	return e
 }
 
-// needsEscapeASCII reports for each ASCII character whether a quoted string escapes it: 1 always, 2 for HTML.
-var needsEscapeASCII = func() [utf8.RuneSelf]uint8 {
-	var t [utf8.RuneSelf]uint8
-	for c := range t {
-		switch {
-		case c < ' ', c == '"', c == '\\':
-			t[c] = 1
-		case c == '<', c == '>', c == '&':
-			t[c] = 2
-		}
-	}
-	return t
-}()
-
 // appendQuoted appends s as a JSON string of the canonical form of RFC 8785, section 3.2.2.2, with the
 // escapes of esc. Invalid UTF-8 is written as U+FFFD, and reported by false.
-func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags) ([]byte, bool) {
-	valid := true
-	dst = append(dst, '"')
-	start := 0
-	b := readOnlyBytes(s)
-	for i := 0; i < len(s); {
-		if esc == 0 {
-			// the characters written as they are, ASCII 8 at a time, and the others validated by runs.
-			if i = plainEnd(b, i); i == len(b) {
-				break
-			}
-			if b[i] >= utf8.RuneSelf {
-				if end := charsEnd(b, i); utf8.Valid(b[i:end]) {
-					i = end
-					continue
-				}
-			}
-		}
-		c := s[i]
-		if c < utf8.RuneSelf {
-			if needsEscapeASCII[c] == 0 || needsEscapeASCII[c] == 2 && esc&escapeHTML == 0 {
-				i++
-				continue
-			}
-			dst = append(dst, s[start:i]...)
-			dst = appendEscapedASCII(dst, c)
-			i++
-			start = i
-			continue
-		}
-		r, n := utf8.DecodeRuneInString(string(s[i:min(i+utf8.UTFMax, len(s))]))
-		switch {
-		case r == utf8.RuneError && n == 1:
-			dst = append(dst, s[start:i]...)
-			dst = append(dst, "�"...)
-			valid = false
-		case (r == ' ' || r == ' ') && esc&escapeJS != 0:
-			dst = append(dst, s[start:i]...)
-			dst = append(dst, `\u202`...)
-			dst = append(dst, hexDigits[r&0xf])
-		default:
-			i += n
-			continue
-		}
-		i += n
-		start = i
-	}
-	dst = append(dst, s[start:]...)
-	return append(dst, '"'), valid
+func appendQuoted(dst []byte, s string, esc escapeFlags) ([]byte, bool) {
+	return jsonstring.AppendQuoted(jsonstring.TextEscaper(esc&escapeHTML != 0, esc&escapeJS != 0), dst, s)
 }
 
 // overlaps reports whether the bytes of a and the array of b, to its capacity, share memory.
@@ -778,25 +640,6 @@ func readOnlyBytes[Bytes ~[]byte | ~string](s Bytes) []byte {
 	return unsafe.Slice(*(**byte)(unsafe.Pointer(&s)), len(s))
 }
 
-// appendEscapedASCII appends the escape sequence of the ASCII character c.
-func appendEscapedASCII(dst []byte, c byte) []byte {
-	switch c {
-	case '"', '\\':
-		return append(dst, '\\', c)
-	case '\b':
-		return append(dst, `\b`...)
-	case '\f':
-		return append(dst, `\f`...)
-	case '\n':
-		return append(dst, `\n`...)
-	case '\r':
-		return append(dst, `\r`...)
-	case '\t':
-		return append(dst, `\t`...)
-	}
-	return append(dst, '\\', 'u', '0', '0', hexDigits[c>>4], hexDigits[c&0xf])
-}
-
 // rawStringKept reports whether appendRawString appends the string s as it is.
 func rawStringKept(s []byte, f strFlags, esc escapeFlags, preserve bool) bool {
 	return (preserve || f&strNonCanonical == 0) && (esc == 0 || !needsExtraEscape(s, esc))
@@ -811,8 +654,8 @@ func appendRawString(dst, s []byte, f strFlags, esc escapeFlags, preserve bool) 
 	}
 	if !preserve {
 		var buf [64]byte
-		v := appendUnquoted(buf[:0], s)
-		dst, _ = appendQuoted(dst, v, esc)
+		v := appendUnquoted(buf[:0], s, f)
+		dst, _ = appendQuoted(dst, unsafe.String(unsafe.SliceData(v), len(v)), esc)
 		return dst
 	}
 	start := 0
@@ -883,7 +726,7 @@ func appendFloatText(dst []byte, f float64, bits int) []byte {
 // appendCanonicalNumber appends the JSON number b in the canonical form of RFC 8785: as a float64, saturated at
 // the largest finite values, with -0 as 0.
 func appendCanonicalNumber(dst, b []byte) []byte {
-	f, _ := strconv.ParseFloat(string(b), 64)
+	f := parseFloat64(b)
 	if math.IsInf(f, 0) {
 		f = math.Copysign(math.MaxFloat64, f)
 	}

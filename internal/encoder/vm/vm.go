@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
@@ -223,7 +224,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if mapCtx.Sorted {
 				idx = int(mapCtx.Order[idx])
 			}
-			b = encoder.AppendString(ctx, b, mapCtx.Keys[idx])
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, mapCtx.Keys[idx])
 			b = appendComma(ctx, b)
 			b = appendColon(ctx, b)
 			store(ctxptr, code.Next.Idx, mapCtx.ValueAt(idx))
@@ -377,7 +378,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpStringString:
-			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(load(ctxptr, code.Idx)))))
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(load(ctxptr, code.Idx)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpNumberPtrString:
@@ -391,7 +393,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			fallthrough
 		case encoder.OpNumberString:
 			b = append(b, '"')
-			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
 			if err != nil {
 				return nil, err
 			}
@@ -443,7 +445,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpString:
-			b = encoder.AppendString(ctx, b, ptrToString(load(ctxptr, code.Idx)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(load(ctxptr, code.Idx)))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpBoolPtr:
@@ -1154,21 +1156,21 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructFieldString3:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(unsafe.Add(p, code.Offset)))
 			b = appendComma(ctx, b)
 			code = code.Next
 			fallthrough
 		case encoder.OpStructFieldString2:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(unsafe.Add(p, code.Offset)))
 			b = appendComma(ctx, b)
 			code = code.Next
 			fallthrough
 		case encoder.OpStructFieldString:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(unsafe.Add(p, code.Offset)))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyString:
@@ -1176,7 +1178,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, v)
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, v)
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1184,7 +1186,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			s := ptrToString(unsafe.Add(p, code.Offset))
 			b = appendStructKey(ctx, code, b)
-			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, s)
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyStringString:
@@ -1192,7 +1195,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, v)
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1203,7 +1207,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = encoder.AppendString(ctx, b, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1212,7 +1216,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1223,7 +1227,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1232,7 +1237,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1388,7 +1394,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
 			if err != nil {
 				return nil, err
 			}
@@ -1401,7 +1407,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				bb, err := encoder.AppendNumber(ctx, b, v)
+				bb, err := appendNumberString(ctx, b, v)
 				if err != nil {
 					return nil, err
 				}
@@ -2125,7 +2131,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStructEndString:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
-			b = encoder.AppendString(ctx, b, ptrToString(unsafe.Add(p, code.Offset)))
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(unsafe.Add(p, code.Offset)))
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyString:
@@ -2133,7 +2139,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, v)
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, v)
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -2143,7 +2149,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			s := ptrToString(unsafe.Add(p, code.Offset))
-			b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, s)))
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, s)
+			b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyStringString:
@@ -2151,7 +2158,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, v)))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, v)
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -2164,7 +2172,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = encoder.AppendString(ctx, b, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -2173,7 +2181,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, ptrToString(p))
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -2186,7 +2194,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -2195,7 +2204,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = encoder.AppendString(ctx, b, string(encoder.AppendString(ctx, []byte{}, ptrToString(p))))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
+				b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -2353,7 +2363,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			bb, err := encoder.AppendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
 			if err != nil {
 				return nil, err
 			}
@@ -2366,7 +2376,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				bb, err := encoder.AppendNumber(ctx, b, v)
+				bb, err := appendNumberString(ctx, b, v)
 				if err != nil {
 					return nil, err
 				}
@@ -2549,7 +2559,7 @@ func appendSortedMapEntries(ctx *encoder.RuntimeContext, code *encoder.Opcode, b
 // appendMapKey writes the key of an entry of a map, as OpMapKey does.
 func appendMapKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, k string) []byte {
 	b = appendMapKeyIndent(ctx, code, b)
-	b = encoder.AppendString(ctx, b, k)
+	b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, k)
 	b = appendComma(ctx, b)
 	return appendColon(ctx, b)
 }

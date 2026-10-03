@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // newTypeError returns the type error as encoding/json of Go 1.27, which is made of encoding/json/v2, reports it.
@@ -111,7 +112,7 @@ const timeKindTypeErrors = true
 // stringOptionNumber reports whether the bytes of the string of a json.Number of the string option are stored as
 // they are: encoding/json of Go 1.27 stores a number by the grammar of the numbers, and nothing else.
 func stringOptionNumber(value []byte) bool {
-	return isValidNumber(value)
+	return jsonnum.IsValid(value)
 }
 
 // stringOptionNumberDecoded is whether the bytes of the string of a json.Number of the string option, when they are

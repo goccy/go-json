@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/bits"
 	"reflect"
 	"slices"
 	"strconv"
@@ -17,6 +19,8 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/floatfmt"
+	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -401,7 +405,7 @@ func (c *MapContext) SortByEncodedKeys() {
 // sorted by their names ( see Mapslice.Sort ).
 func appendText(ctx *RuntimeContext, b []byte, text string) []byte {
 	n := len(b)
-	b = AppendString(ctx, b, text)
+	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, text)
 	if len(b)-n != len(text)+2 {
 		ctx.textEscaped()
 	}
@@ -472,37 +476,128 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 	return append(b, "false"...)
 }
 
-var (
-	floatTable = [256]bool{
-		'0': true,
-		'1': true,
-		'2': true,
-		'3': true,
-		'4': true,
-		'5': true,
-		'6': true,
-		'7': true,
-		'8': true,
-		'9': true,
-		'.': true,
-		'e': true,
-		'E': true,
-		'+': true,
-		'-': true,
-	}
-)
-
+// AppendNumber appends n, which must be a JSON number by its grammar, as encoding/json writes a json.Number: an
+// empty one as 0.
+//
+// A number of up to 24 bytes is copied by the words which overlap, without a call of memmove, and the bytes which
+// are not digits are found in the words as they are loaded, which the grammar is then checked by, without a call:
+// an integer at once, and another number by the places of its bytes which are not digits.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
-	if len(n) == 0 {
+	l := len(n)
+	if l == 0 {
 		return append(b, '0'), nil
 	}
-	for i := 0; i < len(n); i++ {
-		if !floatTable[n[i]] {
-			return nil, fmt.Errorf("json: invalid number literal %q", n)
+	if l > 24 {
+		if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), l)) {
+			return nil, invalidNumberError(n, false)
+		}
+		return append(b, n...), nil
+	}
+	if cap(b)-len(b) < l {
+		b = growForNumber(b, l)
+	}
+	src := unsafe.Slice(unsafe.StringData(string(n)), l)
+	dst := b[len(b) : len(b)+l]
+	// nonDigits has the bit i of each byte i of n which is not a digit
+	var nonDigits uint
+	switch {
+	case l > 16:
+		first, mid, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[8:]), binary.LittleEndian.Uint64(src[l-8:])
+		binary.LittleEndian.PutUint64(dst, first)
+		binary.LittleEndian.PutUint64(dst[8:], mid)
+		binary.LittleEndian.PutUint64(dst[l-8:], last)
+		tf, tm, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(mid), jsonnum.NonDigitTops(last)
+		if tf|tm|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tm))<<8 | uint(jsonnum.GatherTops(tl))<<(l-8)
+	case l >= 8:
+		first, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[l-8:])
+		binary.LittleEndian.PutUint64(dst, first)
+		binary.LittleEndian.PutUint64(dst[l-8:], last)
+		tf, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(last)
+		if tf|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tl))<<(l-8)
+	case l >= 4:
+		first, last := binary.LittleEndian.Uint32(src), binary.LittleEndian.Uint32(src[l-4:])
+		binary.LittleEndian.PutUint32(dst, first)
+		binary.LittleEndian.PutUint32(dst[l-4:], last)
+		t := jsonnum.NonDigitTops(uint64(first) | uint64(last)<<32)
+		if t == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		m := uint(jsonnum.GatherTops(t))
+		nonDigits = m&0xf | m>>4<<(l-4)
+	default:
+		for i := 0; i < l; i++ {
+			c := src[i]
+			dst[i] = c
+			if c-'0' > 9 {
+				nonDigits |= 1 << i
+			}
 		}
 	}
-	b = append(b, n...)
-	return b, nil
+	// a number without a sign or an exponent, the most common one, first
+	if nonDigits&(nonDigits-1) == 0 {
+		if nonDigits == 0 {
+			if src[0] != '0' || l == 1 {
+				return b[:len(b)+l], nil
+			}
+		} else if dot := bits.TrailingZeros(nonDigits); src[dot] == '.' && dot > 0 && dot < l-1 && (src[0] != '0' || dot == 1) {
+			return b[:len(b)+l], nil
+		}
+	}
+	// the others by the grammar in place: the bytes which are not digits are a sign, a decimal point, the exponent
+	// and its sign, each at most once and in its place, whose bits are cleared one by one.
+	start := 0
+	if src[0] == '-' {
+		nonDigits &^= 1
+		start = 1
+	}
+	valid := false
+	if start < l && nonDigits&(1<<start) == 0 && (src[start] != '0' || start+1 == l || nonDigits&(1<<(start+1)) != 0) {
+		valid = nonDigits == 0
+		p, fractionDigits := bits.TrailingZeros(nonDigits), true // digits after the decimal point, if there is one
+		if !valid && src[p] == '.' {
+			fractionDigits = p+1 < l && nonDigits&(1<<(p+1)) == 0
+			nonDigits &^= 1 << p
+			valid = fractionDigits && nonDigits == 0
+			p = bits.TrailingZeros(nonDigits)
+		}
+		if !valid && fractionDigits && nonDigits != 0 && src[p]|0x20 == 'e' {
+			nonDigits &^= 1 << p
+			if p+1 < l && (src[p+1] == '+' || src[p+1] == '-') {
+				nonDigits &^= 1 << (p + 1)
+				p++
+			}
+			valid = p+1 < l && nonDigits == 0
+		}
+	}
+	if !valid {
+		return nil, invalidNumberError(n, false)
+	}
+	return b[:len(b)+l], nil
+}
+
+// AppendNumberString is AppendNumber of a json.Number of a field with the option string, which the caller
+// quotes: its error shows the number quoted, as encoding/json shows it.
+func AppendNumberString(ctx *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	out, err := AppendNumber(ctx, b, n)
+	if err != nil {
+		return nil, invalidNumberError(n, true)
+	}
+	return out, nil
+}
+
+// growForNumber returns b with room for n bytes more, growing as append does.
+//
+//go:noinline
+func growForNumber(b []byte, n int) []byte {
+	grown := make([]byte, len(b), 2*cap(b)+n)
+	copy(grown, b)
+	return grown
 }
 
 // addrForMarshaler returns the pointer to the value held by v, to call a marshaler with a pointer receiver.
@@ -550,14 +645,11 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		// the output is compact and valid: it is copied as it is.
 		return out, nil
 	}
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, escape)
+	out, err := appendCompacted(ctx, b, bb, escape)
 	if err != nil {
-		return nil, err
+		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
-	return compactedBuf, nil
+	return out, nil
 }
 
 // interfaceOf returns the interface value of the type of the opcode whose data word is p.
@@ -602,13 +694,10 @@ func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 		}
 		bb = b
 	}
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, (ctx.Option.Flag&HTMLEscapeOption) != 0)
+	compactedBuf, err := appendCompact(ctx, b, bb, (ctx.Option.Flag&HTMLEscapeOption) != 0)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
 	return compactedBuf, nil
 }
 
@@ -676,19 +765,18 @@ func appendMarshalJSONIndentByInterface(ctx *RuntimeContext, code *Opcode, b []b
 }
 
 func appendIndentedMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, bb []byte) ([]byte, error) {
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	indentedBuf, err := doIndent(
+	indentedBuf, err := appendIndent(
+		ctx,
 		b,
-		marshalBuf,
+		bb,
 		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), int(ctx.BaseIndent+code.Indent)),
 		string(ctx.IndentStr),
 		(ctx.Option.Flag&HTMLEscapeOption) != 0,
+		false,
 	)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: runtime.TypeOfPtr(code.Type), Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
 	return indentedBuf, nil
 }
 
@@ -722,7 +810,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
 	n := len(b)
-	b = AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes)))
+	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, *(*string)(unsafe.Pointer(&bytes)))
 	if len(b)-n != len(bytes)+2 {
 		ctx.textEscaped()
 	}

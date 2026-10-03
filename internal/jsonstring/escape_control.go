@@ -1,6 +1,6 @@
 //go:build go1.22
 
-package encoder
+package jsonstring
 
 // backspaceEscape and formFeedEscape are the escapes of the backspace and the form feed: encoding/json since Go
 // 1.22 writes them as \b and \f.

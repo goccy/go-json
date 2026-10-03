@@ -397,7 +397,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 	b = appendRawString(b, raw, f, e.esc, e.cfg.has(preserveRawStrings))
 	if name {
 		var buf [64]byte
-		return b, e.insertName(pos, appendUnquoted(buf[:0], raw), false)
+		return b, e.insertName(pos, appendUnquoted(buf[:0], raw, f), false)
 	}
 	return b, nil
 }
@@ -421,7 +421,7 @@ func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
 	}
 	raw := t.raw()
 	if n, err := scanNumber(raw); err != nil || n < len(raw) {
-		return b, e.failAt(invalidChar(raw[n:], "in number (expecting digit)"), len(b)+n, pointNext)
+		return b, e.failAt(invalidChar(raw[n:], placeInNumber), len(b)+n, pointNext)
 	}
 	if e.vs.numberKept(raw) {
 		return append(b, raw...), nil
@@ -519,7 +519,7 @@ func (e *encoder) writeValue(v Value) error {
 		// white space after the value, or an error
 		if end = skipSpace(v, end); end < len(v) {
 			e.st.last().count--
-			return e.failAt(invalidChar(v[end:], "after top-level value"), pos+end, pointAt)
+			return e.failAt(invalidChar(v[end:], placeAfterTopLevel), pos+end, pointAt)
 		}
 	}
 	if name {
@@ -529,7 +529,7 @@ func (e *encoder) writeValue(v Value) error {
 		}
 		// the name, which the scanner wrote, is unquoted from the output
 		var buf [64]byte
-		if err := e.insertName(pos, appendUnquoted(buf[:0], b[pos:]), false); err != nil {
+		if err := e.insertName(pos, appendUnquoted(buf[:0], b[pos:], strEscaped|strInvalidUTF8), false); err != nil {
 			return err
 		}
 		e.st.last().count++

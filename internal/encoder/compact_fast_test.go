@@ -3,6 +3,7 @@ package encoder
 import (
 	"bytes"
 	stdjson "encoding/json"
+	stderrors "errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -157,4 +158,14 @@ func FuzzAppendCompactOutput(f *testing.F) {
 			t.Fatalf("escape=%v: %q is accepted but encoding/json compacts it to %q", escape, src, buf.Bytes())
 		}
 	})
+}
+
+// compact compacts src, valid JSON followed by the nul byte, as the outputs of the marshalers are compacted when
+// appendCompactOutput doesn't take them.
+func compact(dst, src []byte, escape bool) ([]byte, error) {
+	out, _, ok := formatJSON(dst, src, escape, nil)
+	if !ok {
+		return nil, stderrors.New("not valid JSON")
+	}
+	return out, nil
 }

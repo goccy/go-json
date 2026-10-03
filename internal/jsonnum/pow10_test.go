@@ -1,4 +1,4 @@
-package decoder
+package jsonnum
 
 import (
 	"math"

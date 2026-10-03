@@ -8,6 +8,8 @@ import (
 	"slices"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // valueScanner reads a JSON value, and writes it formatted if write is set. The levels of the value are pushed
@@ -274,11 +276,11 @@ space1Back:
 			j = i
 		}
 		if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
-			j = scanDigits(b, j+2)
+			j = jsonnum.ScanDigits(b, j+2)
 		}
 		if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
 			i = j
-		} else if n = numberEnd(b[i:]); n < 0 {
+		} else if n = jsonnum.End(b[i:]); n < 0 {
 			return i, false
 		} else {
 			i += n
@@ -520,11 +522,11 @@ value:
 				// reads in an object or array, as the error of the object or array where the value is, when it
 				// is the end of the other kind.
 				if l.object {
-					return i, s.fail(invalidChar(b[i:], "after object value (expecting ',' or '}')"), i, pointHere)
+					return i, s.fail(invalidChar(b[i:], placeAfterObjectValue), i, pointHere)
 				}
-				return i, s.fail(invalidChar(b[i:], "after array element (expecting ',' or ']')"), i, pointHere)
+				return i, s.fail(invalidChar(b[i:], placeAfterArrayElement), i, pointHere)
 			}
-			return i, s.fail(invalidChar(b[i:], "at start of value"), i, pointNext)
+			return i, s.fail(invalidChar(b[i:], placeStartOfValue), i, pointNext)
 		}
 		var st numState
 		if rp.tok > 0 {
@@ -546,11 +548,11 @@ value:
 				j = i
 			}
 			if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
-				j = scanDigits(b, j+2)
+				j = jsonnum.ScanDigits(b, j+2)
 			}
 			if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
 				n = j - i
-			} else if n = numberEnd(b[i:]); n < 0 {
+			} else if n = jsonnum.End(b[i:]); n < 0 {
 				n, st, err = scanNumberFrom(b[i:], 0, numState{})
 			}
 		}
@@ -609,7 +611,7 @@ next:
 			i++
 			goto next
 		}
-		return i, s.fail(invalidChar(b[i:], "after object value (expecting ',' or '}')"), i, pointAt)
+		return i, s.fail(invalidChar(b[i:], placeAfterObjectValue), i, pointAt)
 	}
 	switch b[i] {
 	case ',':
@@ -626,9 +628,9 @@ next:
 		goto next
 	}
 	if s.decoding {
-		return i, s.fail(invalidChar(b[i:], "after array element (expecting ',' or ']')"), i, pointAt)
+		return i, s.fail(invalidChar(b[i:], placeAfterArrayElement), i, pointAt)
 	}
-	return i, s.fail(invalidChar(b[i:], "after array value (expecting ',' or ']')"), i, pointAt)
+	return i, s.fail(invalidChar(b[i:], placeAfterArrayValue), i, pointAt)
 
 opened:
 	if i = s.skip(b, i); i == len(b) {
@@ -652,7 +654,7 @@ name:
 		s.space(b, i, ws)
 	}
 	if b[i] != '"' {
-		return i, s.fail(invalidChar(b[i:], "at start of string (expecting '\"')"), i, pointAt)
+		return i, s.fail(invalidChar(b[i:], placeStartOfString), i, pointAt)
 	}
 	{
 		var f strFlags
@@ -703,7 +705,7 @@ colon:
 		return s.cut(atColon, i, pointAt, rp)
 	}
 	if b[i] != ':' {
-		return i, s.fail(invalidChar(b[i:], "after object name (expecting ':')"), i, pointAt)
+		return i, s.fail(invalidChar(b[i:], placeAfterObjectName), i, pointAt)
 	}
 	if s.spaced && s.wsEnd == i {
 		s.space(b, i, wsNone)

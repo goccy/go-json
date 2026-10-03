@@ -12,8 +12,11 @@ import (
 // their sizes, after the bytes of the buffer and into a buffer of any capacity.
 func TestAppendIntegers(t *testing.T) {
 	var values []uint64
-	for _, p := range pow10 {
+	for p := uint64(1); ; p *= 10 {
 		values = append(values, p-1, p, p+1)
+		if p > math.MaxUint64/10 {
+			break
+		}
 	}
 	values = append(values, 0, math.MaxInt8, math.MaxUint8, math.MaxInt16, math.MaxUint16, math.MaxInt32,
 		math.MaxUint32, math.MaxInt64, math.MaxUint64, 1<<63)
@@ -58,25 +61,6 @@ func valueOfSize(v uint64, size uint8) unsafe.Pointer {
 		return unsafe.Pointer(&u)
 	}
 	return unsafe.Pointer(&v)
-}
-
-func TestDecimalDigits(t *testing.T) {
-	for i, p := range pow10 {
-		if got := decimalDigits(p); got != i+1 {
-			t.Fatalf("digits of %d: got %d, want %d", p, got, i+1)
-		}
-		if p > 1 {
-			if got := decimalDigits(p - 1); got != i {
-				t.Fatalf("digits of %d: got %d, want %d", p-1, got, i)
-			}
-		}
-	}
-	if got := decimalDigits(0); got != 1 {
-		t.Fatalf("digits of 0: got %d", got)
-	}
-	if got := decimalDigits(math.MaxUint64); got != 20 {
-		t.Fatalf("digits of the largest uint64: got %d", got)
-	}
 }
 
 func BenchmarkAppendInt(b *testing.B) {

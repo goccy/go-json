@@ -1,4 +1,4 @@
-package encoder
+package jsonstring
 
 import (
 	"math/rand"
@@ -108,10 +108,10 @@ func TestAppendEscapedSIMD(t *testing.T) {
 		for index := range stringEscapes {
 			e := &stringEscapes[index]
 			hasEscapeLoop = false
-			want := e.appendEscaped([]byte("prefix"), s)
+			want, wantValid := e.appendEscaped(e, []byte("prefix"), s)
 			hasEscapeLoop = true
-			got := e.appendEscaped([]byte("prefix"), s)
-			if string(got) != string(want) {
+			got, gotValid := e.appendEscaped(e, []byte("prefix"), s)
+			if string(got) != string(want) || gotValid != wantValid {
 				t.Fatalf("%d %q:\n got %q\nwant %q", index, s, got, want)
 			}
 		}
@@ -163,9 +163,9 @@ func TestAppendHTMLEscapedSIMD(t *testing.T) {
 		b.WriteByte('"')
 		src := []byte(b.String())
 		hasEscapeLoop = false
-		want := appendHTMLEscaped([]byte("prefix"), src)
+		want := AppendHTMLEscaped([]byte("prefix"), src)
 		hasEscapeLoop = true
-		got := appendHTMLEscaped([]byte("prefix"), src)
+		got := AppendHTMLEscaped([]byte("prefix"), src)
 		if string(got) != string(want) {
 			t.Fatalf("%q:\n got %q\nwant %q", src, got, want)
 		}
@@ -203,10 +203,10 @@ func TestEscapeUTF8AVX2AcrossBlocks(t *testing.T) {
 				for index := range stringEscapes {
 					e := &stringEscapes[index]
 					hasEscapeLoop = false
-					want := e.appendEscaped([]byte("prefix"), s)
+					want, wantValid := e.appendEscaped(e, []byte("prefix"), s)
 					hasEscapeLoop = true
-					got := e.appendEscaped([]byte("prefix"), s)
-					if string(got) != string(want) {
+					got, gotValid := e.appendEscaped(e, []byte("prefix"), s)
+					if string(got) != string(want) || gotValid != wantValid {
 						t.Fatalf("%d %q:\n got %q\nwant %q", index, s, got, want)
 					}
 				}

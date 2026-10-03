@@ -62,6 +62,10 @@ type Stream struct {
 	// a read of a token which fails leaves the stream where it was ( see Token ).
 	keeps    bool
 	keepFrom int64
+	// shortRead is whether the last read returned fewer bytes than it could take: the next one may wait for
+	// input, and the end of a value is then found by the decoder of jsontext of text ( see scanByText ).
+	shortRead bool
+	text      *streamText
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -107,12 +111,14 @@ func (s *Stream) read() bool {
 	if int64(len(s.buf))-s.length <= bufPadding {
 		s.grow()
 	}
-	n, err := s.r.Read(s.buf[s.length : int64(len(s.buf))-bufPadding])
+	room := s.buf[s.length : int64(len(s.buf))-bufPadding]
+	n, err := s.r.Read(room)
 	s.length += int64(n)
 	s.buf[s.length] = nul
 	if err != nil {
 		s.readErr = err
 	}
+	s.shortRead = n < len(room) && err == nil
 	return n > 0 || err == nil
 }
 
@@ -270,6 +276,9 @@ func (s *Stream) scanCompound() (int64, error) {
 		if found {
 			return pos, nil
 		}
+		if s.shortRead {
+			return s.scanByText()
+		}
 		rel = pos - s.cursor
 		if !s.read() {
 			return 0, s.truncatedValueError()
@@ -313,6 +322,9 @@ func (s *Stream) scanString() (int64, error) {
 		rel = pos - s.cursor
 		if pos < end {
 			continue
+		}
+		if s.shortRead {
+			return s.scanByText()
 		}
 		if !s.read() {
 			return 0, s.truncatedValueError()

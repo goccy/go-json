@@ -550,7 +550,33 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			return b[:len(b)+l], nil
 		}
 	}
-	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {
+	// the others by the grammar in place: the bytes which are not digits are a sign, a decimal point, the exponent
+	// and its sign, each at most once and in its place, whose bits are cleared one by one.
+	start := 0
+	if src[0] == '-' {
+		nonDigits &^= 1
+		start = 1
+	}
+	valid := false
+	if start < l && nonDigits&(1<<start) == 0 && (src[start] != '0' || start+1 == l || nonDigits&(1<<(start+1)) != 0) {
+		valid = nonDigits == 0
+		p, digitsBefore := bits.TrailingZeros(nonDigits), true
+		if !valid && src[p] == '.' {
+			digitsBefore = p+1 < l && nonDigits&(1<<(p+1)) == 0
+			nonDigits &^= 1 << p
+			valid = digitsBefore && nonDigits == 0
+			p = bits.TrailingZeros(nonDigits)
+		}
+		if !valid && digitsBefore && nonDigits != 0 && src[p]|0x20 == 'e' {
+			nonDigits &^= 1 << p
+			if p+1 < l && (src[p+1] == '+' || src[p+1] == '-') {
+				nonDigits &^= 1 << (p + 1)
+				p++
+			}
+			valid = p+1 < l && nonDigits == 0
+		}
+	}
+	if !valid {
 		return nil, invalidNumberError(n, false)
 	}
 	return b[:len(b)+l], nil

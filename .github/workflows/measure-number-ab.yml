@@ -14,7 +14,7 @@ jobs:
       matrix:
         run: [1, 2, 3, 4, 5, 6]
     env:
-      VARIANTS: 'aebd8f4 3bfaa95 67ea985 3c0dac4 a5a882a'
+      VARIANTS: 'aebd8f4 a5a882a 13ee5e6'
       LAYOUTS: '3'
     steps:
       - name: checkout
@@ -91,7 +91,7 @@ jobs:
           $(go env GOPATH)/bin/benchstat /tmp/all.txt | awk '/sec\/op/ {on=1} on {print} /^geomean/ && on {exit}'
       - name: profile
         run: |
-          for v in a5a882a; do
+          for v in 13ee5e6; do
             echo "=== $v"
             (cd /tmp/$v/benchmarks && /tmp/$v.1.test -test.run '^$' -test.bench 'ZZNumbers_GoJson' -test.benchtime 3s -test.cpuprofile /tmp/$v.prof > /dev/null)
             go tool pprof -top -nodecount=15 /tmp/$v.1.test /tmp/$v.prof 2>/dev/null | tail -16

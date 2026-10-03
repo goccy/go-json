@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // Kind is the kind of a JSON token.
@@ -459,11 +461,17 @@ func (t Token) float(bits int) (float64, error) {
 		}
 		return f, nil
 	}
-	s := string(t.raw())
-	f, err := strconv.ParseFloat(s, bits)
+	raw := t.raw()
+	if bits == 64 {
+		// a float32 is parsed by strconv: a float64 rounded to a float32 may differ from it by the rounding.
+		if f, ok := jsonnum.ParseFloat(raw); ok {
+			return f, nil
+		}
+	}
+	f, err := strconv.ParseFloat(string(raw), bits)
 	if err != nil {
 		// the grammar of a JSON number is in the one of ParseFloat: the only error is the range.
-		return f, &numError{"Float", s, strconv.ErrRange}
+		return f, &numError{"Float", string(raw), strconv.ErrRange}
 	}
 	return f, nil
 }
@@ -544,7 +552,7 @@ func parseInt(b []byte) (int64, error) {
 	if neg {
 		digits = b[1:]
 	}
-	if n, ok := parseDigits(digits); ok {
+	if n, ok := jsonnum.ParseUint(digits); ok {
 		if neg {
 			if n > 1<<63 {
 				return math.MinInt64, strconv.ErrRange
@@ -562,19 +570,28 @@ func parseInt(b []byte) (int64, error) {
 		}
 		return math.MaxInt64, strconv.ErrRange
 	}
-	f, _ := strconv.ParseFloat(string(b), 64)
+	f := parseFloat64(b)
 	n, _ := floatToInt(f)
 	return n, strconv.ErrSyntax
 }
 
+// parseFloat64 is the float64 of the text of a JSON number, infinite if it is out of the range.
+func parseFloat64(b []byte) float64 {
+	if f, ok := jsonnum.ParseFloat(b); ok {
+		return f
+	}
+	f, _ := strconv.ParseFloat(string(b), 64)
+	return f
+}
+
 // parseUint is Uint of the text of a JSON number.
 func parseUint(b []byte) (uint64, error) {
-	if n, ok := parseDigits(b); ok {
+	if n, ok := jsonnum.ParseUint(b); ok {
 		return n, nil
 	} else if isDigits(b) {
 		return math.MaxUint64, strconv.ErrRange
 	}
-	f, _ := strconv.ParseFloat(string(b), 64)
+	f := parseFloat64(b)
 	n, _ := floatToUint(f)
 	return n, strconv.ErrSyntax
 }
@@ -590,21 +607,4 @@ func isDigits(b []byte) bool {
 		}
 	}
 	return true
-}
-
-// parseDigits is the value of an integer of isDigits, and false if b is not one or its value overflows a
-// uint64.
-func parseDigits(b []byte) (uint64, bool) {
-	if !isDigits(b) || len(b) > 20 {
-		return 0, false
-	}
-	var n uint64
-	for _, c := range b {
-		d := uint64(c - '0')
-		if n > (math.MaxUint64-d)/10 {
-			return 0, false
-		}
-		n = n*10 + d
-	}
-	return n, true
 }

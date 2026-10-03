@@ -828,7 +828,7 @@ func appendFloatText(dst []byte, f float64, bits int) []byte {
 // appendCanonicalNumber appends the JSON number b in the canonical form of RFC 8785: as a float64, saturated at
 // the largest finite values, with -0 as 0.
 func appendCanonicalNumber(dst, b []byte) []byte {
-	f, _ := strconv.ParseFloat(string(b), 64)
+	f := parseFloat64(b)
 	if math.IsInf(f, 0) {
 		f = math.Copysign(math.MaxFloat64, f)
 	}

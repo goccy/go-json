@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/bits"
 	"reflect"
 	"slices"
 	"strconv"
@@ -479,8 +480,9 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 // empty one as 0.
 //
 // A number of up to 24 bytes is copied by the words which overlap, without a call of memmove, and the bytes which
-// are not digits are found in the words as they are loaded, which the grammar is checked by at once ( see
-// jsonnum.ValidByNonDigits ): only a number which they don't decide goes through the grammar a byte at a time.
+// are not digits are found in the words as they are loaded, which the grammar is checked by at once: here for a
+// number of at most one decimal point, and by jsonnum.ValidByNonDigits for the others. Only a number which they
+// don't decide goes through the grammar a byte at a time.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	l := len(n)
 	if l == 0 {
@@ -524,6 +526,16 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			if c-'0' > 9 {
 				nonDigits |= 1 << i
 			}
+		}
+	}
+	// a number without a sign or an exponent, the most common one, is decided here without a call
+	if nonDigits&(nonDigits-1) == 0 {
+		if nonDigits == 0 {
+			if src[0] != '0' || l == 1 {
+				return b[:len(b)+l], nil
+			}
+		} else if dot := bits.TrailingZeros(nonDigits); src[dot] == '.' && dot > 0 && dot < l-1 && (src[0] != '0' || dot == 1) {
+			return b[:len(b)+l], nil
 		}
 	}
 	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {

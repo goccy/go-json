@@ -64,15 +64,13 @@ func IsValid(b []byte) bool {
 	return accepting[st>>8]
 }
 
-// NonDigits has the bit i of each byte i of w, a little-endian word, which is not a digit; a byte of 0xFA or
-// more may set the bit of the byte after it too, which is not a digit then either way but a caller which takes a
-// set bit for a byte to look at. It is small enough to be inlined.
+// NonDigits has the bit i of each byte i of w, a little-endian word, which is not a digit. It is small enough to
+// be inlined.
 func NonDigits(w uint64) uint8 {
-	const lsb = 0x0101010101010101
-	// a digit has the high nibble 3, which adding 6 to it keeps: the bytes of x are 0 for the digits
-	x := ((w & (lsb * 0xf0)) ^ (lsb * 0x30)) | (((w + lsb*6) & (lsb * 0xf0)) ^ (lsb * 0x30))
-	// the top bit of each byte which is not 0, without a carry between the bytes
-	m := (((x & (lsb * 0x7f)) + lsb*0x7f) | x) & (lsb * 0x80)
+	const lsb, top = 0x0101010101010101, 0x8080808080808080
+	// the top bit of each byte which is 0x3A or more, or less than 0x30, of its low 7 bits, or which has its own:
+	// adding to the low 7 bits, and subtracting from the bytes with the top bit, carries between no bytes.
+	m := (((w&^top)+lsb*(0x80-0x3a))|w)&top | top&^((w|top)-lsb*0x30)
 	// the top bits gathered into a byte, of the byte i in the bit i
 	return uint8((m >> 7) * 0x0102040810204080 >> 56)
 }

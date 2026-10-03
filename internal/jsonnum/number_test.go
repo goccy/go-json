@@ -7,12 +7,11 @@ import (
 	"testing"
 )
 
-// NonDigits has the bits of the bytes which are not digits, whatever the other bytes are, but for the byte after
-// one of 0xFA or more, which it may set as well.
+// NonDigits has the bits of the bytes which are not digits, whatever the other bytes are.
 func TestNonDigits(t *testing.T) {
 	for pos := 0; pos < 8; pos++ {
 		for c := 0; c < 256; c++ {
-			for _, fill := range []byte{'0', '5', '9', 'a', 0xff} {
+			for _, fill := range []byte{'0', '5', '9', 'a', '/', ':', 0x80, 0xb0, 0xff, 0} {
 				var w uint64
 				var b [8]byte
 				for i := 0; i < 8; i++ {
@@ -26,7 +25,7 @@ func TestNonDigits(t *testing.T) {
 				for i := 0; i < 8; i++ {
 					want := b[i] < '0' || b[i] > '9'
 					set := got&(1<<i) != 0
-					if set != want && !(set && i > 0 && b[i-1] >= 0xfa) {
+					if set != want {
 						t.Fatalf("% x: bit %d is %v, want %v", b, i, set, want)
 					}
 				}

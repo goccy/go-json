@@ -527,15 +527,23 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			}
 		}
 	}
-	// a number without a sign or an exponent, the most common one, is decided here without a call
-	if nonDigits&(nonDigits-1) == 0 {
+	// a number without an exponent, the most common one, is decided here without a call
+	start := 0
+	if src[0] == '-' {
+		nonDigits &^= 1
+		start = 1
+	}
+	if nonDigits&(nonDigits-1) == 0 && start < l {
 		if nonDigits == 0 {
-			if src[0] != '0' || l == 1 {
+			if src[start] != '0' || l == start+1 {
 				return b[:len(b)+l], nil
 			}
-		} else if dot := bits.TrailingZeros(nonDigits); src[dot] == '.' && dot > 0 && dot < l-1 && (src[0] != '0' || dot == 1) {
+		} else if dot := bits.TrailingZeros(nonDigits); src[dot] == '.' && dot > start && dot < l-1 && (src[start] != '0' || dot == start+1) {
 			return b[:len(b)+l], nil
 		}
+	}
+	if start == 1 {
+		nonDigits |= 1
 	}
 	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {
 		return nil, invalidNumberError(n, false)

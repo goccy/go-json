@@ -17,7 +17,7 @@ jobs:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       MASTER: '6659f04'
-      NEW: '6d8eaef'
+      NEW: '0eb63aa'
       LAYOUTS: '3'
       BENCH: '^(Benchmark_Encode_(Bool|MapInterface|Interface|SmallStruct|LargeStruct)_GoJson|Benchmark_EncodeRawMessage_GoJson|Benchmark_TwitterGeneric_GoJson|Benchmark_Encode_FilterByFieldQuery|Benchmark_Encode_SmallStructCached_GoJsonOptimizedFieldOrder)$'
       LOOKUPS: '^BenchmarkTypeLookups$'
@@ -46,6 +46,31 @@ jobs:
           for v in master_pad new_pad; do
             printf 'package encoder\n\n//go:noinline\nfunc zzPad(n int) int { return n*3 + 1 }\n\nvar zzPadSink = zzPad(1)\n' > /tmp/$v/internal/encoder/aa_pad.go
           done
+          for v in master new master_pad new_pad; do
+            cat > /tmp/$v/benchmarks/zz_sets_test.go <<'GOEOF'
+          package benchmark
+
+          import (
+          	"fmt"
+          	"testing"
+          	"unsafe"
+          )
+
+          // a measurement only: the sets of the recent opcodes which the types of the map benchmark fall in.
+          func TestZZSetsOfMapValues(t *testing.T) {
+          	m := benchMapValue()
+          	vs := []any{m}
+          	for _, v := range m {
+          		vs = append(vs, v)
+          	}
+          	for _, v := range vs {
+          		typ := (*[2]uintptr)(unsafe.Pointer(&v))[0]
+          		fmt.Printf("%T set=%d\n", v, (uint64(typ)*0x9E3779B97F4A7C15)>>60)
+          	}
+          }
+          GOEOF
+            sed -i 's/^          //' /tmp/$v/benchmarks/zz_sets_test.go
+          done
           VARIANTS='master new master_pad new_pad'
           for v in $VARIANTS; do
             for l in $(seq $LAYOUTS); do
@@ -60,5 +85,9 @@ jobs:
                 (cd /tmp/$v && /tmp/$v.$l.root.test -test.run '^$' -test.bench "$LOOKUPS" -test.benchtime 100ms | grep '^Benchmark' >> /tmp/$v.txt)
               done
             done
+          done
+          for v in master new master_pad new_pad; do
+            echo "=== sets of $v"
+            (cd /tmp/$v/benchmarks && /tmp/$v.1.bench.test -test.run ZZSets | grep set= | sort)
           done
           $(go env GOPATH)/bin/benchstat master=/tmp/master.txt new=/tmp/new.txt master_pad=/tmp/master_pad.txt new_pad=/tmp/new_pad.txt | awk '/sec\/op/ {on=1} on {print} /^geomean/ && on {exit}'

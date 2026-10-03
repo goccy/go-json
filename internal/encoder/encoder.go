@@ -17,6 +17,7 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/floatfmt"
+	"github.com/goccy/go-json/internal/jsonnum"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -492,17 +493,31 @@ var (
 	}
 )
 
+// AppendNumber appends n, which must be a JSON number by its grammar, as encoding/json writes a json.Number: an
+// empty one as 0.
+//
+// The VM calls it through a variable: its body is not a call of another function, which would be a second call
+// for every number.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	if len(n) == 0 {
 		return append(b, '0'), nil
 	}
-	for i := 0; i < len(n); i++ {
-		if !floatTable[n[i]] {
-			return nil, fmt.Errorf("json: invalid number literal %q", n)
-		}
+	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+		return nil, invalidNumberError(n, false)
 	}
-	b = append(b, n...)
-	return b, nil
+	return append(b, n...), nil
+}
+
+// AppendNumberString is AppendNumber of a json.Number of a field with the option string, which the caller
+// quotes: its error shows the number quoted, as encoding/json shows it.
+func AppendNumberString(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	if len(n) == 0 {
+		return append(b, '0'), nil
+	}
+	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+		return nil, invalidNumberError(n, true)
+	}
+	return append(b, n...), nil
 }
 
 // addrForMarshaler returns the pointer to the value held by v, to call a marshaler with a pointer receiver.

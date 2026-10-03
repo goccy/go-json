@@ -17,6 +17,7 @@ var (
 	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
+	appendNumberString  = encoder.AppendNumberString
 	appendStructEnd     = encoder.AppendStructEndIndent
 	appendIndent        = encoder.AppendIndent
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat

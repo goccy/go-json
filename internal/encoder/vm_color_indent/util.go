@@ -138,6 +138,17 @@ func appendNumber(ctx *encoder.RuntimeContext, b []byte, n json.Number) ([]byte,
 	return append(bb, format.Footer...), nil
 }
 
+// appendNumberString is appendNumber of a json.Number of a field with the option string, which the caller quotes.
+func appendNumberString(ctx *encoder.RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	format := ctx.Option.ColorScheme.Int
+	b = append(b, format.Header...)
+	bb, err := encoder.AppendNumberString(ctx, b, n)
+	if err != nil {
+		return nil, err
+	}
+	return append(bb, format.Footer...), nil
+}
+
 func appendBool(ctx *encoder.RuntimeContext, b []byte, v bool) []byte {
 	format := ctx.Option.ColorScheme.Bool
 	b = append(b, format.Header...)

@@ -391,7 +391,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			fallthrough
 		case encoder.OpNumberString:
 			b = append(b, '"')
-			bb, err := appendNumber(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(load(ctxptr, code.Idx)))
 			if err != nil {
 				return nil, err
 			}
@@ -1388,7 +1388,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
 			if err != nil {
 				return nil, err
 			}
@@ -1401,7 +1401,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, v)
+				bb, err := appendNumberString(ctx, b, v)
 				if err != nil {
 					return nil, err
 				}
@@ -2353,7 +2353,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			b = append(b, '"')
-			bb, err := appendNumber(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
+			bb, err := appendNumberString(ctx, b, ptrToNumber(unsafe.Add(p, code.Offset)))
 			if err != nil {
 				return nil, err
 			}
@@ -2366,7 +2366,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
 				b = append(b, '"')
-				bb, err := appendNumber(ctx, b, v)
+				bb, err := appendNumberString(ctx, b, v)
 				if err != nil {
 					return nil, err
 				}

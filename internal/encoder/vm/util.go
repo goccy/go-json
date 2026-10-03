@@ -20,6 +20,7 @@ var (
 	appendString        = encoder.AppendString
 	appendByteSlice     = encoder.AppendByteSlice
 	appendNumber        = encoder.AppendNumber
+	appendNumberString  = encoder.AppendNumberString
 	errUnsupportedFloat = encoder.ErrUnsupportedFloat
 )
 

@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // The tokens of a stream as encoding/json of Go 1.27 reads them, by encoding/json/jsontext: a token or a value is
@@ -450,16 +451,19 @@ func (s *Stream) tokenValue(c byte) (any, error) {
 			return nil, err
 		}
 		// the number ends where the grammar ends it, as 01 is 0 and 1, and is a number by the grammar
-		end = streamNumberEnd(s.buf, s.cursor, end)
-		literal := s.buf[s.cursor:end]
-		if !isValidNumber(literal) {
+		n, place := jsonnum.Scan(s.buf[s.cursor:end])
+		if place != jsonnum.Valid {
 			return nil, s.valueSyntaxError()
 		}
-		s.cursor = end
+		literal := s.buf[s.cursor : s.cursor+int64(n)]
+		s.cursor += int64(n)
 		if (s.Option.Flags & UseNumberOption) != 0 {
 			return json.Number(literal), nil
 		}
-		f64, err := strconv.ParseFloat(*(*string)(unsafe.Pointer(&literal)), 64)
+		f64, ok := jsonnum.ParseFloat(literal)
+		if !ok {
+			f64, err = strconv.ParseFloat(*(*string)(unsafe.Pointer(&literal)), 64)
+		}
 		if err != nil {
 			// a number out of the range of float64, which is read: a type error of the value, which Token
 			// returns after it

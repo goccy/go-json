@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonnum"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -344,37 +345,6 @@ func (s *Stream) scanLiteral() (int64, error) {
 	}
 }
 
-// streamNumberEnd returns the end of the number at start in buf[:lim] by the grammar of the numbers, which may be
-// cut there: what follows is not read yet, or is the next value.
-func streamNumberEnd(buf []byte, start, lim int64) int64 {
-	isDigit := func(i int64) bool { return i < lim && buf[i]-'0' <= 9 }
-	i := start
-	if buf[i] == '-' {
-		i++
-	}
-	if i < lim && buf[i] == '0' {
-		i++
-	} else {
-		for isDigit(i) {
-			i++
-		}
-	}
-	if i < lim && buf[i] == '.' {
-		for i++; isDigit(i); i++ {
-		}
-	}
-	if i < lim && (buf[i] == 'e' || buf[i] == 'E') {
-		i++
-		if i < lim && (buf[i] == '+' || buf[i] == '-') {
-			i++
-		}
-		for isDigit(i) {
-			i++
-		}
-	}
-	return i
-}
-
 // DecoderOf returns the decoder of the type, from the recent decoders of the context of the stream.
 func (s *Stream) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 	return s.ctx.DecoderOf(typ)
@@ -436,7 +406,9 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 //go:noinline
 func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end int64) error {
 	if c := s.buf[s.cursor]; c == '-' || c-'0' <= 9 {
-		if first := streamNumberEnd(s.buf, s.cursor, end); first < end {
+		// the end of the number by the grammar, which an invalid number has where it is invalid
+		if n, _ := jsonnum.Scan(s.buf[s.cursor:end]); s.cursor+int64(n) < end {
+			first := s.cursor + int64(n)
 			// the bytes of the numbers which scanLiteral read are more than one value, as 01 is 0 and 1: the first
 			// is decoded alone, and the next one after it
 			s.ctx.DiscardTypeError()

@@ -1,9 +1,6 @@
 package decoder
 
 import (
-	"fmt"
-
-	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/jsonnum"
 )
 
@@ -25,42 +22,18 @@ func parseFloatFast(buf []byte, cursor int64) (float64, int64, bool) {
 	return jsonnum.ParseFloatTerminated(buf, cursor)
 }
 
-// numberEnd returns the position after the number which starts at start, validated by the grammar of the JSON
+// numberEnd returns the position after the number which starts at start, checked by the grammar of the JSON
 // numbers, which is followed by a byte which may end a value.
 func numberEnd(buf []byte, start int64) (int64, error) {
-	c := start
-	if buf[c] == '-' {
-		c++
+	n, place := jsonnum.Scan(buf[start:])
+	end := start + int64(n)
+	if place != jsonnum.Valid {
+		return 0, numberPlaceError(buf, end, start, place)
 	}
-	switch {
-	case buf[c] == '0':
-		c++
-	case '1' <= buf[c] && buf[c] <= '9':
-		c = skipDigits(buf, c+1)
-	default:
-		return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in numeric literal", quoteChar(buf[c])), c+1)
+	if !validEndNumberChar[buf[end]] {
+		return 0, syntaxErrorAt(buf, end, whereAfterTop)
 	}
-	if buf[c] == '.' {
-		c++
-		if buf[c]-'0' > 9 {
-			return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s after decimal point in numeric literal", quoteChar(buf[c])), c+1)
-		}
-		c = skipDigits(buf, c)
-	}
-	if buf[c] == 'e' || buf[c] == 'E' {
-		c++
-		if buf[c] == '+' || buf[c] == '-' {
-			c++
-		}
-		if buf[c]-'0' > 9 {
-			return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s in exponent of numeric literal", quoteChar(buf[c])), c+1)
-		}
-		c = skipDigits(buf, c)
-	}
-	if !validEndNumberChar[buf[c]] {
-		return 0, errors.ErrSyntax(fmt.Sprintf("invalid character %s after top-level value", quoteChar(buf[c])), c+1)
-	}
-	return c, nil
+	return end, nil
 }
 
 // skipDigits returns the position of the first byte from c which is not a digit.
@@ -69,4 +42,17 @@ func skipDigits(buf []byte, c int64) int64 {
 		c++
 	}
 	return c
+}
+
+// numberPlaceError returns the syntax error of the byte at cursor in the number which starts at start, which
+// jsonnum.Scan found invalid at place.
+func numberPlaceError(buf []byte, cursor, start int64, place jsonnum.Place) error {
+	where := whereNumber
+	switch place {
+	case jsonnum.Fraction:
+		where = whereFraction
+	case jsonnum.Exponent:
+		where = whereExponent
+	}
+	return numberSyntaxError(buf, cursor, start, where)
 }

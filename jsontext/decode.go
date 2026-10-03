@@ -5,6 +5,8 @@ import (
 	"io"
 	"slices"
 	"unicode/utf8"
+
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // Decoder is a streaming decoder of raw JSON tokens and values. It reads a stream of top-level JSON values,
@@ -444,7 +446,7 @@ func (d *decoder) readToken() (Token, error) {
 		d.done(pos+len(lit), pos+len(lit))
 		return literalToken(Kind(c)), nil
 	}
-	n := numberEnd(b[pos:])
+	n := jsonnum.End(b[pos:])
 	if name || n < 0 {
 		return d.readTokenSlow()
 	}
@@ -595,7 +597,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			}
 			return pos, pos, 0, d.charError(pos, "at start of value", where)
 		}
-		if n := numberEnd(d.buf[pos:]); n > 0 {
+		if n := jsonnum.End(d.buf[pos:]); n > 0 {
 			return pos, pos + n, 0, nil
 		}
 	}
@@ -617,7 +619,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 			cut = err == io.ErrUnexpectedEOF
 		default:
 			if st.inDigits() && n > 0 {
-				if j := scanDigits(b, n); j == len(b) {
+				if j := jsonnum.ScanDigits(b, n); j == len(b) {
 					// digits continue the number to the end of the buffer, as a slow reader gives them
 					n, st.done, cut = j, j, true
 					break

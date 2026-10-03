@@ -8,6 +8,8 @@ import (
 	"slices"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // valueScanner reads a JSON value, and writes it formatted if write is set. The levels of the value are pushed
@@ -274,11 +276,11 @@ space1Back:
 			j = i
 		}
 		if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
-			j = scanDigits(b, j+2)
+			j = jsonnum.ScanDigits(b, j+2)
 		}
 		if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
 			i = j
-		} else if n = numberEnd(b[i:]); n < 0 {
+		} else if n = jsonnum.End(b[i:]); n < 0 {
 			return i, false
 		} else {
 			i += n
@@ -546,11 +548,11 @@ value:
 				j = i
 			}
 			if j > i && j+1 < len(b) && b[j] == '.' && '0' <= b[j+1] && b[j+1] <= '9' {
-				j = scanDigits(b, j+2)
+				j = jsonnum.ScanDigits(b, j+2)
 			}
 			if j > i && j < len(b) && b[j] != '.' && b[j] != 'e' && b[j] != 'E' {
 				n = j - i
-			} else if n = numberEnd(b[i:]); n < 0 {
+			} else if n = jsonnum.End(b[i:]); n < 0 {
 				n, st, err = scanNumberFrom(b[i:], 0, numState{})
 			}
 		}

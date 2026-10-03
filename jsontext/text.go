@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/floatfmt"
+	"github.com/goccy/go-json/internal/jsonnum"
 )
 
 // The scanners of the text of a token take the text from its first byte, and return the number of bytes which
@@ -126,44 +127,6 @@ func scanNumber(b []byte) (int, error) {
 	return n, err
 }
 
-// numberEnd returns the end of the valid JSON number which starts b, if a byte which ends it follows it in b, or
-// -1: at an error and at a number which may continue after b, which scanNumberFrom takes.
-func numberEnd(b []byte) int {
-	i := 0
-	if i < len(b) && b[i] == '-' {
-		i++
-	}
-	switch {
-	case i == len(b):
-		return -1
-	case b[i] == '0':
-		i++
-	case '1' <= b[i] && b[i] <= '9':
-		i = scanDigits(b, i+1)
-	default:
-		return -1
-	}
-	if i < len(b) && b[i] == '.' {
-		if i++; i == len(b) || b[i] < '0' || '9' < b[i] {
-			return -1
-		}
-		i = scanDigits(b, i+1)
-	}
-	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
-		if i++; i < len(b) && (b[i] == '+' || b[i] == '-') {
-			i++
-		}
-		if i == len(b) || b[i] < '0' || '9' < b[i] {
-			return -1
-		}
-		i = scanDigits(b, i+1)
-	}
-	if i == len(b) {
-		return -1
-	}
-	return i
-}
-
 // inDigits reports whether the number is in a run of digits, which more digits continue without a change of state.
 func (st numState) inDigits() bool {
 	return st.next == numInt || st.next == numFrac || st.next == numExp
@@ -173,7 +136,7 @@ func (st numState) inDigits() bool {
 func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 	// the digits which continue a run of digits to the end of b, as a slow reader gives them, change no state
 	if st.inDigits() {
-		if i = scanDigits(b, i); i == len(b) {
+		if i = jsonnum.ScanDigits(b, i); i == len(b) {
 			st.done = i
 			return i, st, nil
 		}
@@ -199,7 +162,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 				i++
 				st.next = numAfterInt
 			} else if '1' <= c && c <= '9' {
-				i = scanDigits(b, i+1)
+				i = jsonnum.ScanDigits(b, i+1)
 				st.next = numInt
 			} else {
 				return i, st, invalidChar(b[i:], "in number (expecting digit)")
@@ -207,7 +170,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			st.done = i
 			continue
 		case numInt:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			st.done = i
 			if i == len(b) {
 				continue
@@ -232,7 +195,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			i++
 			continue
 		case numFrac:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			st.done = i
 			if i < len(b) {
 				st.next = numAfterFrc
@@ -252,31 +215,13 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			i++
 			continue
 		case numExp:
-			i = scanDigits(b, i)
+			i = jsonnum.ScanDigits(b, i)
 			if i < len(b) {
 				return i, st, nil
 			}
 			continue
 		}
 	}
-}
-
-// scanDigits returns the position of the first byte of b from i which is not a digit, or len(b). Long runs of
-// digits, as the fractions of floats have, are looked at 8 bytes at a time.
-func scanDigits(b []byte, i int) int {
-	for i+8 <= len(b) {
-		// a digit XOR '0' is below 10: adding 0x76 to each byte of the low 7 bits carries into the top bit from
-		// 10 on, and any byte of 0x80 or more has its top bit already.
-		w := binary.LittleEndian.Uint64(b[i:]) ^ 0x3030303030303030
-		if m := ((w &^ 0x8080808080808080) + 0x7676767676767676 | w) & 0x8080808080808080; m != 0 {
-			return i + bits.TrailingZeros64(m)/8
-		}
-		i += 8
-	}
-	for i < len(b) && '0' <= b[i] && b[i] <= '9' {
-		i++
-	}
-	return i
 }
 
 // isInteger reports whether the JSON number b has no fraction and no exponent.

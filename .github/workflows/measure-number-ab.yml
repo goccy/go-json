@@ -1,0 +1,91 @@
+name: Measure json.Number variants
+# A throwaway workflow of a measure/* branch: the encoding of json.Number by variants of the check of its grammar,
+# against master and sonic, each built with several function layouts, run interleaved on the same amd64 runner.
+on:
+  push:
+    branches:
+      - measure/json-number-variants
+jobs:
+  ab:
+    name: A/B (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6]
+    env:
+      VARIANTS: 'aebd8f4 f6056c9 fb934f0 0b494e0'
+      LAYOUTS: '3'
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: A/B
+        run: |
+          lscpu | grep 'Model name'
+          go install golang.org/x/perf/cmd/benchstat@latest
+          cat > /tmp/zz_number_test.go <<'EOF'
+          package benchmark
+
+          import (
+          	stdjson "encoding/json"
+          	"testing"
+
+          	"github.com/bytedance/sonic"
+          	gojson "github.com/goccy/go-json"
+          )
+
+          type zzNumbers struct {
+          	N []stdjson.Number `json:"n"`
+          }
+
+          var zzNumberData = func() zzNumbers {
+          	var v zzNumbers
+          	for _, s := range []string{"1", "12345", "-0.5", "3.141592653589793", "6.02214076e23", "123456789012345678", "0", "-1e-7"} {
+          		for range 128 {
+          			v.N = append(v.N, stdjson.Number(s))
+          		}
+          	}
+          	return v
+          }()
+
+          func Benchmark_ZZNumbers_GoJson(b *testing.B) {
+          	for range b.N {
+          		if _, err := gojson.Marshal(&zzNumberData); err != nil {
+          			b.Fatal(err)
+          		}
+          	}
+          }
+
+          func Benchmark_ZZNumbers_Sonic(b *testing.B) {
+          	for range b.N {
+          		if _, err := sonic.Marshal(&zzNumberData); err != nil {
+          			b.Fatal(err)
+          		}
+          	}
+          }
+          EOF
+          sed -i 's/^          //' /tmp/zz_number_test.go
+          for v in $VARIANTS; do
+            git worktree add /tmp/$v $v > /dev/null 2>&1
+            cp /tmp/zz_number_test.go /tmp/$v/benchmarks/
+            for l in $(seq $LAYOUTS); do
+              (cd /tmp/$v/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.test .)
+            done
+          done
+          for l in $(seq $LAYOUTS); do
+            for r in 1 2 3; do
+              for v in $VARIANTS; do
+                (cd /tmp/$v/benchmarks && /tmp/$v.$l.test -test.run '^$' -test.bench 'ZZNumbers' -test.benchtime 100ms | grep '^Benchmark' | sed "s/^Benchmark_ZZNumbers_GoJson/Benchmark_ZZNumbers_GoJson_$v/" >> /tmp/all.txt)
+              done
+            done
+          done
+          $(go env GOPATH)/bin/benchstat /tmp/all.txt | awk '/sec\/op/ {on=1} on {print} /^geomean/ && on {exit}'

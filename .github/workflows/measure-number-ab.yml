@@ -89,3 +89,11 @@ jobs:
             done
           done
           $(go env GOPATH)/bin/benchstat /tmp/all.txt | awk '/sec\/op/ {on=1} on {print} /^geomean/ && on {exit}'
+      - name: profile
+        run: |
+          for v in aebd8f4 3bfaa95; do
+            echo "=== $v"
+            (cd /tmp/$v/benchmarks && /tmp/$v.1.test -test.run '^$' -test.bench 'ZZNumbers_GoJson' -test.benchtime 3s -test.cpuprofile /tmp/$v.prof > /dev/null)
+            go tool pprof -top -nodecount=15 /tmp/$v.1.test /tmp/$v.prof 2>/dev/null | tail -16
+            go tool pprof -disasm 'encoder.AppendNumber$' /tmp/$v.1.test /tmp/$v.prof 2>/dev/null | awk '$1 != "." || $2 != "."' | head -150
+          done

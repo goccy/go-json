@@ -31,6 +31,11 @@ var (
 	cachedDecoder  runtime.TypeCache[Decoder]
 )
 
+func init() {
+	cachedDecoder.Init()
+	valuePools.Init()
+}
+
 func compileHead(typ reflect.Type, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	// The kind is validated here, once per type, instead of for every call of the decoding functions:
 	// the decoder of a non-pointer type is never created, so it is never cached either.

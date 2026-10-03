@@ -40,6 +40,7 @@ func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
 		}),
 		stringDecoder: newStringDecoder(structName, fieldName),
 	}
+	ifaceDecoder.values.Init()
 	ifaceDecoder.sliceDecoder = newSliceDecoder(
 		ifaceDecoder,
 		emptyInterfaceType,
@@ -61,7 +62,7 @@ func newEmptyInterfaceDecoder(structName, fieldName string) *interfaceDecoder {
 func newInterfaceDecoder(typ reflect.Type, structName, fieldName string) *interfaceDecoder {
 	emptyIfaceDecoder := newEmptyInterfaceDecoder(structName, fieldName)
 	stringDecoder := newStringDecoder(structName, fieldName)
-	return &interfaceDecoder{
+	dec := &interfaceDecoder{
 		typ:        typ,
 		hasMethods: typ.NumMethod() > 0,
 		structName: structName,
@@ -89,6 +90,8 @@ func newInterfaceDecoder(typ reflect.Type, structName, fieldName string) *interf
 		}),
 		stringDecoder: stringDecoder,
 	}
+	dec.values.Init()
+	return dec
 }
 
 var (
@@ -483,6 +486,7 @@ func NewPathDecoder() Decoder {
 		}),
 		stringDecoder: newStringDecoder("", ""),
 	}
+	ifaceDecoder.values.Init()
 	ifaceDecoder.sliceDecoder = newSliceDecoder(
 		ifaceDecoder,
 		emptyInterfaceType,

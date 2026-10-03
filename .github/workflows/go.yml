@@ -214,6 +214,24 @@ jobs:
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
 
+  bench-compare-jsontext:
+    # It never fails by the result: it exists to read how github.com/goccy/go-json/jsontext compares with
+    # encoding/json/jsontext, which it replaces.
+    name: Compare with encoding/json/jsontext
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: compare
+        run: make bench-compare-jsontext
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

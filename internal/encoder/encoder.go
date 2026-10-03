@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/floatfmt"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -443,44 +444,25 @@ func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {
 	return append(append(b, buf...), '"')
 }
 
+// AppendFloat32 appends v as encoding/json writes a float32: by the shortest decimal which rounds to it, in the
+// format 'f', or 'e' below 1e-6 and from 1e21, whose exponent has no leading zero.
 func AppendFloat32(_ *RuntimeContext, b []byte, v float32) []byte {
-	f64 := float64(v)
-	abs := math.Abs(f64)
-	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
-	if abs != 0 {
-		f32 := float32(abs)
-		if f32 < 1e-6 || f32 >= 1e21 {
-			fmt = 'e'
-		}
-	}
-	return appendFloatOfFormat(b, f64, fmt, 32)
+	return appendFloatOfBits(b, float64(v), 32)
 }
 
+// AppendFloat64 appends v as encoding/json writes a float64, as AppendFloat32 does.
 func AppendFloat64(_ *RuntimeContext, b []byte, v float64) []byte {
-	abs := math.Abs(v)
-	fmt := byte('f')
-	// Note: Must use float32 comparisons for underlying float32 value to get precise cutoffs right.
-	if abs != 0 {
-		if abs < 1e-6 || abs >= 1e21 {
-			fmt = 'e'
-		}
-	}
-	return appendFloatOfFormat(b, v, fmt, 64)
+	return appendFloatOfBits(b, v, 64)
 }
 
-// appendFloatOfFormat appends the float in the format, as encoding/json does: the exponent of the 'e' format
-// has no leading zero, so 1e-07 is written as 1e-7.
-func appendFloatOfFormat(b []byte, v float64, fmt byte, bits int) []byte {
-	b = strconv.AppendFloat(b, v, fmt, -1, bits)
-	if fmt == 'e' {
-		n := len(b)
-		if n >= 4 && b[n-4] == 'e' && b[n-3] == '-' && b[n-2] == '0' {
-			b[n-2] = b[n-1]
-			b = b[:n-1]
-		}
+// appendFloatOfBits appends the float of the precision bits, 64 or 32. NaN and the infinities, which the callers
+// report as errors before, but a map key, are appended as strconv appends them.
+func appendFloatOfBits(b []byte, f float64, bits int) []byte {
+	const exponent = 0x7ff << 52
+	if math.Float64bits(f)&exponent == exponent {
+		return strconv.AppendFloat(b, f, 'g', -1, bits)
 	}
-	return b
+	return floatfmt.AppendFloat(b, f, bits)
 }
 
 func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {

@@ -54,6 +54,13 @@ bench-check:
 bench-calibrate:
 	go run ./internal/cmd/benchcheck -calibrate -attempts 1 $(BENCH_CHECK_FLAGS)
 
+# bench-compare-jsontext prints the benchmarks of github.com/goccy/go-json/jsontext ( GoJson ) and of
+# encoding/json/jsontext ( StdLib ) side by side, on the data of the tests of encoding/json of Go
+# ( benchmarks/jsontext_test.go ). It needs Go 1.27.
+.PHONY: bench-compare-jsontext
+bench-compare-jsontext:
+	cd benchmarks && go test -run '^TestJsontext' -bench '^Benchmark_Jsontext_' -benchtime 300ms -count 3 .
+
 # bench-compare-encode prints the encode benchmarks of go-json and of bytedance/sonic side by side.
 # SonicStd is sonic configured to do what encoding/json, and go-json, do ( escape HTML, sort the keys of a map ),
 # and GoJsonLikeSonic is go-json configured to do what sonic does by default.

@@ -18,32 +18,24 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
+	// a context which may filter the fields finds the type in its set here, as RecentCodeSet doesn't for it.
+	key := ctx.codeSetKey(typeptr)
+	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
+	for i := range set {
+		if set[i].typeptr == key {
+			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
+		}
+	}
 	if codeSet := ctx.SharedCodeSet(typeptr); codeSet != nil {
 		ctx.RememberCodeSet(typeptr, codeSet)
 		return codeSet, nil
 	}
-	return ctx.missedCodeSet(typeptr)
-}
-
-// missedCodeSet is CompileToGetCodeSet for a type which isn't compiled yet, or for a context which may filter the
-// fields: it is a function of its own, so that the lookups which find the type, the type passed to every Marshal,
-// don't pay for the frame of this one.
-//
-//go:noinline
-func (c *RuntimeContext) missedCodeSet(typeptr uintptr) (*OpcodeSet, error) {
-	key := c.codeSetKey(typeptr)
-	set := &c.recentCodeSets[recentCodeSetIndex(key)]
-	for i := range set {
-		if set[i].typeptr == key {
-			return getFilteredCodeSetIfNeeded(c, set[i].codeSet)
-		}
-	}
-	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, c.Option.Flag&OptimizeFieldOrderOption != 0)
+	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
 		return nil, err
 	}
-	c.RememberCodeSet(typeptr, codeSet)
-	return getFilteredCodeSetIfNeeded(c, codeSet)
+	ctx.RememberCodeSet(typeptr, codeSet)
+	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose

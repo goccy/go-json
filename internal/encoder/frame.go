@@ -98,7 +98,7 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 			return nil, nil, false, nil
 		}
 	}
-	codeSet := c.RecentCodeSet(uintptr(typ))
+	codeSet := c.CachedCodeSet(uintptr(typ))
 	if codeSet == nil {
 		var err error
 		codeSet, err = CompileToGetCodeSet(c, uintptr(typ))

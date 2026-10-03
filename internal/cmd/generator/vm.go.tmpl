@@ -2475,7 +2475,7 @@ func appendMapAsRead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 		// A value of interface{} which holds nothing is null. What holds a value whose data word is nil, such
 		// as a nil pointer, is left to OpInterface, which knows what is null and what is not.
 		if iface.typ != nil && iface.ptr != nil {
-			codeSet := ctx.RecentCodeSet(uintptr(iface.typ))
+			codeSet := ctx.CachedCodeSet(uintptr(iface.typ))
 			if codeSet == nil {
 				var err error
 				codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
@@ -2531,7 +2531,7 @@ func appendSortedMapEntries(ctx *encoder.RuntimeContext, code *encoder.Opcode, b
 			if iface.ptr == nil {
 				return b, idx, nil
 			}
-			codeSet := ctx.RecentCodeSet(uintptr(iface.typ))
+			codeSet := ctx.CachedCodeSet(uintptr(iface.typ))
 			if codeSet == nil {
 				var err error
 				codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))

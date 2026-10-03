@@ -1,0 +1,94 @@
+name: Measure json.Number
+# A throwaway workflow of a measure/* branch: the encoding of json.Number by this commit, by master, by sonic and by
+# encoding/json, on amd64 runners.
+on:
+  push:
+    branches:
+      - measure/json-number
+jobs:
+  measure:
+    name: json.Number (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: measure
+        run: |
+          lscpu | grep 'Model name'
+          go install golang.org/x/perf/cmd/benchstat@latest
+          git worktree add /tmp/master aebd8f4 > /dev/null 2>&1
+          for t in . /tmp/master; do
+            cat > $t/benchmarks/zz_number_measure_test.go <<'EOF'
+          package benchmark
+
+          import (
+          	stdjson "encoding/json"
+          	"testing"
+
+          	"github.com/bytedance/sonic"
+          	gojson "github.com/goccy/go-json"
+          )
+
+          type zzNumbers struct {
+          	N []stdjson.Number `json:"n"`
+          }
+
+          var zzNumberData = func() zzNumbers {
+          	var v zzNumbers
+          	for _, s := range []string{"1", "12345", "-0.5", "3.141592653589793", "6.02214076e23", "123456789012345678", "0", "-1e-7"} {
+          		for range 128 {
+          			v.N = append(v.N, stdjson.Number(s))
+          		}
+          	}
+          	return v
+          }()
+
+          func Benchmark_ZZNumbers_GoJson(b *testing.B) {
+          	for range b.N {
+          		if _, err := gojson.Marshal(&zzNumberData); err != nil {
+          			b.Fatal(err)
+          		}
+          	}
+          }
+
+          func Benchmark_ZZNumbers_Sonic(b *testing.B) {
+          	for range b.N {
+          		if _, err := sonic.Marshal(&zzNumberData); err != nil {
+          			b.Fatal(err)
+          		}
+          	}
+          }
+
+          func Benchmark_ZZNumbers_EncodingJson(b *testing.B) {
+          	for range b.N {
+          		if _, err := stdjson.Marshal(&zzNumberData); err != nil {
+          			b.Fatal(err)
+          		}
+          	}
+          }
+          EOF
+            sed -i 's/^          //' $t/benchmarks/zz_number_measure_test.go
+          done
+          (cd benchmarks && go test -c -o /tmp/cur.test .)
+          (cd /tmp/master/benchmarks && go test -c -o /tmp/master.test .)
+          for r in 1 2 3 4 5 6; do
+            (cd benchmarks && /tmp/cur.test -test.run '^$' -test.bench 'ZZNumbers' -test.benchtime 200ms | grep '^Benchmark' >> /tmp/cur.txt)
+            (cd /tmp/master/benchmarks && /tmp/master.test -test.run '^$' -test.bench 'ZZNumbers_GoJson' -test.benchtime 200ms | grep '^Benchmark' >> /tmp/master.txt)
+          done
+          echo "== this commit (go-json, sonic, encoding/json)"
+          $(go env GOPATH)/bin/benchstat /tmp/cur.txt
+          echo "== master go-json"
+          $(go env GOPATH)/bin/benchstat /tmp/master.txt

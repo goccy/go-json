@@ -197,6 +197,7 @@ func BenchmarkVariant_RecentCodeSets(b *testing.B) {
 		typeptrs := recentVariantTypes(pattern.types, 6, pattern.sameSet)
 		// the table shared by every goroutine, which a miss goes to: it has the types, compiled.
 		var shared runtime.TypeCache[OpcodeSet]
+		shared.Init()
 		for _, typeptr := range typeptrs {
 			shared.Store(typeptr, &OpcodeSet{})
 		}

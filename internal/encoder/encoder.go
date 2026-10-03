@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/base64"
 	"encoding/binary"
+	"math/bits"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -524,6 +525,16 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			if c-'0' > 9 {
 				nonDigits |= 1 << i
 			}
+		}
+	}
+	// a number without a sign or an exponent, the most common one, is decided here without a call
+	if nonDigits&(nonDigits-1) == 0 {
+		if nonDigits == 0 {
+			if src[0] != '0' || l == 1 {
+				return b[:len(b)+l], nil
+			}
+		} else if dot := bits.TrailingZeros(nonDigits); src[dot] == '.' && dot > 0 && dot < l-1 && (src[0] != '0' || dot == 1) {
+			return b[:len(b)+l], nil
 		}
 	}
 	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {

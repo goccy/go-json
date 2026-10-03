@@ -17,7 +17,7 @@ jobs:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       MASTER: '6659f04'
-      NEW: '0eb63aa'
+      NEW: '6d8eaef'
       LAYOUTS: '3'
       BENCH: '^(Benchmark_Encode_(Bool|MapInterface|Interface|SmallStruct|LargeStruct)_GoJson|Benchmark_EncodeRawMessage_GoJson|Benchmark_TwitterGeneric_GoJson|Benchmark_Encode_FilterByFieldQuery|Benchmark_Encode_SmallStructCached_GoJsonOptimizedFieldOrder)$'
       LOOKUPS: '^BenchmarkTypeLookups$'

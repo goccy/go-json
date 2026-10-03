@@ -9,6 +9,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/floatfmt"
 )
 
 // The scanners of the text of a token take the text from its first byte, and return the number of bytes which
@@ -875,24 +877,7 @@ func appendFloatText(dst []byte, f float64, bits int) []byte {
 	case math.IsInf(f, -1):
 		return append(dst, "-Infinity"...)
 	}
-	return appendFloat(dst, f, bits)
-}
-
-// appendFloat appends f as ECMA-262, 10th edition, section 7.1.12.1 formats a number, except that -0 is -0.
-func appendFloat(dst []byte, f float64, bits int) []byte {
-	if bits == 32 {
-		f = float64(float32(f))
-	}
-	// an integer below 2⁵³, or 2²⁴ for 32 bits, is the only integer which rounds to its float: its digits are the
-	// shortest.
-	limit := int64(1) << 53
-	if bits == 32 {
-		limit = 1 << 24
-	}
-	if i := int64(f); float64(i) == f && i != 0 && -limit < i && i < limit {
-		return strconv.AppendInt(dst, i, 10)
-	}
-	return appendShortestFloat(dst, f, bits)
+	return floatfmt.AppendFloat(dst, f, bits)
 }
 
 // appendCanonicalNumber appends the JSON number b in the canonical form of RFC 8785: as a float64, saturated at
@@ -905,5 +890,5 @@ func appendCanonicalNumber(dst, b []byte) []byte {
 	if f == 0 {
 		f = 0
 	}
-	return appendFloat(dst, f, 64)
+	return floatfmt.AppendFloat(dst, f, 64)
 }

@@ -767,6 +767,14 @@ func (s *valueScanner) oneSpace(b []byte, i, k int) (int, bool) {
 	return k, false
 }
 
+// bit is 1 for true and 0 for false.
+func bit(b bool) uint64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // skip skips the white space at b[i:], which a written value doesn't have. It is inlined where there is none.
 func (s *valueScanner) skip(b []byte, i int) int {
 	if i < len(b) && b[i] <= ' ' {

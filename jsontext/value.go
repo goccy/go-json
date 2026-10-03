@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+
+	"github.com/goccy/go-json/internal/floatfmt"
 )
 
 // Value is a raw JSON value, one of:
@@ -306,5 +308,5 @@ func AppendFloat(dst []byte, src float64, bits int) []byte {
 	if math.IsNaN(src) || math.IsInf(src, 0) {
 		return strconv.AppendFloat(dst, src, 'g', -1, bits)
 	}
-	return appendFloat(dst, src, bits)
+	return floatfmt.AppendFloat(dst, src, bits)
 }

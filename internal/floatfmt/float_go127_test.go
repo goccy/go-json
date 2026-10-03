@@ -1,6 +1,6 @@
 //go:build go1.27
 
-package jsontext
+package floatfmt
 
 import (
 	"math"
@@ -12,11 +12,11 @@ import (
 	"testing"
 )
 
-// The tests here compare appendFloat with strconv of Go 1.27, which encoding/json/jsontext formats the floats
-// by: strconv of another version of Go may write other digits in rare cases ( Go 1.26 writes 2^-12 as a
+// The tests here compare AppendFloat with strconv of Go 1.27, which encoding/json and encoding/json/jsontext
+// format the floats by: strconv of another version of Go may write other digits in rare cases ( Go 1.26 writes 2^-12 as a
 // float32 as 0.00024414063, where Go 1.25 and Go 1.27 write 0.00024414062 ).
 
-// appendFloatByStrconv is how encoding/json/jsontext writes a float.
+// appendFloatByStrconv is how encoding/json and encoding/json/jsontext write a float.
 func appendFloatByStrconv(dst []byte, f float64, size int) []byte {
 	if size == 32 {
 		f = float64(float32(f))
@@ -38,9 +38,9 @@ func appendFloatByStrconv(dst []byte, f float64, size int) []byte {
 
 func checkFloat(t *testing.T, f float64, size int) bool {
 	t.Helper()
-	got, want := appendFloat(nil, f, size), appendFloatByStrconv(nil, f, size)
+	got, want := AppendFloat(nil, f, size), appendFloatByStrconv(nil, f, size)
 	if string(got) != string(want) {
-		t.Errorf("appendFloat(%v (%#x), %d) = %s, want %s", f, math.Float64bits(f), size, got, want)
+		t.Errorf("AppendFloat(%v (%#x), %d) = %s, want %s", f, math.Float64bits(f), size, got, want)
 		return false
 	}
 	return true
@@ -95,10 +95,10 @@ func TestAppendFloatStrconv(t *testing.T) {
 }
 
 // TestAppendFloatStrconvMany compares every float32, and as many float64s of random bits, which takes minutes:
-// it runs where JSONTEXT_MANY_FLOATS is set.
+// it runs where FLOATFMT_MANY_FLOATS is set.
 func TestAppendFloatStrconvMany(t *testing.T) {
-	if os.Getenv("JSONTEXT_MANY_FLOATS") == "" {
-		t.Skip("JSONTEXT_MANY_FLOATS is not set")
+	if os.Getenv("FLOATFMT_MANY_FLOATS") == "" {
+		t.Skip("FLOATFMT_MANY_FLOATS is not set")
 	}
 	var wg sync.WaitGroup
 	workers := runtime.GOMAXPROCS(0)
@@ -110,10 +110,10 @@ func TestAppendFloatStrconvMany(t *testing.T) {
 				if math.IsNaN(f) || math.IsInf(f, 0) {
 					return
 				}
-				got, want = appendFloat(got[:0], f, size), appendFloatByStrconv(want[:0], f, size)
+				got, want = AppendFloat(got[:0], f, size), appendFloatByStrconv(want[:0], f, size)
 				if string(got) != string(want) {
 					failed.Lock()
-					t.Errorf("appendFloat(%v (%#x), %d) = %s, want %s", f, math.Float64bits(f), size, got, want)
+					t.Errorf("AppendFloat(%v (%#x), %d) = %s, want %s", f, math.Float64bits(f), size, got, want)
 					failed.Unlock()
 				}
 			}

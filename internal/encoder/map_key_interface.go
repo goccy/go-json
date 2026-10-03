@@ -131,14 +131,6 @@ func mapKeyNameOf(v reflect.Value, byPointer bool) (string, error) {
 	return "", notStringMapKey(v)
 }
 
-// appendFloatOfBits appends the float as AppendFloat32 or AppendFloat64 does.
-func appendFloatOfBits(b []byte, f float64, bits int) []byte {
-	if bits == 32 {
-		return AppendFloat32(nil, b, float32(f))
-	}
-	return AppendFloat64(nil, b, f)
-}
-
 func appendTextName(m encoding.TextAppender) (string, error) {
 	b, err := m.AppendText(nil)
 	if err != nil {

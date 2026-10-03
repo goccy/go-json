@@ -1,16 +1,38 @@
-package jsontext
+// Package floatfmt writes floats as JSON numbers, by their shortest decimal, as ECMA-262 formats numbers: the
+// format of encoding/json and of encoding/json/jsontext.
+package floatfmt
 
 import (
 	"encoding/binary"
 	"math"
 	"math/bits"
+	"strconv"
 )
 
 // The floats are written by their shortest decimal, which is found as Raffaello Giulietti finds it in "The
 // Schubfach way to render doubles" (2020): of the decimals which round to the float, the one of the fewest
 // digits, and of those, the one closest to the float, or the one of an even last digit where two are as close.
 
-//go:generate go run ../internal/cmd/float_table float_table.go
+//go:generate go run ../cmd/float_table float_table.go
+
+// AppendFloat appends the finite float f, of the precision bits, 64 or 32, as ECMA-262, 10th edition, section
+// 7.1.12.1 formats a number, except that -0 is -0: as strconv.AppendFloat with the format 'f', or 'e' below 1e-6
+// and from 1e21, whose exponent has no leading zero, writes it.
+func AppendFloat(dst []byte, f float64, bits int) []byte {
+	if bits == 32 {
+		f = float64(float32(f))
+	}
+	// an integer below 2⁵³, or 2²⁴ for 32 bits, is the only integer which rounds to its float: its digits are the
+	// shortest.
+	limit := int64(1) << 53
+	if bits == 32 {
+		limit = 1 << 24
+	}
+	if i := int64(f); float64(i) == f && i != 0 && -limit < i && i < limit {
+		return strconv.AppendInt(dst, i, 10)
+	}
+	return appendShortestFloat(dst, f, bits)
+}
 
 // The range of the exponents k of the powers of ten of floatPow10.
 const (

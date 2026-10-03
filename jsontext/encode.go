@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/bits"
 	"slices"
+
+	"github.com/goccy/go-json/internal/floatfmt"
 )
 
 // Encoder is a streaming encoder of raw JSON tokens and values. It writes a stream of top-level JSON values,
@@ -320,7 +322,7 @@ func (e *encoder) writeToken(t Token) error {
 		b, err = e.appendString(b, t, l.needName())
 	default:
 		if t.src == &floatSource {
-			b = appendFloat(b, math.Float64frombits(t.num), 64) // a finite number, whose kind is KindNumber
+			b = floatfmt.AppendFloat(b, math.Float64frombits(t.num), 64) // a finite number, whose kind is KindNumber
 		} else {
 			b, err = e.appendNumberToken(b, t)
 		}

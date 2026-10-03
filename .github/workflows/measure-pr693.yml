@@ -1,0 +1,73 @@
+name: Measure PR 693 slowdowns
+# A throwaway workflow of a measure/* branch: whether Benchmark_Encode_MarshalJSON_GoJson and
+# Benchmark_Jsontext_DecodeValue_GoJson/GolangSource/Streaming are slower by the code of the PR or by its layout.
+# master and the PR are built with several random function layouts, run interleaved on the same runner, and the
+# instructions they execute are counted by perf.
+on:
+  push:
+    branches:
+      - measure/pr693-slowdown
+jobs:
+  ab:
+    name: A/B (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6, 7, 8]
+    env:
+      VARIANTS: 'aebd8f4 3d46853'
+      LAYOUTS: '4'
+      BENCH: '^(Benchmark_Encode_MarshalJSON_GoJson|Benchmark_EncodeRawMessage_GoJson|Benchmark_Jsontext_DecodeValue_GoJson)$'
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: perf
+        run: |
+          sudo apt-get install -y -q linux-tools-common linux-tools-generic "linux-tools-$(uname -r)" > /dev/null 2>&1 || true
+          sudo sysctl -w kernel.perf_event_paranoid=-1 || true
+          perf --version || true
+      - name: A/B
+        run: |
+          lscpu | grep 'Model name'
+          go install golang.org/x/perf/cmd/benchstat@latest
+          for v in $VARIANTS; do
+            git worktree add /tmp/$v $v > /dev/null 2>&1
+            for l in $(seq $LAYOUTS); do
+              (cd /tmp/$v/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.test .)
+            done
+          done
+          for r in 1 2 3; do
+            for l in $(seq $LAYOUTS); do
+              for v in $VARIANTS; do
+                (cd /tmp/$v/benchmarks && /tmp/$v.$l.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' > /tmp/out.txt)
+                cat /tmp/out.txt >> /tmp/$v.txt
+                sed "s/^\(Benchmark[^ \t]*\)-\([0-9]*\)/\1@L$l-\2/" /tmp/out.txt >> /tmp/$v.layouts.txt
+              done
+            done
+          done
+          echo "=== master vs PR, all layouts"
+          $(go env GOPATH)/bin/benchstat aebd8f4=/tmp/aebd8f4.txt 3d46853=/tmp/3d46853.txt
+          echo "=== by layout"
+          $(go env GOPATH)/bin/benchstat aebd8f4=/tmp/aebd8f4.layouts.txt 3d46853=/tmp/3d46853.layouts.txt
+      - name: instructions
+        run: |
+          for v in $VARIANTS; do
+            for l in 1 2; do
+              for b in 'Benchmark_Encode_MarshalJSON_GoJson$:2000000x' 'Benchmark_Jsontext_DecodeValue_GoJson$/GolangSource/Streaming$:300x'; do
+                name=${b%%:*}
+                n=${b##*:}
+                echo "=== $v layout $l $name $n"
+                (cd /tmp/$v/benchmarks && perf stat -x, -e instructions,cycles,branch-misses,L1-icache-load-misses /tmp/$v.$l.test -test.run '^$' -test.bench "$name" -test.benchtime $n 2>&1 | grep -E '^Benchmark|instructions|cycles|misses') || true
+              done
+            done
+          done

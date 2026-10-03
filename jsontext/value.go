@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/floatfmt"
 )
@@ -232,7 +233,13 @@ func AppendQuote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, error)
 	// the room of the quoted src is made first, as encoding/json/jsontext makes it: a dst which has less isn't
 	// written to.
 	dst = slices.Grow(dst, len(src)+2)
-	dst, valid := appendQuoted(dst, src, 0)
+	b := readOnlyBytes(src)
+	if overlaps(b, dst[len(dst):]) {
+		// src in the room of dst, which the caller must not give: the output would be written over src, which
+		// is read from a copy.
+		b = bytes.Clone(b)
+	}
+	dst, valid := appendQuoted(dst, unsafe.String(unsafe.SliceData(b), len(b)), 0)
 	if !valid {
 		return dst, &SyntacticError{Err: errInvalidUTF8}
 	}

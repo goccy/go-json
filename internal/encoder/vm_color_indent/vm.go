@@ -377,7 +377,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpStringString:
-			b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(load(ctxptr, code.Idx)))))
+			quoted := appendString(ctx, []byte{}, ptrToString(load(ctxptr, code.Idx)))
+			b = appendString(ctx, b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpNumberPtrString:
@@ -1184,7 +1185,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			s := ptrToString(unsafe.Add(p, code.Offset))
 			b = appendStructKey(ctx, code, b)
-			b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
+			quoted := appendString(ctx, []byte{}, s)
+			b = appendString(ctx, b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
 		case encoder.OpStructFieldOmitEmptyStringString:
@@ -1192,7 +1194,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
+				quoted := appendString(ctx, []byte{}, v)
+				b = appendString(ctx, b, string(quoted))
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -1223,7 +1226,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				b = appendString(ctx, b, string(quoted))
 			}
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1232,7 +1236,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				b = appendString(ctx, b, string(quoted))
 				b = appendComma(ctx, b)
 			}
 			code = code.Next
@@ -2143,7 +2148,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			s := ptrToString(unsafe.Add(p, code.Offset))
-			b = appendString(ctx, b, string(appendString(ctx, []byte{}, s)))
+			quoted := appendString(ctx, []byte{}, s)
+			b = appendString(ctx, b, string(quoted))
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
 		case encoder.OpStructEndOmitEmptyStringString:
@@ -2151,7 +2157,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, v)))
+				quoted := appendString(ctx, []byte{}, v)
+				b = appendString(ctx, b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)
@@ -2186,7 +2193,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				b = appendString(ctx, b, string(quoted))
 			}
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -2195,7 +2203,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				b = appendString(ctx, b, string(appendString(ctx, []byte{}, ptrToString(p))))
+				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				b = appendString(ctx, b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {
 				b = appendStructEndSkipLast(ctx, code, b)

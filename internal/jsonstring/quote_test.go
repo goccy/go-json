@@ -1,4 +1,4 @@
-package encoder
+package jsonstring
 
 import (
 	"fmt"
@@ -8,14 +8,14 @@ import (
 	"unicode/utf8"
 )
 
-// AppendString handles a string which has nothing to escape by itself: by bytes under a half word, by a word
+// AppendQuoted handles a string which has nothing to escape by itself: by bytes under a half word, by a word
 // made of two overlapping halves under a word, by words with the last one overlapping, and with a copy which
-// depends on the length. Every length and every position of a byte is compared with the function for the
-// options, which is the one used for a string to escape.
-func TestAppendStringFastPath(t *testing.T) {
+// depends on the length. Every length and every position of a byte is compared with the function of the
+// escaper, which is the one used for a string to escape.
+func TestAppendQuotedFastPath(t *testing.T) {
 	special := []string{
 		"\x00", "\x1f", " ", "!", `"`, "#", "&", "'", "/", "<", "=", ">", "?", "[", `\`, "]", "\x7f",
-		"\x80", "\xe3", "\xff", "あ", " ", " ", "\n", "\t",
+		"\x80", "\xe3", "\xff", "あ", "\u2028", "\u2029", "\n", "\t",
 	}
 	var inputs []string
 	for length := 0; length <= 72; length++ {
@@ -29,21 +29,13 @@ func TestAppendStringFastPath(t *testing.T) {
 	}
 	for index := range stringEscapes {
 		escape := &stringEscapes[index]
-		var flag OptionFlag
-		if index&stringEscapeHTML != 0 {
-			flag |= HTMLEscapeOption
-		}
-		if index&stringEscapeNormalize != 0 {
-			flag |= NormalizeUTF8Option
-		}
-		ctx := &RuntimeContext{Option: &Option{Flag: flag}}
-		t.Run(fmt.Sprintf("html=%v,normalize=%v", index&stringEscapeHTML != 0, index&stringEscapeNormalize != 0), func(t *testing.T) {
+		t.Run(fmt.Sprint(index), func(t *testing.T) {
 			for _, s := range inputs {
-				expected := string(escape.appendEscaped([]byte("x"), s))
+				expected, expectedValid := escape.appendEscaped(escape, []byte("x"), s)
 				// without and with the capacity.
 				for _, buf := range [][]byte{[]byte("x"), append(make([]byte, 0, 256), 'x')} {
-					if got := string(AppendString(ctx, buf, s)); got != expected {
-						t.Fatalf("AppendString(%q): expected %s but got %s", s, expected, got)
+					if got, valid := AppendQuoted(escape, buf, s); string(got) != string(expected) || valid != expectedValid {
+						t.Fatalf("AppendQuoted(%q): expected %s, %v but got %s, %v", s, expected, expectedValid, got, valid)
 					}
 				}
 			}
@@ -52,27 +44,25 @@ func TestAppendStringFastPath(t *testing.T) {
 }
 
 // The string must not be read out of its memory: the strings here end at the end of their memory.
-func TestAppendStringAtEndOfMemory(t *testing.T) {
-	ctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption | NormalizeUTF8Option}}
+func TestAppendQuotedAtEndOfMemory(t *testing.T) {
 	for length := 1; length <= 24; length++ {
 		mem := []byte(strings.Repeat("a", length))
 		for start := 0; start < length; start++ {
 			s := string(mem[start:])
-			if got := string(AppendString(ctx, nil, s)); got != `"`+s+`"` {
-				t.Fatalf("AppendString(%q): got %s", s, got)
+			if got, _ := AppendQuoted(V1Escaper(1, 1), nil, s); string(got) != `"`+s+`"` {
+				t.Fatalf("AppendQuoted(%q): got %s", s, got)
 			}
 		}
 	}
 }
 
 // The buffer grows as append does: the capacity must at least double, or appending many strings is quadratic.
-func TestAppendStringGrowth(t *testing.T) {
-	ctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption | NormalizeUTF8Option}}
+func TestAppendQuotedGrowth(t *testing.T) {
 	var buf []byte
 	grown := 0
 	for i := 0; i < 10000; i++ {
 		before := cap(buf)
-		buf = AppendString(ctx, buf, "0123456789")
+		buf, _ = AppendQuoted(V1Escaper(1, 1), buf, "0123456789")
 		if cap(buf) != before {
 			grown++
 		}
@@ -82,29 +72,6 @@ func TestAppendStringGrowth(t *testing.T) {
 	}
 	if len(buf) != 10000*12 {
 		t.Fatalf("unexpected length %d", len(buf))
-	}
-}
-
-func BenchmarkAppendString(b *testing.B) {
-	options := []struct {
-		name string
-		flag OptionFlag
-	}{
-		{"std", HTMLEscapeOption | NormalizeUTF8Option},
-		{"fastest", 0},
-	}
-	text := strings.Repeat("abcdefghij", 1000)
-	for _, o := range options {
-		ctx := &RuntimeContext{Option: &Option{Flag: o.flag}}
-		for _, n := range []int{0, 3, 6, 8, 9, 12, 15, 16, 17, 20, 24, 28, 31, 32, 36, 50, 64, 100, 300, 1000, 10000} {
-			s := text[:n]
-			b.Run(fmt.Sprintf("%s/%d", o.name, n), func(b *testing.B) {
-				buf := make([]byte, 0, 16384)
-				for i := 0; i < b.N; i++ {
-					buf = AppendString(ctx, buf[:0], s)
-				}
-			})
-		}
 	}
 }
 
@@ -138,44 +105,10 @@ func TestCommonRuneSize(t *testing.T) {
 	}
 }
 
-// BenchmarkAppendStringNotASCII measures strings of Japanese, and of Japanese and ASCII, by the options of the
-// std configuration, of the fast one, which normalizes UTF-8 without escaping HTML, and of the fastest one.
-func BenchmarkAppendStringNotASCII(b *testing.B) {
-	options := []struct {
-		name string
-		flag OptionFlag
-	}{
-		{"std", HTMLEscapeOption | NormalizeUTF8Option},
-		{"fast", NormalizeUTF8Option},
-		{"fastest", 0},
-	}
-	ja := []rune(strings.Repeat("日本語の文章を書き出します。", 100))
-	mixed := []rune(strings.Repeat("東京 Tokyo 2026年9月30日, weather: 晴れ; ", 40))
-	texts := []struct {
-		name string
-		s    string
-	}{
-		{"ja3", string(ja[:3])}, {"ja10", string(ja[:10])}, {"ja30", string(ja[:30])}, {"ja100", string(ja[:100])},
-		{"ja1000", string(ja[:1000])}, {"mixed40", string(mixed[:40])}, {"mixed400", string(mixed[:400])},
-	}
-	for _, o := range options {
-		ctx := &RuntimeContext{Option: &Option{Flag: o.flag}}
-		for _, text := range texts {
-			s := text.s
-			b.Run(o.name+"/"+text.name, func(b *testing.B) {
-				buf := make([]byte, 0, 16384)
-				b.SetBytes(int64(len(s)))
-				for i := 0; i < b.N; i++ {
-					buf = AppendString(ctx, buf[:0], s)
-				}
-			})
-		}
-	}
-}
-
-// referenceNormalizedString is what appendNormalizedString and appendNormalizedHTMLString append, written by
-// decoding every character with unicode/utf8.
-func referenceNormalizedString(s string, html bool) string {
+// referenceNormalizedString is what an escaper which validates UTF-8 appends, written by decoding every character
+// with unicode/utf8.
+func referenceNormalizedString(s string, e *Escaper) string {
+	html := e.chars[0] == lsb*'<'
 	b := []byte{'"'}
 	for i := 0; i < len(s); {
 		c := s[i]
@@ -193,10 +126,10 @@ func referenceNormalizedString(s string, html bool) string {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		switch {
 		case r == utf8.RuneError && size == 1:
-			b = append(b, invalidUTF8...)
-		case r == '\u2028':
+			b = append(b, e.replacement...)
+		case r == '\u2028' && e.escapeJS:
 			b = append(b, `\u2028`...)
-		case r == '\u2029':
+		case r == '\u2029' && e.escapeJS:
 			b = append(b, `\u2029`...)
 		default:
 			b = append(b, s[i:i+size]...)
@@ -207,8 +140,8 @@ func referenceNormalizedString(s string, html bool) string {
 }
 
 // The strings of every length, mostly of characters which are not ASCII, with bytes to escape, invalid UTF-8,
-// U+2028 and U+2029 anywhere, are appended by the functions which normalize UTF-8 as they are when every
-// character is decoded ( with the loop of the escapes by SIMD if the CPU has it; see also
+// U+2028 and U+2029 anywhere, are appended by the escapers which validate UTF-8 as they are when every character
+// is decoded ( with the loop of the escapes by SIMD if the CPU has it; see also
 // TestAppendNormalizedStringsWithoutEscapeLoop ).
 func TestAppendNormalizedStrings(t *testing.T) {
 	checkAppendNormalizedStrings(t)
@@ -231,11 +164,15 @@ func checkAppendNormalizedStrings(t *testing.T) {
 			}
 		}
 		s := b.String()
-		if got, want := string(appendNormalizedString(nil, s)), referenceNormalizedString(s, false); got != want {
-			t.Fatalf("%q:\n got %q\nwant %q", s, got, want)
-		}
-		if got, want := string(appendNormalizedHTMLString(nil, s)), referenceNormalizedString(s, true); got != want {
-			t.Fatalf("HTML, %q:\n got %q\nwant %q", s, got, want)
+		for index := range stringEscapes {
+			e := &stringEscapes[index]
+			if e.high == 0 {
+				continue // UTF-8 is not validated
+			}
+			got, valid := e.appendEscaped(e, nil, s)
+			if want := referenceNormalizedString(s, e); string(got) != want || valid != utf8.ValidString(s) {
+				t.Fatalf("escaper %d, %q:\n got %q, %v\nwant %q, %v", index, s, got, valid, want, utf8.ValidString(s))
+			}
 		}
 	}
 }

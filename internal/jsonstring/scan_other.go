@@ -1,6 +1,6 @@
 //go:build !amd64 && !arm64
 
-package encoder
+package jsonstring
 
 import (
 	"unsafe"

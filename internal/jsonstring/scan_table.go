@@ -1,4 +1,4 @@
-package encoder
+package jsonstring
 
 // nibbleTables are two tables of 16 bytes for the scan of a string by SIMD: a byte b may need an escape if
 // Lo[b&0xf] & Hi[b>>4] is not zero. The bytes of a high nibble which need an escape are a set of low

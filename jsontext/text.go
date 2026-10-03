@@ -620,71 +620,10 @@ func (c *config) escapes() escapeFlags {
 	return e
 }
 
-// needsEscapeASCII reports for each ASCII character whether a quoted string escapes it: 1 always, 2 for HTML.
-var needsEscapeASCII = func() [utf8.RuneSelf]uint8 {
-	var t [utf8.RuneSelf]uint8
-	for c := range t {
-		switch {
-		case c < ' ', c == '"', c == '\\':
-			t[c] = 1
-		case c == '<', c == '>', c == '&':
-			t[c] = 2
-		}
-	}
-	return t
-}()
-
 // appendQuoted appends s as a JSON string of the canonical form of RFC 8785, section 3.2.2.2, with the
 // escapes of esc. Invalid UTF-8 is written as U+FFFD, and reported by false.
-func appendQuoted[Bytes ~[]byte | ~string](dst []byte, s Bytes, esc escapeFlags) ([]byte, bool) {
-	valid := true
-	dst = append(dst, '"')
-	start := 0
-	b := readOnlyBytes(s)
-	for i := 0; i < len(s); {
-		if esc == 0 {
-			// the characters written as they are, ASCII 8 at a time, and the others validated by runs.
-			if i = plainEnd(b, i); i == len(b) {
-				break
-			}
-			if b[i] >= utf8.RuneSelf {
-				if end := charsEnd(b, i); utf8.Valid(b[i:end]) {
-					i = end
-					continue
-				}
-			}
-		}
-		c := s[i]
-		if c < utf8.RuneSelf {
-			if needsEscapeASCII[c] == 0 || needsEscapeASCII[c] == 2 && esc&escapeHTML == 0 {
-				i++
-				continue
-			}
-			dst = append(dst, s[start:i]...)
-			dst = appendEscapedASCII(dst, c)
-			i++
-			start = i
-			continue
-		}
-		r, n := utf8.DecodeRuneInString(string(s[i:min(i+utf8.UTFMax, len(s))]))
-		switch {
-		case r == utf8.RuneError && n == 1:
-			dst = append(dst, s[start:i]...)
-			dst = append(dst, "�"...)
-			valid = false
-		case (r == ' ' || r == ' ') && esc&escapeJS != 0:
-			dst = append(dst, s[start:i]...)
-			dst = append(dst, `\u202`...)
-			dst = append(dst, hexDigits[r&0xf])
-		default:
-			i += n
-			continue
-		}
-		i += n
-		start = i
-	}
-	dst = append(dst, s[start:]...)
-	return append(dst, '"'), valid
+func appendQuoted(dst []byte, s string, esc escapeFlags) ([]byte, bool) {
+	return jsonstring.AppendQuoted(jsonstring.TextEscaper(esc&escapeHTML != 0, esc&escapeJS != 0), dst, s)
 }
 
 // overlaps reports whether the bytes of a and the array of b, to its capacity, share memory.
@@ -702,25 +641,6 @@ func readOnlyBytes[Bytes ~[]byte | ~string](s Bytes) []byte {
 	return unsafe.Slice(*(**byte)(unsafe.Pointer(&s)), len(s))
 }
 
-// appendEscapedASCII appends the escape sequence of the ASCII character c.
-func appendEscapedASCII(dst []byte, c byte) []byte {
-	switch c {
-	case '"', '\\':
-		return append(dst, '\\', c)
-	case '\b':
-		return append(dst, `\b`...)
-	case '\f':
-		return append(dst, `\f`...)
-	case '\n':
-		return append(dst, `\n`...)
-	case '\r':
-		return append(dst, `\r`...)
-	case '\t':
-		return append(dst, `\t`...)
-	}
-	return append(dst, '\\', 'u', '0', '0', hexDigits[c>>4], hexDigits[c&0xf])
-}
-
 // rawStringKept reports whether appendRawString appends the string s as it is.
 func rawStringKept(s []byte, f strFlags, esc escapeFlags, preserve bool) bool {
 	return (preserve || f&strNonCanonical == 0) && (esc == 0 || !needsExtraEscape(s, esc))
@@ -736,7 +656,7 @@ func appendRawString(dst, s []byte, f strFlags, esc escapeFlags, preserve bool) 
 	if !preserve {
 		var buf [64]byte
 		v := appendUnquoted(buf[:0], s, f)
-		dst, _ = appendQuoted(dst, v, esc)
+		dst, _ = appendQuoted(dst, unsafe.String(unsafe.SliceData(v), len(v)), esc)
 		return dst
 	}
 	start := 0

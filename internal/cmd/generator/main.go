@@ -243,12 +243,12 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 }
 
 // encoderFunctions are the functions of the template which the plain VM has as they are in the encoder
-// package: the other VMs define them with their indent or their colors.
+// package: the other VMs define them with their indent or their colors. appendString is not one of them: the
+// plain VM and the one of the indent call jsonstring.AppendQuoted for it ( see quoteStringsDirectly ).
 var encoderFunctions = map[string]string{
 	"appendInt":       "AppendInt",
 	"appendUint":      "AppendUint",
 	"appendFloat64":   "AppendFloat64",
-	"appendString":    "AppendString",
 	"appendByteSlice": "AppendByteSlice",
 	"appendNumber":    "AppendNumber",
 }
@@ -272,6 +272,66 @@ func callEncoderDirectly(f *ast.File) {
 	})
 }
 
+// quoteStringsDirectly makes the assignments b = appendString(ctx, b, s) of a VM whose appendString is the one of
+// the encoder, the plain VM and the one of the indent, assignments b, _ = jsonstring.AppendQuoted(escaper, b, s)
+// with the escaper of the options by encoder.StringEscaper, which is inlined: Run is too large for a call of
+// AppendString to be inlined. The escaper is not a variable of Run, which the VM would keep in a register across
+// the opcodes and restore after each of them, nor a field which Run sets as it starts, which costs as much as the
+// lookup for a few strings. The template appends the quoted string of the option ,string by two statements.
+func quoteStringsDirectly(f *ast.File) {
+	isAppendString := func(e ast.Expr) (*ast.CallExpr, bool) {
+		call, ok := e.(*ast.CallExpr)
+		if !ok {
+			return nil, false
+		}
+		ident, ok := call.Fun.(*ast.Ident)
+		return call, ok && ident.Name == "appendString" && len(call.Args) == 3
+	}
+	escaper := func() ast.Expr {
+		return &ast.CallExpr{
+			Fun:  &ast.SelectorExpr{X: ast.NewIdent("encoder"), Sel: ast.NewIdent("StringEscaper")},
+			Args: []ast.Expr{ast.NewIdent("ctx")},
+		}
+	}
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			if assign, ok := n.(*ast.AssignStmt); ok && len(assign.Lhs) == 1 && len(assign.Rhs) == 1 {
+				if call, ok := isAppendString(assign.Rhs[0]); ok {
+					call.Fun = &ast.SelectorExpr{X: ast.NewIdent("jsonstring"), Sel: ast.NewIdent("AppendQuoted")}
+					call.Args = []ast.Expr{escaper(), call.Args[1], call.Args[2]}
+					assign.Lhs = append(assign.Lhs, ast.NewIdent("_"))
+				}
+				return true
+			}
+			if e, ok := n.(ast.Expr); ok {
+				if call, ok := isAppendString(e); ok {
+					call.Fun = &ast.SelectorExpr{X: ast.NewIdent("encoder"), Sel: ast.NewIdent("AppendString")}
+				}
+			}
+			return true
+		})
+	}
+	addImport(f, "github.com/goccy/go-json/internal/jsonstring")
+}
+
+// addImport adds the import of the path to the imports of the file, which format.Source sorts.
+func addImport(f *ast.File, path string) {
+	for _, decl := range f.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.IMPORT {
+			continue
+		}
+		spec := &ast.ImportSpec{Path: &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", path)}}
+		gen.Specs = append(gen.Specs, spec)
+		f.Imports = append(f.Imports, spec)
+		return
+	}
+}
+
 func generateVM() error {
 	file, err := os.ReadFile("vm.go.tmpl")
 	if err != nil {
@@ -287,6 +347,9 @@ func generateVM() error {
 		f.Name.Name = pkg
 		if pkg == "vm" {
 			callEncoderDirectly(f)
+		}
+		if pkg == "vm" || pkg == "vm_indent" {
+			quoteStringsDirectly(f)
 		}
 		var buf bytes.Buffer
 		printer.Fprint(&buf, fset, f)

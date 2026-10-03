@@ -18,6 +18,7 @@ import (
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/floatfmt"
 	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -402,7 +403,7 @@ func (c *MapContext) SortByEncodedKeys() {
 // sorted by their names ( see Mapslice.Sort ).
 func appendText(ctx *RuntimeContext, b []byte, text string) []byte {
 	n := len(b)
-	b = AppendString(ctx, b, text)
+	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, text)
 	if len(b)-n != len(text)+2 {
 		ctx.textEscaped()
 	}
@@ -737,7 +738,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
 	n := len(b)
-	b = AppendString(ctx, b, *(*string)(unsafe.Pointer(&bytes)))
+	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, *(*string)(unsafe.Pointer(&bytes)))
 	if len(b)-n != len(bytes)+2 {
 		ctx.textEscaped()
 	}

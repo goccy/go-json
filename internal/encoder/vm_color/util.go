@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -115,7 +116,7 @@ func appendFloat64(ctx *encoder.RuntimeContext, b []byte, v float64) []byte {
 func appendString(ctx *encoder.RuntimeContext, b []byte, v string) []byte {
 	format := ctx.Option.ColorScheme.String
 	b = append(b, format.Header...)
-	b = encoder.AppendString(ctx, b, v)
+	b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, v)
 	return append(b, format.Footer...)
 }
 

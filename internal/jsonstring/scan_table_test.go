@@ -1,4 +1,4 @@
-package encoder
+package jsonstring
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ func TestEscapeSequences(t *testing.T) {
 	for index := range stringEscapes {
 		e := &stringEscapes[index]
 		for b := 0; b < 256; b++ {
-			if !e.table[b] || (b >= 0x80 && index&stringEscapeNormalize != 0) {
+			if !e.table[b] || (b >= 0x80 && e.high != 0) {
 				continue
 			}
 			if escapeSequences[b] == 0 {

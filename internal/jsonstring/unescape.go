@@ -8,11 +8,6 @@ import (
 	"unsafe"
 )
 
-const (
-	lsb = 0x0101010101010101
-	msb = 0x8080808080808080
-)
-
 func char(ptr unsafe.Pointer, offset int) byte {
 	return *(*byte)(unsafe.Add(ptr, offset))
 }

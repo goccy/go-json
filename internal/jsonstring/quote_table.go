@@ -1,4 +1,4 @@
-package encoder
+package jsonstring
 
 var needEscapeHTMLNormalizeUTF8 = [256]bool{
 	'"':  true,

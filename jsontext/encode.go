@@ -397,7 +397,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 	b = appendRawString(b, raw, f, e.esc, e.cfg.has(preserveRawStrings))
 	if name {
 		var buf [64]byte
-		return b, e.insertName(pos, appendUnquoted(buf[:0], raw), false)
+		return b, e.insertName(pos, appendUnquoted(buf[:0], raw, f), false)
 	}
 	return b, nil
 }
@@ -529,7 +529,7 @@ func (e *encoder) writeValue(v Value) error {
 		}
 		// the name, which the scanner wrote, is unquoted from the output
 		var buf [64]byte
-		if err := e.insertName(pos, appendUnquoted(buf[:0], b[pos:]), false); err != nil {
+		if err := e.insertName(pos, appendUnquoted(buf[:0], b[pos:], strEscaped|strInvalidUTF8), false); err != nil {
 			return err
 		}
 		e.st.last().count++

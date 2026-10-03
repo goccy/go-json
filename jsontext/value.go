@@ -260,9 +260,9 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 	n, f, err := scanString(b, 0)
 	if err != nil {
 		// the characters before the error
-		return appendUnquotedPrefix(dst, b[:n]), &SyntacticError{Err: err}
+		return appendUnquotedPrefix(dst, b[:n], f), &SyntacticError{Err: err}
 	}
-	dst = appendUnquoted(dst, b[:n])
+	dst = appendUnquoted(dst, b[:n], f)
 	if n < len(b) {
 		return dst, &SyntacticError{Err: invalidChar(b[n:], "after string value")}
 	}
@@ -286,9 +286,10 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 	return dst, nil
 }
 
-// appendUnquotedPrefix appends the value of the start of a JSON string, which has no quote at its end.
-func appendUnquotedPrefix(dst, b []byte) []byte {
-	return appendUnquoted(dst, append(b[:len(b):len(b)], '"'))
+// appendUnquotedPrefix appends the value of the start of a JSON string, which has no quote at its end, and which
+// scanString took with the flags f up to an error: its escape sequences are complete.
+func appendUnquotedPrefix(dst, b []byte, f strFlags) []byte {
+	return appendUnquoted(dst, append(b[:len(b):len(b)], '"'), f)
 }
 
 // AppendFloat appends src to dst as a JSON number of RFC 8259, section 6, with bits of precision.

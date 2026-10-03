@@ -12,6 +12,7 @@ import (
 
 	"github.com/goccy/go-json/internal/floatfmt"
 	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 // The scanners of the text of a token take the text from its first byte, and return the number of bytes which
@@ -582,42 +583,20 @@ var hexTable = func() [256]int8 {
 	return t
 }()
 
-// appendUnquoted appends the value of the JSON string s, which scanString took without an error: an escaped
-// surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD.
-func appendUnquoted(dst, s []byte) []byte {
-	s = s[1:] // the closing quote stays: an escape sequence at the end is followed by it
-	for len(s) > 1 {
-		// the characters taken as they are, valid UTF-8 which is not an escape sequence, are appended at once, as
-		// encoding/json/jsontext appends them: a dst which grows for the U+FFFD of invalid UTF-8 after them grows
-		// before they are written.
-		i := 0
-		for i < len(s)-1 && s[i] != '\\' {
-			if s[i] < utf8.RuneSelf {
-				i++
-				continue
-			}
-			r, n := utf8.DecodeRune(s[i:])
-			if r == utf8.RuneError && n == 1 {
-				break
-			}
-			i += n
-		}
-		dst = append(dst, s[:i]...)
-		s = s[i:]
-		if len(s) == 1 {
-			break
-		}
-		if s[0] == '\\' {
-			n, r, err := scanEscape(s, 0)
-			if err != nil {
-				return dst // the end of a string which is not complete
-			}
-			dst = utf8.AppendRune(dst, r) // U+FFFD for -1
-			s = s[n:]
-			continue
-		}
-		dst = append(dst, "�"...) // a byte of invalid UTF-8
-		s = s[1:]
+// appendUnquoted appends the value of the JSON string s, which scanString took with the flags f without an
+// error: an escaped surrogate which is not in a pair and invalid UTF-8 are appended as U+FFFD. dst doesn't
+// overlap s.
+func appendUnquoted(dst, s []byte, f strFlags) []byte {
+	v := s[1 : len(s)-1]
+	start := len(dst)
+	if f&strEscaped != 0 {
+		dst = jsonstring.AppendUnescaped(dst, v)
+	} else {
+		dst = append(dst, v...)
+	}
+	if f&strInvalidUTF8 != 0 {
+		// the value of an escape sequence is valid UTF-8, which the bytes before or after it don't make invalid
+		dst = jsonstring.ReplaceInvalidUTF8(dst, start)
 	}
 	return dst
 }
@@ -756,7 +735,7 @@ func appendRawString(dst, s []byte, f strFlags, esc escapeFlags, preserve bool) 
 	}
 	if !preserve {
 		var buf [64]byte
-		v := appendUnquoted(buf[:0], s)
+		v := appendUnquoted(buf[:0], s, f)
 		dst, _ = appendQuoted(dst, v, esc)
 		return dst
 	}

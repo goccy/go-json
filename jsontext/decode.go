@@ -566,7 +566,7 @@ func (d *decoder) insertName(start, end int, f strFlags) error {
 // or, if it has escape sequences or invalid UTF-8, its value unquoted in scratch.
 func unquotedName(scratch *[]byte, s []byte, f strFlags) []byte {
 	if f&(strEscaped|strInvalidUTF8) != 0 {
-		*scratch = appendUnquoted((*scratch)[:0], s)
+		*scratch = appendUnquoted((*scratch)[:0], s, f)
 		return *scratch
 	}
 	return s[1 : len(s)-1]

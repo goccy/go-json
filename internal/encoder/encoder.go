@@ -480,25 +480,96 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 // The VM calls it through a variable: its body is not a call of another function, which would be a second call
 // for every number.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
-	if len(n) == 0 {
+	l := len(n)
+	if l == 0 {
 		return append(b, '0'), nil
 	}
-	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+	if l > 16 {
+		if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), l)) {
+			return nil, invalidNumberError(n, false)
+		}
+		return append(b, n...), nil
+	}
+	// a number of up to 16 bytes is copied by the words which overlap, whose bytes are checked for digits: an
+	// integer without a leading zero is valid without the check of its grammar.
+	if cap(b)-len(b) < l {
+		b = growForNumber(b, l)
+	}
+	src := unsafe.Pointer(unsafe.StringData(string(n)))
+	dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b))
+	digits := false
+	switch {
+	case l >= 8:
+		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, l-8))
+		*(*uint64)(dst) = first
+		*(*uint64)(unsafe.Add(dst, l-8)) = last
+		digits = jsonnum.AllDigits(first) && jsonnum.AllDigits(last)
+	case l >= 4:
+		first, last := *(*uint32)(src), *(*uint32)(unsafe.Add(src, l-4))
+		*(*uint32)(dst) = first
+		*(*uint32)(unsafe.Add(dst, l-4)) = last
+		digits = jsonnum.AllDigits(uint64(first) | uint64(last)<<32)
+	default:
+		for i := 0; i < l; i++ {
+			*(*byte)(unsafe.Add(dst, i)) = n[i]
+		}
+	}
+	if !(digits && n[0] != '0') && !jsonnum.IsValid(unsafe.Slice((*byte)(src), l)) {
 		return nil, invalidNumberError(n, false)
 	}
-	return append(b, n...), nil
+	return b[:len(b)+l], nil
 }
 
 // AppendNumberString is AppendNumber of a json.Number of a field with the option string, which the caller
 // quotes: its error shows the number quoted, as encoding/json shows it.
 func AppendNumberString(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
-	if len(n) == 0 {
+	l := len(n)
+	if l == 0 {
 		return append(b, '0'), nil
 	}
-	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+	if l > 16 {
+		if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), l)) {
+			return nil, invalidNumberError(n, true)
+		}
+		return append(b, n...), nil
+	}
+	// a number of up to 16 bytes is copied by the words which overlap, whose bytes are checked for digits: an
+	// integer without a leading zero is valid without the check of its grammar.
+	if cap(b)-len(b) < l {
+		b = growForNumber(b, l)
+	}
+	src := unsafe.Pointer(unsafe.StringData(string(n)))
+	dst := unsafe.Add(unsafe.Pointer(unsafe.SliceData(b)), len(b))
+	digits := false
+	switch {
+	case l >= 8:
+		first, last := *(*uint64)(src), *(*uint64)(unsafe.Add(src, l-8))
+		*(*uint64)(dst) = first
+		*(*uint64)(unsafe.Add(dst, l-8)) = last
+		digits = jsonnum.AllDigits(first) && jsonnum.AllDigits(last)
+	case l >= 4:
+		first, last := *(*uint32)(src), *(*uint32)(unsafe.Add(src, l-4))
+		*(*uint32)(dst) = first
+		*(*uint32)(unsafe.Add(dst, l-4)) = last
+		digits = jsonnum.AllDigits(uint64(first) | uint64(last)<<32)
+	default:
+		for i := 0; i < l; i++ {
+			*(*byte)(unsafe.Add(dst, i)) = n[i]
+		}
+	}
+	if !(digits && n[0] != '0') && !jsonnum.IsValid(unsafe.Slice((*byte)(src), l)) {
 		return nil, invalidNumberError(n, true)
 	}
-	return append(b, n...), nil
+	return b[:len(b)+l], nil
+}
+
+// growForNumber returns b with room for n bytes more, growing as append does.
+//
+//go:noinline
+func growForNumber(b []byte, n int) []byte {
+	grown := make([]byte, len(b), 2*cap(b)+n)
+	copy(grown, b)
+	return grown
 }
 
 // addrForMarshaler returns the pointer to the value held by v, to call a marshaler with a pointer receiver.

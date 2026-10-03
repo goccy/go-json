@@ -7,6 +7,27 @@ import (
 	"testing"
 )
 
+// AllDigits is true only when every byte of the word is a digit, whatever the other bytes are.
+func TestAllDigits(t *testing.T) {
+	for pos := 0; pos < 8; pos++ {
+		for c := 0; c < 256; c++ {
+			for _, fill := range []byte{'0', '5', '9'} {
+				var w uint64
+				for i := 0; i < 8; i++ {
+					b := uint64(fill)
+					if i == pos {
+						b = uint64(c)
+					}
+					w |= b << (8 * i)
+				}
+				if want := '0' <= c && c <= '9'; AllDigits(w) != want {
+					t.Fatalf("byte %#x at %d among %q: got %v", c, pos, fill, !want)
+				}
+			}
+		}
+	}
+}
+
 // numberPattern is the grammar of RFC 8259, section 6, which the scans are checked against.
 var numberPattern = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
 

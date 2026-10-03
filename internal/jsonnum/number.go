@@ -64,6 +64,14 @@ func IsValid(b []byte) bool {
 	return accepting[st>>8]
 }
 
+// AllDigits reports whether the 8 bytes of w are digits. It is small enough to be inlined.
+func AllDigits(w uint64) bool {
+	const lsb = 0x0101010101010101
+	// the high nibble of every byte is 3, and adding 6 to the low one, which carries into the high one for 10 to
+	// 15, leaves it 3: no byte carries into the next.
+	return w&(lsb*0xf0) == lsb*0x30 && (w+lsb*6)&(lsb*0xf0) == lsb*0x30
+}
+
 // The states of IsValid: where a number is, after the bytes before.
 const (
 	stateStart   = iota // before the sign

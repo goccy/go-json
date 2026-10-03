@@ -64,57 +64,19 @@ func IsValid(b []byte) bool {
 	return accepting[st>>8]
 }
 
-// NonDigits has the bit i of each byte i of w, a little-endian word, which is not a digit. It is small enough to
-// be inlined.
-func NonDigits(w uint64) uint8 {
+// NonDigitTops has the top bit of each byte of w which is not a digit. It is small enough to be inlined, as
+// GatherTops is.
+func NonDigitTops(w uint64) uint64 {
 	const lsb, top = 0x0101010101010101, 0x8080808080808080
 	// the top bit of each byte which is 0x3A or more, or less than 0x30, of its low 7 bits, or which has its own:
 	// adding to the low 7 bits, and subtracting from the bytes with the top bit, carries between no bytes.
-	m := (((w&^top)+lsb*(0x80-0x3a))|w)&top | top&^((w|top)-lsb*0x30)
-	// the top bits gathered into a byte, of the byte i in the bit i
-	return uint8((m >> 7) * 0x0102040810204080 >> 56)
+	return (((w&^top)+lsb*(0x80-0x3a))|w)&top | top&^((w|top)-lsb*0x30)
 }
 
-// ValidByNonDigits reports whether b is a JSON number by nonDigits, the bits of its bytes which are not digits
-// ( see NonDigits ): true if it is one, and false if it may not be, which IsValid then decides. The bytes which
-// are not digits are a sign, a decimal point, the exponent and its sign, each at most once and in its place,
-// whose bits are cleared one by one: a bit left is a byte which the grammar doesn't have there.
-func ValidByNonDigits(b []byte, nonDigits uint) bool {
-	l := len(b)
-	start := 0
-	if b[0] == '-' {
-		nonDigits &^= 1
-		start = 1
-	}
-	if start >= l || nonDigits&(1<<start) != 0 {
-		return false // no digit first
-	}
-	if b[start] == '0' && start+1 < l && nonDigits&(1<<(start+1)) == 0 {
-		return false // a leading zero
-	}
-	if nonDigits == 0 {
-		return true
-	}
-	p := bits.TrailingZeros(nonDigits)
-	if b[p] == '.' {
-		if p+1 >= l || nonDigits&(1<<(p+1)) != 0 {
-			return false // no digit after the decimal point
-		}
-		if nonDigits &^= 1 << p; nonDigits == 0 {
-			return true
-		}
-		p = bits.TrailingZeros(nonDigits)
-	}
-	if b[p]|0x20 != 'e' {
-		return false
-	}
-	nonDigits &^= 1 << p
-	if p+1 < l && (b[p+1] == '+' || b[p+1] == '-') {
-		nonDigits &^= 1 << (p + 1)
-		p++
-	}
-	// digits after the exponent, and nothing else
-	return p+1 < l && nonDigits == 0
+// GatherTops gathers the top bits of the bytes of m, which has no other bits, into a byte: of the byte i in the
+// bit i.
+func GatherTops(m uint64) uint8 {
+	return uint8((m >> 7) * 0x0102040810204080 >> 56)
 }
 
 // The states of IsValid: where a number is, after the bytes before.

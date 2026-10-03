@@ -480,9 +480,8 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 // empty one as 0.
 //
 // A number of up to 24 bytes is copied by the words which overlap, without a call of memmove, and the bytes which
-// are not digits are found in the words as they are loaded, which the grammar is checked by at once: here for a
-// number of at most one decimal point, and by jsonnum.ValidByNonDigits for the others. Only a number which they
-// don't decide goes through the grammar a byte at a time.
+// are not digits are found in the words as they are loaded, which the grammar is then checked by, without a call:
+// an integer at once, and another number by the places of its bytes which are not digits.
 func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 	l := len(n)
 	if l == 0 {
@@ -507,17 +506,29 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 		binary.LittleEndian.PutUint64(dst, first)
 		binary.LittleEndian.PutUint64(dst[8:], mid)
 		binary.LittleEndian.PutUint64(dst[l-8:], last)
-		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(mid))<<8 | uint(jsonnum.NonDigits(last))<<(l-8)
+		tf, tm, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(mid), jsonnum.NonDigitTops(last)
+		if tf|tm|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tm))<<8 | uint(jsonnum.GatherTops(tl))<<(l-8)
 	case l >= 8:
 		first, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[l-8:])
 		binary.LittleEndian.PutUint64(dst, first)
 		binary.LittleEndian.PutUint64(dst[l-8:], last)
-		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(last))<<(l-8)
+		tf, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(last)
+		if tf|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tl))<<(l-8)
 	case l >= 4:
 		first, last := binary.LittleEndian.Uint32(src), binary.LittleEndian.Uint32(src[l-4:])
 		binary.LittleEndian.PutUint32(dst, first)
 		binary.LittleEndian.PutUint32(dst[l-4:], last)
-		m := uint(jsonnum.NonDigits(uint64(first) | uint64(last)<<32))
+		t := jsonnum.NonDigitTops(uint64(first) | uint64(last)<<32)
+		if t == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		m := uint(jsonnum.GatherTops(t))
 		nonDigits = m&0xf | m>>4<<(l-4)
 	default:
 		for i := 0; i < l; i++ {
@@ -528,7 +539,7 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			}
 		}
 	}
-	// a number without a sign or an exponent, the most common one, is decided here without a call
+	// a number without a sign or an exponent, the most common one, first
 	if nonDigits&(nonDigits-1) == 0 {
 		if nonDigits == 0 {
 			if src[0] != '0' || l == 1 {
@@ -538,7 +549,33 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 			return b[:len(b)+l], nil
 		}
 	}
-	if !jsonnum.ValidByNonDigits(src, nonDigits) && !jsonnum.IsValid(src) {
+	// the others by the grammar in place: the bytes which are not digits are a sign, a decimal point, the exponent
+	// and its sign, each at most once and in its place, whose bits are cleared one by one.
+	start := 0
+	if src[0] == '-' {
+		nonDigits &^= 1
+		start = 1
+	}
+	valid := false
+	if start < l && nonDigits&(1<<start) == 0 && (src[start] != '0' || start+1 == l || nonDigits&(1<<(start+1)) != 0) {
+		valid = nonDigits == 0
+		p, fractionDigits := bits.TrailingZeros(nonDigits), true // digits after the decimal point, if there is one
+		if !valid && src[p] == '.' {
+			fractionDigits = p+1 < l && nonDigits&(1<<(p+1)) == 0
+			nonDigits &^= 1 << p
+			valid = fractionDigits && nonDigits == 0
+			p = bits.TrailingZeros(nonDigits)
+		}
+		if !valid && fractionDigits && nonDigits != 0 && src[p]|0x20 == 'e' {
+			nonDigits &^= 1 << p
+			if p+1 < l && (src[p+1] == '+' || src[p+1] == '-') {
+				nonDigits &^= 1 << (p + 1)
+				p++
+			}
+			valid = p+1 < l && nonDigits == 0
+		}
+	}
+	if !valid {
 		return nil, invalidNumberError(n, false)
 	}
 	return b[:len(b)+l], nil

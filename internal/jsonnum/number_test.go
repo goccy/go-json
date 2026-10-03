@@ -7,8 +7,9 @@ import (
 	"testing"
 )
 
-// NonDigits has the bits of the bytes which are not digits, whatever the other bytes are.
-func TestNonDigits(t *testing.T) {
+// NonDigitTops has the top bits of the bytes which are not digits, whatever the other bytes are, which GatherTops
+// gathers into the bits of their places.
+func TestNonDigitTops(t *testing.T) {
 	for pos := 0; pos < 8; pos++ {
 		for c := 0; c < 256; c++ {
 			for _, fill := range []byte{'0', '5', '9', 'a', '/', ':', 0x80, 0xb0, 0xff, 0} {
@@ -21,7 +22,7 @@ func TestNonDigits(t *testing.T) {
 					}
 					w |= uint64(b[i]) << (8 * i)
 				}
-				got := NonDigits(w)
+				got := GatherTops(NonDigitTops(w))
 				for i := 0; i < 8; i++ {
 					want := b[i] < '0' || b[i] > '9'
 					set := got&(1<<i) != 0

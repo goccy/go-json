@@ -507,17 +507,29 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 		binary.LittleEndian.PutUint64(dst, first)
 		binary.LittleEndian.PutUint64(dst[8:], mid)
 		binary.LittleEndian.PutUint64(dst[l-8:], last)
-		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(mid))<<8 | uint(jsonnum.NonDigits(last))<<(l-8)
+		tf, tm, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(mid), jsonnum.NonDigitTops(last)
+		if tf|tm|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tm))<<8 | uint(jsonnum.GatherTops(tl))<<(l-8)
 	case l >= 8:
 		first, last := binary.LittleEndian.Uint64(src), binary.LittleEndian.Uint64(src[l-8:])
 		binary.LittleEndian.PutUint64(dst, first)
 		binary.LittleEndian.PutUint64(dst[l-8:], last)
-		nonDigits = uint(jsonnum.NonDigits(first)) | uint(jsonnum.NonDigits(last))<<(l-8)
+		tf, tl := jsonnum.NonDigitTops(first), jsonnum.NonDigitTops(last)
+		if tf|tl == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		nonDigits = uint(jsonnum.GatherTops(tf)) | uint(jsonnum.GatherTops(tl))<<(l-8)
 	case l >= 4:
 		first, last := binary.LittleEndian.Uint32(src), binary.LittleEndian.Uint32(src[l-4:])
 		binary.LittleEndian.PutUint32(dst, first)
 		binary.LittleEndian.PutUint32(dst[l-4:], last)
-		m := uint(jsonnum.NonDigits(uint64(first) | uint64(last)<<32))
+		t := jsonnum.NonDigitTops(uint64(first) | uint64(last)<<32)
+		if t == 0 && src[0] != '0' {
+			return b[:len(b)+l], nil
+		}
+		m := uint(jsonnum.GatherTops(t))
 		nonDigits = m&0xf | m>>4<<(l-4)
 	default:
 		for i := 0; i < l; i++ {

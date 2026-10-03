@@ -67,11 +67,20 @@ func IsValid(b []byte) bool {
 // NonDigits has the bit i of each byte i of w, a little-endian word, which is not a digit. It is small enough to
 // be inlined.
 func NonDigits(w uint64) uint8 {
+	return GatherTops(NonDigitTops(w))
+}
+
+// NonDigitTops has the top bit of each byte of w which is not a digit.
+func NonDigitTops(w uint64) uint64 {
 	const lsb, top = 0x0101010101010101, 0x8080808080808080
 	// the top bit of each byte which is 0x3A or more, or less than 0x30, of its low 7 bits, or which has its own:
 	// adding to the low 7 bits, and subtracting from the bytes with the top bit, carries between no bytes.
-	m := (((w&^top)+lsb*(0x80-0x3a))|w)&top | top&^((w|top)-lsb*0x30)
-	// the top bits gathered into a byte, of the byte i in the bit i
+	return (((w&^top)+lsb*(0x80-0x3a))|w)&top | top&^((w|top)-lsb*0x30)
+}
+
+// GatherTops gathers the top bits of the bytes of m, which has no other bits, into a byte: of the byte i in the
+// bit i.
+func GatherTops(m uint64) uint8 {
 	return uint8((m >> 7) * 0x0102040810204080 >> 56)
 }
 

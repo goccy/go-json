@@ -474,26 +474,6 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 	return append(b, "false"...)
 }
 
-var (
-	floatTable = [256]bool{
-		'0': true,
-		'1': true,
-		'2': true,
-		'3': true,
-		'4': true,
-		'5': true,
-		'6': true,
-		'7': true,
-		'8': true,
-		'9': true,
-		'.': true,
-		'e': true,
-		'E': true,
-		'+': true,
-		'-': true,
-	}
-)
-
 // AppendNumber appends n, which must be a JSON number by its grammar, as encoding/json writes a json.Number: an
 // empty one as 0.
 //
@@ -566,14 +546,11 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		// the output is compact and valid: it is copied as it is.
 		return out, nil
 	}
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, escape)
+	out, err := appendCompacted(ctx, b, bb, escape)
 	if err != nil {
-		return nil, err
+		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
-	return compactedBuf, nil
+	return out, nil
 }
 
 // interfaceOf returns the interface value of the type of the opcode whose data word is p.
@@ -618,13 +595,10 @@ func appendMarshalJSONByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 		}
 		bb = b
 	}
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	compactedBuf, err := compact(b, marshalBuf, (ctx.Option.Flag&HTMLEscapeOption) != 0)
+	compactedBuf, err := appendCompact(ctx, b, bb, (ctx.Option.Flag&HTMLEscapeOption) != 0)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
 	return compactedBuf, nil
 }
 
@@ -692,19 +666,18 @@ func appendMarshalJSONIndentByInterface(ctx *RuntimeContext, code *Opcode, b []b
 }
 
 func appendIndentedMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, bb []byte) ([]byte, error) {
-	marshalBuf := ctx.MarshalBuf[:0]
-	marshalBuf = append(append(marshalBuf, bb...), nul)
-	indentedBuf, err := doIndent(
+	indentedBuf, err := appendIndent(
+		ctx,
 		b,
-		marshalBuf,
+		bb,
 		string(ctx.Prefix)+strings.Repeat(string(ctx.IndentStr), int(ctx.BaseIndent+code.Indent)),
 		string(ctx.IndentStr),
 		(ctx.Option.Flag&HTMLEscapeOption) != 0,
+		false,
 	)
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: runtime.TypeOfPtr(code.Type), Err: err}
 	}
-	ctx.MarshalBuf = marshalBuf
 	return indentedBuf, nil
 }
 

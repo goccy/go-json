@@ -421,7 +421,7 @@ func (e *encoder) appendNumberToken(b []byte, t Token) ([]byte, error) {
 	}
 	raw := t.raw()
 	if n, err := scanNumber(raw); err != nil || n < len(raw) {
-		return b, e.failAt(invalidChar(raw[n:], "in number (expecting digit)"), len(b)+n, pointNext)
+		return b, e.failAt(invalidChar(raw[n:], placeInNumber), len(b)+n, pointNext)
 	}
 	if e.vs.numberKept(raw) {
 		return append(b, raw...), nil
@@ -519,7 +519,7 @@ func (e *encoder) writeValue(v Value) error {
 		// white space after the value, or an error
 		if end = skipSpace(v, end); end < len(v) {
 			e.st.last().count--
-			return e.failAt(invalidChar(v[end:], "after top-level value"), pos+end, pointAt)
+			return e.failAt(invalidChar(v[end:], placeAfterTopLevel), pos+end, pointAt)
 		}
 	}
 	if name {

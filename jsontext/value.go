@@ -258,7 +258,7 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 		b = bytes.Clone(b)
 	}
 	if len(b) == 0 || b[0] != '"' {
-		var err error = &SyntacticError{Err: invalidChar(b, "at start of string (expecting '\"')")}
+		var err error = &SyntacticError{Err: invalidChar(b, placeStartOfString)}
 		if len(b) == 0 {
 			err = &SyntacticError{Err: io.ErrUnexpectedEOF}
 		}
@@ -271,7 +271,7 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 	}
 	dst = appendUnquoted(dst, b[:n], f)
 	if n < len(b) {
-		return dst, &SyntacticError{Err: invalidChar(b[n:], "after string value")}
+		return dst, &SyntacticError{Err: invalidChar(b[n:], placeAfterString)}
 	}
 	if f&strInvalidUTF8 != 0 {
 		// the last invalid UTF-8 or escaped surrogate which is not in a pair, which were mangled

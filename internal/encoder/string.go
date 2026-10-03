@@ -9,8 +9,6 @@ const (
 	msb = 0x8080808080808080
 )
 
-var hex = "0123456789abcdef"
-
 // StringEscaper is the escaper of the strings of the options. It is small enough to be inlined into the VM, which
 // calls jsonstring.AppendQuoted with it.
 func StringEscaper(ctx *RuntimeContext) *jsonstring.Escaper {

@@ -139,16 +139,81 @@ func (e *ioError) Unwrap() error { return e.err }
 // errBufferWriteAfterNext reports a write to the bytes.Buffer which a Decoder reads in place.
 var errBufferWriteAfterNext = errors.New("invalid bytes.Buffer.Write call after calling bytes.Buffer.Next")
 
-// textError is an error of the text of a token: an invalid character or escape sequence.
+// textError is an error of the text of a token: an invalid character or escape sequence. It keeps what the
+// message is made of, so that encoding/json, which reports the syntax errors in its own words, takes them from
+// it ( see legacySyntaxError ).
 type textError struct {
-	msg string
+	label string // "character", "escape sequence" or "surrogate pair"
+	what  string // the invalid text
+	place charPlace
+	// literal and expect are the literal and the character expected in it, for placeInLiteral.
+	literal string
+	expect  byte
 }
 
-func (e *textError) Error() string { return e.msg }
+// charPlace is where an invalid character is in the grammar, as an error says it.
+type charPlace uint8
 
-// invalidChar is the error of the character at the start of b, which is not expected where the text says.
-func invalidChar(b []byte, where string) error {
-	return &textError{"invalid character " + quoteChar(b) + " " + where}
+const (
+	placeInNumber charPlace = iota
+	placeInString
+	placeStartOfValue
+	placeStartOfString
+	placeAfterTopLevel
+	placeAfterString
+	placeAfterObjectValue
+	placeAfterObjectName
+	placeAfterArrayValue
+	placeAfterArrayElement
+	placeInLiteral
+	placeInEscape // in the string of an escape sequence
+)
+
+// placeTexts are the words of the places, as encoding/json/jsontext and encoding/json say them.
+var placeTexts = [...]struct{ text, legacy string }{
+	placeInNumber:          {"in number (expecting digit)", "in numeric literal"},
+	placeInString:          {"in string (expecting non-control character)", "in string"},
+	placeStartOfValue:      {"at start of value", "looking for beginning of value"},
+	placeStartOfString:     {"at start of string (expecting '\"')", "looking for beginning of object key string"},
+	placeAfterTopLevel:     {"after top-level value", "after top-level value"},
+	placeAfterString:       {"after string value", "after string value"},
+	placeAfterObjectValue:  {"after object value (expecting ',' or '}')", "after object key:value pair"},
+	placeAfterObjectName:   {"after object name (expecting ':')", "after object key"},
+	placeAfterArrayValue:   {"after array value (expecting ',' or ']')", "after array value"},
+	placeAfterArrayElement: {"after array element (expecting ',' or ']')", "after array element"},
+	placeInEscape:          {"in string", "in string"},
+}
+
+func (e *textError) Error() string { return e.message(false) }
+
+// message is the message of the error, in the words of encoding/json/jsontext, or of encoding/json if legacy is
+// set: without what the grammar expects, but in a literal, and with its names for the places.
+func (e *textError) message(legacy bool) string {
+	var where string
+	switch {
+	case e.place == placeInLiteral:
+		where = "in literal " + e.literal + " (expecting " + strconv.QuoteRune(rune(e.expect)) + ")"
+	case legacy:
+		where = placeTexts[e.place].legacy
+	default:
+		where = placeTexts[e.place].text
+	}
+	if e.label == "character" {
+		return "invalid character " + quoteChar([]byte(e.what)) + " " + where
+	}
+	return "invalid " + e.label + " " + quoteEscape(e.what) + " " + where
+}
+
+// invalidChar is the error of the character at the start of b, which is not expected at the place.
+func invalidChar(b []byte, place charPlace) error {
+	_, n := utf8.DecodeRune(b)
+	return &textError{label: "character", what: string(b[:n]), place: place}
+}
+
+// invalidLiteralChar is the error of the character at the start of b, which is not the character i of lit.
+func invalidLiteralChar(b []byte, lit string, i int) error {
+	_, n := utf8.DecodeRune(b)
+	return &textError{label: "character", what: string(b[:n]), place: placeInLiteral, literal: lit, expect: lit[i]}
 }
 
 // quoteChar quotes the character at the start of b as a Go rune literal, or its first byte if it isn't valid
@@ -164,16 +229,18 @@ func quoteChar(b []byte) string {
 	return strconv.QuoteRune(r)
 }
 
-// invalidEscape is the error of the escape sequence at the start of b, which is quoted by backquotes if it
-// can be read so, and else as a Go string: as encoding/json/jsontext quotes it, U+FFFD, whether it is in b or
-// stands for invalid UTF-8, is quoted so.
-func invalidEscape(b []byte, what string) error {
-	s := string(b)
-	q := "`" + s + "`"
+// invalidEscape is the error of the escape sequence at the start of b, the label says of which kind.
+func invalidEscape(b []byte, label string) error {
+	return &textError{label: label, what: string(b), place: placeInEscape}
+}
+
+// quoteEscape quotes an escape sequence by backquotes if it can be read so, and else as a Go string: as
+// encoding/json/jsontext quotes it, U+FFFD, whether it is in the text or stands for invalid UTF-8, is quoted so.
+func quoteEscape(s string) string {
 	if strings.ContainsFunc(s, func(r rune) bool {
 		return r == '`' || r == utf8.RuneError || unicode.IsSpace(r) || !unicode.IsPrint(r)
 	}) {
-		q = strconv.Quote(s)
+		return strconv.Quote(s)
 	}
-	return &textError{"invalid " + what + " " + q + " in string"}
+	return "`" + s + "`"
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"math"
 	"math/bits"
-	"strconv"
 	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
@@ -77,7 +76,7 @@ func scanLiteral(b []byte, lit string) (int, error) {
 			return i, io.ErrUnexpectedEOF
 		}
 		if b[i] != lit[i] {
-			return i, invalidChar(b[i:], "in literal "+lit+" (expecting "+strconv.QuoteRune(rune(lit[i]))+")")
+			return i, invalidLiteralChar(b[i:], lit, i)
 		}
 	}
 	return len(lit), nil
@@ -166,7 +165,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 				i = jsonnum.ScanDigits(b, i+1)
 				st.next = numInt
 			} else {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.done = i
 			continue
@@ -190,7 +189,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			continue
 		case numDot:
 			if c < '0' || '9' < c {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.next = numFrac
 			i++
@@ -210,7 +209,7 @@ func scanNumberFrom(b []byte, i int, st numState) (int, numState, error) {
 			continue
 		case numExpFirst:
 			if c < '0' || '9' < c {
-				return i, st, invalidChar(b[i:], "in number (expecting digit)")
+				return i, st, invalidChar(b[i:], placeInNumber)
 			}
 			st.next = numExp
 			i++
@@ -385,7 +384,7 @@ func scanStringFrom(b []byte, i int, flags strFlags, mode strMode) (int, strFlag
 			}
 			i += n
 		case c < ' ':
-			return i, flags, invalidChar(b[i:], "in string (expecting non-control character)")
+			return i, flags, invalidChar(b[i:], placeInString)
 		default:
 			// a run of characters which are not ASCII, and ASCII ones, validated at once, and a character at a
 			// time only if it is not valid.

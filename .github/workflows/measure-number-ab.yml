@@ -14,7 +14,7 @@ jobs:
       matrix:
         run: [1, 2, 3, 4, 5, 6]
     env:
-      VARIANTS: 'aebd8f4 f6056c9 deaa1a6'
+      VARIANTS: 'aebd8f4 deaa1a6 3bfaa95'
       LAYOUTS: '3'
     steps:
       - name: checkout

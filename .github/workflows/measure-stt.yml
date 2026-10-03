@@ -1,0 +1,64 @@
+name: Measure shared type table
+# A throwaway workflow of a measure/* branch: the encoder without the recent opcodes of a context, looking the types
+# up in the shared table of cache-line buckets, against master. Both are built as they are and with a pad, an unused
+# function which moves the code after it, each with several random function layouts, run interleaved on the same
+# runner.
+on:
+  push:
+    branches:
+      - measure/shared-type-table
+jobs:
+  ab:
+    name: A/B (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    env:
+      MASTER: '6659f04'
+      NEW: '5d83899'
+      LAYOUTS: '3'
+      BENCH: '^(Benchmark_Encode_(MapInterface|Interface|SmallStruct|MediumStruct|LargeStruct)_GoJson|Benchmark_Decode_(SmallStruct|InterfacePointer|InterfaceUnmarshaler)_Unmarshal_GoJson|Benchmark_Decode_TwitterGeneric_Unmarshal_GoJsonLikeSonic)$'
+      LOOKUPS: '^BenchmarkTypeLookups$'
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: A/B
+        run: |
+          lscpu | grep 'Model name'
+          go install golang.org/x/perf/cmd/benchstat@latest
+          git worktree add /tmp/master $MASTER > /dev/null 2>&1
+          git worktree add /tmp/new $NEW > /dev/null 2>&1
+          git worktree add /tmp/master_pad $MASTER > /dev/null 2>&1
+          git worktree add /tmp/new_pad $NEW > /dev/null 2>&1
+          cp /tmp/new/type_lookup_test.go /tmp/master/
+          cp /tmp/new/type_lookup_test.go /tmp/master_pad/
+          for v in master_pad new_pad; do
+            printf 'package encoder\n\n//go:noinline\nfunc zzPad(n int) int { return n*3 + 1 }\n\nvar zzPadSink = zzPad(1)\n' > /tmp/$v/internal/encoder/aa_pad.go
+          done
+          VARIANTS='master new master_pad new_pad'
+          for v in $VARIANTS; do
+            for l in $(seq $LAYOUTS); do
+              (cd /tmp/$v/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.bench.test .)
+              (cd /tmp/$v && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.root.test .)
+            done
+          done
+          for r in 1 2 3; do
+            for l in $(seq $LAYOUTS); do
+              for v in $VARIANTS; do
+                (cd /tmp/$v/benchmarks && /tmp/$v.$l.bench.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' >> /tmp/$v.txt)
+                (cd /tmp/$v && /tmp/$v.$l.root.test -test.run '^$' -test.bench "$LOOKUPS" -test.benchtime 100ms | grep '^Benchmark' >> /tmp/$v.txt)
+              done
+            done
+          done
+          $(go env GOPATH)/bin/benchstat master=/tmp/master.txt new=/tmp/new.txt master_pad=/tmp/master_pad.txt new_pad=/tmp/new_pad.txt | awk '/sec\/op/ {on=1} on {print} /^geomean/ && on {exit}'

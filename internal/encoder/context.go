@@ -111,7 +111,8 @@ const (
 	// they did whenever their addresses hashed to the same entry, which depends on where the binary has the
 	// types, and every Marshal of them cost two lookups of the table shared by every goroutine: 20% of the
 	// encoding of a small value, present or absent by the build. Three types of a set encoded by turns still
-	// evict each other, which costs those lookups, not the result.
+	// evict each other, which would cost those lookups for every Marshal: the entry a type evicts is kept as
+	// the victim of the context ( see CompileToGetCodeSet ).
 	recentCodeSetWays = 2
 )
 
@@ -153,6 +154,12 @@ type RuntimeContext struct {
 	topValue unsafe.Pointer
 	// recentCodeSets are the opcodes of the types encoded last, in the sets indexed by the address of the type.
 	recentCodeSets [recentCodeSetSets]recentCodeSetSet
+	// recentCodeSetVictim is the entry evicted last from a set, which CompileToGetCodeSet looks at when a type
+	// misses its set, and which stays there when it is found: three types of a set encoded by turns, as the
+	// values of a map[string]interface{} may be by where the binary has their types, find each other in the set
+	// and there instead of in the table shared by every goroutine. RecentCodeSet doesn't look at it, which
+	// would make it too large to be inlined.
+	recentCodeSetVictim recentCodeSet
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet

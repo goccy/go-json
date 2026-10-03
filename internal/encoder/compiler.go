@@ -25,11 +25,17 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
 		}
 	}
+	if victim := &ctx.recentCodeSetVictim; victim.typeptr == key {
+		// left where it is: a type of a set which two other types hold stays found there
+		return getFilteredCodeSetIfNeeded(ctx, victim.codeSet)
+	}
 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
 		return nil, err
 	}
-	// the type takes the first entry of its set, and the one encoded before it is kept in the second.
+	// the type takes the first entry of its set, the one encoded before it is kept in the second, and the one
+	// of the second is kept as the victim.
+	ctx.recentCodeSetVictim = set[recentCodeSetWays-1]
 	copy(set[1:], set[:])
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)

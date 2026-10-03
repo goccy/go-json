@@ -393,3 +393,27 @@ func TestRecentCodeSetsHoldTwoTypesOfASet(t *testing.T) {
 		}
 	}
 }
+
+// Three types of a set encoded by turns, as the values of a map[string]interface{} may be, find each other in the
+// set or in the victim of the context, and not in the table shared by every goroutine.
+func TestRecentCodeSetVictimHoldsTheThirdTypeOfASet(t *testing.T) {
+	typeptrs := typesOfSameSet(t)
+	ctx := TakeRuntimeContext()
+	defer ReleaseRuntimeContext(ctx)
+	for _, typeptr := range typeptrs {
+		if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 4; i++ {
+		for _, typeptr := range typeptrs {
+			key := ctx.codeSetKey(typeptr)
+			if ctx.RecentCodeSet(typeptr) == nil && ctx.recentCodeSetVictim.typeptr != key {
+				t.Fatalf("type %#x is neither in its set nor the victim", typeptr)
+			}
+			if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}

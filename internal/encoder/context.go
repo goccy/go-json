@@ -111,7 +111,8 @@ const (
 	// they did whenever their addresses hashed to the same entry, which depends on where the binary has the
 	// types, and every Marshal of them cost two lookups of the table shared by every goroutine: 20% of the
 	// encoding of a small value, present or absent by the build. Three types of a set encoded by turns still
-	// evict each other, which costs those lookups, not the result.
+	// evict each other: a type which its set doesn't hold is then looked up in the shared table, mostly
+	// without a call, and taken back into its set ( see SharedCodeSets ).
 	recentCodeSetWays = 2
 )
 

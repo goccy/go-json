@@ -272,7 +272,7 @@ func releaseCallState(st *callState) {
 
 // stateOf returns the state of the call which ctx encodes for.
 func stateOf(ctx *encoder.RuntimeContext) *callState {
-	return ctx.Option.V2.(*callState)
+	return (*callState)(ctx.Option.V2)
 }
 
 // marshalTo calls MarshalJSONTo of m, or fn, a function of MarshalToFunc, for a value of typ, which writes the

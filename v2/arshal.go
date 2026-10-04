@@ -267,8 +267,8 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 	// the state is kept with ctx ( see takeCallState ), or is the one of the caller of a nested call: it is left
 	// in the options, which the encodings of v1 don't read. The functions of the caller are not kept. A pointer is
 	// written only if it changes, as a write of it costs a write barrier while the GC marks.
-	if ctx.Option.V2 != any(st) {
-		ctx.Option.V2 = st
+	if ctx.Option.V2 != unsafe.Pointer(st) {
+		ctx.Option.V2 = unsafe.Pointer(st)
 	}
 	var buf []byte
 	var err error
@@ -281,7 +281,8 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 		// the first error, before which the encoding went on ( see encoder.RejectInvalidUTF8Option ).
 		buf, err = invalidOut, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
 	}
-	if ctx.Option.Funcs != nil {
+	if st.cfg.Set != 0 && ctx.Option.Funcs != nil {
+		// the functions, which only the options set ( see configure ), are not kept.
 		ctx.Option.Funcs = nil
 	}
 	if err != nil {

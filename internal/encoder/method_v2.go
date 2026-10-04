@@ -216,6 +216,8 @@ func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Poi
 func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointer) ([]byte, error) {
 	inner := TakeRuntimeContext()
 	*inner.Option = *ctx.Option
+	// the escaper of the options of ctx is the one of ctx, which records invalid UTF-8 for it: inner sets its own.
+	inner.Option.EscaperFlags = noEscaperFlags
 	inner.Init(p, codeSet.CodeLength)
 	inner.RecursiveLevel = ctx.RecursiveLevel
 	inner.SeenPtr = append(inner.SeenPtr, ctx.SeenPtr...)

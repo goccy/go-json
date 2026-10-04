@@ -100,11 +100,14 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 // Code runs the opcodes of a value, which ctx is set up for, by the VM of the options of ctx.
 func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	// the escaper of the strings ( see encoder.RuntimeContext.SetEscaper ), without a call for most options.
-	// It is set again only for other options than the ones it was set for.
-	if flags := ctx.Option.Flag; flags&encoder.RejectInvalidUTF8Option != 0 {
-		ctx.SetStrictEscaper()
-	} else if flags != ctx.Option.EscaperFlags {
-		ctx.Option.Escaper, ctx.Option.EscaperFlags = jsonstring.EscaperOf(uint(flags)), flags
+	// It is set again only for other options than the ones it was set for: the one of RejectInvalidUTF8Option,
+	// whose record of invalid UTF-8 the caller reads and clears after each run ( see InvalidUTF8Output ), as well.
+	if flags := ctx.Option.Flag; flags != ctx.Option.EscaperFlags {
+		if flags&encoder.RejectInvalidUTF8Option != 0 {
+			ctx.SetStrictEscaper()
+		} else {
+			ctx.Option.Escaper, ctx.Option.EscaperFlags = jsonstring.EscaperOf(uint(flags)), flags
+		}
 	}
 	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
 		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {

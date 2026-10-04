@@ -3,6 +3,7 @@ package encoder
 import (
 	"context"
 	"io"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/jsonstring"
 )
@@ -81,8 +82,9 @@ type Option struct {
 	// every value, as it reads it for every string.
 	Escaper      *jsonstring.Escaper
 	EscaperFlags OptionFlag
-	// V2 is the state of the call of the v2 json package, which its hooks take ( see V2Hooks ).
-	V2 any
+	// V2 is the state of the call of the v2 json package, which its hooks take ( see V2Hooks ): a pointer to its
+	// type, which the encoder doesn't know, read and compared without the type of an interface value.
+	V2 unsafe.Pointer
 	// Funcs are the functions of marshaling of the call, of MarshalFuncsOption.
 	Funcs       *MarshalFuncs
 	ColorScheme *ColorScheme

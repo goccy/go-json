@@ -32,19 +32,25 @@ jobs:
           bash .github/workflows/measure-stt-prepare.sh
           picks=""
           for v in master v3; do
-            coll=""
             free=""
-            for k in $(seq 0 40); do
+            collmap=""
+            collvals=""
+            for k in $(seq 0 80); do
               bash .github/workflows/measure-stt-tree.sh $v $k
               out=$(cd /tmp/$v-$k/benchmarks && go test -count=1 -v -run ZZSets . 2>/dev/null | grep set=)
-              most=$(echo "$out" | sed 's/.*set=//' | sort | uniq -c | sort -rn | head -1 | awk '{print $1}')
-              echo "$v k=$k most types of one set: $most"
-              if [ "$most" -ge 3 ] && [ -z "$coll" ]; then coll=$k; fi
+              # the set with the most types, and whether the map type is one of them
+              top=$(echo "$out" | sed 's/.*set=//' | sort | uniq -c | sort -rn | head -1)
+              most=$(echo "$top" | awk '{print $1}')
+              set=$(echo "$top" | awk '{print $2}')
+              hasmap=$(echo "$out" | grep "^map\[string\]interface {} set=$set\$" | wc -l)
+              echo "$v k=$k most types of one set: $most (set $set, map type in it: $hasmap)"
               if [ "$most" -le 2 ] && [ -z "$free" ]; then free=$k; fi
-              if [ -n "$coll" ] && [ -n "$free" ]; then break; fi
+              if [ "$most" -ge 3 ] && [ "$hasmap" -eq 1 ] && [ -z "$collmap" ]; then collmap=$k; fi
+              if [ "$most" -ge 3 ] && [ "$hasmap" -eq 0 ] && [ -z "$collvals" ]; then collvals=$k; fi
+              if [ -n "$free" ] && [ -n "$collmap" ] && [ -n "$collvals" ]; then break; fi
             done
-            echo "$v: colliding k=$coll, not colliding k=$free"
-            picks="$picks $v-free=$free $v-coll=$coll"
+            echo "$v: not colliding k=$free, colliding with the map type k=$collmap, colliding without it k=$collvals"
+            picks="$picks $v-free=$free $v-collmap=$collmap $v-collvals=$collvals"
           done
           echo "picks=$picks" >> "$GITHUB_OUTPUT"
   ab:

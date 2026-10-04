@@ -11,6 +11,8 @@ import (
 
 	"github.com/bytedance/sonic"
 	gojson "github.com/goccy/go-json"
+	gojsontext "github.com/goccy/go-json/jsontext"
+	gojsonv2 "github.com/goccy/go-json/v2"
 	jsoniter "github.com/json-iterator/go"
 	segmentio "github.com/segmentio/encoding/json"
 )
@@ -31,8 +33,9 @@ func v2Unmarshal(opts ...jsonv2.Options) func([]byte) func(any) error {
 }
 
 var (
-	sonicV2    = sonic.Config{CompactMarshaler: true, CopyString: true, ValidateString: true, NoNullSliceOrMap: true, CaseSensitive: true, UseUnicodeErrors: true}.Froze()
-	jsoniterV2 = jsoniter.Config{EscapeHTML: false, SortMapKeys: false, CaseSensitive: true, ValidateJsonRawMessage: true}.Froze()
+	goJSONV2Fastest = gojsonv2.JoinOptions(gojsontext.AllowDuplicateNames(true), gojsontext.AllowInvalidUTF8(true))
+	sonicV2         = sonic.Config{CompactMarshaler: true, CopyString: true, ValidateString: true, NoNullSliceOrMap: true, CaseSensitive: true, UseUnicodeErrors: true}.Froze()
+	jsoniterV2      = jsoniter.Config{EscapeHTML: false, SortMapKeys: false, CaseSensitive: true, ValidateJsonRawMessage: true}.Froze()
 )
 
 func init() {
@@ -70,6 +73,16 @@ func init() {
 			Config: report.Config{ID: "v2/go-json", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json",
 				Setting: "json.MarshalWithOption( DisableHTMLEscape, UnorderedMap ) / json.Unmarshal ( no option for the rest )"},
 			module: goJSONModule, marshal: goJSONMarshal(gojson.DisableHTMLEscape(), gojson.UnorderedMap()), unmarshal: goJSONUnmarshal(),
+		},
+		{
+			Config: report.Config{ID: "v2/go-json/v2", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json/v2",
+				Setting: "json.Marshal of github.com/goccy/go-json/v2 ( encode only )"},
+			module: goJSONModule, marshal: func(v any) ([]byte, error) { return gojsonv2.Marshal(v) },
+		},
+		{
+			Config: report.Config{ID: "v2/go-json/v2/fastest", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json/v2 ( fastest )",
+				Setting: "github.com/goccy/go-json/v2 with jsontext.AllowDuplicateNames( true ), jsontext.AllowInvalidUTF8( true ) ( encode only )"},
+			module: goJSONModule, marshal: func(v any) ([]byte, error) { return gojsonv2.Marshal(v, goJSONV2Fastest) },
 		},
 		{
 			Config: report.Config{ID: "v2/go-json/of", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json ( UnmarshalOf )",

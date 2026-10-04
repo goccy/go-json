@@ -57,6 +57,10 @@ const (
 	// MarshalFuncsOption is the functions of WithMarshalers of encoding/json/v2 ( Option.Funcs ), whose opcodes
 	// are compiled for them apart from the ones of the tables shared by every goroutine.
 	MarshalFuncsOption
+	// RawRewriteOption is the options of encoding/json/v2 which rewrite the raw values which the methods and the
+	// functions of marshaling return, which AppendFormattedRaw doesn't follow: they are formatted by the v2 json
+	// package ( see V2Hooks.FormatRaw ).
+	RawRewriteOption
 )
 
 // UncachedOption are the options whose opcodes are not the ones of the tables shared by every goroutine, nor

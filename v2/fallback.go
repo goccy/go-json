@@ -81,7 +81,7 @@ func appendRawMembers(ctx *encoder.RuntimeContext, b, raw []byte, check func(nam
 // appendRawToken appends a name or a value of an embedded raw value, formatted as the options want it: its error
 // is at its place in the output.
 func appendRawToken(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
-	out, err := appendRaw(ctx, b, raw)
+	out, err := encoder.AppendRaw(ctx, b, raw)
 	if serr, ok := err.(*jsontext.SyntacticError); ok && serr.JSONPointer != "" && len(raw) > 0 && raw[0] == '"' {
 		// a name is in the object, not in the value of the member it names.
 		serr.JSONPointer = serr.JSONPointer.Parent()

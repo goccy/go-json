@@ -79,15 +79,17 @@ func AppendFormattedRaw(ctx *RuntimeContext, dst, src []byte) ([]byte, bool) {
 	if len(src) == 0 || (escape != 0 && lookedAtByRawCheck[escape].Has(src)) {
 		return dst, false
 	}
-	// a value of ASCII without a control character, as most are, is found by SIMD: its strings are scanned for the
-	// quotes and the escapes only, or for the quotes only if it has no escape.
-	w := rawWalk{ctx: ctx, lv: &ctx.rawLevels, src: src, dst: dst, ascii: true, escape: escape}
+	// a value of ASCII without a control character and an escape, as most are, is found by SIMD: its strings end
+	// at the next quote, and it is appended as it is. The strings of the other values of ASCII without a control
+	// character are scanned for the quotes and the escapes only.
 	if !notPureRaw.Has(src) {
-		w.pure, w.plain = true, true
-	} else {
-		w.plain = !notPlainRaw.Has(src)
+		if !walkRaw[plainStrings](nil, src, &ctx.rawLevels) {
+			return dst, false
+		}
+		return append(dst, src...), true
 	}
-	if !w.walk() || !(w.ascii || utf8.Valid(src)) {
+	w := rawWalk{ctx: ctx, src: src, dst: dst, ascii: true, escape: escape, plain: !notPlainRaw.Has(src)}
+	if !walkRaw[escapedStrings](&w, src, &ctx.rawLevels) || !(w.ascii || utf8.Valid(src)) {
 		return dst, false
 	}
 	return append(w.dst, src[w.copied:]...), true
@@ -102,147 +104,152 @@ type rawWalk struct {
 	copied int
 	// ascii is whether every byte read is ASCII.
 	ascii bool
-	// escape is the escaping of the options ( see lookedAtByRawCheck ), plain is whether src has only ASCII
-	// without a control character, and pure whether it has no escape either.
+	// escape is the escaping of the options ( see lookedAtByRawCheck ), and plain is whether src has only ASCII
+	// without a control character.
 	escape int
 	plain  bool
-	pure   bool
-	// lv are the levels being read.
-	lv *rawLevels
 }
 
-// name reads the name of an object at i, which must be new in the object, whose first name is the one of index
-// first of the numNames names being read, and returns the index after it and the number of the names, or -1.
-func (w *rawWalk) name(i int, first, numNames int32) (int, int32) {
-	src := w.src
+// walkRaw reports whether src is a value which AppendFormattedRaw appends, whose levels are read in lv. The
+// strings are walked as S tells: by w, which writes the strings of escapes again, or, for plainStrings, to the
+// next quote, without w, which is nil, for src of ASCII without a control character and an escape.
+//
+// The walk goes from a value to what follows it by the labels: a name of an object is read only where one is next,
+// without a branch for it at every value.
+func walkRaw[S plainStrings | escapedStrings](w *rawWalk, src []byte, lv *rawLevels) bool {
+	var walk S
+	pure := unsafe.Sizeof(walk) == unsafe.Sizeof(plainStrings{})
 	n := len(src)
-	if i >= n || src[i] != '"' || numNames == maxNamesOfRawCheck {
-		return -1, numNames
-	}
-	end, escape := w.stringEnd(i + 1)
-	if end < 0 || escape != 0 {
-		return -1, numNames
-	}
-	names := &w.lv.names
-	if first < numNames {
-		size := end - i
-		for _, start := range names[first:numNames] {
-			// the name with its quotes, which has no escape: the quote ends the one before as well.
-			if s := int(start); s+size < end && src[s+size-1] == '"' && bytes.Equal(src[s:s+size], src[i:end]) {
-				return -1, numNames
-			}
-		}
-	}
-	names[numNames] = int32(i)
-	if end >= n || src[end] != ':' {
-		return -1, numNames
-	}
-	return end + 1, numNames + 1
-}
-
-// walk reports whether src is a value which AppendFormattedRaw appends.
-func (w *rawWalk) walk() bool {
-	src := w.src
-	n := len(src)
-	lv := w.lv
-	// the state of the levels, in registers.
-	depth, numNames := 0, int32(0)
+	// the state of the levels, in registers: first is the index of the first name of the innermost level, whose
+	// value lv.first keeps for the level around it.
+	depth, first, numNames := 0, int32(0), int32(0)
 	i := 0
-	for {
-		// a value.
-		if i >= n {
-			return false
-		}
-		switch c := src[i]; {
-		case c == '"':
-			end, escape := w.stringEnd(i + 1)
-			if end < 0 {
-				return false
-			}
-			if escape != 0 && !w.requote(i, end, escape) {
-				return false
-			}
-			i = end
-		case c == '{':
-			if depth == maxDepthOfRawCheck {
-				return false
-			}
-			lv.stack[depth] = '}'
-			lv.first[depth] = numNames
-			depth++
-			i++
-			if i < n && src[i] == '}' {
-				i++
-				depth--
-				break
-			}
-			if i, numNames = w.name(i, lv.first[depth-1], numNames); i < 0 {
-				return false
-			}
-			continue
-		case c == '[':
-			if depth == maxDepthOfRawCheck {
-				return false
-			}
-			lv.stack[depth] = ']'
-			lv.first[depth] = numNames
-			depth++
-			i++
-			if i < n && src[i] == ']' {
-				i++
-				depth--
-				break
-			}
-			continue
-		case c == 't':
-			if !bytes.HasPrefix(src[i:], []byte("true")) {
-				return false
-			}
-			i += 4
-		case c == 'f':
-			if !bytes.HasPrefix(src[i:], []byte("false")) {
-				return false
-			}
-			i += 5
-		case c == 'n':
-			if !bytes.HasPrefix(src[i:], []byte("null")) {
-				return false
-			}
-			i += 4
-		case c == '-' || ('0' <= c && c <= '9'):
-			if i = numberEnd(src, i); i < 0 {
-				return false
-			}
-		default:
-			return false
-		}
-		// after a value.
-		for {
-			if depth == 0 {
-				return i == n
-			}
-			if i >= n {
-				return false
-			}
-			switch src[i] {
-			case ',':
-				i++
-				if lv.stack[depth-1] == '}' {
-					if i, numNames = w.name(i, lv.first[depth-1], numNames); i < 0 {
-						return false
-					}
-				}
-			case lv.stack[depth-1]:
-				depth--
-				numNames = lv.first[depth]
-				i++
-				continue
-			default:
+value:
+	if i >= n {
+		return false
+	}
+	switch c := src[i]; {
+	case c == '"':
+		if pure {
+			if i = quoteEnd(src, i+1); i < 0 {
 				return false
 			}
 			break
 		}
+		end, escape := w.stringEnd(i + 1)
+		if end < 0 {
+			return false
+		}
+		if escape != 0 && !w.requote(i, end, escape) {
+			return false
+		}
+		i = end
+	case c == '{':
+		if depth == maxDepthOfRawCheck {
+			return false
+		}
+		lv.stack[depth] = '}'
+		lv.first[depth], first = first, numNames
+		depth++
+		i++
+		if i < n && src[i] == '}' {
+			i++
+			depth--
+			first = lv.first[depth]
+			break
+		}
+		goto name
+	case c == '[':
+		if depth == maxDepthOfRawCheck {
+			return false
+		}
+		lv.stack[depth] = ']'
+		lv.first[depth], first = first, numNames
+		depth++
+		i++
+		if i < n && src[i] == ']' {
+			i++
+			depth--
+			first = lv.first[depth]
+			break
+		}
+		goto value
+	case c == 't':
+		if !bytes.HasPrefix(src[i:], []byte("true")) {
+			return false
+		}
+		i += 4
+	case c == 'f':
+		if !bytes.HasPrefix(src[i:], []byte("false")) {
+			return false
+		}
+		i += 5
+	case c == 'n':
+		if !bytes.HasPrefix(src[i:], []byte("null")) {
+			return false
+		}
+		i += 4
+	case c == '-' || ('0' <= c && c <= '9'):
+		if i = numberEnd(src, i); i < 0 {
+			return false
+		}
+	default:
+		return false
 	}
+	// after a value.
+	for {
+		if depth == 0 {
+			return i == n
+		}
+		if i >= n {
+			return false
+		}
+		switch src[i] {
+		case ',':
+			i++
+			if lv.stack[depth-1] == '}' {
+				goto name
+			}
+			goto value
+		case lv.stack[depth-1]:
+			depth--
+			numNames, first = first, lv.first[depth]
+			i++
+		default:
+			return false
+		}
+	}
+name:
+	// a name, which must be new in the object, before its value.
+	if i >= n || src[i] != '"' || numNames == maxNamesOfRawCheck {
+		return false
+	}
+	{
+		var end, escape int
+		if pure {
+			end = quoteEnd(src, i+1)
+		} else {
+			end, escape = w.stringEnd(i + 1)
+		}
+		if end < 0 || escape != 0 {
+			return false
+		}
+		size := end - i
+		for _, start := range lv.names[first:numNames] {
+			// the name with its quotes, which has no escape: the quote ends the one before as well. The first
+			// characters, which differ for most names, are compared without a call.
+			if s := int(start); s+size < end && src[s+1] == src[i+1] && src[s+size-1] == '"' && bytes.Equal(src[s:s+size], src[i:end]) {
+				return false
+			}
+		}
+		lv.names[numNames] = int32(i)
+		numNames++
+		if end >= n || src[end] != ':' {
+			return false
+		}
+		i = end + 1
+	}
+	goto value
 }
 
 // stringEnd returns the index after the quote which ends the string whose content starts at i, and whether the
@@ -250,9 +257,6 @@ func (w *rawWalk) walk() bool {
 // surrogate, which the formatting reports or writes as it is, or doesn't end. It clears ascii if the string has a
 // byte which is not ASCII. The bytes are looked at by words: the lowest byte of the mask of each kind is exact.
 func (w *rawWalk) stringEnd(i int) (int, int) {
-	if w.pure {
-		return quoteEnd(w.src, i), 0
-	}
 	if w.plain {
 		return w.plainStringEnd(i)
 	}

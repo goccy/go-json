@@ -19,7 +19,7 @@ import (
 
 func init() {
 	encoder.V2Hooks.MarshalerToType = reflect.TypeFor[MarshalerTo]()
-	encoder.V2Hooks.AppendRaw = appendRaw
+	encoder.V2Hooks.FormatRaw = formatRaw
 	encoder.V2Hooks.MarshalTo = func(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, recv any) ([]byte, error) {
 		m, _ := recv.(MarshalerTo)
 		return marshalTo(ctx, b, typ, m, nil)
@@ -389,15 +389,11 @@ func whereOf(depth int, count int64, newDepth int, newCount int64) int8 {
 	return 0
 }
 
-// appendRaw appends the raw value which a method or a function returned, after b: checked and formatted as the
-// options want it. Its error points to the place in the whole output.
-func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
+// formatRaw appends the raw value which a method or a function returned, after b: checked and formatted as the
+// options want it, which the encoder doesn't append as it is ( see encoder.V2Hooks ). Its error points to the
+// place in the whole output.
+func formatRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 	st := stateOf(ctx)
-	if st.cfg.Value&rawRewriting == 0 {
-		if out, ok := encoder.AppendFormattedRaw(ctx, b, raw); ok {
-			return out, nil
-		}
-	}
 	// raw is not changed: it is the memory of the caller, as the value of a json.RawMessage.
 	out, err := jsontext.AppendFormat(b, raw, &st.cfg, compact)
 	if err != nil {
@@ -414,7 +410,8 @@ func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 	return out, nil
 }
 
-// rawRewriting are the options of the formatting of a raw value which encoder.AppendFormattedRaw doesn't follow.
+// rawRewriting are the options of the formatting of a raw value which encoder.AppendFormattedRaw doesn't follow
+// ( see encoder.RawRewriteOption ).
 const rawRewriting = options.CanonicalizeRawInts | options.CanonicalizeRawFloats | options.ReorderRawObjects |
 	options.PreserveRawStrings
 

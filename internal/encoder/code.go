@@ -1259,6 +1259,8 @@ type MarshalJSONCode struct {
 	isMarshalerContext bool
 	// appendValue writes the value instead of MarshalJSON, if it is set ( see Compiler.appendFuncCode ).
 	appendValue AppendFunc
+	// call is the call of the method, if it is given by the compiler ( see Compiler.v2MethodCode ).
+	call *MarshalerCall
 }
 
 func (c *MarshalJSONCode) Kind() CodeKind {
@@ -1292,6 +1294,9 @@ func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
 	if c.appendValue != nil {
 		return &MarshalerCall{appendValue: c.appendValue, recv: c.typ}
 	}
+	if c.call != nil {
+		return c.call
+	}
 	recv := c.typ
 	if c.isAddrForMarshaler {
 		recv = reflect.PointerTo(c.typ)
@@ -1311,6 +1316,7 @@ func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
 		isNilableType:      c.isNilableType,
 		isMarshalerContext: c.isMarshalerContext,
 		appendValue:        c.appendValue,
+		call:               c.call,
 	}
 }
 

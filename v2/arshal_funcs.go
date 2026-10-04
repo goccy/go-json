@@ -67,7 +67,7 @@ func MarshalFunc[T any](fn func(T) ([]byte, error)) *Marshalers {
 				err = wrapErrUnsupported(err, "marshal function of type func(T) ([]byte, error)")
 				return b, &ierrors.MethodError{GoType: t, Err: err, Kind: ierrors.MethodJSON}
 			}
-			out, err := appendRaw(ctx, b, raw)
+			out, err := encoder.AppendRaw(ctx, b, raw)
 			if err != nil {
 				return b, &ierrors.MethodError{GoType: t, Err: err, Kind: ierrors.MethodJSON}
 			}

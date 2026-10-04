@@ -670,6 +670,10 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
+	if m.v2Raw && ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
+		// a method is not called after a string of invalid UTF-8 ( see appendValue ).
+		return b, errStoppedByInvalidUTF8
+	}
 	if m.appendOutput != nil {
 		// the output of a type of the standard library is valid and compact: it is written as it is.
 		if out, ok := m.appendOutput(b, p); ok {
@@ -686,6 +690,9 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		bb, err = m.callContext(p, stdctx)
 	} else {
 		bb, err = m.call(p)
+	}
+	if m.v2Raw {
+		return appendV2Raw(ctx, m.recv, b, bb, err)
 	}
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
@@ -758,6 +765,10 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	}
 	if m.appendValue != nil {
 		return appendValue(ctx, m, b, p)
+	}
+	if m.v2Raw {
+		// a raw value of the v2 semantics, which is formatted after the encoding.
+		return AppendMarshalJSON(ctx, code, b, p)
 	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil

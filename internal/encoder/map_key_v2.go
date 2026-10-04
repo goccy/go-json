@@ -108,7 +108,7 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		if err != nil {
 			return b, &errors.MethodError{GoType: t, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
 		}
-		out, err := V2Hooks.AppendRaw(ctx, b, raw)
+		out, err := AppendRaw(ctx, b, raw)
 		if err != nil {
 			return b, &errors.MethodError{GoType: t, Err: err, Kind: errors.MethodJSON}
 		}
@@ -117,10 +117,13 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		}
 		return out, nil
 	case methodAppendText:
-		return appendMethodText(ctx, b, t, "AppendText method", v.Addr().Interface().(textAppender).AppendText)
+		m := v.Addr().Interface().(textAppender)
+		return appendMethodText(ctx, b, t, "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+			return m.AppendText(dst)
+		})
 	case methodMarshalText:
 		m := v.Addr().Interface().(encoding.TextMarshaler)
-		return appendMethodText(ctx, b, t, "MarshalText method", func(dst []byte) ([]byte, error) {
+		return appendMethodText(ctx, b, t, "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 			text, err := m.MarshalText()
 			return append(dst, text...), err
 		})

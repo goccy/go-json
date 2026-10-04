@@ -426,5 +426,8 @@ func optionFlags(c *options.Config) encoder.OptionFlag {
 	if c.Has(options.MatchCaseInsensitiveNames) {
 		flags |= encoder.MatchCaseInsensitiveNamesOption
 	}
+	if c.Value&rawRewriting != 0 {
+		flags |= encoder.RawRewriteOption
+	}
 	return flags
 }

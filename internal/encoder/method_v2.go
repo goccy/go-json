@@ -21,10 +21,10 @@ import (
 var V2Hooks struct {
 	// MarshalerToType is the interface of MarshalJSONTo.
 	MarshalerToType reflect.Type
-	// AppendRaw appends the raw value which a method or a function returned, checked and formatted as the options
-	// of the context want it: a SyntacticError of jsontext for a value which is not valid, at its place in the
-	// output.
-	AppendRaw func(ctx *RuntimeContext, b, raw []byte) ([]byte, error)
+	// FormatRaw appends the raw value which a method or a function returned, checked and formatted as the options
+	// of the context want it, which AppendFormattedRaw doesn't append ( see AppendRaw ): a SyntacticError of
+	// jsontext for a value which is not valid, at its place in the output.
+	FormatRaw func(ctx *RuntimeContext, b, raw []byte) ([]byte, error)
 	// AppendRawMembers appends the members of the JSON object raw, a jsontext.Value embedded as a fallback, after
 	// b, each followed by a comma: check reports whether a name may be written, if it is not nil. Its errors are
 	// the ones of the v2 json package, at their places in the output.
@@ -100,7 +100,7 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 				if raw == nil {
 					raw = nullJSON
 				}
-				out, err := V2Hooks.AppendRaw(ctx, b, raw)
+				out, err := AppendRaw(ctx, b, raw)
 				if err != nil {
 					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
 				}
@@ -108,6 +108,13 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 			}), true
 		}
 		appendOutput := addrJSONAppender(typ)
+		if m := newMarshalerCall(reflect.PointerTo(typ), marshalJSONInterface); m != nil {
+			// the method is called as the encoder of v1 calls it, at the address of the value, which is not nil
+			// ( see AppendMarshalJSON ).
+			m.nilIsNull, m.trusted, m.appendOutput, m.v2Raw, m.recv = false, false, appendOutput, true, typ
+			return &MarshalJSONCode{typ: typ, isAddrForMarshaler: true, call: m}, true
+		}
+		// a method which is not found by its name, which is called by reflect.
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			if appendOutput != nil {
 				// the output is known, and valid: the method is called only for its error.
@@ -115,27 +122,29 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 					return out, nil
 				}
 			}
-			m := reflect.NewAt(typ, p).Interface().(json.Marshaler)
-			raw, err := m.MarshalJSON()
-			if err != nil {
-				return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
-			}
-			out, err := V2Hooks.AppendRaw(ctx, b, raw)
-			if err != nil {
-				return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
-			}
-			return out, nil
+			raw, err := reflect.NewAt(typ, p).Interface().(json.Marshaler).MarshalJSON()
+			return appendV2Raw(ctx, typ, b, raw, err)
 		}), true
 	case methodAppendText:
+		appendText, ok := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
+		if !ok {
+			appendText = func(p unsafe.Pointer, b []byte) ([]byte, error) {
+				return reflect.NewAt(typ, p).Interface().(textAppender).AppendText(b)
+			}
+		}
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			m := reflect.NewAt(typ, p).Interface().(textAppender)
-			return appendMethodText(ctx, b, typ, "AppendText method", m.AppendText)
+			return appendMethodText(ctx, b, typ, "AppendText method", p, appendText)
 		}), true
 	case methodMarshalText:
+		marshalText, ok := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalTextInterface)
+		if !ok {
+			marshalText = func(p unsafe.Pointer) ([]byte, error) {
+				return reflect.NewAt(typ, p).Interface().(encoding.TextMarshaler).MarshalText()
+			}
+		}
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			m := reflect.NewAt(typ, p).Interface().(encoding.TextMarshaler)
-			return appendMethodText(ctx, b, typ, "MarshalText method", func(dst []byte) ([]byte, error) {
-				text, err := m.MarshalText()
+			return appendMethodText(ctx, b, typ, "MarshalText method", p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
+				text, err := marshalText(p)
 				return append(dst, text...), err
 			})
 		}), true
@@ -149,6 +158,52 @@ var (
 	rawMessageType = reflect.TypeOf(json.RawMessage(nil))
 	nullJSON       = []byte("null")
 )
+
+// appendV2Raw appends raw, which MarshalJSON of a value of typ returned with err, as a raw value of the v2
+// semantics ( see AppendRaw ), or returns the error of the method.
+func appendV2Raw(ctx *RuntimeContext, typ reflect.Type, b, raw []byte, err error) ([]byte, error) {
+	if err == nil && ctx.Option.Flag&(RawRewriteOption|NormalizeUTF8Option|HTMLEscapeOption) == 0 && len(raw) > 0 &&
+		!notPureRaw.Has(raw) && walkRaw[plainStrings](nil, raw, &ctx.rawLevels) {
+		// a value of ASCII without a control character and an escape, as most are, for the options which append
+		// it as it is ( see AppendFormattedRaw ), without the calls of AppendRaw.
+		return append(b, raw...), nil
+	}
+	if err != nil {
+		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
+	}
+	out, err := AppendRaw(ctx, b, raw)
+	if err != nil {
+		return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+	}
+	return out, nil
+}
+
+// AppendRaw appends the raw value which a method or a function returned, checked and formatted as the options of
+// the context want it: as it is, or as AppendFormattedRaw writes it, without a call of the v2 json package, which
+// formats the other values.
+func AppendRaw(ctx *RuntimeContext, b, raw []byte) ([]byte, error) {
+	if ctx.Option.Flag&RawRewriteOption == 0 {
+		if out, ok := AppendFormattedRaw(ctx, b, raw); ok {
+			return out, nil
+		}
+	}
+	return V2Hooks.FormatRaw(ctx, b, raw)
+}
+
+// addrMethod returns the method of iface of a value of typ at an address, which the value or the pointer to it
+// has, as a function of the address, which is the data word of the pointer: it is looked up when the type is
+// compiled, as the encoder of v1 does ( see methodCode ), and not converted to an interface value by every call.
+// It reports false if the method is not found by its name, which the callers then call by reflect.
+func addrMethod[F any](typ reflect.Type, iface *marshalerInterface) (F, bool) {
+	var f F
+	fn, ok := methodCode(reflect.PointerTo(typ), iface)
+	if !ok {
+		return f, false
+	}
+	code := &fn // a func value is a pointer to its code
+	f = *(*F)(unsafe.Pointer(&code))
+	return f, true
+}
 
 // addrJSONAppender returns the function which writes the output of MarshalJSON of the value of typ at an address
 // without calling it, as the encoder of v1 does ( see newMarshalerCall ): for a type of the standard library whose
@@ -242,10 +297,10 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	return out[:len(out)-1], nil // without the comma after the value, which the caller writes
 }
 
-// appendMethodText appends the text which appendText appends, as a JSON string.
-func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, what string, appendText func([]byte) ([]byte, error)) ([]byte, error) {
+// appendMethodText appends the text which appendText appends for the value at p, as a JSON string.
+func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, what string, p unsafe.Pointer, appendText func(unsafe.Pointer, []byte) ([]byte, error)) ([]byte, error) {
 	start := len(b)
-	text, err := appendText(ctx.MarshalBuf[:0])
+	text, err := appendText(p, ctx.MarshalBuf[:0])
 	if err != nil {
 		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, what), Kind: errors.MethodText}
 	}

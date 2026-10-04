@@ -29,6 +29,10 @@ type MarshalerCall struct {
 	// library is, or of a type which has it only by embedding one ( see runtime.IsStdMarshalerType and
 	// runtime.PromotedStdMethod ): it is not checked.
 	trusted bool
+	// v2Raw is whether the method is MarshalJSON of a value of the v2 semantics at its address, whose output is a
+	// raw value, checked and formatted as the options want it ( see AppendRaw ): recv is then the type of the
+	// value, for an error of the v2 semantics.
+	v2Raw bool
 	// recv is the type of the receiver, for an error.
 	recv reflect.Type
 	// appendOutput writes what the method of a type of the standard library returns without calling it, by the

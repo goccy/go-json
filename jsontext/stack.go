@@ -293,6 +293,25 @@ func (s *stack) insertName(name []byte, check bool) bool {
 	return true
 }
 
+// addNewName adds the unquoted name to the innermost object, which must need a name, as insertName with check
+// does, and reports true, if the name is of a bit which no name of the object has and the names of the objects
+// are few, as most are: then it is new, and no object has an index of its names. Otherwise it adds nothing, and
+// insertName is to add it.
+func (s *stack) addNewName(name []byte) bool {
+	l := &s.levels[len(s.levels)-1]
+	n := &s.names
+	bit := nameBit(name)
+	if l.bits&bit != 0 || len(n.indexes) != 0 || len(n.ends)-l.first >= maxLinearNames || len(n.buf)+len(name) > maxLinearBytes {
+		return false
+	}
+	l.bits |= bit
+	n.buf = append(n.buf, name...)
+	n.ends = append(n.ends, len(n.buf))
+	l.last = len(n.ends) - 1
+	l.named = l.count + 1
+	return true
+}
+
 // nameBit is one of 64 bits, chosen by the length of the name and its first and last bytes: two names of other
 // bits differ.
 func nameBit(name []byte) uint64 {

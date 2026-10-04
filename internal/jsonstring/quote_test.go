@@ -27,7 +27,7 @@ func TestAppendQuotedFastPath(t *testing.T) {
 			}
 		}
 	}
-	for index := range stringEscapes {
+	for index := range stringEscapeStrict {
 		escape := &stringEscapes[index]
 		t.Run(fmt.Sprint(index), func(t *testing.T) {
 			for _, s := range inputs {
@@ -164,7 +164,7 @@ func checkAppendNormalizedStrings(t *testing.T) {
 			}
 		}
 		s := b.String()
-		for index := range stringEscapes {
+		for index := range stringEscapeStrict {
 			e := &stringEscapes[index]
 			if e.high == 0 {
 				continue // UTF-8 is not validated
@@ -173,6 +173,46 @@ func checkAppendNormalizedStrings(t *testing.T) {
 			if want := referenceNormalizedString(s, e); string(got) != want || valid != utf8.ValidString(s) {
 				t.Fatalf("escaper %d, %q:\n got %q, %v\nwant %q, %v", index, s, got, valid, want, utf8.ValidString(s))
 			}
+		}
+	}
+}
+
+// An escaper of stringEscapeStrict writes a string of valid UTF-8 as the escaper it is made from, and panics with
+// the output before a string of invalid UTF-8.
+func TestStrictEscaper(t *testing.T) {
+	for index := range stringEscapeStrict {
+		if index&stringEscapeText == 0 {
+			continue // only the escapers of jsontext validate UTF-8
+		}
+		lenient := &stringEscapes[index]
+		var strict Escaper
+		strict.CopyOf(uint(index | stringEscapeStrict))
+		for _, s := range []string{"", "abc", "あいう", "\u2028<>&", `"\`, strings.Repeat("あ", 40)} {
+			want, _ := AppendQuoted(lenient, []byte("x"), s)
+			if got, valid := AppendQuoted(&strict, []byte("x"), s); string(got) != string(want) || !valid {
+				t.Errorf("%d: AppendQuoted(%q) = %s, %v; want %s, true", index, s, got, valid, want)
+			}
+		}
+		if _, invalid := strict.Invalid(); invalid {
+			t.Fatalf("%d: an invalid string is recorded after valid ones", index)
+		}
+		for _, s := range []string{"\xff", "a\x80b", strings.Repeat("a", 40) + "\xe3"} {
+			// the string is written with U+FFFD as the lenient escaper writes it, and the output before the first
+			// one is recorded.
+			want, _ := AppendQuoted(lenient, []byte("x"), s)
+			got, valid := AppendQuoted(&strict, []byte("x"), s)
+			if string(got) != string(want) || valid {
+				t.Errorf("%d: AppendQuoted(%q) = %s, %v; want %s, false", index, s, got, valid, want)
+			}
+			AppendQuoted(&strict, []byte("yy"), s)
+			if out, invalid := strict.Invalid(); !invalid || string(out) != "x" {
+				t.Errorf("%d: Invalid() after %q = %q, %v; want the output before the first string", index, s, out, invalid)
+			}
+			strict.ClearInvalid()
+		}
+		// the escapers of stringEscapes, which are copied, record nothing.
+		if _, invalid := stringEscapes[index|stringEscapeStrict].Invalid(); invalid {
+			t.Errorf("%d: the escaper of stringEscapes recorded a string", index)
 		}
 	}
 }

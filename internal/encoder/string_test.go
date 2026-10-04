@@ -17,6 +17,7 @@ func BenchmarkAppendString(b *testing.B) {
 	text := strings.Repeat("abcdefghij", 1000)
 	for _, o := range options {
 		ctx := &RuntimeContext{Option: &Option{Flag: o.flag}}
+		ctx.SetEscaper()
 		for _, n := range []int{0, 3, 6, 8, 9, 12, 15, 16, 17, 20, 24, 28, 31, 32, 36, 50, 64, 100, 300, 1000, 10000} {
 			s := text[:n]
 			b.Run(fmt.Sprintf("%s/%d", o.name, n), func(b *testing.B) {
@@ -51,6 +52,7 @@ func BenchmarkAppendStringNotASCII(b *testing.B) {
 	}
 	for _, o := range options {
 		ctx := &RuntimeContext{Option: &Option{Flag: o.flag}}
+		ctx.SetEscaper()
 		for _, text := range texts {
 			s := text.s
 			b.Run(o.name+"/"+text.name, func(b *testing.B) {

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -70,7 +71,11 @@ type OpcodeSet struct {
 	// DataWordIsAddr is whether the data word of an interface value of Type is the address of the value
 	// which the opcodes take: the type is stored indirectly, or it is a pointer, which is the address of
 	// the value it points to.
-	DataWordIsAddr           bool
+	DataWordIsAddr bool
+	// IdentityIsFirstWord is whether a value of Type is a reference whose identity is its first word, which a
+	// cycle passes again and again: a pointer, a map, a slice ( the address of its array ), or a type stored
+	// directly in an interface value. The identity of another value is its address.
+	IdentityIsFirstWord      bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -114,7 +119,7 @@ func ShapeOf(typ unsafe.Pointer) ValueShape {
 		return ValueShapeAggregate
 	case reflect.Map:
 		// whether the type has a marshaler was decided when the type was compiled.
-		codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), false)
+		codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), 0)
 		if err != nil {
 			// the VM compiles the type right after this, and it reports the error.
 			return ValueShapeAggregate
@@ -132,7 +137,7 @@ func ShapeOf(typ unsafe.Pointer) ValueShape {
 //
 //go:noinline
 func IfaceIndir(typ unsafe.Pointer) bool {
-	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), false)
+	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), 0)
 	if err != nil {
 		// the VM compiles the type right after this, and it reports the error.
 		return false
@@ -183,20 +188,38 @@ type CompiledCode struct {
 	Embedded bool
 }
 
-const StartDetectingCyclesAfter = 1000
+// StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
+// values entered are recorded to detect a cycle. A value which is a value of itself enters a frame at each of its
+// levels: the first one recorded is at the depth 1000 of the JSON value, after which encoding/json detects
+// cycles, and the cycle is reported at the place where encoding/json/v2 reports it.
+const StartDetectingCyclesAfter = 998
 
-func ErrUnsupportedValue(code *Opcode, ptr unsafe.Pointer) *errors.UnsupportedValueError {
-	v := *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: ptr,
-	}))
+// ErrUnsupportedValue returns the error of a cycle through the value at ptr, of the type of code: of the pointer
+// to it for the opcode of a pointer.
+func ErrUnsupportedValue(ctx *RuntimeContext, code *Opcode, ptr unsafe.Pointer) error {
+	typ := runtime.TypeOfPtr(code.Type)
+	if code.Op == OpRecursivePtr && ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: reflect.PointerTo(typ), Err: errors.ErrCycle}
+	}
+	return errCycle(ctx, typ, ptr)
+}
+
+// errCycle returns the error of a cycle through the value at p, of the type typ.
+func errCycle(ctx *RuntimeContext, typ reflect.Type, p unsafe.Pointer) error {
+	if ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: typ, Err: errors.ErrCycle}
+	}
 	return &errors.UnsupportedValueError{
-		Value: reflect.ValueOf(v),
-		Str:   fmt.Sprintf("encountered a cycle via %s", runtime.TypeOfPtr(code.Type)),
+		Value: reflect.NewAt(typ, p).Elem(),
+		Str:   fmt.Sprintf("encountered a cycle via %s", typ),
 	}
 }
 
-func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
+// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode.
+func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
+	if ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: runtime.TypeOfPtr(code.Type), Err: fmt.Errorf("unsupported value: %v", v)}
+	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   strconv.FormatFloat(v, 'g', -1, 64),
@@ -365,6 +388,10 @@ type MapContext struct {
 	iter       reflect.MapIter
 	keyIface   any
 	valueIface any
+	// names are the names of the keys written, of a map whose keys may have the same name ( see
+	// appendMapKeyName ), if namesKept is set: they are cleared for each map which needs them.
+	names     map[string]struct{}
+	namesKept bool
 }
 
 // NewMapContext returns the context to encode a map: the runtime context has one for each level of the maps
@@ -382,6 +409,7 @@ func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx.DirectEntries = false
 	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
 	ctx.Slice.Items = nil
+	ctx.namesKept = false
 	return ctx
 }
 
@@ -430,8 +458,11 @@ func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	c.Keys = c.Keys[:0]
 }
 
-func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {
+func AppendByteSlice(ctx *RuntimeContext, b []byte, src []byte) []byte {
 	if src == nil {
+		if NilSliceIsEmpty(ctx) {
+			return append(b, `""`...)
+		}
 		return append(b, `null`...)
 	}
 	encodedLen := base64.StdEncoding.EncodedLen(len(src))
@@ -610,6 +641,31 @@ func addrForMarshaler(v any, rv reflect.Value) reflect.Value {
 	return reflect.NewAt(rv.Type(), (*emptyInterface)(unsafe.Pointer(&v)).ptr)
 }
 
+// errStoppedByInvalidUTF8 stops an encoding which wrote a string of invalid UTF-8, whose error is the one of the
+// string ( see RuntimeContext.InvalidUTF8Output ).
+var errStoppedByInvalidUTF8 = stderrors.New("stopped by invalid UTF-8")
+
+// appendValue appends the value at p by the function of m. An encoding which wrote a string of invalid UTF-8 goes
+// on to its end, or to the next function, which is not called: a method or a function of marshaling is not called
+// after the error, as it isn't by encoding/json/v2.
+func appendValue(ctx *RuntimeContext, m *MarshalerCall, b []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
+		return b, errStoppedByInvalidUTF8
+	}
+	return m.appendValue(ctx, b, p)
+}
+
+// appendV2MarshalJSON appends the output of MarshalJSON of the v2 semantics of the value at p, which it calls by
+// its code, without the call of the function value of m ( see MarshalerCall.v2Raw ), as appendValue does after
+// m.appendOutput, which AppendMarshalJSON looked at.
+func appendV2MarshalJSON(ctx *RuntimeContext, m *MarshalerCall, b []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
+		return b, errStoppedByInvalidUTF8
+	}
+	raw, err := m.call(p)
+	return appendV2Raw(ctx, m.recv, b, raw, err)
+}
+
 // AppendMarshalJSON appends what MarshalJSON of the value returns, compacted. p is the data word of the
 // interface value of the type of the opcode: the address of the value, or the pointer for a pointer type.
 func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
@@ -617,6 +673,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m == nil {
 		return appendMarshalJSONByInterface(ctx, code, b, interfaceOf(code, p))
 	}
+	// a function of the v2 semantics has neither nilIsNull nor, but for MarshalJSON, appendOutput.
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
@@ -628,7 +685,14 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	}
 	var bb []byte
 	var err error
-	if (code.Flags & MarshalerContextFlags) != 0 {
+	if code.Flags&(MarshalerContextFlags|MarshalerFuncFlags) != 0 {
+		// the calls of a context and of the v2 semantics, which the others don't look at.
+		if code.Flags&MarshalerFuncFlags != 0 {
+			if m.v2Raw {
+				return appendV2MarshalJSON(ctx, m, b, p)
+			}
+			return appendValue(ctx, m, b, p)
+		}
 		stdctx := ctx.marshalerContext()
 		if ctx.Option.Flag&FieldQueryOption != 0 {
 			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
@@ -717,6 +781,10 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	}
 	var bb []byte
 	var err error
+	if code.Flags&MarshalerFuncFlags != 0 {
+		// a function of the v2 semantics, whose output is formatted after the encoding.
+		return appendValue(ctx, m, b, p)
+	}
 	if (code.Flags & MarshalerContextFlags) != 0 {
 		bb, err = m.callContext(p, ctx.marshalerContext())
 	} else {

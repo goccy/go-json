@@ -96,9 +96,9 @@ func appendUint(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer, code *e
 }
 
 // appendFloat32 appends the float, or returns the error for one which is not finite as encoding/json does.
-func appendFloat32(ctx *encoder.RuntimeContext, b []byte, v float32) ([]byte, error) {
+func appendFloat32(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, v float32) ([]byte, error) {
 	if isInfOrNaN(float64(v)) {
-		return nil, errUnsupportedFloat(float64(v))
+		return nil, errUnsupportedFloat(ctx, code, float64(v))
 	}
 	format := ctx.Option.ColorScheme.Float
 	b = append(b, format.Header...)
@@ -279,7 +279,7 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 	case encoder.OpUint:
 		b = appendUint(ctx, b, p, code)
 	case encoder.OpFloat32:
-		bb, err := appendFloat32(ctx, b, ptrToFloat32(p))
+		bb, err := appendFloat32(ctx, code, b, ptrToFloat32(p))
 		if err != nil {
 			return nil, err
 		}
@@ -287,7 +287,7 @@ func appendScalar(ctx *encoder.RuntimeContext, b []byte, code *encoder.Opcode, p
 	case encoder.OpFloat64:
 		v := ptrToFloat64(p)
 		if isInfOrNaN(v) {
-			return nil, errUnsupportedFloat(v)
+			return nil, errUnsupportedFloat(ctx, code, v)
 		}
 		b = appendFloat64(ctx, b, v)
 	case encoder.OpString:

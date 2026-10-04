@@ -224,6 +224,12 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		case kind == reflect.Ptr || kind == reflect.Interface:
 			// a nil value is null.
 			field.unwriteEmpty = true
+		case field.typ == rawMessageType && v2MethodOf(field.typ, noMethod) == methodMarshalJSON &&
+			len(c.funcs.funcsOf(field.typ)) == 0:
+			// a nil json.RawMessage is null, which its method writes without a call ( see v2MethodCode ): it is
+			// omitted by the check of nil, the others by what they write.
+			field.emptyNil = true
+			field.unwriteEmpty = true
 		case c.v2HasMethod(field.typ):
 			tag.IsOmitEmpty = false
 			field.unwriteEmpty = true

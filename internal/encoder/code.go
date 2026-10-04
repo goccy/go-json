@@ -756,6 +756,9 @@ type StructFieldCode struct {
 	// well as a nil pointer, for the v2 semantics: the field is written by an opcode which checks both, or is
 	// unwritten after its value if its opcode is another one.
 	omitEmptyString bool
+	// emptyNil is whether omitempty omits the value of the field, a slice, if it is nil only ( EmptyNil ): an
+	// empty one is written by its method, as the v2 semantics do.
+	emptyNil bool
 	// isFallback is whether the field is the embedded fallback of the struct, which writes no key ( see
 	// v2FallbackField ).
 	isFallback bool
@@ -915,6 +918,9 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	field.NumBitSize = value.NumBitSize
 	if c.tag.IsOmitEmpty && checksEmptyAtAddr(op) {
 		field.EmptyKind = emptyKindOf(c.typ)
+		if c.emptyNil {
+			field.EmptyKind = EmptyNil
+		}
 		if field.EmptyKind == EmptyInt {
 			// the opcode of the value of a marshaler has no size: the integer checked is the field.
 			field.NumBitSize = uint8(c.typ.Size() * 8)

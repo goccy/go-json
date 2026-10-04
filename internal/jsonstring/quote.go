@@ -247,6 +247,17 @@ var escapeSequences = func() [256]uint64 {
 	return seqs
 }()
 
+// AppendASCIIEscape appends the escape sequence of the character c of ASCII, which every escaper escapes: '"',
+// '\\' or a control character, as the escapers write it.
+func AppendASCIIEscape(dst []byte, c byte) []byte {
+	seq := escapeSequences[c&0x7f]
+	for n := int(seq >> 56); n > 0; n-- {
+		dst = append(dst, byte(seq))
+		seq >>= 8
+	}
+	return dst
+}
+
 // escapeTables are the tables of stringEscapes, which the functions of the escapes refer to by this array:
 // stringEscapes refers to the functions, so they can't refer to it.
 var escapeTables [numStringEscapes]*nibbleTables

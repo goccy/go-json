@@ -3,6 +3,7 @@
 package json_test
 
 import (
+	stdjsonv1 "encoding/json"
 	stdjson "encoding/json/v2"
 	"errors"
 	"fmt"
@@ -93,6 +94,14 @@ type diffOmit struct {
 	Last                *string        `json:",omitempty"`
 }
 
+// diffRaw has raw values of omitempty: nil is omitted without a call, an empty one is an error of its method.
+type diffRaw struct {
+	Nil   stdjsonv1.RawMessage `json:",omitempty"`
+	Empty stdjsonv1.RawMessage `json:",omitempty"`
+	Value stdjsonv1.RawMessage `json:",omitempty"`
+	Null  stdjsonv1.RawMessage `json:",omitempty"`
+}
+
 // diffStamp has MarshalJSON of time.Time, by embedding it.
 type diffStamp struct{ time.Time }
 
@@ -138,6 +147,8 @@ func diffValues() []any {
 			Stamp: &diffStamp{time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)}, Quoted: &empty, StringPointer: &emptyPointer,
 		},
 		&diffOmit{Last: &nonEmpty, StringPointer: &nonEmptyPointer, Quoted: &nonEmpty},
+		diffRaw{Value: stdjsonv1.RawMessage(`{"a":1}`), Null: stdjsonv1.RawMessage(`null`)},
+		diffRaw{Empty: stdjsonv1.RawMessage{}}, diffRaw{Value: stdjsonv1.RawMessage(`{}`)},
 	}
 }
 

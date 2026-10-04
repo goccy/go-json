@@ -27,9 +27,13 @@ var lookedAtByRawCheck = [4]*jsonstring.ByteClass{
 	jsonstring.NewByteClass('<', '>', '&', 0xe2),
 }
 
-// maxNamesOfRawCheck is the number of the names of the objects being read up to which a raw value is appended
-// here: a value with more is formatted.
-const maxNamesOfRawCheck = 64
+// maxNamesOfRawCheck is the number of the names of the objects being read, and maxDepthOfRawCheck the depth of the
+// values, up to which a raw value is appended here: a larger one is formatted. They are small, as the arrays of the
+// walk are cleared for every value.
+const (
+	maxNamesOfRawCheck = 32
+	maxDepthOfRawCheck = 16
+)
 
 // AppendFormattedRaw appends src, a raw value, to dst as the formatting of the v2 semantics with the escaping of
 // ctx appends it, and reports true, if src is compact, valid JSON whose strings are valid UTF-8 without a control
@@ -50,7 +54,7 @@ func AppendFormattedRaw(ctx *RuntimeContext, dst, src []byte) ([]byte, bool) {
 	if len(src) == 0 || (escape != 0 && lookedAtByRawCheck[escape].Has(src)) {
 		return dst, false
 	}
-	w := rawWalk{ctx: ctx, src: src, dst: dst, ascii: true}
+	w := rawWalk{ctx: ctx, src: src, dst: dst, ascii: true, escape: escape}
 	if !w.walk() || !(w.ascii || utf8.Valid(src)) {
 		return dst, false
 	}
@@ -66,43 +70,48 @@ type rawWalk struct {
 	copied int
 	// ascii is whether every byte read is ASCII.
 	ascii bool
+	// escape is the escaping of the options ( see lookedAtByRawCheck ).
+	escape int
+	// stack are the closing brackets of the values being read, of depth levels; names are the offsets of the names
+	// of the objects being read, numNames of them, and first the index in names of the first name of each level.
+	stack    [maxDepthOfRawCheck]byte
+	first    [maxDepthOfRawCheck]int32
+	names    [maxNamesOfRawCheck]int32
+	numNames int32
+	depth    int
+}
+
+// name reads the name of an object at i, which must be new in the object, and returns the index after it, or -1.
+func (w *rawWalk) name(i int) int {
+	src := w.src
+	n := len(src)
+	if i >= n || src[i] != '"' || w.numNames == maxNamesOfRawCheck {
+		return -1
+	}
+	end, escaped := w.stringEnd(i + 1)
+	if end < 0 || escaped {
+		return -1
+	}
+	size := end - i
+	for _, start := range w.names[w.first[w.depth-1]:w.numNames] {
+		// the name with its quotes, which has no escape: the quote ends the one before as well.
+		if s := int(start); s+size < end && src[s+size-1] == '"' && bytes.Equal(src[s:s+size], src[i:end]) {
+			return -1
+		}
+	}
+	w.names[w.numNames] = int32(i)
+	w.numNames++
+	if end >= n || src[end] != ':' {
+		return -1
+	}
+	return end + 1
 }
 
 // walk reports whether src is a value which AppendFormattedRaw appends.
 func (w *rawWalk) walk() bool {
 	src := w.src
-	var stack [maxDepthOfCompactCheck]byte // the closing brackets of the values being read
-	// names are the offsets of the names of the objects being read, and first the index in names of the first name
-	// of each of them.
-	var names [maxNamesOfRawCheck]int32
-	var first [maxDepthOfCompactCheck]int32
-	numNames := int32(0)
-	depth := 0
 	n := len(src)
 	i := 0
-	// name reads the name of an object at i, which must be new in the object, and returns the index after it.
-	name := func(i int) int {
-		if i >= n || src[i] != '"' || numNames == maxNamesOfRawCheck {
-			return -1
-		}
-		end, escaped := w.stringEnd(i + 1)
-		if end < 0 || escaped {
-			return -1
-		}
-		size := end - i
-		for _, start := range names[first[depth-1]:numNames] {
-			// the name with its quotes, which has no escape: the quote ends the one before as well.
-			if s := int(start); s+size < end && src[s+size-1] == '"' && bytes.Equal(src[s:s+size], src[i:end]) {
-				return -1
-			}
-		}
-		names[numNames] = int32(i)
-		numNames++
-		if end >= n || src[end] != ':' {
-			return -1
-		}
-		return end + 1
-	}
 	for {
 		// a value.
 		if i >= n {
@@ -119,33 +128,33 @@ func (w *rawWalk) walk() bool {
 			}
 			i = end
 		case c == '{':
-			if depth == maxDepthOfCompactCheck {
+			if w.depth == maxDepthOfRawCheck {
 				return false
 			}
-			stack[depth] = '}'
-			first[depth] = numNames
-			depth++
+			w.stack[w.depth] = '}'
+			w.first[w.depth] = w.numNames
+			w.depth++
 			i++
 			if i < n && src[i] == '}' {
 				i++
-				depth--
+				w.depth--
 				break
 			}
-			if i = name(i); i < 0 {
+			if i = w.name(i); i < 0 {
 				return false
 			}
 			continue
 		case c == '[':
-			if depth == maxDepthOfCompactCheck {
+			if w.depth == maxDepthOfRawCheck {
 				return false
 			}
-			stack[depth] = ']'
-			first[depth] = numNames
-			depth++
+			w.stack[w.depth] = ']'
+			w.first[w.depth] = w.numNames
+			w.depth++
 			i++
 			if i < n && src[i] == ']' {
 				i++
-				depth--
+				w.depth--
 				break
 			}
 			continue
@@ -173,7 +182,7 @@ func (w *rawWalk) walk() bool {
 		}
 		// after a value.
 		for {
-			if depth == 0 {
+			if w.depth == 0 {
 				return i == n
 			}
 			if i >= n {
@@ -182,14 +191,14 @@ func (w *rawWalk) walk() bool {
 			switch src[i] {
 			case ',':
 				i++
-				if stack[depth-1] == '}' {
-					if i = name(i); i < 0 {
+				if w.stack[w.depth-1] == '}' {
+					if i = w.name(i); i < 0 {
 						return false
 					}
 				}
-			case stack[depth-1]:
-				depth--
-				numNames = first[depth]
+			case w.stack[w.depth-1]:
+				w.depth--
+				w.numNames = w.first[w.depth]
 				i++
 				continue
 			default:
@@ -252,14 +261,71 @@ func (w *rawWalk) stringEnd(i int) (int, bool) {
 	}
 }
 
-// requote writes the string src[start:end], which has escapes, as the formatting writes it: by the escaper of the
-// strings of the options.
+// requote writes the string src[start:end], which has escapes, as the formatting writes it: an escaped character
+// which needs no escape as it is, and the others by the escapes of the escapers of the strings, in one pass. With
+// the escaping of the options, the string is written by the escaper of the options.
 func (w *rawWalk) requote(start, end int) bool {
-	ctx := w.ctx
 	w.dst = append(w.dst, w.src[w.copied:start]...)
-	ctx.MarshalBuf = jsonstring.AppendUnescaped(ctx.MarshalBuf[:0], w.src[start+1:end-1])
-	var valid bool
-	w.dst, valid = jsonstring.AppendQuoted(textEscaper(ctx), w.dst, unsafe.String(unsafe.SliceData(ctx.MarshalBuf), len(ctx.MarshalBuf)))
 	w.copied = end
-	return valid
+	if w.escape != 0 {
+		ctx := w.ctx
+		ctx.MarshalBuf = jsonstring.AppendUnescaped(ctx.MarshalBuf[:0], w.src[start+1:end-1])
+		var valid bool
+		w.dst, valid = jsonstring.AppendQuoted(textEscaper(ctx), w.dst, unsafe.String(unsafe.SliceData(ctx.MarshalBuf), len(ctx.MarshalBuf)))
+		return valid
+	}
+	dst := append(w.dst, '"')
+	// the escapes are valid, of no surrogate ( see stringEnd ), and the rest is checked for UTF-8 with the value.
+	s := w.src[start+1 : end-1]
+	for {
+		j := bytes.IndexByte(s, '\\')
+		if j < 0 {
+			dst = append(dst, s...)
+			break
+		}
+		dst = append(dst, s[:j]...)
+		r, size := rune(s[j+1]), 2
+		switch r {
+		case 'b':
+			r = '\b'
+		case 'f':
+			r = '\f'
+		case 'n':
+			r = '\n'
+		case 'r':
+			r = '\r'
+		case 't':
+			r = '\t'
+		case 'u':
+			r, size = hexRune(s[j+2:j+6]), 6
+		}
+		switch {
+		case r == '"' || r == '\\' || r < 0x20:
+			dst = jsonstring.AppendASCIIEscape(dst, byte(r))
+		case r < utf8.RuneSelf:
+			dst = append(dst, byte(r))
+		default:
+			dst = utf8.AppendRune(dst, r)
+		}
+		s = s[j+size:]
+	}
+	w.dst = append(dst, '"')
+	return true
+}
+
+// hexRune returns the character of the four hexadecimal digits of an escape, which are valid.
+func hexRune(h []byte) rune {
+	var r rune
+	for _, c := range h[:4] {
+		switch {
+		case c <= '9':
+			c -= '0'
+		case c <= 'F':
+			c -= 'A' - 10
+		default:
+			c -= 'a' - 10
+		}
+		r = r<<4 | rune(c)
+	}
+	return r
 }

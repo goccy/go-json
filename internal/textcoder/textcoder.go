@@ -22,6 +22,29 @@ type Level struct {
 	Name []byte
 }
 
+// Attachment is the place of the output where an encoder is attached ( see Attach ), and, after Attach and Detach,
+// where it is.
+type Attachment struct {
+	// Out is the output before the place, at the offset Base of the whole output, or, if Out is empty, Base is
+	// the offset of the value after its delimiter: the delimiter which the encoder writes before the value, whose
+	// length Attach sets in Skip, is not a part of the output then, which the caller writes to another encoder.
+	Out  []byte
+	Base int64
+	// Object and Count are the innermost level of the place, an open object or array, or the top level if Top is
+	// set: Count has the parity of the place, a value or a name, and is 0 only if the level has no token yet. The
+	// levels around it, and its name and count, Outer gives when the encoder needs them.
+	Object bool
+	Top    bool
+	Count  int64
+	Outer  Outer
+	// Opts are the options of the encoder, which are the ones it was attached with the last time if Same is set.
+	Opts *options.Config
+	Same bool
+	// Skip, and Depth and Count of the innermost level, which Detach sets after the writes, Attach sets.
+	Skip  int
+	Depth int
+}
+
 // Outer gives the levels of the place where an encoder was attached, the top level first ( see Attach ): they are
 // found only when the encoder needs them, for a JSON pointer or the stack, which most writes don't.
 type Outer interface {
@@ -29,20 +52,14 @@ type Outer interface {
 }
 
 var (
-	// Attach makes enc, a *jsontext.Encoder, write after out by the options, at a place of the output whose
-	// innermost level is inner: the top level if top is set, or an open object or array, whose name, count and
-	// the levels around it outer gives when enc needs them. enc is the pointer itself, without the check of a type
-	// assertion, which the calls for every value of a method don't take. inner has the kind of the level, and a count of the
-	// parity of the place, a value or a name, and which is 0 only if the level has no token yet. base is the
-	// offset of out in the whole output, or, if out is empty, the offset of the value after its delimiter: the
-	// delimiter which enc writes before the value, whose length skip is, is not a part of the output then, which
-	// the caller writes to another encoder. same tells that opts and outer are the ones enc was attached with the
-	// last time. It returns skip, and the depth and the count of the innermost level of enc, which Detach returns
-	// after the writes, at the same depth.
-	Attach func(enc unsafe.Pointer, out []byte, base int64, inner Level, top bool, outer Outer, opts *options.Config, same bool) (skip int, depth int, count int64)
-	// Detach returns the output of enc, which Attach set up, and its depth and the count of the tokens of its
-	// innermost level.
-	Detach func(enc unsafe.Pointer) (out []byte, depth int, count int64)
+	// Attach makes enc, a *jsontext.Encoder, write after the output of the place p by its options ( see
+	// Attachment ).
+	// enc is the pointer itself, without the check of a type assertion, which the calls for every value of a
+	// method don't take; the place is given by a pointer, as its fields don't fit the registers of a call.
+	Attach func(enc unsafe.Pointer, p *Attachment)
+	// Detach sets the output of enc, which Attach set up, and its depth and the count of the tokens of its
+	// innermost level in p.
+	Detach func(enc unsafe.Pointer, p *Attachment)
 	// Position returns the levels of enc, a *jsontext.Encoder, the top level first, and the offset in its output
 	// where its next value starts: after the delimiter and the white space before it.
 	Position func(enc any, levels []Level) ([]Level, int64)

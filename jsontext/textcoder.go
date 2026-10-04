@@ -76,13 +76,25 @@ func configureEncoder(enc any, opts options.Options) func() {
 
 // attachEncoder makes the Encoder enc write after out, at the place whose innermost level is inner ( see
 // textcoder.Attach ).
-func attachEncoder(enc unsafe.Pointer, out []byte, base int64, inner textcoder.Level, top bool, outer textcoder.Outer, opts *options.Config, same bool) (int, int, int64) {
+func attachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
-	if same && e.attached && e.ready() {
+	st := &e.st
+	if p.Same && e.attached && e.ready() && cap(st.levels) >= 2 {
 		// attached again with the same options, as most calls of the methods are: the state of the grammar and of
-		// the scanner is reset, as init resets it, without the rest.
+		// the scanner is reset, as init resets it, without the rest. The levels are written as reset and push
+		// write them, the top level and the place, which no name of an object is given for.
 		e.invalid = false
-		e.st.reset()
+		if p.Top {
+			st.levels = st.levels[:1]
+			st.levels[0] = level{count: p.Count}
+		} else {
+			st.levels = st.levels[:2]
+			st.levels[0] = level{count: 1}
+			st.levels[1] = level{object: p.Object, count: p.Count, last: -1}
+		}
+		if n := &st.names; len(n.ends) != 0 || len(n.indexes) != 0 {
+			n.reset()
+		}
 		vs := &e.vs
 		vs.write, vs.keep = true, false
 		vs.run = 0
@@ -91,43 +103,51 @@ func attachEncoder(enc unsafe.Pointer, out []byte, base int64, inner textcoder.L
 			vs.in, vs.out = nil, nil
 		}
 	} else {
-		e.cfg = *opts
+		e.cfg = *p.Opts
 		e.w = nil
 		e.init(nil)
 		e.attached = true
+		if !p.Top {
+			_ = st.push(p.Object)
+		}
+		// the names of an object, which the value written at its place can't have, are not given.
+		st.last().count = p.Count
+		st.outer = p.Outer
 	}
-	// the pointers are written only if they change, as a write of a pointer costs a write barrier while the GC
-	// marks: the output is mostly the same array, whose length is set by a slice of itself.
+	st.outerDepth, st.outerCount = len(st.levels)-1, p.Count
+	e.setOutput(p.Out, p.Base)
+	p.Skip, p.Depth = 0, len(st.levels)-1
+	if len(p.Out) == 0 && !p.Top {
+		p.Skip = e.skipDelim()
+	}
+}
+
+// setOutput sets the output of an attached encoder to out, at the offset base of the whole output. The pointers are
+// written only if they change, as a write of a pointer costs a write barrier while the GC marks: the output is
+// mostly the same array, whose length is set by a slice of itself.
+func (e *encoder) setOutput(out []byte, base int64) {
 	if unsafe.SliceData(e.buf) == unsafe.SliceData(out) && cap(e.buf) == cap(out) {
 		e.buf = e.buf[:len(out)]
 	} else {
 		e.buf = out
 	}
 	e.base, e.maxValue = base, 0
-	st := &e.st
-	if !top {
-		_ = st.push(inner.Object)
-	}
-	// the names of an object, which the value written at its place can't have, are not given.
-	st.last().count = inner.Count
-	if !same {
-		st.outer = outer
-	}
-	st.outerDepth, st.outerCount = st.depth(), inner.Count
-	skip := 0
-	if len(out) == 0 && !top {
-		k := KindNull
-		if st.last().needName() {
-			k = KindString
-		}
-		skip = e.delimLen(k)
-		e.base -= int64(skip)
-	}
-	return skip, st.depth(), inner.Count
 }
 
-// detachEncoder returns the output of enc and the place where it is.
-func detachEncoder(enc unsafe.Pointer) ([]byte, int, int64) {
+// skipDelim returns the length of the delimiter which the attached encoder writes before the value at the start
+// of its output, which isn't a part of it ( see textcoder.Attach ), and moves the offset of the output before it.
+func (e *encoder) skipDelim() int {
+	k := KindNull
+	if e.st.last().needName() {
+		k = KindString
+	}
+	skip := e.delimLen(k)
+	e.base -= int64(skip)
+	return skip
+}
+
+// detachEncoder sets the output of enc and the place where it is in p.
+func detachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
-	return e.buf, e.st.depth(), e.st.last().count
+	p.Out, p.Depth, p.Count = e.buf, e.st.depth(), e.st.last().count
 }

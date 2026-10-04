@@ -62,7 +62,7 @@ type callState struct {
 	// an error or the stack of an encoder, if outerKnown is not set. base is the offset of the value in that
 	// output.
 	outerEnc   *jsontext.Encoder
-	place      textcoder.Level
+	outerPlace textcoder.Level
 	placeTop   bool
 	outer      []textcoder.Level
 	ptr        jsontext.Pointer
@@ -75,8 +75,9 @@ type callState struct {
 	// attachSortedName is whether the method writes the name of a key of a sorted map, whose entries before it
 	// are not in their place yet: the names of the map are not given.
 	attachSortedName bool
-	// attached is whether enc was attached in the call, with its options.
+	// attached is whether enc was attached in the call, with its options, and place is where it is attached.
 	attached bool
+	place    textcoder.Attachment
 	// opened is whether an encoding which failed stopped in an object or an array it opened.
 	opened bool
 	// enc is the encoder which the methods and the functions write to, at the place of the levels.
@@ -92,7 +93,7 @@ func (st *callState) setPlace(enc *jsontext.Encoder, inner textcoder.Level, top 
 	if st.outerEnc != enc {
 		st.outerEnc = enc
 	}
-	st.place, st.placeTop, st.outerKnown = inner, top, false
+	st.outerPlace, st.placeTop, st.outerKnown = inner, top, false
 }
 
 // outerLevels returns the levels of the output where the value is written ( see callState.outer ).
@@ -256,7 +257,7 @@ func newCallState(ctx *encoder.RuntimeContext, opts []Options) *callState {
 func releaseCallState(st *callState) {
 	st.tracked.release()
 	if st.attachOut != nil {
-		st.attachCtx, st.attachOut = nil, nil
+		st.attachCtx, st.attachOut, st.place.Out = nil, nil, nil
 	}
 	if st.outerEnc != nil {
 		st.outerEnc = nil
@@ -282,24 +283,25 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	out := b
 	// the place of the value, found from the delimiter before it, which the encoder writes itself: the levels
 	// around it are found only if the encoder needs them ( see callState.Levels ).
-	inner, top := st.place, st.placeTop
+	pl := &st.place
+	pl.Object, pl.Top, pl.Count = st.outerPlace.Object, st.placeTop, st.outerPlace.Count
 	if n := len(out); n > 0 {
 		switch out[n-1] {
 		case ':':
 			// the value of a member.
-			out, inner, top = out[:n-1], textcoder.Level{Object: true, Count: 1}, false
+			out, pl.Object, pl.Top, pl.Count = out[:n-1], true, false, 1
 		case ',':
 			if ctx.KeyName {
 				// the name of an entry of a map after another one.
-				out, inner, top = out[:n-1], textcoder.Level{Object: true, Count: 2}, false
+				out, pl.Object, pl.Top, pl.Count = out[:n-1], true, false, 2
 			} else {
 				// an element of an array after another one.
-				out, inner, top = out[:n-1], textcoder.Level{Count: 1}, false
+				out, pl.Object, pl.Top, pl.Count = out[:n-1], false, false, 1
 			}
 		case '{':
-			inner, top = textcoder.Level{Object: true}, false
+			pl.Object, pl.Top, pl.Count = true, false, 0
 		case '[':
-			inner, top = textcoder.Level{}, false
+			pl.Object, pl.Top, pl.Count = false, false, 0
 		default:
 			// a value after a value, at the top level, which the encoder doesn't write.
 			return b, errNonSingularValue
@@ -317,8 +319,18 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	}
 	st.attachSortedName = ctx.KeyName && ctx.Option.Flag&encoder.UnorderedMapOption == 0
 	// the levels around the place, which the call gives for any place: at the top level, the encoder has them.
-	skip, depth, count := textcoder.Attach(unsafe.Pointer(&st.enc), out, st.base, inner, top, st, &st.cfg, st.attached)
+	if unsafe.SliceData(pl.Out) == unsafe.SliceData(out) && cap(pl.Out) == cap(out) {
+		pl.Out = pl.Out[:len(out)]
+	} else {
+		pl.Out = out
+	}
+	pl.Base, pl.Same = st.base, st.attached
+	if !st.attached {
+		pl.Outer, pl.Opts = st, &st.cfg
+	}
+	textcoder.Attach(unsafe.Pointer(&st.enc), pl)
 	st.attached = true
+	depth, count, skip := pl.Depth, pl.Count, pl.Skip
 	var err error
 	if m != nil {
 		// called by the interface, without the method value, which would be one more call.
@@ -326,7 +338,8 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	} else {
 		err = fn(&st.enc)
 	}
-	written, newDepth, newCount := textcoder.Detach(unsafe.Pointer(&st.enc))
+	textcoder.Detach(unsafe.Pointer(&st.enc), pl)
+	written, newDepth, newCount := pl.Out, pl.Depth, pl.Count
 	if skip > 0 && len(written) >= skip {
 		// the delimiter before the value, which the encoder of MarshalEncode writes.
 		written = written[:copy(written, written[skip:])]

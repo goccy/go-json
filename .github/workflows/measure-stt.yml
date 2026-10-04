@@ -79,18 +79,20 @@ jobs:
             label=${p%%=*}
             k=${p#*=}
             v=${label%%-*}
+            # the tree stays where the select job built it: the type addresses depend on the directory
             bash .github/workflows/measure-stt-tree.sh $v $k
             names="$names $label"
-            mv /tmp/$v-$k /tmp/$label
-            echo "=== $label (k=$k): $(cd /tmp/$label/benchmarks && go test -count=1 -run ZZSets . 2>/dev/null | grep set= | sort | tr '\n' ' ')"
+            echo "$v-$k" > /tmp/$label.dir
+            echo "=== $label (k=$k): $(cd /tmp/$v-$k/benchmarks && go test -count=1 -run ZZSets . 2>/dev/null | grep set= | sort | tr '\n' ' ')"
             for l in $(seq $LAYOUTS); do
-              (cd /tmp/$label/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$label.$l.test .)
+              (cd /tmp/$v-$k/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$label.$l.test .)
             done
           done
           for r in 1 2 3 4; do
             for l in $(seq $LAYOUTS); do
               for v in $names; do
-                (cd /tmp/$v/benchmarks && /tmp/$v.$l.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' >> /tmp/$v.txt)
+                d=$(cat /tmp/$v.dir)
+                (cd /tmp/$d/benchmarks && /tmp/$v.$l.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' >> /tmp/$v.txt)
               done
             done
           done

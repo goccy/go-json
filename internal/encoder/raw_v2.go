@@ -83,13 +83,13 @@ func AppendFormattedRaw(ctx *RuntimeContext, dst, src []byte) ([]byte, bool) {
 	// at the next quote, and it is appended as it is. The strings of the other values of ASCII without a control
 	// character are scanned for the quotes and the escapes only.
 	if !notPureRaw.Has(src) {
-		if !walkRaw[plainStrings](nil, src, &ctx.rawLevels) {
+		if !walkRaw[plainStrings](nil, src, ctx.levelsOfRaw()) {
 			return dst, false
 		}
 		return append(dst, src...), true
 	}
 	w := rawWalk{ctx: ctx, src: src, dst: dst, ascii: true, escape: escape, plain: !notPlainRaw.Has(src)}
-	if !walkRaw[escapedStrings](&w, src, &ctx.rawLevels) || !(w.ascii || utf8.Valid(src)) {
+	if !walkRaw[escapedStrings](&w, src, ctx.levelsOfRaw()) || !(w.ascii || utf8.Valid(src)) {
 		return dst, false
 	}
 	return append(w.dst, src[w.copied:]...), true

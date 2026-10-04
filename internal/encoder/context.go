@@ -59,13 +59,15 @@ const (
 var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
-			return &RuntimeContext{
+			ctx := &RuntimeContext{
 				Buf:   make([]byte, 0, bufSize),
 				Slots: make([]uintptr, 128*slotWords),
-				// the escaper is set before the first encoding, of options which differ from noEscaperFlags ( see
-				// run.Code ).
-				Option: &Option{EscaperFlags: noEscaperFlags},
 			}
+			// the escaper is set before the first encoding, of options which differ from noEscaperFlags ( see
+			// run.Code ).
+			ctx.option.EscaperFlags = noEscaperFlags
+			ctx.Option = &ctx.option
+			return ctx
 		},
 	}
 )
@@ -179,12 +181,25 @@ type RuntimeContext struct {
 	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
 	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
 	RewriteFrom int
-	// rawLevels are the levels of the walk of a raw value of the v2 semantics ( see AppendFormattedRaw ).
-	rawLevels rawLevels
+	// rawLevels are the levels of the walk of a raw value of the v2 semantics ( see AppendFormattedRaw ), made by
+	// the first walk ( see levelsOfRaw ): the context of an encoding of v1 doesn't have them, which keeps it small
+	// to make again after the GC emptied the pool.
+	rawLevels *rawLevels
 	// strictEscaper is the escaper of RejectInvalidUTF8Option of the options of strictIndex - 1, which records the
 	// first string of invalid UTF-8 ( see SetStrictEscaper ): at the end, after the fields of every encoding.
 	strictEscaper jsonstring.Escaper
 	strictIndex   uint
+	// option is the Option of the context, which every encoding writes: in the object of the context, as an object
+	// of its own would share its cache lines with the options of other contexts, which other threads write.
+	option Option
+}
+
+// levelsOfRaw returns the levels of the walks of raw values of the context ( see rawLevels ).
+func (c *RuntimeContext) levelsOfRaw() *rawLevels {
+	if c.rawLevels == nil {
+		c.rawLevels = new(rawLevels)
+	}
+	return c.rawLevels
 }
 
 // Rewrote records that the output was written again, or shortened, from the offset at.

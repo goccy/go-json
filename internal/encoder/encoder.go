@@ -649,12 +649,21 @@ var errStoppedByInvalidUTF8 = stderrors.New("stopped by invalid UTF-8")
 // on to its end, or to the next function, which is not called: a method or a function of marshaling is not called
 // after the error, as it isn't by encoding/json/v2.
 func appendValue(ctx *RuntimeContext, m *MarshalerCall, b []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 {
-		if _, invalid := ctx.strictEscaper.Invalid(); invalid {
-			return b, errStoppedByInvalidUTF8
-		}
+	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
+		return b, errStoppedByInvalidUTF8
 	}
 	return m.appendValue(ctx, b, p)
+}
+
+// appendV2MarshalJSON appends the output of MarshalJSON of the v2 semantics of the value at p, which it calls by
+// its code, without the call of the function value of m ( see MarshalerCall.v2Raw ), as appendValue does after
+// m.appendOutput, which AppendMarshalJSON looked at.
+func appendV2MarshalJSON(ctx *RuntimeContext, m *MarshalerCall, b []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
+		return b, errStoppedByInvalidUTF8
+	}
+	raw, err := m.call(p)
+	return appendV2Raw(ctx, m.recv, b, raw, err)
 }
 
 // AppendMarshalJSON appends what MarshalJSON of the value returns, compacted. p is the data word of the
@@ -664,15 +673,9 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m == nil {
 		return appendMarshalJSONByInterface(ctx, code, b, interfaceOf(code, p))
 	}
-	if m.appendValue != nil {
-		return appendValue(ctx, m, b, p)
-	}
+	// a function of the v2 semantics has neither nilIsNull nor, but for MarshalJSON, appendOutput.
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
-	}
-	if m.v2Raw && ctx.Option.Flag&RejectInvalidUTF8Option != 0 && ctx.HasInvalidUTF8() {
-		// a method is not called after a string of invalid UTF-8 ( see appendValue ).
-		return b, errStoppedByInvalidUTF8
 	}
 	if m.appendOutput != nil {
 		// the output of a type of the standard library is valid and compact: it is written as it is.
@@ -682,7 +685,14 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	}
 	var bb []byte
 	var err error
-	if (code.Flags & MarshalerContextFlags) != 0 {
+	if code.Flags&(MarshalerContextFlags|MarshalerFuncFlags) != 0 {
+		// the calls of a context and of the v2 semantics, which the others don't look at.
+		if code.Flags&MarshalerFuncFlags != 0 {
+			if m.v2Raw {
+				return appendV2MarshalJSON(ctx, m, b, p)
+			}
+			return appendValue(ctx, m, b, p)
+		}
 		stdctx := ctx.marshalerContext()
 		if ctx.Option.Flag&FieldQueryOption != 0 {
 			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
@@ -690,9 +700,6 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		bb, err = m.callContext(p, stdctx)
 	} else {
 		bb, err = m.call(p)
-	}
-	if m.v2Raw {
-		return appendV2Raw(ctx, m.recv, b, bb, err)
 	}
 	if err != nil {
 		return nil, &errors.MarshalerError{Type: m.recv, Err: err}
@@ -763,13 +770,6 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	if m == nil {
 		return appendMarshalJSONIndentByInterface(ctx, code, b, interfaceOf(code, p))
 	}
-	if m.appendValue != nil {
-		return appendValue(ctx, m, b, p)
-	}
-	if m.v2Raw {
-		// a raw value of the v2 semantics, which is formatted after the encoding.
-		return AppendMarshalJSON(ctx, code, b, p)
-	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
@@ -781,6 +781,10 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	}
 	var bb []byte
 	var err error
+	if code.Flags&MarshalerFuncFlags != 0 {
+		// a function of the v2 semantics, whose output is formatted after the encoding.
+		return appendValue(ctx, m, b, p)
+	}
 	if (code.Flags & MarshalerContextFlags) != 0 {
 		bb, err = m.callContext(p, ctx.marshalerContext())
 	} else {

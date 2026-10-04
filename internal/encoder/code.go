@@ -911,6 +911,9 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 	if value.Flags&MarshalerContextFlags != 0 {
 		field.Flags |= MarshalerContextFlags
 	}
+	if value.Flags&MarshalerFuncFlags != 0 {
+		field.Flags |= MarshalerFuncFlags
+	}
 	// the field of interface{} enters the value as the opcode of the value does: it needs to know the interface.
 	if value.Flags&NonEmptyInterfaceFlags != 0 {
 		field.Flags |= NonEmptyInterfaceFlags
@@ -1259,7 +1262,7 @@ type MarshalJSONCode struct {
 	isMarshalerContext bool
 	// appendValue writes the value instead of MarshalJSON, if it is set ( see Compiler.appendFuncCode ).
 	appendValue AppendFunc
-	// call is the call of the method, if it is given by the compiler ( see Compiler.v2MethodCode ).
+	// call is the call of the method, if the compiler gives it ( see Compiler.v2MethodCode ).
 	call *MarshalerCall
 }
 
@@ -1277,6 +1280,9 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMarshalerContext {
 		code.Flags |= MarshalerContextFlags
 	}
+	if code.Marshaler != nil && code.Marshaler.appendValue != nil {
+		code.Flags |= MarshalerFuncFlags
+	}
 	// a method on the pointer is called with the address of the value, which is not loaded from it.
 	if c.isNilableType && !c.isAddrForMarshaler {
 		code.Flags |= IsNilableTypeFlags
@@ -1291,11 +1297,11 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 // A method on the pointer is called with the address of the value, which the opcode is given, as encoding/json
 // calls it with the address of an addressable value.
 func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
-	if c.appendValue != nil {
-		return &MarshalerCall{appendValue: c.appendValue, recv: c.typ}
-	}
 	if c.call != nil {
 		return c.call
+	}
+	if c.appendValue != nil {
+		return &MarshalerCall{appendValue: c.appendValue, recv: c.typ}
 	}
 	recv := c.typ
 	if c.isAddrForMarshaler {

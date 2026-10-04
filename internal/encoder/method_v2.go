@@ -108,23 +108,31 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 			}), true
 		}
 		appendOutput := addrJSONAppender(typ)
-		if m := newMarshalerCall(reflect.PointerTo(typ), marshalJSONInterface); m != nil {
-			// the method is called as the encoder of v1 calls it, at the address of the value, which is not nil
-			// ( see AppendMarshalJSON ).
-			m.nilIsNull, m.trusted, m.appendOutput, m.v2Raw, m.recv = false, false, appendOutput, true, typ
-			return &MarshalJSONCode{typ: typ, isAddrForMarshaler: true, call: m}, true
+		// the method is called by its code, as the encoder of v1 calls it ( see MarshalerCall ), or by reflect if
+		// it is not found by its name.
+		marshalJSON, ok := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalJSONInterface)
+		if !ok {
+			marshalJSON = func(p unsafe.Pointer) ([]byte, error) {
+				return reflect.NewAt(typ, p).Interface().(json.Marshaler).MarshalJSON()
+			}
 		}
-		// a method which is not found by its name, which is called by reflect.
-		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		code := c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			if appendOutput != nil {
 				// the output is known, and valid: the method is called only for its error.
 				if out, ok := appendOutput(b, p); ok {
 					return out, nil
 				}
 			}
-			raw, err := reflect.NewAt(typ, p).Interface().(json.Marshaler).MarshalJSON()
+			raw, err := marshalJSON(p)
 			return appendV2Raw(ctx, typ, b, raw, err)
-		}), true
+		})
+		if m := newMarshalerCall(reflect.PointerTo(typ), marshalJSONInterface); m != nil {
+			// called by appendValue without the function ( see MarshalerCall.v2Raw ).
+			m.nilIsNull, m.trusted, m.appendOutput, m.v2Raw, m.recv = false, false, appendOutput, true, typ
+			m.appendValue = code.appendValue
+			code.call = m
+		}
+		return code, true
 	case methodAppendText:
 		appendText, ok := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
 		if !ok {
@@ -163,7 +171,7 @@ var (
 // semantics ( see AppendRaw ), or returns the error of the method.
 func appendV2Raw(ctx *RuntimeContext, typ reflect.Type, b, raw []byte, err error) ([]byte, error) {
 	if err == nil && ctx.Option.Flag&(RawRewriteOption|NormalizeUTF8Option|HTMLEscapeOption) == 0 && len(raw) > 0 &&
-		!notPureRaw.Has(raw) && walkRaw[plainStrings](nil, raw, &ctx.rawLevels) {
+		!notPureRaw.Has(raw) && walkRaw[plainStrings](nil, raw, ctx.levelsOfRaw()) {
 		// a value of ASCII without a control character and an escape, as most are, for the options which append
 		// it as it is ( see AppendFormattedRaw ), without the calls of AppendRaw.
 		return append(b, raw...), nil

@@ -179,6 +179,8 @@ type RuntimeContext struct {
 	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
 	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
 	RewriteFrom int
+	// rawLevels are the levels of the walk of a raw value of the v2 semantics ( see AppendFormattedRaw ).
+	rawLevels rawLevels
 	// strictEscaper is the escaper of RejectInvalidUTF8Option of the options of strictIndex - 1, which records the
 	// first string of invalid UTF-8 ( see SetStrictEscaper ): at the end, after the fields of every encoding.
 	strictEscaper jsonstring.Escaper

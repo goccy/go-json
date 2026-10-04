@@ -37,7 +37,8 @@ jobs:
             collvals=""
             for k in $(seq 0 80); do
               bash .github/workflows/measure-stt-tree.sh $v $k
-              out=$(cd /tmp/$v-$k/benchmarks && go test -count=1 -v -run ZZSets . 2>/dev/null | grep set=)
+              (cd /tmp/$v-$k/benchmarks && go test -c -o /tmp/sel.test .)
+              out=$(cd /tmp/$v-$k/benchmarks && /tmp/sel.test -test.run ZZSets -test.v | grep set=)
               # the set with the most types, and whether the map type is one of them
               top=$(echo "$out" | sed 's/.*set=//' | sort | uniq -c | sort -rn | head -1)
               most=$(echo "$top" | awk '{print $1}')
@@ -63,7 +64,7 @@ jobs:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       PICKS: ${{ needs.select.outputs.picks }}
-      LAYOUTS: '2'
+      LAYOUTS: '1'
       BENCH: '^(Benchmark_Encode_(MapInterface|Interface|SmallStruct|MediumStruct|LargeStruct)_GoJson|Benchmark_TwitterGeneric_GoJson|Benchmark_Decode_InterfacePointer_Unmarshal_GoJson)$'
     steps:
       - uses: actions/checkout@v7
@@ -89,12 +90,11 @@ jobs:
             bash .github/workflows/measure-stt-tree.sh $v $k
             names="$names $label"
             echo "$v-$k" > /tmp/$label.dir
-            echo "=== $label (k=$k): $(cd /tmp/$v-$k/benchmarks && go test -count=1 -v -run ZZSets . 2>/dev/null | grep set= | sort | tr '\n' ' ')"
-            for l in $(seq $LAYOUTS); do
-              (cd /tmp/$v-$k/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$label.$l.test .)
-            done
+            # a plain build, as the select job made: the sets are printed by the very binary which is measured
+            (cd /tmp/$v-$k/benchmarks && go test -c -o /tmp/$label.1.test .)
+            echo "=== $label (k=$k): $(cd /tmp/$v-$k/benchmarks && /tmp/$label.1.test -test.run ZZSets -test.v | grep set= | sort | tr '\n' ' ')"
           done
-          for r in 1 2 3 4; do
+          for r in 1 2 3 4 5 6; do
             for l in $(seq $LAYOUTS); do
               for v in $names; do
                 d=$(cat /tmp/$v.dir)

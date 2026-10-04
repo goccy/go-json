@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
+	"github.com/goccy/go-json/internal/encoder/run"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -32,7 +33,7 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 		return err
 	}
 	var p unsafe.Pointer
-	if unsafe.Sizeof(*v) > maxReusedValueSize {
+	if unsafe.Sizeof(*v) > run.MaxReusedValueSize {
 		// every context of the pool would keep such a value: it is left to the GC.
 		p = reflect.New(ptrType.Elem()).UnsafePointer()
 	} else {

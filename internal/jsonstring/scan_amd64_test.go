@@ -15,7 +15,7 @@ func TestScanStringAVX2(t *testing.T) {
 		t.Skip("AVX2 is not supported")
 	}
 	special := []byte{0x00, 0x1f, '"', '\\', '<', '>', '&', 0x7f, 0x80, 0xe3, 0xff, '\n', ' ', '!', '#', '=', '?', '[', ']'}
-	for index := range stringEscapes {
+	for index := range stringEscapeStrict {
 		e := &stringEscapes[index]
 		expected := func(s string) int {
 			for i := 0; i < len(s); i++ {
@@ -105,7 +105,7 @@ func TestAppendEscapedSIMD(t *testing.T) {
 		"\xf0\x9f", "\xc0\x80", "\xe0\x80\x80", "\xed\xa0\x80", "\xf0\x80\x80\x80", "\xf4\x90\x80\x80", "\xf5\x80\x80\x80"}
 	check := func(s string) {
 		t.Helper()
-		for index := range stringEscapes {
+		for index := range stringEscapeStrict {
 			e := &stringEscapes[index]
 			hasEscapeLoop = false
 			want, wantValid := e.appendEscaped(e, []byte("prefix"), s)
@@ -200,7 +200,7 @@ func TestEscapeUTF8AVX2AcrossBlocks(t *testing.T) {
 		for _, piece := range pieces {
 			for _, tail := range tails {
 				s := prefix(n) + piece + tail
-				for index := range stringEscapes {
+				for index := range stringEscapeStrict {
 					e := &stringEscapes[index]
 					hasEscapeLoop = false
 					want, wantValid := e.appendEscaped(e, []byte("prefix"), s)

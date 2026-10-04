@@ -222,6 +222,9 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 			opTypes = append(opTypes, opType{Op: "StructField" + typ + n, Code: "StructField"})
 		}
 	}
+	// the opcode after a value which changes what the value wrote, for the semantics of encoding/json/v2 ( see
+	// encoder.AppendAfterValue ).
+	opTypes = append(opTypes, opType{Op: "AfterValue", Code: "Op"})
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
 		CodeTypes []string

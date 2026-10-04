@@ -70,7 +70,11 @@ type OpcodeSet struct {
 	// DataWordIsAddr is whether the data word of an interface value of Type is the address of the value
 	// which the opcodes take: the type is stored indirectly, or it is a pointer, which is the address of
 	// the value it points to.
-	DataWordIsAddr           bool
+	DataWordIsAddr bool
+	// IdentityIsFirstWord is whether a value of Type is a reference whose identity is its first word, which a
+	// cycle passes again and again: a pointer, a map, a slice ( the address of its array ), or a type stored
+	// directly in an interface value. The identity of another value is its address.
+	IdentityIsFirstWord      bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode
 	InterfaceNoescapeKeyCode *Opcode
@@ -183,20 +187,38 @@ type CompiledCode struct {
 	Embedded bool
 }
 
-const StartDetectingCyclesAfter = 1000
+// StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
+// values entered are recorded to detect a cycle. A value which is a value of itself enters a frame at each of its
+// levels: the first one recorded is at the depth 1000 of the JSON value, after which encoding/json detects
+// cycles, and the cycle is reported at the place where encoding/json/v2 reports it.
+const StartDetectingCyclesAfter = 998
 
-func ErrUnsupportedValue(code *Opcode, ptr unsafe.Pointer) *errors.UnsupportedValueError {
-	v := *(*any)(unsafe.Pointer(&emptyInterface{
-		typ: code.Type,
-		ptr: ptr,
-	}))
+// ErrUnsupportedValue returns the error of a cycle through the value at ptr, of the type of code: of the pointer
+// to it for the opcode of a pointer.
+func ErrUnsupportedValue(ctx *RuntimeContext, code *Opcode, ptr unsafe.Pointer) error {
+	typ := runtime.TypeOfPtr(code.Type)
+	if code.Op == OpRecursivePtr && ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: reflect.PointerTo(typ), Err: errors.ErrCycle}
+	}
+	return errCycle(ctx, typ, ptr)
+}
+
+// errCycle returns the error of a cycle through the value at p, of the type typ.
+func errCycle(ctx *RuntimeContext, typ reflect.Type, p unsafe.Pointer) error {
+	if ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: typ, Err: errors.ErrCycle}
+	}
 	return &errors.UnsupportedValueError{
-		Value: reflect.ValueOf(v),
-		Str:   fmt.Sprintf("encountered a cycle via %s", runtime.TypeOfPtr(code.Type)),
+		Value: reflect.NewAt(typ, p).Elem(),
+		Str:   fmt.Sprintf("encountered a cycle via %s", typ),
 	}
 }
 
-func ErrUnsupportedFloat(v float64) *errors.UnsupportedValueError {
+// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode.
+func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
+	if ctx.Option.Flag&V2Option != 0 {
+		return &errors.SemanticError{GoType: runtime.TypeOfPtr(code.Type), Err: fmt.Errorf("unsupported value: %v", v)}
+	}
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   strconv.FormatFloat(v, 'g', -1, 64),
@@ -365,6 +387,10 @@ type MapContext struct {
 	iter       reflect.MapIter
 	keyIface   any
 	valueIface any
+	// names are the names of the keys written, of a map whose keys may have the same name ( see
+	// appendMapKeyName ), if namesKept is set: they are cleared for each map which needs them.
+	names     map[string]struct{}
+	namesKept bool
 }
 
 // NewMapContext returns the context to encode a map: the runtime context has one for each level of the maps
@@ -382,6 +408,7 @@ func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx.DirectEntries = false
 	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
 	ctx.Slice.Items = nil
+	ctx.namesKept = false
 	return ctx
 }
 
@@ -430,8 +457,11 @@ func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	c.Keys = c.Keys[:0]
 }
 
-func AppendByteSlice(_ *RuntimeContext, b []byte, src []byte) []byte {
+func AppendByteSlice(ctx *RuntimeContext, b []byte, src []byte) []byte {
 	if src == nil {
+		if NilSliceIsEmpty(ctx) {
+			return append(b, `""`...)
+		}
 		return append(b, `null`...)
 	}
 	encodedLen := base64.StdEncoding.EncodedLen(len(src))
@@ -617,6 +647,9 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if m == nil {
 		return appendMarshalJSONByInterface(ctx, code, b, interfaceOf(code, p))
 	}
+	if m.appendValue != nil {
+		return m.appendValue(ctx, b, p)
+	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
 	}
@@ -705,6 +738,9 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	m := code.Marshaler
 	if m == nil {
 		return appendMarshalJSONIndentByInterface(ctx, code, b, interfaceOf(code, p))
+	}
+	if m.appendValue != nil {
+		return m.appendValue(ctx, b, p)
 	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil

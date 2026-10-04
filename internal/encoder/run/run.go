@@ -13,12 +13,17 @@ import (
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
 )
 
+func init() {
+	encoder.RunHook = Code
+}
+
 type emptyInterface struct {
 	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
 
-// Encode appends v to the buffer of ctx as JSON, with a comma after it, by the options of ctx.
+// Encode appends v to the buffer of ctx as JSON, with a comma after it, by the options of ctx. On an error, it
+// returns the output written before the error with it, which the v2 json package finds the place of the error by.
 func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	b := ctx.Buf[:0]
 	if v == nil {
@@ -32,7 +37,7 @@ func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	typeptr := uintptr(typ)
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
-		return nil, err
+		return b, err
 	}
 
 	p := ctx.ValueAddr(codeSet, header.ptr)
@@ -48,7 +53,7 @@ func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	// the VM refers to the value by uintptr.
 	runtime.KeepAlive(v)
 	if err != nil {
-		return nil, err
+		return buf, err
 	}
 	ctx.Buf = buf
 	return buf, nil
@@ -68,7 +73,7 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 	typeptr := uintptr(typ)
 	codeSet, err := encoder.CompileToGetCodeSet(ctx, typeptr)
 	if err != nil {
-		return nil, err
+		return b, err
 	}
 
 	p := ctx.ValueAddr(codeSet, header.ptr)
@@ -84,7 +89,7 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 	runtime.KeepAlive(v)
 
 	if err != nil {
-		return nil, err
+		return buf, err
 	}
 
 	ctx.Buf = buf

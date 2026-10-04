@@ -36,7 +36,13 @@ type MarshalerCall struct {
 	// text of MarshalText, by AppendText. It returns false, and writes nothing, when the method is to be called,
 	// as for an error, which is then the one of the method.
 	appendOutput func(b []byte, recv unsafe.Pointer) ([]byte, bool)
+	// appendValue, if it is set, writes the value at the address recv instead of a method: the representation of
+	// a type which the compiler gives by a function ( see Compiler.appendFuncCode ).
+	appendValue AppendFunc
 }
+
+// AppendFunc appends the JSON value of the value at p, the address of the value.
+type AppendFunc func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error)
 
 func (m *MarshalerCall) call(recv unsafe.Pointer) ([]byte, error) {
 	f := *(*func(unsafe.Pointer) ([]byte, error))(unsafe.Pointer(&m))

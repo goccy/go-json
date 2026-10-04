@@ -41,6 +41,7 @@ const (
 	TailRecursiveFlags     OpFlags = 1 << 11 // the recursive value is the last field of a value of its own type, encoded in its frame
 	InterfaceMapKeyFlags   OpFlags = 1 << 12 // the key of a map of an interface type, whose name is of its dynamic value ( see appendInterfaceMapKey )
 	MapKeyFlags            OpFlags = 1 << 13 // the key of a map, whose name is "" for a nil pointer, while a nil pointer value is null
+	StaticTypeFlags        OpFlags = 1 << 14 // the opcode of an interface encodes the value at its address by its own type, a type which is a value of itself ( see Compiler.recursiveValueCode )
 )
 
 type Opcode struct {
@@ -158,6 +159,23 @@ func (t OpType) ToStringOp() OpType {
 
 func (c *Opcode) ToFieldType(isString bool) OpType {
 	switch c.Op {
+	// the numbers which are JSON strings by the options of encoding/json/v2 ( see Compiler.stringifyNumbers ).
+	case OpIntString:
+		return OpStructFieldIntString
+	case OpIntPtrString:
+		return OpStructFieldIntPtrString
+	case OpUintString:
+		return OpStructFieldUintString
+	case OpUintPtrString:
+		return OpStructFieldUintPtrString
+	case OpFloat32String:
+		return OpStructFieldFloat32String
+	case OpFloat32PtrString:
+		return OpStructFieldFloat32PtrString
+	case OpFloat64String:
+		return OpStructFieldFloat64String
+	case OpFloat64PtrString:
+		return OpStructFieldFloat64PtrString
 	case OpInterface:
 		// the string option is not for a value of interface{}.
 		return OpStructFieldInterface

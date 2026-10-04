@@ -61,17 +61,53 @@ type Escaper struct {
 
 // The bits of the index of an escaper of stringEscapes. An escaper of encoding/json normalizes UTF-8 as it does:
 // a byte of invalid UTF-8 is replaced by invalidUTF8, and U+2028 and U+2029 are escaped. An escaper of
-// encoding/json/jsontext always validates UTF-8, replaces a byte of invalid UTF-8 by U+FFFD as it is, and escapes
-// U+2028 and U+2029 with stringEscapeJS.
+// encoding/json/jsontext always validates UTF-8, replaces a byte of invalid UTF-8 by U+FFFD as it is, or panics
+// for it with stringEscapeStrict ( see InvalidUTF8 ), and escapes U+2028 and U+2029 with stringEscapeJS.
 const (
 	stringEscapeNormalize = 1 << iota
 	stringEscapeHTML
 	stringEscapeText
+	stringEscapeStrict
 	stringEscapeJS = stringEscapeNormalize
+
+	// the bits of the options of the encoder, which EscaperOf takes.
+	EscapeNormalize = stringEscapeNormalize
+	EscapeHTML      = stringEscapeHTML
+	EscapeText      = stringEscapeText
+	EscapeStrict    = stringEscapeStrict
+
+	numStringEscapes = 2 * stringEscapeStrict
 )
 
-// stringEscapes is indexed by the combination of the bits of the options.
-var stringEscapes = [8]Escaper{
+// InvalidUTF8 is what an escaper of stringEscapeStrict panics with for a string of invalid UTF-8, which the
+// caller of the encoder recovers: the output before the string, where the error is. The check of UTF-8 costs
+// nothing to the strings of valid UTF-8 then, as the encoder doesn't look at what the escaper reports.
+type InvalidUTF8 struct {
+	Out []byte
+}
+
+// strict returns the escaper e which panics for invalid UTF-8.
+func strict(e Escaper) Escaper {
+	appendEscaped := e.appendEscaped
+	e.appendEscaped = func(e *Escaper, buf []byte, s string) ([]byte, bool) {
+		out, valid := appendEscaped(e, buf, s)
+		if !valid {
+			panic(&InvalidUTF8{Out: buf})
+		}
+		return out, valid
+	}
+	return e
+}
+
+func init() {
+	for i := range stringEscapeStrict {
+		stringEscapes[stringEscapeStrict|i] = strict(stringEscapes[i])
+	}
+}
+
+// stringEscapes is indexed by the combination of the bits of the options. The ones of stringEscapeStrict are made
+// by init.
+var stringEscapes = [numStringEscapes]Escaper{
 	0: {
 		chars:         [3]uint64{lsb * '"', lsb * '"', lsb * '"'},
 		table:         &needEscape,
@@ -136,18 +172,12 @@ func V1Escaper(html, normalize uint) *Escaper {
 	return &stringEscapes[(html<<1|normalize)&3]
 }
 
-// The bits of the options of encoding/json in the flags which V1EscaperOf takes: the ones of the options of the
-// encoder.
-const (
-	V1HTMLBit      = 0
-	V1NormalizeBit = 6
-)
-
-// V1EscaperOf is V1Escaper of the options in flags. It is small enough to be inlined into the VM of the encoder,
+// EscaperOf is the escaper of the options in flags, whose lowest bits are the ones of the index of stringEscapes:
+// V1Escaper, or TextEscaper if EscapeText is set. It is small enough to be inlined into the VM of the encoder,
 // which takes the escaper of the options for every string: it is not kept by the VM, which would have to restore
 // it after each opcode.
-func V1EscaperOf(flags uint) *Escaper {
-	return &stringEscapes[(flags<<(1-V1HTMLBit)|flags>>V1NormalizeBit)&3]
+func EscaperOf(flags uint) *Escaper {
+	return &stringEscapes[flags%numStringEscapes]
 }
 
 // TextEscaper is the escaper of encoding/json/jsontext with the options: '<', '>' and '&' escaped for HTML, and
@@ -202,7 +232,7 @@ var escapeSequences = func() [256]uint64 {
 
 // escapeTables are the tables of stringEscapes, which the functions of the escapes refer to by this array:
 // stringEscapes refers to the functions, so they can't refer to it.
-var escapeTables [8]*nibbleTables
+var escapeTables [numStringEscapes]*nibbleTables
 
 func init() {
 	for i := range stringEscapes {

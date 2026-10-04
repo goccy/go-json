@@ -124,12 +124,19 @@ type recentCodeSet struct {
 // recentCodeSetSet is the entries of a set, the one encoded last first.
 type recentCodeSetSet [recentCodeSetWays]recentCodeSet
 
+// SeenValue is a value recorded to detect a cycle: its address, or the pointer which it is, and the length of a
+// slice, which another slice of the same array is not the same value as.
+type SeenValue struct {
+	p unsafe.Pointer
+	n int
+}
+
 type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
 	Slots      []uintptr
-	SeenPtr    []unsafe.Pointer
+	SeenPtr    []SeenValue
 	BaseIndent uint32
 	// RecursiveLevel and SlotOffset are the state of the VM which only the opcodes of an interface value and of
 	// a recursive type use. They are here, not in the variables of the VM: the VM keeps its variables in the
@@ -158,6 +165,9 @@ type RuntimeContext struct {
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet
 	value        unsafe.Pointer
+	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
+	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
+	CheckNames bool
 }
 
 // ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value
@@ -228,6 +238,14 @@ func (c *RuntimeContext) releaseValues() {
 		// what only the frames of an interface value and of a recursive type use.
 		clear(c.SeenPtr[:cap(c.SeenPtr)])
 		c.nested = false
+	}
+}
+
+// Abandon releases what the VM holds of an encoding which stopped by a panic, which the caller recovered from
+// ( see jsonstring.InvalidUTF8 ): the keys of the maps being encoded.
+func (c *RuntimeContext) Abandon() {
+	for c.mapDepth > 0 {
+		ReleaseMapContext(c, c.mapContexts[c.mapDepth-1])
 	}
 }
 

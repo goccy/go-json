@@ -72,6 +72,8 @@ func (c *IntCode) Kind() CodeKind {
 func (c *IntCode) ToOpcode(ctx *compileContext) Opcodes {
 	var code *Opcode
 	switch {
+	case c.isPtr && c.isString:
+		code = newOpCode(ctx, c.typ, OpIntPtrString)
 	case c.isPtr:
 		code = newOpCode(ctx, c.typ, OpIntPtr)
 	case c.isString:
@@ -102,6 +104,8 @@ func (c *UintCode) Kind() CodeKind {
 func (c *UintCode) ToOpcode(ctx *compileContext) Opcodes {
 	var code *Opcode
 	switch {
+	case c.isPtr && c.isString:
+		code = newOpCode(ctx, c.typ, OpUintPtrString)
 	case c.isPtr:
 		code = newOpCode(ctx, c.typ, OpUintPtr)
 	case c.isString:
@@ -122,6 +126,8 @@ type FloatCode struct {
 	typ     reflect.Type
 	bitSize uint8
 	isPtr   bool
+	// isString is whether the number is a JSON string ( see Compiler.stringifyNumbers ).
+	isString bool
 }
 
 func (c *FloatCode) Kind() CodeKind {
@@ -129,23 +135,17 @@ func (c *FloatCode) Kind() CodeKind {
 }
 
 func (c *FloatCode) ToOpcode(ctx *compileContext) Opcodes {
-	var code *Opcode
-	switch {
-	case c.isPtr:
-		switch c.bitSize {
-		case 32:
-			code = newOpCode(ctx, c.typ, OpFloat32Ptr)
-		default:
-			code = newOpCode(ctx, c.typ, OpFloat64Ptr)
-		}
-	default:
-		switch c.bitSize {
-		case 32:
-			code = newOpCode(ctx, c.typ, OpFloat32)
-		default:
-			code = newOpCode(ctx, c.typ, OpFloat64)
-		}
+	op := OpFloat64
+	if c.bitSize == 32 {
+		op = OpFloat32
 	}
+	if c.isPtr {
+		op = convertPtrOp(&Opcode{Op: op})
+	}
+	if c.isString {
+		op = op.ToStringOp()
+	}
+	code := newOpCode(ctx, c.typ, op)
 	ctx.incIndex()
 	return Opcodes{code}
 }
@@ -326,6 +326,9 @@ type MapCode struct {
 	typ   reflect.Type
 	key   Code
 	value Code
+	// checkNames is whether the names of the keys may be the same, which the opcode after the map checks when
+	// the entries are sorted ( see checkSortedNames ).
+	checkNames bool
 }
 
 func (c *MapCode) Kind() CodeKind {
@@ -400,7 +403,13 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header.End = end
 	key.End = end
 	value.End = end
-	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
+	codes := Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
+	if c.checkNames {
+		after := newAfterValueCode(ctx, checkSortedNames)
+		end.Next = after
+		codes = codes.Add(after)
+	}
+	return codes
 }
 
 // isStringKey is whether the key of the map is a plain string, which OpMapKey writes itself: not a pointer,
@@ -740,6 +749,12 @@ type StructFieldCode struct {
 	isAddrForMarshaler bool
 	isNextOpPtrType    bool
 	isMarshalerContext bool
+	// unwriteEmpty is whether the member is unwritten after its value if the value is empty, for omitempty of the
+	// v2 semantics, which omits a value that would be null, "", {} or [].
+	unwriteEmpty bool
+	// isFallback is whether the field is the embedded fallback of the struct, which writes no key ( see
+	// v2FallbackField ).
+	isFallback bool
 }
 
 // runKind returns the kind of the field if it is one which has the opcodes of a run ( fieldRunOps ): a field of
@@ -845,9 +860,11 @@ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
 }
 
 // isGenericField is whether the field is encoded by the generic field opcode and the opcode of the value: a
-// field of a long key, or of omitzero, whose check the generic opcode makes for a value of any type.
+// field of a long key, or of omitzero, whose check the generic opcode makes for a value of any type, or a field
+// whose value is encoded by its type at run time ( see Compiler.recursiveValueCode ), which is empty by the
+// kind of the field, not as an interface value is.
 func (c *StructFieldCode) isGenericField(field *Opcode) bool {
-	return c.isLongKey(field) || c.tag.IsOmitZero
+	return c.isLongKey(field) || c.tag.IsOmitZero || isStaticInterface(c.value) || c.isFallback
 }
 
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {
@@ -1027,6 +1044,9 @@ func (c *StructFieldCode) structKey(ctx *compileContext) string {
 		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
 		return PaddedKey(fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key))))
 	}
+	if c.tag.QuotedKey != "" {
+		return PaddedKey(c.tag.QuotedKey + ":")
+	}
 	return PaddedKey(fmt.Sprintf(`"%s":`, c.key))
 }
 
@@ -1063,7 +1083,7 @@ func (c *StructFieldCode) flags() OpFlags {
 	if c.isNextOpPtrType {
 		flags |= IsNextOpPtrTypeFlags
 	}
-	if c.isAnonymous {
+	if c.isAnonymous || c.isFallback {
 		flags |= AnonymousKeyFlags
 	}
 	if c.isMarshalerContext {
@@ -1101,8 +1121,14 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
+	if c.unwriteEmpty {
+		// the member is unwritten after its value if the value is empty.
+		after := newAfterValueCode(ctx, unwriteEmptyMember(len(key)))
+		codes.Last().Next = after
+		codes = codes.Add(after)
+	}
 	if isEndField {
-		if isEnableStructEndOptimization(c.value) && !c.isGenericField(field) {
+		if isEnableStructEndOptimization(c.value) && !c.isGenericField(field) && !c.unwriteEmpty {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)
@@ -1159,6 +1185,9 @@ type InterfaceCode struct {
 	typ        reflect.Type
 	fieldQuery *FieldQuery
 	isPtr      bool
+	// static is whether the code encodes the value at its address by typ, as a value of interface{} of typ
+	// would be: the value of a type which is a value of itself ( see Compiler.recursiveValueCode ).
+	static bool
 }
 
 func (c *InterfaceCode) Kind() CodeKind {
@@ -1174,7 +1203,10 @@ func (c *InterfaceCode) ToOpcode(ctx *compileContext) Opcodes {
 		code = newOpCode(ctx, c.typ, OpInterface)
 	}
 	code.FieldQuery = c.fieldQuery
-	if c.typ.NumMethod() > 0 {
+	switch {
+	case c.static:
+		code.Flags |= StaticTypeFlags
+	case c.typ.NumMethod() > 0:
 		code.Flags |= NonEmptyInterfaceFlags
 	}
 	ctx.incIndex()
@@ -1186,7 +1218,14 @@ func (c *InterfaceCode) Filter(query *FieldQuery) Code {
 		typ:        c.typ,
 		fieldQuery: query,
 		isPtr:      c.isPtr,
+		static:     c.static,
 	}
+}
+
+// isStaticInterface is whether the code is an InterfaceCode of a static type.
+func isStaticInterface(code Code) bool {
+	iface, ok := code.(*InterfaceCode)
+	return ok && iface.static
 }
 
 type MarshalJSONCode struct {
@@ -1195,6 +1234,8 @@ type MarshalJSONCode struct {
 	isAddrForMarshaler bool
 	isNilableType      bool
 	isMarshalerContext bool
+	// appendValue writes the value instead of MarshalJSON, if it is set ( see Compiler.appendFuncCode ).
+	appendValue AppendFunc
 }
 
 func (c *MarshalJSONCode) Kind() CodeKind {
@@ -1225,6 +1266,9 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 // A method on the pointer is called with the address of the value, which the opcode is given, as encoding/json
 // calls it with the address of an addressable value.
 func (c *MarshalJSONCode) marshalerCall() *MarshalerCall {
+	if c.appendValue != nil {
+		return &MarshalerCall{appendValue: c.appendValue, recv: c.typ}
+	}
 	recv := c.typ
 	if c.isAddrForMarshaler {
 		recv = reflect.PointerTo(c.typ)
@@ -1243,6 +1287,7 @@ func (c *MarshalJSONCode) Filter(query *FieldQuery) Code {
 		isAddrForMarshaler: c.isAddrForMarshaler,
 		isNilableType:      c.isNilableType,
 		isMarshalerContext: c.isMarshalerContext,
+		appendValue:        c.appendValue,
 	}
 }
 
@@ -1388,6 +1433,14 @@ func convertPtrOp(code *Opcode) OpType {
 		return OpInterfacePtr
 	case OpRecursive:
 		return OpRecursivePtr
+	case OpIntString:
+		return OpIntPtrString
+	case OpUintString:
+		return OpUintPtrString
+	case OpFloat32String:
+		return OpFloat32PtrString
+	case OpFloat64String:
+		return OpFloat64PtrString
 	}
 	return code.Op
 }

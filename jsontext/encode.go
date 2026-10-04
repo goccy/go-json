@@ -61,6 +61,11 @@ type encoder struct {
 
 	avail    []byte // the buffer of AvailableBuffer, which the output doesn't share
 	maxValue int    // the OR of the lengths of the values written since the last reset, which sizes avail
+
+	// invalid is whether a value which MarshalEncode of the v2 json package was writing failed in an object or an
+	// array which it opened: nothing can be written then, until a Reset. The encoder is kept not ready, so that the
+	// writes, which check that first, go to the paths which report it.
+	invalid bool
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -100,6 +105,9 @@ func (e *encoder) ready() bool { return e.vs.st == &e.st }
 // on its own as a copy of an encoder of encoding/json/jsontext does, and the encoder it was copied from keeps its
 // state.
 func (e *encoder) setUp() {
+	if e.invalid {
+		return
+	}
 	if len(e.st.levels) == 0 {
 		e.init(nil)
 		return
@@ -113,18 +121,25 @@ func (e *encoder) setUp() {
 
 // writeTokenSetUp is writeToken of an encoder which is not ready, which is set up first.
 func (e *encoder) writeTokenSetUp(t Token) error {
+	if e.invalid {
+		return e.failAt(errInvalidNamespace, len(e.buf), pointNext)
+	}
 	e.setUp()
 	return e.writeToken(t)
 }
 
 // writeValueSetUp is writeValue of an encoder which is not ready, which is set up first.
 func (e *encoder) writeValueSetUp(v Value) error {
+	if e.invalid {
+		return e.failAt(errInvalidNamespace, len(e.buf), pointNext)
+	}
 	e.setUp()
 	return e.writeValue(v)
 }
 
 // init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
+	e.invalid = false
 	if !e.ready() {
 		// a zero value, or a copy, whose arrays are the ones of the encoder it was copied from
 		e.st, e.buf = stack{}, nil

@@ -22,7 +22,7 @@ const (
 	CodeStructEnd   CodeType = 11
 )
 
-var opTypeStrings = [244]string{
+var opTypeStrings = [245]string{
 	"End",
 	"Interface",
 	"Ptr",
@@ -267,6 +267,7 @@ var opTypeStrings = [244]string{
 	"StructFieldString2",
 	"StructFieldBool3",
 	"StructFieldBool2",
+	"AfterValue",
 }
 
 type OpType uint16
@@ -516,10 +517,11 @@ const (
 	OpStructFieldString2                   OpType = 241
 	OpStructFieldBool3                     OpType = 242
 	OpStructFieldBool2                     OpType = 243
+	OpAfterValue                           OpType = 244
 )
 
 func (t OpType) String() string {
-	if int(t) >= 244 {
+	if int(t) >= 245 {
 		return ""
 	}
 	return opTypeStrings[int(t)]

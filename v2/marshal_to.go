@@ -54,16 +54,26 @@ func marshalToOf(typ reflect.Type, appendDefault encoder.AppendFunc) encoder.App
 // callState is the state of a call of Marshal, MarshalWrite or MarshalEncode, which the encoder holds in its
 // options.
 type callState struct {
+	// The fields which every call reads and writes are first, in the cache lines before the large ones, and the
+	// encoder of the methods last.
+
+	// attached is whether enc was attached in the call, with its options, and opened is whether an encoding which
+	// failed stopped in an object or an array it opened.
+	attached bool
+	opened   bool
+	// tracked follows the levels of the output for the methods ( see trackedLevels ).
+	tracked tracker
 	// cfg are the options of the call, and orig the ones of the jsontext.Encoder of MarshalEncode.
 	cfg, orig options.Config
-	// outerEnc is the jsontext.Encoder which MarshalEncode writes to, or nil for an output of its own, and place
-	// and placeTop are its innermost level ( see textcoder.Place ). outer are the levels of the output where the
-	// value is written, the top level first, and ptr is its JSON pointer: they are found when they are needed, for
-	// an error or the stack of an encoder, if outerKnown is not set. base is the offset of the value in that
-	// output.
+	// outerEnc is the jsontext.Encoder which MarshalEncode writes to, or nil for an output of its own, and
+	// outerPlace and placeInner are its innermost level, and whether it is not the top level ( see
+	// textcoder.Place ): they are left zero, the top level of an output of its own, between the calls ( see
+	// releaseCallState ). outer are the levels of the output where the value is written, the top level first, and
+	// ptr is its JSON pointer: they are found when they are needed, for an error or the stack of an encoder, if
+	// outerKnown is not set. base is the offset of the value in that output.
 	outerEnc   *jsontext.Encoder
 	outerPlace textcoder.Level
-	placeTop   bool
+	placeInner bool
 	outer      []textcoder.Level
 	ptr        jsontext.Pointer
 	outerKnown bool
@@ -75,25 +85,18 @@ type callState struct {
 	// attachSortedName is whether the method writes the name of a key of a sorted map, whose entries before it
 	// are not in their place yet: the names of the map are not given.
 	attachSortedName bool
-	// attached is whether enc was attached in the call, with its options, and place is where it is attached.
-	attached bool
-	place    textcoder.Attachment
-	// opened is whether an encoding which failed stopped in an object or an array it opened.
-	opened bool
+	// place is where enc is attached.
+	place textcoder.Attachment
 	// enc is the encoder which the methods and the functions write to, at the place of the levels.
-	enc     jsontext.Encoder
-	levels  []textcoder.Level
-	tracked tracker
+	enc    jsontext.Encoder
+	levels []textcoder.Level
 }
 
-// setPlace sets the place of the output where the value is written: of enc, whose innermost level is inner, or
-// the top level of an output of its own if enc is nil. A pointer is written only if it changes, as a write of it
-// costs a write barrier while the GC marks.
-func (st *callState) setPlace(enc *jsontext.Encoder, inner textcoder.Level, top bool) {
-	if st.outerEnc != enc {
-		st.outerEnc = enc
-	}
-	st.outerPlace, st.placeTop, st.outerKnown = inner, top, false
+// setPlace sets the place of the output where the value is written: of enc, whose innermost level is inner, which
+// is not the top level if notTop is set. A call which writes to an output of its own leaves the place as
+// releaseCallState left it.
+func (st *callState) setPlace(enc *jsontext.Encoder, inner textcoder.Level, notTop bool) {
+	st.outerEnc, st.outerPlace, st.placeInner, st.outerKnown = enc, inner, notTop, false
 }
 
 // outerLevels returns the levels of the output where the value is written ( see callState.outer ).
@@ -253,20 +256,34 @@ func newCallState(ctx *encoder.RuntimeContext, opts []Options) *callState {
 }
 
 // releaseCallState ends the call of the state: the options, which may hold the functions of the caller, are
-// cleared if they were set.
+// cleared if they were set. It is inlined into the callers, which most calls leave nothing to release for.
 func releaseCallState(st *callState) {
+	if st.tracked.used || st.attachOut != nil || st.outerEnc != nil || st.cfg.Set != 0 {
+		st.release()
+	}
+}
+
+// release is releaseCallState for a call which left something to release.
+//
+//go:noinline
+func (st *callState) release() {
 	st.tracked.release()
 	if st.attachOut != nil {
 		st.attachCtx, st.attachOut, st.place.Out = nil, nil, nil
 	}
 	if st.outerEnc != nil {
-		st.outerEnc = nil
+		// the place of MarshalEncode: the top level of an output of its own, for the next call, without the
+		// output of the encoder, which the name of the place points into.
+		st.outerEnc, st.outerPlace, st.placeInner = nil, textcoder.Level{}, false
+		// the levels of the encoder, which are found again for the next call: the ones of an output of its own,
+		// found by a call which writes to one, stay right for the next one.
+		clear(st.outer)
+		st.outerKnown = false
+		// the options of the encoder, which only MarshalEncode sets.
+		st.orig = options.Config{}
 	}
 	if st.cfg.Set != 0 {
 		st.cfg = options.Config{}
-	}
-	if st.orig.Set != 0 {
-		st.orig = options.Config{}
 	}
 }
 
@@ -284,7 +301,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	// the place of the value, found from the delimiter before it, which the encoder writes itself: the levels
 	// around it are found only if the encoder needs them ( see callState.Levels ).
 	pl := &st.place
-	pl.Object, pl.Top, pl.Count = st.outerPlace.Object, st.placeTop, st.outerPlace.Count
+	pl.Object, pl.Top, pl.Count = st.outerPlace.Object, !st.placeInner, st.outerPlace.Count
 	if n := len(out); n > 0 {
 		switch out[n-1] {
 		case ':':

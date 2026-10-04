@@ -91,9 +91,18 @@ import (
 func Marshal(in any, opts ...Options) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	st.setPlace(nil, textcoder.Level{}, true)
-	buf, _, err := marshal(ctx, st, in, false, nil, 0)
-	if err == nil && st.cfg.Value&formatFlags != 0 {
+	var buf []byte
+	var err error
+	if st.cfg.Set == 0 {
+		// the default options, which most calls have: encoded here, without the call of marshal.
+		st.prepareDefault(ctx)
+		buf, err = run.Encode(ctx, in)
+		if err != nil || ctx.HasInvalidUTF8() {
+			buf, err = nil, st.defaultError(ctx, buf, err)
+		} else {
+			buf = buf[:len(buf)-1] // without the comma after the value
+		}
+	} else if buf, _, err = marshal(ctx, st, in, false, nil, 0); err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -113,9 +122,18 @@ func Marshal(in any, opts ...Options) ([]byte, error) {
 func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	st.setPlace(nil, textcoder.Level{}, true)
-	buf, _, err := marshal(ctx, st, in, false, nil, 0)
-	if err == nil && st.cfg.Value&formatFlags != 0 {
+	var buf []byte
+	var err error
+	if st.cfg.Set == 0 {
+		// the default options, which most calls have: encoded here, without the call of marshal.
+		st.prepareDefault(ctx)
+		buf, err = run.Encode(ctx, in)
+		if err != nil || ctx.HasInvalidUTF8() {
+			buf, err = nil, st.defaultError(ctx, buf, err)
+		} else {
+			buf = buf[:len(buf)-1] // without the comma after the value
+		}
+	} else if buf, _, err = marshal(ctx, st, in, false, nil, 0); err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -135,11 +153,20 @@ func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 func MarshalOf[T any](in T, opts ...Options) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	st.setPlace(nil, textcoder.Level{}, true)
-	buf, _, err := marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
+	var buf []byte
+	var err error
+	if st.cfg.Set == 0 {
+		// the default options, which most calls have: encoded here, without the call of marshal.
+		st.prepareDefault(ctx)
+		buf, err = run.EncodeOf(ctx, &in)
+		if err != nil || ctx.HasInvalidUTF8() {
+			buf, err = nil, st.defaultError(ctx, buf, err)
+		} else {
+			buf = buf[:len(buf)-1] // without the comma after the value
+		}
+	} else if buf, _, err = marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
 		return run.EncodeOf(ctx, &in)
-	}, 0)
-	if err == nil && st.cfg.Value&formatFlags != 0 {
+	}, 0); err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -159,11 +186,20 @@ func MarshalOf[T any](in T, opts ...Options) ([]byte, error) {
 func MarshalWriteOf[T any](out io.Writer, in T, opts ...Options) error {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	st.setPlace(nil, textcoder.Level{}, true)
-	buf, _, err := marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
+	var buf []byte
+	var err error
+	if st.cfg.Set == 0 {
+		// the default options, which most calls have: encoded here, without the call of marshal.
+		st.prepareDefault(ctx)
+		buf, err = run.EncodeOf(ctx, &in)
+		if err != nil || ctx.HasInvalidUTF8() {
+			buf, err = nil, st.defaultError(ctx, buf, err)
+		} else {
+			buf = buf[:len(buf)-1] // without the comma after the value
+		}
+	} else if buf, _, err = marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
 		return run.EncodeOf(ctx, &in)
-	}, 0)
-	if err == nil && st.cfg.Value&formatFlags != 0 {
+	}, 0); err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -192,6 +228,7 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	st.orig = st.cfg
 	st.cfg.Apply(opts)
 	inner, top, base := textcoder.Place(out)
+	st.setPlace(out, inner, !top)
 	if len(opts) > 0 {
 		if err := optionsChange(&st.orig, &st.cfg, inner); err != nil {
 			releaseCallState(st)
@@ -200,7 +237,6 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 			return &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: pointerOf(levels, +1), GoType: reflect.TypeOf(in), Err: err}
 		}
 	}
-	st.setPlace(out, inner, top)
 	buf, opened, err := marshal(ctx, st, in, false, nil, base)
 	if err != nil {
 		if opened && !st.cfg.Has(options.AllowDuplicateNames) {
@@ -297,6 +333,27 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 		}
 	}
 	return buf, false, nil
+}
+
+// prepareDefault sets ctx and the state for an encoding of the default options at the top level of an output of
+// its own, as marshal does: it is inlined into the functions of marshaling, which then encode without a call.
+func (st *callState) prepareDefault(ctx *encoder.RuntimeContext) {
+	ctx.Option.Flag = defaultFlags
+	ctx.CheckNames = false
+	st.base, st.opened, st.attached = 0, false, false
+	st.tracked.stale = true
+	if ctx.Option.V2 != unsafe.Pointer(st) {
+		ctx.Option.V2 = unsafe.Pointer(st)
+	}
+}
+
+// defaultError returns the error of an encoding which prepareDefault set up: the one of the first string of
+// invalid UTF-8, if any, or err at the output buf, as marshal returns it.
+func (st *callState) defaultError(ctx *encoder.RuntimeContext, buf []byte, err error) error {
+	if invalidOut, invalid := ctx.InvalidUTF8Output(); invalid {
+		buf, err = invalidOut, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
+	}
+	return st.marshalError(buf, err)
 }
 
 // configure sets the options of the engine for the options of the call, which are not the default ones, before the

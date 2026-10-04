@@ -299,6 +299,12 @@ func (c *RuntimeContext) SetStrictEscaper() {
 	c.Option.EscaperFlags = c.Option.Flag
 }
 
+// HasInvalidUTF8 reports whether the encoding of RejectInvalidUTF8Option wrote a string of invalid UTF-8, which
+// InvalidUTF8Output returns.
+func (c *RuntimeContext) HasInvalidUTF8() bool {
+	return c.strictEscaper.HasInvalid()
+}
+
 // InvalidUTF8Output returns the output before the first string of invalid UTF-8 which the encoding of
 // RejectInvalidUTF8Option wrote, and true, and clears the record, which refers to the output; or false if it
 // wrote none.

@@ -109,6 +109,11 @@ func (e *Escaper) Invalid() ([]byte, bool) {
 	return e.invalidOut, e.invalid
 }
 
+// HasInvalid reports whether the escaper recorded a string of invalid UTF-8 ( see Invalid ).
+func (e *Escaper) HasInvalid() bool {
+	return e.invalid
+}
+
 // ClearInvalid clears the record of a string of invalid UTF-8.
 func (e *Escaper) ClearInvalid() {
 	if e.invalid {

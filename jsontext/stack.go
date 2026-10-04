@@ -4,6 +4,8 @@ import (
 	"hash/maphash"
 	"slices"
 	"strconv"
+
+	"github.com/goccy/go-json/internal/textcoder"
 )
 
 // maxDepth is the deepest nesting of objects and arrays which an encoder or decoder takes.
@@ -25,6 +27,64 @@ type level struct {
 type stack struct {
 	levels []level
 	names  names
+	// outer gives the levels around the level outerDepth, an encoder was attached at with the count outerCount,
+	// which the stack doesn't have ( see textcoder.Attach ): the pointers and the levels of the stack are found
+	// with them ( see full ).
+	outer      textcoder.Outer
+	outerDepth int
+	outerCount int64
+}
+
+// full returns the stack of the whole output: the levels which outer gives, in place of the levels up to
+// outerDepth, followed by the levels in them. It is made for a pointer or for the levels which an encoder is asked
+// for, which most writes don't need.
+func (s *stack) full() *stack {
+	t := &stack{}
+	t.reset()
+	t.applyLevels(s.outer.Levels())
+	at, inner := &s.levels[s.outerDepth], t.last()
+	delta := at.count - s.outerCount
+	if len(s.levels) > s.outerDepth+1 {
+		delta-- // the open value of the next level, which its push below counts again
+	}
+	inner.count += delta
+	if at.object && at.last >= at.first {
+		// the names written after the attach.
+		for k := at.first; k <= at.last; k++ {
+			t.insertName(s.names.get(k), false)
+		}
+		inner.named = at.named + delta
+	}
+	for _, l := range s.levels[s.outerDepth+1:] {
+		_ = t.push(l.object)
+		c := t.last()
+		if l.object && l.last >= l.first {
+			for k := l.first; k <= l.last; k++ {
+				t.insertName(s.names.get(k), false)
+			}
+		}
+		c.count, c.named = l.count, l.named
+	}
+	return t
+}
+
+// applyLevels sets the stack, which has the top level only, to the levels, the top level first, of which an
+// object has its last name only ( see textcoder.Level ).
+func (s *stack) applyLevels(levels []textcoder.Level) {
+	for i, l := range levels {
+		if i > 0 {
+			// the open value of the level which contains it is counted by the push.
+			_ = s.push(l.Object)
+		}
+		cur := s.last()
+		if l.Object && l.Name != nil {
+			// the name of the value which is open or next, the place of the value: the names before it are not
+			// given, which a value written at its place can't have.
+			s.insertName(l.Name, false)
+			cur.named = (l.Count - 1) | 1 // the count after the name
+		}
+		cur.count = l.Count
+	}
 }
 
 // own gives the stack arrays of its own: the ones of a coder which was copied are shared with the coder it was
@@ -158,6 +218,9 @@ const (
 
 // pointer is the JSON pointer of the stack at the value which where chooses.
 func (s *stack) pointer(where int) Pointer {
+	if s.outer != nil {
+		return s.full().pointer(where)
+	}
 	if len(s.levels) == 1 {
 		return ""
 	}
@@ -166,6 +229,9 @@ func (s *stack) pointer(where int) Pointer {
 
 // namePointer is the pointer to the name of a member of the innermost object, which is not inserted.
 func (s *stack) namePointer(name []byte) Pointer {
+	if s.outer != nil {
+		return s.full().namePointer(name)
+	}
 	return Pointer(appendPointerToken(s.pointerBytes(pointAt, 0), name))
 }
 

@@ -228,6 +228,9 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	// the opcode after the value of a member of omitempty, which unwrites the member if the value is empty ( see
 	// encoder.UnwriteEmptyMember ).
 	opTypes = append(opTypes, opType{Op: "UnwriteEmpty", Code: "Op"})
+	// the opcode of a field of a pointer to a string which omitempty of encoding/json/v2 omits if the pointer is
+	// nil or the string is empty.
+	opTypes = append(opTypes, opType{Op: "StructFieldOmitEmptyStringPtrOrEmpty", Code: "StructField"})
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
 		CodeTypes []string

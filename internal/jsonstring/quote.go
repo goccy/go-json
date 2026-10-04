@@ -57,12 +57,15 @@ type Escaper struct {
 	// appendEscaped appends a string which may have a byte to escape, and reports whether it is valid UTF-8, which
 	// it is unless UTF-8 is validated.
 	appendEscaped func(e *Escaper, buf []byte, s string) ([]byte, bool)
+	// invalid is whether an escaper of stringEscapeStrict wrote a string of invalid UTF-8, after invalidOut.
+	invalid    bool
+	invalidOut []byte
 }
 
 // The bits of the index of an escaper of stringEscapes. An escaper of encoding/json normalizes UTF-8 as it does:
 // a byte of invalid UTF-8 is replaced by invalidUTF8, and U+2028 and U+2029 are escaped. An escaper of
-// encoding/json/jsontext always validates UTF-8, replaces a byte of invalid UTF-8 by U+FFFD as it is, or panics
-// for it with stringEscapeStrict ( see InvalidUTF8 ), and escapes U+2028 and U+2029 with stringEscapeJS.
+// encoding/json/jsontext always validates UTF-8, replaces a byte of invalid UTF-8 by U+FFFD, which it records with
+// stringEscapeStrict as well ( see Escaper.Invalid ), and escapes U+2028 and U+2029 with stringEscapeJS.
 const (
 	stringEscapeNormalize = 1 << iota
 	stringEscapeHTML
@@ -79,24 +82,38 @@ const (
 	numStringEscapes = 2 * stringEscapeStrict
 )
 
-// InvalidUTF8 is what an escaper of stringEscapeStrict panics with for a string of invalid UTF-8, which the
-// caller of the encoder recovers: the output before the string, where the error is. The check of UTF-8 costs
-// nothing to the strings of valid UTF-8 then, as the encoder doesn't look at what the escaper reports.
-type InvalidUTF8 struct {
-	Out []byte
-}
-
-// strict returns the escaper e which panics for invalid UTF-8.
+// strict returns the escaper e which records the first string of invalid UTF-8 it writes ( see Invalid ). It is
+// used only as an escaper of its own, which a single encoding writes with ( see CopyOf ): the ones of
+// stringEscapes are only copied.
 func strict(e Escaper) Escaper {
 	appendEscaped := e.appendEscaped
 	e.appendEscaped = func(e *Escaper, buf []byte, s string) ([]byte, bool) {
 		out, valid := appendEscaped(e, buf, s)
-		if !valid {
-			panic(&InvalidUTF8{Out: buf})
+		if !valid && !e.invalid {
+			e.invalid, e.invalidOut = true, buf
 		}
 		return out, valid
 	}
 	return e
+}
+
+// CopyOf sets e to a copy of the escaper of the options in flags ( see EscaperOf ), which records the first string
+// of invalid UTF-8 it writes if EscapeStrict is set: an escaper of its own, as the record is.
+func (e *Escaper) CopyOf(flags uint) {
+	*e = stringEscapes[flags%numStringEscapes]
+}
+
+// Invalid returns the output before the first string of invalid UTF-8 which the escaper wrote, which it wrote with
+// U+FFFD, and true; or false if it wrote none. Only an escaper of EscapeStrict records it.
+func (e *Escaper) Invalid() ([]byte, bool) {
+	return e.invalidOut, e.invalid
+}
+
+// ClearInvalid clears the record of a string of invalid UTF-8.
+func (e *Escaper) ClearInvalid() {
+	if e.invalid {
+		e.invalid, e.invalidOut = false, nil
+	}
 }
 
 func init() {

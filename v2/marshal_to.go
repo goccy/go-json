@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"slices"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 	ierrors "github.com/goccy/go-json/internal/errors"
@@ -22,7 +22,32 @@ func init() {
 	encoder.V2Hooks.AppendRaw = appendRaw
 	encoder.V2Hooks.MarshalTo = func(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, recv any) ([]byte, error) {
 		m, _ := recv.(MarshalerTo)
-		return marshalTo(ctx, b, typ, m.MarshalJSONTo)
+		return marshalTo(ctx, b, typ, m, nil)
+	}
+	encoder.V2Hooks.MarshalToOf = marshalToOf
+}
+
+// ifaceWords are the words of an interface value of a non-empty interface.
+type ifaceWords struct {
+	tab  unsafe.Pointer
+	data unsafe.Pointer
+}
+
+// marshalToOf returns the function which calls MarshalJSONTo of the value of typ at an address, or appendDefault
+// if it declines. The interface value of the method is made from the address and the table of the methods of the
+// pointer to typ, which is found once: the data word of the pointer is the address itself.
+func marshalToOf(typ reflect.Type, appendDefault encoder.AppendFunc) encoder.AppendFunc {
+	proto, _ := reflect.New(typ).Interface().(MarshalerTo)
+	tab := (*ifaceWords)(unsafe.Pointer(&proto)).tab
+	return func(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		var m MarshalerTo
+		w := (*ifaceWords)(unsafe.Pointer(&m))
+		w.tab, w.data = tab, p
+		out, err := marshalTo(ctx, b, typ, m, nil)
+		if err == encoder.ErrUseDefault {
+			return appendDefault(ctx, b, p)
+		}
+		return out, err
 	}
 }
 
@@ -31,12 +56,27 @@ func init() {
 type callState struct {
 	// cfg are the options of the call, and orig the ones of the jsontext.Encoder of MarshalEncode.
 	cfg, orig options.Config
-	// outer are the levels of the output where the value is written, the top level first: of the jsontext.Encoder
-	// which MarshalEncode writes to, or the top level only. base is the offset of the value in that output, and
-	// ptr is its JSON pointer.
-	outer []textcoder.Level
-	base  int64
-	ptr   jsontext.Pointer
+	// outerEnc is the jsontext.Encoder which MarshalEncode writes to, or nil for an output of its own, and place
+	// and placeTop are its innermost level ( see textcoder.Place ). outer are the levels of the output where the
+	// value is written, the top level first, and ptr is its JSON pointer: they are found when they are needed, for
+	// an error or the stack of an encoder, if outerKnown is not set. base is the offset of the value in that
+	// output.
+	outerEnc   *jsontext.Encoder
+	place      textcoder.Level
+	placeTop   bool
+	outer      []textcoder.Level
+	ptr        jsontext.Pointer
+	outerKnown bool
+	base       int64
+	// attachCtx and attachOut are the context and the output of the call of a method which writes to enc, whose
+	// levels Levels returns.
+	attachCtx *encoder.RuntimeContext
+	attachOut []byte
+	// attachSortedName is whether the method writes the name of a key of a sorted map, whose entries before it
+	// are not in their place yet: the names of the map are not given.
+	attachSortedName bool
+	// attached is whether enc was attached in the call, with its options.
+	attached bool
 	// opened is whether an encoding which failed stopped in an object or an array it opened.
 	opened bool
 	// enc is the encoder which the methods and the functions write to, at the place of the levels.
@@ -45,24 +85,45 @@ type callState struct {
 	tracked tracker
 }
 
-// reset sets the state for a call which writes at the place of the output which outer and base are of.
-func (st *callState) reset(outer []textcoder.Level, base int64) {
-	st.base, st.opened = base, false
-	st.tracked.reset()
-	if outer == nil {
-		// the top level only ( see withOuter ).
-		st.outer = st.outer[:0]
-		st.ptr = ""
-		return
+// setPlace sets the place of the output where the value is written: of enc, whose innermost level is inner, or
+// the top level of an output of its own if enc is nil. A pointer is written only if it changes, as a write of it
+// costs a write barrier while the GC marks.
+func (st *callState) setPlace(enc *jsontext.Encoder, inner textcoder.Level, top bool) {
+	if st.outerEnc != enc {
+		st.outerEnc = enc
 	}
-	st.outer = append(st.outer[:0], outer...)
-	st.ptr = pointerOf(outer, +1)
+	st.place, st.placeTop, st.outerKnown = inner, top, false
+}
+
+// outerLevels returns the levels of the output where the value is written ( see callState.outer ).
+func (st *callState) outerLevels() []textcoder.Level {
+	if !st.outerKnown {
+		if st.outerEnc == nil {
+			st.outer = append(st.outer[:0], textcoder.Level{})
+			st.ptr = ""
+		} else {
+			st.outer, _ = textcoder.Position(st.outerEnc, st.outer[:0])
+			st.ptr = pointerOf(st.outer, +1)
+		}
+		st.outerKnown = true
+	}
+	return st.outer
 }
 
 // at returns the offset and the JSON pointer of the place after out, the output of the encoder so far, in the
 // whole output.
 func (st *callState) at(out []byte) (int64, jsontext.Pointer) {
+	st.outerLevels()
 	return st.base + int64(len(out)), st.ptr + nextPointer(out)
+}
+
+// Levels returns the levels of the place where enc is attached for a method ( see textcoder.Outer ).
+func (st *callState) Levels() []textcoder.Level {
+	levels := st.trackedLevels(st.attachCtx, st.attachOut)
+	if st.attachSortedName {
+		levels[len(levels)-1].Name = nil
+	}
+	return levels
 }
 
 // levelsOf returns the levels of the whole output after out, the output of the encoder so far ( see levelsOf ):
@@ -82,7 +143,7 @@ func (st *callState) trackedLevels(ctx *encoder.RuntimeContext, out []byte) []te
 // withOuter returns the levels of the output where the value is written, followed by inner, the levels of the
 // output of the encoder within it.
 func (st *callState) withOuter(inner []textcoder.Level) []textcoder.Level {
-	levels := append(st.levels[:0], st.outer...)
+	levels := append(st.levels[:0], st.outerLevels()...)
 	if len(levels) == 0 {
 		levels = append(levels, textcoder.Level{})
 	}
@@ -97,14 +158,18 @@ func (st *callState) withOuter(inner []textcoder.Level) []textcoder.Level {
 type tracker struct {
 	n      int
 	levels []textcoder.Level
-	marks  []trackMark
+	// marks are the places where the levels were kept, in markLevels: the levels of the marks one after another.
+	marks      []trackMark
+	markLevels []textcoder.Level
 	// stale is whether the tracker was reset, which it is made ready for when it is used: most calls don't.
 	stale bool
+	// used is whether the tracker was used since it was released: its levels refer to the output.
+	used bool
 }
 
+// trackMark is the place n, whose levels are markLevels[start:end].
 type trackMark struct {
-	n      int
-	levels []textcoder.Level
+	n, start, end int
 }
 
 // checkTracked is called with the levels which the tracker followed, by a test which compares them with the
@@ -114,19 +179,19 @@ var checkTracked func(out []byte, levels []textcoder.Level)
 // trackMarkInterval is the length of the output between the marks: what is read again at most after a rewrite.
 const trackMarkInterval = 4 << 10
 
-func (t *tracker) reset() {
-	t.stale = true
-}
-
-// sync returns the levels of out, which was written again from rewriteFrom if that is within what was read.
+// sync returns the levels of out, which was written again from rewriteFrom if that is within what was read. The
+// names of the levels are in out, which is not written again before them ( see scanLevels ): the levels are
+// copied without a copy of their names.
 func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
+	t.used = true
 	if t.stale {
 		t.n, t.stale = 0, false
 		t.levels = append(t.levels[:0], textcoder.Level{})
-		t.marks = t.marks[:0]
+		t.marks, t.markLevels = t.marks[:0], t.markLevels[:0]
 	}
 	if at := min(rewriteFrom, len(out)); at < t.n {
 		for len(t.marks) > 0 && t.marks[len(t.marks)-1].n > at {
+			t.markLevels = t.markLevels[:t.marks[len(t.marks)-1].start]
 			t.marks = t.marks[:len(t.marks)-1]
 		}
 		if len(t.marks) == 0 {
@@ -135,7 +200,7 @@ func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
 		} else {
 			m := t.marks[len(t.marks)-1]
 			t.n = m.n
-			t.levels = cloneLevels(t.levels[:0], m.levels)
+			t.levels = append(t.levels[:0], t.markLevels[m.start:m.end]...)
 		}
 	}
 	t.levels = scanLevels(out[t.n:], t.levels)
@@ -145,7 +210,9 @@ func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
 		last = t.marks[len(t.marks)-1].n
 	}
 	if t.n-last >= trackMarkInterval {
-		t.marks = append(t.marks, trackMark{n: t.n, levels: cloneLevels(nil, t.levels)})
+		start := len(t.markLevels)
+		t.markLevels = append(t.markLevels, t.levels...)
+		t.marks = append(t.marks, trackMark{n: t.n, start: start, end: len(t.markLevels)})
 	}
 	if checkTracked != nil {
 		checkTracked(out, t.levels)
@@ -153,30 +220,53 @@ func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
 	return t.levels
 }
 
-// cloneLevels appends a copy of levels, whose names are its own, to dst.
-func cloneLevels(dst, levels []textcoder.Level) []textcoder.Level {
-	for _, l := range levels {
-		l.Names = slices.Clone(l.Names)
-		dst = append(dst, l)
+// release drops the references of the levels to the output, which the state of a call, which is kept, would keep
+// otherwise.
+func (t *tracker) release() {
+	if t.used {
+		clear(t.levels[:cap(t.levels)])
+		clear(t.markLevels[:cap(t.markLevels)])
+		t.used = false
 	}
-	return dst
 }
 
 // takeCallState returns the state for a call which encodes by ctx, whose options are opts: the one kept with ctx,
 // which a call uses at a time. The state holds the options: they are applied by the calls of their interface,
 // which a value on the stack would escape by.
 func takeCallState(ctx *encoder.RuntimeContext, opts []Options) *callState {
-	st, _ := ctx.V2State.(*callState)
+	if st := (*callState)(ctx.V2State); st != nil && len(opts) == 0 {
+		return st
+	}
+	// a new state, or options: a call, which most calls don't make.
+	return newCallState(ctx, opts)
+}
+
+func newCallState(ctx *encoder.RuntimeContext, opts []Options) *callState {
+	st := (*callState)(ctx.V2State)
 	if st == nil {
 		st = new(callState)
-		ctx.V2State = st
+		ctx.V2State = unsafe.Pointer(st)
 	}
 	st.cfg.Apply(opts)
 	return st
 }
 
+// releaseCallState ends the call of the state: the options, which may hold the functions of the caller, are
+// cleared if they were set.
 func releaseCallState(st *callState) {
-	st.cfg, st.orig = options.Config{}, options.Config{}
+	st.tracked.release()
+	if st.attachOut != nil {
+		st.attachCtx, st.attachOut = nil, nil
+	}
+	if st.outerEnc != nil {
+		st.outerEnc = nil
+	}
+	if st.cfg.Set != 0 {
+		st.cfg = options.Config{}
+	}
+	if st.orig.Set != 0 {
+		st.orig = options.Config{}
+	}
 }
 
 // stateOf returns the state of the call which ctx encodes for.
@@ -184,24 +274,63 @@ func stateOf(ctx *encoder.RuntimeContext) *callState {
 	return ctx.Option.V2.(*callState)
 }
 
-// marshalTo calls fn, a MarshalJSONTo method or a function of MarshalToFunc for a value of typ, which writes the
+// marshalTo calls MarshalJSONTo of m, or fn, a function of MarshalToFunc, for a value of typ, which writes the
 // value after b, the output so far. b ends with the delimiter before the value, if any, which the encoder writes
 // itself.
-func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, fn func(*jsontext.Encoder) error) ([]byte, error) {
+func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m MarshalerTo, fn func(*jsontext.Encoder) error) ([]byte, error) {
 	st := stateOf(ctx)
 	out := b
-	if n := len(out); n > 0 && (out[n-1] == ',' || out[n-1] == ':') {
-		out = out[:n-1]
+	// the place of the value, found from the delimiter before it, which the encoder writes itself: the levels
+	// around it are found only if the encoder needs them ( see callState.Levels ).
+	inner, top := st.place, st.placeTop
+	if n := len(out); n > 0 {
+		switch out[n-1] {
+		case ':':
+			// the value of a member.
+			out, inner, top = out[:n-1], textcoder.Level{Object: true, Count: 1}, false
+		case ',':
+			if ctx.KeyName {
+				// the name of an entry of a map after another one.
+				out, inner, top = out[:n-1], textcoder.Level{Object: true, Count: 2}, false
+			} else {
+				// an element of an array after another one.
+				out, inner, top = out[:n-1], textcoder.Level{Count: 1}, false
+			}
+		case '{':
+			inner, top = textcoder.Level{Object: true}, false
+		case '[':
+			inner, top = textcoder.Level{}, false
+		default:
+			// a value after a value, at the top level, which the encoder doesn't write.
+			return b, errNonSingularValue
+		}
 	}
-	st.levels = st.trackedLevels(ctx, out)
-	depth, count := len(st.levels)-1, st.levels[len(st.levels)-1].Count
-	if top := &st.levels[depth]; top.Object && count%2 == 0 && ctx.Option.Flag&encoder.UnorderedMapOption == 0 {
-		// the name of a key of a sorted map, whose names are checked after the entries are sorted.
-		top.Names = nil
+	// the pointers are written only if they change, as a write of a pointer costs a write barrier while the GC
+	// marks: the output is mostly the same array, whose length is set by a slice of itself.
+	if st.attachCtx != ctx {
+		st.attachCtx = ctx
 	}
-	textcoder.Attach(&st.enc, out, st.base, st.levels, &st.cfg)
-	err := fn(&st.enc)
-	written, newDepth, newCount := textcoder.Detach(&st.enc)
+	if unsafe.SliceData(st.attachOut) == unsafe.SliceData(out) && cap(st.attachOut) == cap(out) {
+		st.attachOut = st.attachOut[:len(out)]
+	} else {
+		st.attachOut = out
+	}
+	st.attachSortedName = ctx.KeyName && ctx.Option.Flag&encoder.UnorderedMapOption == 0
+	// the levels around the place, which the call gives for any place: at the top level, the encoder has them.
+	skip, depth, count := textcoder.Attach(unsafe.Pointer(&st.enc), out, st.base, inner, top, st, &st.cfg, st.attached)
+	st.attached = true
+	var err error
+	if m != nil {
+		// called by the interface, without the method value, which would be one more call.
+		err = m.MarshalJSONTo(&st.enc)
+	} else {
+		err = fn(&st.enc)
+	}
+	written, newDepth, newCount := textcoder.Detach(unsafe.Pointer(&st.enc))
+	if skip > 0 && len(written) >= skip {
+		// the delimiter before the value, which the encoder of MarshalEncode writes.
+		written = written[:copy(written, written[skip:])]
+	}
 	if err == nil && (newDepth != depth || newCount != count+1) {
 		err = errNonSingularValue
 	}
@@ -234,6 +363,11 @@ func whereOf(depth int, count int64, newDepth int, newCount int64) int8 {
 // options want it. Its error points to the place in the whole output.
 func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 	st := stateOf(ctx)
+	if st.cfg.Value&rawRewriting == 0 {
+		if out, ok := encoder.AppendFormattedRaw(ctx, b, raw); ok {
+			return out, nil
+		}
+	}
 	// raw is not changed: it is the memory of the caller, as the value of a json.RawMessage.
 	out, err := jsontext.AppendFormat(b, raw, &st.cfg, compact)
 	if err != nil {
@@ -249,6 +383,10 @@ func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 	}
 	return out, nil
 }
+
+// rawRewriting are the options of the formatting of a raw value which encoder.AppendFormattedRaw doesn't follow.
+const rawRewriting = options.CanonicalizeRawInts | options.CanonicalizeRawFloats | options.ReorderRawObjects |
+	options.PreserveRawStrings
 
 // compact is the format of the output of the encoder, which formats it as the options want it after.
 var compact = &options.Config{

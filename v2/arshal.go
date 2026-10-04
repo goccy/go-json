@@ -3,14 +3,13 @@ package json
 import (
 	"errors"
 	"io"
-	"math"
 	"reflect"
 	"slices"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/internal/encoder/run"
 	ierrors "github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/textcoder"
 	"github.com/goccy/go-json/jsontext"
@@ -92,8 +91,9 @@ import (
 func Marshal(in any, opts ...Options) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	buf, _, err := marshal(ctx, st, in, nil, 0)
-	if err == nil {
+	st.setPlace(nil, textcoder.Level{}, true)
+	buf, _, err := marshal(ctx, st, in, false, nil, 0)
+	if err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -113,8 +113,9 @@ func Marshal(in any, opts ...Options) ([]byte, error) {
 func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 	ctx := encoder.TakeRuntimeContext()
 	st := takeCallState(ctx, opts)
-	buf, _, err := marshal(ctx, st, in, nil, 0)
-	if err == nil {
+	st.setPlace(nil, textcoder.Level{}, true)
+	buf, _, err := marshal(ctx, st, in, false, nil, 0)
+	if err == nil && st.cfg.Value&formatFlags != 0 {
 		buf, err = format(buf, &st.cfg)
 	}
 	releaseCallState(st)
@@ -123,6 +124,60 @@ func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 	}
 	encoder.ReleaseRuntimeContext(ctx)
 	return err
+}
+
+// MarshalOf returns the JSON encoding of in, as Marshal does.
+//
+// Marshal takes its argument as an interface value, which a value that is not a pointer, a map or a channel is
+// copied to the heap for. MarshalOf takes the value by its type, and copies it to a value in the heap which is
+// reused, so that it encodes the value without an allocation other than the one of the result. See MarshalWriteOf
+// for the encoding without the result.
+func MarshalOf[T any](in T, opts ...Options) ([]byte, error) {
+	ctx := encoder.TakeRuntimeContext()
+	st := takeCallState(ctx, opts)
+	st.setPlace(nil, textcoder.Level{}, true)
+	buf, _, err := marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
+		return run.EncodeOf(ctx, &in)
+	}, 0)
+	if err == nil && st.cfg.Value&formatFlags != 0 {
+		buf, err = format(buf, &st.cfg)
+	}
+	releaseCallState(st)
+	if err != nil {
+		encoder.ReleaseRuntimeContext(ctx)
+		return nil, err
+	}
+	out := make([]byte, len(buf))
+	copy(out, buf)
+	encoder.ReleaseRuntimeContext(ctx)
+	return out, nil
+}
+
+// MarshalWriteOf writes the JSON encoding of in to out, as MarshalWrite does. It takes the value by its type, as
+// MarshalOf does: the encoding is written from a buffer which is reused, without the copy of the result, so that a
+// value is written without an allocation, unless the writer or a method of the value makes one.
+func MarshalWriteOf[T any](out io.Writer, in T, opts ...Options) error {
+	ctx := encoder.TakeRuntimeContext()
+	st := takeCallState(ctx, opts)
+	st.setPlace(nil, textcoder.Level{}, true)
+	buf, _, err := marshal(ctx, st, nil, isNilPointer(&in), func(ctx *encoder.RuntimeContext) ([]byte, error) {
+		return run.EncodeOf(ctx, &in)
+	}, 0)
+	if err == nil && st.cfg.Value&formatFlags != 0 {
+		buf, err = format(buf, &st.cfg)
+	}
+	releaseCallState(st)
+	if err == nil {
+		_, err = out.Write(buf)
+	}
+	encoder.ReleaseRuntimeContext(ctx)
+	return err
+}
+
+// isNilPointer reports whether the value at v is a nil pointer, without an interface value of it, which would
+// move it to the heap.
+func isNilPointer[T any](v *T) bool {
+	return reflect.TypeFor[T]().Kind() == reflect.Pointer && *(*unsafe.Pointer)(unsafe.Pointer(v)) == nil
 }
 
 // MarshalEncode serializes a Go value into a jsontext.Encoder according to the provided marshal or encode options
@@ -136,16 +191,17 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	out.Options().ApplyTo(&st.cfg)
 	st.orig = st.cfg
 	st.cfg.Apply(opts)
-	levels, base := textcoder.Position(out, nil)
+	inner, top, base := textcoder.Place(out)
 	if len(opts) > 0 {
-		if err := optionsChange(&st.orig, &st.cfg, levels); err != nil {
+		if err := optionsChange(&st.orig, &st.cfg, inner); err != nil {
 			releaseCallState(st)
 			encoder.ReleaseRuntimeContext(ctx)
-			ptr := pointerOf(levels, +1)
-			return &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: ptr, GoType: reflect.TypeOf(in), Err: err}
+			levels, _ := textcoder.Position(out, nil)
+			return &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: pointerOf(levels, +1), GoType: reflect.TypeOf(in), Err: err}
 		}
 	}
-	buf, opened, err := marshal(ctx, st, in, levels, base)
+	st.setPlace(out, inner, top)
+	buf, opened, err := marshal(ctx, st, in, false, nil, base)
 	if err != nil {
 		if opened && !st.cfg.Has(options.AllowDuplicateNames) {
 			// the value stopped in an object or an array of its own, which the encoder can't go on with.
@@ -171,10 +227,10 @@ var (
 )
 
 // optionsChange returns the error of the options c of MarshalEncode which change the options orig of the encoder
-// in a way it can't follow at its place, which levels are of: the checks of a name of an object which is being
-// written, and the white space.
-func optionsChange(orig, c *options.Config, levels []textcoder.Level) error {
-	if top := levels[len(levels)-1]; top.Object && top.Count%2 == 0 {
+// in a way it can't follow at its place, whose innermost level is inner: the checks of a name of an object which
+// is being written, and the white space.
+func optionsChange(orig, c *options.Config, inner textcoder.Level) error {
+	if inner.Object && inner.Count%2 == 0 {
 		switch {
 		case orig.Has(options.AllowDuplicateNames) != c.Has(options.AllowDuplicateNames):
 			return errChangingDuplicateNames
@@ -189,34 +245,45 @@ func optionsChange(orig, c *options.Config, levels []textcoder.Level) error {
 	return nil
 }
 
-// marshal encodes in by the options of st into the buffer of ctx, at the place of the output which outer and base
-// are of, or at the top level of an output of its own if outer is nil. It returns the output without the comma
+// marshal encodes in by the options of st into the buffer of ctx, at the place of the output which the state is
+// set to ( see callState.setPlace ), whose offset is base. It returns the output without the comma
 // which the engine writes after a value, or the error at its place in the whole output and whether the value
 // stopped in an object or an array it opened.
-func marshal(ctx *encoder.RuntimeContext, st *callState, in any, outer []textcoder.Level, base int64) ([]byte, bool, error) {
-	c := &st.cfg
-	if c.Set == 0 {
+//
+// The value is in, or, if encode is set, the value which encode encodes, which is a nil pointer if nilPointer is
+// set ( see MarshalOf ).
+func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool, encode func(*encoder.RuntimeContext) ([]byte, error), base int64) ([]byte, bool, error) {
+	// the options of the engine: the default ones, which most calls have, without a call. ctx.RewriteFrom is not
+	// reset: the levels of the output are read from its start after the state is reset ( see tracker.sync ).
+	if st.cfg.Set == 0 {
 		ctx.Option.Flag = defaultFlags
-	} else {
-		ctx.Option.Flag = optionFlags(c)
+		ctx.CheckNames = false
+	} else if st.configure(ctx, in, nilPointer) {
+		// a nil pointer is null, which no function is called for.
+		return []byte("null"), false, nil
 	}
-	ctx.RewriteFrom = math.MaxInt
-	// two names may be the same after U+FFFD is written for their invalid bytes.
-	ctx.CheckNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
-	st.reset(outer, base)
+	st.base, st.opened, st.attached = base, false, false
+	st.tracked.stale = true
 	// the state is kept with ctx ( see takeCallState ), or is the one of the caller of a nested call: it is left
-	// in the options, which the encodings of v1 don't read. The functions of the caller are not kept.
-	ctx.Option.V2 = st
-	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {
-		if v := reflect.ValueOf(in); v.Kind() == reflect.Pointer && v.IsNil() {
-			// a nil pointer is null, which no function is called for.
-			return []byte("null"), false, nil
-		}
-		ctx.Option.Flag |= encoder.MarshalFuncsOption
-		ctx.Option.Funcs = m.funcs
+	// in the options, which the encodings of v1 don't read. The functions of the caller are not kept. A pointer is
+	// written only if it changes, as a write of it costs a write barrier while the GC marks.
+	if ctx.Option.V2 != any(st) {
+		ctx.Option.V2 = st
 	}
-	buf, err := encode(ctx, in)
-	ctx.Option.Funcs = nil
+	var buf []byte
+	var err error
+	if encode != nil {
+		buf, err = encode(ctx)
+	} else {
+		buf, err = run.Encode(ctx, in)
+	}
+	if invalidOut, invalid := ctx.InvalidUTF8Output(); invalid {
+		// the first error, before which the encoding went on ( see encoder.RejectInvalidUTF8Option ).
+		buf, err = invalidOut, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
+	}
+	if ctx.Option.Funcs != nil {
+		ctx.Option.Funcs = nil
+	}
 	if err != nil {
 		return nil, len(levelsOf(buf, nil)) > 1, st.marshalError(buf, err)
 	}
@@ -231,48 +298,33 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, outer []textcod
 	return buf, false, nil
 }
 
-// format formats the output of the encoder as the options want it, which the encoder doesn't write by itself.
-func format(buf []byte, c *options.Config) ([]byte, error) {
-	if c.Value&formatFlags == 0 {
-		return buf, nil
+// configure sets the options of the engine for the options of the call, which are not the default ones, before the
+// state is reset. It reports whether in is a nil pointer, or the value is one if nilPointer is set, which the
+// functions of marshaling are not called for.
+func (st *callState) configure(ctx *encoder.RuntimeContext, in any, nilPointer bool) bool {
+	c := &st.cfg
+	ctx.Option.Flag = optionFlags(c)
+	// two names may be the same after U+FFFD is written for their invalid bytes.
+	ctx.CheckNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
+	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {
+		if v := reflect.ValueOf(in); nilPointer || v.Kind() == reflect.Pointer && v.IsNil() {
+			return true
+		}
+		ctx.Option.Flag |= encoder.MarshalFuncsOption
+		ctx.Option.Funcs = m.funcs
 	}
+	return false
+}
+
+// format formats the output of the encoder as the options want it, which the encoder doesn't write by itself.
+// It is called only for the options of formatFlags.
+func format(buf []byte, c *options.Config) ([]byte, error) {
 	// formatted by jsontext, which validates it as well.
 	v := jsontext.Value(buf)
 	if err := v.Format(c); err != nil {
 		return nil, err
 	}
 	return v, nil
-}
-
-// encode encodes in by ctx. A string of invalid UTF-8 is an error, which the escaper of the strings reports by a
-// panic ( see jsonstring.InvalidUTF8 ): the strings of valid UTF-8 cost no check of what it reports.
-func encode(ctx *encoder.RuntimeContext, in any) ([]byte, error) {
-	r := encodeResult{ctx: ctx}
-	r.encode(in)
-	return r.buf, r.err
-}
-
-// encodeResult is the result of encode, which is set after a panic of invalid UTF-8 as well.
-type encodeResult struct {
-	ctx *encoder.RuntimeContext
-	buf []byte
-	err error
-}
-
-func (r *encodeResult) encode(in any) {
-	defer r.recoverInvalidUTF8()
-	r.buf, r.err = run.Encode(r.ctx, in)
-}
-
-func (r *encodeResult) recoverInvalidUTF8() {
-	if v := recover(); v != nil {
-		e, ok := v.(*jsonstring.InvalidUTF8)
-		if !ok {
-			panic(v)
-		}
-		r.buf, r.err = e.Out, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
-		r.ctx.Abandon()
-	}
 }
 
 // formatFlags are the options of the format of the output, which the engine doesn't write by itself.

@@ -46,6 +46,7 @@ func (c *Compiler) v2MapKeyCode(typ reflect.Type) (Code, error) {
 func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, funcs []*MarshalFunc) ([]byte, error) {
 	start := len(b)
 	out, err := b, ErrUseDefault
+	ctx.KeyName = true // for a method or a function which writes to an encoder, at the place of a name
 	if len(funcs) > 0 {
 		out, err = appendByFuncs(ctx, b, p, typ, funcs)
 	}
@@ -53,6 +54,7 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	if err == ErrUseDefault {
 		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem())
 	}
+	ctx.KeyName = false
 	if err != nil {
 		return b, err
 	}

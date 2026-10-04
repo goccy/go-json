@@ -217,6 +217,10 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		switch kind := field.typ.Kind(); {
 		case kind == reflect.Ptr && !c.v2HasMethod(field.typ) && c.v2NeverEmpty(field.typ.Elem()):
 			// a nil pointer is null, and the value it points to is never empty.
+		case kind == reflect.Ptr && !c.v2HasMethod(field.typ) && !c.v2HasMethod(field.typ.Elem()) &&
+			field.typ.Elem().Kind() == reflect.String && !tag.IsString:
+			// a nil pointer is null, and the string it points to is empty only if it is "".
+			field.omitEmptyString = true
 		case kind == reflect.Ptr || kind == reflect.Interface:
 			// a nil value is null.
 			field.unwriteEmpty = true
@@ -268,7 +272,9 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 // a function writes may be any.
 func (c *Compiler) v2NeverEmpty(typ reflect.Type) bool {
 	if c.v2HasMethod(typ) {
-		return false
+		// MarshalJSON of time.Time, or of a type which has it by embedding a time.Time, writes a time.
+		return typ != c.v2DefaultType && len(c.funcs.funcsOf(typ)) == 0 &&
+			v2MethodOf(typ, noMethod) == methodMarshalJSON && addrJSONAppender(typ) != nil
 	}
 	switch kind := typ.Kind(); {
 	case kind == reflect.Bool || isNumberKind(kind):

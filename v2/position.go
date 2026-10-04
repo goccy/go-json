@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"strconv"
 
 	"github.com/goccy/go-json/internal/textcoder"
@@ -95,8 +96,7 @@ func scanLevels(out []byte, levels []textcoder.Level) []textcoder.Level {
 			}
 			top := &levels[len(levels)-1]
 			if top.Object && top.Count%2 == 0 {
-				name, _ := jsontext.AppendUnquote(nil, out[start:i+1])
-				top.Names = append(top.Names, name)
+				top.Name = nameOf(out[start : i+1])
 			}
 			top.Count++
 		case ',', ':', ' ', '\t', '\n', '\r':
@@ -122,8 +122,8 @@ func pointerOf(levels []textcoder.Level, where int8) jsontext.Pointer {
 		switch {
 		case l.Object:
 			// the last name, of the value which is open, next or last.
-			if len(l.Names) > 0 && (l.Count%2 == 1 || !innermost || where == -1) {
-				p = p.AppendToken(string(l.Names[len(l.Names)-1]))
+			if l.Name != nil && (l.Count%2 == 1 || !innermost || where == -1) {
+				p = p.AppendToken(string(l.Name))
 			}
 		case !innermost:
 			p += "/" + jsontext.Pointer(strconv.FormatInt(l.Count, 10))
@@ -134,6 +134,16 @@ func pointerOf(levels []textcoder.Level, where int8) jsontext.Pointer {
 		}
 	}
 	return p
+}
+
+// nameOf returns the name of the quoted name of an object: the bytes between its quotes, which are not copied, if
+// it has no escape.
+func nameOf(quoted []byte) []byte {
+	if bytes.IndexByte(quoted, '\\') < 0 {
+		return quoted[1 : len(quoted)-1]
+	}
+	name, _ := jsontext.AppendUnquote([]byte{}, quoted)
+	return name
 }
 
 func isDelim(c byte) bool {

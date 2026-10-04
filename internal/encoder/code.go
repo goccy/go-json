@@ -752,6 +752,10 @@ type StructFieldCode struct {
 	// unwriteEmpty is whether the member is unwritten after its value if the value is empty, for omitempty of the
 	// v2 semantics, which omits a value that would be null, "", {} or [].
 	unwriteEmpty bool
+	// omitEmptyString is whether omitempty omits the empty string which the pointer of the field points to, as
+	// well as a nil pointer, for the v2 semantics: the field is written by an opcode which checks both, or is
+	// unwritten after its value if its opcode is another one.
+	omitEmptyString bool
 	// isFallback is whether the field is the embedded fallback of the struct, which writes no key ( see
 	// v2FallbackField ).
 	isFallback bool
@@ -889,6 +893,13 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		}
 	} else {
 		op = optimizeStructField(value, c.tag)
+	}
+	if c.omitEmptyString {
+		if op == OpStructFieldOmitEmptyStringPtr {
+			op = OpStructFieldOmitEmptyStringPtrOrEmpty
+		} else {
+			c.unwriteEmpty = true
+		}
 	}
 	field.Op = op
 	if op == OpStructFieldOmitEmpty && c.tag.IsOmitZero {
@@ -1042,6 +1053,7 @@ func IsEmptyField(kind EmptyKind, bitSize uint8, p unsafe.Pointer) bool {
 func (c *StructFieldCode) structKey(ctx *compileContext) string {
 	if ctx.escapeKey {
 		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
+		rctx.SetEscaper()
 		return PaddedKey(fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key))))
 	}
 	if c.tag.QuotedKey != "" {
@@ -1128,7 +1140,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 		codes = codes.Add(after)
 	}
 	if isEndField {
-		if isEnableStructEndOptimization(c.value) && !c.isGenericField(field) && !c.unwriteEmpty {
+		if isEnableStructEndOptimization(c.value) && !c.isGenericField(field) && !c.unwriteEmpty && !c.omitEmptyString {
 			field.Op = field.Op.FieldToEnd()
 		} else {
 			codes = c.addStructEndCode(ctx, codes)

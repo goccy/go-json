@@ -89,7 +89,7 @@ func MarshalToFunc[T any](fn func(*jsontext.Encoder, T) error) *Marshalers {
 	return marshalersOf(encoder.MarshalFunc{
 		Type: t,
 		Append: func(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer, from reflect.Type) ([]byte, error) {
-			return marshalTo(ctx, b, t, func(enc *jsontext.Encoder) error {
+			return marshalTo(ctx, b, t, nil, func(enc *jsontext.Encoder) error {
 				return fn(enc, castTo[T](p, from))
 			})
 		},

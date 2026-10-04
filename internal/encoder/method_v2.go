@@ -32,6 +32,9 @@ var V2Hooks struct {
 	// MarshalTo calls MarshalJSONTo of recv, the pointer to a value of typ, with an encoder which writes after the
 	// output b.
 	MarshalTo func(ctx *RuntimeContext, b []byte, typ reflect.Type, recv any) ([]byte, error)
+	// MarshalToOf returns the function which calls MarshalJSONTo of the value of typ at an address, as MarshalTo
+	// does, with the method found once for the type, or appendDefault if it declines ( see ErrUseDefault ).
+	MarshalToOf func(typ reflect.Type, appendDefault AppendFunc) AppendFunc
 }
 
 // ErrUseDefault is the error of a method or a function of marshaling which declined to write the value: the
@@ -85,13 +88,9 @@ func (c *Compiler) v2HasMethod(typ reflect.Type) bool {
 func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 	switch v2MethodOf(typ, after) {
 	case methodMarshalJSONTo:
-		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			out, err := V2Hooks.MarshalTo(ctx, b, typ, reflect.NewAt(typ, p).Interface())
-			if err == ErrUseDefault {
-				return appendDefault(ctx, b, typ, p, methodMarshalJSONTo)
-			}
-			return out, err
-		}), true
+		return c.appendFuncCode(typ, V2Hooks.MarshalToOf(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+			return appendDefault(ctx, b, typ, p, methodMarshalJSONTo)
+		})), true
 	case methodMarshalJSON:
 		if typ == rawMessageType {
 			// the output of its method is the value itself, or null: the method, which allocates null, is not
@@ -223,6 +222,10 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	inner.CheckNames = false
 	inner.RewriteFrom = ctx.RewriteFrom
 	out, err := RunHook(inner, b, codeSet)
+	if invalidOut, invalid := inner.InvalidUTF8Output(); invalid {
+		// the first error, before which the encoding went on.
+		out, err = invalidOut, &errors.TextError{Err: errors.ErrInvalidUTF8}
+	}
 	ctx.CheckNames = ctx.CheckNames || inner.CheckNames
 	ctx.RewriteFrom = inner.RewriteFrom
 	inner.Option.V2, inner.Option.Funcs = nil, nil

@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/bits"
 	"slices"
+	"unsafe"
 
 	"github.com/goccy/go-json/internal/floatfmt"
 )
@@ -66,6 +67,9 @@ type encoder struct {
 	// array which it opened: nothing can be written then, until a Reset. The encoder is kept not ready, so that the
 	// writes, which check that first, go to the paths which report it.
 	invalid bool
+	// attached is whether the encoder was attached by the v2 json package after it was set up ( see
+	// attachEncoder ), which attaches it again without setting it up.
+	attached bool
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -139,7 +143,7 @@ func (e *encoder) writeValueSetUp(v Value) error {
 
 // init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
-	e.invalid = false
+	e.invalid, e.attached = false, false
 	if !e.ready() {
 		// a zero value, or a copy, whose arrays are the ones of the encoder it was copied from
 		e.st, e.buf = stack{}, nil
@@ -147,6 +151,9 @@ func (e *encoder) init(w io.Writer) {
 		e.vs.st, e.vs.lines, e.vs.scratch, e.vs.ro = &e.st, nil, nil, reorderer{}
 	}
 	e.st.reset()
+	if e.st.outer != nil {
+		e.st.outer = nil // of an attach by the v2 json package
+	}
 	if _, wasBuffer := e.w.(*bytes.Buffer); wasBuffer {
 		e.buf = nil // the array of the bytes.Buffer written before, which stays its own, or of a nil one
 	}
@@ -234,6 +241,9 @@ func (e *Encoder) StackDepth() int {
 	if !e.e.ready() {
 		e.e.setUp()
 	}
+	if e.e.st.outer != nil {
+		return e.e.st.full().depth()
+	}
 	return e.e.st.depth()
 }
 
@@ -243,6 +253,9 @@ func (e *Encoder) StackDepth() int {
 func (e *Encoder) StackIndex(i int) (Kind, int64) {
 	if !e.e.ready() {
 		e.e.setUp()
+	}
+	if e.e.st.outer != nil {
+		return e.e.st.full().index(i)
 	}
 	return e.e.st.index(i)
 }
@@ -327,11 +340,11 @@ func (e *encoder) writeToken(t Token) error {
 		if err := e.st.push(k == KindBeginObject); err != nil {
 			return e.failAt(err, pos, pointNext)
 		}
-		e.buf = append(b, byte(k))
+		e.setBuf(append(b, byte(k)))
 		return e.endValue()
 	case KindEndObject, KindEndArray:
 		e.st.pop()
-		e.buf = append(b, byte(k))
+		e.setBuf(append(b, byte(k)))
 		return e.endValue()
 	case KindString:
 		b, err = e.appendString(b, t, l.needName())
@@ -346,7 +359,7 @@ func (e *encoder) writeToken(t Token) error {
 		return err
 	}
 	l.count++
-	e.buf = b
+	e.setBuf(b)
 	return e.endValue()
 }
 
@@ -450,9 +463,20 @@ const flushSize = 4 << 10
 
 // endValue ends a token or value: after a complete top-level value, a line feed, and the output is written,
 // as it is when the buffer is large.
+// setBuf sets the output to b, which was appended to it: a slice of the output itself, if b is in its array, so
+// that the pointer to the array, which most writes don't change, is not written again with a write barrier while
+// the GC marks.
+func (e *encoder) setBuf(b []byte) {
+	if unsafe.SliceData(b) == unsafe.SliceData(e.buf) {
+		e.buf = e.buf[:len(b)]
+	} else {
+		e.buf = b
+	}
+}
+
 func (e *encoder) endValue() error {
-	// it is inlined where the output is kept.
-	if len(e.st.levels) > 1 && len(e.buf) <= flushSize {
+	// it is inlined where the output is kept: in a value, or without a writer, which endOutput writes nothing to.
+	if e.w == nil || len(e.st.levels) > 1 && len(e.buf) <= flushSize {
 		return nil
 	}
 	return e.endOutput()
@@ -519,6 +543,15 @@ func (e *encoder) writeValue(v Value) error {
 		v = bytes.Clone(v)
 	}
 	l := e.st.last()
+	if len(v) > 1 && v[0] == '"' && !l.needName() && e.vs.plain() {
+		// a string of ASCII which needs no escape and no check, as most strings which a method writes are, is
+		// written as it is, without the scanner.
+		if end, ok := simpleStringEnd(v); ok && end == len(v) {
+			e.setBuf(append(e.appendDelim(e.buf, KindString), v...))
+			l.count++
+			return e.endValue()
+		}
+	}
 	k := v.Kind()
 	name := l.needName()
 	b := e.appendDelim(e.buf, k)

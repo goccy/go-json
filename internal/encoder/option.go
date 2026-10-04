@@ -17,8 +17,8 @@ const (
 	// TextEscapeOption escapes the strings as jsontext does, for the v2 semantics.
 	TextEscapeOption
 	// RejectInvalidUTF8Option, with TextEscapeOption, fails a string of invalid UTF-8, which is written with
-	// U+FFFD otherwise: the escaper panics with the output before the string ( see jsonstring.InvalidUTF8 ),
-	// which the v2 json package recovers.
+	// U+FFFD otherwise: the escaper records the output before the string ( see RuntimeContext.InvalidUTF8Output ),
+	// which the v2 json package reports.
 	RejectInvalidUTF8Option
 	IndentOption
 	UnorderedMapOption

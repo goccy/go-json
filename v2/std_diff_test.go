@@ -86,12 +86,20 @@ type diffOmit struct {
 	All                 *diffOmitAll   `json:",omitempty"`
 	AllValue            diffOmitAll    `json:",omitempty"`
 	InnerValue          diffOmitInner  `json:",omitempty"`
+	Stamp               *diffStamp     `json:",omitempty"`
+	StampValue          diffStamp      `json:",omitempty"`
+	Quoted              *string        `json:",omitempty,string"`
+	StringPointer       **string       `json:",omitempty"`
 	Last                *string        `json:",omitempty"`
 }
 
+// diffStamp has MarshalJSON of time.Time, by embedding it.
+type diffStamp struct{ time.Time }
+
 func diffValues() []any {
 	n := 7
-	empty := ""
+	empty, nonEmpty := "", "x"
+	emptyPointer, nonEmptyPointer := &empty, &nonEmpty
 	var nilInt *int
 	f := false
 	return []any{
@@ -127,7 +135,9 @@ func diffValues() []any {
 			diffOmitInner: diffOmitInner{S: &empty, A: ""}, Bool: &f, Int: &n, IntPointer: &nilInt,
 			Inner: &diffOmitInner{S: &empty, A: []any{}}, All: &diffOmitAll{S: &empty, A: map[string]any{}},
 			AllValue: diffOmitAll{A: nil}, Last: &empty,
+			Stamp: &diffStamp{time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)}, Quoted: &empty, StringPointer: &emptyPointer,
 		},
+		&diffOmit{Last: &nonEmpty, StringPointer: &nonEmptyPointer, Quoted: &nonEmpty},
 	}
 }
 

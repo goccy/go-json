@@ -683,6 +683,17 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = bb
 			code = code.Next
+		case encoder.OpStructFieldOmitEmptyStringPtrOrEmpty:
+			p := load(ctxptr, code.Idx)
+			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
+			if p != nil {
+				if s := ptrToString(p); s != "" {
+					b = appendStructKey(ctx, code, b)
+					b, _ = jsonstring.AppendQuoted(encoder.StringEscaper(ctx), b, s)
+					b = appendComma(ctx, b)
+				}
+			}
+			code = code.Next
 		case encoder.OpUnwriteEmpty:
 			b = encoder.UnwriteEmptyMember(ctx, b, code.Key)
 			code = code.Next

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -640,6 +641,22 @@ func addrForMarshaler(v any, rv reflect.Value) reflect.Value {
 	return reflect.NewAt(rv.Type(), (*emptyInterface)(unsafe.Pointer(&v)).ptr)
 }
 
+// errStoppedByInvalidUTF8 stops an encoding which wrote a string of invalid UTF-8, whose error is the one of the
+// string ( see RuntimeContext.InvalidUTF8Output ).
+var errStoppedByInvalidUTF8 = stderrors.New("stopped by invalid UTF-8")
+
+// appendValue appends the value at p by the function of m. An encoding which wrote a string of invalid UTF-8 goes
+// on to its end, or to the next function, which is not called: a method or a function of marshaling is not called
+// after the error, as it isn't by encoding/json/v2.
+func appendValue(ctx *RuntimeContext, m *MarshalerCall, b []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Option.Flag&RejectInvalidUTF8Option != 0 {
+		if _, invalid := ctx.strictEscaper.Invalid(); invalid {
+			return b, errStoppedByInvalidUTF8
+		}
+	}
+	return m.appendValue(ctx, b, p)
+}
+
 // AppendMarshalJSON appends what MarshalJSON of the value returns, compacted. p is the data word of the
 // interface value of the type of the opcode: the address of the value, or the pointer for a pointer type.
 func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
@@ -648,7 +665,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		return appendMarshalJSONByInterface(ctx, code, b, interfaceOf(code, p))
 	}
 	if m.appendValue != nil {
-		return m.appendValue(ctx, b, p)
+		return appendValue(ctx, m, b, p)
 	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil
@@ -740,7 +757,7 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 		return appendMarshalJSONIndentByInterface(ctx, code, b, interfaceOf(code, p))
 	}
 	if m.appendValue != nil {
-		return m.appendValue(ctx, b, p)
+		return appendValue(ctx, m, b, p)
 	}
 	if m.nilIsNull && p == nil {
 		return AppendNull(ctx, b), nil

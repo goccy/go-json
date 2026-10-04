@@ -182,6 +182,11 @@ func (s *valueScanner) plain() bool {
 // the value: resume reads it again from the start, and reports the errors. The names of the objects are checked
 // as resume checks them.
 func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
+	if i < len(b) && b[i] != '{' && b[i] != '[' && b[i] > ' ' {
+		// a string, a number or a literal, which opens no object: without the array of the open objects, which
+		// would be cleared for it.
+		return s.scanObjects(b, i, nil)
+	}
 	// the open objects are in this frame, not in the one of scanObjects: the spilled registers of the loop are
 	// then near its stack pointer, where the CPUs of AMD Zen 4 read them without a stall.
 	var open [64]openObject

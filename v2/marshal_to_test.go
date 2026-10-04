@@ -98,7 +98,7 @@ func TestTrackedLevels(t *testing.T) {
 func normalized(levels []textcoder.Level) string {
 	var b strings.Builder
 	for _, l := range levels {
-		fmt.Fprintf(&b, "{%v %d %q}", l.Object, l.Count, l.Names)
+		fmt.Fprintf(&b, "{%v %d %q}", l.Object, l.Count, l.Name)
 	}
 	return b.String()
 }

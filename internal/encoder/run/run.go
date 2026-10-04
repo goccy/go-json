@@ -11,6 +11,7 @@ import (
 	"github.com/goccy/go-json/internal/encoder/vm_color"
 	"github.com/goccy/go-json/internal/encoder/vm_color_indent"
 	"github.com/goccy/go-json/internal/encoder/vm_indent"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 func init() {
@@ -98,6 +99,13 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 
 // Code runs the opcodes of a value, which ctx is set up for, by the VM of the options of ctx.
 func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
+	// the escaper of the strings ( see encoder.RuntimeContext.SetEscaper ), without a call for most options.
+	// It is set again only for other options than the ones it was set for.
+	if flags := ctx.Option.Flag; flags&encoder.RejectInvalidUTF8Option != 0 {
+		ctx.SetStrictEscaper()
+	} else if flags != ctx.EscaperFlags {
+		ctx.Escaper, ctx.EscaperFlags = jsonstring.EscaperOf(uint(flags)), flags
+	}
 	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
 		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 			return vm_color.DebugRun(ctx, b, codeSet)
@@ -114,6 +122,7 @@ func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]
 func IndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string) ([]byte, error) {
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
+	ctx.SetEscaper()
 	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
 		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {
 			return vm_color_indent.DebugRun(ctx, b, codeSet)

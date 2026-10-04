@@ -5,6 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -62,6 +63,8 @@ var (
 				Buf:    make([]byte, 0, bufSize),
 				Slots:  make([]uintptr, 128*slotWords),
 				Option: &Option{},
+				// the options of no encoding, for which the escaper is set before the first one ( see run.Code ).
+				EscaperFlags: noEscaperFlags,
 			}
 		},
 	}
@@ -150,6 +153,10 @@ type RuntimeContext struct {
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
+	// Escaper is the escaper of the strings ( see SetEscaper ), which the VM reads for every string: next to the
+	// options, which it reads for every value. strictEscaper is the one of RejectInvalidUTF8Option.
+	Escaper      *jsonstring.Escaper
+	EscaperFlags OptionFlag // the options which Escaper was set for, unless it is strictEscaper, or noEscaperFlags
 	// mapContexts are the contexts of the maps nested in each other, one for each level, and mapDepth is the
 	// number of the maps being encoded.
 	mapContexts []*MapContext
@@ -165,14 +172,21 @@ type RuntimeContext struct {
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet
 	value        unsafe.Pointer
-	// V2State is the state of the calls of the v2 json package which use the context, which is kept with it.
-	V2State any
+	// KeyName is whether the key of a map is being written, by a method or a function of marshaling.
+	KeyName bool
+	// V2State is the state of the calls of the v2 json package which use the context, which is kept with it: a
+	// pointer to its type, which the encoder doesn't know, read without the check of a type assertion.
+	V2State unsafe.Pointer
 	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
 	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
 	CheckNames bool
 	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
 	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
 	RewriteFrom int
+	// strictEscaper is the escaper of RejectInvalidUTF8Option of the options of strictIndex - 1, which records the
+	// first string of invalid UTF-8 ( see SetStrictEscaper ): at the end, after the fields of every encoding.
+	strictEscaper jsonstring.Escaper
+	strictIndex   uint
 }
 
 // Rewrote records that the output was written again, or shortened, from the offset at.
@@ -251,12 +265,52 @@ func (c *RuntimeContext) releaseValues() {
 	}
 }
 
-// Abandon releases what the VM holds of an encoding which stopped by a panic, which the caller recovered from
-// ( see jsonstring.InvalidUTF8 ): the keys of the maps being encoded.
-func (c *RuntimeContext) Abandon() {
-	for c.mapDepth > 0 {
-		ReleaseMapContext(c, c.mapContexts[c.mapDepth-1])
+// noEscaperFlags are the options of a context whose escaper is not set: the ones of no encoding, as they set both
+// RejectInvalidUTF8Option, whose escaper is set by SetStrictEscaper, and other bits.
+const noEscaperFlags = ^OptionFlag(0)
+
+// SetEscaper sets the escaper of the strings of the options, which the VM writes them by ( see StringEscaper ),
+// for an encoding by the context. The VM is run by the run package, which sets it itself for the options which
+// most encodings have, without a call: it calls SetStrictEscaper for RejectInvalidUTF8Option.
+func (c *RuntimeContext) SetEscaper() {
+	if c.Option.Flag&RejectInvalidUTF8Option != 0 {
+		c.SetStrictEscaper()
+		return
 	}
+	c.Escaper, c.EscaperFlags = jsonstring.EscaperOf(uint(c.Option.Flag)), c.Option.Flag
+}
+
+// SetStrictEscaper sets the escaper of RejectInvalidUTF8Option: one of the context, which records the first
+// string of invalid UTF-8 ( see InvalidUTF8Output ).
+//
+// It is not inlined into the run of the VM, which most encodings, of other options, run without its code.
+//
+//go:noinline
+func (c *RuntimeContext) SetStrictEscaper() {
+	flags := uint(c.Option.Flag)
+	if index := flags%uint(RejectInvalidUTF8Option<<1) + 1; c.strictIndex != index {
+		c.strictEscaper.CopyOf(flags)
+		c.strictIndex = index
+	} else {
+		c.strictEscaper.ClearInvalid()
+	}
+	if c.Escaper != &c.strictEscaper {
+		c.Escaper = &c.strictEscaper
+	}
+	// the options of RejectInvalidUTF8Option, which those of another escaper are not, which then set it again.
+	c.EscaperFlags = c.Option.Flag
+}
+
+// InvalidUTF8Output returns the output before the first string of invalid UTF-8 which the encoding of
+// RejectInvalidUTF8Option wrote, and true, and clears the record, which refers to the output; or false if it
+// wrote none.
+func (c *RuntimeContext) InvalidUTF8Output() ([]byte, bool) {
+	if c.Option.Flag&RejectInvalidUTF8Option == 0 {
+		return nil, false
+	}
+	out, invalid := c.strictEscaper.Invalid()
+	c.strictEscaper.ClearInvalid()
+	return out, invalid
 }
 
 // marshalerContext returns the context to call MarshalJSON(context.Context) with.

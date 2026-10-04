@@ -10,18 +10,18 @@ const (
 	msb = 0x8080808080808080
 )
 
-// StringEscaper is the escaper of the strings of the options. It is small enough to be inlined into the VM, which
-// calls jsonstring.AppendQuoted with it.
+// StringEscaper is the escaper of the strings of the options, which the VM calls jsonstring.AppendQuoted with: set
+// before the VM runs ( see RuntimeContext.SetEscaper ).
 func StringEscaper(ctx *RuntimeContext) *jsonstring.Escaper {
-	return jsonstring.EscaperOf(uint(ctx.Option.Flag))
+	return ctx.Escaper
 }
 
 // the options of the escaper are the bits of its index which jsonstring.EscaperOf takes: the length is 0 only then.
 var _ [0]struct{} = [uint(NormalizeUTF8Option^jsonstring.EscapeNormalize) | uint(HTMLEscapeOption^jsonstring.EscapeHTML) |
 	uint(TextEscapeOption^jsonstring.EscapeText) | uint(RejectInvalidUTF8Option^jsonstring.EscapeStrict)]struct{}{}
 
-// textEscaper is the escaper of a string which the encoder writes by a function, not by the VM: of
-// RejectInvalidUTF8Option, it reports invalid UTF-8 instead of panicking ( see InvalidUTF8 ).
+// textEscaper is the escaper of a string which the encoder writes by a function, not by the VM, which reports
+// invalid UTF-8 by its result ( see InvalidUTF8 ).
 func textEscaper(ctx *RuntimeContext) *jsonstring.Escaper {
 	return jsonstring.EscaperOf(uint(ctx.Option.Flag &^ RejectInvalidUTF8Option))
 }

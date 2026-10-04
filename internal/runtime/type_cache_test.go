@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"fmt"
 	"sync"
 	"testing"
+	"unsafe"
 )
 
 func TestTypeCache(t *testing.T) {
@@ -89,5 +91,65 @@ func TestTypeCacheConcurrently(t *testing.T) {
 				t.Fatalf("worker %d got a value for %d which is not cached", w, i)
 			}
 		}
+	}
+}
+
+// typeCacheTypes returns the addresses of n objects of the size of a type descriptor, laid out as the types of a
+// program are: aligned and close to each other.
+func typeCacheTypes(n int) []uintptr {
+	objs := make([][80]byte, n)
+	keepTypeCacheTypes = append(keepTypeCacheTypes, objs)
+	types := make([]uintptr, n)
+	for i := range objs {
+		types[i] = uintptr(unsafe.Pointer(&objs[i]))
+	}
+	return types
+}
+
+var keepTypeCacheTypes [][][80]byte
+
+var typeCacheSink *int
+
+// BenchmarkTypeCacheLoad looks up types by turns in tables of several sizes.
+func BenchmarkTypeCacheLoad(b *testing.B) {
+	for _, n := range []int{16, 1024, 8192} {
+		types := typeCacheTypes(n)
+		v := 1
+		var cache TypeCache[int]
+		for _, typ := range types {
+			cache.Store(typ, &v)
+		}
+		for _, k := range []int{1, 8, 128} {
+			if k > n {
+				continue
+			}
+			look := make([]uintptr, k)
+			for i := range look {
+				look[i] = types[(i*7919)%n]
+			}
+			b.Run(fmt.Sprintf("%d types/%d by turns", n, k), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					typeCacheSink = cache.Load(look[i%k])
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkTypeCacheStore stores n types one by one into an empty table, as a program compiles its types: the
+// table is made larger only when it gets half full, so the stores cost in proportion to n.
+func BenchmarkTypeCacheStore(b *testing.B) {
+	for _, n := range []int{100, 1000, 10000} {
+		types := typeCacheTypes(n)
+		v := 1
+		b.Run(fmt.Sprintf("%d types", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				var cache TypeCache[int]
+				for _, typ := range types {
+					cache.Store(typ, &v)
+				}
+			}
+		})
 	}
 }

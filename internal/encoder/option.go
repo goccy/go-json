@@ -20,6 +20,10 @@ const (
 	// the fields of the same kind together, and a recursive field last. The opcodes of a type are compiled
 	// for it apart from the ones for the order of the struct.
 	OptimizeFieldOrderOption
+	// V2Option is the semantics of encoding/json/v2, which the v2 json package encodes by: the opcodes of a type
+	// are compiled for it apart from the ones of the v1 semantics. It is the bit after OptimizeFieldOrderOption,
+	// so that the two are the compile mode of a context together ( see RuntimeContext.compileMode ).
+	V2Option
 )
 
 type Option struct {

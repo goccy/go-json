@@ -32,7 +32,7 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return codeSet, nil
 		}
 	}
-	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
+	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.compileMode())
 	if err != nil {
 		return nil, err
 	}
@@ -40,10 +40,27 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
-// codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose
-// lowest bit is free by the alignment of a type and is set when the fields are ordered by the encoder.
+// compileMode is how the opcodes of a type are compiled, which the options of a context choose: the fields of a
+// struct in their order or ordered by the encoder, and the semantics of v1 or of v2. The opcodes of each mode are
+// cached apart.
+type compileMode uint8
+
+const (
+	modeOptimizeFieldOrder compileMode = 1 << iota // OptimizeFieldOrderOption
+	modeV2                                         // V2Option
+
+	compileModes = 4
+)
+
+// compileMode is the compile mode of the options of c: OptimizeFieldOrderOption and V2Option are adjacent bits.
+func (c *RuntimeContext) compileMode() compileMode {
+	return compileMode(c.Option.Flag / OptimizeFieldOrderOption & (compileModes - 1))
+}
+
+// codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose two
+// lowest bits are free by the alignment of a type and are the compile mode.
 func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
-	return typeptr | uintptr(c.Option.Flag&OptimizeFieldOrderOption)/uintptr(OptimizeFieldOrderOption)
+	return typeptr | uintptr(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1))
 }
 
 // RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
@@ -67,8 +84,8 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	return nil
 }
 
-// SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context: the one of the
-// types in the order of their fields, or the one with the fields ordered by the encoder. Its opcodes are not
+// SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context, of its compile
+// mode. Its opcodes are not
 // filtered by a field query: a context which may filter the fields ( ContextOption ) is left to
 // CompileToGetCodeSet, which filters them, and the callers look at this table only for the other contexts.
 //
@@ -79,7 +96,7 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 // of this table looks at the next entries without a call as well ( Load ). A full lookup in the VM measured
 // slower even when the recent opcodes hit, as its loop changed the code of the VM around them.
 func (c *RuntimeContext) SharedCodeSets() *runtime.TypeCache[OpcodeSet] {
-	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1]
+	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1)]
 }
 
 // RememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
@@ -96,16 +113,13 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 }
 
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
-// The opcodes with the fields ordered by the encoder are cached apart from the ones in the order of the struct.
-func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*OpcodeSet, error) {
-	cache := &cachedOpcodeSets[0]
-	if optimizeFieldOrder {
-		cache = &cachedOpcodeSets[1]
-	}
+// The opcodes of each compile mode are cached apart.
+func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
+	cache := &cachedOpcodeSets[mode]
 	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
-	codeSet, err := newCompiler(optimizeFieldOrder).compile(typeptr)
+	codeSet, err := newCompiler(mode).compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +135,8 @@ var (
 	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
-	// cachedOpcodeSets are the opcodes of the types in the order of their fields, and with the fields ordered by
-	// the encoder.
-	cachedOpcodeSets [2]runtime.TypeCache[OpcodeSet]
+	// cachedOpcodeSets are the opcodes of the types, of each compile mode.
+	cachedOpcodeSets [compileModes]runtime.TypeCache[OpcodeSet]
 )
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
@@ -141,7 +154,7 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 	}
 	// the fields of the code are already in their order: the compiler orders only the fields of the recursive
 	// structs it compiles when it links them, as the code was compiled.
-	compiler := newCompiler(ctx.Option.Flag&OptimizeFieldOrderOption != 0)
+	compiler := newCompiler(ctx.compileMode())
 	compiler.isFiltered = true
 	queryCodeSet, err := compiler.codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
 	if err != nil {
@@ -155,6 +168,8 @@ type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
 	// optimizeFieldOrder is whether the fields of a struct are ordered as they are encoded fastest.
 	optimizeFieldOrder bool
+	// v2 is whether the opcodes have the semantics of encoding/json/v2.
+	v2 bool
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
@@ -179,10 +194,11 @@ type Compiler struct {
 // struct is copied, which saves the jump for each value.
 const sharedStructFieldCount = 128
 
-func newCompiler(optimizeFieldOrder bool) *Compiler {
+func newCompiler(mode compileMode) *Compiler {
 	return &Compiler{
 		structTypeToCode:   map[uintptr]*StructCode{},
-		optimizeFieldOrder: optimizeFieldOrder,
+		optimizeFieldOrder: mode&modeOptimizeFieldOrder != 0,
+		v2:                 mode&modeV2 != 0,
 		structFieldCounts:  map[uintptr]int{},
 	}
 }

@@ -114,7 +114,7 @@ func ShapeOf(typ unsafe.Pointer) ValueShape {
 		return ValueShapeAggregate
 	case reflect.Map:
 		// whether the type has a marshaler was decided when the type was compiled.
-		codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), false)
+		codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), 0)
 		if err != nil {
 			// the VM compiles the type right after this, and it reports the error.
 			return ValueShapeAggregate
@@ -132,7 +132,7 @@ func ShapeOf(typ unsafe.Pointer) ValueShape {
 //
 //go:noinline
 func IfaceIndir(typ unsafe.Pointer) bool {
-	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), false)
+	codeSet, err := compileToGetUnfilteredCodeSet(uintptr(typ), 0)
 	if err != nil {
 		// the VM compiles the type right after this, and it reports the error.
 		return false

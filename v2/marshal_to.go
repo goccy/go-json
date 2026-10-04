@@ -5,7 +5,6 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"sync"
 
 	"github.com/goccy/go-json/internal/encoder"
 	ierrors "github.com/goccy/go-json/internal/errors"
@@ -30,7 +29,8 @@ func init() {
 // callState is the state of a call of Marshal, MarshalWrite or MarshalEncode, which the encoder holds in its
 // options.
 type callState struct {
-	cfg *options.Config
+	// cfg are the options of the call, and orig the ones of the jsontext.Encoder of MarshalEncode.
+	cfg, orig options.Config
 	// outer are the levels of the output where the value is written, the top level first: of the jsontext.Encoder
 	// which MarshalEncode writes to, or the top level only. base is the offset of the value in that output, and
 	// ptr is its JSON pointer.
@@ -46,11 +46,12 @@ type callState struct {
 }
 
 // reset sets the state for a call which writes at the place of the output which outer and base are of.
-func (st *callState) reset(c *options.Config, outer []textcoder.Level, base int64) {
-	st.cfg, st.base, st.opened = c, base, false
+func (st *callState) reset(outer []textcoder.Level, base int64) {
+	st.base, st.opened = base, false
 	st.tracked.reset()
 	if outer == nil {
-		st.outer = append(st.outer[:0], textcoder.Level{})
+		// the top level only ( see withOuter ).
+		st.outer = st.outer[:0]
 		st.ptr = ""
 		return
 	}
@@ -82,6 +83,9 @@ func (st *callState) trackedLevels(ctx *encoder.RuntimeContext, out []byte) []te
 // output of the encoder within it.
 func (st *callState) withOuter(inner []textcoder.Level) []textcoder.Level {
 	levels := append(st.levels[:0], st.outer...)
+	if len(levels) == 0 {
+		levels = append(levels, textcoder.Level{})
+	}
 	levels[len(levels)-1].Count += inner[0].Count
 	st.levels = append(levels, inner[1:]...)
 	return st.levels
@@ -94,6 +98,8 @@ type tracker struct {
 	n      int
 	levels []textcoder.Level
 	marks  []trackMark
+	// stale is whether the tracker was reset, which it is made ready for when it is used: most calls don't.
+	stale bool
 }
 
 type trackMark struct {
@@ -109,13 +115,16 @@ var checkTracked func(out []byte, levels []textcoder.Level)
 const trackMarkInterval = 4 << 10
 
 func (t *tracker) reset() {
-	t.n = 0
-	t.levels = append(t.levels[:0], textcoder.Level{})
-	t.marks = t.marks[:0]
+	t.stale = true
 }
 
 // sync returns the levels of out, which was written again from rewriteFrom if that is within what was read.
 func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
+	if t.stale {
+		t.n, t.stale = 0, false
+		t.levels = append(t.levels[:0], textcoder.Level{})
+		t.marks = t.marks[:0]
+	}
 	if at := min(rewriteFrom, len(out)); at < t.n {
 		for len(t.marks) > 0 && t.marks[len(t.marks)-1].n > at {
 			t.marks = t.marks[:len(t.marks)-1]
@@ -153,7 +162,22 @@ func cloneLevels(dst, levels []textcoder.Level) []textcoder.Level {
 	return dst
 }
 
-var callStates = sync.Pool{New: func() any { return new(callState) }}
+// takeCallState returns the state for a call which encodes by ctx, whose options are opts: the one kept with ctx,
+// which a call uses at a time. The state holds the options: they are applied by the calls of their interface,
+// which a value on the stack would escape by.
+func takeCallState(ctx *encoder.RuntimeContext, opts []Options) *callState {
+	st, _ := ctx.V2State.(*callState)
+	if st == nil {
+		st = new(callState)
+		ctx.V2State = st
+	}
+	st.cfg.Apply(opts)
+	return st
+}
+
+func releaseCallState(st *callState) {
+	st.cfg, st.orig = options.Config{}, options.Config{}
+}
 
 // stateOf returns the state of the call which ctx encodes for.
 func stateOf(ctx *encoder.RuntimeContext) *callState {
@@ -175,7 +199,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, fn func(
 		// the name of a key of a sorted map, whose names are checked after the entries are sorted.
 		top.Names = nil
 	}
-	textcoder.Attach(&st.enc, out, st.base, st.levels, st.cfg)
+	textcoder.Attach(&st.enc, out, st.base, st.levels, &st.cfg)
 	err := fn(&st.enc)
 	written, newDepth, newCount := textcoder.Detach(&st.enc)
 	if err == nil && (newDepth != depth || newCount != count+1) {
@@ -210,8 +234,9 @@ func whereOf(depth int, count int64, newDepth int, newCount int64) int8 {
 // options want it. Its error points to the place in the whole output.
 func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 	st := stateOf(ctx)
-	v := jsontext.Value(raw)
-	if err := v.Format(st.cfg, compact); err != nil {
+	// raw is not changed: it is the memory of the caller, as the value of a json.RawMessage.
+	out, err := jsontext.AppendFormat(b, raw, &st.cfg, compact)
+	if err != nil {
 		if serr, ok := err.(*jsontext.SyntacticError); ok {
 			// the place in the value is after the place of the value in the output.
 			pos, ptr := st.at(b)
@@ -222,7 +247,7 @@ func appendRaw(ctx *encoder.RuntimeContext, b, raw []byte) ([]byte, error) {
 		}
 		return b, err
 	}
-	return append(b, v...), nil
+	return out, nil
 }
 
 // compact is the format of the output of the encoder, which formats it as the options want it after.

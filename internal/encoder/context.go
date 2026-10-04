@@ -165,6 +165,8 @@ type RuntimeContext struct {
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet
 	value        unsafe.Pointer
+	// V2State is the state of the calls of the v2 json package which use the context, which is kept with it.
+	V2State any
 	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
 	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
 	CheckNames bool

@@ -682,6 +682,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			b = bb
 			code = code.Next
+		case encoder.OpUnwriteEmpty:
+			b = encoder.UnwriteEmptyMember(ctx, b, code.Key)
+			code = code.Next
 		case encoder.OpRecursiveEnd:
 			// the braces of the values of a list this value was the last field of, from the innermost.
 			for ; ctx.TailLevels > 0; ctx.TailLevels-- {

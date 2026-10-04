@@ -91,12 +91,12 @@ import (
 // JSON cannot represent cyclic data structures and Marshal does not handle them.
 func Marshal(in any, opts ...Options) ([]byte, error) {
 	ctx := encoder.TakeRuntimeContext()
-	var c options.Config
-	c.Apply(opts)
-	buf, _, err := marshal(ctx, &c, in, nil, 0)
+	st := takeCallState(ctx, opts)
+	buf, _, err := marshal(ctx, st, in, nil, 0)
 	if err == nil {
-		buf, err = format(buf, &c)
+		buf, err = format(buf, &st.cfg)
 	}
+	releaseCallState(st)
 	if err != nil {
 		encoder.ReleaseRuntimeContext(ctx)
 		return nil, err
@@ -112,12 +112,12 @@ func Marshal(in any, opts ...Options) ([]byte, error) {
 // details about the conversion of a Go value into JSON.
 func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 	ctx := encoder.TakeRuntimeContext()
-	var c options.Config
-	c.Apply(opts)
-	buf, _, err := marshal(ctx, &c, in, nil, 0)
+	st := takeCallState(ctx, opts)
+	buf, _, err := marshal(ctx, st, in, nil, 0)
 	if err == nil {
-		buf, err = format(buf, &c)
+		buf, err = format(buf, &st.cfg)
 	}
+	releaseCallState(st)
 	if err == nil {
 		_, err = out.Write(buf)
 	}
@@ -131,31 +131,35 @@ func MarshalWrite(out io.Writer, in any, opts ...Options) error {
 //
 // See Marshal for details about the conversion of a Go value into JSON.
 func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
-	var orig, c options.Config
-	out.Options().ApplyTo(&orig)
-	c = orig
-	c.Apply(opts)
+	ctx := encoder.TakeRuntimeContext()
+	st := takeCallState(ctx, nil)
+	out.Options().ApplyTo(&st.cfg)
+	st.orig = st.cfg
+	st.cfg.Apply(opts)
 	levels, base := textcoder.Position(out, nil)
 	if len(opts) > 0 {
-		if err := optionsChange(&orig, &c, levels); err != nil {
+		if err := optionsChange(&st.orig, &st.cfg, levels); err != nil {
+			releaseCallState(st)
+			encoder.ReleaseRuntimeContext(ctx)
 			ptr := pointerOf(levels, +1)
 			return &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: ptr, GoType: reflect.TypeOf(in), Err: err}
 		}
 	}
-	ctx := encoder.TakeRuntimeContext()
-	buf, opened, err := marshal(ctx, &c, in, levels, base)
+	buf, opened, err := marshal(ctx, st, in, levels, base)
 	if err != nil {
-		if opened && !c.Has(options.AllowDuplicateNames) {
+		if opened && !st.cfg.Has(options.AllowDuplicateNames) {
 			// the value stopped in an object or an array of its own, which the encoder can't go on with.
 			textcoder.Invalidate(out)
 		}
+		releaseCallState(st)
 		encoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
 	// the encoder writes the value by the options of the call, which it was made by.
-	restore := textcoder.Configure(out, &c)
+	restore := textcoder.Configure(out, &st.cfg)
 	err = out.WriteValue(buf)
 	restore()
+	releaseCallState(st)
 	encoder.ReleaseRuntimeContext(ctx)
 	return err
 }
@@ -185,22 +189,23 @@ func optionsChange(orig, c *options.Config, levels []textcoder.Level) error {
 	return nil
 }
 
-// marshal encodes in by the options of c into the buffer of ctx, at the place of the output which outer and base
+// marshal encodes in by the options of st into the buffer of ctx, at the place of the output which outer and base
 // are of, or at the top level of an output of its own if outer is nil. It returns the output without the comma
 // which the engine writes after a value, or the error at its place in the whole output and whether the value
 // stopped in an object or an array it opened.
-func marshal(ctx *encoder.RuntimeContext, c *options.Config, in any, outer []textcoder.Level, base int64) ([]byte, bool, error) {
-	ctx.Option.Flag = optionFlags(c)
+func marshal(ctx *encoder.RuntimeContext, st *callState, in any, outer []textcoder.Level, base int64) ([]byte, bool, error) {
+	c := &st.cfg
+	if c.Set == 0 {
+		ctx.Option.Flag = defaultFlags
+	} else {
+		ctx.Option.Flag = optionFlags(c)
+	}
 	ctx.RewriteFrom = math.MaxInt
 	// two names may be the same after U+FFFD is written for their invalid bytes.
 	ctx.CheckNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
-	st := callStates.Get().(*callState)
-	st.reset(c, outer, base)
-	defer func() {
-		ctx.Option.V2, ctx.Option.Funcs = nil, nil
-		st.cfg = nil
-		callStates.Put(st)
-	}()
+	st.reset(outer, base)
+	// the state is kept with ctx ( see takeCallState ), or is the one of the caller of a nested call: it is left
+	// in the options, which the encodings of v1 don't read. The functions of the caller are not kept.
 	ctx.Option.V2 = st
 	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {
 		if v := reflect.ValueOf(in); v.Kind() == reflect.Pointer && v.IsNil() {
@@ -211,6 +216,7 @@ func marshal(ctx *encoder.RuntimeContext, c *options.Config, in any, outer []tex
 		ctx.Option.Funcs = m.funcs
 	}
 	buf, err := encode(ctx, in)
+	ctx.Option.Funcs = nil
 	if err != nil {
 		return nil, len(levelsOf(buf, nil)) > 1, st.marshalError(buf, err)
 	}
@@ -241,28 +247,41 @@ func format(buf []byte, c *options.Config) ([]byte, error) {
 // encode encodes in by ctx. A string of invalid UTF-8 is an error, which the escaper of the strings reports by a
 // panic ( see jsonstring.InvalidUTF8 ): the strings of valid UTF-8 cost no check of what it reports.
 func encode(ctx *encoder.RuntimeContext, in any) ([]byte, error) {
-	var buf []byte
-	var err error
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				e, ok := r.(*jsonstring.InvalidUTF8)
-				if !ok {
-					panic(r)
-				}
-				buf, err = e.Out, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
-				ctx.Abandon()
-			}
-		}()
-		buf, err = run.Encode(ctx, in)
-	}()
-	return buf, err
+	r := encodeResult{ctx: ctx}
+	r.encode(in)
+	return r.buf, r.err
+}
+
+// encodeResult is the result of encode, which is set after a panic of invalid UTF-8 as well.
+type encodeResult struct {
+	ctx *encoder.RuntimeContext
+	buf []byte
+	err error
+}
+
+func (r *encodeResult) encode(in any) {
+	defer r.recoverInvalidUTF8()
+	r.buf, r.err = run.Encode(r.ctx, in)
+}
+
+func (r *encodeResult) recoverInvalidUTF8() {
+	if v := recover(); v != nil {
+		e, ok := v.(*jsonstring.InvalidUTF8)
+		if !ok {
+			panic(v)
+		}
+		r.buf, r.err = e.Out, &ierrors.TextError{Err: ierrors.ErrInvalidUTF8}
+		r.ctx.Abandon()
+	}
 }
 
 // formatFlags are the options of the format of the output, which the engine doesn't write by itself.
 const formatFlags = options.Multiline | options.SpaceAfterColon | options.SpaceAfterComma |
 	options.PreserveRawStrings | options.CanonicalizeRawInts | options.CanonicalizeRawFloats |
 	options.ReorderRawObjects
+
+// defaultFlags are the options of the engine for the default options.
+var defaultFlags = optionFlags(&options.Config{})
 
 // optionFlags returns the options of the engine for the options of c.
 func optionFlags(c *options.Config) encoder.OptionFlag {

@@ -63,8 +63,37 @@ type diffAll struct {
 	Interfac fmt.Stringer      `json:"stringer"`
 }
 
+// The members of omitempty: written, then unwritten if empty, or known not to be empty by their types.
+type diffOmitInner struct {
+	S *string `json:",omitempty"`
+	A any     `json:",omitempty"`
+	N int
+}
+
+type diffOmitAll struct {
+	S *string `json:",omitempty"`
+	A any     `json:",omitempty"`
+}
+
+type diffOmit struct {
+	diffOmitInner
+	LongNameOfTheMember string
+	NilPointer          *bool          `json:",omitempty"`
+	Bool                *bool          `json:",omitempty"`
+	Int                 *int           `json:",omitempty"`
+	IntPointer          **int          `json:",omitempty"`
+	Inner               *diffOmitInner `json:",omitempty"`
+	All                 *diffOmitAll   `json:",omitempty"`
+	AllValue            diffOmitAll    `json:",omitempty"`
+	InnerValue          diffOmitInner  `json:",omitempty"`
+	Last                *string        `json:",omitempty"`
+}
+
 func diffValues() []any {
 	n := 7
+	empty := ""
+	var nilInt *int
+	f := false
 	return []any{
 		nil, true, false, 0, -1, int8(-128), uint64(math.MaxUint64), 3.5, float32(0.1), 1e21, 1e-7, "", "a\"b\\c",
 		"<html>&</html>", "  ", "日本語", []byte(nil), []byte{}, []byte("bytes"), [4]byte{1, 2, 3, 4},
@@ -94,6 +123,11 @@ func diffValues() []any {
 		}{}, struct {
 			S string `json:",string"`
 		}{}, math.NaN(), "\xff", map[string]int{"\xff": 1},
+		diffOmit{}, &diffOmit{
+			diffOmitInner: diffOmitInner{S: &empty, A: ""}, Bool: &f, Int: &n, IntPointer: &nilInt,
+			Inner: &diffOmitInner{S: &empty, A: []any{}}, All: &diffOmitAll{S: &empty, A: map[string]any{}},
+			AllValue: diffOmitAll{A: nil}, Last: &empty,
+		},
 	}
 }
 

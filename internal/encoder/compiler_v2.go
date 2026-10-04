@@ -215,6 +215,8 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		// the value is omitted if it would be null, "", {} or []: some kinds are known to be empty or not by the
 		// value ( the check of omitempty of v1 ), the others by what they write ( unwriteEmpty ).
 		switch kind := field.typ.Kind(); {
+		case kind == reflect.Ptr && !c.v2HasMethod(field.typ) && c.v2NeverEmpty(field.typ.Elem()):
+			// a nil pointer is null, and the value it points to is never empty.
 		case kind == reflect.Ptr || kind == reflect.Interface:
 			// a nil value is null.
 			field.unwriteEmpty = true
@@ -223,8 +225,7 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 			field.unwriteEmpty = true
 		case kind == reflect.String || kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array:
 			// empty if its length is 0.
-		case kind == reflect.Bool || isNumberKind(kind):
-			// never empty.
+		case c.v2NeverEmpty(field.typ):
 			tag.IsOmitEmpty = false
 		default:
 			tag.IsOmitEmpty = false
@@ -260,6 +261,31 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		code = &PtrCode{typ: field.typ, value: code, ptrNum: uint8(ptrNum)}
 	}
 	return code, true
+}
+
+// v2NeverEmpty reports whether a value of typ is known to be written as none of the empty values of omitempty:
+// a boolean, a number, or an object with a member which is always written. The value of a type which a method or
+// a function writes may be any.
+func (c *Compiler) v2NeverEmpty(typ reflect.Type) bool {
+	if c.v2HasMethod(typ) {
+		return false
+	}
+	switch kind := typ.Kind(); {
+	case kind == reflect.Bool || isNumberKind(kind):
+		return true
+	case kind == reflect.Struct && !c.omitZeroStructFields:
+		fields := v2FieldsOf(typ)
+		if fields.Err != nil {
+			return false
+		}
+		for _, f := range fields.List {
+			// a member of an embedded struct is not written if a pointer to the struct is nil.
+			if !f.OmitEmpty && !f.OmitZero && len(f.Index) == 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // isNumberKind reports whether a value of the kind is a JSON number.

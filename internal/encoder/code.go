@@ -1123,7 +1123,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
 	if c.unwriteEmpty {
 		// the member is unwritten after its value if the value is empty.
-		after := newAfterValueCode(ctx, unwriteEmptyMember(len(key)))
+		after := newUnwriteEmptyCode(ctx, key)
 		codes.Last().Next = after
 		codes = codes.Add(after)
 	}
@@ -1159,6 +1159,11 @@ func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, i
 	ctx.incIndex()
 	valueCodes := c.toValueOpcodes(ctx)
 	codes := c.fieldOpcodes(ctx, field, valueCodes)
+	if c.unwriteEmpty {
+		after := newUnwriteEmptyCode(ctx, key)
+		codes.Last().Next = after
+		codes = codes.Add(after)
+	}
 	if head != nil {
 		codes = withHead(head, codes)
 	}

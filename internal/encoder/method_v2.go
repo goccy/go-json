@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 // The methods of marshaling of the semantics of encoding/json/v2. A value is always addressable for them: the
@@ -92,7 +93,29 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 			return out, err
 		}), true
 	case methodMarshalJSON:
+		if typ == rawMessageType {
+			// the output of its method is the value itself, or null: the method, which allocates null, is not
+			// called.
+			return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+				raw := *(*[]byte)(p)
+				if raw == nil {
+					raw = nullJSON
+				}
+				out, err := V2Hooks.AppendRaw(ctx, b, raw)
+				if err != nil {
+					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+				}
+				return out, nil
+			}), true
+		}
+		appendOutput := addrJSONAppender(typ)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+			if appendOutput != nil {
+				// the output is known, and valid: the method is called only for its error.
+				if out, ok := appendOutput(b, p); ok {
+					return out, nil
+				}
+			}
 			m := reflect.NewAt(typ, p).Interface().(json.Marshaler)
 			raw, err := m.MarshalJSON()
 			if err != nil {
@@ -119,6 +142,27 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 		}), true
 	}
 	return nil, false
+}
+
+var (
+	// rawMessageType is the type of json.RawMessage, which is jsontext.Value of the standard library where Go has
+	// it.
+	rawMessageType = reflect.TypeOf(json.RawMessage(nil))
+	nullJSON       = []byte("null")
+)
+
+// addrJSONAppender returns the function which writes the output of MarshalJSON of the value of typ at an address
+// without calling it, as the encoder of v1 does ( see newMarshalerCall ): for a type of the standard library whose
+// output is known, or a type which has the method from such a type embedded in its value. It returns nil for the
+// other types.
+func addrJSONAppender(typ reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bool) {
+	if runtime.IsStdMarshalerType(typ) {
+		return stdJSONAppender(typ)
+	}
+	if origin, offset, inline, ok := runtime.PromotedStdMethod(typ, runtime.MarshalJSONMethod); ok && inline {
+		return embeddedAppender(stdJSONAppender(origin), offset)
+	}
+	return nil
 }
 
 // RunHook runs the VM of the options of ctx for the opcodes of a value, which ctx is set up for, after the output

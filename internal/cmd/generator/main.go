@@ -225,6 +225,9 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	// the opcode after a value which changes what the value wrote, for the semantics of encoding/json/v2 ( see
 	// encoder.AppendAfterValue ).
 	opTypes = append(opTypes, opType{Op: "AfterValue", Code: "Op"})
+	// the opcode after the value of a member of omitempty, which unwrites the member if the value is empty ( see
+	// encoder.UnwriteEmptyMember ).
+	opTypes = append(opTypes, opType{Op: "UnwriteEmpty", Code: "Op"})
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, struct {
 		CodeTypes []string

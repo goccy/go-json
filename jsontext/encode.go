@@ -296,8 +296,11 @@ func (e *encoder) writeToken(t Token) error {
 	}
 	b := e.buf
 	switch {
-	case e.vs.spaced || len(e.st.levels) == 1 || l.count == 0 || k == KindEndObject || k == KindEndArray:
+	case e.vs.spaced:
 		b = e.appendDelim(b, k)
+	case len(e.st.levels) == 1 || l.count == 0 || k == KindEndObject || k == KindEndArray:
+		// no delimiter in an output without white space: at the top level, before the first token of a level,
+		// and before an end.
 	case l.object && l.count&1 == 1:
 		b = append(b, ':')
 	default:
@@ -376,6 +379,9 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 			return b, e.failAt(errInvalidUTF8, pos, pointNext)
 		}
 		if name {
+			if valid && e.check && e.st.addNewName(readOnlyBytes(t.str)) {
+				return b, nil // a new name of an object of few names, as most are, without the calls of insertName
+			}
 			return b, e.insertName(pos, readOnlyBytes(t.str), !valid) // the name is copied
 		}
 		return b, nil

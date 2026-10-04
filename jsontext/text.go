@@ -608,12 +608,12 @@ const (
 	escapeJS                           // U+2028 and U+2029
 )
 
-func (c *config) escapes() escapeFlags {
+func escapesOf(c *config) escapeFlags {
 	var e escapeFlags
-	if c.has(escapeForHTML) {
+	if c.Has(escapeForHTML) {
 		e |= escapeHTML
 	}
-	if c.has(escapeForJS) {
+	if c.Has(escapeForJS) {
 		e |= escapeJS
 	}
 	return e

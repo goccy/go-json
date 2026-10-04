@@ -102,7 +102,7 @@ func (d *decoder) setUp() {
 // reset resets the decoder to read from r, which is nil for no input, with the options.
 func (d *decoder) reset(r io.Reader, opts []Options) {
 	var c config // opts may hold the options of d, which Options returned
-	c.apply(opts)
+	c.Apply(opts)
 	d.cfg = c
 	if !d.ready() {
 		// a zero value, or a copy, whose arrays are the ones of the decoder it was copied from
@@ -124,8 +124,8 @@ func (d *decoder) reset(r io.Reader, opts []Options) {
 	d.raw = tokenSource{dec: d, form: formRaw}
 	d.vs = valueScanner{
 		st:         &d.st,
-		validUTF8:  !d.cfg.has(allowInvalidUTF8),
-		checkNames: !d.cfg.has(allowDuplicateNames),
+		validUTF8:  !d.cfg.Has(allowInvalidUTF8),
+		checkNames: !d.cfg.Has(allowDuplicateNames),
 		decoding:   true,
 		scratch:    d.vs.scratch[:0],
 	}
@@ -420,9 +420,9 @@ func (d *decoder) readToken() (Token, error) {
 		n, ok := simpleStringEnd(b[pos:])
 		f, err := strFlags(0), error(nil)
 		if !ok {
-			n, f, err = scanStringFrom(b[pos:], n, 0, strModeOf(!d.cfg.has(allowInvalidUTF8), true))
+			n, f, err = scanStringFrom(b[pos:], n, 0, strModeOf(!d.cfg.Has(allowInvalidUTF8), true))
 		}
-		if err != nil || name && !d.st.insertName(unquotedName(&d.vs.scratch, b[pos:pos+n], f), !d.cfg.has(allowDuplicateNames)) {
+		if err != nil || name && !d.st.insertName(unquotedName(&d.vs.scratch, b[pos:pos+n], f), !d.cfg.Has(allowDuplicateNames)) {
 			return d.readTokenSlow()
 		}
 		l.count++
@@ -555,7 +555,7 @@ func (d *decoder) invalidate() {
 // insertName adds the name of the string at buf[start:end] to the innermost object.
 func (d *decoder) insertName(start, end int, f strFlags) error {
 	name := unquotedName(&d.vs.scratch, d.buf[start:end], f)
-	if !d.st.insertName(name, !d.cfg.has(allowDuplicateNames)) {
+	if !d.st.insertName(name, !d.cfg.Has(allowDuplicateNames)) {
 		ptr := d.st.namePointer(name)
 		return &SyntacticError{ByteOffset: d.base + int64(start), JSONPointer: ptr, Err: ErrDuplicateName}
 	}
@@ -582,7 +582,7 @@ func (d *decoder) scanToken(pos int, where int) (int, int, strFlags, error) {
 		err error
 	)
 	c := d.buf[pos]
-	validUTF8 := !d.cfg.has(allowInvalidUTF8)
+	validUTF8 := !d.cfg.Has(allowInvalidUTF8)
 	// most tokens are whole in the buffer
 	switch c {
 	case '"':

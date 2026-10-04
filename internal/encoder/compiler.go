@@ -26,9 +26,11 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
 		}
 	}
-	if codeSet := ctx.SharedCodeSets().Load(typeptr); codeSet != nil {
-		ctx.RememberCodeSet(typeptr, codeSet)
-		return codeSet, nil
+	if ctx.Option.Flag&ContextOption == 0 {
+		if codeSet := ctx.SharedCodeSets().Load(typeptr); codeSet != nil {
+			ctx.RememberCodeSet(typeptr, codeSet)
+			return codeSet, nil
+		}
 	}
 	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
 	if err != nil {
@@ -45,8 +47,8 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 }
 
 // RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
-// may filter the fields, or nil: then the first entry of the type in SharedCodeSets ( LoadFirst ), and
-// CompileToGetCodeSet if that has another type.
+// may filter the fields, or nil: then, for a context which doesn't filter the fields, the first entry of the type
+// in SharedCodeSets ( LoadFirst ), and CompileToGetCodeSet if that has another type.
 //
 // A runtime context remembers the opcodes of the types it encoded last: the same types are encoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
@@ -66,8 +68,9 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 }
 
 // SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context: the one of the
-// types in the order of their fields, the one with the fields ordered by the encoder, or, for a context which may
-// filter the fields, an empty one, so that CompileToGetCodeSet filters them. It is inlined into the callers.
+// types in the order of their fields, or the one with the fields ordered by the encoder. Its opcodes are not
+// filtered by a field query: a context which may filter the fields ( ContextOption ) is left to
+// CompileToGetCodeSet, which filters them, and the callers look at this table only for the other contexts.
 //
 // Which types share a set of the recent opcodes depends on where the binary has them, and three types of a set
 // encoded by turns, as the values of a map[string]interface{} are, evict each other. The VM looks such a type up in
@@ -76,7 +79,7 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 // of this table looks at the next entries without a call as well ( Load ). A full lookup in the VM measured
 // slower even when the recent opcodes hit, as its loop changed the code of the VM around them.
 func (c *RuntimeContext) SharedCodeSets() *runtime.TypeCache[OpcodeSet] {
-	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1|c.Option.Flag/ContextOption&1<<1]
+	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1]
 }
 
 // RememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
@@ -119,8 +122,8 @@ var (
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
 	// cachedOpcodeSets are the opcodes of the types in the order of their fields, and with the fields ordered by
-	// the encoder; the other two are left empty, for the contexts which may filter the fields ( see SharedCodeSets ).
-	cachedOpcodeSets [4]runtime.TypeCache[OpcodeSet]
+	// the encoder.
+	cachedOpcodeSets [2]runtime.TypeCache[OpcodeSet]
 )
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {

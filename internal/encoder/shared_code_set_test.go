@@ -36,7 +36,7 @@ func TestSharedCodeSetFindsEveryCompiledType(t *testing.T) {
 }
 
 // The opcodes with the fields ordered by the encoder are apart from the ones in the order of the struct, and a
-// context which may filter the fields finds none, so that CompileToGetCodeSet filters them.
+// context which may filter the fields finds none in its set, so that CompileToGetCodeSet filters them.
 func TestSharedCodeSetByOptions(t *testing.T) {
 	type orderedFields struct {
 		A string
@@ -74,8 +74,8 @@ func TestSharedCodeSetByOptions(t *testing.T) {
 
 	ctx.Option.Flag = ContextOption
 	ctx.Option.Context = context.Background()
-	if got := ctx.SharedCodeSets().Load(typeptr); got != nil {
-		t.Fatalf("SharedCodeSets().Load with a context = %p, want nil", got)
+	if got := ctx.RecentCodeSet(typeptr); got != nil {
+		t.Fatalf("RecentCodeSet with a context = %p, want nil", got)
 	}
 	if _, err := CompileToGetCodeSet(ctx, typeptr); err != nil {
 		t.Fatal(err)

@@ -177,8 +177,10 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	inner.RecursiveLevel = ctx.RecursiveLevel
 	inner.SeenPtr = append(inner.SeenPtr, ctx.SeenPtr...)
 	inner.CheckNames = false
+	inner.RewriteFrom = ctx.RewriteFrom
 	out, err := RunHook(inner, b, codeSet)
 	ctx.CheckNames = ctx.CheckNames || inner.CheckNames
+	ctx.RewriteFrom = inner.RewriteFrom
 	inner.Option.V2, inner.Option.Funcs = nil, nil
 	ReleaseRuntimeContext(inner)
 	if err != nil {
@@ -187,7 +189,8 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 		}
 		return b, err
 	}
-	return out[:len(out)-1], nil
+	ctx.Rewrote(len(out) - 1)
+	return out[:len(out)-1], nil // without the comma after the value, which the caller writes
 }
 
 // appendMethodText appends the text which appendText appends, as a JSON string.

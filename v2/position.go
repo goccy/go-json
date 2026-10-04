@@ -73,7 +73,11 @@ func nextPointer(out []byte) jsontext.Pointer {
 // levelsOf returns the levels of the output out, valid JSON up to the place of a value or of an object name,
 // without the delimiter before it: the top level, and the objects and arrays which are open, appended to levels.
 func levelsOf(out []byte, levels []textcoder.Level) []textcoder.Level {
-	levels = append(levels, textcoder.Level{})
+	return scanLevels(out, append(levels, textcoder.Level{}))
+}
+
+// scanLevels returns the levels after out, which follows the output whose levels are levels.
+func scanLevels(out []byte, levels []textcoder.Level) []textcoder.Level {
 	for i := 0; i < len(out); i++ {
 		switch c := out[i]; c {
 		case '{', '[':

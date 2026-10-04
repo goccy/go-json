@@ -97,6 +97,7 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 	// the comma after the members is written by the field, which takes back the one before them if none is.
 	if out[len(out)-1] == ',' {
 		out = out[:len(out)-1]
+		ctx.Rewrote(len(out))
 	}
 	return out, nil
 }

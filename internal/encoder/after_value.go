@@ -38,11 +38,12 @@ var emptyValues = [...][]byte{[]byte(`null`), []byte(`""`), []byte(`{}`), []byte
 // longer string the quote would be escaped, a longer object or array would end with its own bracket, and null is
 // not the end of another value.
 func unwriteEmptyMember(keyLen int) AppendFunc {
-	return func(_ *RuntimeContext, b []byte, _ unsafe.Pointer) ([]byte, error) {
+	return func(ctx *RuntimeContext, b []byte, _ unsafe.Pointer) ([]byte, error) {
 		end := len(b) - 1 // the comma
 		for _, empty := range emptyValues {
 			start := end - len(empty)
 			if start >= keyLen && b[start-1] == ':' && bytes.Equal(b[start:end], empty) {
+				ctx.Rewrote(start - keyLen)
 				return b[:start-keyLen], nil
 			}
 		}

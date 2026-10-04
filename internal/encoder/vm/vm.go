@@ -260,6 +260,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			buf = appendMapEnd(ctx, code, buf)
 			b = b[:mapCtx.First]
 			b = append(b, buf...)
+			ctx.Rewrote(mapCtx.First)
 			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(ctx, mapCtx)
 			code = code.Next

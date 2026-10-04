@@ -168,6 +168,14 @@ type RuntimeContext struct {
 	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
 	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
 	CheckNames bool
+	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
+	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
+	RewriteFrom int
+}
+
+// Rewrote records that the output was written again, or shortened, from the offset at.
+func (c *RuntimeContext) Rewrote(at int) {
+	c.RewriteFrom = min(c.RewriteFrom, at)
 }
 
 // ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value

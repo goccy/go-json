@@ -3,6 +3,7 @@ package json
 import (
 	"errors"
 	"io"
+	"math"
 	"reflect"
 	"slices"
 
@@ -190,6 +191,7 @@ func optionsChange(orig, c *options.Config, levels []textcoder.Level) error {
 // stopped in an object or an array it opened.
 func marshal(ctx *encoder.RuntimeContext, c *options.Config, in any, outer []textcoder.Level, base int64) ([]byte, bool, error) {
 	ctx.Option.Flag = optionFlags(c)
+	ctx.RewriteFrom = math.MaxInt
 	// two names may be the same after U+FFFD is written for their invalid bytes.
 	ctx.CheckNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
 	st := callStates.Get().(*callState)

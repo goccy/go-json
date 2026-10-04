@@ -1,35 +1,69 @@
 name: Measure shared type table
-# A throwaway workflow of a measure/* branch: variants of the lookup of a type which the recent opcodes of a context
-# don't hold, against master. Each variant is built as it is and with a pad, an unused function which moves the
-# code after it, with random function layouts, run interleaved on the same runner. The sets of the recent opcodes
-# which the types of the map benchmark fall in are printed for each build, as they decide whether the map
-# benchmark misses the recent opcodes.
+# A throwaway workflow of a measure/* branch: master and v3 (the first entry of the shared table checked inline on a
+# miss of the recent opcodes) in builds where the six types of the map benchmark collide in one set of the recent
+# opcodes, and in builds where they don't. The first job builds each with k unused types and functions added, for
+# growing k, and picks the builds by the sets the types fall in, which a build fixes: the type addresses are the
+# same in every job of a build. The other jobs measure the picked builds interleaved on one runner each.
 on:
   push:
     branches:
       - measure/shared-type-table
+env:
+  MASTER: '6659f04'
+  V3: 'd246e87'
 jobs:
+  select:
+    name: Select builds
+    runs-on: ubuntu-latest
+    outputs:
+      picks: ${{ steps.pick.outputs.picks }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - id: pick
+        run: |
+          bash .github/workflows/measure-stt-prepare.sh
+          picks=""
+          for v in master v3; do
+            coll=""
+            free=""
+            for k in $(seq 0 40); do
+              bash .github/workflows/measure-stt-tree.sh $v $k
+              out=$(cd /tmp/$v-$k/benchmarks && go test -count=1 -run ZZSets . 2>/dev/null | grep set=)
+              most=$(echo "$out" | sed 's/.*set=//' | sort | uniq -c | sort -rn | head -1 | awk '{print $1}')
+              echo "$v k=$k most types of one set: $most"
+              if [ "$most" -ge 3 ] && [ -z "$coll" ]; then coll=$k; fi
+              if [ "$most" -le 2 ] && [ -z "$free" ]; then free=$k; fi
+              if [ -n "$coll" ] && [ -n "$free" ]; then break; fi
+            done
+            echo "$v: colliding k=$coll, not colliding k=$free"
+            picks="$picks $v-free=$free $v-coll=$coll"
+          done
+          echo "picks=$picks" >> "$GITHUB_OUTPUT"
   ab:
     name: A/B (${{ matrix.run }})
+    needs: select
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
-      # name=commit
-      VARIANTS: 'master=6659f04 v1=401e174 v2=50b4101 v3=d246e87'
+      PICKS: ${{ needs.select.outputs.picks }}
       LAYOUTS: '2'
-      BENCH: '^(Benchmark_Encode_(MapInterface|Interface|SmallStruct|MediumStruct)_GoJson|Benchmark_TwitterGeneric_GoJson|Benchmark_Decode_InterfacePointer_Unmarshal_GoJson)$'
-      LOOKUPS: '^BenchmarkTypeLookups$/^encode/(top-level|interface)/(1|6|8|24|32|96|128)_types$'
-      BYTURNS: '^BenchmarkRecentCodeSetsByTurns$'
+      BENCH: '^(Benchmark_Encode_(MapInterface|Interface|SmallStruct|MediumStruct|LargeStruct)_GoJson|Benchmark_TwitterGeneric_GoJson|Benchmark_Decode_InterfacePointer_Unmarshal_GoJson)$'
     steps:
-      - name: checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: setup Go
-        uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27'
           cache-dependency-path: |
@@ -39,68 +73,24 @@ jobs:
         run: |
           lscpu | grep 'Model name'
           go install golang.org/x/perf/cmd/benchstat@latest
+          bash .github/workflows/measure-stt-prepare.sh
           names=""
-          for spec in $VARIANTS; do
-            name=${spec%%=*}
-            sha=${spec#*=}
-            for v in $name ${name}_pad; do
-              git worktree add /tmp/$v $sha > /dev/null 2>&1
-              names="$names $v"
-            done
-            printf 'package encoder\n\n//go:noinline\nfunc zzPad(n int) int { return n*3 + 1 }\n\nvar zzPadSink = zzPad(1)\n' > /tmp/${name}_pad/internal/encoder/aa_pad.go
-          done
-          # master has neither the lookup benchmarks nor the benchmark of the types of one set: v1's are copied,
-          # the latter with master's path ( the recent opcodes, then CompileToGetCodeSet ).
-          for v in master master_pad; do
-            cp /tmp/v1/type_lookup_test.go /tmp/$v/
-            cp /tmp/v2/internal/encoder/shared_code_set_test.go /tmp/$v/internal/encoder/zz_shared_test.go
-            python3 - /tmp/$v/internal/encoder/zz_shared_test.go <<'PYEOF'
-          import sys, re
-          p = sys.argv[1]
-          s = open(p).read()
-          # keep only the helpers and the benchmark of the types of one set
-          s = s[s.index('// typesOfSet returns'):]
-          s = 'package encoder\n\nimport (\n\t"fmt"\n\t"testing"\n)\n\n' + s
-          open(p, 'w').write(s)
-          PYEOF
-          done
-          cat > /tmp/zz_sets_test.go <<'GOEOF'
-          package benchmark
-
-          import (
-          	"fmt"
-          	"testing"
-          	"unsafe"
-          )
-
-          func TestZZSetsOfMapValues(t *testing.T) {
-          	m := benchMapValue()
-          	vs := []any{m}
-          	for _, v := range m {
-          		vs = append(vs, v)
-          	}
-          	for _, v := range vs {
-          		typ := (*[2]uintptr)(unsafe.Pointer(&v))[0]
-          		fmt.Printf("%T set=%d\n", v, (uint64(typ)*0x9E3779B97F4A7C15)>>60)
-          	}
-          }
-          GOEOF
-          sed -i 's/^          //' /tmp/zz_sets_test.go
-          for v in $names; do
-            cp /tmp/zz_sets_test.go /tmp/$v/benchmarks/
+          for p in $PICKS; do
+            label=${p%%=*}
+            k=${p#*=}
+            v=${label%%-*}
+            bash .github/workflows/measure-stt-tree.sh $v $k
+            names="$names $label"
+            mv /tmp/$v-$k /tmp/$label
+            echo "=== $label (k=$k): $(cd /tmp/$label/benchmarks && go test -count=1 -run ZZSets . 2>/dev/null | grep set= | sort | tr '\n' ' ')"
             for l in $(seq $LAYOUTS); do
-              (cd /tmp/$v/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.bench.test .)
-              (cd /tmp/$v && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.root.test .)
-              (cd /tmp/$v/internal/encoder && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$v.$l.enc.test .)
+              (cd /tmp/$label/benchmarks && go test -c -ldflags="-randlayout=$((l + 100 * ${{ matrix.run }}))" -o /tmp/$label.$l.test .)
             done
-            echo "=== sets of $v: $(cd /tmp/$v/benchmarks && /tmp/$v.1.bench.test -test.run ZZSets | grep set= | sort | tr '\n' ' ')"
           done
-          for r in 1 2 3; do
+          for r in 1 2 3 4; do
             for l in $(seq $LAYOUTS); do
               for v in $names; do
-                (cd /tmp/$v/benchmarks && /tmp/$v.$l.bench.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' >> /tmp/$v.txt)
-                (cd /tmp/$v && /tmp/$v.$l.root.test -test.run '^$' -test.bench "$LOOKUPS" -test.benchtime 100ms | grep '^Benchmark' >> /tmp/$v.txt)
-                (cd /tmp/$v/internal/encoder && /tmp/$v.$l.enc.test -test.run '^$' -test.bench "$BYTURNS" -test.benchtime 100ms | grep '^Benchmark' >> /tmp/$v.txt)
+                (cd /tmp/$v/benchmarks && /tmp/$v.$l.test -test.run '^$' -test.bench "$BENCH" -test.benchtime 200ms | grep '^Benchmark' >> /tmp/$v.txt)
               done
             done
           done

@@ -87,7 +87,7 @@ func (e *Encoder) Reset(w io.Writer, opts ...Options) {
 
 func (e *encoder) reset(w io.Writer, opts []Options) {
 	var c config // opts may hold the options of e, which Options returned
-	c.apply(opts)
+	c.Apply(opts)
 	e.cfg = c
 	e.init(w)
 }
@@ -142,7 +142,7 @@ func (e *encoder) init(w io.Writer) {
 		e.buf = e.bb.AvailableBuffer()
 	}
 	e.base, e.maxValue = 0, 0
-	if !e.derivedOK || !e.cfg.same(&e.derived) {
+	if !e.derivedOK || !e.cfg.Same(&e.derived) {
 		e.derive()
 	}
 	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
@@ -158,10 +158,10 @@ func (e *encoder) init(w io.Writer) {
 
 // derive sets the fields which follow from the options, e.cfg.
 func (e *encoder) derive() {
-	e.ws = e.cfg.whitespace()
-	e.esc = e.cfg.escapes()
-	e.validUTF8 = !e.cfg.has(allowInvalidUTF8)
-	e.check = !e.cfg.has(allowDuplicateNames)
+	e.ws = whitespaceOf(&e.cfg)
+	e.esc = escapesOf(&e.cfg)
+	e.validUTF8 = !e.cfg.Has(allowInvalidUTF8)
+	e.check = !e.cfg.Has(allowDuplicateNames)
 	vs := &e.vs
 	vs.validUTF8 = e.validUTF8
 	vs.checkNames = e.check
@@ -170,10 +170,10 @@ func (e *encoder) derive() {
 	vs.final = true
 	vs.ws = e.ws
 	vs.esc = e.esc
-	vs.preserve = e.cfg.has(preserveRawStrings)
-	vs.canonInts = e.cfg.has(canonicalizeRawInts)
-	vs.canonFlts = e.cfg.has(canonicalizeRawFloats)
-	vs.reorder = e.cfg.has(reorderRawObjects)
+	vs.preserve = e.cfg.Has(preserveRawStrings)
+	vs.canonInts = e.cfg.Has(canonicalizeRawInts)
+	vs.canonFlts = e.cfg.Has(canonicalizeRawFloats)
+	vs.reorder = e.cfg.Has(reorderRawObjects)
 	vs.lines = vs.lines[:0] // the lines of the white space of other options
 	// whitespace may have set the defaults of Multiline in cfg: the options which were given differ from it, and
 	// are derived again.
@@ -296,8 +296,11 @@ func (e *encoder) writeToken(t Token) error {
 	}
 	b := e.buf
 	switch {
-	case e.vs.spaced || len(e.st.levels) == 1 || l.count == 0 || k == KindEndObject || k == KindEndArray:
+	case e.vs.spaced:
 		b = e.appendDelim(b, k)
+	case len(e.st.levels) == 1 || l.count == 0 || k == KindEndObject || k == KindEndArray:
+		// no delimiter in an output without white space: at the top level, before the first token of a level,
+		// and before an end.
 	case l.object && l.count&1 == 1:
 		b = append(b, ':')
 	default:
@@ -376,6 +379,9 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 			return b, e.failAt(errInvalidUTF8, pos, pointNext)
 		}
 		if name {
+			if valid && e.check && e.st.addNewName(readOnlyBytes(t.str)) {
+				return b, nil // a new name of an object of few names, as most are, without the calls of insertName
+			}
 			return b, e.insertName(pos, readOnlyBytes(t.str), !valid) // the name is copied
 		}
 		return b, nil
@@ -394,7 +400,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 	if err != nil {
 		return b, e.failAt(err, pos, pointNext)
 	}
-	b = appendRawString(b, raw, f, e.esc, e.cfg.has(preserveRawStrings))
+	b = appendRawString(b, raw, f, e.esc, e.cfg.Has(preserveRawStrings))
 	if name {
 		var buf [64]byte
 		return b, e.insertName(pos, appendUnquoted(buf[:0], raw, f), false)
@@ -450,7 +456,7 @@ func (e *encoder) endOutput() error {
 	if e.w == nil {
 		return nil // a zero value, which keeps its output without the line feed of a stream
 	}
-	if !e.cfg.has(omitTopLevelNewline) {
+	if !e.cfg.Has(omitTopLevelNewline) {
 		e.buf = append(e.buf, '\n')
 	}
 	return e.flush()

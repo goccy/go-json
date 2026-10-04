@@ -2478,10 +2478,17 @@ func appendMapAsRead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 		if iface.typ != nil && iface.ptr != nil {
 			codeSet := ctx.RecentCodeSet(uintptr(iface.typ))
 			if codeSet == nil {
-				var err error
-				codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
-				if err != nil {
-					return nil, err
+				if ctx.Option.Flag&encoder.ContextOption == 0 {
+					codeSet = ctx.SharedCodeSets().LoadFirst(uintptr(iface.typ))
+				}
+				if codeSet != nil {
+					ctx.RememberCodeSet(uintptr(iface.typ), codeSet)
+				} else {
+					var err error
+					codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 			scalar = codeSet.Scalar
@@ -2534,10 +2541,17 @@ func appendSortedMapEntries(ctx *encoder.RuntimeContext, code *encoder.Opcode, b
 			}
 			codeSet := ctx.RecentCodeSet(uintptr(iface.typ))
 			if codeSet == nil {
-				var err error
-				codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
-				if err != nil {
-					return nil, 0, err
+				if ctx.Option.Flag&encoder.ContextOption == 0 {
+					codeSet = ctx.SharedCodeSets().LoadFirst(uintptr(iface.typ))
+				}
+				if codeSet != nil {
+					ctx.RememberCodeSet(uintptr(iface.typ), codeSet)
+				} else {
+					var err error
+					codeSet, err = encoder.CompileToGetCodeSet(ctx, uintptr(iface.typ))
+					if err != nil {
+						return nil, 0, err
+					}
 				}
 			}
 			if codeSet.Scalar == nil {

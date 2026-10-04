@@ -13,7 +13,7 @@ const (
 // StringEscaper is the escaper of the strings of the options, which the VM calls jsonstring.AppendQuoted with: set
 // before the VM runs ( see RuntimeContext.SetEscaper ).
 func StringEscaper(ctx *RuntimeContext) *jsonstring.Escaper {
-	return ctx.Escaper
+	return ctx.Option.Escaper
 }
 
 // the options of the escaper are the bits of its index which jsonstring.EscaperOf takes: the length is 0 only then.

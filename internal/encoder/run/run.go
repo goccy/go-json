@@ -103,8 +103,8 @@ func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]
 	// It is set again only for other options than the ones it was set for.
 	if flags := ctx.Option.Flag; flags&encoder.RejectInvalidUTF8Option != 0 {
 		ctx.SetStrictEscaper()
-	} else if flags != ctx.EscaperFlags {
-		ctx.Escaper, ctx.EscaperFlags = jsonstring.EscaperOf(uint(flags)), flags
+	} else if flags != ctx.Option.EscaperFlags {
+		ctx.Option.Escaper, ctx.Option.EscaperFlags = jsonstring.EscaperOf(uint(flags)), flags
 	}
 	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
 		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {

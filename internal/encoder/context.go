@@ -60,11 +60,11 @@ var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
 			return &RuntimeContext{
-				Buf:    make([]byte, 0, bufSize),
-				Slots:  make([]uintptr, 128*slotWords),
-				Option: &Option{},
-				// the options of no encoding, for which the escaper is set before the first one ( see run.Code ).
-				EscaperFlags: noEscaperFlags,
+				Buf:   make([]byte, 0, bufSize),
+				Slots: make([]uintptr, 128*slotWords),
+				// the escaper is set before the first encoding, of options which differ from noEscaperFlags ( see
+				// run.Code ).
+				Option: &Option{EscaperFlags: noEscaperFlags},
 			}
 		},
 	}
@@ -153,10 +153,6 @@ type RuntimeContext struct {
 	Prefix     []byte
 	IndentStr  []byte
 	Option     *Option
-	// Escaper is the escaper of the strings ( see SetEscaper ), which the VM reads for every string: next to the
-	// options, which it reads for every value. strictEscaper is the one of RejectInvalidUTF8Option.
-	Escaper      *jsonstring.Escaper
-	EscaperFlags OptionFlag // the options which Escaper was set for, unless it is strictEscaper, or noEscaperFlags
 	// mapContexts are the contexts of the maps nested in each other, one for each level, and mapDepth is the
 	// number of the maps being encoded.
 	mapContexts []*MapContext
@@ -277,7 +273,7 @@ func (c *RuntimeContext) SetEscaper() {
 		c.SetStrictEscaper()
 		return
 	}
-	c.Escaper, c.EscaperFlags = jsonstring.EscaperOf(uint(c.Option.Flag)), c.Option.Flag
+	c.Option.Escaper, c.Option.EscaperFlags = jsonstring.EscaperOf(uint(c.Option.Flag)), c.Option.Flag
 }
 
 // SetStrictEscaper sets the escaper of RejectInvalidUTF8Option: one of the context, which records the first
@@ -294,11 +290,11 @@ func (c *RuntimeContext) SetStrictEscaper() {
 	} else {
 		c.strictEscaper.ClearInvalid()
 	}
-	if c.Escaper != &c.strictEscaper {
-		c.Escaper = &c.strictEscaper
+	if c.Option.Escaper != &c.strictEscaper {
+		c.Option.Escaper = &c.strictEscaper
 	}
 	// the options of RejectInvalidUTF8Option, which those of another escaper are not, which then set it again.
-	c.EscaperFlags = c.Option.Flag
+	c.Option.EscaperFlags = c.Option.Flag
 }
 
 // InvalidUTF8Output returns the output before the first string of invalid UTF-8 which the encoding of

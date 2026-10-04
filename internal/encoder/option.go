@@ -3,6 +3,8 @@ package encoder
 import (
 	"context"
 	"io"
+
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 type OptionFlag uint32
@@ -74,6 +76,11 @@ func NilSliceIsEmpty(ctx *RuntimeContext) bool {
 
 type Option struct {
 	Flag OptionFlag
+	// Escaper is the escaper of the strings ( see RuntimeContext.SetEscaper ), set for the options EscaperFlags,
+	// unless it is the one of RejectInvalidUTF8Option of the context: next to the options, which the VM reads for
+	// every value, as it reads it for every string.
+	Escaper      *jsonstring.Escaper
+	EscaperFlags OptionFlag
 	// V2 is the state of the call of the v2 json package, which its hooks take ( see V2Hooks ).
 	V2 any
 	// Funcs are the functions of marshaling of the call, of MarshalFuncsOption.

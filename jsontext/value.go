@@ -112,7 +112,7 @@ var compactOptions = []Options{
 }
 
 // noWhiteSpace sets the options of white space to none, so that an option given after it changes only itself.
-var noWhiteSpace = &config{set: multiline | spaceAfterColon | spaceAfterComma | indentSet}
+var noWhiteSpace = &config{Set: multiline | spaceAfterColon | spaceAfterComma | indentSet}
 
 // Indent formats the white space of v so that each element of an object or array starts a line which is
 // indented by its depth.
@@ -129,7 +129,7 @@ func (v *Value) Indent(opts ...Options) error {
 
 var indentOptions = []Options{
 	AllowDuplicateNames(true), AllowInvalidUTF8(true), PreserveRawStrings(true),
-	&config{set: multiline | spaceAfterColon | indentSet, value: multiline | spaceAfterColon, indent: "\t"},
+	&config{Set: multiline | spaceAfterColon | indentSet, Value: multiline | spaceAfterColon, Indent: "\t"},
 }
 
 // Canonicalize formats v in the canonical form of the JSON Canonicalization Scheme (JCS) of RFC 8785: a value
@@ -201,10 +201,10 @@ func getEncoder(opts []Options, first ...Options) *encoder {
 		e.vs.open = new([64]openObject)
 	}
 	e.cfg = config{}
-	e.cfg.apply(first)
-	e.cfg.apply(opts)
-	e.cfg.set |= omitTopLevelNewline
-	e.cfg.value |= omitTopLevelNewline
+	e.cfg.Apply(first)
+	e.cfg.Apply(opts)
+	e.cfg.Set |= omitTopLevelNewline
+	e.cfg.Value |= omitTopLevelNewline
 	e.init(nil)
 	return e
 }

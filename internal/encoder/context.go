@@ -5,6 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -58,11 +59,15 @@ const (
 var (
 	runtimeContextPool = sync.Pool{
 		New: func() any {
-			return &RuntimeContext{
-				Buf:    make([]byte, 0, bufSize),
-				Slots:  make([]uintptr, 128*slotWords),
-				Option: &Option{},
+			ctx := &RuntimeContext{
+				Buf:   make([]byte, 0, bufSize),
+				Slots: make([]uintptr, 128*slotWords),
 			}
+			// the escaper is set before the first encoding, of options which differ from noEscaperFlags ( see
+			// run.Code ).
+			ctx.option.EscaperFlags = noEscaperFlags
+			ctx.Option = &ctx.option
+			return ctx
 		},
 	}
 )
@@ -124,12 +129,19 @@ type recentCodeSet struct {
 // recentCodeSetSet is the entries of a set, the one encoded last first.
 type recentCodeSetSet [recentCodeSetWays]recentCodeSet
 
+// SeenValue is a value recorded to detect a cycle: its address, or the pointer which it is, and the length of a
+// slice, which another slice of the same array is not the same value as.
+type SeenValue struct {
+	p unsafe.Pointer
+	n int
+}
+
 type RuntimeContext struct {
 	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
 	Slots      []uintptr
-	SeenPtr    []unsafe.Pointer
+	SeenPtr    []SeenValue
 	BaseIndent uint32
 	// RecursiveLevel and SlotOffset are the state of the VM which only the opcodes of an interface value and of
 	// a recursive type use. They are here, not in the variables of the VM: the VM keeps its variables in the
@@ -158,6 +170,41 @@ type RuntimeContext struct {
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet
 	value        unsafe.Pointer
+	// KeyName is whether the key of a map is being written, by a method or a function of marshaling.
+	KeyName bool
+	// V2State is the state of the calls of the v2 json package which use the context, which is kept with it: a
+	// pointer to its type, which the encoder doesn't know, read without the check of a type assertion.
+	V2State unsafe.Pointer
+	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
+	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
+	CheckNames bool
+	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
+	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
+	RewriteFrom int
+	// rawLevels are the levels of the walk of a raw value of the v2 semantics ( see AppendFormattedRaw ), made by
+	// the first walk ( see levelsOfRaw ): the context of an encoding of v1 doesn't have them, which keeps it small
+	// to make again after the GC emptied the pool.
+	rawLevels *rawLevels
+	// strictEscaper is the escaper of RejectInvalidUTF8Option of the options of strictIndex - 1, which records the
+	// first string of invalid UTF-8 ( see SetStrictEscaper ): at the end, after the fields of every encoding.
+	strictEscaper jsonstring.Escaper
+	strictIndex   uint
+	// option is the Option of the context, which every encoding writes: in the object of the context, as an object
+	// of its own would share its cache lines with the options of other contexts, which other threads write.
+	option Option
+}
+
+// levelsOfRaw returns the levels of the walks of raw values of the context ( see rawLevels ).
+func (c *RuntimeContext) levelsOfRaw() *rawLevels {
+	if c.rawLevels == nil {
+		c.rawLevels = new(rawLevels)
+	}
+	return c.rawLevels
+}
+
+// Rewrote records that the output was written again, or shortened, from the offset at.
+func (c *RuntimeContext) Rewrote(at int) {
+	c.RewriteFrom = min(c.RewriteFrom, at)
 }
 
 // ValueAddr returns the address of the value passed to Marshal, which the data word of its interface value
@@ -229,6 +276,60 @@ func (c *RuntimeContext) releaseValues() {
 		clear(c.SeenPtr[:cap(c.SeenPtr)])
 		c.nested = false
 	}
+}
+
+// noEscaperFlags are the options of a context whose escaper is not set: the ones of no encoding, as they set both
+// RejectInvalidUTF8Option, whose escaper is set by SetStrictEscaper, and other bits.
+const noEscaperFlags = ^OptionFlag(0)
+
+// SetEscaper sets the escaper of the strings of the options, which the VM writes them by ( see StringEscaper ),
+// for an encoding by the context. The VM is run by the run package, which sets it itself for the options which
+// most encodings have, without a call: it calls SetStrictEscaper for RejectInvalidUTF8Option.
+func (c *RuntimeContext) SetEscaper() {
+	if c.Option.Flag&RejectInvalidUTF8Option != 0 {
+		c.SetStrictEscaper()
+		return
+	}
+	c.Option.Escaper, c.Option.EscaperFlags = jsonstring.EscaperOf(uint(c.Option.Flag)), c.Option.Flag
+}
+
+// SetStrictEscaper sets the escaper of RejectInvalidUTF8Option: one of the context, which records the first
+// string of invalid UTF-8 ( see InvalidUTF8Output ).
+//
+// It is not inlined into the run of the VM, which most encodings, of other options, run without its code.
+//
+//go:noinline
+func (c *RuntimeContext) SetStrictEscaper() {
+	flags := uint(c.Option.Flag)
+	if index := flags%uint(RejectInvalidUTF8Option<<1) + 1; c.strictIndex != index {
+		c.strictEscaper.CopyOf(flags)
+		c.strictIndex = index
+	} else {
+		c.strictEscaper.ClearInvalid()
+	}
+	if c.Option.Escaper != &c.strictEscaper {
+		c.Option.Escaper = &c.strictEscaper
+	}
+	// the options of RejectInvalidUTF8Option, which those of another escaper are not, which then set it again.
+	c.Option.EscaperFlags = c.Option.Flag
+}
+
+// HasInvalidUTF8 reports whether the encoding of RejectInvalidUTF8Option wrote a string of invalid UTF-8, which
+// InvalidUTF8Output returns.
+func (c *RuntimeContext) HasInvalidUTF8() bool {
+	return c.strictEscaper.HasInvalid()
+}
+
+// InvalidUTF8Output returns the output before the first string of invalid UTF-8 which the encoding of
+// RejectInvalidUTF8Option wrote, and true, and clears the record, which refers to the output; or false if it
+// wrote none.
+func (c *RuntimeContext) InvalidUTF8Output() ([]byte, bool) {
+	if c.Option.Flag&RejectInvalidUTF8Option == 0 {
+		return nil, false
+	}
+	out, invalid := c.strictEscaper.Invalid()
+	c.strictEscaper.ClearInvalid()
+	return out, invalid
 }
 
 // marshalerContext returns the context to call MarshalJSON(context.Context) with.

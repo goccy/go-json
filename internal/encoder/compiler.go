@@ -18,6 +18,9 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	if codeSet := ctx.RecentCodeSet(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
+	if ctx.Option.Flag&MarshalFuncsOption != 0 {
+		return ctx.Option.Funcs.codeSet(typeptr, ctx.compileMode())
+	}
 	// a context which may filter the fields finds the type in its set here, as RecentCodeSet doesn't for it.
 	key := ctx.codeSetKey(typeptr)
 	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
@@ -26,13 +29,13 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 			return getFilteredCodeSetIfNeeded(ctx, set[i].codeSet)
 		}
 	}
-	if ctx.Option.Flag&ContextOption == 0 {
+	if ctx.Option.Flag&UncachedOption == 0 {
 		if codeSet := ctx.SharedCodeSets().Load(typeptr); codeSet != nil {
 			ctx.RememberCodeSet(typeptr, codeSet)
 			return codeSet, nil
 		}
 	}
-	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.Option.Flag&OptimizeFieldOrderOption != 0)
+	codeSet, err := compileToGetUnfilteredCodeSet(typeptr, ctx.compileMode())
 	if err != nil {
 		return nil, err
 	}
@@ -40,10 +43,36 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	return getFilteredCodeSetIfNeeded(ctx, codeSet)
 }
 
-// codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type, whose
-// lowest bit is free by the alignment of a type and is set when the fields are ordered by the encoder.
+// compileMode is how the opcodes of a type are compiled, which the options of a context choose: the fields of a
+// struct in their order or ordered by the encoder, the semantics of v1 or of v2, and the options of v2 which
+// change the opcodes of a type. The opcodes of each mode are cached apart.
+type compileMode uint8
+
+const (
+	modeOptimizeFieldOrder   compileMode = 1 << iota // OptimizeFieldOrderOption
+	modeV2                                           // V2Option
+	modeStringifyNumbers                             // StringifyNumbersOption, with V2Option
+	modeOmitZeroStructFields                         // OmitZeroStructFieldsOption, with V2Option
+
+	compileModes = 16
+)
+
+// the options of the compile mode are adjacent bits, from OptimizeFieldOrderOption.
+var _ [0]struct{} = [OptimizeFieldOrderOption*OptionFlag(modeOptimizeFieldOrder) - OptimizeFieldOrderOption +
+	(OptimizeFieldOrderOption*OptionFlag(modeV2) - V2Option) +
+	(OptimizeFieldOrderOption*OptionFlag(modeStringifyNumbers) - StringifyNumbersOption) +
+	(OptimizeFieldOrderOption*OptionFlag(modeOmitZeroStructFields) - OmitZeroStructFieldsOption)]struct{}{}
+
+// compileMode is the compile mode of the options of c.
+func (c *RuntimeContext) compileMode() compileMode {
+	return compileMode(c.Option.Flag / OptimizeFieldOrderOption & (compileModes - 1))
+}
+
+// codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type plus the
+// compile mode. A type descriptor is larger than the number of the modes, so the key of a type in a mode is not
+// the key of another type in any mode.
 func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
-	return typeptr | uintptr(c.Option.Flag&OptimizeFieldOrderOption)/uintptr(OptimizeFieldOrderOption)
+	return typeptr + uintptr(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1))
 }
 
 // RecentCodeSet returns the opcodes of the type if the context encoded it recently and has no context which
@@ -56,7 +85,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
-	if c.Option.Flag&ContextOption == 0 {
+	if c.Option.Flag&UncachedOption == 0 {
 		if set[0].typeptr == key {
 			return set[0].codeSet
 		}
@@ -67,8 +96,8 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	return nil
 }
 
-// SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context: the one of the
-// types in the order of their fields, or the one with the fields ordered by the encoder. Its opcodes are not
+// SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context, of its compile
+// mode. Its opcodes are not
 // filtered by a field query: a context which may filter the fields ( ContextOption ) is left to
 // CompileToGetCodeSet, which filters them, and the callers look at this table only for the other contexts.
 //
@@ -79,7 +108,7 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 // of this table looks at the next entries without a call as well ( Load ). A full lookup in the VM measured
 // slower even when the recent opcodes hit, as its loop changed the code of the VM around them.
 func (c *RuntimeContext) SharedCodeSets() *runtime.TypeCache[OpcodeSet] {
-	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&1]
+	return &cachedOpcodeSets[c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1)]
 }
 
 // RememberCodeSet puts the opcodes of the type in the first entry of its set in the context: the one encoded
@@ -96,16 +125,13 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 }
 
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
-// The opcodes with the fields ordered by the encoder are cached apart from the ones in the order of the struct.
-func compileToGetUnfilteredCodeSet(typeptr uintptr, optimizeFieldOrder bool) (*OpcodeSet, error) {
-	cache := &cachedOpcodeSets[0]
-	if optimizeFieldOrder {
-		cache = &cachedOpcodeSets[1]
-	}
+// The opcodes of each compile mode are cached apart.
+func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
+	cache := &cachedOpcodeSets[mode]
 	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
 	}
-	codeSet, err := newCompiler(optimizeFieldOrder).compile(typeptr)
+	codeSet, err := newCompiler(mode).compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +147,8 @@ var (
 	marshalJSONContextType = reflect.TypeOf((*marshalerContext)(nil)).Elem()
 	marshalTextType        = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	jsonNumberType         = reflect.TypeOf(json.Number(""))
-	// cachedOpcodeSets are the opcodes of the types in the order of their fields, and with the fields ordered by
-	// the encoder.
-	cachedOpcodeSets [2]runtime.TypeCache[OpcodeSet]
+	// cachedOpcodeSets are the opcodes of the types, of each compile mode.
+	cachedOpcodeSets [compileModes]runtime.TypeCache[OpcodeSet]
 )
 
 func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*OpcodeSet, error) {
@@ -141,7 +166,7 @@ func getFilteredCodeSetIfNeeded(ctx *RuntimeContext, codeSet *OpcodeSet) (*Opcod
 	}
 	// the fields of the code are already in their order: the compiler orders only the fields of the recursive
 	// structs it compiles when it links them, as the code was compiled.
-	compiler := newCompiler(ctx.Option.Flag&OptimizeFieldOrderOption != 0)
+	compiler := newCompiler(ctx.compileMode())
 	compiler.isFiltered = true
 	queryCodeSet, err := compiler.codeToOpcodeSet(codeSet.Type, codeSet.Code.Filter(query))
 	if err != nil {
@@ -155,6 +180,12 @@ type Compiler struct {
 	structTypeToCode map[uintptr]*StructCode
 	// optimizeFieldOrder is whether the fields of a struct are ordered as they are encoded fastest.
 	optimizeFieldOrder bool
+	// v2 is whether the opcodes have the semantics of encoding/json/v2.
+	v2 bool
+	// stringifyNumbers is whether the numbers are JSON strings ( StringifyNumbersOption ).
+	stringifyNumbers bool
+	// omitZeroStructFields is whether every field of a struct is omitted if it is zero ( OmitZeroStructFieldsOption ).
+	omitZeroStructFields bool
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
@@ -169,6 +200,52 @@ type Compiler struct {
 	// isFiltered is whether the code being compiled to opcodes is filtered by a field query: then the opcodes
 	// which a struct has in one place are not the ones of the struct in another.
 	isFiltered bool
+	// valuesOnPath are the named slice, array, map and pointer types whose codes are being compiled: a value of
+	// one of them in itself is encoded by its type at run time ( see recursiveValueCode ).
+	valuesOnPath map[uintptr]struct{}
+	// v2Object is the JSON object whose struct is being compiled, for the v2 semantics: its members, and the
+	// index of the embedded struct being compiled ( see v2StructTags ).
+	v2Object *v2Object
+	// v2EmbedPath is the index of the embedded field being compiled, whose struct is a part of v2Object, or nil.
+	v2EmbedPath []int
+	// v2DefaultType is the type whose default representation is compiled after the functions of marshaling and the
+	// method v2DefaultAfter, which declined to write a value of it ( see appendDefault ).
+	v2DefaultType  reflect.Type
+	v2DefaultAfter int
+	// funcs are the functions of marshaling of the opcodes, of MarshalFuncsOption.
+	funcs *MarshalFuncs
+}
+
+// recursiveValueCode returns the code of a value of typ if typ is a slice, an array, a map or a pointer type whose
+// code is being compiled, as a value of itself: such a type, as `type T []T`, would have a code of an infinite
+// size, which a struct type avoids by a jump to the code of the struct ( see linkRecursiveCode ). Its value is
+// encoded as a value of interface{} of typ would be, by the opcodes of typ, which are compiled when the first
+// value is encoded.
+func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
+	if _, ok := c.valuesOnPath[uintptr(runtime.TypePtr(typ))]; !ok {
+		return nil, false
+	}
+	return &InterfaceCode{typ: typ, static: true}, true
+}
+
+// enterValue records that the code of typ is being compiled, if typ may be a value of itself ( see
+// recursiveValueCode ), and returns the function which records the end of it.
+func (c *Compiler) enterValue(typ reflect.Type) func() {
+	switch typ.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Map:
+		if typ.Name() == "" {
+			// a type which is a value of itself is a named type: an unnamed type can't refer to itself.
+			return func() {}
+		}
+	default:
+		return func() {}
+	}
+	if c.valuesOnPath == nil {
+		c.valuesOnPath = map[uintptr]struct{}{}
+	}
+	key := uintptr(runtime.TypePtr(typ))
+	c.valuesOnPath[key] = struct{}{}
+	return func() { delete(c.valuesOnPath, key) }
 }
 
 // sharedStructFieldCount is how many fields the code of a struct has, with the fields of the structs in it,
@@ -179,19 +256,23 @@ type Compiler struct {
 // struct is copied, which saves the jump for each value.
 const sharedStructFieldCount = 128
 
-func newCompiler(optimizeFieldOrder bool) *Compiler {
+func newCompiler(mode compileMode) *Compiler {
 	return &Compiler{
-		structTypeToCode:   map[uintptr]*StructCode{},
-		optimizeFieldOrder: optimizeFieldOrder,
-		structFieldCounts:  map[uintptr]int{},
+		structTypeToCode:     map[uintptr]*StructCode{},
+		optimizeFieldOrder:   mode&modeOptimizeFieldOrder != 0,
+		v2:                   mode&modeV2 != 0,
+		stringifyNumbers:     mode&modeStringifyNumbers != 0,
+		omitZeroStructFields: mode&modeOmitZeroStructFields != 0,
+		structFieldCounts:    map[uintptr]int{},
 	}
 }
 
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := runtime.TypeOfPtr(*(*unsafe.Pointer)(unsafe.Pointer(&typeptr)))
-	if typ.Kind() == reflect.Ptr {
-		// a pointer is the address of a value, so the opcodes are the ones of the value it points to.
+	if typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0 {
+		// a pointer is the address of a value, so the opcodes are the ones of the value it points to. A pointer
+		// which a function of marshaling takes is a value of its own, whose address the function is given.
 		code, err := c.pointeeCode(typ.Elem())
 		if err != nil {
 			return nil, err
@@ -261,9 +342,11 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
 	codeLength := noescapeKeyCode.TotalLength()
 	return &OpcodeSet{
-		Type:                     typ,
-		IfaceIndir:               runtime.IfaceIndir(typ),
-		DataWordIsAddr:           runtime.IfaceIndir(typ) || typ.Kind() == reflect.Ptr,
+		Type:           typ,
+		IfaceIndir:     runtime.IfaceIndir(typ),
+		DataWordIsAddr: runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0),
+		IdentityIsFirstWord: !runtime.IfaceIndir(typ) || typ.Kind() == reflect.Ptr || typ.Kind() == reflect.Map ||
+			typ.Kind() == reflect.Slice,
 		NoescapeKeyCode:          noescapeKeyCode,
 		EscapeKeyCode:            escapeKeyCode,
 		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,
@@ -295,12 +378,22 @@ func isScalarOp(op OpType) bool {
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {
-	switch {
-	case c.implementsMarshalJSON(typ):
-		return c.marshalJSONCode(typ)
-	case c.implementsMarshalText(typ):
-		return c.marshalTextCode(typ)
+	if code, ok := c.recursiveValueCode(typ); ok {
+		return code, nil
 	}
+	if c.v2 {
+		if code, ok := c.v2Code(typ); ok {
+			return code, nil
+		}
+	} else {
+		switch {
+		case c.implementsMarshalJSON(typ):
+			return c.marshalJSONCode(typ)
+		case c.implementsMarshalText(typ):
+			return c.marshalTextCode(typ)
+		}
+	}
+	defer c.enterValue(typ)()
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return c.ptrCode(typ)
@@ -359,62 +452,62 @@ const intSize = 32 << (^uint(0) >> 63)
 
 //nolint:unparam
 func (c *Compiler) intCode(typ reflect.Type, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
+	return &IntCode{typ: typ, bitSize: intSize, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) int8Code(typ reflect.Type, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
+	return &IntCode{typ: typ, bitSize: 8, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) int16Code(typ reflect.Type, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
+	return &IntCode{typ: typ, bitSize: 16, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) int32Code(typ reflect.Type, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+	return &IntCode{typ: typ, bitSize: 32, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) int64Code(typ reflect.Type, isPtr bool) (*IntCode, error) {
-	return &IntCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+	return &IntCode{typ: typ, bitSize: 64, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) uintCode(typ reflect.Type, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: typ, bitSize: intSize, isPtr: isPtr}, nil
+	return &UintCode{typ: typ, bitSize: intSize, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) uint8Code(typ reflect.Type, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: typ, bitSize: 8, isPtr: isPtr}, nil
+	return &UintCode{typ: typ, bitSize: 8, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) uint16Code(typ reflect.Type, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: typ, bitSize: 16, isPtr: isPtr}, nil
+	return &UintCode{typ: typ, bitSize: 16, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) uint32Code(typ reflect.Type, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+	return &UintCode{typ: typ, bitSize: 32, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) uint64Code(typ reflect.Type, isPtr bool) (*UintCode, error) {
-	return &UintCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+	return &UintCode{typ: typ, bitSize: 64, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) float32Code(typ reflect.Type, isPtr bool) (*FloatCode, error) {
-	return &FloatCode{typ: typ, bitSize: 32, isPtr: isPtr}, nil
+	return &FloatCode{typ: typ, bitSize: 32, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
 func (c *Compiler) float64Code(typ reflect.Type, isPtr bool) (*FloatCode, error) {
-	return &FloatCode{typ: typ, bitSize: 64, isPtr: isPtr}, nil
+	return &FloatCode{typ: typ, bitSize: 64, isPtr: isPtr, isString: c.stringifyNumbers}, nil
 }
 
 //nolint:unparam
@@ -507,6 +600,11 @@ func (c *Compiler) marshalTextCode(typ reflect.Type) (*MarshalTextCode, error) {
 }
 
 func (c *Compiler) ptrCode(typ reflect.Type) (*PtrCode, error) {
+	if elem := typ.Elem(); elem.Kind() == reflect.Ptr && len(c.funcs.funcsOf(elem)) > 0 {
+		// a pointer which a function of marshaling takes is not followed with the pointer to it: it is a value of
+		// its own, encoded by its type after the pointer to it.
+		return &PtrCode{typ: typ, value: &InterfaceCode{typ: elem, static: true}, ptrNum: 1}, nil
+	}
 	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
 	if err != nil {
 		return nil, err
@@ -545,7 +643,11 @@ func (c *Compiler) arrayCode(typ reflect.Type) (*ArrayCode, error) {
 }
 
 func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
-	keyCode, err := c.mapKeyCode(typ.Key())
+	mapKeyCode := c.mapKeyCode
+	if c.v2 {
+		mapKeyCode = c.v2MapKeyCode
+	}
+	keyCode, err := mapKeyCode(typ.Key())
 	if err != nil {
 		return nil, err
 	}
@@ -557,12 +659,17 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 		structCode := valueCode.(*StructCode)
 		structCode.enableIndirect()
 	}
-	return &MapCode{typ: typ, key: keyCode, value: valueCode}, nil
+	// the names of the keys which a function, a method or a pointer writes may be the same.
+	_, checkNames := keyCode.(*MarshalJSONCode)
+	return &MapCode{typ: typ, key: keyCode, value: valueCode, checkNames: c.v2 && checkNames}, nil
 }
 
 func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
+	if code, ok := c.recursiveValueCode(typ); ok {
+		return code, nil
+	}
 	switch {
-	case c.isPtrMarshalJSONType(typ):
+	case !c.v2 && c.isPtrMarshalJSONType(typ):
 		// The opcode takes the address of the element, which is the very pointer the marshaler is called with.
 		// So the opcode is the one of the pointer type, and neither a copy of the element nor reflect is needed.
 		ptrType := reflect.PointerTo(typ)
@@ -570,11 +677,11 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 			typ:                ptrType,
 			isMarshalerContext: ptrType.Implements(marshalJSONContextType),
 		}, nil
-	case c.implementsMarshalJSONType(typ):
+	case !c.v2 && c.implementsMarshalJSONType(typ):
 		return c.marshalJSONCode(typ)
-	case !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
+	case !c.v2 && !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
 		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
-	case typ.Kind() == reflect.Map:
+	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ)):
 		return c.ptrCode(reflect.PointerTo(typ))
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
@@ -649,8 +756,11 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ reflect.Type) (Code, error) {
+	if code, ok := c.recursiveValueCode(typ); ok {
+		return code, nil
+	}
 	switch {
-	case typ.Kind() == reflect.Map && !c.implementsMarshalJSON(typ) && !c.implementsMarshalText(typ):
+	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ):
 		// a map which has a marshaler is encoded by the marshaler, not as a map.
 		return c.ptrCode(reflect.PointerTo(typ))
 	default:
@@ -705,7 +815,15 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	firstField := c.fieldCount
 
 	fieldNum := typ.NumField()
-	tags := c.typeToStructTags(typ)
+	var tags runtime.StructTags
+	var embeds map[*runtime.StructTag][]int
+	if c.v2 {
+		var restore func()
+		tags, embeds, restore = c.v2StructTags(typ, embedded)
+		defer restore()
+	} else {
+		tags = c.typeToStructTags(typ)
+	}
 	fields := []*StructFieldCode{}
 	for i, tag := range tags {
 		if (tag.IsOmitEmpty || tag.IsOmitZero) && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0 {
@@ -713,7 +831,9 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 			continue
 		}
 		isOnlyOneFirstField := i == 0 && fieldNum == 1
+		c.v2EmbedPath = embeds[tag]
 		field, err := c.structFieldCode(code, tag, isPtr, isOnlyOneFirstField)
+		c.v2EmbedPath = nil
 		if err != nil {
 			return nil, err
 		}
@@ -723,7 +843,10 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 				continue
 			}
 			if structCode != nil {
-				structCode.removeFieldsByTags(c.keyTags(tags))
+				if !c.v2 {
+					// the members of the v2 semantics are chosen before ( see v2StructTags ).
+					structCode.removeFieldsByTags(c.keyTags(tags))
+				}
 				if c.isAssignableIndirect(field, isPtr) {
 					if indirect {
 						structCode.isIndirect = true
@@ -748,9 +871,17 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 		}
 		fields = append(fields, field)
 	}
-	fieldMap := c.getFieldMap(fields)
-	duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
-	code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
+	if c.v2 {
+		if fs := v2FieldsOf(typ); !embedded && fs.Fallback != nil {
+			// the members of the embedded fallback are written after the ones of the fields.
+			fields = append(fields, c.v2FallbackField(typ, fs))
+		}
+		code.fields = fields
+	} else {
+		fieldMap := c.getFieldMap(fields)
+		duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
+		code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
+	}
 	if c.optimizeFieldOrder {
 		code.fields = orderFieldsForSpeed(code.fields, typ)
 	}
@@ -826,7 +957,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		key:           tag.Key,
 		tag:           tag,
 		offset:        field.Offset,
-		isAnonymous:   c.isEmbeddedStruct(tag),
+		isAnonymous:   c.isEmbeddedField(tag),
 		isTaggedKey:   tag.IsTaggedKey,
 		isNilableType: c.isNilableType(fieldType),
 		// The check writes null instead of calling the marshaler, which encoding/json does only for a nil
@@ -849,8 +980,14 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		inlined.IsOmitZero = false
 		fieldCode.tag = &inlined
 	}
+	if c.v2 && !fieldCode.isAnonymous {
+		if code, ok := c.v2FieldValueCode(fieldCode); ok {
+			fieldCode.value = code
+			return fieldCode, nil
+		}
+	}
 	switch {
-	case c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
+	case !c.v2 && c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
 		code, err := c.marshalJSONCode(fieldType)
 		if err != nil {
 			return nil, err
@@ -860,7 +997,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
-	case c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
+	case !c.v2 && c.isMovePointerPositionFromHeadToFirstMarshalTextFieldCase(fieldType, isIndirectSpecialCase):
 		code, err := c.marshalTextCode(fieldType)
 		if err != nil {
 			return nil, err
@@ -870,7 +1007,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
 		structCode.isIndirect = false
 		structCode.disableIndirectConversion = true
-	case isPtr && c.isPtrMarshalJSONType(fieldType):
+	case !c.v2 && isPtr && c.isPtrMarshalJSONType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalJSON() ([]byte, error)
 		code, err := c.marshalJSONCode(fieldType)
@@ -880,7 +1017,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.value = code
 		fieldCode.isAddrForMarshaler = true
 		fieldCode.isNilCheck = c.isNilCheckForAddrMarshaler(tag)
-	case isPtr && c.isPtrMarshalTextType(fieldType):
+	case !c.v2 && isPtr && c.isPtrMarshalTextType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalText() ([]byte, error)
 		code, err := c.marshalTextCode(fieldType)
@@ -913,6 +1050,15 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 // marshaler, which a pointer to the field never needs.
 func (c *Compiler) isNilCheckForAddrMarshaler(tag *runtime.StructTag) bool {
 	return tag.IsOmitEmpty
+}
+
+// isEmbeddedField reports whether the field is an embedded struct whose fields are written as the fields of the
+// struct which embeds it: for the v2 semantics, the field whose path v2StructTags gave.
+func (c *Compiler) isEmbeddedField(tag *runtime.StructTag) bool {
+	if c.v2 {
+		return c.v2EmbedPath != nil
+	}
+	return c.isEmbeddedStruct(tag)
 }
 
 // isEmbeddedStruct reports whether the field is an embedded struct whose fields are written as the fields of
@@ -1111,6 +1257,15 @@ func (c *Compiler) implementsMarshalText(typ reflect.Type) bool {
 	}
 	// needs to dereference
 	return false
+}
+
+// hasMarshaler reports whether a value of the type is written by a marshaler: a method of its own, or of v1 the
+// method of the pointer to it.
+func (c *Compiler) hasMarshaler(typ reflect.Type) bool {
+	if c.v2 {
+		return c.v2HasMethod(typ)
+	}
+	return c.implementsMarshalJSON(typ) || c.implementsMarshalText(typ)
 }
 
 func (c *Compiler) isNilableType(typ reflect.Type) bool {

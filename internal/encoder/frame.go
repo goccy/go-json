@@ -1,8 +1,11 @@
 package encoder
 
 import (
+	"reflect"
 	"slices"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 // The frames of the VM.
@@ -44,11 +47,47 @@ func loadSlotInt(base unsafe.Pointer, idx uint32) uintptr {
 // values, so it is still detected, and the values which are not nested deeply cost nothing.
 func (c *RuntimeContext) recordSeen(code *Opcode, p unsafe.Pointer) error {
 	if p != nil {
-		if slices.Contains(c.SeenPtr, p) {
-			return ErrUnsupportedValue(code, p)
+		if slices.Contains(c.SeenPtr, SeenValue{p: p}) {
+			return ErrUnsupportedValue(c, code, p)
 		}
 	}
-	c.SeenPtr = append(c.SeenPtr, p)
+	c.SeenPtr = append(c.SeenPtr, SeenValue{p: p})
+	return nil
+}
+
+// entersNilValue is whether the value of the type typ, held by an interface value whose data word is nil, is
+// encoded by the opcodes of typ: a struct or an array stored directly, whose single pointer is nil, and for the
+// v2 semantics a value of any type but a pointer, which writes a nil map as {} and fails for a nil func. The
+// other values are null, as no type is.
+func (c *RuntimeContext) entersNilValue(typ unsafe.Pointer) bool {
+	if typ == nil {
+		return false
+	}
+	if c.Option.Flag&MarshalFuncsOption != 0 {
+		// a function of marshaling may take a nil pointer: its type tells.
+		return true
+	}
+	if c.Option.Flag&V2Option != 0 {
+		return runtime.TypeOfPtr(typ).Kind() != reflect.Ptr
+	}
+	return ShapeOf(typ) == ValueShapeAggregate && !IfaceIndir(typ)
+}
+
+// recordSeenValue is recordSeen of the value at p, of the type of codeSet, which a frame of an interface value
+// encodes: the value is recorded by its identity, as the interface value which holds it may be a copy, as the
+// value of a map is.
+func (c *RuntimeContext) recordSeenValue(codeSet *OpcodeSet, p unsafe.Pointer) error {
+	id := SeenValue{p: p}
+	if codeSet.IdentityIsFirstWord {
+		id.p = *(*unsafe.Pointer)(p)
+		if codeSet.Type.Kind() == reflect.Slice {
+			id.n = (*runtime.SliceHeader)(p).Len
+		}
+	}
+	if id.p != nil && slices.Contains(c.SeenPtr, id) {
+		return errCycle(c, codeSet.Type, p)
+	}
+	c.SeenPtr = append(c.SeenPtr, id)
 	return nil
 }
 
@@ -81,26 +120,30 @@ func (c *RuntimeContext) enterFrame(first, end, next *Opcode, p unsafe.Pointer, 
 //go:noinline
 func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode, unsafe.Pointer, bool, error) {
 	var typ, ifacePtr unsafe.Pointer
-	if code.Flags&NonEmptyInterfaceFlags != 0 {
+	// a value of interface{} is told from the others by one check.
+	switch {
+	case code.Flags&(NonEmptyInterfaceFlags|StaticTypeFlags) == 0:
+		iface := (*emptyInterface)(p)
+		ifacePtr = iface.ptr
+		typ = iface.typ
+	case code.Flags&StaticTypeFlags != 0:
+		// the value at p of the type of the opcode, which is encoded as it would be held by an interface value,
+		// by the opcodes of the type, at its address ( see InterfaceCode.static ).
+		typ = code.Type
+		ifacePtr = p
+	default:
 		iface := (*nonEmptyInterface)(p)
 		ifacePtr = iface.ptr
 		if iface.itab != nil {
 			typ = iface.itab.typ
 		}
-	} else {
-		iface := (*emptyInterface)(p)
-		ifacePtr = iface.ptr
-		typ = iface.typ
 	}
-	if ifacePtr == nil {
-		isDirectedNil := typ != nil && ShapeOf(typ) == ValueShapeAggregate && !IfaceIndir(typ)
-		if !isDirectedNil {
-			return nil, nil, false, nil
-		}
+	if ifacePtr == nil && !c.entersNilValue(typ) {
+		return nil, nil, false, nil
 	}
 	codeSet := c.RecentCodeSet(uintptr(typ))
 	if codeSet == nil {
-		if c.Option.Flag&ContextOption == 0 {
+		if c.Option.Flag&UncachedOption == 0 {
 			codeSet = c.SharedCodeSets().LoadFirst(uintptr(typ))
 		}
 		if codeSet != nil {
@@ -117,9 +160,16 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 		// a scalar is never stored directly in an interface value: the data word is its address.
 		return codeSet.Scalar, ifacePtr, true, nil
 	}
+	// The opcodes take the address of the value. The data word of the interface value is the address for
+	// most of the types, and the value itself for a type of a pointer shape which is not a pointer, such as a
+	// map: then the address of the data word, in the interface value at p, is the address of the value.
+	value := ifacePtr
+	if !codeSet.DataWordIsAddr && code.Flags&StaticTypeFlags == 0 {
+		value = unsafe.Add(p, unsafe.Sizeof(uintptr(0)))
+	}
 	// after every path which doesn't go into the value, so that a record always has its end.
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
-		if err := c.recordSeen(code, p); err != nil {
+		if err := c.recordSeenValue(codeSet, value); err != nil {
 			return nil, nil, false, err
 		}
 	}
@@ -128,13 +178,6 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 		first = codeSet.InterfaceEscapeKeyCode
 	} else {
 		first = codeSet.InterfaceNoescapeKeyCode
-	}
-	// The opcodes take the address of the value. The data word of the interface value is the address for
-	// most of the types, and the value itself for a type of a pointer shape which is not a pointer, such as a
-	// map: then the address of the data word, in the interface value at p, is the address of the value.
-	value := ifacePtr
-	if !codeSet.DataWordIsAddr {
-		value = unsafe.Add(p, unsafe.Sizeof(uintptr(0)))
 	}
 	base := c.enterFrame(first, codeSet.EndCode, code.Next, value,
 		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, c.BaseIndent+code.Indent)

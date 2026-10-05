@@ -38,6 +38,9 @@ type StructTag struct {
 	IsOmitZero bool
 	IsString   bool
 	Field      reflect.StructField
+	// QuotedKey is Key as a JSON string, if Key may need an escape: a name of the v2 semantics may have any
+	// character.
+	QuotedKey string
 }
 
 type StructTags []*StructTag

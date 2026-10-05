@@ -9,7 +9,7 @@ import (
 
 // The tables must tell the same as the table of every byte, for every combination of the options.
 func TestNibbleTables(t *testing.T) {
-	for index := range stringEscapes {
+	for index := range stringEscapeStrict {
 		e := &stringEscapes[index]
 		for b := 0; b < 256; b++ {
 			got := e.tables.Lo[b&0xf]&e.tables.Hi[b>>4] != 0
@@ -24,7 +24,7 @@ func TestNibbleTables(t *testing.T) {
 // ASCII which the others tell to, has an escape sequence: the functions of the escapes write the sequence of such
 // a byte without looking at it otherwise.
 func TestEscapeSequences(t *testing.T) {
-	for index := range stringEscapes {
+	for index := range stringEscapeStrict {
 		e := &stringEscapes[index]
 		for b := 0; b < 256; b++ {
 			if !e.table[b] || (b >= 0x80 && e.high != 0) {

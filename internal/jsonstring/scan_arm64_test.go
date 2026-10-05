@@ -9,7 +9,7 @@ import (
 
 func TestScanStringNEON(t *testing.T) {
 	special := []byte{0x00, 0x1f, '"', '\\', '<', '>', '&', 0x7f, 0x80, 0xe3, 0xff, '\n', ' ', '!', '#', '=', '?', '[', ']'}
-	for index := range stringEscapes {
+	for index := range stringEscapeStrict {
 		e := &stringEscapes[index]
 		expected := func(s string) int {
 			for i := 0; i < len(s); i++ {

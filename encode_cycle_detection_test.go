@@ -74,4 +74,62 @@ func TestEncodeCycleNestedDeeply(t *testing.T) {
 			}
 		}
 	})
+	// the value of a map is a copy, but the map it holds is the same: it is the cycle.
+	t.Run("map of interface values", func(t *testing.T) {
+		m := map[string]any{}
+		m["k"] = m
+		if _, err := json.Marshal(m); err == nil {
+			t.Fatal("expected an error")
+		}
+	})
+	// two slices of the same array which differ in length are not the same value.
+	t.Run("slices of an array", func(t *testing.T) {
+		v := []any{nil, nil}
+		v[1] = v[:1]
+		got, err := json.Marshal(nestedInterfaceValue(1100, v))
+		want, wantErr := stdjson.Marshal(nestedInterfaceValue(1100, v))
+		if err != nil || wantErr != nil || !bytes.Equal(got, want) {
+			t.Fatalf("got %d bytes, %v; want %d bytes, %v", len(got), err, len(want), wantErr)
+		}
+	})
+}
+
+// A slice, a map or a pointer type which is a value of itself, not through a struct.
+type (
+	recursiveSliceType []recursiveSliceType
+	recursiveMapType   map[string]recursiveMapType
+	recursivePtrType   *recursivePtrType
+	recursiveMapField  map[string]struct {
+		X recursiveMapField `json:",omitempty"`
+		Y recursiveMapField
+	}
+)
+
+func TestEncodeRecursiveNonStructType(t *testing.T) {
+	var p recursivePtrType
+	p2 := recursivePtrType(&p)
+	for _, v := range []any{
+		recursiveSliceType{nil, recursiveSliceType{}, recursiveSliceType{recursiveSliceType{nil}}},
+		recursiveMapType{"a": nil, "b": recursiveMapType{}, "c": recursiveMapType{"d": recursiveMapType{}}},
+		p, p2, &p2,
+		recursiveMapField{"a": {X: recursiveMapField{}, Y: nil}, "b": {X: recursiveMapField{"c": {}}}},
+		[]recursiveSliceType{nil, {}},
+		map[string]recursiveMapType{"x": {"y": nil}},
+	} {
+		got, err := json.Marshal(v)
+		want, wantErr := stdjson.Marshal(v)
+		if !bytes.Equal(got, want) || (err == nil) != (wantErr == nil) {
+			t.Errorf("%T: got %s, %v; want %s, %v", v, got, err, want, wantErr)
+		}
+	}
+	m := recursiveMapType{}
+	m["k"] = m
+	if _, err := json.Marshal(m); err == nil {
+		t.Error("map: expected the error of a cycle")
+	}
+	s := recursiveSliceType{nil}
+	s[0] = s
+	if _, err := json.Marshal(s); err == nil {
+		t.Error("slice: expected the error of a cycle")
+	}
 }

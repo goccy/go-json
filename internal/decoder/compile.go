@@ -383,6 +383,8 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 					// recursive definition
 					continue
 				}
+				// the pointer of an unexported field can't be allocated, but one which is set is followed: the error
+				// is reported when it is nil, at the decoding
 				var fieldSetErr error
 				if isUnexportedField {
 					fieldSetErr = fmt.Errorf(

@@ -16,7 +16,15 @@ type structFieldSet struct {
 	fieldIdx    int
 	key         string
 	keyLen      int64
-	err         error
+	// err is the error of a field promoted from an embedded pointer to an unexported struct, at offset, which
+	// can't be allocated: it is reported only when the pointer is nil ( see unsettable ).
+	err error
+}
+
+// unsettable reports whether the field can't be set in the struct at p: it is promoted from an embedded pointer to
+// an unexported struct, which is nil. A pointer which is set is followed, as encoding/json does.
+func (f *structFieldSet) unsettable(p unsafe.Pointer) bool {
+	return f.err != nil && *(*unsafe.Pointer)(unsafe.Add(p, f.offset)) == nil
 }
 
 type structDecoder struct {
@@ -111,7 +119,7 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 			return 0, errors.ErrExpected("object value after colon", cursor)
 		}
 		if field != nil {
-			if field.err != nil {
+			if field.unsettable(p) {
 				// a field which can't be set: the error is recorded as a type error, and the decoding goes on
 				c, err := d.unsettableField(ctx, cursor, depth, field.err)
 				if err != nil {
@@ -180,7 +188,8 @@ func (d *structDecoder) decodeObjectFirstWin(ctx *RuntimeContext, cursor, depth 
 		if field != nil {
 			// the first 64 fields are the bits of seen, in a register; the others are looked at by a call
 			var decoded bool
-			if field.err != nil {
+			unsettable := field.unsettable(p)
+			if unsettable {
 				// a field which can't be set: the error is recorded as a type error, and the decoding goes on
 				c, err := d.unsettableField(ctx, cursor, depth, field.err)
 				if err != nil {
@@ -195,7 +204,7 @@ func (d *structDecoder) decodeObjectFirstWin(ctx *RuntimeContext, cursor, depth 
 				decoded = d.decodedBefore(idx, &seenMore)
 			}
 			switch {
-			case field.err != nil:
+			case unsettable:
 			case decoded:
 				c, err := skipValue(buf, cursor, depth)
 				if err != nil {

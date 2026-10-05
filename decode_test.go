@@ -2789,6 +2789,129 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 	}
 }
 
+// An embedded pointer to an unexported struct which is set before the decoding is followed, as encoding/json does:
+// only a nil one can't be set. It lets a type decode into itself through an alias, as in
+//
+//	type plain T
+//	return json.Unmarshal(b, &struct{ *plain }{(*plain)(t)})
+func TestUnmarshalEmbeddedUnexportedSet(t *testing.T) {
+	type (
+		embed1 struct{ Q int }
+		embed2 struct{ Q int }
+		embed3 struct {
+			Q int64 `json:",string"`
+		}
+		embed4 struct{ P int }
+		S1     struct {
+			*embed1
+			R int
+		}
+		S2 struct {
+			*embed1
+			Q int
+		}
+		S4 struct {
+			*embed1
+			embed2
+		}
+		S5 struct {
+			*embed3
+			R int
+		}
+		S10 struct {
+			*embed1
+			*embed4
+		}
+	)
+
+	tests := []struct {
+		in  string
+		new func() any
+	}{{
+		in: `{"R":2,"Q":1}`,
+		new: func() any {
+			return &S1{embed1: &embed1{}}
+		},
+	}, {
+		// A key which is not in the object leaves the value of the pointer as it is.
+		in: `{"R":2}`,
+		new: func() any {
+			return &S1{embed1: &embed1{Q: 5}}
+		},
+	}, {
+		// The top level Q field takes precedence.
+		in: `{"Q":1}`,
+		new: func() any {
+			return &S2{embed1: &embed1{Q: 5}}
+		},
+	}, {
+		in: `{"Q":1}`,
+		new: func() any {
+			return &S4{embed1: &embed1{Q: 5}}
+		},
+	}, {
+		in: `{"R":2,"Q":"7"}`,
+		new: func() any {
+			return &S5{embed3: &embed3{}}
+		},
+	}, {
+		in: `{"R":2,"Q":7}`,
+		new: func() any {
+			return &S5{embed3: &embed3{}}
+		},
+	}, {
+		// Error for the nil pointer only, the one which is set is decoded.
+		in: `{"Q":1,"P":2}`,
+		new: func() any {
+			return &S10{embed1: &embed1{}}
+		},
+	}, {
+		in: `{"P":2,"Q":1}`,
+		new: func() any {
+			return &S10{embed4: &embed4{}}
+		},
+	}}
+
+	decodes := []struct {
+		name   string
+		decode func(in string, v any) error
+	}{{
+		name: "Unmarshal",
+		decode: func(in string, v any) error {
+			return json.Unmarshal([]byte(in), v)
+		},
+	}, {
+		name: "Unmarshal first win",
+		decode: func(in string, v any) error {
+			return json.UnmarshalWithOption([]byte(in), v, json.DecodeFieldPriorityFirstWin())
+		},
+	}, {
+		name: "Decoder",
+		decode: func(in string, v any) error {
+			return json.NewDecoder(strings.NewReader(in)).Decode(v)
+		},
+	}, {
+		name: "Decoder first win",
+		decode: func(in string, v any) error {
+			return json.NewDecoder(strings.NewReader(in)).DecodeWithOption(v, json.DecodeFieldPriorityFirstWin())
+		},
+	}}
+	for i, tt := range tests {
+		want := tt.new()
+		wantErr := stdjson.Unmarshal([]byte(tt.in), want)
+		for _, d := range decodes {
+			got := tt.new()
+			err := d.decode(tt.in, got)
+			if describeTypeError(err) != describeTypeError(wantErr) {
+				t.Errorf("#%d %s: %v, want %v", i, d.name, err, wantErr)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("#%d %s: mismatch\ngot:  %#+v\nwant: %#+v", i, d.name, got, want)
+			}
+		}
+	}
+}
+
 func TestUnmarshalErrorAfterMultipleJSON(t *testing.T) {
 	// The error after the values of a stream is the one of encoding/json of the Go version.
 	for i, in := range []string{`1 false null :`, `1 [] [,]`, `1 [] [true:]`, `1  {}    {"x"=}`, `falsetruenul#`} {

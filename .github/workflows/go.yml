@@ -235,6 +235,12 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    # octocov comments on the pull request ( see .octocov.yml ), and reads the report of the base branch from the
+    # artifacts of the runs on it.
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -244,8 +250,5 @@ jobs:
           go-version: '1.27'
       - name: measure coverage
         run: make cover
-      - uses: codecov/codecov-action@v7
-        with:
-          fail_ci_if_error: true
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: report coverage
+        uses: k1LoW/octocov-action@v1

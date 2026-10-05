@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	ierrors "github.com/goccy/go-json/internal/errors"
 )
 
 // ErrDuplicateName reports that a JSON token could not be encoded or decoded because its name is already the
@@ -20,15 +22,15 @@ import (
 //	}
 //
 // It is only reported if AllowDuplicateNames is false.
-var ErrDuplicateName = errors.New("duplicate object member name")
+var ErrDuplicateName = ierrors.ErrDuplicateName
 
 // ErrNonStringName reports that a JSON token could not be encoded or decoded because it is not a string where
 // a JSON object name is, which RFC 8259, section 4, requires to be a string. It is wrapped directly by a
 // SyntacticError.
-var ErrNonStringName = errors.New("object member name must be a string")
+var ErrNonStringName = ierrors.ErrNonStringName
 
 // errInvalidUTF8 reports invalid UTF-8 in a JSON string.
-var errInvalidUTF8 = errors.New("invalid UTF-8")
+var errInvalidUTF8 = ierrors.ErrInvalidUTF8
 
 // The errors of the grammar, which an encoder reports where a token doesn't fit the structure.
 var (
@@ -36,6 +38,9 @@ var (
 	errMissingValue  = errors.New("missing value after object name")
 	errMaxDepth      = errors.New("exceeded max depth")
 	errInvalidToken  = errors.New("invalid jsontext.Token")
+	// errInvalidNamespace reports a write to an encoder after MarshalEncode of the v2 json package failed within
+	// an object or an array it opened.
+	errInvalidNamespace = errors.New("object namespace is in an invalid state")
 )
 
 // SyntacticError describes an error of the JSON grammar found while encoding or decoding.
@@ -57,7 +62,7 @@ func (e *SyntacticError) Error() string {
 	if e.Err == ErrDuplicateName {
 		s := "jsontext: " + e.Err.Error() + " " + strconv.Quote(e.JSONPointer.LastToken())
 		if parent := e.JSONPointer.Parent(); parent != "" {
-			s += " within " + strconv.Quote(shortPointer(string(parent)))
+			s += " within " + strconv.Quote(ierrors.ShortPointer(string(parent)))
 		}
 		return s
 	}
@@ -67,7 +72,7 @@ func (e *SyntacticError) Error() string {
 	}
 	if e.JSONPointer != "" {
 		b = append(b, " within "...)
-		b = strconv.AppendQuote(b, shortPointer(string(e.JSONPointer)))
+		b = strconv.AppendQuote(b, ierrors.ShortPointer(string(e.JSONPointer)))
 	}
 	if e.ByteOffset > 0 {
 		b = append(b, " after offset "...)
@@ -77,49 +82,6 @@ func (e *SyntacticError) Error() string {
 }
 
 func (e *SyntacticError) Unwrap() error { return e.Err }
-
-// maxShownPointer is the length over which the pointer of an error is shown shortened: its start and its end,
-// of about half of it each, cut before a token if they can be.
-const maxShownPointer = 100
-
-// shortPointer shortens a long pointer. The part which is left out is shown by an ellipsis for the end of the
-// token which the start cuts, one for the whole tokens, and one for the start of the token which the end cuts.
-func shortPointer(p string) string {
-	if len(p) <= maxShownPointer {
-		return p
-	}
-	half := maxShownPointer / 2
-	head := strings.LastIndexByte(p[1:half], '/') + 1
-	if head <= 0 {
-		for head = half; !utf8.RuneStart(p[head]); head-- {
-		}
-	}
-	from := max(len(p)-half, head+1)
-	tail := strings.IndexByte(p[from:], '/')
-	tailCut := tail < 0 // the end starts within a token
-	if tailCut {
-		for tail = len(p) - half; !utf8.RuneStart(p[tail]); tail++ {
-		}
-	} else {
-		tail += from
-	}
-	out := p[:head]
-	cut := p[head:tail]
-	first, last := strings.IndexByte(cut, '/'), strings.LastIndexByte(cut, '/')
-	if first != 0 {
-		out += "…" // the end of a token
-	}
-	if first >= 0 && (last > first || !tailCut) {
-		out += "/…" // whole tokens
-	}
-	if tailCut && first >= 0 {
-		out += "/"
-		if last < len(cut)-1 {
-			out += "…" // the start of a token
-		}
-	}
-	return out + p[tail:]
-}
 
 // ioError is an error of the reader of a Decoder or the writer of an Encoder.
 type ioError struct {

@@ -23,9 +23,11 @@ type fallback struct {
 	index []int        // the index of the fallback in it, by reflect.Type.FieldByIndex
 	raw   bool         // whether it is jsontext.Value, or a map
 	// names are the names of the members of the fields, which a name of the fallback may not be: by their exact
-	// names, and by their folded names ( see jsonfields.FoldName ) in their breadth-first order.
-	names  map[string]*jsonfields.Field
-	folded map[string][]*jsonfields.Field
+	// names, and by their folded names ( see jsonfields.FoldName ) in their breadth-first order. caseIgnore is
+	// whether a field matches by its folded name ( case:ignore ) without MatchCaseInsensitiveNames.
+	names      map[string]*jsonfields.Field
+	folded     map[string][]*jsonfields.Field
+	caseIgnore bool
 }
 
 // v2FallbackField returns the field of the embedded fallback of the struct typ, whose members are fields.
@@ -42,6 +44,7 @@ func (c *Compiler) v2FallbackField(typ reflect.Type, fields *jsonfields.Fields) 
 		fb.names[f.Name] = f
 		folded := string(jsonfields.FoldName([]byte(f.Name)))
 		fb.folded[folded] = append(fb.folded[folded], f)
+		fb.caseIgnore = fb.caseIgnore || f.Casing&jsonfields.CaseIgnore != 0
 	}
 	for _, fs := range fb.folded {
 		slices.SortFunc(fs, func(x, y *jsonfields.Field) int { return x.ID - y.ID })
@@ -80,10 +83,15 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 		}
 	}
 	out := b
-	if present {
+	if present && v.Len() > 0 {
+		// the members of the map or the raw value, which an empty one has none of.
 		var check func(name []byte) bool
 		if ctx.Option.Flag&AllowDuplicateNamesOption == 0 {
-			check = fb.nameChecker(ctx, b)
+			names := &fallbackNames{
+				fb: fb, before: b, others: fb.raw || ctx.CheckNames,
+				insensitive: ctx.Option.Flag&MatchCaseInsensitiveNamesOption != 0,
+			}
+			check = names.check
 		}
 		if fb.raw {
 			out, err = V2Hooks.AppendRawMembers(ctx, b, v.Bytes(), check)
@@ -102,48 +110,76 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 	return out, nil
 }
 
-// nameChecker returns the function which reports whether a name of the fallback is not the name of a member which
-// is written already, of the object which b is in: the members of the fields, which also match by their folded
-// names if their options say so, and the names of the fallback before it.
-func (fb *fallback) nameChecker(ctx *RuntimeContext, b []byte) func(name []byte) bool {
+// fallbackNames checks the names of the members of a fallback, which may be neither the name of a member which is
+// written already, of the object which before is in, nor the name of another member of the fallback.
+//
+// Most names are none of the names of the fields of the struct, which the names of the fallback are found in
+// first: the members of the fields which the object has are read from its output only for a name of a field,
+// which is written or was omitted. The names of the fallback itself are kept only where two of them can be the
+// same: the members of a jsontext.Value, and the keys of a map, which are unique, but whose names are the same if
+// the bytes of their invalid UTF-8 are written as U+FFFD ( see RuntimeContext.CheckNames ).
+type fallbackNames struct {
+	fb     *fallback
+	before []byte
+	// insensitive is MatchCaseInsensitiveNamesOption, and others whether the names of the fallback are kept.
+	insensitive bool
+	others      bool
+	// written are the fields whose members are written, read from before when a name is the one of a field, and
+	// otherNames the names of the fallback which are no field's.
+	written    map[*jsonfields.Field]bool
+	otherNames map[string]bool
+}
+
+// check reports whether the name of a member of the fallback may be written.
+func (n *fallbackNames) check(name []byte) bool {
+	fb := n.fb
+	if f := fb.names[string(name)]; f != nil {
+		return n.insertField(f)
+	}
+	if fb.caseIgnore || n.insensitive {
+		for _, f := range fb.folded[string(jsonfields.FoldName(name))] {
+			if f.Casing&jsonfields.CaseIgnore != 0 || (n.insensitive && f.Casing&jsonfields.CaseStrict == 0) {
+				return n.insertField(f)
+			}
+		}
+	}
+	if !n.others {
+		return true
+	}
+	if n.otherNames == nil {
+		n.otherNames = map[string]bool{}
+	} else if n.otherNames[string(name)] {
+		return false
+	}
+	n.otherNames[string(name)] = true
+	return true
+}
+
+// insertField records that the member of f is written, and reports whether it was not: the members of the fields
+// which the object has are read from its output the first time.
+func (n *fallbackNames) insertField(f *jsonfields.Field) bool {
+	if n.written == nil {
+		n.written = n.writtenFields()
+	}
+	if n.written[f] {
+		return false
+	}
+	n.written[f] = true
+	return true
+}
+
+// writtenFields returns the fields whose members the object which the output before is in has.
+func (n *fallbackNames) writtenFields() map[*jsonfields.Field]bool {
 	written := map[*jsonfields.Field]bool{}
-	start := enclosingObjectStart(b)
-	obj := b[start:]
+	obj := n.before[enclosingObjectStart(n.before):]
 	for _, pos := range memberNames(append(obj[:len(obj):len(obj)], '}')) {
 		end := stringEnd(obj, pos)
 		name := jsonstring.AppendUnescaped(nil, obj[pos+1:end])
-		if f := fb.names[string(name)]; f != nil {
+		if f := n.fb.names[string(name)]; f != nil {
 			written[f] = true
 		}
 	}
-	others := map[string]bool{}
-	insensitive := ctx.Option.Flag&MatchCaseInsensitiveNamesOption != 0
-	return func(name []byte) bool {
-		if fs := fb.folded[string(jsonfields.FoldName(name))]; len(fs) > 0 {
-			if f := fb.names[string(name)]; f != nil {
-				return insertField(written, f)
-			}
-			for _, f := range fs {
-				if f.Casing&jsonfields.CaseIgnore != 0 || (insensitive && f.Casing&jsonfields.CaseStrict == 0) {
-					return insertField(written, f)
-				}
-			}
-		}
-		if others[string(name)] {
-			return false
-		}
-		others[string(name)] = true
-		return true
-	}
-}
-
-// insertField records that the member of f is written, and reports whether it was not.
-func insertField(written map[*jsonfields.Field]bool, f *jsonfields.Field) bool {
-	if written[f] {
-		return false
-	}
-	written[f] = true
-	return true
+	return written
 }
 
 // enclosingObjectStart returns where the object starts which the output b, compact and valid, is in: the

@@ -1,70 +1,26 @@
 package encoder
 
 import (
-	"unsafe"
-
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 // The names of a map whose keys may have the same name, of the v2 semantics, which a function, a method or the
 // kind of its key writes. The names of a map which is not sorted are checked as they are written ( see
-// appendMapKeyName ); the names of a sorted map are checked after the entries are sorted, in their order.
+// appendMapKeyName ). The entries of a sorted map are sorted by their names, which puts the same names next to
+// each other, and checked as they are written in that order ( see OpMapEndCheckNames ).
 
-// checkSortedNames is the function after a map whose keys may have the same name ( see OpAfterValue ): it
-// reports the first name of the map, which ends the output b, which a name before it has, if the entries are
-// sorted and the names may not be the same.
-func checkSortedNames(ctx *RuntimeContext, b []byte, _ unsafe.Pointer) ([]byte, error) {
-	if ctx.Option.Flag&(AllowDuplicateNamesOption|UnorderedMapOption) != 0 || b[len(b)-2] != '}' {
-		return b, nil
-	}
-	start := lastValueStart(b)
-	seen := map[string]struct{}{}
-	for _, pos := range memberNames(b[start : len(b)-1]) {
-		end := stringEnd(b, start+pos)
-		name := string(b[start+pos : end+1])
-		if _, ok := seen[name]; ok {
-			unquoted := jsonstring.AppendUnescaped(nil, []byte(name[1:len(name)-1]))
-			return b, &errors.TextError{Err: errors.ErrDuplicateName, Name: string(unquoted), Out: b[:start+pos]}
-		}
-		seen[name] = struct{}{}
-	}
-	return b, nil
+// SameMapName reports whether key, the name of an entry of a sorted map as it is encoded with a comma after it ( see
+// MapItem ), is the name of the entry before it, prev, which is an error unless AllowDuplicateNamesOption.
+func SameMapName(ctx *RuntimeContext, key, prev []byte) bool {
+	return ctx.Option.Flag&AllowDuplicateNamesOption == 0 && string(key) == string(prev)
 }
 
-// lastValueStart returns where the value which ends the output b, before its comma, starts. The output is
-// compact and valid.
-func lastValueStart(b []byte) int {
-	i := len(b) - 2 // the last byte of the value
-	switch b[i] {
-	case '"':
-		return stringStart(b, i)
-	case '}', ']':
-		depth := 0
-		for ; i >= 0; i-- {
-			switch b[i] {
-			case '"':
-				i = stringStart(b, i)
-			case '}', ']':
-				depth++
-			case '{', '[':
-				depth--
-				if depth == 0 {
-					return i
-				}
-			}
-		}
-		return 0
-	}
-	// a number or a literal, after a delimiter.
-	for i > 0 {
-		switch b[i-1] {
-		case ',', ':', '[', '{':
-			return i
-		}
-		i--
-	}
-	return i
+// DuplicateMapNameError returns the error of key, the name of an entry of a sorted map as it is encoded with a comma
+// after it, which an entry before it has: out is the output before the name.
+func DuplicateMapNameError(key, out []byte) error {
+	name := jsonstring.AppendUnescaped(nil, key[1:len(key)-2])
+	return &errors.TextError{Err: errors.ErrDuplicateName, Name: string(name), Out: out}
 }
 
 // stringStart returns where the string whose closing quote is at end starts: the quote before it which no odd

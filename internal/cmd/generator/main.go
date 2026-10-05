@@ -222,9 +222,9 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 			opTypes = append(opTypes, opType{Op: "StructField" + typ + n, Code: "StructField"})
 		}
 	}
-	// the opcode after a value which changes what the value wrote, for the semantics of encoding/json/v2 ( see
-	// encoder.AppendAfterValue ).
-	opTypes = append(opTypes, opType{Op: "AfterValue", Code: "Op"})
+	// the end of a sorted map whose keys may have the same name, for the semantics of encoding/json/v2, which checks
+	// the names as it writes the entries ( see encoder.SameMapName ).
+	opTypes = append(opTypes, opType{Op: "MapEndCheckNames", Code: "Op"})
 	// the opcode after the value of a member of omitempty, which unwrites the member if the value is empty ( see
 	// encoder.UnwriteEmptyMember ).
 	opTypes = append(opTypes, opType{Op: "UnwriteEmpty", Code: "Op"})

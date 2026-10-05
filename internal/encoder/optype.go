@@ -267,7 +267,7 @@ var opTypeStrings = [247]string{
 	"StructFieldString2",
 	"StructFieldBool3",
 	"StructFieldBool2",
-	"AfterValue",
+	"MapEndCheckNames",
 	"UnwriteEmpty",
 	"StructFieldOmitEmptyStringPtrOrEmpty",
 }
@@ -519,7 +519,7 @@ const (
 	OpStructFieldString2                   OpType = 241
 	OpStructFieldBool3                     OpType = 242
 	OpStructFieldBool2                     OpType = 243
-	OpAfterValue                           OpType = 244
+	OpMapEndCheckNames                     OpType = 244
 	OpUnwriteEmpty                         OpType = 245
 	OpStructFieldOmitEmptyStringPtrOrEmpty OpType = 246
 )

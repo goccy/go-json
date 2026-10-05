@@ -263,6 +263,32 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(ctx, mapCtx)
 			code = code.Next
+		case encoder.OpMapEndCheckNames:
+			// the entries of a sorted map whose keys may have the same name, for the semantics of encoding/json/v2:
+			// the same names are next to each other in the order of the names.
+			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
+			mapCtx.Slice.Sort()
+			buf := mapCtx.Buf
+			items := mapCtx.Slice.Items
+			for i, item := range items {
+				if i > 0 && encoder.SameMapName(ctx, item.Key, items[i-1].Key) {
+					// the output before the name, which tells where it is.
+					b = append(b[:mapCtx.First], buf...)
+					ctx.Rewrote(mapCtx.First)
+					mapCtx.Buf = buf
+					err := encoder.DuplicateMapNameError(item.Key, b)
+					encoder.ReleaseMapContext(ctx, mapCtx)
+					return b, err
+				}
+				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
+			}
+			buf = appendMapEnd(ctx, code, buf)
+			b = b[:mapCtx.First]
+			b = append(b, buf...)
+			ctx.Rewrote(mapCtx.First)
+			mapCtx.Buf = buf
+			encoder.ReleaseMapContext(ctx, mapCtx)
+			code = code.Next
 		case encoder.OpPtr:
 			p := load(ctxptr, code.Idx)
 			code = code.Next
@@ -675,13 +701,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			code = first
 			ctxptr = base
-		case encoder.OpAfterValue:
-			bb, err := encoder.AppendAfterValue(ctx, code, b)
-			if err != nil {
-				return b, err
-			}
-			b = bb
-			code = code.Next
 		case encoder.OpStructFieldOmitEmptyStringPtrOrEmpty:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -694,7 +713,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			code = code.Next
 		case encoder.OpUnwriteEmpty:
-			b = encoder.UnwriteEmptyMember(ctx, b, code.Key)
+			b = encoder.UnwriteEmptyMember(ctx, b, len(code.Key))
 			code = code.Next
 		case encoder.OpRecursiveEnd:
 			// the braces of the values of a list this value was the last field of, from the innermost.
@@ -827,8 +846,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructKey(ctx, code, b)
 				b = appendInt(ctx, b, p, code)
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldIntPtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -851,8 +873,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendInt(ctx, b, p, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldUint3:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -921,8 +946,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructKey(ctx, code, b)
 				b = appendUint(ctx, b, p, code)
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldUintPtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -945,8 +973,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendUint(ctx, b, p, code)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldFloat32:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1023,8 +1054,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 				b = bb
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldFloat32PtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -1055,8 +1089,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = bb
 				b = append(b, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldFloat643:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1154,8 +1191,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 				b = appendFloat64(ctx, b, v)
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldFloat64PtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -1186,8 +1226,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendFloat64(ctx, b, v)
 				b = append(b, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldString3:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1253,8 +1296,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructKey(ctx, code, b)
 				b = appendString(ctx, b, ptrToString(p))
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldStringPtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -1275,8 +1321,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				quoted := appendString(ctx, []byte{}, ptrToString(p))
 				b = appendString(ctx, b, string(quoted))
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldBool3:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1343,8 +1392,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructKey(ctx, code, b)
 				b = appendBool(ctx, b, ptrToBool(p))
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldBoolPtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -1367,8 +1419,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendBool(ctx, b, ptrToBool(p))
 				b = append(b, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldBytes:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1402,8 +1457,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b = appendStructKey(ctx, code, b)
 				b = appendByteSlice(ctx, b, ptrToBytes(p))
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldNumber:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1475,8 +1533,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					return b, err
 				}
 				b = appendComma(ctx, bb)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldNumberPtrString:
 			p := load(ctxptr, code.Idx)
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
@@ -1505,8 +1566,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				}
 				b = append(bb, '"')
 				b = appendComma(ctx, b)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldMarshalJSON:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1568,8 +1632,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					return b, err
 				}
 				b = appendComma(ctx, bb)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldMarshalText:
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
@@ -1631,8 +1698,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					return b, err
 				}
 				b = appendComma(ctx, bb)
+				code = code.Next
+			} else {
+				// omitted: the opcodes after the value of the field, if any, are skipped as well.
+				code = code.NextField
 			}
-			code = code.Next
 		case encoder.OpStructFieldArray:
 			b = appendStructKey(ctx, code, b)
 			p := load(ctxptr, code.Idx)

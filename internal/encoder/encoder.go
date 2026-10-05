@@ -189,9 +189,12 @@ type CompiledCode struct {
 }
 
 // StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
-// values entered are recorded to detect a cycle. A value which is a value of itself enters a frame at each of its
-// levels: the first one recorded is at the depth 1000 of the JSON value, after which encoding/json detects
-// cycles, and the cycle is reported at the place where encoding/json/v2 reports it.
+// values entered are recorded to detect a cycle.
+//
+// It is 998, not the 1000 of encoding/json, as it counts frames, not the depth of the JSON value: the top-level value
+// is written in the frame of the caller, and the check is made before the frame of a value is entered, so the
+// level is the depth minus 1 there. With 998, the first value recorded is at the depth 1000 and a cycle is found at
+// the depth 1001, where encoding/json/v2 reports it: its byte offset and JSON pointer are the same.
 const StartDetectingCyclesAfter = 998
 
 // ErrUnsupportedValue returns the error of a cycle through the value at ptr, of the type of code: of the pointer

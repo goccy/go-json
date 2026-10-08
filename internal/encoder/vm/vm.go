@@ -2,6 +2,7 @@
 package vm
 
 import (
+	"reflect"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
@@ -151,6 +152,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			// keys are not strings is encoded as it comes and its entries are put in the order of their encoded
 			// keys at OpMapEnd.
 			mapCtx := encoder.NewMapContext(ctx)
+			if ctx.RecursiveLevel > encoder.StartDetectingMapCyclesAfter && code.Map.Cyclic {
+				if err := ctx.RecordMap(code, p, mapCtx); err != nil {
+					return b, err
+				}
+			}
 			if code.Flags&encoder.MapStringKeyFlags != 0 && (code.Map.ScalarValue || code.Map.InterfaceValue) && ctx.Option.Flag&encoder.UnorderedMapOption != 0 {
 				// the entries are written as the map is read: all of them when the values are scalars, and the
 				// ones which hold a scalar when the values are of interface{}, and the context gets the others.
@@ -2574,7 +2580,7 @@ func appendMapAsRead(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte
 	code.Map.Reset(mapCtx)
 	if code.Map.ScalarValue {
 		mapCtx.Len = 0
-		return mapScalarValueWriters[code.Map.ValueWords](ctx, code, b, p)
+		return mapScalarValueWriters[code.Map.ValueKind](ctx, code, b, p)
 	}
 	for k, v := range *(*map[string]any)(unsafe.Pointer(&p)) {
 		iface := (*emptyInterface)(unsafe.Pointer(&v))
@@ -2685,8 +2691,9 @@ func appendMapKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, k
 }
 
 // appendMapScalarValues writes the entries of the map at p, whose values are written by the opcode of a
-// scalar which follows the header, as the map is ranged over as a map of values of V: the layout of a map
-// depends only on the sizes of the key and of the value ( encoder.MapLayout ).
+// scalar which follows the header, as the map is ranged over as a map of values of V, the basic type of the
+// kind of the values: the layout of a map depends only on the sizes of the key and of the value
+// ( encoder.MapLayout ).
 func appendMapScalarValues[V any](ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
 	value := code.Next
 	// v is declared out of the loop: its address is given to appendScalar, so it lives on the heap, and a
@@ -2706,10 +2713,24 @@ func appendMapScalarValues[V any](ctx *encoder.RuntimeContext, code *encoder.Opc
 	return b, nil
 }
 
-// mapScalarValueWriters are appendMapScalarValues by the words of a value.
-var mapScalarValueWriters = [encoder.MapScalarValueWords + 1]func(*encoder.RuntimeContext, *encoder.Opcode, []byte, unsafe.Pointer) ([]byte, error){
-	appendMapScalarValues[[0]uint64],
-	appendMapScalarValues[[1]uint64],
-	appendMapScalarValues[[2]uint64],
-	appendMapScalarValues[[3]uint64],
+// mapScalarValueWriters are appendMapScalarValues by the kind of the values written by one opcode of a scalar
+// ( encoder.MapLayout.ValueKind ): a slice is a slice of bytes. A string and a slice are ranged over as their
+// words, which hold no pointer: the copy is not a pointer which the GC follows, and the map keeps the values.
+var mapScalarValueWriters = [...]func(*encoder.RuntimeContext, *encoder.Opcode, []byte, unsafe.Pointer) ([]byte, error){
+	reflect.Bool:    appendMapScalarValues[bool],
+	reflect.Int:     appendMapScalarValues[int],
+	reflect.Int8:    appendMapScalarValues[int8],
+	reflect.Int16:   appendMapScalarValues[int16],
+	reflect.Int32:   appendMapScalarValues[int32],
+	reflect.Int64:   appendMapScalarValues[int64],
+	reflect.Uint:    appendMapScalarValues[uint],
+	reflect.Uint8:   appendMapScalarValues[uint8],
+	reflect.Uint16:  appendMapScalarValues[uint16],
+	reflect.Uint32:  appendMapScalarValues[uint32],
+	reflect.Uint64:  appendMapScalarValues[uint64],
+	reflect.Uintptr: appendMapScalarValues[uintptr],
+	reflect.Float32: appendMapScalarValues[float32],
+	reflect.Float64: appendMapScalarValues[float64],
+	reflect.String:  appendMapScalarValues[[2]uintptr],
+	reflect.Slice:   appendMapScalarValues[[3]uintptr],
 }

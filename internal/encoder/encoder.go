@@ -189,13 +189,17 @@ type CompiledCode struct {
 }
 
 // StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
-// values entered are recorded to detect a cycle.
+// values entered, and the maps, are recorded to detect a cycle.
 //
 // It is 998, not the 1000 of encoding/json, as it counts frames, not the depth of the JSON value: the top-level value
 // is written in the frame of the caller, and the check is made before the frame of a value is entered, so the
 // level is the depth minus 1 there. With 998, the first value recorded is at the depth 1000 and a cycle is found at
 // the depth 1001, where encoding/json/v2 reports it: its byte offset and JSON pointer are the same.
 const StartDetectingCyclesAfter = 998
+
+// StartDetectingMapCyclesAfter is StartDetectingCyclesAfter for a map ( see RuntimeContext.RecordMap ), whose check
+// is made in the frame of its value, one level past the check of a frame, which is made before it is entered.
+const StartDetectingMapCyclesAfter = StartDetectingCyclesAfter + 1
 
 // ErrUnsupportedValue returns the error of a cycle through the value at ptr, of the type of code: of the pointer
 // to it for the opcode of a pointer.
@@ -395,6 +399,8 @@ type MapContext struct {
 	// appendMapKeyName ), if namesKept is set: they are cleared for each map which needs them.
 	names     map[string]struct{}
 	namesKept bool
+	// recorded is whether the map is recorded for the detection of cycles ( see RuntimeContext.RecordMap ).
+	recorded bool
 }
 
 // NewMapContext returns the context to encode a map: the runtime context has one for each level of the maps
@@ -412,8 +418,22 @@ func NewMapContext(rctx *RuntimeContext) *MapContext {
 	ctx.DirectEntries = false
 	// Items is set by SortByEncodedKeys, and tells the VM the entries are put in that order.
 	ctx.Slice.Items = nil
-	ctx.namesKept = false
+	ctx.namesKept, ctx.recorded = false, false
 	return ctx
+}
+
+// RecordMap records the map at p of code, which the VM encodes past StartDetectingMapCyclesAfter, in m, for the
+// detection of cycles, as encoding/json records a map: a cycle through the values of a map, which are copies, has
+// the map alone as the value which it reaches again. The maps are recorded apart from the values of the frames,
+// which a map is not compared with.
+func (c *RuntimeContext) RecordMap(code *Opcode, p unsafe.Pointer, m *MapContext) error {
+	if slices.Contains(c.seenMaps, p) {
+		m := p // the map, whose address is taken here only, which keeps p from escaping
+		return errCycle(c, runtime.TypeOfPtr(code.Type), unsafe.Pointer(&m))
+	}
+	c.seenMaps = append(c.seenMaps, p)
+	m.recorded = true
+	return nil
 }
 
 // ScalarValue is whether the values of the map are written by one opcode of a scalar ( MapLayout.ScalarValue ).
@@ -456,6 +476,10 @@ func (c *RuntimeContext) textEscaped() {
 func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
 	// a map is always released before the maps it is in.
 	rctx.mapDepth--
+	if c.recorded {
+		// the last record: the ones of the maps of its values were dropped before
+		rctx.seenMaps = rctx.seenMaps[:len(rctx.seenMaps)-1]
+	}
 	// the keys refer to the map, which the context must not keep alive.
 	clear(c.Keys)
 	c.Keys = c.Keys[:0]

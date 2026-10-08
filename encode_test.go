@@ -2799,3 +2799,43 @@ func TestEncodeInterfaceValueWithNilDataWord(t *testing.T) {
 		}
 	})
 }
+
+// The values of a map of every size, smaller than a word too, in maps of more entries than a group of the runtime
+// has: the maps of the split groups, of GOEXPERIMENT=mapsplitgroup, lay its values out after its keys.
+func TestEncodeMapOfSmallValues(t *testing.T) {
+	type pair struct {
+		A bool
+		B uint16
+	}
+	check := func(name string, v any) {
+		t.Helper()
+		for _, enc := range []func(any) ([]byte, error){json.Marshal, func(v any) ([]byte, error) { return json.MarshalWithOption(v, json.UnorderedMap()) }} {
+			got, err := enc(v)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			var gotMap, wantMap map[string]any
+			want, _ := stdjson.Marshal(v)
+			if err := stdjson.Unmarshal(got, &gotMap); err != nil {
+				t.Fatalf("%s: %s: %v", name, got, err)
+			}
+			_ = stdjson.Unmarshal(want, &wantMap)
+			if !reflect.DeepEqual(gotMap, wantMap) {
+				t.Errorf("%s:\n got  %s\n want %s", name, got, want)
+			}
+		}
+	}
+	for _, n := range []int{1, 8, 9, 17, 100} {
+		bools, bytes, int16s, int32s, arrays, pairs := map[string]bool{}, map[string]uint8{}, map[string]int16{}, map[string]int32{}, map[string][3]byte{}, map[string]pair{}
+		triples, larges := map[string][3]int32{}, map[string][33]byte{}
+		for i := range n {
+			k := fmt.Sprintf("key_%03d", i)
+			bools[k], bytes[k], int16s[k], int32s[k] = i%3 == 0, uint8(i), int16(-i), int32(i*1000)
+			arrays[k], pairs[k] = [3]byte{byte(i), 1, 2}, pair{i%2 == 0, uint16(i)}
+			triples[k], larges[k] = [3]int32{int32(i), -1, 2}, [33]byte{0: byte(i), 32: 1}
+		}
+		for name, v := range map[string]any{"bool": bools, "uint8": bytes, "int16": int16s, "int32": int32s, "[3]byte": arrays, "struct": pairs, "[3]int32": triples, "[33]byte": larges} {
+			check(fmt.Sprintf("%s %d", name, n), v)
+		}
+	}
+}

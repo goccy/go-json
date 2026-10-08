@@ -41,6 +41,7 @@ var (
 	// errInvalidNamespace reports a write to an encoder after MarshalEncode of the v2 json package failed within
 	// an object or an array it opened.
 	errInvalidNamespace = errors.New("object namespace is in an invalid state")
+	errEndOfPlace       = errors.New("cannot end the object or array which the value being written is in")
 )
 
 // SyntacticError describes an error of the JSON grammar found while encoding or decoding.

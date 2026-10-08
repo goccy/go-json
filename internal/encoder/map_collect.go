@@ -269,9 +269,15 @@ func (l *MapLayout) Reset(c *MapContext) {
 func (l *MapLayout) Collect(p unsafe.Pointer, c *MapContext) int {
 	l.Reset(c)
 	l.collect(p, c)
-	if l.StringKey {
+	switch {
+	case l.StringKey:
 		c.Len = len(c.Keys)
-	} else {
+	case l.keySize == 0:
+		// the keys of a zero size have no bytes: the map has one of them at most, which KeyAt finds at the byte of
+		// RawKeys, which it has then.
+		c.RawKeys = append(c.RawKeys, 0)
+		c.Len = MapLen(p)
+	default:
 		c.Len = len(c.RawKeys) / int(l.keySize)
 	}
 	return c.Len

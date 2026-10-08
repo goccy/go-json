@@ -2839,3 +2839,21 @@ func TestEncodeMapOfSmallValues(t *testing.T) {
 		}
 	}
 }
+
+type zeroSizeTextKey struct{}
+
+func (zeroSizeTextKey) MarshalText() ([]byte, error) { return []byte("zero"), nil }
+
+// A map whose keys have no size has one key at most.
+func TestEncodeMapOfZeroSizeKeys(t *testing.T) {
+	for _, v := range []map[zeroSizeTextKey]int{{}, {{}: 1}} {
+		got, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, _ := stdjson.Marshal(v)
+		if !bytes.Equal(got, want) {
+			t.Errorf("got %s, want %s", got, want)
+		}
+	}
+}

@@ -2,7 +2,6 @@ package encoder
 
 import (
 	"reflect"
-	"slices"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
@@ -46,13 +45,22 @@ func loadSlotInt(base unsafe.Pointer, idx uint32) uintptr {
 // recordSeen records the value to detect a cycle, after the nesting got deep: a cycle keeps passing the same
 // values, so it is still detected, and the values which are not nested deeply cost nothing.
 func (c *RuntimeContext) recordSeen(code *Opcode, p unsafe.Pointer) error {
-	if p != nil {
-		if slices.Contains(c.SeenPtr, SeenValue{p: p}) {
-			return ErrUnsupportedValue(c, code, p)
+	id := SeenValue{p: p, typ: code.Type}
+	if p != nil && c.seen(id) {
+		return ErrUnsupportedValue(c, code, p)
+	}
+	c.SeenPtr = append(c.SeenPtr, id)
+	return nil
+}
+
+// seen reports whether id is recorded: by its address first, which the other records rarely have.
+func (c *RuntimeContext) seen(id SeenValue) bool {
+	for _, v := range c.SeenPtr {
+		if v.p == id.p && v == id {
+			return true
 		}
 	}
-	c.SeenPtr = append(c.SeenPtr, SeenValue{p: p})
-	return nil
+	return false
 }
 
 // entersNilValue is whether the value of the type typ, held by an interface value whose data word is nil, is
@@ -77,14 +85,19 @@ func (c *RuntimeContext) entersNilValue(typ unsafe.Pointer) bool {
 // encodes: the value is recorded by its identity, as the interface value which holds it may be a copy, as the
 // value of a map is.
 func (c *RuntimeContext) recordSeenValue(codeSet *OpcodeSet, p unsafe.Pointer) error {
-	id := SeenValue{p: p}
+	id := SeenValue{p: p, typ: runtime.TypePtr(codeSet.Type)}
 	if codeSet.IdentityIsFirstWord {
 		id.p = *(*unsafe.Pointer)(p)
-		if codeSet.Type.Kind() == reflect.Slice {
+		switch codeSet.Type.Kind() {
+		case reflect.Slice:
 			id.n = (*runtime.SliceHeader)(p).Len
+		case reflect.Struct:
+			// a struct stored directly in the interface value, recorded by the pointer it holds, is not the struct
+			// of its type which a recursive frame records at that address.
+			id.n = -1
 		}
 	}
-	if id.p != nil && slices.Contains(c.SeenPtr, id) {
+	if id.p != nil && c.seen(id) {
 		return errCycle(c, codeSet.Type, p)
 	}
 	c.SeenPtr = append(c.SeenPtr, id)

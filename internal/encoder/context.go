@@ -129,11 +129,15 @@ type recentCodeSet struct {
 // recentCodeSetSet is the entries of a set, the one encoded last first.
 type recentCodeSetSet [recentCodeSetWays]recentCodeSet
 
-// SeenValue is a value recorded to detect a cycle: its address, or the pointer which it is, and the length of a
-// slice, which another slice of the same array is not the same value as.
+// SeenValue is a value recorded to detect a cycle: its address, or the pointer which it is, the length of a
+// slice, which another slice of the same array is not the same value as, or -1 for a struct recorded by the
+// pointer it holds ( see recordSeenValue ), and its type, as values of other types at the same address, a struct
+// and its first field, are other values. A cycle passes the same values again, of
+// the same types.
 type SeenValue struct {
-	p unsafe.Pointer
-	n int
+	p   unsafe.Pointer
+	n   int
+	typ unsafe.Pointer
 }
 
 type RuntimeContext struct {

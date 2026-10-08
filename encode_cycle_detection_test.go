@@ -32,6 +32,27 @@ type firstFieldMapList struct {
 	Tail *firstFieldMapList
 }
 
+// linkedItem is an item of a list linked through interface values, whose first field is not a pointer.
+type linkedItem struct {
+	N    int
+	Next any
+}
+
+// firstFieldShared is a struct whose first field is a map, which another field holds again.
+type firstFieldShared struct {
+	M map[string]any
+	X any
+}
+
+type outerOfFirstField struct{ In innerOfFirstField }
+
+type innerOfFirstField struct{ X any }
+
+// directNode is stored directly in an interface value: its data word is the pointer it holds.
+type directNode struct{ Next *directNode }
+
+type directHolder struct{ P *cycleDetectionNode }
+
 // The values are checked for a cycle after the nesting gets deep.
 // A value which is referred to twice is not a cycle, whatever it holds.
 func TestEncodeSharedValueNestedDeeply(t *testing.T) {
@@ -40,6 +61,11 @@ func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 	sharedMap := map[string]any{"a": 1}
 	sharedValues := map[string]cycleMapOfValues{"a": {}}
 	sharedValuesOfList := map[string]firstFieldMapList{"a": {}}
+	var linked any
+	for range depth {
+		linked = &linkedItem{N: 5000, Next: linked}
+	}
+	outer := &outerOfFirstField{In: innerOfFirstField{X: 1}}
 	for _, test := range []struct {
 		name string
 		v    any
@@ -51,6 +77,13 @@ func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 		{"map of values", []cycleMapOfValues{{M: sharedValues}, {M: sharedValues}}},
 		// a pointer in an interface value, to a struct whose first field is a map which is shared
 		{"pointer to a list of a map", &firstFieldMapList{M: sharedValuesOfList, Tail: &firstFieldMapList{M: sharedValuesOfList}}},
+		// pointers in interface values, which are the values, not the first words they point to
+		{"list through interfaces", linked},
+		{"pointer to a struct of a map", &firstFieldShared{M: sharedMap, X: sharedMap}},
+		// values of other types at the same address
+		{"struct and its first field", []any{outer, &outer.In}},
+		// a value stored directly in an interface value, and the value which the pointer it holds points to
+		{"struct in interface", directNode{Next: &directNode{Next: &directNode{}}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			v := nestedInterfaceValue(depth, test.v)
@@ -86,6 +119,22 @@ func TestEncodeCycleNestedDeeply(t *testing.T) {
 			if _, err := json.Marshal(nestedInterfaceValue(depth, node)); err == nil {
 				t.Fatalf("depth %d: expected an error", depth)
 			}
+		}
+	})
+	// a pointer in an interface value is recorded by itself, not by the first word it points to, which is nil here.
+	t.Run("pointer in interface", func(t *testing.T) {
+		node := &cycleDetectionNode{}
+		node.Any = node
+		if _, err := json.Marshal(node); err == nil {
+			t.Fatal("expected an error")
+		}
+	})
+	// a struct stored directly in an interface value, which holds the pointer of the cycle.
+	t.Run("struct in interface", func(t *testing.T) {
+		node := &cycleDetectionNode{}
+		node.Any = directHolder{P: node}
+		if _, err := json.Marshal(node); err == nil {
+			t.Fatal("expected an error")
 		}
 	})
 	// the value of a map is a copy, but the map it holds is the same: it is the cycle.

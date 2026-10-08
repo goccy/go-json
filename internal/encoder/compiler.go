@@ -341,12 +341,14 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	interfaceNoescapeKeyCode := copyToInterfaceOpcode(noescapeKeyCode)
 	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
 	codeLength := noescapeKeyCode.TotalLength()
+	// the data word is the address of the value which the opcodes take, which identifies it, or the value itself,
+	// whose first word identifies it, as the array of a slice identifies the slice ( see recordSeenValue ).
+	dataWordIsAddr := runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0)
 	return &OpcodeSet{
-		Type:           typ,
-		IfaceIndir:     runtime.IfaceIndir(typ),
-		DataWordIsAddr: runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0),
-		IdentityIsFirstWord: !runtime.IfaceIndir(typ) || typ.Kind() == reflect.Ptr || typ.Kind() == reflect.Map ||
-			typ.Kind() == reflect.Slice,
+		Type:                     typ,
+		IfaceIndir:               runtime.IfaceIndir(typ),
+		DataWordIsAddr:           dataWordIsAddr,
+		IdentityIsFirstWord:      !dataWordIsAddr || typ.Kind() == reflect.Slice,
 		NoescapeKeyCode:          noescapeKeyCode,
 		EscapeKeyCode:            escapeKeyCode,
 		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,

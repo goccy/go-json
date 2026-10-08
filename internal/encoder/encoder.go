@@ -72,9 +72,10 @@ type OpcodeSet struct {
 	// which the opcodes take: the type is stored indirectly, or it is a pointer, which is the address of
 	// the value it points to.
 	DataWordIsAddr bool
-	// IdentityIsFirstWord is whether a value of Type is a reference whose identity is its first word, which a
-	// cycle passes again and again: a pointer, a map, a slice ( the address of its array ), or a type stored
-	// directly in an interface value. The identity of another value is its address.
+	// IdentityIsFirstWord is whether a value of Type is identified by its first word, which a cycle passes again
+	// and again: a map, a slice ( the address of its array ), or a type stored directly in an interface value, as a
+	// pointer which a function of marshaling takes. The identity of another value, as a pointer which is its
+	// address, is its address.
 	IdentityIsFirstWord      bool
 	NoescapeKeyCode          *Opcode
 	EscapeKeyCode            *Opcode

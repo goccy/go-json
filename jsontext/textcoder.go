@@ -79,6 +79,7 @@ func configureEncoder(enc any, opts options.Options) func() {
 func attachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
 	st := &e.st
+	e.closedPast = false
 	if p.Same && e.attached && e.ready() && cap(st.levels) >= 2 {
 		// attached again with the same options, as most calls of the methods are: the state of the grammar and of
 		// the scanner is reset, as init resets it, without the rest. The levels are written as reset and push
@@ -150,4 +151,7 @@ func (e *encoder) skipDelim() int {
 func detachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
 	p.Out, p.Depth, p.Count = e.buf, e.st.depth(), e.st.last().count
+	if e.closedPast {
+		p.Depth-- // the level which the value was asked to end, as encoding/json/jsontext ends it
+	}
 }

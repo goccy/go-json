@@ -70,6 +70,9 @@ type encoder struct {
 	// attached is whether the encoder was attached by the v2 json package after it was set up ( see
 	// attachEncoder ), which attaches it again without setting it up.
 	attached bool
+	// closedPast is whether the attached encoder was asked to end the object or the array which it is attached
+	// in, which is not its own: the value which it was given the place of fails ( see detachEncoder ).
+	closedPast bool
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when
@@ -346,6 +349,9 @@ func (e *encoder) writeToken(t Token) error {
 		e.setBuf(append(b, byte(k)))
 		return e.endValue()
 	case KindEndObject, KindEndArray:
+		if e.st.depth() == e.st.outerDepth {
+			return e.closePastError() // the level an attached encoder is in, which misplaced lets through
+		}
 		e.st.pop()
 		e.setBuf(append(b, byte(k)))
 		return e.endValue()
@@ -375,6 +381,14 @@ func misplaced(l *level, k Kind, depth int) bool {
 		return true
 	}
 	return l.needName() && k != KindString
+}
+
+// closePastError is the error of the end of the object or the array which an attached encoder is attached in: the
+// encoder writes nothing more, and the value which it was given the place of fails.
+func (e *encoder) closePastError() error {
+	err := e.failAt(errEndOfPlace, len(e.buf), pointNext)
+	e.closedPast, e.invalid, e.vs.st = true, true, nil
+	return err
 }
 
 // misplacedError is the error of a token of kind k which is misplaced in the innermost level l.

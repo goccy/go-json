@@ -142,6 +142,8 @@ type RuntimeContext struct {
 	MarshalBuf []byte
 	Slots      []uintptr
 	SeenPtr    []SeenValue
+	// seenMaps are the maps recorded for the detection of cycles ( see RecordMap ).
+	seenMaps   []unsafe.Pointer
 	BaseIndent uint32
 	// RecursiveLevel and SlotOffset are the state of the VM which only the opcodes of an interface value and of
 	// a recursive type use. They are here, not in the variables of the VM: the VM keeps its variables in the
@@ -272,8 +274,10 @@ func (c *RuntimeContext) releaseValues() {
 	c.topValue = nil
 	c.mapDepth = 0
 	if c.nested {
-		// what only the frames of an interface value and of a recursive type use.
+		// what only the frames of an interface value and of a recursive type use, and the maps in them.
 		clear(c.SeenPtr[:cap(c.SeenPtr)])
+		clear(c.seenMaps[:cap(c.seenMaps)])
+		c.seenMaps = c.seenMaps[:0] // also the records which an error left
 		c.nested = false
 	}
 }

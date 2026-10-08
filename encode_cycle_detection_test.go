@@ -3,6 +3,7 @@ package json_test
 import (
 	"bytes"
 	stdjson "encoding/json"
+	"runtime"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -25,11 +26,20 @@ func nestedInterfaceValue(depth int, v any) any {
 	return v
 }
 
+// firstFieldMapList is a list whose first field is a map.
+type firstFieldMapList struct {
+	M    map[string]firstFieldMapList
+	Tail *firstFieldMapList
+}
+
 // The values are checked for a cycle after the nesting gets deep.
 // A value which is referred to twice is not a cycle, whatever it holds.
 func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 	const depth = 1100
 	shared := &cycleDetectionHolder{V: (*int)(nil)}
+	sharedMap := map[string]any{"a": 1}
+	sharedValues := map[string]cycleMapOfValues{"a": {}}
+	sharedValuesOfList := map[string]firstFieldMapList{"a": {}}
 	for _, test := range []struct {
 		name string
 		v    any
@@ -37,6 +47,10 @@ func TestEncodeSharedValueNestedDeeply(t *testing.T) {
 		{"typed nil in interface", []*cycleDetectionHolder{shared, shared}},
 		{"value in interface", []any{shared, shared}},
 		{"recursive type", []*cycleDetectionNode{{Any: shared}, {Any: shared}}},
+		{"map", []any{sharedMap, sharedMap}},
+		{"map of values", []cycleMapOfValues{{M: sharedValues}, {M: sharedValues}}},
+		// a pointer in an interface value, to a struct whose first field is a map which is shared
+		{"pointer to a list of a map", &firstFieldMapList{M: sharedValuesOfList, Tail: &firstFieldMapList{M: sharedValuesOfList}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			v := nestedInterfaceValue(depth, test.v)
@@ -131,5 +145,60 @@ func TestEncodeRecursiveNonStructType(t *testing.T) {
 	s[0] = s
 	if _, err := json.Marshal(s); err == nil {
 		t.Error("slice: expected the error of a cycle")
+	}
+}
+
+// cycleMapOfValues is a cycle through the values of a map, which are copies: the map alone is reached again.
+type cycleMapOfValues struct{ M map[string]cycleMapOfValues }
+
+// cycleMap is a map which holds itself, through its values of interface{} and of its own type.
+type cycleMap map[string]cycleMap
+
+func TestEncodeCycleThroughMapValues(t *testing.T) {
+	m := map[string]cycleMapOfValues{}
+	m["a"] = cycleMapOfValues{M: m}
+	self := cycleMap{}
+	self["a"] = self
+	anyMap := map[string]any{}
+	anyMap["a"] = anyMap
+	for _, v := range []any{m, &cycleMapOfValues{M: m}, self, anyMap} {
+		_, err := json.Marshal(v)
+		_, stdErr := stdjson.Marshal(v)
+		if err == nil || stdErr == nil || err.Error() != stdErr.Error() {
+			t.Errorf("%T: %v; want %v", v, err, stdErr)
+		}
+	}
+}
+
+// retainedMap is a list of maps, whose last value holds memory which the encoding doesn't write.
+type retainedMap struct {
+	M map[string]retainedMap
+	P []byte `json:"-"`
+}
+
+// The records of the maps for the detection of cycles are not kept by the pooled context after the call.
+func TestEncodeMapRecordsNotRetained(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the runtime context, which keeps the records, is dropped from its pool at random")
+	}
+	const size = 32 << 20
+	heap := func() uint64 {
+		runtime.GC()
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		return m.HeapAlloc
+	}
+	before := heap()
+	func() {
+		v := map[string]retainedMap{"a": {P: make([]byte, size)}}
+		for range 1100 {
+			v = map[string]retainedMap{"a": {M: v}}
+		}
+		if _, err := json.Marshal(v); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if after := heap(); after > before+size/2 {
+		t.Errorf("%d MiB is kept alive after the call", (after-before)>>20)
 	}
 }

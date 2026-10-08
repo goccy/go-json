@@ -27,9 +27,12 @@ type valueScanner struct {
 	// object keeps the position of its last name in the input, as -2 minus it in level.last, and the names are
 	// added to the stack at an error only, for its pointer.
 	lazyNames bool
-	in        []byte
-	decoding  bool // the messages and the offsets of the errors of a decoder
-	final     bool // the end of the input is the end of the buffer
+	// base is the depth of the stack before the value being scanned, whose levels are the ones of the value after
+	// it ( see addNames ).
+	base     int
+	in       []byte
+	decoding bool // the messages and the offsets of the errors of a decoder
+	final    bool // the end of the input is the end of the buffer
 	// numEnd is 1 plus the end of the buffer, where the end of the input ended a number in the current resume of
 	// a decoder, or 0: as encoding/json/jsontext, the decoder reads again for the rest of the value.
 	numEnd int
@@ -102,10 +105,11 @@ func (s *valueScanner) fail(err error, pos int, where int) *scanError {
 }
 
 // addNames adds the names which the objects of the value have as their positions in the input, outer objects
-// first, for the pointer of an error.
+// first, for the pointer of an error: not of the levels around the value, whose names are the stack's own or, at
+// the level an attached coder is in, of the coder around it.
 func (s *valueScanner) addNames() {
 	n := &s.st.names
-	for k := range s.st.levels {
+	for k := s.base + 1; k < len(s.st.levels); k++ {
 		l := &s.st.levels[k]
 		if !l.object || l.last >= 0 {
 			continue
@@ -126,7 +130,7 @@ var errCut = &scanError{err: io.ErrUnexpectedEOF}
 // scan reads the value at b[i:], and returns the position after it, and counts it in the innermost level of the
 // stack. At an error, the stack is left as it was.
 func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
-	s.run, s.wsEnd, s.in, s.kept = i, -1, b, false
+	s.run, s.wsEnd, s.in, s.kept, s.base = i, -1, b, false, s.st.depth()
 	if s.plain() {
 		out, names := len(s.out), len(s.st.names.ends)
 		var end int

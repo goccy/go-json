@@ -146,9 +146,11 @@ func nameOf(quoted []byte) []byte {
 	return name
 }
 
+// isDelim reports whether c ends a number or a literal: a value which a method writes right after it, without a
+// comma, as two values at the top level, begins at it too.
 func isDelim(c byte) bool {
 	switch c {
-	case ',', ':', '}', ']', ' ', '\t', '\n', '\r':
+	case ',', ':', '}', ']', '{', '[', '"', ' ', '\t', '\n', '\r':
 		return true
 	}
 	return false

@@ -35,9 +35,25 @@ func (c *Compiler) v2MapKeyCode(typ reflect.Type) (Code, error) {
 			return &FloatCode{typ: typ, bitSize: 64, isString: true}, nil
 		}
 	}
+	if typ.Kind() == reflect.Interface && typ.NumMethod() > 0 {
+		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+			return appendMapKeyName(ctx, b, typ, methodInterfaceOf(typ, p), funcs)
+		}), nil
+	}
 	return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 		return appendMapKeyName(ctx, b, typ, p, funcs)
 	}), nil
+}
+
+// methodInterfaceOf returns the address of the key at p of a map whose keys are of typ, an interface type with
+// methods, as a value of typ: p has the words of the interface{} which the key is read into ( see
+// newInterfaceKeyCollector ), not the ones of typ, whose first word is an itab.
+func methodInterfaceOf(typ reflect.Type, p unsafe.Pointer) unsafe.Pointer {
+	v := reflect.New(typ)
+	if key := *(*any)(p); key != nil {
+		v.Elem().Set(reflect.ValueOf(key))
+	}
+	return v.UnsafePointer()
 }
 
 // appendMapKeyName appends the name of the key at p, of typ, by the functions of marshaling, its method or its

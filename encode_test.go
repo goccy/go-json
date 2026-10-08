@@ -2844,6 +2844,27 @@ type zeroSizeTextKey struct{}
 
 func (zeroSizeTextKey) MarshalText() ([]byte, error) { return []byte("zero"), nil }
 
+type stringerValue int
+
+func (v stringerValue) String() string { return strconv.Itoa(int(v)) }
+
+// The values of a map of an interface type with methods are interface values of that type, whatever the key.
+func TestEncodeMapOfMethodInterfaceValues(t *testing.T) {
+	for _, v := range []any{
+		map[int]fmt.Stringer{1: stringerValue(2), 3: nil},
+		map[any]fmt.Stringer{"a": stringerValue(4), 5: nil},
+		map[fmt.Stringer]fmt.Stringer{stringerValue(6): stringerValue(7)},
+		map[int]error{1: nil, 2: errors.New("e")},
+		map[string]fmt.Stringer{"a": stringerValue(8)},
+	} {
+		got, err := json.Marshal(v)
+		want, wantErr := stdjson.Marshal(v)
+		if (err != nil) != (wantErr != nil) || !bytes.Equal(got, want) {
+			t.Errorf("%T: got %s %v, want %s %v", v, got, err, want, wantErr)
+		}
+	}
+}
+
 // A map whose keys have no size has one key at most.
 func TestEncodeMapOfZeroSizeKeys(t *testing.T) {
 	for _, v := range []map[zeroSizeTextKey]int{{}, {{}: 1}} {

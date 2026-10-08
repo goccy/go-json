@@ -60,7 +60,7 @@ const mapValueWords = 32
 func NewMapLayout(typ reflect.Type) *MapLayout {
 	l := &MapLayout{
 		StringKey: typ.Key().Kind() == reflect.String,
-		keySize:   typ.Key().Size(),
+		keySize:   rawKeySize(typ.Key()),
 		valueSize: typ.Elem().Size(),
 		ValueKind: typ.Elem().Kind(),
 		Cyclic:    reaches(typ.Key(), typ, map[reflect.Type]bool{}) || reaches(typ.Elem(), typ, map[reflect.Type]bool{}),
@@ -77,7 +77,7 @@ func NewMapLayout(typ reflect.Type) *MapLayout {
 		l.collect = collect
 		l.InterfaceValue = typ.Elem().Kind() == reflect.Interface && typ.Elem().NumMethod() == 0
 	} else {
-		l.collect = newReflectCollector(typ)
+		l.collect = withMethodValues(typ.Elem(), newReflectCollector(typ))
 	}
 	return l
 }
@@ -128,6 +128,13 @@ var byteValueCollectors = [32]func(unsafe.Pointer, *MapContext){
 	29: collectStringKeys[[29]byte],
 	30: collectStringKeys[[30]byte],
 	31: collectStringKeys[[31]byte],
+}
+
+// rawKeySize is the number of the bytes of RawKeys which a key of typ takes: its size, or one byte for a key of
+// no size, so that a map of it has as many keys in RawKeys as it has. The byte is never used: such a key is read at
+// its address only.
+func rawKeySize(typ reflect.Type) uintptr {
+	return max(typ.Size(), 1)
 }
 
 // collectStringKeys reads the map at p, as a map[string]V, into the context.
@@ -184,7 +191,7 @@ func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 		return newInterfaceKeyCollector(typ)
 	}
 	stringKey := keyType.Kind() == reflect.String
-	keySize, valueSize := keyType.Size(), valueType.Size()
+	keySize, valueSize := rawKeySize(keyType), valueType.Size()
 	keyDirect, valueDirect := !runtime.IfaceIndir(keyType), !runtime.IfaceIndir(valueType)
 	// a value which is an interface value is copied to the interface value as it is: the value is the words.
 	valueIsIface := valueType.Kind() == reflect.Interface
@@ -215,6 +222,24 @@ func newReflectCollector(typ reflect.Type) func(unsafe.Pointer, *MapContext) {
 		}
 		it.Reset(reflect.Value{})
 		c.keyIface, c.valueIface = nil, nil
+	}
+}
+
+// withMethodValues returns collect, which reads the values as the words of an interface{}, for values of valueType,
+// with the values made the words of valueType when it is an interface type with methods: an interface{} has the
+// type of the value where such a type has its itab.
+func withMethodValues(valueType reflect.Type, collect func(unsafe.Pointer, *MapContext)) func(unsafe.Pointer, *MapContext) {
+	if valueType.Kind() != reflect.Interface || valueType.NumMethod() == 0 {
+		return collect
+	}
+	return func(p unsafe.Pointer, c *MapContext) {
+		collect(p, c)
+		for i := 0; i < len(c.Values); i += int(unsafe.Sizeof(any(nil))) {
+			value := unsafe.Pointer(&c.Values[i])
+			if v := *(*any)(value); v != nil {
+				reflect.NewAt(valueType, value).Elem().Set(reflect.ValueOf(v))
+			}
+		}
 	}
 }
 
@@ -269,15 +294,9 @@ func (l *MapLayout) Reset(c *MapContext) {
 func (l *MapLayout) Collect(p unsafe.Pointer, c *MapContext) int {
 	l.Reset(c)
 	l.collect(p, c)
-	switch {
-	case l.StringKey:
+	if l.StringKey {
 		c.Len = len(c.Keys)
-	case l.keySize == 0:
-		// the keys of a zero size have no bytes: the map has one of them at most, which KeyAt finds at the byte of
-		// RawKeys, which it has then.
-		c.RawKeys = append(c.RawKeys, 0)
-		c.Len = MapLen(p)
-	default:
+	} else {
 		c.Len = len(c.RawKeys) / int(l.keySize)
 	}
 	return c.Len

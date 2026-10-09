@@ -157,8 +157,9 @@ func (c *FloatCode) Filter(_ *FieldQuery) Code {
 type StringCode struct {
 	typ   reflect.Type
 	isPtr bool
-	// isString is whether a json.Number is a JSON string ( see Compiler.stringifyNumbers ).
-	isString bool
+	// isJSONNumberString is whether the value is a json.Number written as a JSON string ( see
+	// Compiler.stringifyNumbers ).
+	isJSONNumberString bool
 }
 
 func (c *StringCode) Kind() CodeKind {
@@ -181,7 +182,7 @@ func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
 			code = newOpCode(ctx, c.typ, OpString)
 		}
 	}
-	if c.isString {
+	if c.isJSONNumberString {
 		code.Op = code.Op.ToStringOp()
 	}
 	ctx.incIndex()

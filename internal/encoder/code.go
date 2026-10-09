@@ -157,6 +157,8 @@ func (c *FloatCode) Filter(_ *FieldQuery) Code {
 type StringCode struct {
 	typ   reflect.Type
 	isPtr bool
+	// isString is whether a json.Number is a JSON string ( see Compiler.stringifyNumbers ).
+	isString bool
 }
 
 func (c *StringCode) Kind() CodeKind {
@@ -178,6 +180,9 @@ func (c *StringCode) ToOpcode(ctx *compileContext) Opcodes {
 		} else {
 			code = newOpCode(ctx, c.typ, OpString)
 		}
+	}
+	if c.isString {
+		code.Op = code.Op.ToStringOp()
 	}
 	ctx.incIndex()
 	return Opcodes{code}
@@ -1472,6 +1477,8 @@ func convertPtrOp(code *Opcode) OpType {
 		return OpFloat32PtrString
 	case OpFloat64String:
 		return OpFloat64PtrString
+	case OpNumberString:
+		return OpNumberPtrString
 	}
 	return code.Op
 }

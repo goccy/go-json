@@ -177,6 +177,10 @@ func (c *Opcode) ToFieldType(isString bool) OpType {
 		return OpStructFieldFloat64String
 	case OpFloat64PtrString:
 		return OpStructFieldFloat64PtrString
+	case OpNumberString:
+		return OpStructFieldNumberString
+	case OpNumberPtrString:
+		return OpStructFieldNumberPtrString
 	case OpInterface:
 		// the string option is not for a value of interface{}.
 		return OpStructFieldInterface

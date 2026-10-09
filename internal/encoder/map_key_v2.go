@@ -22,7 +22,8 @@ import (
 // v2MapKeyCode returns the code of the key of a map of the type typ.
 func (c *Compiler) v2MapKeyCode(typ reflect.Type) (Code, error) {
 	funcs := c.funcs.funcsOf(typ)
-	if len(funcs) == 0 && v2MethodOf(typ, noMethod) == noMethod {
+	// a time.Duration and a json.Number are named by appendKeyNameAfter, wherever they are.
+	if len(funcs) == 0 && v2MethodOf(typ, noMethod) == noMethod && typ != timeDurationType && typ != jsonNumberType {
 		switch typ.Kind() {
 		case reflect.String:
 			return c.stringCode(typ, false)
@@ -143,6 +144,16 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 			text, err := m.MarshalText()
 			return append(dst, text...), err
 		})
+	}
+	switch t {
+	case timeDurationType:
+		return b, &errors.SemanticError{GoType: t, Err: errNoDuration}
+	case jsonNumberType:
+		out, err := AppendNumberString(ctx, append(b, '"'), json.Number(v.String()))
+		if err != nil {
+			return b, err
+		}
+		return append(out, '"'), nil
 	}
 	switch t.Kind() {
 	case reflect.String:

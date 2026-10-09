@@ -31,7 +31,7 @@ func TestAppendNumberAsGrammar(t *testing.T) {
 		"1234567.", "123456.7", "0.123456789012345", "-0.12345678901234", "12345678901234567")
 	for _, s := range inputs {
 		for _, prefix := range [][]byte{nil, []byte("x"), append(make([]byte, 0, 64), 'x')} {
-			got, err := AppendNumber(nil, append([]byte(nil), prefix...), json.Number(s))
+			got, err := AppendNumber(&RuntimeContext{Option: &Option{}}, append([]byte(nil), prefix...), json.Number(s))
 			want := jsonnum.IsValid([]byte(s))
 			if (err == nil) != want {
 				t.Fatalf("AppendNumber(%q): error %v, want valid %v", s, err, want)

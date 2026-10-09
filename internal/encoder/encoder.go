@@ -541,7 +541,13 @@ func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
 // A number of up to 24 bytes is copied by the words which overlap, without a call of memmove, and the bytes which
 // are not digits are found in the words as they are loaded, which the grammar is then checked by, without a call:
 // an integer at once, and another number by the places of its bytes which are not digits.
-func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+//
+// A json.Number is a raw value for the options of encoding/json/v2 which rewrite raw values: they are checked here,
+// in the function itself, as a call more costs every number.
+func AppendNumber(ctx *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	if ctx.Option.Flag&RawRewriteOption != 0 {
+		return appendRewrittenNumber(ctx, b, n)
+	}
 	l := len(n)
 	if l == 0 {
 		return append(b, '0'), nil
@@ -643,11 +649,43 @@ func AppendNumber(_ *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
 // AppendNumberString is AppendNumber of a json.Number of a field with the option string, which the caller
 // quotes: its error shows the number quoted, as encoding/json shows it.
 func AppendNumberString(ctx *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	if ctx.Option.Flag&RawRewriteOption != 0 {
+		// a number in a string, which the options which rewrite raw values don't rewrite.
+		return appendNumberAsIs(b, n)
+	}
 	out, err := AppendNumber(ctx, b, n)
 	if err != nil {
 		return nil, invalidNumberError(n, true)
 	}
 	return out, nil
+}
+
+// appendRewrittenNumber is AppendNumber of a json.Number which the options of encoding/json/v2 which rewrite raw
+// values rewrite, as it is a raw value for them.
+//
+//go:noinline
+func appendRewrittenNumber(ctx *RuntimeContext, b []byte, n json.Number) ([]byte, error) {
+	if n == "" {
+		n = "0"
+	}
+	raw := unsafe.Slice(unsafe.StringData(string(n)), len(n))
+	if !jsonnum.IsValid(raw) {
+		return nil, invalidNumberError(n, false)
+	}
+	return V2Hooks.FormatRaw(ctx, b, raw)
+}
+
+// appendNumberAsIs is AppendNumberString of a number which the options which rewrite raw values don't rewrite.
+//
+//go:noinline
+func appendNumberAsIs(b []byte, n json.Number) ([]byte, error) {
+	if n == "" {
+		return append(b, '0'), nil
+	}
+	if !jsonnum.IsValid(unsafe.Slice(unsafe.StringData(string(n)), len(n))) {
+		return nil, invalidNumberError(n, true)
+	}
+	return append(b, n...), nil
 }
 
 // growForNumber returns b with room for n bytes more, growing as append does.

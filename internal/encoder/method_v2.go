@@ -282,11 +282,12 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	// the escaper of the options of ctx is the one of ctx, which records invalid UTF-8 for it: inner sets its own.
 	inner.Option.EscaperFlags = noEscaperFlags
 	inner.Init(p, codeSet.CodeLength)
-	inner.RecursiveLevel = ctx.RecursiveLevel
-	inner.SeenPtr = append(inner.SeenPtr, ctx.SeenPtr...)
 	inner.CheckNames = false
 	inner.RewriteFrom = ctx.RewriteFrom
-	out, err := RunHook(inner, b, codeSet)
+	out, err := b, EnterNested(inner, ctx, codeSet, p)
+	if err == nil {
+		out, err = RunHook(inner, b, codeSet)
+	}
 	if invalidOut, invalid := inner.InvalidUTF8Output(); invalid {
 		// the first error, before which the encoding went on.
 		out, err = invalidOut, &errors.TextError{Err: errors.ErrInvalidUTF8}

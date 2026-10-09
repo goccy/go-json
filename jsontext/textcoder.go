@@ -46,13 +46,13 @@ func encoderPosition(enc any, levels []textcoder.Level) ([]textcoder.Level, int6
 		}
 		levels = append(levels, tl)
 	}
-	_, _, offset := encoderPlace(enc)
+	_, _, offset, _ := encoderPlace(enc)
 	return levels, offset
 }
 
-// encoderPlace returns the innermost level of enc, whether it is the top level, and the offset of its next value,
-// without the levels around it.
-func encoderPlace(enc any) (textcoder.Level, bool, int64) {
+// encoderPlace returns the innermost level of enc, whether it is the top level, the offset of its next value,
+// without the levels around it, and the Outer of its attach.
+func encoderPlace(enc any) (textcoder.Level, bool, int64, textcoder.Outer) {
 	e := &enc.(*Encoder).e
 	if !e.ready() {
 		e.setUp()
@@ -63,7 +63,7 @@ func encoderPlace(enc any) (textcoder.Level, bool, int64) {
 		k = KindString
 	}
 	inner := textcoder.Level{Object: l.object, Count: l.count}
-	return inner, e.st.depth() == 0, e.base + int64(len(e.buf)) + int64(e.delimLen(k))
+	return inner, e.st.depth() == 0, e.base + int64(len(e.buf)) + int64(e.delimLen(k)), e.st.outer
 }
 
 // configureEncoder makes enc write by the options opts until the returned function is called.

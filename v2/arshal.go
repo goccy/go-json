@@ -227,7 +227,7 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	out.Options().ApplyTo(&st.cfg)
 	st.orig = st.cfg
 	st.cfg.Apply(opts)
-	inner, top, base := textcoder.Place(out)
+	inner, top, base, owner := textcoder.Place(out)
 	st.setPlace(out, inner, !top)
 	if len(opts) > 0 {
 		if err := optionsChange(&st.orig, &st.cfg, inner); err != nil {
@@ -239,7 +239,17 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 			return serr
 		}
 	}
+	// a call by a method, whose cycles pass no frame of the VM: the encoding goes on from the one of the method
+	// ( see encoder.EnterNested ), for the call only.
+	caller, nested := owner.(*callState)
+	nested = nested && caller.calling
+	if nested {
+		ctx.Outer = caller.attachCtx
+	}
 	buf, opened, err := marshal(ctx, st, in, false, nil, base)
+	if nested {
+		ctx.Outer = nil
+	}
 	if err != nil {
 		if opened && !st.cfg.Has(options.AllowDuplicateNames) {
 			// the value stopped in an object or an array of its own, which the encoder can't go on with.

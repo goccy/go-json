@@ -66,8 +66,9 @@ var (
 	// where its next value starts: after the delimiter and the white space before it.
 	Position func(enc any, levels []Level) ([]Level, int64)
 	// Place returns the innermost level of enc, whose count may be the one which Attach was given ( see Attach ),
-	// whether it is the top level, and the offset in its output where its next value starts.
-	Place func(enc any) (inner Level, top bool, offset int64)
+	// whether it is the top level, the offset in its output where its next value starts, and the Outer which it
+	// was attached with, if it was.
+	Place func(enc any) (inner Level, top bool, offset int64, outer Outer)
 	// Configure makes enc write by the options until restore is called, which gives it back its own.
 	Configure func(enc any, opts options.Options) (restore func())
 	// Invalidate makes enc fail every write until a Reset: MarshalEncode stopped within an object or an array it

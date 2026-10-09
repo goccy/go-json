@@ -85,6 +85,16 @@ func (c *RuntimeContext) entersNilValue(typ unsafe.Pointer) bool {
 // encodes: the value is recorded by its identity, as the interface value which holds it may be a copy, as the
 // value of a map is.
 func (c *RuntimeContext) recordSeenValue(codeSet *OpcodeSet, p unsafe.Pointer) error {
+	id := seenValueOf(codeSet, p)
+	if id.p != nil && c.seen(id) {
+		return errCycle(c, codeSet.Type, p)
+	}
+	c.SeenPtr = append(c.SeenPtr, id)
+	return nil
+}
+
+// seenValueOf returns the record of the value at p, of the type of codeSet, by its identity ( see recordSeenValue ).
+func seenValueOf(codeSet *OpcodeSet, p unsafe.Pointer) SeenValue {
 	id := SeenValue{p: p, typ: runtime.TypePtr(codeSet.Type)}
 	if codeSet.IdentityIsFirstWord {
 		id.p = *(*unsafe.Pointer)(p)
@@ -97,6 +107,31 @@ func (c *RuntimeContext) recordSeenValue(codeSet *OpcodeSet, p unsafe.Pointer) e
 			id.n = -1
 		}
 	}
+	return id
+}
+
+// EnterNested makes c, which encodes the value at p by codeSet within the encoding by outer, the frame after the
+// ones of outer for the detection of cycles: a default representation of a value, which runs in a context of its
+// own ( see runInner ), or MarshalEncode called by a method, whose cycles pass no frame of the VM. Past
+// StartDetectingCyclesAfter, c has the records of outer, in the same arrays, as outer goes on only after c ends, and
+// records the value by codeSet, not by its type: a value which a function declined is encoded again by the opcodes
+// of its default representation, at the same address.
+func EnterNested(c, outer *RuntimeContext, codeSet *OpcodeSet, p unsafe.Pointer) error {
+	c.RecursiveLevel = outer.RecursiveLevel + 1
+	if c.RecursiveLevel <= StartDetectingCyclesAfter {
+		return nil
+	}
+	return recordNested(c, outer, codeSet, p)
+}
+
+// recordNested is EnterNested past StartDetectingCyclesAfter, apart from it, so that the calls which are not nested
+// deeply have EnterNested inlined. It is a function, not a method: a method of RuntimeContext changes its method
+// table, which moved data the encodings read and made them slower.
+func recordNested(c, outer *RuntimeContext, codeSet *OpcodeSet, p unsafe.Pointer) error {
+	c.SeenPtr, c.seenMaps = outer.SeenPtr, outer.seenMaps
+	c.nested, c.sharedSeen, outer.nested = true, true, true
+	id := seenValueOf(codeSet, p)
+	id.typ = unsafe.Pointer(codeSet)
 	if id.p != nil && c.seen(id) {
 		return errCycle(c, codeSet.Type, p)
 	}

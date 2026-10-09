@@ -40,7 +40,7 @@ const (
 	MapStringKeyFlags      OpFlags = 1 << 10 // the key of the map is a string, written by OpMapKey itself
 	TailRecursiveFlags     OpFlags = 1 << 11 // the recursive value is the last field of a value of its own type, encoded in its frame
 	InterfaceMapKeyFlags   OpFlags = 1 << 12 // the key of a map of an interface type, whose name is of its dynamic value ( see appendInterfaceMapKey )
-	MapKeyFlags            OpFlags = 1 << 13 // the key of a map, whose name is "" for a nil pointer, while a nil pointer value is null
+	MapKeyFlags            OpFlags = 1 << 13 // the key of a map, whose name is "" for a nil pointer of MarshalText and an error for another nil pointer, while a nil pointer value is null
 	StaticTypeFlags        OpFlags = 1 << 14 // the opcode of an interface encodes the value at its address by its own type, a type which is a value of itself ( see Compiler.recursiveValueCode )
 	MarshalerFuncFlags     OpFlags = 1 << 15 // the marshaler of the opcode is a function of the v2 semantics ( see MarshalerCall.appendValue ), which is called where the one of a context is
 )

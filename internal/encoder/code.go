@@ -414,11 +414,12 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
 }
 
-// isStringKey is whether the key of the map is a plain string, which OpMapKey writes itself: not a pointer,
-// not json.Number, and not a type with a marshaler, whose code is not a StringCode.
+// isStringKey is whether the key of the map is a plain string, which OpMapKey writes itself: not a pointer, and
+// not a type with a marshaler, whose code is not a StringCode. A json.Number is named by its string or by a function
+// ( see Compiler.mapKeyCode and Compiler.v2MapKeyCode ).
 func (c *MapCode) isStringKey() bool {
 	key, ok := c.key.(*StringCode)
-	return ok && !key.isPtr && key.typ != jsonNumberType
+	return ok && !key.isPtr
 }
 
 func (c *MapCode) Filter(_ *FieldQuery) Code {
@@ -1396,6 +1397,8 @@ type PtrCode struct {
 	typ    reflect.Type
 	value  Code
 	ptrNum uint8
+	// isMapKey is whether the code is the one of the key of a map, which a nil pointer can't name.
+	isMapKey bool
 }
 
 func (c *PtrCode) Kind() CodeKind {
@@ -1406,6 +1409,9 @@ func (c *PtrCode) ToOpcode(ctx *compileContext) Opcodes {
 	codes := c.value.ToOpcode(ctx)
 	codes.First().Op = convertPtrOp(codes.First())
 	codes.First().PtrNum = c.ptrNum
+	if c.isMapKey {
+		codes.First().Flags |= MapKeyFlags
+	}
 	return codes
 }
 
@@ -1424,9 +1430,10 @@ func (c *PtrCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 
 func (c *PtrCode) Filter(query *FieldQuery) Code {
 	return &PtrCode{
-		typ:    c.typ,
-		value:  c.value.Filter(query),
-		ptrNum: c.ptrNum,
+		typ:      c.typ,
+		value:    c.value.Filter(query),
+		ptrNum:   c.ptrNum,
+		isMapKey: c.isMapKey,
 	}
 }
 

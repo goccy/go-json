@@ -66,6 +66,8 @@ type callState struct {
 	tracked tracker
 	// cfg are the options of the call, and orig the ones of the jsontext.Encoder of MarshalEncode.
 	cfg, orig options.Config
+	// tagCfg is cfg with options.StringTag, of a value of a field of the `string` option ( see marshalTo ).
+	tagCfg options.Config
 	// outerEnc is the jsontext.Encoder which MarshalEncode writes to, or nil for an output of its own, and
 	// outerPlace and placeInner are its innermost level, and whether it is not the top level ( see
 	// textcoder.Place ): they are left zero, the top level of an output of its own, between the calls ( see
@@ -284,7 +286,8 @@ func (st *callState) release() {
 		st.orig = options.Config{}
 	}
 	if st.cfg.Set != 0 {
-		st.cfg = options.Config{}
+		// tagCfg, which is a copy of cfg, holds what it holds only then.
+		st.cfg, st.tagCfg = options.Config{}, options.Config{}
 	}
 }
 
@@ -346,8 +349,18 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	if !st.attached {
 		pl.Outer, pl.Opts = st, &st.cfg
 	}
+	if ctx.Option.Flag&encoder.StringTagOption != 0 {
+		// the options of the encoder have the option, which a nested call encodes by
+		st.tagCfg = st.cfg
+		st.tagCfg.Set |= options.StringTag
+		st.tagCfg.Value |= options.StringTag
+		pl.Opts, pl.Same = &st.tagCfg, false
+	}
 	textcoder.Attach(unsafe.Pointer(&st.enc), pl)
 	st.attached, st.calling = true, true
+	if pl.Opts != &st.cfg {
+		st.attached, pl.Opts = false, &st.cfg // the options of the `string` option, which the next attach drops
+	}
 	depth, count, skip := pl.Depth, pl.Count, pl.Skip
 	var err error
 	if m != nil {

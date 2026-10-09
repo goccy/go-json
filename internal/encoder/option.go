@@ -42,6 +42,9 @@ const (
 	// OmitZeroStructFieldsOption omits every field of a struct which is zero, for the v2 semantics: the opcodes of
 	// the fields are compiled for it.
 	OmitZeroStructFieldsOption
+	// StringTagOption encodes the value as the value of a field of the `string` option, with StringifyNumbersOption:
+	// the opcodes of the value are compiled for it.
+	StringTagOption
 	// The options of encoding/json/v2 which the opcodes of the v2 semantics look at as they encode: the ones which
 	// may differ from a call to another for the same opcodes.
 	//

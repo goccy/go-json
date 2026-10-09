@@ -61,7 +61,11 @@ func GetOption[T any](opts Options, setter func(T) Options) (T, bool) {
 	var c options.Config
 	opts.ApplyTo(&c)
 	if c.Set&f == 0 {
-		return zero, false
+		if f != options.StringifyNumbers || c.Value&options.StringTag == 0 {
+			return zero, false
+		}
+		// the options of a method of a value of the `string` option, as encoding/json/v2 reports them
+		c.Value |= f
 	}
 	var v any
 	switch f {

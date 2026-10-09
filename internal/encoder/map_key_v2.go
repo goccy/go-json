@@ -186,6 +186,12 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 			copied.Set(elem)
 			elem = copied
 		}
+		// named by the functions of its own type first, as a key of that type is.
+		if funcs := ctx.Option.Funcs.funcsOf(elem.Type()); len(funcs) > 0 {
+			if out, err := appendByFuncs(ctx, b, elem.Addr().UnsafePointer(), elem.Type(), funcs); err != ErrUseDefault {
+				return out, err
+			}
+		}
 		return appendKeyName(ctx, b, elem)
 	case reflect.Array:
 		if t.Elem().Kind() == reflect.Uint8 && t.Elem().PkgPath() == "" {

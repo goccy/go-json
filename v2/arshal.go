@@ -261,8 +261,14 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 		encoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
-	// the encoder writes the value by the options of the call, which it was made by.
-	restore := textcoder.Configure(out, &st.cfg)
+	// the encoder writes the value by the options of the call, which it was made by, but the ones which rewrote the
+	// raw values in it.
+	cfg := &st.cfg
+	if cfg.Value&rawContentRewriting != 0 {
+		written := writtenConfig(cfg)
+		cfg = &written
+	}
+	restore := textcoder.Configure(out, cfg)
 	if err = out.WriteValue(buf); err != nil {
 		textcoder.Fail(out, err)
 	}
@@ -394,17 +400,29 @@ func (st *callState) configure(ctx *encoder.RuntimeContext, in any, nilPointer b
 // It is called only for the options of formatFlags.
 func format(buf []byte, c *options.Config) ([]byte, error) {
 	// formatted by jsontext, which validates it as well.
+	f := writtenConfig(c)
 	v := jsontext.Value(buf)
-	if err := v.Format(c); err != nil {
+	if err := v.Format(&f); err != nil {
 		return nil, err
 	}
 	return v, nil
 }
 
+// writtenConfig returns the options c by which the output of the encoder is written as a whole: without the ones
+// which rewrite the content of raw values, which rewrote them when they were written ( see formatRaw ), as the
+// other values are not raw ones. PreserveRawStrings is kept, by which the strings of the raw values stay as they are.
+func writtenConfig(c *options.Config) options.Config {
+	f := *c
+	f.Set &^= rawContentRewriting
+	f.Value &^= rawContentRewriting
+	return f
+}
+
+// rawContentRewriting are the options which rewrite the content of raw values.
+const rawContentRewriting = options.CanonicalizeRawInts | options.CanonicalizeRawFloats | options.ReorderRawObjects
+
 // formatFlags are the options of the format of the output, which the engine doesn't write by itself.
-const formatFlags = options.Multiline | options.SpaceAfterColon | options.SpaceAfterComma |
-	options.PreserveRawStrings | options.CanonicalizeRawInts | options.CanonicalizeRawFloats |
-	options.ReorderRawObjects
+const formatFlags = options.Multiline | options.SpaceAfterColon | options.SpaceAfterComma
 
 // defaultFlags are the options of the engine for the default options.
 var defaultFlags = optionFlags(&options.Config{})

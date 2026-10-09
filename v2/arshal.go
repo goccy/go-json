@@ -234,7 +234,9 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 			releaseCallState(st)
 			encoder.ReleaseRuntimeContext(ctx)
 			levels, _ := textcoder.Position(out, nil)
-			return &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: pointerOf(levels, +1), GoType: reflect.TypeOf(in), Err: err}
+			serr := &SemanticError{action: "marshal", ByteOffset: base, JSONPointer: pointerOf(levels, +1), GoType: reflect.TypeOf(in), Err: err}
+			textcoder.Fail(out, serr)
+			return serr
 		}
 	}
 	buf, opened, err := marshal(ctx, st, in, false, nil, base)
@@ -243,13 +245,17 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 			// the value stopped in an object or an array of its own, which the encoder can't go on with.
 			textcoder.Invalidate(out)
 		}
+		// the value of a method, whose encoder out is, fails with it ( see marshalTo ).
+		textcoder.Fail(out, err)
 		releaseCallState(st)
 		encoder.ReleaseRuntimeContext(ctx)
 		return err
 	}
 	// the encoder writes the value by the options of the call, which it was made by.
 	restore := textcoder.Configure(out, &st.cfg)
-	err = out.WriteValue(buf)
+	if err = out.WriteValue(buf); err != nil {
+		textcoder.Fail(out, err)
+	}
 	restore()
 	releaseCallState(st)
 	encoder.ReleaseRuntimeContext(ctx)

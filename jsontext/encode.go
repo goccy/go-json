@@ -73,6 +73,8 @@ type encoder struct {
 	// closedPast is whether the attached encoder was asked to end the object or the array which it is attached
 	// in, which is not its own: the value which it was given the place of fails ( see detachEncoder ).
 	closedPast bool
+	// failErr is the error of a call which failed at the attached encoder ( see textcoder.Fail ).
+	failErr error
 }
 
 // NewEncoder constructs a streaming encoder which writes to w, with the options. It writes its buffer to w when

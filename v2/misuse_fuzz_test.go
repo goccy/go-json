@@ -67,7 +67,7 @@ func (v misusing) MarshalJSONTo(e *jsontext.Encoder) error {
 }
 
 // marshalMisusing marshals a misusing method, decoded from in with the place of its value and the options, and
-// reports a panic as a failure of t.
+// reports a panic, or a call which succeeds with output which is not one valid JSON value, as a failure of t.
 func marshalMisusing(t *testing.T, in []byte) {
 	t.Helper()
 	ops := misuseOps(&in, 0)
@@ -92,14 +92,22 @@ func marshalMisusing(t *testing.T, in []byte) {
 			t.Fatalf("panic %v, place %d, flags %d, ops %+v", r, place%5, flags, ops)
 		}
 	}()
+	var out []byte
+	var err error
 	if flags&4 != 0 {
-		_ = MarshalWrite(new(strings.Builder), v, opts...)
+		var b strings.Builder
+		err = MarshalWrite(&b, v, opts...)
+		out = []byte(b.String())
 	} else {
-		_, _ = Marshal(v, opts...)
+		out, err = Marshal(v, opts...)
+	}
+	if err == nil && !jsontext.Value(out).IsValid(jsontext.AllowDuplicateNames(flags&1 != 0)) {
+		t.Fatalf("invalid JSON %q, place %d, flags %d, ops %+v", out, place%5, flags, ops)
 	}
 }
 
-// A method which misuses its encoder, by any writes, makes the call fail without a panic.
+// A method which misuses its encoder, by any writes, makes the call fail without a panic, or writes one valid
+// value.
 func FuzzMarshalMethodMisuse(f *testing.F) {
 	f.Add([]byte("000000020000000000")) // values after the end of the array which the value is in
 	f.Add([]byte{2, 9, 0, 9, 1, 3, 2, 1})

@@ -13,6 +13,11 @@ func init() {
 	textcoder.Position = encoderPosition
 	textcoder.Place = encoderPlace
 	textcoder.Configure = configureEncoder
+	textcoder.Fail = func(enc any, err error) {
+		if e := &enc.(*Encoder).e; e.attached && e.failErr == nil {
+			e.failErr = err
+		}
+	}
 	textcoder.Invalidate = func(enc any) {
 		e := &enc.(*Encoder).e
 		e.invalid = true
@@ -79,7 +84,7 @@ func configureEncoder(enc any, opts options.Options) func() {
 func attachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
 	st := &e.st
-	e.closedPast = false
+	e.closedPast, e.failErr = false, nil
 	if p.Same && e.attached && e.ready() && cap(st.levels) >= 2 {
 		// attached again with the same options, as most calls of the methods are: the state of the grammar and of
 		// the scanner is reset, as init resets it, without the rest. The levels are written as reset and push
@@ -150,7 +155,8 @@ func (e *encoder) skipDelim() int {
 // detachEncoder sets the output of enc and the place where it is in p.
 func detachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 	e := &(*Encoder)(enc).e
-	p.Out, p.Depth, p.Count = e.buf, e.st.depth(), e.st.last().count
+	p.Out, p.Depth, p.Count, p.Failed = e.buf, e.st.depth(), e.st.last().count, e.failErr
+	e.failErr = nil
 	if e.closedPast {
 		p.Depth-- // the level which the value was asked to end, as encoding/json/jsontext ends it
 	}

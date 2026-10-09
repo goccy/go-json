@@ -514,7 +514,8 @@ func (c *Compiler) float64Code(typ reflect.Type, isPtr bool) (*FloatCode, error)
 
 //nolint:unparam
 func (c *Compiler) stringCode(typ reflect.Type, isPtr bool) (*StringCode, error) {
-	return &StringCode{typ: typ, isPtr: isPtr}, nil
+	// a json.Number is a number, which StringifyNumbersOption writes in a string.
+	return &StringCode{typ: typ, isPtr: isPtr, isJSONNumberString: c.stringifyNumbers && typ == jsonNumberType}, nil
 }
 
 //nolint:unparam

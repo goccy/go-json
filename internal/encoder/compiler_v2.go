@@ -25,6 +25,9 @@ var (
 var (
 	errYearRange     = errors.New("year outside of range [0,9999]")
 	errTimezoneRange = errors.New("timezone hour outside of range [0,23]")
+	// errNoDuration is the error of a time.Duration, which has no representation of its own until
+	// encoding/json/v2 decides one.
+	errNoDuration = errors.New("no default representation")
 )
 
 // appendTime appends the time.Time at p in RFC 3339 with nanosecond precision, which can't represent a year
@@ -65,8 +68,7 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 	}
 	switch typ {
 	case timeDurationType:
-		// it has no representation of its own until encoding/json/v2 decides one.
-		return c.appendFuncCode(typ, appendError(typ, errors.New("no default representation"))), true
+		return c.appendFuncCode(typ, appendError(typ, errNoDuration)), true
 	case timeTimeType:
 		return c.appendFuncCode(typ, appendTime), true
 	}
@@ -233,10 +235,10 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		case c.v2HasMethod(field.typ):
 			tag.IsOmitEmpty = false
 			field.unwriteEmpty = true
-		case kind == reflect.String || kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array:
-			// empty if its length is 0.
 		case c.v2NeverEmpty(field.typ):
 			tag.IsOmitEmpty = false
+		case kind == reflect.String || kind == reflect.Map || kind == reflect.Slice || kind == reflect.Array:
+			// empty if its length is 0.
 		default:
 			tag.IsOmitEmpty = false
 			field.unwriteEmpty = true
@@ -259,7 +261,7 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 		tag.IsString = false
 		return nil, false
 	}
-	if isNumberKind(typ.Kind()) && typ != timeDurationType {
+	if isNumberKind(typ.Kind()) && typ != timeDurationType || typ == jsonNumberType {
 		return nil, false
 	}
 	tag.IsString = false
@@ -283,7 +285,8 @@ func (c *Compiler) v2NeverEmpty(typ reflect.Type) bool {
 			v2MethodOf(typ, noMethod) == methodMarshalJSON && addrJSONAppender(typ) != nil
 	}
 	switch kind := typ.Kind(); {
-	case kind == reflect.Bool || isNumberKind(kind):
+	case kind == reflect.Bool || isNumberKind(kind), typ == jsonNumberType:
+		// a json.Number is a number, 0 if it is "".
 		return true
 	case kind == reflect.Struct && !c.omitZeroStructFields:
 		fields := v2FieldsOf(typ)

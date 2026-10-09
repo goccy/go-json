@@ -356,25 +356,44 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 		err = fn(&st.enc)
 	}
 	textcoder.Detach(unsafe.Pointer(&st.enc), pl)
-	written, newDepth, newCount := pl.Out, pl.Depth, pl.Count
+	if err != nil || pl.Depth != depth || pl.Count != count+1 || pl.Failed != nil {
+		return methodFailed(st, b, typ, err, depth, count, skip)
+	}
+	written := pl.Out
 	if skip > 0 && len(written) >= skip {
 		// the delimiter before the value, which the encoder of MarshalEncode writes.
 		written = written[:copy(written, written[skip:])]
 	}
+	return written, nil
+}
+
+// methodFailed is marshalTo after the method of a value of typ returned err, or wrote other than one value at the
+// depth and the count of the place of its value, or a call of MarshalEncode failed within it, whose error the value
+// fails with if the method returned none: a method can't hide the failure of a value it writes. b is the output
+// before the method. It is a function, not a method: a method of callState changes its method table, which moved
+// data the encodings read and made them slower.
+func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth int, count int64, skip int) ([]byte, error) {
+	pl := &st.place
+	written, newDepth, newCount := pl.Out, pl.Depth, pl.Count
+	if skip > 0 && len(written) >= skip {
+		written = written[:copy(written, written[skip:])]
+	}
+	nested := err == nil && pl.Failed != nil
+	if nested {
+		err = pl.Failed
+	}
+	pl.Failed = nil // the error refers to the output, which the state must not keep
 	if err == nil && (newDepth != depth || newCount != count+1) {
 		err = errNonSingularValue
 	}
-	if err != nil {
-		if errors.Is(err, errors.ErrUnsupported) {
-			if newDepth == depth && newCount == count {
-				return b, encoder.ErrUseDefault
-			}
-			err = errUnsupportedMutation
+	if !nested && errors.Is(err, errors.ErrUnsupported) {
+		if newDepth == depth && newCount == count {
+			return b, encoder.ErrUseDefault
 		}
-		return b, &ierrors.MethodError{GoType: typ, Err: err, Kind: ierrors.MethodJSONTo, Out: written,
-			Where: whereOf(depth, count, newDepth, newCount)}
+		err = errUnsupportedMutation
 	}
-	return written, nil
+	return b, &ierrors.MethodError{GoType: typ, Err: err, Kind: ierrors.MethodJSONTo, Out: written,
+		Where: whereOf(depth, count, newDepth, newCount)}
 }
 
 // whereOf is where an error of a method which wrote to the encoder points: to the next value if it wrote

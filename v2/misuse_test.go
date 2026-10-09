@@ -57,3 +57,51 @@ func TestMarshalMethodMisuseFails(t *testing.T) {
 		}
 	}
 }
+
+// hidesFailure writes an array with the value of a call of MarshalEncode which fails, whose error it doesn't return:
+// it writes null in its place if fallback is set, or nothing.
+type hidesFailure struct {
+	value    any
+	fallback bool
+}
+
+func (v hidesFailure) MarshalJSONTo(e *jsontext.Encoder) error {
+	if err := e.WriteToken(jsontext.BeginArray); err != nil {
+		return err
+	}
+	if err := MarshalEncode(e, v.value); err != nil && v.fallback {
+		if err := e.WriteToken(jsontext.Null); err != nil {
+			return err
+		}
+	}
+	return e.WriteToken(jsontext.EndArray)
+}
+
+// optionAtPlace calls MarshalEncode with an option which the encoder can't change at its place, which fails.
+type optionAtPlace struct{}
+
+func (optionAtPlace) MarshalJSONTo(e *jsontext.Encoder) error {
+	return MarshalEncode(e, 1, jsontext.Multiline(true))
+}
+
+// A call of MarshalEncode which fails within a method fails the value of the method, whether the method returns the
+// error or not: its output is valid JSON, without the value which failed.
+func TestMarshalMethodHidingFailure(t *testing.T) {
+	fails := make(chan int)
+	for _, v := range []any{
+		hidesFailure{fails, false},
+		hidesFailure{fails, true},
+		hidesFailure{[]any{1, fails}, true},
+		hidesFailure{hidesFailure{fails, true}, true},
+		hidesFailure{optionAtPlace{}, true},
+	} {
+		for _, place := range []any{v, []any{v}, struct{ A any }{v}, map[string]any{"a": v}} {
+			if got, err := Marshal(place); err == nil {
+				t.Errorf("%T %+v: no error, %s", place, place, got)
+			}
+		}
+	}
+	if _, err := Marshal(hidesFailure{1, false}); err != nil {
+		t.Errorf("a value which doesn't fail: %v", err)
+	}
+}

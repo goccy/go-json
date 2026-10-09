@@ -43,6 +43,8 @@ type Attachment struct {
 	// Skip, and Depth and Count of the innermost level, which Detach sets after the writes, Attach sets.
 	Skip  int
 	Depth int
+	// Failed is the error of a call which failed at the encoder, which Detach sets ( see Fail ).
+	Failed error
 }
 
 // Outer gives the levels of the place where an encoder was attached, the top level first ( see Attach ): they are
@@ -71,4 +73,7 @@ var (
 	// Invalidate makes enc fail every write until a Reset: MarshalEncode stopped within an object or an array it
 	// opened.
 	Invalidate func(enc any)
+	// Fail records err in enc, an encoder which Attach attached, the first error of a call of MarshalEncode which
+	// failed at it: the value which enc was given the place of fails with it, whatever its method returns.
+	Fail func(enc any, err error)
 )

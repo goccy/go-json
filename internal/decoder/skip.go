@@ -156,14 +156,9 @@ value:
 	// a string, which most values are, before the switch of the others
 	if c == '"' {
 		// a string of plain bytes up to its quote, eight bytes at a time
-		for c := cursor + 1; c+8 <= length; c += 8 {
-			if special := keyEndBytes(load64(buf, c)); special != 0 {
-				if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-					cursor = c + 1
-					goto afterValue
-				}
-				break
-			}
+		if i := indexStringPlain(buf, b, cursor+1, length); i >= 0 && char(b, i) == '"' {
+			cursor = i + 1
+			goto afterValue
 		}
 		return cursor, level, objects, resumeAfterValue, skipAString
 	}
@@ -273,14 +268,9 @@ key:
 		return cursor, level, objects, resumeKey, skipInvalid
 	}
 	// a key of plain bytes, as the strings of the values
-	for c := cursor + 1; c+8 <= length; c += 8 {
-		if special := keyEndBytes(load64(buf, c)); special != 0 {
-			if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-				cursor = c + 1
-				goto afterKey
-			}
-			break
-		}
+	if i := indexStringPlain(buf, b, cursor+1, length); i >= 0 && char(b, i) == '"' {
+		cursor = i + 1
+		goto afterKey
 	}
 	return cursor, level, objects, resumeAfterKey, skipAString
 afterKey:
@@ -365,14 +355,9 @@ value:
 	case '"':
 		// a string of plain bytes up to its quote without a call, eight bytes at a time, and any other by
 		// skipString, which checks its escapes
-		for c := cursor + 1; c+8 <= length; c += 8 {
-			if special := keyEndBytes(load64(buf, c)); special != 0 {
-				if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-					cursor = c + 1
-					goto afterValue
-				}
-				break
-			}
+		if i := indexStringPlain(buf, b, cursor+1, length); i >= 0 && char(b, i) == '"' {
+			cursor = i + 1
+			goto afterValue
 		}
 		end, err := skipString(buf, cursor)
 		if err != nil {
@@ -464,14 +449,9 @@ key:
 		return 0, syntaxErrorAt(buf, cursor, whereKey)
 	}
 	// a key of plain bytes without a call, as the strings of the values
-	for c := cursor + 1; c+8 <= length; c += 8 {
-		if special := keyEndBytes(load64(buf, c)); special != 0 {
-			if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-				cursor = c + 1
-				goto afterKey
-			}
-			break
-		}
+	if i := indexStringPlain(buf, b, cursor+1, length); i >= 0 && char(b, i) == '"' {
+		cursor = i + 1
+		goto afterKey
 	}
 	{
 		end, err := skipString(buf, cursor)
@@ -551,6 +531,27 @@ func skipNumberRest(buf []byte, start, c int64) (int64, error) {
 		c = skipDigits(buf, c)
 	}
 	return c, nil
+}
+
+// minSkipSIMDLength is the number of the bytes left from which a string is scanned by SIMD rather than by
+// words: the call costs about as much as the words of a short string, which most strings are.
+const minSkipSIMDLength = 256
+
+// indexStringPlain returns the position at or after start of the first byte which is not a plain byte of a
+// string -- a quote, a backslash or a control character, which the nul byte at the end of the buffer is --
+// or -1 where fewer than eight are left, which the caller skips by skipString.
+func indexStringPlain(buf []byte, b unsafe.Pointer, start, length int64) int64 {
+	if length-start >= minSkipSIMDLength {
+		if i, _, ok := indexStringSpecial(unsafe.Add(b, start), int(length-start)); ok {
+			return start + int64(i)
+		}
+	}
+	for c := start; c+8 <= length; c += 8 {
+		if special := keyEndBytes(load64(buf, c)); special != 0 {
+			return c + int64(bits.TrailingZeros64(special)/8)
+		}
+	}
+	return -1
 }
 
 // stringError returns the syntax error of the string at cursor, which skipString failed with err, as encoding/json

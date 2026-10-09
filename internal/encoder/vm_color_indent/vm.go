@@ -330,6 +330,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpIntPtrString:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
+				if code.Flags&encoder.MapKeyFlags != 0 {
+					return b, encoder.ErrNilMapKey(code)
+				}
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
@@ -345,6 +348,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpUintPtrString:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
+				if code.Flags&encoder.MapKeyFlags != 0 {
+					return b, encoder.ErrNilMapKey(code)
+				}
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break
@@ -480,6 +486,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpStringPtr:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
+				if code.Flags&encoder.MapKeyFlags != 0 {
+					return b, encoder.ErrNilMapKey(code)
+				}
 				b = appendNullComma(ctx, b)
 				code = code.Next
 				break

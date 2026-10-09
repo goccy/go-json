@@ -212,6 +212,12 @@ func ErrUnsupportedValue(ctx *RuntimeContext, code *Opcode, ptr unsafe.Pointer) 
 	return errCycle(ctx, typ, ptr)
 }
 
+// ErrNilMapKey returns the error of a key of a map which is a nil pointer, the operand of code, which has no name
+// ( see MapKeyFlags ).
+func ErrNilMapKey(code *Opcode) error {
+	return &errors.UnsupportedValueError{Str: fmt.Sprintf("a nil key of %s", reflect.PointerTo(runtime.TypeOfPtr(code.Type)))}
+}
+
 // errCycle returns the error of a cycle through the value at p, of the type typ.
 func errCycle(ctx *RuntimeContext, typ reflect.Type, p unsafe.Pointer) error {
 	if ctx.Option.Flag&V2Option != 0 {

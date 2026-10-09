@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding"
 	"encoding/json"
+	"math"
 	"reflect"
 	"slices"
 	"sort"
@@ -704,7 +705,42 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 	}
 }
 
+// pointerMapKeyCode returns the code of a key of the pointer type typ, which is named as the value it points to, as
+// encoding/json of Go 1.27 names it, and true: a nil pointer has no name, and a value which can't be a key fails.
+// It returns false for a pointer to a value of MarshalText, and for a type of pointers which points to itself,
+// which mapKeyCode compiles as the pointers they are.
+func (c *Compiler) pointerMapKeyCode(typ reflect.Type) (Code, bool, error) {
+	var pointers []reflect.Type
+	elem := typ
+	for elem.Kind() == reflect.Ptr && !c.implementsMarshalText(elem) {
+		if slices.Contains(pointers, elem) {
+			return nil, false, nil
+		}
+		pointers = append(pointers, elem)
+		elem = elem.Elem()
+	}
+	if elem.Kind() == reflect.Ptr {
+		return nil, false, nil // a pointer of MarshalText
+	}
+	if len(pointers) > math.MaxUint8 {
+		// more pointers than an opcode counts ( see Opcode.PtrNum ).
+		return nil, true, &errors.UnsupportedTypeError{Type: typ}
+	}
+	key, err := c.mapKeyCode(elem)
+	if err != nil {
+		return nil, true, err
+	}
+	if _, text := key.(*MarshalTextCode); text {
+		return nil, false, nil
+	}
+	return &PtrCode{typ: typ, value: key, ptrNum: uint8(len(pointers)), isMapKey: true}, true, nil
+}
+
 func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
+	if typ == jsonNumberType {
+		// a json.Number is named by its string, as encoding/json names it: not as a number.
+		typ = reflect.TypeFor[string]()
+	}
 	switch {
 	case typ.Kind() == reflect.Interface && (interfaceMapKeys || c.implementsMarshalText(typ)):
 		// the name of a key is of its dynamic value, as encoding/json of the Go it is built with makes it: every
@@ -721,6 +757,9 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
+		if key, ok, err := c.pointerMapKeyCode(typ); ok {
+			return key, err
+		}
 		code, err := c.ptrCode(typ)
 		if err != nil {
 			return nil, err

@@ -49,6 +49,11 @@ func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 		return b, nil
 	}
 	ctx.Init(p, codeSet.CodeLength)
+	if ctx.Outer != nil {
+		if err := encoder.EnterNested(ctx, ctx.Outer, codeSet, p); err != nil {
+			return b, err
+		}
+	}
 
 	buf, err := Code(ctx, b, codeSet)
 	// the VM refers to the value by uintptr.

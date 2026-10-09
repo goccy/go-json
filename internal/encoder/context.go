@@ -165,8 +165,13 @@ type RuntimeContext struct {
 	// number of the maps being encoded.
 	mapContexts []*MapContext
 	mapDepth    int
-	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr.
-	nested bool
+	// nested is whether a frame was added by ReserveSlots: only such a frame uses SeenPtr. sharedSeen is whether
+	// the records are the ones of an outer context, which clears them itself ( see EnterNested ).
+	nested     bool
+	sharedSeen bool
+	// Outer is the context of the encoding which a call of MarshalEncode by a method is nested in, for the call
+	// ( see EnterNested ).
+	Outer *RuntimeContext
 	// topValue holds the value passed to Marshal when it is stored directly in its interface value: the
 	// interface value is an argument, whose address may change with the stack, so the value is copied here.
 	topValue unsafe.Pointer
@@ -279,9 +284,13 @@ func (c *RuntimeContext) releaseValues() {
 	c.mapDepth = 0
 	if c.nested {
 		// what only the frames of an interface value and of a recursive type use, and the maps in them.
-		clear(c.SeenPtr[:cap(c.SeenPtr)])
-		clear(c.seenMaps[:cap(c.seenMaps)])
-		c.seenMaps = c.seenMaps[:0] // also the records which an error left
+		if c.sharedSeen {
+			c.SeenPtr, c.seenMaps, c.sharedSeen = nil, nil, false
+		} else {
+			clear(c.SeenPtr[:cap(c.SeenPtr)])
+			clear(c.seenMaps[:cap(c.seenMaps)])
+			c.seenMaps = c.seenMaps[:0] // also the records which an error left
+		}
 		c.nested = false
 	}
 }

@@ -57,9 +57,10 @@ type callState struct {
 	// The fields which every call reads and writes are first, in the cache lines before the large ones, and the
 	// encoder of the methods last.
 
-	// attached is whether enc was attached in the call, with its options, and opened is whether an encoding which
-	// failed stopped in an object or an array it opened.
+	// attached is whether enc was attached in the call, with its options, calling is whether a method is being
+	// called with it, and opened is whether an encoding which failed stopped in an object or an array it opened.
 	attached bool
+	calling  bool
 	opened   bool
 	// tracked follows the levels of the output for the methods ( see trackedLevels ).
 	tracked tracker
@@ -346,7 +347,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 		pl.Outer, pl.Opts = st, &st.cfg
 	}
 	textcoder.Attach(unsafe.Pointer(&st.enc), pl)
-	st.attached = true
+	st.attached, st.calling = true, true
 	depth, count, skip := pl.Depth, pl.Count, pl.Skip
 	var err error
 	if m != nil {
@@ -355,6 +356,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	} else {
 		err = fn(&st.enc)
 	}
+	st.calling = false
 	textcoder.Detach(unsafe.Pointer(&st.enc), pl)
 	if err != nil || pl.Depth != depth || pl.Count != count+1 || pl.Failed != nil {
 		return methodFailed(st, b, typ, err, depth, count, skip)

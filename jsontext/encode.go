@@ -348,6 +348,9 @@ func (e *encoder) writeToken(t Token) error {
 		if err := e.st.push(k == KindBeginObject); err != nil {
 			return e.failAt(err, pos, pointNext)
 		}
+		if e.cfg.Value&stringTag != 0 {
+			e.cfg.Value &^= stringTag
+		}
 		e.setBuf(append(b, byte(k)))
 		return e.endValue()
 	case KindEndObject, KindEndArray:

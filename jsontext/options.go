@@ -47,6 +47,9 @@ const (
 	multiline             = options.Multiline
 	indentSet             = options.IndentSet
 	omitTopLevelNewline   = options.OmitTopLevelNewline
+	// stringTag is the `string` option of the value which an encoder given to a method is at, which an object or an
+	// array it begins drops, as the option applies to the value only.
+	stringTag = options.StringTag
 )
 
 // whitespace is the white space which an encoder writes under c.

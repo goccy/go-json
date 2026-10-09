@@ -46,6 +46,9 @@ func implementsAddr(t, iface reflect.Type) bool {
 	return t.Implements(iface) || reflect.PointerTo(t).Implements(iface)
 }
 
+// allMethods is the method after which appendDefault appends a value: none, its functions included.
+const allMethods = -1
+
 // The methods of marshaling, in the order of their precedence.
 const (
 	noMethod = iota
@@ -259,7 +262,9 @@ func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Poi
 	if !ok {
 		c := newCompiler(key.mode)
 		c.funcs = funcs
-		c.v2DefaultType, c.v2DefaultAfter = typ, after
+		if after != allMethods {
+			c.v2DefaultType, c.v2DefaultAfter = typ, after
+		}
 		code, err := c.valueCode(typ)
 		if err != nil {
 			return b, err

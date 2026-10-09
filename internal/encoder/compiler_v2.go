@@ -58,6 +58,13 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 		// the fields of an embedded struct are members of the struct which embeds it, which no function or
 		// method writes.
 		return nil, false
+	case c.stringTag:
+		// the value of the option, whose code is the one of a field of the option
+		if code := c.stringTagCode(typ); code != nil {
+			return code, true
+		}
+	}
+	switch {
 	case isDefault:
 		after = c.v2DefaultAfter
 		c.v2DefaultType = nil
@@ -249,30 +256,55 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 	if !tag.IsString {
 		return nil, false
 	}
-	// the option applies to a number, after the pointers to it, whose nil is null.
-	typ := field.typ
-	ptrNum := 0
-	for typ.Kind() == reflect.Ptr && !c.v2HasMethod(typ) {
-		typ = typ.Elem()
-		ptrNum++
-	}
-	if c.v2HasMethod(typ) && typ != timeTimeType {
-		// a method writes the value, whatever the options.
-		tag.IsString = false
-		return nil, false
-	}
-	if isNumberKind(typ.Kind()) && typ != timeDurationType || typ == jsonNumberType {
-		return nil, false
+	code := c.stringTagCode(field.typ)
+	if code == nil {
+		return nil, false // a number, which is written in a string
 	}
 	tag.IsString = false
-	var code Code = c.appendFuncCode(typ, appendError(typ, errInvalidStringTag))
-	if typ == timeDurationType {
-		code, _ = c.v2Code(typ)
+	return code, true
+}
+
+// stringTagCode returns the code of a value of typ of the `string` option, as encoding/json/v2 writes it: nil for a
+// number, after the pointers to it, whose nil is null, which is written in a string, and for a value which a method
+// or a function writes in the compile mode of the option, whose options they are given ( see appendStringTag ); the
+// error of the option for a value of another kind.
+func (c *Compiler) stringTagCode(typ reflect.Type) Code {
+	elem := typ
+	ptrNum := 0
+	for elem.Kind() == reflect.Ptr && !c.v2HasMethod(elem) {
+		elem = elem.Elem()
+		ptrNum++
+	}
+	var code Code
+	switch {
+	case c.v2HasMethod(elem) && elem != timeTimeType:
+		if c.stringTag {
+			return nil
+		}
+		code = c.appendFuncCode(elem, appendStringTag(elem))
+	case isNumberKind(elem.Kind()) && elem != timeDurationType || elem == jsonNumberType:
+		return nil
+	case elem == timeDurationType:
+		code = c.appendFuncCode(elem, appendError(elem, errNoDuration))
+	default:
+		code = c.appendFuncCode(elem, appendError(elem, errInvalidStringTag))
 	}
 	if ptrNum > 0 {
-		code = &PtrCode{typ: field.typ, value: code, ptrNum: uint8(ptrNum)}
+		code = &PtrCode{typ: typ, value: code, ptrNum: uint8(ptrNum)}
 	}
-	return code, true
+	return code
+}
+
+// appendStringTag returns the function which appends a value of typ, which a method or a function writes, in the
+// compile mode of the `string` option, whose options they are given, as the value written after them is.
+func appendStringTag(typ reflect.Type) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		flags := ctx.Option.Flag
+		ctx.Option.Flag |= StringTagOption | StringifyNumbersOption
+		out, err := appendDefault(ctx, b, typ, p, allMethods)
+		ctx.Option.Flag = flags
+		return out, err
+	}
 }
 
 // v2NeverEmpty reports whether a value of typ is known to be written as none of the empty values of omitempty:

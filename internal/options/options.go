@@ -46,6 +46,10 @@ const (
 	RejectUnknownMembers
 	MarshalersSet   // WithMarshalers was given: Config.Marshalers
 	UnmarshalersSet // WithUnmarshalers was given: Config.Unmarshalers
+	// StringTag is set by no option: the encoder which a method or a function of a value of a field of the `string`
+	// option is given has it, by which MarshalEncode of the encoder encodes the value as such a value, as
+	// encoding/json/v2 has it, until an object or an array begins.
+	StringTag
 )
 
 // Config is the state of the options: the properties which were set, and their values.

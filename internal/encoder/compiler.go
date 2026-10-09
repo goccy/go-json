@@ -54,15 +54,17 @@ const (
 	modeV2                                           // V2Option
 	modeStringifyNumbers                             // StringifyNumbersOption, with V2Option
 	modeOmitZeroStructFields                         // OmitZeroStructFieldsOption, with V2Option
+	modeStringTag                                    // StringTagOption, with modeStringifyNumbers
 
-	compileModes = 16
+	compileModes = 32
 )
 
 // the options of the compile mode are adjacent bits, from OptimizeFieldOrderOption.
 var _ [0]struct{} = [OptimizeFieldOrderOption*OptionFlag(modeOptimizeFieldOrder) - OptimizeFieldOrderOption +
 	(OptimizeFieldOrderOption*OptionFlag(modeV2) - V2Option) +
 	(OptimizeFieldOrderOption*OptionFlag(modeStringifyNumbers) - StringifyNumbersOption) +
-	(OptimizeFieldOrderOption*OptionFlag(modeOmitZeroStructFields) - OmitZeroStructFieldsOption)]struct{}{}
+	(OptimizeFieldOrderOption*OptionFlag(modeOmitZeroStructFields) - OmitZeroStructFieldsOption) +
+	(OptimizeFieldOrderOption*OptionFlag(modeStringTag) - StringTagOption)]struct{}{}
 
 // compileMode is the compile mode of the options of c.
 func (c *RuntimeContext) compileMode() compileMode {
@@ -187,6 +189,9 @@ type Compiler struct {
 	stringifyNumbers bool
 	// omitZeroStructFields is whether every field of a struct is omitted if it is zero ( OmitZeroStructFieldsOption ).
 	omitZeroStructFields bool
+	// stringTag is whether the value is the one of a field of the `string` option ( StringTagOption, see
+	// stringTagCode ).
+	stringTag bool
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
@@ -264,6 +269,7 @@ func newCompiler(mode compileMode) *Compiler {
 		v2:                   mode&modeV2 != 0,
 		stringifyNumbers:     mode&modeStringifyNumbers != 0,
 		omitZeroStructFields: mode&modeOmitZeroStructFields != 0,
+		stringTag:            mode&modeStringTag != 0,
 		structFieldCounts:    map[uintptr]int{},
 	}
 }

@@ -216,8 +216,7 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 		value = unsafe.Add(p, unsafe.Sizeof(uintptr(0)))
 	}
 	indent := c.BaseIndent + code.Indent
-	if indent >= MaxDepth && codeSet.OpensLevel {
-		// the value opens a level deeper than the indent of the interface value it is held by.
+	if indent+codeSet.Levels > MaxDepth {
 		return nil, nil, false, ErrMaxDepth(c)
 	}
 	// after every path which doesn't go into the value, so that a record always has its end.
@@ -249,7 +248,8 @@ func (c *RuntimeContext) EnterRecursive(code *Opcode, p unsafe.Pointer) (*Opcode
 	first := code.Jmp.Code
 	indentDiffFromTop := first.Indent - 1
 	indent := c.BaseIndent + code.Indent - indentDiffFromTop
-	if indent > MaxDepth {
+	if indent+code.Jmp.Levels > MaxDepth && p != nil {
+		// a nil pointer is null, which opens no level.
 		return nil, nil, ErrMaxDepth(c)
 	}
 	base := c.enterFrame(first, first.End.Next, code.Next, p, code.Jmp.CurLen, code.Jmp.NextLen, indent)

@@ -11,6 +11,12 @@ import (
 
 type maxDepthList struct{ Next *maxDepthList }
 
+// maxDepthNestedList is a list whose values nest two more levels in a field.
+type maxDepthNestedList struct {
+	X    [][]int
+	Next *maxDepthNestedList
+}
+
 type maxDepthTree struct {
 	Kid *maxDepthTree
 	N   int
@@ -33,6 +39,21 @@ var maxDepthValues = map[string]func(n int) any{
 			v = []any{v}
 		}
 		return v
+	},
+	// values which nest levels of their own in the frame of an interface value.
+	"interface values of [][]int": func(n int) any {
+		var v any = [][]int{{1}}
+		for range n - 2 {
+			v = []any{v}
+		}
+		return v
+	},
+	"list of [][]int": func(n int) any {
+		var l *maxDepthNestedList
+		for range n - 2 {
+			l = &maxDepthNestedList{X: [][]int{{1}}, Next: l}
+		}
+		return l
 	},
 	"list": func(n int) any {
 		var l *maxDepthList

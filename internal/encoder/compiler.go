@@ -361,7 +361,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		IfaceIndir:          runtime.IfaceIndir(typ),
 		DataWordIsAddr:      dataWordIsAddr,
 		IdentityIsFirstWord: !dataWordIsAddr || typ.Kind() == reflect.Slice,
-		OpensLevel:          keyCodes[0].Op.CodeType() != CodeOp,
+		Levels:              deepestLevel(keyCodes[0]),
 		KeyCodes:            keyCodes,
 		InterfaceKeyCodes:   interfaceKeyCodes,
 		CodeLength:          codeLength,
@@ -370,6 +370,23 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		Code:                code,
 		QueryCache:          map[string]*OpcodeSet{},
 	}, nil
+}
+
+// deepestLevel returns the deepest level which the opcodes from code to their end go to, after the indent of the
+// frame they are run in: the indent of a struct is the one of its fields, and an array, a slice or a map opens a
+// level after its indent. The opcodes of an interface value or of a recursive type are in frames of their own, and
+// a value which is null, omitted or empty is counted as the levels its type would open ( see MaxDepth ).
+func deepestLevel(code *Opcode) uint32 {
+	var level uint32
+	for c := code; !c.IsEnd(); c = c.IterNext() {
+		l := c.Indent
+		switch c.Op.CodeType() {
+		case CodeArrayHead, CodeSliceHead, CodeMapHead:
+			l++
+		}
+		level = max(level, l)
+	}
+	return level
 }
 
 // scalarOpcode returns the opcode if the code is a single opcode of a scalar followed by the end, or nil.
@@ -1460,6 +1477,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		compiled := recursive.Jmp
 		compiled.Code = code
 		compiled.NextLen = nextTotalLength
+		compiled.Levels = deepestLevel(code)
 		compiled.Linked = true
 
 		recursiveCodes[target] = compiled

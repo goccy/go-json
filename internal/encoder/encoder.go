@@ -126,6 +126,8 @@ const (
 	//   - a struct or an array which consists of a single pointer. The pointer is nil, not the value.
 	//   - a map which has a marshaler. encoding/json writes null instead of calling the marshaler
 	//     only for a nil pointer, so the marshaler of a nil map is called.
+	//   - a channel, a function or an unsafe.Pointer, which has no JSON representation, nil or not: its
+	//     compile fails, unless the type has a marshaler, which is called.
 	ValueShapeAggregate
 )
 
@@ -138,7 +140,7 @@ const (
 //go:noinline
 func ShapeOf(typ unsafe.Pointer) ValueShape {
 	switch runtime.TypeOfPtr(typ).Kind() {
-	case reflect.Struct, reflect.Array:
+	case reflect.Struct, reflect.Array, reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		return ValueShapeAggregate
 	case reflect.Map:
 		// whether the type has a marshaler was decided when the type was compiled.

@@ -33,6 +33,7 @@ var ErrCycle = errors.New("encountered a cycle")
 var (
 	ErrDuplicateName = errors.New("duplicate object member name")
 	ErrNonStringName = errors.New("object member name must be a string")
+	ErrMaxDepth      = errors.New("exceeded max depth")
 )
 
 // TextError is an error of the JSON text which the encoder of the semantics of encoding/json/v2 would write, which

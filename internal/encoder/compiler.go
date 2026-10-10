@@ -361,6 +361,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		IfaceIndir:          runtime.IfaceIndir(typ),
 		DataWordIsAddr:      dataWordIsAddr,
 		IdentityIsFirstWord: !dataWordIsAddr || typ.Kind() == reflect.Slice,
+		OpensLevel:          keyCodes[0].Op.CodeType() != CodeOp,
 		KeyCodes:            keyCodes,
 		InterfaceKeyCodes:   interfaceKeyCodes,
 		CodeLength:          codeLength,

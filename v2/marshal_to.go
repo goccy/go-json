@@ -279,9 +279,11 @@ func (st *callState) release() {
 		// output of the encoder, which the name of the place points into.
 		st.outerEnc, st.outerPlace, st.placeInner = nil, textcoder.Level{}, false
 		// the levels of the encoder, which are found again for the next call: the ones of an output of its own,
-		// found by a call which writes to one, stay right for the next one.
+		// found by a call which writes to one, stay right for the next one. Their names, and the copies of them in
+		// levels and the pointer, are in the output of the encoder, which the pool must not keep.
 		clear(st.outer)
-		st.outerKnown = false
+		clear(st.levels)
+		st.outerKnown, st.ptr = false, ""
 		// the options of the encoder, which only MarshalEncode sets.
 		st.orig = options.Config{}
 	}

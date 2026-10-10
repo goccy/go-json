@@ -77,6 +77,9 @@ type OpcodeSet struct {
 	// pointer which a function of marshaling takes. The identity of another value, as a pointer which is its
 	// address, is its address.
 	IdentityIsFirstWord bool
+	// OpensLevel is whether the value opens an object or an array, a struct, a slice, an array or a map which no
+	// marshaler writes, which is a level deeper than the place of the value ( see MaxDepth ).
+	OpensLevel bool
 	// KeyCodes and InterfaceKeyCodes are the opcodes of the value, and of the value held by an interface value, for
 	// each escape of the names of the fields, indexed by the options of KeyEscapeOptions.
 	KeyCodes          [4]*Opcode
@@ -194,6 +197,23 @@ type CompiledCode struct {
 const KeyEscapeOptions = HTMLEscapeOption | NormalizeUTF8Option
 
 var _ [0]struct{} = [KeyEscapeOptions - 3]struct{}{}
+
+// MaxDepth is the deepest nesting of the objects and the arrays which encoding/json and encoding/json/v2 of Go 1.27
+// take: 10000 levels. The VM checks it by the indent of a frame ( see RuntimeContext.BaseIndent ), and of a value of a
+// list ( see TailRecursiveFlags ), as no type nests its values so deep by itself. A value of a map or a slice which is
+// null, which v1 writes for nil, is counted as the level it would open, and a raw value, and the tokens which a method or
+// a function writes by an encoder, are checked by their own depth only ( see AppendRaw ): an output which is so deep
+// there passes.
+const MaxDepth = 10000
+
+// ErrMaxDepth returns the error of a value nested deeper than MaxDepth, as encoding/json and encoding/json/v2 report
+// it: an error of the syntax of the output.
+func ErrMaxDepth(ctx *RuntimeContext) error {
+	if ctx.Option.Flag&V2Option != 0 {
+		return &errors.TextError{Err: errors.ErrMaxDepth}
+	}
+	return errors.ErrSyntax(errors.ErrMaxDepth.Error(), 0)
+}
 
 // StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
 // values entered, and the maps, are recorded to detect a cycle.

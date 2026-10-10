@@ -700,6 +700,9 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				store(ctxptr, first.Idx, p)
 				// the end of the struct is next, then OpRecursiveEnd, which has what the indent is deeper by.
 				ctx.BaseIndent += code.Next.Next.Indent
+				if ctx.BaseIndent > encoder.MaxDepth {
+					return b, encoder.ErrMaxDepth(ctx)
+				}
 				ctx.TailLevels++
 				ctx.RecursiveLevel++
 				code = first

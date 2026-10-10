@@ -215,6 +215,11 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	if !codeSet.DataWordIsAddr && code.Flags&StaticTypeFlags == 0 {
 		value = unsafe.Add(p, unsafe.Sizeof(uintptr(0)))
 	}
+	indent := c.BaseIndent + code.Indent
+	if indent >= MaxDepth && codeSet.OpensLevel {
+		// the value opens a level deeper than the indent of the interface value it is held by.
+		return nil, nil, false, ErrMaxDepth(c)
+	}
 	// after every path which doesn't go into the value, so that a record always has its end.
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
 		if err := c.recordSeenValue(codeSet, value); err != nil {
@@ -223,7 +228,7 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 	}
 	first := codeSet.InterfaceKeyCodes[c.Option.Flag&KeyEscapeOptions]
 	base := c.enterFrame(first, codeSet.EndCode, code.Next, value,
-		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, c.BaseIndent+code.Indent)
+		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, indent)
 	return first, base, false, nil
 }
 
@@ -243,8 +248,11 @@ func (c *RuntimeContext) EnterRecursive(code *Opcode, p unsafe.Pointer) (*Opcode
 	}
 	first := code.Jmp.Code
 	indentDiffFromTop := first.Indent - 1
-	base := c.enterFrame(first, first.End.Next, code.Next, p,
-		code.Jmp.CurLen, code.Jmp.NextLen, c.BaseIndent+code.Indent-indentDiffFromTop)
+	indent := c.BaseIndent + code.Indent - indentDiffFromTop
+	if indent > MaxDepth {
+		return nil, nil, ErrMaxDepth(c)
+	}
+	base := c.enterFrame(first, first.End.Next, code.Next, p, code.Jmp.CurLen, code.Jmp.NextLen, indent)
 	return first, base, nil
 }
 

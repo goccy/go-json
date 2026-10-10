@@ -327,14 +327,21 @@ func quoteStringsDirectly(f *ast.File) {
 	addImport(f, "github.com/goccy/go-json/internal/jsonstring")
 }
 
-// addImport adds the import of the path to the imports of the file, which format.Source sorts.
+// addImport adds the import of the path to the imports of the file, which format.Source sorts, unless the file has
+// it.
 func addImport(f *ast.File, path string) {
+	quoted := fmt.Sprintf("%q", path)
+	for _, spec := range f.Imports {
+		if spec.Path.Value == quoted {
+			return
+		}
+	}
 	for _, decl := range f.Decls {
 		gen, ok := decl.(*ast.GenDecl)
 		if !ok || gen.Tok != token.IMPORT {
 			continue
 		}
-		spec := &ast.ImportSpec{Path: &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", path)}}
+		spec := &ast.ImportSpec{Path: &ast.BasicLit{Kind: token.STRING, Value: quoted}}
 		gen.Specs = append(gen.Specs, spec)
 		f.Imports = append(f.Imports, spec)
 		return

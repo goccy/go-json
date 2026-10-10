@@ -19,11 +19,25 @@ type intDecoder struct {
 func newIntDecoder(typ reflect.Type, structName, fieldName string, op func(unsafe.Pointer, int64)) *intDecoder {
 	return &intDecoder{
 		typ:        typ,
-		kind:       typ.Kind(),
+		kind:       intKindOf(typ),
 		op:         op,
 		structName: structName,
 		fieldName:  fieldName,
 	}
+}
+
+// intKindOf returns the kind of the integers of the size of typ, whose range the decoder checks: an int is an
+// int32 on a 32-bit platform.
+func intKindOf(typ reflect.Type) reflect.Kind {
+	switch typ.Size() {
+	case 1:
+		return reflect.Int8
+	case 2:
+		return reflect.Int16
+	case 4:
+		return reflect.Int32
+	}
+	return reflect.Int64
 }
 
 func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {

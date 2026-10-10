@@ -19,11 +19,25 @@ type uintDecoder struct {
 func newUintDecoder(typ reflect.Type, structName, fieldName string, op func(unsafe.Pointer, uint64)) *uintDecoder {
 	return &uintDecoder{
 		typ:        typ,
-		kind:       typ.Kind(),
+		kind:       uintKindOf(typ),
 		op:         op,
 		structName: structName,
 		fieldName:  fieldName,
 	}
+}
+
+// uintKindOf returns the kind of the unsigned integers of the size of typ, whose range the decoder checks: a uint
+// and a uintptr are a uint32 on a 32-bit platform.
+func uintKindOf(typ reflect.Type) reflect.Kind {
+	switch typ.Size() {
+	case 1:
+		return reflect.Uint8
+	case 2:
+		return reflect.Uint16
+	case 4:
+		return reflect.Uint32
+	}
+	return reflect.Uint64
 }
 
 func (d *uintDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {

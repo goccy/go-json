@@ -46,13 +46,13 @@ func encoderPosition(enc any, levels []textcoder.Level) ([]textcoder.Level, int6
 		}
 		levels = append(levels, tl)
 	}
-	_, _, offset, _ := encoderPlace(enc)
+	_, _, offset, _, _ := encoderPlace(enc)
 	return levels, offset
 }
 
 // encoderPlace returns the innermost level of enc, whether it is the top level, the offset of its next value,
-// without the levels around it, and the Outer of its attach.
-func encoderPlace(enc any) (textcoder.Level, bool, int64, textcoder.Outer) {
+// without the levels around it, the Outer of its attach, and its depth in the whole output.
+func encoderPlace(enc any) (textcoder.Level, bool, int64, textcoder.Outer, int) {
 	e := &enc.(*Encoder).e
 	if !e.ready() {
 		e.setUp()
@@ -63,7 +63,7 @@ func encoderPlace(enc any) (textcoder.Level, bool, int64, textcoder.Outer) {
 		k = KindString
 	}
 	inner := textcoder.Level{Object: l.object, Count: l.count}
-	return inner, e.st.depth() == 0, e.base + int64(len(e.buf)) + int64(e.delimLen(k)), e.st.outer
+	return inner, e.st.depth() == 0, e.base + int64(len(e.buf)) + int64(e.delimLen(k)), e.st.outer, e.st.depth() + e.st.base
 }
 
 // configureEncoder makes enc write by the options opts until the returned function is called, with the strings of
@@ -123,6 +123,7 @@ func attachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 		st.outer = p.Outer
 	}
 	st.outerDepth, st.outerCount = len(st.levels)-1, p.Count
+	st.base = p.OuterDepth - st.outerDepth
 	e.setOutput(p.Out, p.Base)
 	p.Skip, p.Depth = 0, len(st.levels)-1
 	if len(p.Out) == 0 && !p.Top {

@@ -216,7 +216,7 @@ func (s *valueScanner) scanObjects(b []byte, i int, open *[64]openObject) (int, 
 	var ok bool
 	depth := 0
 	names := &s.st.names
-	limit := min(64, maxDepth-s.st.depth()) // the levels which the value may open
+	limit := min(64, maxDepth-s.st.depth()-s.st.base) // the levels which the value may open
 	mode := strModeOf(s.validUTF8, false)
 	var n int
 	var f strFlags

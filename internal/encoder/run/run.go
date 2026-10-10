@@ -50,6 +50,8 @@ func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	}
 	ctx.Init(p, codeSet.CodeLength)
 	if ctx.Outer != nil {
+		// the value is where the encoder of the method which called MarshalEncode is ( see ValueDepth ).
+		ctx.BaseIndent = ctx.ValueDepth
 		if err := encoder.EnterNested(ctx, ctx.Outer, codeSet, p); err != nil {
 			return b, err
 		}

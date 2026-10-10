@@ -33,6 +33,9 @@ type stack struct {
 	outer      textcoder.Outer
 	outerDepth int
 	outerCount int64
+	// base is the number of the levels around the top level of the stack in the whole output, of an encoder attached
+	// in them, which its depth is counted after for the deepest level ( see textcoder.Attachment.OuterDepth ).
+	base int
 }
 
 // full returns the stack of the whole output: the levels which outer gives, in place of the levels up to
@@ -166,6 +169,7 @@ func (s *stack) refit() {
 
 func (s *stack) reset() {
 	s.levels = append(s.levels[:0], level{})
+	s.base = 0
 	s.names.reset()
 }
 
@@ -176,11 +180,12 @@ func (s *stack) last() *level { return &s.levels[len(s.levels)-1] }
 
 // push opens an object or an array, whose begin token is a value of the level where it is.
 func (s *stack) push(object bool) error {
-	if len(s.levels) > maxDepth {
+	n := len(s.levels) // once, which keeps the function inlined into the reads and the writes of tokens
+	if n+s.base > maxDepth {
 		return errMaxDepth
 	}
-	s.last().count++
-	if n := len(s.levels); n < cap(s.levels) {
+	s.levels[n-1].count++
+	if n < cap(s.levels) {
 		s.levels = s.levels[:n+1]
 	} else {
 		s.grow()

@@ -196,6 +196,11 @@ type RuntimeContext struct {
 	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
 	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
 	RewriteFrom int
+	// ValueDepth is the number of the objects and the arrays which are open around the value which a function or a
+	// method of the v2 semantics is called for, in the whole output ( see AppendMarshalJSON ): the encoder which it
+	// is given, and the values which it writes in a context of their own ( see runInner ), count their levels after
+	// it.
+	ValueDepth uint32
 	// rawLevels are the levels of the walk of a raw value of the v2 semantics ( see AppendFormattedRaw ), made by
 	// the first walk ( see levelsOfRaw ): the context of an encoding of v1 doesn't have them, which keeps it small
 	// to make again after the GC emptied the pool.

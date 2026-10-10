@@ -347,7 +347,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	} else {
 		pl.Out = out
 	}
-	pl.Base, pl.Same = st.base, st.attached
+	pl.Base, pl.Same, pl.OuterDepth = st.base, st.attached, int(ctx.ValueDepth)
 	if !st.attached {
 		pl.Outer, pl.Opts = st, &st.cfg
 	}

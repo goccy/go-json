@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"encoding"
 	"encoding/json"
 	stderrors "errors"
 	"reflect"
@@ -111,14 +110,8 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 			}), true
 		}
 		appendOutput := addrJSONAppender(typ)
-		// the method is called by its code, as the encoder of v1 calls it ( see MarshalerCall ), or by reflect if
-		// it is not found by its name.
-		marshalJSON, ok := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalJSONInterface)
-		if !ok {
-			marshalJSON = func(p unsafe.Pointer) ([]byte, error) {
-				return reflect.NewAt(typ, p).Interface().(json.Marshaler).MarshalJSON()
-			}
-		}
+		// the method is called by its code, as the encoder of v1 calls it ( see MarshalerCall ).
+		marshalJSON := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalJSONInterface)
 		code := c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			if appendOutput != nil {
 				// the output is known, and valid: the method is called only for its error.
@@ -137,22 +130,12 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 		}
 		return code, true
 	case methodAppendText:
-		appendText, ok := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
-		if !ok {
-			appendText = func(p unsafe.Pointer, b []byte) ([]byte, error) {
-				return reflect.NewAt(typ, p).Interface().(textAppender).AppendText(b)
-			}
-		}
+		appendText := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			return appendMethodText(ctx, b, typ, "AppendText method", p, appendText)
 		}), true
 	case methodMarshalText:
-		marshalText, ok := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalTextInterface)
-		if !ok {
-			marshalText = func(p unsafe.Pointer) ([]byte, error) {
-				return reflect.NewAt(typ, p).Interface().(encoding.TextMarshaler).MarshalText()
-			}
-		}
+		marshalText := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			return appendMethodText(ctx, b, typ, "MarshalText method", p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
 				text, err := marshalText(p)
@@ -204,16 +187,11 @@ func AppendRaw(ctx *RuntimeContext, b, raw []byte) ([]byte, error) {
 // addrMethod returns the method of iface of a value of typ at an address, which the value or the pointer to it
 // has, as a function of the address, which is the data word of the pointer: it is looked up when the type is
 // compiled, as the encoder of v1 does ( see methodCode ), and not converted to an interface value by every call.
-// It reports false if the method is not found by its name, which the callers then call by reflect.
-func addrMethod[F any](typ reflect.Type, iface *marshalerInterface) (F, bool) {
-	var f F
-	fn, ok := methodCode(reflect.PointerTo(typ), iface)
-	if !ok {
-		return f, false
-	}
+// The pointer to typ implements iface ( see v2MethodOf ), so the method is found by its name.
+func addrMethod[F any](typ reflect.Type, iface *marshalerInterface) F {
+	fn, _ := methodCode(reflect.PointerTo(typ), iface)
 	code := &fn // a func value is a pointer to its code
-	f = *(*F)(unsafe.Pointer(&code))
-	return f, true
+	return *(*F)(unsafe.Pointer(&code))
 }
 
 // addrJSONAppender returns the function which writes the output of MarshalJSON of the value of typ at an address

@@ -11,8 +11,8 @@ import (
 //
 // The value held by an interface value and the value of a recursive type are encoded by the opcodes of their
 // own type, in a frame of slots after the frame of the opcodes which reached them. The opcode which ends
-// such a frame has three slots: the opcode to return to, the offset of the previous frame and the indent to
-// restore.
+// such a frame has three slots: the opcode to return to with the tail levels to restore, the offset of the
+// previous frame and the indent to restore.
 //
 // Entering and leaving a frame is done here, not in the VM: it needs several calls and many variables, and
 // the VM, which is a large function, has to spill and restore its variables around each of them.
@@ -96,7 +96,10 @@ func (c *RuntimeContext) recordSeenValue(codeSet *OpcodeSet, p unsafe.Pointer) e
 // seenValueOf returns the record of the value at p, of the type of codeSet, by its identity ( see recordSeenValue ).
 func seenValueOf(codeSet *OpcodeSet, p unsafe.Pointer) SeenValue {
 	id := SeenValue{p: p, typ: runtime.TypePtr(codeSet.Type)}
-	if codeSet.IdentityIsFirstWord {
+	// a value is identified by its first word, which a cycle passes again and again, if it is a map, a slice (
+	// the address of its array ), or a type stored directly in an interface value, as a pointer which a function
+	// of marshaling takes. The identity of another value, as a pointer which is its address, is its address.
+	if !codeSet.DataWordIsAddr || codeSet.Type.Kind() == reflect.Slice {
 		id.p = *(*unsafe.Pointer)(p)
 		switch codeSet.Type.Kind() {
 		case reflect.Slice:
@@ -149,8 +152,9 @@ func (c *RuntimeContext) enterFrame(first, end, next *Opcode, p unsafe.Pointer, 
 	storeSlotPtr(base, first.Idx, p)
 	storeSlotPtr(base, end.Idx, unsafe.Pointer(next))
 	storeSlotInt(base, end.ElemIdx, oldOffset)
-	// the indent and the tail levels of the frame left are in one slot: both are small.
-	storeSlotInt(base, end.Length, uintptr(c.BaseIndent)|uintptr(c.TailLevels)<<32)
+	storeSlotInt(base, end.Length, uintptr(c.BaseIndent))
+	// the tail levels of the frame left are in the other half of the slot of the opcode to return to.
+	storeSlotInt(base, end.Idx+slotIntOffset, uintptr(c.TailLevels))
 	c.BaseIndent = indent
 	c.TailLevels = 0
 	c.RecursiveLevel++
@@ -266,9 +270,8 @@ func (c *RuntimeContext) LeaveFrame(end *Opcode) (*Opcode, unsafe.Pointer) {
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
 		c.SeenPtr = c.SeenPtr[:len(c.SeenPtr)-1]
 	}
-	saved := loadSlotInt(base, end.Length)
-	c.BaseIndent = uint32(saved)
-	c.TailLevels = uint32(saved >> 32)
+	c.BaseIndent = uint32(loadSlotInt(base, end.Length))
+	c.TailLevels = uint32(loadSlotInt(base, end.Idx+slotIntOffset))
 	c.SlotOffset = loadSlotInt(base, end.ElemIdx)
 	return (*Opcode)(loadSlotPtr(base, end.Idx)), unsafe.Add(c.Ptr(), c.SlotOffset)
 }

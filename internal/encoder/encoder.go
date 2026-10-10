@@ -36,8 +36,6 @@ func (t OpType) IsMultipleOpField() bool {
 		return true
 	case OpStructFieldMap:
 		return true
-	case OpStructFieldStruct:
-		return true
 	case OpStructFieldOmitEmpty:
 		return true
 	case OpStructFieldOmitEmptySlice:
@@ -45,8 +43,6 @@ func (t OpType) IsMultipleOpField() bool {
 	case OpStructFieldOmitEmptyArray:
 		return true
 	case OpStructFieldOmitEmptyMap:
-		return true
-	case OpStructFieldOmitEmptyStruct:
 		return true
 	case OpStructFieldSlicePtr:
 		return true
@@ -57,8 +53,6 @@ func (t OpType) IsMultipleOpField() bool {
 	case OpStructFieldOmitEmptyArrayPtr:
 		return true
 	case OpStructFieldMapPtr:
-		return true
-	case OpStructFieldOmitEmptyMapPtr:
 		return true
 	}
 	return false
@@ -73,11 +67,6 @@ type OpcodeSet struct {
 	// which the opcodes take: the type is stored indirectly, or it is a pointer, which is the address of
 	// the value it points to.
 	DataWordIsAddr bool
-	// IdentityIsFirstWord is whether a value of Type is identified by its first word, which a cycle passes again
-	// and again: a map, a slice ( the address of its array ), or a type stored directly in an interface value, as a
-	// pointer which a function of marshaling takes. The identity of another value, as a pointer which is its
-	// address, is its address.
-	IdentityIsFirstWord bool
 	// Levels is how many levels deeper than the place of the value its opcodes go in their frame ( see
 	// deepestLevel ).
 	Levels uint32
@@ -214,7 +203,6 @@ func (s *OpcodeSet) setQueryCache(hash string, codeSet *OpcodeSet) {
 
 type CompiledCode struct {
 	Code    *Opcode
-	Linked  bool // whether recursive code already have linked
 	CurLen  uintptr
 	NextLen uintptr
 	// Levels is the deepest level which Code goes to in its frame ( see deepestLevel ).
@@ -297,13 +285,6 @@ func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
 	return &errors.UnsupportedValueError{
 		Value: reflect.ValueOf(v),
 		Str:   strconv.FormatFloat(v, 'g', -1, 64),
-	}
-}
-
-func ErrMarshalerWithCode(code *Opcode, err error) *errors.MarshalerError {
-	return &errors.MarshalerError{
-		Type: runtime.TypeOfPtr(code.Type),
-		Err:  err,
 	}
 }
 
@@ -592,13 +573,6 @@ func appendFloatOfBits(b []byte, f float64, bits int) []byte {
 		return strconv.AppendFloat(b, f, 'g', -1, bits)
 	}
 	return floatfmt.AppendFloat(b, f, bits)
-}
-
-func AppendBool(_ *RuntimeContext, b []byte, v bool) []byte {
-	if v {
-		return append(b, "true"...)
-	}
-	return append(b, "false"...)
 }
 
 // AppendNumber appends n, which must be a JSON number by its grammar, as encoding/json writes a json.Number: an
@@ -1060,10 +1034,6 @@ func AppendComma(_ *RuntimeContext, b []byte) []byte {
 
 func AppendCommaIndent(_ *RuntimeContext, b []byte) []byte {
 	return append(b, ',', '\n')
-}
-
-func AppendStructEnd(_ *RuntimeContext, b []byte) []byte {
-	return append(b, '}', ',')
 }
 
 func AppendStructEndIndent(ctx *RuntimeContext, code *Opcode, b []byte) []byte {

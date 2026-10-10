@@ -2,8 +2,10 @@ package json
 
 import (
 	"bytes"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/goccy/go-json/internal/encoder"
 	"github.com/goccy/go-json/jsontext"
@@ -53,5 +55,29 @@ func TestMarshalEncodeKeepsNoOutput(t *testing.T) {
 				t.Fatalf("the pointer %.20q… of the caller is kept", st.ptr)
 			}
 		})
+	}
+}
+
+// MarshalOf with functions keeps neither the functions nor what they refer to after the call: the opcodes of the
+// functions of a call are not kept by the pooled context.
+func TestMarshalOfKeepsNoFunctions(t *testing.T) {
+	collected := make(chan struct{}, 1)
+	func() {
+		captured := new([64]byte)
+		runtime.SetFinalizer(captured, func(*[64]byte) { collected <- struct{}{} })
+		funcs := WithMarshalers(MarshalFunc(func(v int) ([]byte, error) {
+			_ = captured
+			return []byte("1"), nil
+		}))
+		if _, err := MarshalOf(struct{ A, B int }{1, 2}, funcs); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	// Only one GC: the pool releases what it has after a few, whatever it holds.
+	runtime.GC()
+	select {
+	case <-collected:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the functions are kept alive after the call")
 	}
 }

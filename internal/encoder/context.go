@@ -145,7 +145,6 @@ type SeenValue struct {
 }
 
 type RuntimeContext struct {
-	Context    context.Context
 	Buf        []byte
 	MarshalBuf []byte
 	Slots      []uintptr
@@ -159,8 +158,8 @@ type RuntimeContext struct {
 	RecursiveLevel int
 	SlotOffset     uintptr
 	// TailLevels is the number of the values of a recursive type which are being encoded in the current frame,
-	// one after the other as the last field of the previous, without a frame of their own: see
-	// EnterTailRecursive. Their braces are closed one by one when the last of them ends.
+	// one after the other as the last field of the previous, without a frame of their own: see the cases of
+	// OpRecursive and OpRecursiveEnd of the VM. Their braces are closed one by one when the last of them ends.
 	TailLevels uint32
 	Prefix     []byte
 	IndentStr  []byte
@@ -290,6 +289,11 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 // releaseValues clears every pointer to the values which were encoded, so that the pool doesn't keep them alive.
 func (c *RuntimeContext) releaseValues() {
 	c.topValue = nil
+	// the keys of the maps which an error left open ( see ReleaseMapContext ).
+	for _, m := range c.mapContexts[:c.mapDepth] {
+		clear(m.Keys)
+		m.Keys = m.Keys[:0]
+	}
 	c.mapDepth = 0
 	if c.nested {
 		// what only the frames of an interface value and of a recursive type use, and the maps in them.

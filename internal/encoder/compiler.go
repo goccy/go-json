@@ -357,18 +357,17 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	// whose first word identifies it, as the array of a slice identifies the slice ( see recordSeenValue ).
 	dataWordIsAddr := runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0)
 	return &OpcodeSet{
-		Type:                typ,
-		IfaceIndir:          runtime.IfaceIndir(typ),
-		DataWordIsAddr:      dataWordIsAddr,
-		IdentityIsFirstWord: !dataWordIsAddr || typ.Kind() == reflect.Slice,
-		Levels:              deepestLevel(keyCodes[0]),
-		KeyCodes:            keyCodes,
-		InterfaceKeyCodes:   interfaceKeyCodes,
-		CodeLength:          codeLength,
-		EndCode:             ToEndCode(interfaceKeyCodes[0]),
-		Scalar:              scalarOpcode(keyCodes[0]),
-		Code:                code,
-		QueryCache:          map[string]*OpcodeSet{},
+		Type:              typ,
+		IfaceIndir:        runtime.IfaceIndir(typ),
+		DataWordIsAddr:    dataWordIsAddr,
+		Levels:            deepestLevel(keyCodes[0]),
+		KeyCodes:          keyCodes,
+		InterfaceKeyCodes: interfaceKeyCodes,
+		CodeLength:        codeLength,
+		EndCode:           ToEndCode(interfaceKeyCodes[0]),
+		Scalar:            scalarOpcode(keyCodes[0]),
+		Code:              code,
+		QueryCache:        map[string]*OpcodeSet{},
 	}, nil
 }
 
@@ -1400,8 +1399,8 @@ func (c *Compiler) codeToOpcode(ctx *compileContext, typ reflect.Type, code Code
 
 // markTailRecursion marks the opcodes of code, the code of a recursive struct, which encode a value of the same
 // type as its last field: such a value is encoded in the frame of the struct, without a frame of its own
-// ( RuntimeContext.EnterTailRecursive ), and the end of the struct closes the braces of the values one by one
-// when the last of them ends ( LeaveTailRecursive ), which is why the end opcode leads back to it.
+// ( the case of OpRecursive of the VM ), and the end of the struct closes the braces of the values one by one
+// when the last of them ends ( the case of OpRecursiveEnd ), which is why the end opcode leads back to it.
 //
 // The opcodes of the struct which the code is copied from, the ones which are jumped to it from, are not
 // marked: the first value of the type in a frame enters a frame, so that the last value returns from it.
@@ -1414,7 +1413,7 @@ func markTailRecursion(code, end *Opcode, compiled *CompiledCode) {
 	for c := code; !c.IsEnd(); c = c.IterNext() {
 		if (c.Op == OpRecursive || c.Op == OpRecursivePtr) && c.Jmp == compiled && c.Next == code.End {
 			c.Flags |= TailRecursiveFlags
-			// what the indent is deeper by for a value: LeaveTailRecursive takes it back.
+			// what the indent is deeper by for a value: OpRecursiveEnd takes it back.
 			end.Indent = c.Indent - (code.Indent - 1)
 		}
 	}
@@ -1485,7 +1484,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		setTotalLengthToInterfaceOp(code)
 
 		// The frame of the recursive code has the slots up to the ones of OpRecursiveEnd
-		// ( the offset to return to, the opcode to return to and the indent to restore ),
+		// ( the opcode to return to with the tail levels, the offset to return to and the indent to restore ),
 		// so its length is the last index + 1.
 		nextTotalLength := uintptr(code.TotalLength()) + 1
 		if maxFrameLength < nextTotalLength {
@@ -1500,7 +1499,6 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		compiled.Code = code
 		compiled.NextLen = nextTotalLength
 		compiled.Levels = deepestLevel(code)
-		compiled.Linked = true
 
 		recursiveCodes[target] = compiled
 	}

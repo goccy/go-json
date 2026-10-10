@@ -2,7 +2,7 @@ package json_test
 
 import (
 	"context"
-	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -51,7 +51,8 @@ func TestFieldQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(query, &json.FieldQuery{
+	// by the query strings: a query keeps the key of its opcodes, which Build decides.
+	want, err := (&json.FieldQuery{
 		Fields: []*json.FieldQuery{
 			{
 				Name: "XA",
@@ -82,8 +83,12 @@ func TestFieldQuery(t *testing.T) {
 				},
 			},
 		},
-	}) {
-		t.Fatal("cannot get query")
+	}).QueryString()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := query.QueryString(); err != nil || got != want {
+		t.Fatalf("cannot get query: got %s, %v, want %s", got, err, want)
 	}
 	queryStr, err := query.QueryString()
 	if err != nil {
@@ -117,5 +122,35 @@ func TestFieldQuery(t *testing.T) {
 	got := string(b)
 	if expected != got {
 		t.Fatalf("failed to encode with field query: expected %q but got %q", expected, got)
+	}
+}
+
+// A query is built once and used by the encodings of many goroutines, which only read it.
+func TestFieldQuerySharedByGoroutines(t *testing.T) {
+	query, err := json.BuildFieldQuery("XA", "XB")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := json.SetFieldQueryToContext(context.Background(), query)
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 100 {
+				b, err := json.MarshalContext(ctx, &queryTestX{XA: 1, XB: "xb"})
+				if err != nil || string(b) != `{"XA":1,"XB":"xb"}` {
+					t.Errorf("got %s, %v", b, err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestFieldQueryEmptyName(t *testing.T) {
+	if _, err := json.BuildFieldQuery(""); err == nil {
+		t.Error("got no error for an empty field name")
 	}
 }

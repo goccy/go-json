@@ -43,7 +43,7 @@ type percentSlashTag struct {
 }
 
 type punctuationTag struct {
-	V string `json:"!#$%&()*+-./:<=>?@[]^_{|}~"` // https://golang.org/issue/3546
+	V string `json:"!#$%&()*+-./:;<=>?@[]^_{|}~"` // https://golang.org/issue/3546
 }
 
 type dashTag struct {
@@ -92,7 +92,7 @@ var structTagObjectKeyTests = []struct {
 	{badFormatTag{"Orfevre"}, "Orfevre", "Y"},
 	{badCodeTag{"Reliable Man"}, "Reliable Man", "Z"},
 	{percentSlashTag{"brut"}, "brut", "text/html%"},
-	{punctuationTag{"Union Rags"}, "Union Rags", "!#$%&()*+-./:<=>?@[]^_{|}~"},
+	{punctuationTag{"Union Rags"}, "Union Rags", "!#$%&()*+-./:;<=>?@[]^_{|}~"},
 	{spaceTag{"Perreddu"}, "Perreddu", "With space"},
 	{unicodeTag{"Loukanikos"}, "Loukanikos", "Ελλάδα"},
 }

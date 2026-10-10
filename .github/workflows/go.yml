@@ -73,6 +73,23 @@ jobs:
       env:
         GOARCH: s390x
 
+  test-32bit:
+    # A word is 4 bytes on a 32-bit machine: what the encoder keeps in the slots of its VM and the code which reads
+    # several bytes at once must work with it. The tests run on linux/386, whose binaries the runner runs natively.
+    name: Test on a 32-bit machine (386)
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v7
+    - name: setup Go
+      uses: actions/setup-go@v7
+      with:
+        go-version: '1.27.1'
+    - name: test
+      run: go test -v ./... -count=1
+      env:
+        GOARCH: '386'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

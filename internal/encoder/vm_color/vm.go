@@ -291,10 +291,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			mapCtx.Buf = buf
 			encoder.ReleaseMapContext(ctx, mapCtx)
 			code = code.Next
-		case encoder.OpPtr:
-			p := load(ctxptr, code.Idx)
-			code = code.Next
-			store(ctxptr, code.Idx, ptrToPtr(p))
 		case encoder.OpIntPtr:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)
 			if p == nil {
@@ -1803,35 +1799,6 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			}
 			code = code.Next
 			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyMapPtr:
-			p := load(ctxptr, code.Idx)
-			p = ptrToPtr(unsafe.Add(p, code.Offset))
-			if p != nil {
-				p = ptrToNPtr(p, code.PtrNum)
-			}
-			if p != nil {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			} else {
-				code = code.NextField
-			}
-		case encoder.OpStructFieldStruct:
-			b = appendStructKey(ctx, code, b)
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			code = code.Next
-			store(ctxptr, code.Idx, p)
-		case encoder.OpStructFieldOmitEmptyStruct:
-			p := load(ctxptr, code.Idx)
-			p = unsafe.Add(p, code.Offset)
-			if ptrToPtr(p) == nil && (code.Flags&encoder.IsNextOpPtrTypeFlags) != 0 {
-				code = code.NextField
-			} else {
-				b = appendStructKey(ctx, code, b)
-				code = code.Next
-				store(ctxptr, code.Idx, p)
-			}
 		case encoder.OpStructEnd:
 			b = appendStructEndSkipLast(ctx, code, b)
 			code = code.Next

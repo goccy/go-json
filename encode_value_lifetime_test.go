@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/goccy/go-json"
 )
@@ -14,6 +15,27 @@ type lifetimeNode struct {
 	Any   any
 	Map   map[string]*lifetimeNode
 	Slice []*lifetimeNode
+}
+
+// The keys of a map which an error stops the encoding in are not kept alive by the pooled context either.
+func TestMapKeysAreNotKeptAliveAfterAnError(t *testing.T) {
+	collected := make(chan struct{}, 1)
+	func() {
+		data := make([]byte, 64)
+		copy(data, "key")
+		runtime.SetFinalizer(&data[0], func(*byte) { collected <- struct{}{} })
+		key := unsafe.String(&data[0], len(data))
+		if _, err := json.Marshal(map[string]any{key: make(chan int)}); err == nil {
+			t.Error("expected an error")
+		}
+	}()
+	// Only one GC, as above.
+	runtime.GC()
+	select {
+	case <-collected:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the key is kept alive after the encoding")
+	}
 }
 
 // The encoder refers to the values being encoded from its context, which is pooled.

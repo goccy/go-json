@@ -85,6 +85,8 @@ func TestEncodeTailRecursion(t *testing.T) {
 		first,
 		// a value with a tail after a tail: the interface value holds a list of its own.
 		&tailNode{V: 1, I: newTailList(3), Next: &tailNode{V: 2, I: newTailList(2)}},
+		// the frames of interface values entered and left by the values of a list, which keep the tail levels.
+		&tailNode{V: 1, I: map[string]int{"a": 1}, Next: &tailNode{V: 2, I: struct{ A int }{2}, Next: &tailNode{V: 3}}},
 	}
 	for _, v := range values {
 		expected, err := stdjson.Marshal(v)

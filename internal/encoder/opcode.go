@@ -382,8 +382,8 @@ func copyToInterfaceOpcode(code *Opcode) *Opcode {
 }
 
 // setEndSlots decides the slots of the opcode which returns to the previous frame from its Idx:
-// Idx is for the opcode to return to, ElemIdx is for the offset of the previous frame and
-// Length is for the indent to restore.
+// Idx is for the opcode to return to, with the tail levels to restore in the other half of its slot, ElemIdx is
+// for the offset of the previous frame and Length is for the indent to restore.
 func (c *Opcode) setEndSlots() {
 	c.ElemIdx = c.Idx + slotSize + slotIntOffset
 	c.Length = c.Idx + 2*slotSize + slotIntOffset

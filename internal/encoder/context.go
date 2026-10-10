@@ -20,6 +20,9 @@ type compileContext struct {
 	jsKey             bool
 	structTypeToCodes map[uintptr]Opcodes
 	recursiveCodes    *Opcodes
+	// hiddenNames are the names which the code of a recursive struct leaves out, by the opcode which jumps to it
+	// from a struct it is embedded in ( see StructCode.hiddenNames ).
+	hiddenNames map[*Opcode][]string
 }
 
 func (c *compileContext) incIndent() {

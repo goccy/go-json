@@ -3,6 +3,7 @@ package encoder
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -439,6 +440,10 @@ type StructCode struct {
 	// fieldQuery is the query which the fields of a recursive struct are filtered by: the code which is jumped
 	// to is filtered by it when the recursive codes are linked.
 	fieldQuery *FieldQuery
+	// hiddenNames are the names of the fields of a recursive struct embedded in another which the fields of that
+	// one hide ( see Compiler.hiddenFields ): the code which is jumped to is compiled when the recursive codes are
+	// linked, apart from the struct it is embedded in, so the names are kept for it ( see compileContext ).
+	hiddenNames []string
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -447,7 +452,7 @@ func (c *StructCode) Kind() CodeKind {
 
 func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *Opcode {
 	if isEmbeddedStruct(field) {
-		return c.lastAnonymousFieldCode(firstField)
+		return lastFieldOpcode(firstField)
 	}
 	lastField := firstField
 	for lastField.NextField != nil {
@@ -456,24 +461,23 @@ func (c *StructCode) lastFieldCode(field *StructFieldCode, firstField *Opcode) *
 	return lastField
 }
 
-func (c *StructCode) lastAnonymousFieldCode(firstField *Opcode) *Opcode {
-	// firstField is special StructHead operation for anonymous structure.
-	// So, StructHead's next operation is truly struct head operation.
-	for firstField.Op == OpStructHead || firstField.Op == OpStructField {
-		firstField = firstField.Next
+// skipEmbeddedHeads returns the first field of the fields which field starts with: the head and the key of an
+// embedded struct, which have no value of their own, are followed by the fields of the struct. The other fields of
+// an embedded struct are marked with AnonymousHeadFlags too, but they are not its key.
+func skipEmbeddedHeads(field *Opcode) *Opcode {
+	for (field.Op == OpStructField && field.Flags&AnonymousKeyFlags != 0) ||
+		(field.Op == OpStructHead && field.Flags&AnonymousHeadFlags != 0) {
+		field = field.Next
 	}
-	return lastFieldOpcode(firstField)
+	return field
 }
 
-// lastFieldOpcode returns the last field of the chain of the fields which starts from field.
-// If a field of the chain is an embedded struct, which is a head without a value followed by
-// the fields of the struct, the chain continues with those fields.
+// lastFieldOpcode returns the last field of the chain of the fields which starts from field, whose fields of an
+// embedded struct are its fields ( see skipEmbeddedHeads ).
 func lastFieldOpcode(field *Opcode) *Opcode {
+	field = skipEmbeddedHeads(field)
 	for field.NextField != nil {
-		field = field.NextField
-		for field.Flags&AnonymousHeadFlags != 0 && (field.Op == OpStructField || field.Op == OpStructHead) {
-			field = field.Next
-		}
+		field = skipEmbeddedHeads(field.NextField)
 	}
 	return field
 }
@@ -614,6 +618,9 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	//                        |__________|
 	if c.isRecursive {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true})
+		if len(c.hiddenNames) > 0 {
+			ctx.hiddenNames[recursive] = slices.Sorted(slices.Values(c.hiddenNames))
+		}
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
 		ctx.incIndex()
@@ -958,11 +965,7 @@ func (c *StructFieldCode) addStructEndCode(ctx *compileContext, codes Opcodes) O
 		Indent:     ctx.indent,
 	}
 	codes.Last().Next = end
-	code := codes.First()
-	for code.Op == OpStructField || code.Op == OpStructHead {
-		code = code.Next
-	}
-	lastFieldOpcode(code).NextField = end
+	lastFieldOpcode(codes.First()).NextField = end
 
 	codes = codes.Add(end)
 	ctx.incOpcodeIndex()

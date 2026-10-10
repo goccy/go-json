@@ -149,6 +149,30 @@ func TestFieldQuerySharedByGoroutines(t *testing.T) {
 	wg.Wait()
 }
 
+type (
+	queryTestRecursive struct {
+		Y *queryTestEmbedsRecursive
+		V int
+	}
+	queryTestEmbedsRecursive struct {
+		*queryTestRecursive
+		Q int
+	}
+)
+
+// A query which selects none of the fields of a recursive struct embedded in another writes nothing of it.
+func TestFieldQueryEmbeddedRecursiveStructWithNothingSelected(t *testing.T) {
+	query, err := json.BuildFieldQuery(json.BuildSubFieldQuery("Y").Fields("Q", json.BuildSubFieldQuery("queryTestRecursive").Fields("Nope")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := json.SetFieldQueryToContext(context.Background(), query)
+	got, err := json.MarshalContext(ctx, &queryTestRecursive{Y: &queryTestEmbedsRecursive{&queryTestRecursive{V: 1}, 2}, V: 3})
+	if err != nil || string(got) != `{"Y":{"Q":2}}` {
+		t.Errorf("got %s, %v", got, err)
+	}
+}
+
 func TestFieldQueryEmptyName(t *testing.T) {
 	if _, err := json.BuildFieldQuery(""); err == nil {
 		t.Error("got no error for an empty field name")

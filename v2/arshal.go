@@ -410,11 +410,12 @@ func format(buf []byte, c *options.Config) ([]byte, error) {
 
 // writtenConfig returns the options c by which the output of the encoder is written as a whole: without the ones
 // which rewrite the content of raw values, which rewrote them when they were written ( see formatRaw ), as the
-// other values are not raw ones. PreserveRawStrings is kept, by which the strings of the raw values stay as they are.
+// other values are not raw ones, and with the strings as they are: every string was escaped by the options of the
+// call which wrote it, a nested call of MarshalEncode by its own.
 func writtenConfig(c *options.Config) options.Config {
 	f := *c
 	f.Set &^= rawContentRewriting
-	f.Value &^= rawContentRewriting
+	f.Value = f.Value&^(rawContentRewriting|options.EscapeForHTML|options.EscapeForJS) | options.PreserveRawStrings
 	return f
 }
 

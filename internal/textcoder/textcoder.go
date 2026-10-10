@@ -69,7 +69,8 @@ var (
 	// whether it is the top level, the offset in its output where its next value starts, and the Outer which it
 	// was attached with, if it was.
 	Place func(enc any) (inner Level, top bool, offset int64, outer Outer)
-	// Configure makes enc write by the options until restore is called, which gives it back its own.
+	// Configure makes enc write by the options until restore is called, which gives it back its own, with the
+	// strings of the values as they are, which the calls which wrote them escaped.
 	Configure func(enc any, opts options.Options) (restore func())
 	// Invalidate makes enc fail every write until a Reset: MarshalEncode stopped within an object or an array it
 	// opened.

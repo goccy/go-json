@@ -10,10 +10,14 @@ import (
 )
 
 type compileContext struct {
-	opcodeIndex       uint32
-	ptrIndex          int
-	indent            uint32
+	opcodeIndex uint32
+	ptrIndex    int
+	indent      uint32
+	// escapeKey and escapeJSKey are whether the names of the fields are escaped for HTML and for JavaScript, and
+	// jsKey is whether a name has a character which the escape for JavaScript escapes ( see KeyEscapeOptions ).
 	escapeKey         bool
+	escapeJSKey       bool
+	jsKey             bool
 	structTypeToCodes map[uintptr]Opcodes
 	recursiveCodes    *Opcodes
 }

@@ -3,6 +3,7 @@ package encoder
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/runtime"
@@ -1063,8 +1064,18 @@ func IsEmptyField(kind EmptyKind, bitSize uint8, p unsafe.Pointer) bool {
 }
 
 func (c *StructFieldCode) structKey(ctx *compileContext) string {
-	if ctx.escapeKey {
-		rctx := &RuntimeContext{Option: &Option{Flag: HTMLEscapeOption}}
+	if strings.ContainsAny(c.key, "\u2028\u2029") {
+		ctx.jsKey = true
+	}
+	if ctx.escapeKey || ctx.escapeJSKey {
+		var flag OptionFlag
+		if ctx.escapeKey {
+			flag |= HTMLEscapeOption
+		}
+		if ctx.escapeJSKey {
+			flag |= NormalizeUTF8Option
+		}
+		rctx := &RuntimeContext{Option: &Option{Flag: flag}}
 		rctx.SetEscaper()
 		return PaddedKey(fmt.Sprintf(`%s:`, string(AppendString(rctx, []byte{}, c.key))))
 	}

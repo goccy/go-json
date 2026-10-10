@@ -221,12 +221,7 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 			return nil, nil, false, err
 		}
 	}
-	var first *Opcode
-	if (c.Option.Flag & HTMLEscapeOption) != 0 {
-		first = codeSet.InterfaceEscapeKeyCode
-	} else {
-		first = codeSet.InterfaceNoescapeKeyCode
-	}
+	first := codeSet.InterfaceKeyCodes[c.Option.Flag&KeyEscapeOptions]
 	base := c.enterFrame(first, codeSet.EndCode, code.Next, value,
 		uintptr(code.Length)+interfaceEndSlots, uintptr(codeSet.CodeLength)+interfaceEndSlots, c.BaseIndent+code.Indent)
 	return first, base, false, nil

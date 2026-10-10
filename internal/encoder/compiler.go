@@ -291,6 +291,10 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	if err != nil {
 		return nil, err
 	}
+	if iface, ok := code.(*InterfaceCode); ok && iface.static && iface.typ == typ {
+		// a value of an unsupported type, which the code of a value in another encodes by this one.
+		return nil, &errors.UnsupportedTypeError{Type: typ}
+	}
 	return c.codeToOpcodeSet(typ, code)
 }
 
@@ -475,6 +479,11 @@ func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error)
 		return c.stringCode(typ, false)
 	case reflect.Bool:
 		return c.boolCode(typ, false)
+	}
+	if !c.v2 {
+		// encoding/json fails for a value of an unsupported type only when it encodes one: the value is encoded
+		// by its type when it is, whose compile fails ( see compile ), as a value of interface{} of the type is.
+		return &InterfaceCode{typ: typ, static: true}, nil
 	}
 	return nil, &errors.UnsupportedTypeError{Type: typ}
 }

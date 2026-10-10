@@ -945,10 +945,11 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 			fields = append(fields, c.v2FallbackField(typ, fs))
 		}
 		code.fields = fields
+	} else if embedded {
+		// the fields of the same name are chosen in the struct which embeds it, by their depths there.
+		code.fields = fields
 	} else {
-		fieldMap := c.getFieldMap(fields)
-		duplicatedFieldMap := c.getDuplicatedFieldMap(fieldMap)
-		code.fields = c.filteredDuplicatedFields(fields, duplicatedFieldMap)
+		code.fields = c.filteredDuplicatedFields(fields, c.hiddenFields(fields))
 	}
 	if c.optimizeFieldOrder {
 		code.fields = orderFieldsForSpeed(code.fields, typ)
@@ -1162,71 +1163,69 @@ func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) 
 	return true
 }
 
-func (c *Compiler) getFieldMap(fields []*StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
+// fieldAtDepth is a field written to the JSON object of a struct, and how deep in the structs embedded in it the
+// field is.
+type fieldAtDepth struct {
+	field *StructFieldCode
+	depth int
+}
+
+// fieldsByName appends the fields written to the JSON object of fields, the ones of the structs embedded in it
+// too, by their names, at the depth of fields and deeper.
+func (c *Compiler) fieldsByName(m map[string][]fieldAtDepth, fields []*StructFieldCode, depth int) {
 	for _, field := range fields {
 		if field.isAnonymous {
-			for k, v := range c.getAnonymousFieldMap(field) {
-				fieldMap[k] = append(fieldMap[k], v...)
-			}
-			continue
-		}
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-	}
-	return fieldMap
-}
-
-func (c *Compiler) getAnonymousFieldMap(field *StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
-	structCode := field.getAnonymousStruct()
-	if structCode == nil || structCode.isRecursive {
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-		return fieldMap
-	}
-	for k, v := range c.getFieldMapFromAnonymousParent(structCode.fields) {
-		fieldMap[k] = append(fieldMap[k], v...)
-	}
-	return fieldMap
-}
-
-func (c *Compiler) getFieldMapFromAnonymousParent(fields []*StructFieldCode) map[string][]*StructFieldCode {
-	fieldMap := map[string][]*StructFieldCode{}
-	for _, field := range fields {
-		if field.isAnonymous {
-			for k, v := range c.getAnonymousFieldMap(field) {
-				// Do not handle tagged key when embedding more than once
-				for _, vv := range v {
-					vv.isTaggedKey = false
+			if structCode := field.getAnonymousStruct(); structCode != nil {
+				// the fields of a recursive struct are chosen where its code is compiled ( see linkRecursiveCode ):
+				// it writes no name of its own.
+				if !structCode.isRecursive {
+					c.fieldsByName(m, structCode.fields, depth+1)
 				}
-				fieldMap[k] = append(fieldMap[k], v...)
+				continue
 			}
-			continue
 		}
-		fieldMap[field.key] = append(fieldMap[field.key], field)
+		m[field.key] = append(m[field.key], fieldAtDepth{field, depth})
 	}
-	return fieldMap
 }
 
-func (c *Compiler) getDuplicatedFieldMap(fieldMap map[string][]*StructFieldCode) map[*StructFieldCode]struct{} {
-	duplicatedFieldMap := map[*StructFieldCode]struct{}{}
-	for _, fields := range fieldMap {
-		if len(fields) == 1 {
+// hiddenFields returns the fields of a struct which are not written because another field has the same name, as
+// encoding/json chooses them: of the fields of a name, only the least deep ones are written, and if they are more
+// than one, only the one with a name in its tag, or none.
+func (c *Compiler) hiddenFields(fields []*StructFieldCode) map[*StructFieldCode]struct{} {
+	byName := map[string][]fieldAtDepth{}
+	c.fieldsByName(byName, fields, 0)
+	hidden := map[*StructFieldCode]struct{}{}
+	for _, named := range byName {
+		if len(named) == 1 {
 			continue
 		}
-		if c.isTaggedKeyOnly(fields) {
-			for _, field := range fields {
-				if field.isTaggedKey {
-					continue
+		depth := named[0].depth
+		for _, f := range named {
+			depth = min(depth, f.depth)
+		}
+		var dominant *StructFieldCode
+		var least, tagged int
+		for _, f := range named {
+			if f.depth == depth {
+				least++
+				if f.field.isTaggedKey {
+					tagged++
+					dominant = f.field
+				} else if least == 1 {
+					dominant = f.field
 				}
-				duplicatedFieldMap[field] = struct{}{}
 			}
-		} else {
-			for _, field := range fields {
-				duplicatedFieldMap[field] = struct{}{}
+		}
+		if least > 1 && tagged != 1 {
+			dominant = nil
+		}
+		for _, f := range named {
+			if f.field != dominant {
+				hidden[f.field] = struct{}{}
 			}
 		}
 	}
-	return duplicatedFieldMap
+	return hidden
 }
 
 func (c *Compiler) filteredDuplicatedFields(fields []*StructFieldCode, duplicatedFieldMap map[*StructFieldCode]struct{}) []*StructFieldCode {
@@ -1248,16 +1247,6 @@ func (c *Compiler) filteredDuplicatedFields(fields []*StructFieldCode, duplicate
 		filteredFields = append(filteredFields, field)
 	}
 	return filteredFields
-}
-
-func (c *Compiler) isTaggedKeyOnly(fields []*StructFieldCode) bool {
-	var taggedKeyFieldCount int
-	for _, field := range fields {
-		if field.isTaggedKey {
-			taggedKeyFieldCount++
-		}
-	}
-	return taggedKeyFieldCount == 1
 }
 
 func (c *Compiler) typeToStructTags(typ reflect.Type) runtime.StructTags {
@@ -1449,6 +1438,11 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), false, target.embedded, false)
 			if err != nil {
 				return err
+			}
+			if target.embedded && !c.v2 {
+				// a recursive struct which is embedded chooses here, by depth, among its own fields of the same name,
+				// as the struct it is embedded in would: they are not compared with the fields of that struct.
+				structCode.fields = c.filteredDuplicatedFields(structCode.fields, c.hiddenFields(structCode.fields))
 			}
 			if target.query != nil {
 				structCode = structCode.Filter(target.query).(*StructCode)

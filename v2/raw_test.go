@@ -90,3 +90,38 @@ func TestMarshalRawValueOptions(t *testing.T) {
 		})
 	}
 }
+
+// rawNameKey writes its string as its name, as it is.
+type rawNameKey string
+
+func (k rawNameKey) MarshalJSON() ([]byte, error) { return []byte(k), nil }
+
+// The names of a map which PreserveRawStrings keeps with their escapes are the same names when they are the same
+// strings, which fails as encoding/json/v2 fails for it, through any of the calls.
+func TestMarshalRawNamesWithEscapes(t *testing.T) {
+	same := map[rawNameKey]int{`"a"`: 1, `"\u0061"`: 2}
+	other := map[rawNameKey]int{`"a"`: 1, `"\u0062"`: 2}
+	for _, opts := range [][]json.Options{
+		{jsontext.PreserveRawStrings(true)},
+		{jsontext.PreserveRawStrings(true), json.Deterministic(true)},
+	} {
+		if got, err := json.Marshal(same, opts...); err == nil {
+			t.Errorf("Marshal: got %s, want the error of a duplicate name", got)
+		}
+		var b bytes.Buffer
+		if err := json.MarshalWrite(&b, same, opts...); err == nil {
+			t.Errorf("MarshalWrite: got %s, want the error of a duplicate name", b.String())
+		}
+		b.Reset()
+		if err := json.MarshalEncode(jsontext.NewEncoder(&b, opts...), same); err == nil {
+			t.Errorf("MarshalEncode: got %s, want the error of a duplicate name", b.String())
+		}
+		if _, err := json.Marshal(other, opts...); err != nil {
+			t.Errorf("other names: %v", err)
+		}
+	}
+	allowed := []json.Options{jsontext.PreserveRawStrings(true), jsontext.AllowDuplicateNames(true)}
+	if _, err := json.Marshal(same, allowed...); err != nil {
+		t.Errorf("AllowDuplicateNames: %v", err)
+	}
+}

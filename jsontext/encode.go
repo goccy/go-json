@@ -148,6 +148,9 @@ func (e *encoder) writeValueSetUp(v Value) error {
 
 // init resets the state of the encoder to write to w, which is nil for none, with the options of e.cfg.
 func (e *encoder) init(w io.Writer) {
+	if e.attached {
+		e.derivedOK = false // the white space of an attached encoder, which its options don't tell ( see derive )
+	}
 	e.invalid, e.attached = false, false
 	if !e.ready() {
 		// a zero value, or a copy, whose arrays are the ones of the encoder it was copied from
@@ -186,6 +189,11 @@ func (e *encoder) init(w io.Writer) {
 // derive sets the fields which follow from the options, e.cfg.
 func (e *encoder) derive() {
 	e.ws = whitespaceOf(&e.cfg)
+	if e.attached {
+		// the output of a method or a function of the v2 json package, which formats the whole output after it: the
+		// encoder writes it compact, as the encoder of the package writes the rest, but reports its options.
+		e.ws = whitespace{}
+	}
 	e.esc = escapesOf(&e.cfg)
 	e.validUTF8 = !e.cfg.Has(allowInvalidUTF8)
 	e.check = !e.cfg.Has(allowDuplicateNames)

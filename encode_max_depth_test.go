@@ -9,6 +9,12 @@ import (
 
 type encodeMaxDepthList struct{ Next *encodeMaxDepthList }
 
+// encodeMaxDepthNestedList is a list whose values nest two more levels in a field.
+type encodeMaxDepthNestedList struct {
+	X    [][]int
+	Next *encodeMaxDepthNestedList
+}
+
 // A value nested deeper than 10000 objects and arrays fails, as encoding/json of Go 1.27 fails for it.
 func TestEncodeMaxDepth(t *testing.T) {
 	values := map[string]func(n int) any{
@@ -25,6 +31,21 @@ func TestEncodeMaxDepth(t *testing.T) {
 				v = []any{v}
 			}
 			return v
+		},
+		// values which nest levels of their own in the frame of an interface value.
+		"interface values of [][]int": func(n int) any {
+			var v any = [][]int{{1}}
+			for range n - 2 {
+				v = []any{v}
+			}
+			return v
+		},
+		"list of [][]int": func(n int) any {
+			var l *encodeMaxDepthNestedList
+			for range n - 2 {
+				l = &encodeMaxDepthNestedList{X: [][]int{{1}}, Next: l}
+			}
+			return l
 		},
 		"list": func(n int) any {
 			var l *encodeMaxDepthList

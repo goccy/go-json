@@ -77,9 +77,9 @@ type OpcodeSet struct {
 	// pointer which a function of marshaling takes. The identity of another value, as a pointer which is its
 	// address, is its address.
 	IdentityIsFirstWord bool
-	// OpensLevel is whether the value opens an object or an array, a struct, a slice, an array or a map which no
-	// marshaler writes, which is a level deeper than the place of the value ( see MaxDepth ).
-	OpensLevel bool
+	// Levels is how many levels deeper than the place of the value its opcodes go in their frame ( see
+	// deepestLevel ).
+	Levels uint32
 	// KeyCodes and InterfaceKeyCodes are the opcodes of the value, and of the value held by an interface value, for
 	// each escape of the names of the fields, indexed by the options of KeyEscapeOptions.
 	KeyCodes          [4]*Opcode
@@ -187,6 +187,8 @@ type CompiledCode struct {
 	Linked  bool // whether recursive code already have linked
 	CurLen  uintptr
 	NextLen uintptr
+	// Levels is the deepest level which Code goes to in its frame ( see deepestLevel ).
+	Levels uint32
 	// Embedded is whether the recursive struct is embedded in the struct which jumps to it.
 	// The code to jump to is only the fields of the struct then: it has neither the braces nor the check of nil.
 	Embedded bool
@@ -199,12 +201,13 @@ const KeyEscapeOptions = HTMLEscapeOption | NormalizeUTF8Option
 var _ [0]struct{} = [KeyEscapeOptions - 3]struct{}{}
 
 // MaxDepth is the deepest nesting of the objects and the arrays which encoding/json and encoding/json/v2 of Go 1.27
-// take: 10000 levels. The VM checks it by the indent of a frame ( see RuntimeContext.BaseIndent ), and of a value of a
-// list ( see TailRecursiveFlags ), as no type nests its values so deep by itself, and the encoder of a method or a
-// function, and the default representation of a value it declines, count their levels after the depth of the value (
-// see RuntimeContext.ValueDepth ). A value of a map or a slice which is null, which v1 writes for nil, is counted as
-// the level it would open, and a raw value which a method or a function returns is checked by its own depth only (
-// see AppendRaw ): an output which is so deep there passes.
+// take: 10000 levels. The VM checks it where a frame is entered, and where a value of a list is ( see
+// TailRecursiveFlags ), by the indent of the frame and the deepest level which the opcodes of the frame go to ( see
+// deepestLevel ). The encoder of a method or a function, and the default representation of a value it declines,
+// count their levels after the depth of the value ( see RuntimeContext.ValueDepth ). A value which is null, omitted
+// or empty, as a nil pointer or a nil or empty map or slice, is counted as the levels its type would open, and a raw
+// value which a method or a function returns is checked by its own depth only ( see AppendRaw ): an output which is
+// so deep there passes.
 const MaxDepth = 10000
 
 // ErrMaxDepth returns the error of a value nested deeper than MaxDepth, as encoding/json and encoding/json/v2 report
@@ -881,10 +884,6 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	}
 	var bb []byte
 	var err error
-	if code.Flags&MarshalerFuncFlags != 0 {
-		// a function of the v2 semantics, whose output is formatted after the encoding.
-		return appendValue(ctx, m, b, p)
-	}
 	if (code.Flags & MarshalerContextFlags) != 0 {
 		bb, err = m.callContext(p, ctx.marshalerContext())
 	} else {

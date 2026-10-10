@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
@@ -421,7 +422,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			store(ctxptr, code.Idx, p)
 			fallthrough
 		case encoder.OpStringString:
-			quoted := appendString(ctx, []byte{}, ptrToString(load(ctxptr, code.Idx)))
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(load(ctxptr, code.Idx)))
 			b = appendString(ctx, b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1277,7 +1278,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			s := ptrToString(unsafe.Add(p, code.Offset))
 			b = appendStructKey(ctx, code, b)
-			quoted := appendString(ctx, []byte{}, s)
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, s)
 			b = appendString(ctx, b, string(quoted))
 			b = appendComma(ctx, b)
 			code = code.Next
@@ -1286,7 +1287,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				quoted := appendString(ctx, []byte{}, v)
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, v)
 				b = appendString(ctx, b, string(quoted))
 				b = appendComma(ctx, b)
 			}
@@ -1321,7 +1322,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
 				b = appendString(ctx, b, string(quoted))
 			}
 			b = appendComma(ctx, b)
@@ -1331,7 +1332,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
 				b = appendString(ctx, b, string(quoted))
 				b = appendComma(ctx, b)
 				code = code.Next
@@ -2267,7 +2268,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p := load(ctxptr, code.Idx)
 			b = appendStructKey(ctx, code, b)
 			s := ptrToString(unsafe.Add(p, code.Offset))
-			quoted := appendString(ctx, []byte{}, s)
+			quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, s)
 			b = appendString(ctx, b, string(quoted))
 			b = appendStructEnd(ctx, code, b)
 			code = code.Next
@@ -2276,7 +2277,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			v := ptrToString(unsafe.Add(p, code.Offset))
 			if v != "" {
 				b = appendStructKey(ctx, code, b)
-				quoted := appendString(ctx, []byte{}, v)
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, v)
 				b = appendString(ctx, b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {
@@ -2312,7 +2313,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			if p == nil {
 				b = appendNull(ctx, b)
 			} else {
-				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
 				b = appendString(ctx, b, string(quoted))
 			}
 			b = appendStructEnd(ctx, code, b)
@@ -2322,7 +2323,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			p = ptrToNPtr(unsafe.Add(p, code.Offset), code.PtrNum)
 			if p != nil {
 				b = appendStructKey(ctx, code, b)
-				quoted := appendString(ctx, []byte{}, ptrToString(p))
+				quoted, _ := jsonstring.AppendQuoted(encoder.StringEscaper(ctx), []byte{}, ptrToString(p))
 				b = appendString(ctx, b, string(quoted))
 				b = appendStructEnd(ctx, code, b)
 			} else {

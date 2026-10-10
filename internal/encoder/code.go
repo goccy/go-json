@@ -766,10 +766,6 @@ type StructFieldCode struct {
 	// isFallback is whether the field is the embedded fallback of the struct, which writes no key ( see
 	// v2FallbackField ).
 	isFallback bool
-	// isOmitEmptyNestedPointer is whether the field has omitempty of v1 and is a pointer to a pointer or to a map:
-	// only the pointer of the field is checked for nil, as encoding/json does, by the generic field opcode. The
-	// opcodes of a kind follow every pointer to the value, and a nil one after the first would omit the field.
-	isOmitEmptyNestedPointer bool
 }
 
 // runKind returns the kind of the field if it is one which has the opcodes of a run ( fieldRunOps ): a field of
@@ -875,12 +871,15 @@ func (c *StructFieldCode) isLongKey(field *Opcode) bool {
 }
 
 // isGenericField is whether the field is encoded by the generic field opcode and the opcode of the value: a
-// field of a long key, or of omitzero, whose check the generic opcode makes for a value of any type, a field
+// field of a long key, or of omitzero, whose check the generic opcode makes for a value of any type, or a field
 // whose value is encoded by its type at run time ( see Compiler.recursiveValueCode ), which is empty by the
-// kind of the field, not as an interface value is, the embedded fallback, or a field of omitempty whose pointer
-// alone is checked ( see isOmitEmptyNestedPointer ).
+// kind of the field, not as an interface value is, the embedded fallback, or a field of omitempty of a pointer to
+// a pointer or to a map: the opcodes of a kind follow every pointer to the value and would omit the field for a
+// nil one after the first, while only a nil pointer of the field is empty.
 func (c *StructFieldCode) isGenericField(field *Opcode) bool {
-	return c.isLongKey(field) || c.tag.IsOmitZero || isStaticInterface(c.value) || c.isFallback || c.isOmitEmptyNestedPointer
+	return c.isLongKey(field) || c.tag.IsOmitZero || isStaticInterface(c.value) || c.isFallback ||
+		c.tag.IsOmitEmpty && c.typ.Kind() == reflect.Ptr &&
+			(c.typ.Elem().Kind() == reflect.Ptr || c.typ.Elem().Kind() == reflect.Map)
 }
 
 func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, valueCodes Opcodes) Opcodes {

@@ -1033,8 +1033,6 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		// pointer: the marshaler of a nil map is called. With omitempty the check is what decides that
 		// the field is empty, for every kind.
 		isNilCheck: tag.IsOmitEmpty || fieldType.Kind() == reflect.Ptr,
-		isOmitEmptyNestedPointer: !c.v2 && tag.IsOmitEmpty && fieldType.Kind() == reflect.Ptr &&
-			(fieldType.Elem().Kind() == reflect.Ptr || fieldType.Elem().Kind() == reflect.Map),
 	}
 	if !fieldCode.isAnonymous {
 		// the value of the field is not a part of the JSON object being compiled.

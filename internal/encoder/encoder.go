@@ -210,9 +210,6 @@ type CompiledCode struct {
 	// Embedded is whether the recursive struct is embedded in the struct which jumps to it.
 	// The code to jump to is only the fields of the struct then: it has neither the braces nor the check of nil.
 	Embedded bool
-	// HiddenNames are the names of the fields which the code to jump to leaves out, which the struct it is embedded
-	// in hides ( see StructCode.hiddenNames ), in order.
-	HiddenNames []string
 }
 
 // KeyEscapeOptions are the options by which the names of the fields are escaped, whose bits are the index of the

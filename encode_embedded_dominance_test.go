@@ -20,8 +20,11 @@ type (
 	dominanceOtherTagged  struct {
 		Z int `json:"V"`
 	}
-	dominancePointer struct{ *dominanceV }
-	dominanceTwoV    struct {
+	dominancePointer    struct{ *dominanceV }
+	dominanceZeroArrayV struct {
+		Z [0]chan int `json:"V,omitempty"` // never written, though a channel is not encodable
+	}
+	dominanceTwoV struct {
 		dominanceV
 		dominanceOtherV
 	}
@@ -90,6 +93,10 @@ func TestEncodeEmbeddedFieldDominance(t *testing.T) {
 		{"a recursive embedded struct, which writes no name of its own", dominanceRecursive{
 			B: &dominanceEmbedsRecursive{&dominanceRecursive{N: 1}, dominanceNamedField{5}},
 		}, `{"B":{"B":null,"N":1,"dominanceRecursive":5},"N":0}`},
+		{"an array of no elements, never written, against a deeper field", struct {
+			dominanceZeroArrayV
+			dominanceDepth2
+		}{dominanceZeroArrayV{}, dominanceDepth2{dominanceV{3}}}, `{}`},
 		{"a field of the struct itself", struct {
 			dominanceDepth2
 			V int

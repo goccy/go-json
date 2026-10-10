@@ -336,6 +336,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		ctx := &compileContext{
 			structTypeToCodes: map[uintptr]Opcodes{},
 			recursiveCodes:    &Opcodes{},
+			hiddenNames:       map[*Opcode][]string{},
 			escapeKey:         i&int(HTMLEscapeOption) != 0,
 			escapeJSKey:       i&int(NormalizeUTF8Option) != 0,
 		}
@@ -895,8 +896,13 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	}
 	fields := []*StructFieldCode{}
 	for i, tag := range tags {
-		if (tag.IsOmitEmpty || tag.IsOmitZero) && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0 {
-			// an array of no elements is always empty and zero, as in encoding/json.
+		if isAlwaysOmitted(tag) {
+			if !c.v2 {
+				// a field which is never written, whose value is not compiled, as its type may not be encodable:
+				// it takes part only in the choice of the fields of its name ( see filteredDuplicatedFields ). The
+				// members of the v2 semantics are chosen before ( see v2StructTags ).
+				fields = append(fields, &StructFieldCode{typ: tag.Field.Type, key: tag.Key, tag: tag, isTaggedKey: tag.IsTaggedKey})
+			}
 			continue
 		}
 		isOnlyOneFirstField := i == 0 && fieldNum == 1
@@ -1270,12 +1276,18 @@ func (c *Compiler) filteredDuplicatedFields(fields []*StructFieldCode, duplicate
 				continue
 			}
 		}
-		if _, exists := duplicatedFieldMap[field]; exists {
+		if _, exists := duplicatedFieldMap[field]; exists || isAlwaysOmitted(field.tag) {
 			continue
 		}
 		filteredFields = append(filteredFields, field)
 	}
 	return filteredFields
+}
+
+// isAlwaysOmitted reports whether the field is never written: an array of no elements is always empty and zero, as
+// in encoding/json. It still hides the deeper fields of its name.
+func isAlwaysOmitted(tag *runtime.StructTag) bool {
+	return (tag.IsOmitEmpty || tag.IsOmitZero) && tag.Field.Type.Kind() == reflect.Array && tag.Field.Type.Len() == 0
 }
 
 func (c *Compiler) typeToStructTags(typ reflect.Type) runtime.StructTags {
@@ -1452,7 +1464,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
 		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
-			hidden: strings.Join(recursive.Jmp.HiddenNames, "\x00")}
+			hidden: strings.Join(ctx.hiddenNames[recursive], "\x00")}
 		typeptr := target.typeptr
 		if recursiveCode, ok := recursiveCodes[target]; ok {
 			*recursive.Jmp = *recursiveCode
@@ -1475,10 +1487,10 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 				// as the struct it is embedded in would: they are not compared with the fields of that struct.
 				structCode.fields = c.filteredDuplicatedFields(structCode.fields, c.hiddenFields(structCode.fields))
 			}
-			if len(recursive.Jmp.HiddenNames) > 0 {
+			if len(ctx.hiddenNames[recursive]) > 0 {
 				// the names which the fields of the struct it is embedded in hide.
-				hidden := make(runtime.StructTags, len(recursive.Jmp.HiddenNames))
-				for i, name := range recursive.Jmp.HiddenNames {
+				hidden := make(runtime.StructTags, len(ctx.hiddenNames[recursive]))
+				for i, name := range ctx.hiddenNames[recursive] {
 					hidden[i] = &runtime.StructTag{Key: name}
 				}
 				structCode.removeFieldsByTags(hidden)
@@ -1512,11 +1524,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		if target.embedded {
 			// the fields of an embedded struct, whose last field goes on to the end when it is omitted: the struct
 			// it is embedded in sets that for the fields of its own, which a target has not.
-			first := code
-			if first.Op == OpStructHead {
-				first = first.Next
-			}
-			lastFieldOpcode(first).NextField = lastCode
+			lastFieldOpcode(code).NextField = lastCode
 		}
 		markTailRecursion(code, lastCode, recursive.Jmp)
 

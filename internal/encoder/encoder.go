@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 	"unsafe"
 
@@ -94,6 +95,35 @@ type OpcodeSet struct {
 	// values is the pool of the values of Type in the heap, which MarshalOf copies its argument to.
 	values  sync.Pool
 	cacheMu sync.RWMutex
+	// pointee is the opcodes of the value which a pointer of Type points to, or noPointee ( see PointeeOf ).
+	pointee atomic.Pointer[OpcodeSet]
+}
+
+// noPointee is the pointee of the opcodes of a type whose values are not encoded as the values they point to.
+var noPointee = &OpcodeSet{}
+
+// PointeeOf returns the opcodes of the value which a pointer of the type of codeSet points to, if it is stored
+// indirectly in an interface value, or nil. With functions of marshaling, encoding/json/v2 encodes a pointer at the
+// top level as the value it points to, addressable, so that the functions are given the value, or the pointer for
+// the functions of pointers, not the address of the pointer: the pointer, the data word, is the address of the
+// value for its opcodes. A value stored directly, as a pointer or a map, is encoded by the opcodes of the pointer,
+// which give the functions of the pointer to it the address of it, as encoding/json/v2 does.
+func PointeeOf(ctx *RuntimeContext, codeSet *OpcodeSet) *OpcodeSet {
+	pointee := codeSet.pointee.Load()
+	if pointee == nil {
+		pointee = noPointee
+		if codeSet.Type.Kind() == reflect.Pointer {
+			elem, err := CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(codeSet.Type.Elem())))
+			if err == nil && elem.IfaceIndir {
+				pointee = elem
+			}
+		}
+		codeSet.pointee.Store(pointee)
+	}
+	if pointee == noPointee {
+		return nil
+	}
+	return pointee
 }
 
 // ValueShape classifies a type by what a nil data word of an interface value of the type means.

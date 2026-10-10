@@ -593,7 +593,7 @@ func (c *Opcode) DumpDOT() string {
 				weight: 1,
 			})
 		}
-		if p := code.Jmp; p != nil {
+		if p := code.Jmp; p != nil && p.Code != nil {
 			edges = append(edges, edge{
 				from:   code,
 				to:     p.Code,

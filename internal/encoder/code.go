@@ -3,6 +3,7 @@ package encoder
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -439,6 +440,10 @@ type StructCode struct {
 	// fieldQuery is the query which the fields of a recursive struct are filtered by: the code which is jumped
 	// to is filtered by it when the recursive codes are linked.
 	fieldQuery *FieldQuery
+	// hiddenNames are the names of the fields of a recursive struct embedded in another which the fields of that
+	// one hide ( see Compiler.hiddenFields ): the code which is jumped to is compiled when the recursive codes are
+	// linked, apart from the struct it is embedded in, so the names are kept for it.
+	hiddenNames []string
 }
 
 func (c *StructCode) Kind() CodeKind {
@@ -613,7 +618,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 	//                        ^          |
 	//                        |__________|
 	if c.isRecursive {
-		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true})
+		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{Embedded: true, HiddenNames: slices.Sorted(slices.Values(c.hiddenNames))})
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
 		ctx.incIndex()

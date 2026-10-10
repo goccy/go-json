@@ -212,6 +212,25 @@ func (c *Compiler) v2StructTags(typ reflect.Type, embedded bool) (runtime.Struct
 	return tags, embeds, func() { c.v2Object = saved }
 }
 
+// v2HiddenNames returns the names of the members of typ, a recursive struct embedded at path in the object being
+// compiled, which the object doesn't write from it: its code is compiled when the recursive codes are linked, as
+// the object of its own ( see StructCode.hiddenNames ).
+func (c *Compiler) v2HiddenNames(typ reflect.Type, path []int) []string {
+	written := map[string]bool{}
+	for _, m := range c.v2Object.members {
+		if len(m.Index) > len(path) && slices.Equal(m.Index[:len(path)], path) {
+			written[m.Name] = true
+		}
+	}
+	var hidden []string
+	for _, m := range v2FieldsOf(typ).List {
+		if !written[m.Name] {
+			hidden = append(hidden, m.Name)
+		}
+	}
+	return hidden
+}
+
 var errInvalidStringTag = errors.New("invalid use of `string` tag option")
 
 // v2FieldValueCode returns the code of the value of a field of the v2 semantics, and true, if the options of its

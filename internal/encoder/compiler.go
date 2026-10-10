@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"sort"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -914,6 +915,8 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 				if !c.v2 {
 					// the members of the v2 semantics are chosen before ( see v2StructTags ).
 					structCode.removeFieldsByTags(c.keyTags(tags))
+				} else if structCode.isRecursive {
+					structCode.hiddenNames = c.v2HiddenNames(structCode.typ, embeds[tag])
 				}
 				if c.isAssignableIndirect(field, isPtr) {
 					if indirect {
@@ -1164,10 +1167,13 @@ func (c *Compiler) isAssignableIndirect(fieldCode *StructFieldCode, isPtr bool) 
 }
 
 // fieldAtDepth is a field written to the JSON object of a struct, and how deep in the structs embedded in it the
-// field is.
+// field is: a field of the struct's code, or of recursive, a recursive struct embedded in it, whose fields are
+// compiled where the struct is linked, and are known here by its type.
 type fieldAtDepth struct {
-	field *StructFieldCode
-	depth int
+	field     *StructFieldCode
+	recursive *StructCode
+	depth     int
+	tagged    bool
 }
 
 // fieldsByName appends the fields written to the JSON object of fields, the ones of the structs embedded in it
@@ -1176,26 +1182,43 @@ func (c *Compiler) fieldsByName(m map[string][]fieldAtDepth, fields []*StructFie
 	for _, field := range fields {
 		if field.isAnonymous {
 			if structCode := field.getAnonymousStruct(); structCode != nil {
-				// the fields of a recursive struct are chosen where its code is compiled ( see linkRecursiveCode ):
-				// it writes no name of its own.
 				if !structCode.isRecursive {
 					c.fieldsByName(m, structCode.fields, depth+1)
+				} else if !structCode.isHiddenByItself {
+					c.recursiveFieldsByName(m, structCode, structCode.typ, depth+1, nil)
 				}
 				continue
 			}
 		}
-		m[field.key] = append(m[field.key], fieldAtDepth{field, depth})
+		m[field.key] = append(m[field.key], fieldAtDepth{field: field, depth: depth, tagged: field.isTaggedKey})
+	}
+}
+
+// recursiveFieldsByName appends the fields of typ, a struct embedded in recursive or recursive itself, by their
+// names, as fieldsByName does, from the tags of the fields. A struct embedded in itself writes nothing of its own.
+func (c *Compiler) recursiveFieldsByName(m map[string][]fieldAtDepth, recursive *StructCode, typ reflect.Type, depth int, path []reflect.Type) {
+	if slices.Contains(path, typ) {
+		return
+	}
+	path = append(path, typ)
+	for _, tag := range c.typeToStructTags(typ) {
+		if c.isEmbeddedStruct(tag) {
+			c.recursiveFieldsByName(m, recursive, toElemType(tag.Field.Type), depth+1, path)
+			continue
+		}
+		m[tag.Key] = append(m[tag.Key], fieldAtDepth{recursive: recursive, depth: depth, tagged: tag.IsTaggedKey})
 	}
 }
 
 // hiddenFields returns the fields of a struct which are not written because another field has the same name, as
 // encoding/json chooses them: of the fields of a name, only the least deep ones are written, and if they are more
-// than one, only the one with a name in its tag, or none.
+// than one, only the one with a name in its tag, or none. The names hidden in a recursive struct embedded in it
+// are added to that struct ( see StructCode.hiddenNames ).
 func (c *Compiler) hiddenFields(fields []*StructFieldCode) map[*StructFieldCode]struct{} {
 	byName := map[string][]fieldAtDepth{}
 	c.fieldsByName(byName, fields, 0)
 	hidden := map[*StructFieldCode]struct{}{}
-	for _, named := range byName {
+	for name, named := range byName {
 		if len(named) == 1 {
 			continue
 		}
@@ -1203,25 +1226,31 @@ func (c *Compiler) hiddenFields(fields []*StructFieldCode) map[*StructFieldCode]
 		for _, f := range named {
 			depth = min(depth, f.depth)
 		}
-		var dominant *StructFieldCode
+		dominant := -1
 		var least, tagged int
-		for _, f := range named {
+		for i, f := range named {
 			if f.depth == depth {
 				least++
-				if f.field.isTaggedKey {
+				if f.tagged {
 					tagged++
-					dominant = f.field
+					dominant = i
 				} else if least == 1 {
-					dominant = f.field
+					dominant = i
 				}
 			}
 		}
 		if least > 1 && tagged != 1 {
-			dominant = nil
+			dominant = -1
 		}
-		for _, f := range named {
-			if f.field != dominant {
+		for i, f := range named {
+			switch {
+			case i == dominant:
+			case f.field != nil:
 				hidden[f.field] = struct{}{}
+			case dominant >= 0 && named[dominant].recursive == f.recursive:
+				// a field of the recursive struct hidden by another of its own, which it chooses itself.
+			case !slices.Contains(f.recursive.hiddenNames, name):
+				f.recursive.hiddenNames = append(f.recursive.hiddenNames, name)
 			}
 		}
 	}
@@ -1414,6 +1443,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 		typeptr  uintptr
 		embedded bool
 		query    *FieldQuery
+		hidden   string
 	}
 	recursiveCodes := map[recursiveTarget]*CompiledCode{}
 	// maxFrameLength is the length of the longest frame which a recursive code is jumped from.
@@ -1421,7 +1451,8 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
-		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery}
+		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
+			hidden: strings.Join(recursive.Jmp.HiddenNames, "\x00")}
 		typeptr := target.typeptr
 		if recursiveCode, ok := recursiveCodes[target]; ok {
 			*recursive.Jmp = *recursiveCode
@@ -1444,12 +1475,26 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 				// as the struct it is embedded in would: they are not compared with the fields of that struct.
 				structCode.fields = c.filteredDuplicatedFields(structCode.fields, c.hiddenFields(structCode.fields))
 			}
+			if len(recursive.Jmp.HiddenNames) > 0 {
+				// the names which the fields of the struct it is embedded in hide.
+				hidden := make(runtime.StructTags, len(recursive.Jmp.HiddenNames))
+				for i, name := range recursive.Jmp.HiddenNames {
+					hidden[i] = &runtime.StructTag{Key: name}
+				}
+				structCode.removeFieldsByTags(hidden)
+			}
 			if target.query != nil {
 				structCode = structCode.Filter(target.query).(*StructCode)
 			}
 			structCode.enableIndirect()
 			if target.embedded {
 				codes = structCode.ToAnonymousOpcode(ctx)
+				if len(codes) == 0 {
+					// an embedded struct which has no field to write here: the code jumps to nothing ( see
+					// RuntimeContext.EnterRecursive ).
+					recursiveCodes[target] = recursive.Jmp
+					continue
+				}
 			} else {
 				codes = structCode.ToOpcode(ctx)
 			}
@@ -1464,6 +1509,15 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 
 		// OpRecursiveEnd must set before call TotalLength
 		code.End.Next = lastCode
+		if target.embedded {
+			// the fields of an embedded struct, whose last field goes on to the end when it is omitted: the struct
+			// it is embedded in sets that for the fields of its own, which a target has not.
+			first := code
+			if first.Op == OpStructHead {
+				first = first.Next
+			}
+			lastFieldOpcode(first).NextField = lastCode
+		}
 		markTailRecursion(code, lastCode, recursive.Jmp)
 
 		totalLength := code.TotalLength()

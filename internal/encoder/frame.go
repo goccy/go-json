@@ -244,13 +244,22 @@ const interfaceEndSlots = 3
 //
 //go:noinline
 func (c *RuntimeContext) EnterRecursive(code *Opcode, p unsafe.Pointer) (*Opcode, unsafe.Pointer, error) {
+	if code.Jmp.Code == nil {
+		// an embedded struct which has no field to write there ( see Compiler.linkRecursiveCode ): no frame.
+		return code.Next, unsafe.Add(c.Ptr(), c.SlotOffset), nil
+	}
 	if c.RecursiveLevel > StartDetectingCyclesAfter {
 		if err := c.recordSeen(code, p); err != nil {
 			return nil, nil, err
 		}
 	}
 	first := code.Jmp.Code
+	// the fields of the value are one level deeper than the place of the value, which opens it, and at the level
+	// of the place of an embedded struct, which writes them to the object it is embedded in.
 	indentDiffFromTop := first.Indent - 1
+	if code.Jmp.Embedded {
+		indentDiffFromTop++
+	}
 	indent := c.BaseIndent + code.Indent - indentDiffFromTop
 	if indent+code.Jmp.Levels > MaxDepth && p != nil {
 		// a nil pointer is null, which opens no level.

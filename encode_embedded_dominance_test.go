@@ -1,6 +1,8 @@
 package json_test
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -98,6 +100,123 @@ func TestEncodeEmbeddedFieldDominance(t *testing.T) {
 			got, err := json.Marshal(tt.in)
 			if err != nil || string(got) != tt.want {
 				t.Errorf("got %s, %v, want %s", got, err, tt.want)
+			}
+		})
+	}
+}
+
+type (
+	dominanceHiddenRecursive struct {
+		B *dominanceEmbedsHidden
+		dominanceV
+	}
+	// a recursive struct embedded in a struct which hides a field of it.
+	dominanceEmbedsHidden struct {
+		*dominanceHiddenRecursive
+		V int
+	}
+	dominanceListRecursive struct {
+		B *dominanceEmbedsList
+		N int
+	}
+	dominanceEmbedsList struct {
+		*dominanceListRecursive
+		X int
+	}
+	// a recursive struct whose own field hides another of its own, deeper.
+	dominanceOwnHidden struct {
+		B *dominanceEmbedsOwnHidden
+		V int
+		dominanceDepth2
+	}
+	dominanceEmbedsOwnHidden struct {
+		*dominanceOwnHidden
+		U int
+	}
+	// a recursive struct whose fields are all hidden by the struct it is embedded in.
+	dominanceAllHidden struct {
+		B *dominanceEmbedsAllHidden
+		V int
+	}
+	dominanceEmbedsAllHidden struct {
+		*dominanceAllHidden
+		B *dominanceAllHidden
+		V int
+	}
+	// a recursive struct whose only field written is hidden, beside an array of no elements, which is never written.
+	dominanceZeroArray struct {
+		X *dominanceEmbedsZeroArray
+		Z [0]int `json:",omitempty"`
+	}
+	dominanceEmbedsZeroArray struct {
+		*dominanceZeroArray
+		X int
+	}
+	// a recursive struct whose last field is omitted.
+	dominanceLastOmitted struct {
+		B *dominanceEmbedsLastOmitted
+		V int `json:",omitzero"`
+	}
+	dominanceEmbedsLastOmitted struct {
+		*dominanceLastOmitted
+		X int
+	}
+)
+
+type nopWriteCloser struct{ io.Writer }
+
+func (nopWriteCloser) Close() error { return nil }
+
+// The debug output draws the opcodes of a recursive struct embedded with nothing to write, which jump to nothing.
+func TestEncodeEmbeddedRecursiveStructWithNothingToWriteDebug(t *testing.T) {
+	in := dominanceAllHidden{B: &dominanceEmbedsAllHidden{&dominanceAllHidden{V: 1}, nil, 2}}
+	var dot bytes.Buffer
+	got, err := json.MarshalWithOption(in, json.Debug(), json.DebugWith(io.Discard), json.DebugDOT(nopWriteCloser{&dot}))
+	if err != nil || string(got) != `{"B":{"B":null,"V":2},"V":0}` {
+		t.Errorf("got %s, %v", got, err)
+	}
+	if dot.Len() == 0 {
+		t.Error("no graph is written")
+	}
+}
+
+// The fields of a recursive struct embedded in another are hidden by the fields of that one, as the fields of any
+// embedded struct, and are written at its level.
+func TestEncodeEmbeddedRecursiveStructDominance(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       any
+		want     string
+		indented string
+	}{
+		{"a field hidden by the struct it is embedded in", dominanceHiddenRecursive{
+			B: &dominanceEmbedsHidden{&dominanceHiddenRecursive{dominanceV: dominanceV{1}}, 2},
+		}, `{"B":{"B":null,"V":2},"V":0}`, "{\n \"B\": {\n  \"B\": null,\n  \"V\": 2\n },\n \"V\": 0\n}"},
+		{"fields at the level of the struct it is embedded in", dominanceListRecursive{
+			B: &dominanceEmbedsList{&dominanceListRecursive{N: 1}, 2},
+		}, `{"B":{"B":null,"N":1,"X":2},"N":0}`, "{\n \"B\": {\n  \"B\": null,\n  \"N\": 1,\n  \"X\": 2\n },\n \"N\": 0\n}"},
+		{"a field which wins over another of the recursive struct", dominanceOwnHidden{
+			B: &dominanceEmbedsOwnHidden{&dominanceOwnHidden{V: 4}, 5},
+		}, `{"B":{"B":null,"V":4,"U":5},"V":0}`, "{\n \"B\": {\n  \"B\": null,\n  \"V\": 4,\n  \"U\": 5\n },\n \"V\": 0\n}"},
+		{"all fields hidden by the struct it is embedded in", dominanceAllHidden{
+			B: &dominanceEmbedsAllHidden{&dominanceAllHidden{V: 1}, nil, 2},
+		}, `{"B":{"B":null,"V":2},"V":0}`, "{\n \"B\": {\n  \"B\": null,\n  \"V\": 2\n },\n \"V\": 0\n}"},
+		{"nothing left to write", dominanceZeroArray{
+			X: &dominanceEmbedsZeroArray{&dominanceZeroArray{}, 1},
+		}, `{"X":{"X":1}}`, "{\n \"X\": {\n  \"X\": 1\n }\n}"},
+		{"the last field omitted", dominanceLastOmitted{
+			B: &dominanceEmbedsLastOmitted{&dominanceLastOmitted{}, 1},
+		}, `{"B":{"B":null,"X":1}}`, "{\n \"B\": {\n  \"B\": null,\n  \"X\": 1\n }\n}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := json.Marshal(tt.in)
+			if err != nil || string(got) != tt.want {
+				t.Errorf("got %s, %v, want %s", got, err, tt.want)
+			}
+			got, err = json.MarshalIndent(tt.in, "", " ")
+			if err != nil || string(got) != tt.indented {
+				t.Errorf("indented: got %s, %v, want %s", got, err, tt.indented)
 			}
 		})
 	}

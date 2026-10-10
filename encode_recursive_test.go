@@ -167,6 +167,15 @@ func TestEncodeEmbeddedRecursiveStruct(t *testing.T) {
 					t.Fatalf("call %d: expected %s but got %s", i, expected, got)
 				}
 			}
+			// the fields of an embedded struct are at the level of the struct they are embedded in.
+			expected, err = stdjson.MarshalIndent(test.v, "", " ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := json.MarshalIndent(test.v, "", " ")
+			if err != nil || string(got) != string(expected) {
+				t.Fatalf("indented: expected %s but got %s, %v", expected, got, err)
+			}
 		})
 	}
 }

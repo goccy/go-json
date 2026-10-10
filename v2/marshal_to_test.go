@@ -102,3 +102,37 @@ func normalized(levels []textcoder.Level) string {
 	}
 	return b.String()
 }
+
+// layoutKey writes its name by a token, and layoutRaw its value by a raw value.
+type (
+	layoutKey string
+	layoutRaw string
+)
+
+func (k layoutKey) MarshalJSONTo(e *jsontext.Encoder) error { return e.WriteToken(jsontext.String(string(k))) }
+
+func (v layoutRaw) MarshalJSONTo(e *jsontext.Encoder) error { return e.WriteValue(jsontext.Value(v)) }
+
+// The output of a method is formatted with the rest of the output: a name which a method writes is a name under
+// Multiline, and an empty value which it writes is omitted by omitempty with any white space.
+func TestMarshalMethodsWithWhiteSpace(t *testing.T) {
+	if got, err := Marshal(map[layoutKey]int{"x": 1}, jsontext.Multiline(true)); err != nil || string(got) != "{\n\t\"x\": 1\n}" {
+		t.Errorf("a name: got %q %v", got, err)
+	}
+	type omitted struct {
+		A layoutRaw `json:",omitempty"`
+		B int
+	}
+	for name, opt := range map[string]Options{
+		"Multiline":       jsontext.Multiline(true),
+		"SpaceAfterColon": jsontext.SpaceAfterColon(true),
+		"SpaceAfterComma": jsontext.SpaceAfterComma(true),
+	} {
+		for _, empty := range []layoutRaw{"null", "{}", "[]", `""`} {
+			got, err := Marshal(omitted{A: empty}, opt)
+			if err != nil || strings.Contains(string(got), "A") {
+				t.Errorf("%s omitted with %s: got %q %v", empty, name, got, err)
+			}
+		}
+	}
+}

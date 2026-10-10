@@ -112,9 +112,11 @@ func attachEncoder(enc unsafe.Pointer, p *textcoder.Attachment) {
 		}
 	} else {
 		e.cfg = *p.Opts
-		e.w = nil
+		e.w, e.attached = nil, false // which init doesn't derive again for
 		e.init(nil)
 		e.attached = true
+		// compact, as derive makes it for an attached encoder: init derived it before the encoder was attached.
+		e.ws, e.vs.ws, e.vs.spaced = whitespace{}, whitespace{}, false
 		if !p.Top {
 			_ = st.push(p.Object)
 		}

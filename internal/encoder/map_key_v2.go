@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"bytes"
 	"encoding"
 	"encoding/base64"
 	"encoding/json"
@@ -77,6 +78,12 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	}
 	if out[start] != '"' {
 		return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: typ}
+	}
+	if ctx.Option.Flag&(RawRewriteOption|AllowDuplicateNamesOption) == RawRewriteOption && bytes.IndexByte(out[start:], '\\') >= 0 {
+		// a name of a raw value which the options of raw values may keep with its escapes, as PreserveRawStrings does,
+		// which another name may be the same as by another escape: the output is checked by its names ( see
+		// CheckNames ).
+		ctx.CheckNames = true
 	}
 	if ctx.Option.Flag&(AllowDuplicateNamesOption|UnorderedMapOption) != UnorderedMapOption {
 		return out, nil

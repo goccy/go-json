@@ -320,6 +320,11 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 		// a nil pointer is null, which no function is called for.
 		return []byte("null"), false, nil
 	}
+	if st.placeInner && st.outerPlace.Object && st.outerPlace.Count%2 == 0 {
+		// a name of an object, where encoding/json/v2 writes a number in a string: the option of the engine, not of
+		// the call, which GetOption doesn't report.
+		ctx.Option.Flag |= encoder.StringifyNumbersOption
+	}
 	st.base, st.opened, st.attached = base, false, false
 	st.tracked.stale = true
 	// the state is kept with ctx ( see takeCallState ), or is the one of the caller of a nested call: it is left

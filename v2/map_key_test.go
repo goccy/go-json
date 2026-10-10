@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"testing"
@@ -68,5 +69,41 @@ func TestMarshalMapKeysByFunctionsOfTheirValues(t *testing.T) {
 				t.Errorf("got %s %v, want %s", got, err, tt.want)
 			}
 		})
+	}
+}
+
+// numberKey writes its number by MarshalEncode, at the place of a name for a key of a map.
+type numberKey int
+
+func (k numberKey) MarshalJSONTo(e *jsontext.Encoder) error { return MarshalEncode(e, int(k)) }
+
+// A number which MarshalEncode writes at the place of a name is written in a string, as encoding/json/v2 writes it:
+// a key of a map which writes its number, and a call for an encoder whose name is next.
+func TestMarshalEncodeNumberAsName(t *testing.T) {
+	if got, err := Marshal(map[numberKey]int{3: 1}); err != nil || string(got) != `{"3":1}` {
+		t.Errorf("a key: got %s %v, want {\"3\":1}", got, err)
+	}
+	if got, err := Marshal(struct{ A numberKey }{4}); err != nil || string(got) != `{"A":4}` {
+		t.Errorf("a value: got %s %v, want {\"A\":4}", got, err)
+	}
+	for _, v := range []any{1, uint8(2), 1.5} {
+		var b bytes.Buffer
+		enc := jsontext.NewEncoder(&b)
+		if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+			t.Fatal(err)
+		}
+		if err := MarshalEncode(enc, v); err != nil {
+			t.Errorf("%T: %v", v, err)
+			continue
+		}
+		if err := enc.WriteToken(jsontext.Null); err != nil {
+			t.Fatal(err)
+		}
+		if err := enc.WriteToken(jsontext.EndObject); err != nil {
+			t.Fatal(err)
+		}
+		if want := fmt.Sprintf("{%q:null}\n", fmt.Sprint(v)); b.String() != want {
+			t.Errorf("%T: got %q, want %q", v, b.String(), want)
+		}
 	}
 }

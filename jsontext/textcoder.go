@@ -66,12 +66,14 @@ func encoderPlace(enc any) (textcoder.Level, bool, int64, textcoder.Outer) {
 	return inner, e.st.depth() == 0, e.base + int64(len(e.buf)) + int64(e.delimLen(k)), e.st.outer
 }
 
-// configureEncoder makes enc write by the options opts until the returned function is called.
+// configureEncoder makes enc write by the options opts until the returned function is called, with the strings of
+// the values as they are: they were escaped by the options of the call which wrote them.
 func configureEncoder(enc any, opts options.Options) func() {
 	e := &enc.(*Encoder).e
 	saved := e.cfg
 	e.cfg = config{}
 	opts.ApplyTo(&e.cfg)
+	e.cfg.Value = e.cfg.Value&^(escapeForHTML|escapeForJS) | preserveRawStrings
 	e.derive()
 	return func() {
 		e.cfg = saved

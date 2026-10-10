@@ -323,48 +323,51 @@ func (c *Compiler) valueCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, error) {
-	noescapeKeyCode, err := c.codeToOpcode(&compileContext{
-		structTypeToCodes: map[uintptr]Opcodes{},
-		recursiveCodes:    &Opcodes{},
-	}, typ, code)
-	if err != nil {
-		return nil, err
+	// the opcodes of each escape of the names of the fields ( see KeyEscapeOptions ): the ones of the escape for
+	// JavaScript are the others unless a name has a character which it escapes.
+	var keyCodes, interfaceKeyCodes [4]*Opcode
+	jsKey := false
+	for i := range keyCodes {
+		if i&int(NormalizeUTF8Option) != 0 && !jsKey {
+			keyCodes[i], interfaceKeyCodes[i] = keyCodes[i&^int(NormalizeUTF8Option)], interfaceKeyCodes[i&^int(NormalizeUTF8Option)]
+			continue
+		}
+		ctx := &compileContext{
+			structTypeToCodes: map[uintptr]Opcodes{},
+			recursiveCodes:    &Opcodes{},
+			escapeKey:         i&int(HTMLEscapeOption) != 0,
+			escapeJSKey:       i&int(NormalizeUTF8Option) != 0,
+		}
+		keyCode, err := c.codeToOpcode(ctx, typ, code)
+		if err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			if err := keyCode.Validate(); err != nil {
+				return nil, err
+			}
+		}
+		jsKey = jsKey || ctx.jsKey
+		keyCode = copyOpcode(keyCode)
+		setTotalLengthToInterfaceOp(keyCode)
+		keyCodes[i], interfaceKeyCodes[i] = keyCode, copyToInterfaceOpcode(keyCode)
 	}
-	if err := noescapeKeyCode.Validate(); err != nil {
-		return nil, err
-	}
-	escapeKeyCode, err := c.codeToOpcode(&compileContext{
-		structTypeToCodes: map[uintptr]Opcodes{},
-		recursiveCodes:    &Opcodes{},
-		escapeKey:         true,
-	}, typ, code)
-	if err != nil {
-		return nil, err
-	}
-	noescapeKeyCode = copyOpcode(noescapeKeyCode)
-	escapeKeyCode = copyOpcode(escapeKeyCode)
-	setTotalLengthToInterfaceOp(noescapeKeyCode)
-	setTotalLengthToInterfaceOp(escapeKeyCode)
-	interfaceNoescapeKeyCode := copyToInterfaceOpcode(noescapeKeyCode)
-	interfaceEscapeKeyCode := copyToInterfaceOpcode(escapeKeyCode)
-	codeLength := noescapeKeyCode.TotalLength()
+	codeLength := keyCodes[0].TotalLength()
 	// the data word is the address of the value which the opcodes take, which identifies it, or the value itself,
 	// whose first word identifies it, as the array of a slice identifies the slice ( see recordSeenValue ).
 	dataWordIsAddr := runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0)
 	return &OpcodeSet{
-		Type:                     typ,
-		IfaceIndir:               runtime.IfaceIndir(typ),
-		DataWordIsAddr:           dataWordIsAddr,
-		IdentityIsFirstWord:      !dataWordIsAddr || typ.Kind() == reflect.Slice,
-		NoescapeKeyCode:          noescapeKeyCode,
-		EscapeKeyCode:            escapeKeyCode,
-		InterfaceNoescapeKeyCode: interfaceNoescapeKeyCode,
-		InterfaceEscapeKeyCode:   interfaceEscapeKeyCode,
-		CodeLength:               codeLength,
-		EndCode:                  ToEndCode(interfaceNoescapeKeyCode),
-		Scalar:                   scalarOpcode(noescapeKeyCode),
-		Code:                     code,
-		QueryCache:               map[string]*OpcodeSet{},
+		Type:                typ,
+		IfaceIndir:          runtime.IfaceIndir(typ),
+		DataWordIsAddr:      dataWordIsAddr,
+		IdentityIsFirstWord: !dataWordIsAddr || typ.Kind() == reflect.Slice,
+		KeyCodes:            keyCodes,
+		InterfaceKeyCodes:   interfaceKeyCodes,
+		CodeLength:          codeLength,
+		EndCode:             ToEndCode(interfaceKeyCodes[0]),
+		Scalar:              scalarOpcode(keyCodes[0]),
+		Code:                code,
+		QueryCache:          map[string]*OpcodeSet{},
 	}, nil
 }
 

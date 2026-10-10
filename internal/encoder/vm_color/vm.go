@@ -10,12 +10,7 @@ import (
 
 func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	ctxptr := ctx.Ptr()
-	var code *encoder.Opcode
-	if (ctx.Option.Flag & encoder.HTMLEscapeOption) != 0 {
-		code = codeSet.EscapeKeyCode
-	} else {
-		code = codeSet.NoescapeKeyCode
-	}
+	code := codeSet.KeyCodes[ctx.Option.Flag&encoder.KeyEscapeOptions]
 
 	for {
 		switch code.Op {

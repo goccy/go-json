@@ -76,13 +76,13 @@ type OpcodeSet struct {
 	// and again: a map, a slice ( the address of its array ), or a type stored directly in an interface value, as a
 	// pointer which a function of marshaling takes. The identity of another value, as a pointer which is its
 	// address, is its address.
-	IdentityIsFirstWord      bool
-	NoescapeKeyCode          *Opcode
-	EscapeKeyCode            *Opcode
-	InterfaceNoescapeKeyCode *Opcode
-	InterfaceEscapeKeyCode   *Opcode
-	CodeLength               int
-	EndCode                  *Opcode
+	IdentityIsFirstWord bool
+	// KeyCodes and InterfaceKeyCodes are the opcodes of the value, and of the value held by an interface value, for
+	// each escape of the names of the fields, indexed by the options of KeyEscapeOptions.
+	KeyCodes          [4]*Opcode
+	InterfaceKeyCodes [4]*Opcode
+	CodeLength        int
+	EndCode           *Opcode
 	// Scalar is the opcode of the value if the type is encoded by a single opcode of a scalar ( a number,
 	// a string, a bool, ... ), or nil. Such a value held by an interface value is encoded without a frame.
 	Scalar     *Opcode
@@ -188,6 +188,12 @@ type CompiledCode struct {
 	// The code to jump to is only the fields of the struct then: it has neither the braces nor the check of nil.
 	Embedded bool
 }
+
+// KeyEscapeOptions are the options by which the names of the fields are escaped, whose bits are the index of the
+// opcodes of each escape ( see OpcodeSet.KeyCodes ): for HTML, and for JavaScript, U+2028 and U+2029.
+const KeyEscapeOptions = HTMLEscapeOption | NormalizeUTF8Option
+
+var _ [0]struct{} = [KeyEscapeOptions - 3]struct{}{}
 
 // StartDetectingCyclesAfter is the number of the frames ( see RuntimeContext.RecursiveLevel ) after which the
 // values entered, and the maps, are recorded to detect a cycle.

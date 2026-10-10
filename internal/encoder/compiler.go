@@ -1269,9 +1269,31 @@ func (c *Compiler) typeToStructTags(typ reflect.Type) runtime.StructTags {
 		if runtime.IsIgnoredStructField(field) {
 			continue
 		}
-		tags = append(tags, runtime.StructTagFromField(field))
+		tag := runtime.StructTagFromField(field)
+		if tag.IsString && !stringTagApplies(field.Type) {
+			tag.IsString = false
+		}
+		tags = append(tags, tag)
 	}
 	return tags
+}
+
+// stringTagApplies reports whether the option ,string applies to a field of typ, as encoding/json documents it: to
+// a field of a string, a number or a bool. As encoding/json of Go 1.27 does, it follows one pointer, and does not
+// apply to the value of a pointer to a pointer.
+func stringTagApplies(typ reflect.Type) bool {
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	switch typ.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.String:
+		return true
+	}
+	return false
 }
 
 // *struct{ field T } => struct { field *T }

@@ -16,6 +16,11 @@ const MaxReusedValueSize = 4096
 // interface value of it would be: it is copied to a value in the heap which is reused ( see
 // encoder.OpcodeSet.TakeValue ). A value which an interface value holds directly is encoded by Encode.
 func EncodeOf[T any](ctx *encoder.RuntimeContext, v *T) ([]byte, error) {
+	if ctx.Option.Flag&encoder.MarshalFuncsOption != 0 {
+		// the code sets of the functions of a call, whose pool of values the runtime keeps for a GC after it is used,
+		// would keep the functions alive.
+		return Encode(ctx, *v)
+	}
 	typ := reflect.TypeOf(v).Elem()
 	switch typ.Kind() {
 	case reflect.Interface:

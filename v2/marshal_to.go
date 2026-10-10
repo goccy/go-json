@@ -57,11 +57,10 @@ type callState struct {
 	// The fields which every call reads and writes are first, in the cache lines before the large ones, and the
 	// encoder of the methods last.
 
-	// attached is whether enc was attached in the call, with its options, calling is whether a method is being
-	// called with it, and opened is whether an encoding which failed stopped in an object or an array it opened.
+	// attached is whether enc was attached in the call, with its options, and calling is whether a method is being
+	// called with it.
 	attached bool
 	calling  bool
-	opened   bool
 	// tracked follows the levels of the output for the methods ( see trackedLevels ).
 	tracked tracker
 	// cfg are the options of the call, and orig the ones of the jsontext.Encoder of MarshalEncode.

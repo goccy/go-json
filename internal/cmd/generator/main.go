@@ -166,7 +166,6 @@ func (t OpType) FieldToOmitEmptyField() OpType {
 	opTypes := []opType{
 		createOpType("End", "Op"),
 		createOpType("Interface", "Op"),
-		createOpType("Ptr", "Op"),
 		createOpType("SliceElem", "SliceElem"),
 		createOpType("SliceEnd", "Op"),
 		createOpType("ArrayElem", "ArrayElem"),

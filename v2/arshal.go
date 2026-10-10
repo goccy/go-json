@@ -332,7 +332,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 		// the call, which GetOption doesn't report.
 		ctx.Option.Flag |= encoder.StringifyNumbersOption
 	}
-	st.base, st.opened, st.attached = base, false, false
+	st.base, st.attached = base, false
 	st.tracked.stale = true
 	// the state is kept with ctx ( see takeCallState ), or is the one of the caller of a nested call: it is left
 	// in the options, which the encodings of v1 don't read. The functions of the caller are not kept. A pointer is
@@ -374,7 +374,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 func (st *callState) prepareDefault(ctx *encoder.RuntimeContext) {
 	ctx.Option.Flag = defaultFlags
 	ctx.CheckNames = false
-	st.base, st.opened, st.attached = 0, false, false
+	st.base, st.attached = 0, false
 	st.tracked.stale = true
 	if ctx.Option.V2 != unsafe.Pointer(st) {
 		ctx.Option.V2 = unsafe.Pointer(st)

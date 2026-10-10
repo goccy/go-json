@@ -50,15 +50,10 @@ type encoder struct {
 	buf  []byte        // the output which is not written to w yet
 	base int64         // the offset of buf[0] in the output
 
-	// the options as init takes them, which follow from cfg, and the options of vs: derived is the cfg which
-	// they were set from, once derivedOK is set, so that an encoder which is used again with the same options
-	// doesn't set them again.
+	// derived is the cfg which the options of vs were set from, once derivedOK is set, so that an encoder which
+	// is used again with the same options doesn't set them again.
 	derived   config
 	derivedOK bool
-	ws        whitespace
-	esc       escapeFlags
-	validUTF8 bool
-	check     bool // check duplicate names
 
 	avail    []byte // the buffer of AvailableBuffer, which the output doesn't share
 	maxValue int    // the OR of the lengths of the values written since the last reset, which sizes avail
@@ -178,7 +173,7 @@ func (e *encoder) init(w io.Writer) {
 	// the fields are set one by one: a literal of the scanner would be built in a temporary and copied.
 	vs := &e.vs
 	vs.write, vs.keep = true, false
-	vs.spaced = e.ws.multiline || e.ws.colon || e.ws.comma
+	vs.spaced = e.vs.ws.multiline || e.vs.ws.colon || e.vs.ws.comma
 	vs.run = 0
 	vs.wsFrom, vs.wsEnd = 0, 0
 	if vs.in != nil || vs.out != nil {
@@ -188,23 +183,19 @@ func (e *encoder) init(w io.Writer) {
 
 // derive sets the fields which follow from the options, e.cfg.
 func (e *encoder) derive() {
-	e.ws = whitespaceOf(&e.cfg)
+	vs := &e.vs
+	vs.ws = whitespaceOf(&e.cfg)
 	if e.attached {
 		// the output of a method or a function of the v2 json package, which formats the whole output after it: the
 		// encoder writes it compact, as the encoder of the package writes the rest, but reports its options.
-		e.ws = whitespace{}
+		vs.ws = whitespace{}
 	}
-	e.esc = escapesOf(&e.cfg)
-	e.validUTF8 = !e.cfg.Has(allowInvalidUTF8)
-	e.check = !e.cfg.Has(allowDuplicateNames)
-	vs := &e.vs
-	vs.validUTF8 = e.validUTF8
-	vs.checkNames = e.check
-	vs.lazyNames = !e.check
+	vs.esc = escapesOf(&e.cfg)
+	vs.validUTF8 = !e.cfg.Has(allowInvalidUTF8)
+	vs.checkNames = !e.cfg.Has(allowDuplicateNames)
+	vs.lazyNames = !vs.checkNames
 	vs.decoding = false
 	vs.final = true
-	vs.ws = e.ws
-	vs.esc = e.esc
 	vs.preserve = e.cfg.Has(preserveRawStrings)
 	vs.canonInts = e.cfg.Has(canonicalizeRawInts)
 	vs.canonFlts = e.cfg.Has(canonicalizeRawFloats)
@@ -296,22 +287,22 @@ func (e *encoder) appendDelim(b []byte, k Kind) []byte {
 	if l.needValue() {
 		// a colon, which is also the delimiter of the offset of an error of an end delimiter there
 		b = append(b, ':')
-		if e.ws.colon {
+		if e.vs.ws.colon {
 			b = append(b, ' ')
 		}
 		return b
 	}
 	if k == KindEndObject || k == KindEndArray {
-		if l.count > 0 && e.ws.multiline {
-			b = e.ws.appendLine(b, e.st.depth()-1)
+		if l.count > 0 && e.vs.ws.multiline {
+			b = e.vs.ws.appendLine(b, e.st.depth()-1)
 		}
 		return b
 	}
 	if l.count > 0 {
-		b = e.ws.appendComma(b)
+		b = e.vs.ws.appendComma(b)
 	}
-	if e.ws.multiline {
-		b = e.ws.appendLine(b, e.st.depth())
+	if e.vs.ws.multiline {
+		b = e.vs.ws.appendLine(b, e.st.depth())
 	}
 	return b
 }
@@ -429,12 +420,12 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 	switch t.source().form {
 	case formString:
 		var valid bool
-		b, valid = appendQuoted(b, t.str, e.esc)
-		if !valid && e.validUTF8 {
+		b, valid = appendQuoted(b, t.str, e.vs.esc)
+		if !valid && e.vs.validUTF8 {
 			return b, e.failAt(errInvalidUTF8, pos, pointNext)
 		}
 		if name {
-			if valid && e.check && e.st.addNewName(readOnlyBytes(t.str)) {
+			if valid && e.vs.checkNames && e.st.addNewName(readOnlyBytes(t.str)) {
 				return b, nil // a new name of an object of few names, as most are, without the calls of insertName
 			}
 			return b, e.insertName(pos, readOnlyBytes(t.str), !valid) // the name is copied
@@ -451,11 +442,11 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 		return b, nil
 	}
 	raw := t.raw()
-	_, f, err := scanString(raw, strModeOf(e.validUTF8, false))
+	_, f, err := scanString(raw, strModeOf(e.vs.validUTF8, false))
 	if err != nil {
 		return b, e.failAt(err, pos, pointNext)
 	}
-	b = appendRawString(b, raw, f, e.esc, e.cfg.Has(preserveRawStrings))
+	b = appendRawString(b, raw, f, e.vs.esc, e.cfg.Has(preserveRawStrings))
 	if name {
 		var buf [64]byte
 		return b, e.insertName(pos, appendUnquoted(buf[:0], raw, f), false)
@@ -468,7 +459,7 @@ func (e *encoder) insertName(pos int, name []byte, mangle bool) error {
 	if mangle {
 		name = appendValidUTF8(nil, name)
 	}
-	if !e.st.insertName(name, e.check) {
+	if !e.st.insertName(name, e.vs.checkNames) {
 		ptr := e.st.namePointer(name)
 		return &SyntacticError{ByteOffset: e.base + int64(pos), JSONPointer: ptr, Err: ErrDuplicateName}
 	}

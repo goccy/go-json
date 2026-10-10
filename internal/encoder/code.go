@@ -627,7 +627,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		isFirstField := idx == 0
 		isEndField := idx == len(c.fields)-1
 		fieldSlots.reuse(ctx)
-		fieldCodes := field.ToAnonymousOpcode(ctx, isFirstField, isEndField)
+		fieldCodes := field.ToAnonymousOpcode(ctx, isFirstField)
 		for _, code := range fieldCodes {
 			if c.isIndirect {
 				code.Flags |= IndirectFlags
@@ -752,7 +752,6 @@ type StructFieldCode struct {
 	isNilCheck         bool
 	isAddrForMarshaler bool
 	isNextOpPtrType    bool
-	isMarshalerContext bool
 	// unwriteEmpty is whether the member is unwritten after its value if the value is empty, for omitempty of the
 	// v2 semantics, which omits a value that would be null, "", {} or [].
 	unwriteEmpty bool
@@ -1125,9 +1124,6 @@ func (c *StructFieldCode) flags() OpFlags {
 	if c.isAnonymous || c.isFallback {
 		flags |= AnonymousKeyFlags
 	}
-	if c.isMarshalerContext {
-		flags |= MarshalerContextFlags
-	}
 	return flags
 }
 
@@ -1179,7 +1175,7 @@ func (c *StructFieldCode) ToOpcode(ctx *compileContext, isFirstField, isEndField
 	return codes
 }
 
-func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField, isEndField bool) Opcodes {
+func (c *StructFieldCode) ToAnonymousOpcode(ctx *compileContext, isFirstField bool) Opcodes {
 	var head *Opcode
 	if isFirstField {
 		head = c.headOpcode(ctx, c.flags()|AnonymousHeadFlags)

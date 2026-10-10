@@ -40,6 +40,12 @@ func Encode(ctx *encoder.RuntimeContext, v any) ([]byte, error) {
 	if err != nil {
 		return b, err
 	}
+	if ctx.Option.Flag&encoder.MarshalFuncsOption != 0 && header.ptr != nil {
+		// a pointer at the top level, which the functions of marshaling take as the value it points to.
+		if pointee := encoder.PointeeOf(ctx, codeSet); pointee != nil {
+			codeSet = pointee
+		}
+	}
 
 	p := ctx.ValueAddr(codeSet, header.ptr)
 	if p == nil {

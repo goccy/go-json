@@ -230,8 +230,9 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 			field.typ.Elem().Kind() == reflect.String && !tag.IsString:
 			// a nil pointer is null, and the string it points to is empty only if it is "".
 			field.omitEmptyString = true
-		case kind == reflect.Ptr || kind == reflect.Interface:
-			// a nil value is null.
+		case (kind == reflect.Ptr || kind == reflect.Interface) && len(c.funcs.funcsOf(field.typ)) == 0:
+			// a nil value is null, unless a function writes it, as a function of the pointer to it does: with
+			// functions, it is omitted by what is written, as a value of a method is.
 			field.unwriteEmpty = true
 		case field.typ == rawMessageType && v2MethodOf(field.typ, noMethod) == methodMarshalJSON &&
 			len(c.funcs.funcsOf(field.typ)) == 0:

@@ -210,10 +210,17 @@ func MarshalWriteOf[T any](out io.Writer, in T, opts ...Options) error {
 	return err
 }
 
-// isNilPointer reports whether the value at v is a nil pointer, without an interface value of it, which would
-// move it to the heap.
+// isNilPointer reports whether the value at v is a nil pointer, or an interface value which holds one, without an
+// interface value of a value of another kind, which would move it to the heap.
 func isNilPointer[T any](v *T) bool {
-	return reflect.TypeFor[T]().Kind() == reflect.Pointer && *(*unsafe.Pointer)(unsafe.Pointer(v)) == nil
+	switch reflect.TypeFor[T]().Kind() {
+	case reflect.Pointer:
+		return *(*unsafe.Pointer)(unsafe.Pointer(v)) == nil
+	case reflect.Interface:
+		x := any(*v)
+		return x != nil && reflect.TypeOf(x).Kind() == reflect.Pointer && (*[2]unsafe.Pointer)(unsafe.Pointer(&x))[1] == nil
+	}
+	return false
 }
 
 // MarshalEncode serializes a Go value into a jsontext.Encoder according to the provided marshal or encode options

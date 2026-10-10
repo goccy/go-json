@@ -227,7 +227,7 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	out.Options().ApplyTo(&st.cfg)
 	st.orig = st.cfg
 	st.cfg.Apply(opts)
-	inner, top, base, owner := textcoder.Place(out)
+	inner, top, base, owner, depth := textcoder.Place(out)
 	st.setPlace(out, inner, !top)
 	if len(opts) > 0 {
 		if err := optionsChange(&st.orig, &st.cfg, inner); err != nil {
@@ -244,7 +244,7 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	caller, nested := owner.(*callState)
 	nested = nested && caller.calling
 	if nested {
-		ctx.Outer = caller.attachCtx
+		ctx.Outer, ctx.ValueDepth = caller.attachCtx, uint32(depth)
 	}
 	buf, opened, err := marshal(ctx, st, in, false, nil, base)
 	if nested {

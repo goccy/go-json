@@ -43,6 +43,10 @@ type Attachment struct {
 	// Skip, and Depth and Count of the innermost level, which Detach sets after the writes, Attach sets.
 	Skip  int
 	Depth int
+	// OuterDepth is the number of the arrays and the objects which are open around the place in the whole output,
+	// which the encoder counts its levels after: it fails to begin one past the deepest level, as the encoder of the
+	// whole output does.
+	OuterDepth int
 	// Failed is the error of a call which failed at the encoder, which Detach sets ( see Fail ).
 	Failed error
 }
@@ -66,9 +70,10 @@ var (
 	// where its next value starts: after the delimiter and the white space before it.
 	Position func(enc any, levels []Level) ([]Level, int64)
 	// Place returns the innermost level of enc, whose count may be the one which Attach was given ( see Attach ),
-	// whether it is the top level, the offset in its output where its next value starts, and the Outer which it
-	// was attached with, if it was.
-	Place func(enc any) (inner Level, top bool, offset int64, outer Outer)
+	// whether it is the top level, the offset in its output where its next value starts, the Outer which it was
+	// attached with, if it was, and the number of the arrays and the objects open around its next value in the whole
+	// output ( see Attachment.OuterDepth ).
+	Place func(enc any) (inner Level, top bool, offset int64, outer Outer, depth int)
 	// Configure makes enc write by the options until restore is called, which gives it back its own, with the
 	// strings of the values as they are, which the calls which wrote them escaped.
 	Configure func(enc any, opts options.Options) (restore func())

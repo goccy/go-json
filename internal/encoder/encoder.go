@@ -200,10 +200,11 @@ var _ [0]struct{} = [KeyEscapeOptions - 3]struct{}{}
 
 // MaxDepth is the deepest nesting of the objects and the arrays which encoding/json and encoding/json/v2 of Go 1.27
 // take: 10000 levels. The VM checks it by the indent of a frame ( see RuntimeContext.BaseIndent ), and of a value of a
-// list ( see TailRecursiveFlags ), as no type nests its values so deep by itself. A value of a map or a slice which is
-// null, which v1 writes for nil, is counted as the level it would open, and a raw value, and the tokens which a method or
-// a function writes by an encoder, are checked by their own depth only ( see AppendRaw ): an output which is so deep
-// there passes.
+// list ( see TailRecursiveFlags ), as no type nests its values so deep by itself, and the encoder of a method or a
+// function, and the default representation of a value it declines, count their levels after the depth of the value (
+// see RuntimeContext.ValueDepth ). A value of a map or a slice which is null, which v1 writes for nil, is counted as
+// the level it would open, and a raw value which a method or a function returns is checked by its own depth only (
+// see AppendRaw ): an output which is so deep there passes.
 const MaxDepth = 10000
 
 // ErrMaxDepth returns the error of a value nested deeper than MaxDepth, as encoding/json and encoding/json/v2 report
@@ -789,6 +790,7 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 			if m.v2Raw {
 				return appendV2MarshalJSON(ctx, m, b, p)
 			}
+			ctx.ValueDepth = ctx.BaseIndent + code.Indent
 			return appendValue(ctx, m, b, p)
 		}
 		stdctx := ctx.marshalerContext()

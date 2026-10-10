@@ -287,6 +287,9 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	// the escaper of the options of ctx is the one of ctx, which records invalid UTF-8 for it: inner sets its own.
 	inner.Option.EscaperFlags = noEscaperFlags
 	inner.Init(p, codeSet.CodeLength)
+	// the value is where the function or the method which called this was called: one which declined it, or the one
+	// of an inline fallback map, whose values these are ( see appendValueOf ).
+	inner.BaseIndent = ctx.ValueDepth
 	inner.CheckNames = false
 	inner.RewriteFrom = ctx.RewriteFrom
 	out, err := b, EnterNested(inner, ctx, codeSet, p)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -184,6 +185,33 @@ func TestEncodeSortedMapTextKeyNames(t *testing.T) {
 		got, err = json.MarshalIndent(m, "", " ")
 		if err != nil || string(got) != string(want) {
 			t.Fatalf("with indent: got %s %v\nwant %s", got, err, want)
+		}
+	}
+}
+
+// The keys are sorted by their names with any colors: an integer is colored within its quotes, which the codes of
+// its color don't put out of the order of its name.
+func TestEncodeSortedMapColoredKeys(t *testing.T) {
+	format := func(name string) json.ColorFormat { return json.ColorFormat{Header: "<" + name + ">", Footer: "</" + name + ">"} }
+	scheme := &json.ColorScheme{Int: format("i"), Uint: format("u"), String: format("s"), ObjectKey: format("k")}
+	tags := regexp.MustCompile(`</?[a-z]>`)
+	for _, v := range []any{
+		map[int]int{1: 1, 10: 2, 100: 3, 2: 4, -1: 5, -10: 6},
+		map[uint8]int{1: 1, 10: 2, 100: 3, 2: 4},
+		map[sortedMapNameKey]int{"a": 1, "a!": 2, "a ": 3, "": 4, "b": 5},
+	} {
+		want, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.MarshalWithOption(v, json.Colorize(scheme))
+		if err != nil || string(tags.ReplaceAll(got, nil)) != string(want) {
+			t.Errorf("%T: got %s %v\nwant %s", v, got, err, want)
+		}
+		want, _ = stdjson.MarshalIndent(v, "", " ")
+		got, err = json.MarshalIndentWithOption(v, "", " ", json.Colorize(scheme))
+		if err != nil || string(tags.ReplaceAll(got, nil)) != string(want) {
+			t.Errorf("%T with indent: got %s %v\nwant %s", v, got, err, want)
 		}
 	}
 }

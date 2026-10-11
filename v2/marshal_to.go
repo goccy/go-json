@@ -396,10 +396,6 @@ func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth in
 	if skip > 0 && len(written) >= skip {
 		written = written[:copy(written, written[skip:])]
 	}
-	if hidden > 0 {
-		// the place of a name of a sorted map is the one of the first name ( see marshalTo ).
-		written = b[:len(b)-hidden]
-	}
 	nested := err == nil && pl.Failed != nil
 	if nested {
 		err = pl.Failed
@@ -413,6 +409,12 @@ func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth in
 			return b, encoder.ErrUseDefault
 		}
 		err = errUnsupportedMutation
+	}
+	if hidden > 0 {
+		// the place of a name of a sorted map is the one of the first name ( see marshalTo ): what the method wrote
+		// is moved there, over the names before it, which the failed encoding doesn't write.
+		first := len(b) - hidden
+		written = written[:first+copy(written[first:], written[len(b):])]
 	}
 	return b, &ierrors.MethodError{GoType: typ, Err: err, Kind: ierrors.MethodJSONTo, Out: written,
 		Where: whereOf(depth, count, newDepth, newCount)}

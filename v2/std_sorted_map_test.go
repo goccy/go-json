@@ -97,8 +97,8 @@ func TestSortedMapValueErrorSameAsStd(t *testing.T) {
 }
 
 // stdNameKey and nameKey are keys named by their method, the first one for encoding/json/v2, the second one for the
-// v2 json package. A key whose name is "fail" fails, and one whose name is "int" writes a number. The method logs
-// the place it sees.
+// v2 json package. A key whose name is "fail" fails, one whose name is "int" writes a number, and one whose name is
+// "two" writes two strings. The method logs the place it sees.
 type stdNameKey struct {
 	name string
 	log  *[]string
@@ -112,6 +112,9 @@ func (k stdNameKey) MarshalJSONTo(enc *stdjsontext.Encoder) error {
 		return errors.New("fail")
 	case "int":
 		return enc.WriteToken(stdjsontext.Int(3))
+	case "two":
+		enc.WriteToken(stdjsontext.String(k.name))
+		return enc.WriteToken(stdjsontext.String(k.name))
 	}
 	return enc.WriteToken(stdjsontext.String(k.name))
 }
@@ -129,18 +132,26 @@ func (k nameKey) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return errors.New("fail")
 	case "int":
 		return enc.WriteToken(jsontext.Int(3))
+	case "two":
+		enc.WriteToken(jsontext.String(k.name))
+		return enc.WriteToken(jsontext.String(k.name))
 	}
 	return enc.WriteToken(jsontext.String(k.name))
 }
 
-// nameTextKey is a key named by its text.
+// nameTextKey is a key named by its text, which fails for "fail".
 type nameTextKey string
 
-func (k nameTextKey) MarshalText() ([]byte, error) { return []byte(k), nil }
+func (k nameTextKey) MarshalText() ([]byte, error) {
+	if k == "fail" {
+		return nil, errors.New("fail")
+	}
+	return []byte(k), nil
+}
 
 // The keys of a sorted map are named in the order of the names, as encoding/json/v2 names them, whatever the names
 // have: escapes, or a space or a '!', which come before the quote that ends a name. The method of a key sees the
-// place of a map which has no member yet, and its error is at that place.
+// place of a map which has no member yet, and the error of a key is at that place.
 func TestSortedMapKeyNamesSameAsStd(t *testing.T) {
 	runes := []rune("ab5 !\"\\<\x01é")
 	r := rand.New(rand.NewPCG(1, 2))
@@ -158,9 +169,10 @@ func TestSortedMapKeyNamesSameAsStd(t *testing.T) {
 			ourKeys[nameKey{string(name), &ourLog}] = i
 		}
 		if r.IntN(4) == 0 {
-			name := []string{"fail", "int"}[r.IntN(2)]
+			name := []string{"fail", "int", "two"}[r.IntN(3)]
 			stdKeys[stdNameKey{name, &stdLog}] = -1
 			ourKeys[nameKey{name, &ourLog}] = -1
+			texts["fail"] = -1
 		}
 		compareWithStd(t, "texts", texts, []json.Options{json.Deterministic(true)})
 		compareWithStd(t, "texts", struct{ A, M any }{0, texts}, []json.Options{json.Deterministic(true)})

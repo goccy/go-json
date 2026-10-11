@@ -73,11 +73,17 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem())
 	}
 	ctx.KeyName = false
-	if err != nil {
-		return b, err
+	if err == nil && out[start] != '"' {
+		err = &errors.TextError{Err: errors.ErrNonStringName, GoType: typ}
 	}
-	if out[start] != '"' {
-		return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: typ}
+	if err != nil {
+		if ctx.Option.Flag&UnorderedMapOption == 0 {
+			// a name of a sorted map, which is encoded after the names before it, which are not entries yet ( see
+			// MapContext.SortEncodedKeys ): the error is at the place of the first name, where encoding/json/v2
+			// writes each name.
+			err = &errors.OutputError{Out: b[:ctx.SortedKeysStart()], Err: err}
+		}
+		return b, err
 	}
 	if ctx.Option.Flag&(RawRewriteOption|AllowDuplicateNamesOption) == RawRewriteOption && bytes.IndexByte(out[start:], '\\') >= 0 {
 		// a name of a raw value which the options of raw values may keep with its escapes, as PreserveRawStrings does,

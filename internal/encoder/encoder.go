@@ -324,68 +324,93 @@ func insertionSortMapItems(items []MapItem, tail int) {
 	}
 }
 
-// sortMapItemsByNames sorts the items by the names their encoded keys are of, which one of them has an escape
-// for: the escape of a character is not in the order of the character.
-func sortMapItemsByNames(items []MapItem) {
-	type named struct {
-		name string
-		item MapItem
+// compareKeyNames compares the names of two encoded keys of a map, without the quotes which end them: by their
+// bytes, which are in the order of the names up to the first one which differs, unless it is in an escape, whose
+// character is not in the order of the escape. The names are decoded as they are compared then
+// ( see compareEncodedNames ). The codes of a color before the names are the same for every key.
+func compareKeyNames(a, b []byte) int {
+	n := min(len(a), len(b))
+	k := 0
+	// the bytes which are the same, eight at a time: the first one which differs is the lowest of the word, as it
+	// is loaded.
+	for ; k+8 <= n; k += 8 {
+		if x := binary.LittleEndian.Uint64(a[k:]) ^ binary.LittleEndian.Uint64(b[k:]); x != 0 {
+			k += bits.TrailingZeros64(x) / 8
+			break
+		}
 	}
-	byName := make([]named, len(items))
-	for i, item := range items {
-		byName[i] = named{name: encodedKeyName(item.Key), item: item}
+	for k < n && a[k] == b[k] {
+		k++
 	}
-	slices.SortStableFunc(byName, func(a, b named) int {
-		return strings.Compare(a.name, b.name)
-	})
-	for i := range byName {
-		items[i] = byName[i].item
+	if k == n {
+		// a name which the other one begins with: the other one has more characters.
+		return len(a) - len(b)
+	}
+	if a[k] == '\\' || b[k] == '\\' || bytes.IndexByte(a[max(k-5, 0):k], '\\') >= 0 {
+		// an escape at the byte, or before it, which the byte may be in.
+		return compareEncodedNames(a, b)
+	}
+	return int(a[k]) - int(b[k])
+}
+
+// compareEncodedNames compares the names of two encoded keys, the strings after their first quotes, whose escapes
+// are the ones AppendString writes, decoded as they are compared. What precedes the quote, as the codes of a
+// color, is not of the name.
+func compareEncodedNames(a, b []byte) int {
+	a, b = a[bytes.IndexByte(a, '"')+1:], b[bytes.IndexByte(b, '"')+1:]
+	// ca and cb are the bytes of the characters being compared which are left: of the input, or of the
+	// character an escape is of, in ra or rb.
+	var ra, rb [utf8.UTFMax]byte
+	var ca, cb []byte
+	for {
+		if len(ca) == 0 {
+			if len(a) == 0 {
+				if len(cb) == 0 && len(b) == 0 {
+					return 0
+				}
+				return -1
+			}
+			ca, a = nextNameChar(a, &ra)
+		}
+		if len(cb) == 0 {
+			if len(b) == 0 {
+				return +1
+			}
+			cb, b = nextNameChar(b, &rb)
+		}
+		if ca[0] != cb[0] {
+			return int(ca[0]) - int(cb[0])
+		}
+		ca, cb = ca[1:], cb[1:]
 	}
 }
 
-// encodedKeyName returns the name of an encoded key: the string from its first quote, whose escapes are the
-// ones AppendString writes, decoded. What follows the string, and what precedes its quote, as the codes of a
-// color, is not of the name.
-func encodedKeyName(key []byte) string {
-	start := bytes.IndexByte(key, '"')
-	if start < 0 {
-		return string(key)
+// nextNameChar returns the bytes of the first character of the encoded name s, decoded into buf if it is an escape,
+// and the rest of s. The escapes of the encoder are valid.
+func nextNameChar(s []byte, buf *[utf8.UTFMax]byte) ([]byte, []byte) {
+	if s[0] != '\\' || len(s) == 1 {
+		return s[:1], s[1:]
 	}
-	var name []byte
-	for i := start + 1; i < len(key); i++ {
-		c := key[i]
-		switch {
-		case c == '"':
-			return string(name)
-		case c != '\\' || i+1 == len(key):
-			name = append(name, c)
-		case key[i+1] == 'u' && i+5 < len(key):
-			r, err := strconv.ParseUint(string(key[i+2:i+6]), 16, 16)
-			if err != nil {
-				name = append(name, c)
-				continue
-			}
-			name = utf8.AppendRune(name, rune(r))
-			i += 5
-		default:
-			i++
-			switch e := key[i]; e {
-			case 'n':
-				name = append(name, '\n')
-			case 'r':
-				name = append(name, '\r')
-			case 't':
-				name = append(name, '\t')
-			case 'b':
-				name = append(name, '\b')
-			case 'f':
-				name = append(name, '\f')
-			default:
-				name = append(name, e)
-			}
+	switch e := s[1]; e {
+	case 'u':
+		if len(s) < 6 {
+			return s[:1], s[1:]
 		}
+		return buf[:utf8.EncodeRune(buf[:], hexRune(s[2:6]))], s[6:]
+	case 'n':
+		buf[0] = '\n'
+	case 'r':
+		buf[0] = '\r'
+	case 't':
+		buf[0] = '\t'
+	case 'b':
+		buf[0] = '\b'
+	case 'f':
+		buf[0] = '\f'
+	default:
+		buf[0] = e
 	}
-	return string(name)
+	return buf[:1], s[2:]
 }
 
 // maxItemsOfInsertionSort is the number of the items up to which the insertion sort is used.
@@ -485,10 +510,12 @@ func (c *MapContext) SortByEncodedKeys() {
 // after another in b from First, each item with the keys up to the end of its own: they are moved to Buf, and the
 // output is put back to First, where the entries are written in the order of the names.
 //
-// The keys are sorted by their names, as encoding/json sorts them. A key which has no escape is its name between
-// quotes, after the codes of a color, which are the same for every key: the keys are compared without the quote
-// which ends the name and what follows it, as a space or a '!' comes before the quote. When a key has an escape,
-// which is not in the order of the character, the names are decoded to be sorted by. It is not sort.Sort, which
+// The keys are sorted by their names, as encoding/json sorts them. A key is its name between quotes, with the codes
+// of a color around it, which are the same for every key: the keys are compared without the quote which ends the
+// name and what follows it, as a space or a '!' comes before the quote, and without the codes of the color which
+// end the name of an integer, which is colored within its quotes ( see colorFooterLen ). When a key has an escape,
+// which is not in the order of its character, the escapes are decoded where the names differ ( see
+// compareKeyNames ). It is not sort.Sort, which
 // calls Less and Swap through an interface for every comparison: the maps to encode are small in most cases, and
 // the sort was a tenth of the time to encode one.
 func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
@@ -501,10 +528,19 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
 		start = end
 	}
 	first := items[0].Key
-	tail := len(first) - bytes.LastIndexByte(first, '"')
+	tail := 1
+	for first[len(first)-tail] != '"' {
+		tail++
+	}
+	if rctx.Option.Flag&ColorizeOption != 0 {
+		tail += colorFooterLen(rctx.Option.ColorScheme, first[:len(first)-tail])
+	}
 	switch {
 	case bytes.IndexByte(c.Buf, '\\') >= 0:
-		sortMapItemsByNames(items)
+		// a key with an escape, which is not in the order of its character.
+		slices.SortFunc(items, func(a, b MapItem) int {
+			return compareKeyNames(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
+		})
 	case len(items) > maxItemsOfInsertionSort:
 		slices.SortFunc(items, func(a, b MapItem) int {
 			return bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
@@ -515,6 +551,19 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
 	c.Sorted = true
 	rctx.Rewrote(c.First)
 	return b[:c.First]
+}
+
+// colorFooterLen returns the length of the codes of a color which end the name of key, an encoded key of a map
+// without the quote which ends it: an integer is colored within its quotes, so its name is followed by the footer
+// of its format, which is the same for every key of the map, and which is not of the name.
+func colorFooterLen(scheme *ColorScheme, key []byte) int {
+	for _, f := range [...]*ColorFormat{&scheme.Int, &scheme.Uint} {
+		n, h := len(f.Footer), len(f.Header)
+		if len(key) >= 1+h+n && key[0] == '"' && string(key[1:1+h]) == f.Header && string(key[len(key)-n:]) == f.Footer {
+			return n
+		}
+	}
+	return 0
 }
 
 // SortedKeysStart returns where the keys of the sorted map whose keys are being encoded start in the output, which

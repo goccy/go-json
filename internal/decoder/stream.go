@@ -487,6 +487,21 @@ func (s *Stream) scanLiteral() (int64, error) {
 		}
 		return s.cursor + int64(len(lit)), nil
 	}
+	// an integer which doesn't start with 0, which most numbers are, ended by a byte in what has been read, without a
+	// call: the nul byte at the end of what has been read stops the digits
+	c := s.cursor
+	if s.buf[c] == '-' {
+		c++
+	}
+	if s.buf[c]-'1' <= 8 {
+		c++
+		for s.buf[c]-'0' <= 9 {
+			c++
+		}
+		if b := s.buf[c]; c < s.length && b != '.' && b != 'e' && b != 'E' {
+			return c, nil
+		}
+	}
 	for {
 		n, place := jsonnum.Scan(s.buf[s.cursor:s.length])
 		if end := s.cursor + int64(n); end < s.length {

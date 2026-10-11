@@ -84,9 +84,6 @@ type callState struct {
 	// levels Levels returns.
 	attachCtx *encoder.RuntimeContext
 	attachOut []byte
-	// attachSortedName is whether the method writes the name of a key of a sorted map, whose entries before it
-	// are not in their place yet: the names of the map are not given.
-	attachSortedName bool
 	// place is where enc is attached.
 	place textcoder.Attachment
 	// enc is the encoder which the methods and the functions write to, at the place of the levels.
@@ -125,11 +122,7 @@ func (st *callState) at(out []byte) (int64, jsontext.Pointer) {
 
 // Levels returns the levels of the place where enc is attached for a method ( see textcoder.Outer ).
 func (st *callState) Levels() []textcoder.Level {
-	levels := st.trackedLevels(st.attachCtx, st.attachOut)
-	if st.attachSortedName {
-		levels[len(levels)-1].Name = nil
-	}
-	return levels
+	return st.trackedLevels(st.attachCtx, st.attachOut)
 }
 
 // levelsOf returns the levels of the whole output after out, the output of the encoder so far ( see levelsOf ):
@@ -303,6 +296,10 @@ func stateOf(ctx *encoder.RuntimeContext) *callState {
 func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m MarshalerTo, fn func(*jsontext.Encoder) error) ([]byte, error) {
 	st := stateOf(ctx)
 	out := b
+	// hidden is the length of the names of a sorted map before the name which the method writes, which are not
+	// entries yet ( see encoder.MapContext.SortEncodedKeys ): the method sees the output without them, as
+	// encoding/json/v2 writes each name of a sorted map where the first one is.
+	hidden := 0
 	// the place of the value, found from the delimiter before it, which the encoder writes itself: the levels
 	// around it are found only if the encoder needs them ( see callState.Levels ).
 	pl := &st.place
@@ -313,10 +310,16 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 			// the value of a member.
 			out, pl.Object, pl.Top, pl.Count = out[:n-1], true, false, 1
 		case ',':
-			if ctx.KeyName {
+			switch {
+			case ctx.KeyName && ctx.Option.Flag&encoder.UnorderedMapOption == 0:
+				// the name of a key of a sorted map after the names before it: the place of the first name, where
+				// the encoder writes no delimiter.
+				hidden = n - ctx.SortedKeysStart()
+				pl.Object, pl.Top, pl.Count = true, false, 0
+			case ctx.KeyName:
 				// the name of an entry of a map after another one.
 				out, pl.Object, pl.Top, pl.Count = out[:n-1], true, false, 2
-			} else {
+			default:
 				// an element of an array after another one.
 				out, pl.Object, pl.Top, pl.Count = out[:n-1], false, false, 1
 			}
@@ -335,18 +338,17 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 		st.attachCtx = ctx
 	}
 	if unsafe.SliceData(st.attachOut) == unsafe.SliceData(out) && cap(st.attachOut) == cap(out) {
-		st.attachOut = st.attachOut[:len(out)]
+		st.attachOut = st.attachOut[:len(out)-hidden]
 	} else {
-		st.attachOut = out
+		st.attachOut = out[:len(out)-hidden]
 	}
-	st.attachSortedName = ctx.KeyName && ctx.Option.Flag&encoder.UnorderedMapOption == 0
 	// the levels around the place, which the call gives for any place: at the top level, the encoder has them.
 	if unsafe.SliceData(pl.Out) == unsafe.SliceData(out) && cap(pl.Out) == cap(out) {
 		pl.Out = pl.Out[:len(out)]
 	} else {
 		pl.Out = out
 	}
-	pl.Base, pl.Same, pl.OuterDepth = st.base, st.attached, int(ctx.ValueDepth)
+	pl.Base, pl.Same, pl.OuterDepth = st.base-int64(hidden), st.attached, int(ctx.ValueDepth)
 	if !st.attached {
 		pl.Outer, pl.Opts = st, &st.cfg
 	}
@@ -373,7 +375,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	st.calling = false
 	textcoder.Detach(unsafe.Pointer(&st.enc), pl)
 	if err != nil || pl.Depth != depth || pl.Count != count+1 || pl.Failed != nil {
-		return methodFailed(st, b, typ, err, depth, count, skip)
+		return methodFailed(st, b, typ, err, depth, count, skip, hidden)
 	}
 	written := pl.Out
 	if skip > 0 && len(written) >= skip {
@@ -386,13 +388,17 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 // methodFailed is marshalTo after the method of a value of typ returned err, or wrote other than one value at the
 // depth and the count of the place of its value, or a call of MarshalEncode failed within it, whose error the value
 // fails with if the method returned none: a method can't hide the failure of a value it writes. b is the output
-// before the method. It is a function, not a method: a method of callState changes its method table, which moved
-// data the encodings read and made them slower.
-func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth int, count int64, skip int) ([]byte, error) {
+// before the method, which ends with hidden bytes the method didn't see ( see marshalTo ). It is a function, not a
+// method: a method of callState changes its method table, which moved data the encodings read and made them slower.
+func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth int, count int64, skip, hidden int) ([]byte, error) {
 	pl := &st.place
 	written, newDepth, newCount := pl.Out, pl.Depth, pl.Count
 	if skip > 0 && len(written) >= skip {
 		written = written[:copy(written, written[skip:])]
+	}
+	if hidden > 0 {
+		// the place of a name of a sorted map is the one of the first name ( see marshalTo ).
+		written = b[:len(b)-hidden]
 	}
 	nested := err == nil && pl.Failed != nil
 	if nested {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"strconv"
 	"testing"
 	"time"
@@ -143,6 +144,46 @@ func TestEncodeSortedMapNonStringKeys(t *testing.T) {
 		got, err = json.MarshalIndentWithOption(v, "", "  ", noColor)
 		if err != nil || string(got) != string(wantIndent) {
 			t.Errorf("%T colored with indent:\n got %s %v\nwant %s", v, got, err, wantIndent)
+		}
+	}
+}
+
+// sortedMapNameKey is a key named by its text, which may need escapes.
+type sortedMapNameKey string
+
+func (k sortedMapNameKey) MarshalText() ([]byte, error) { return []byte(k), nil }
+
+// The keys named by texts are sorted by their names, as encoding/json sorts them, whatever the names have: escapes,
+// or a space or a '!', which come before the quote that ends a name.
+func TestEncodeSortedMapTextKeyNames(t *testing.T) {
+	runes := []rune("ab5 !\"\\<\x01é")
+	r := rand.New(rand.NewPCG(1, 2))
+	noColor := json.Colorize(&json.ColorScheme{})
+	for range 500 {
+		m := map[sortedMapNameKey]int{}
+		for i := range 1 + r.IntN(20) {
+			var name []rune
+			for range r.IntN(4) {
+				name = append(name, runes[r.IntN(len(runes))])
+			}
+			m[sortedMapNameKey(name)] = i
+		}
+		want, err := stdjson.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.Marshal(m)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("got %s %v\nwant %s", got, err, want)
+		}
+		got, err = json.MarshalWithOption(m, noColor)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("colored: got %s %v\nwant %s", got, err, want)
+		}
+		want, _ = stdjson.MarshalIndent(m, "", " ")
+		got, err = json.MarshalIndent(m, "", " ")
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("with indent: got %s %v\nwant %s", got, err, want)
 		}
 	}
 }

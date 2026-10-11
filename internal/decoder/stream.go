@@ -221,7 +221,7 @@ func (s *Stream) skipWhiteSpace() bool {
 	return s.skipWhiteSpaceRest()
 }
 
-// skipWhiteSpaceRest is skipWhiteSpace for white space at the cursor, or the end of what has been read.
+// skipWhiteSpaceRest is skipWhiteSpace without its check of the byte at the cursor first.
 func (s *Stream) skipWhiteSpaceRest() bool {
 	for {
 		// the nul byte at the end of what has been read stops the skip
@@ -261,7 +261,8 @@ func (s *Stream) prepare() error {
 		return s.prepareInTokens()
 	}
 	s.readStart = s.offset + s.cursor
-	if !s.skipWhiteSpace() {
+	// the values of a stream are separated by white space mostly
+	if !s.skipWhiteSpaceRest() {
 		return s.fail(s.endError())
 	}
 	return nil
@@ -315,15 +316,17 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 		if found {
 			return pos, nil
 		}
-		if _, inMemory := s.r.(interface{ Len() int }); pos-s.cursor >= limit && !inMemory {
-			// a reader which tells its length has the input in memory, which is read whole at once ( see grow ),
-			// without a wait
-			return 0, errLongValue
-		}
-		// a value which doesn't end in what has been read ends at a control character in a string of it, which a
-		// string can't have: the decoder reports it, and the input after it is not read
-		if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
-			return c + 1, nil
+		// a reader which tells its length has the input in memory, which is read whole at once ( see grow ), without
+		// a wait
+		if _, inMemory := s.r.(interface{ Len() int }); !inMemory {
+			if pos-s.cursor >= limit {
+				return 0, errLongValue
+			}
+			// a value which doesn't end in what has been read ends at a control character in a string of it, which a
+			// string can't have: the decoder reports it, and the input after it is not read
+			if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
+				return c + 1, nil
+			}
 		}
 		rel = pos - s.cursor
 		if !s.read() {

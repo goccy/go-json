@@ -101,7 +101,9 @@ func (d *sliceDecoder) decodeLong(ctx *RuntimeContext, cursor, depth int64, dst 
 	reflect.Copy(d.sliceValue(&elems.hdr), d.sliceValue(&head))
 	idx := n
 	for {
-		d.growBuf(elems, idx, idx+1)
+		if idx >= elems.hdr.cap {
+			d.growBuf(elems, idx, 2*idx+1)
+		}
 		ep := unsafe.Add(elems.hdr.data, uintptr(idx)*d.size)
 		c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
 		if err != nil {

@@ -48,12 +48,14 @@ type scanMasks struct {
 	backslash uint64
 	open      uint64
 	closing   uint64
+	// control has the bytes below 0x20, which a string can't have
+	control uint64
 }
 
 // scanBlockWords computes the masks of the block at p by words, eight bytes at a time.
 // It is what the architectures without a SIMD scan use.
 func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
-	var quote, backslash, open, closing uint64
+	var quote, backslash, open, closing, control uint64
 	for i := 0; i < scanBlockSize/8; i++ {
 		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i*8))[:])
 		folded := w &^ bit5
@@ -62,8 +64,10 @@ func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
 		backslash |= gatherMask(byteMask(w, '\\')) << shift
 		open |= gatherMask(byteMask(folded, '[')) << shift
 		closing |= gatherMask(byteMask(folded, ']')) << shift
+		// the bytes below ' ', without a carry between the bytes
+		control |= gatherMask(^(((w&^msb)+0x60*lsb)|w)&msb) << shift
 	}
-	m.quote, m.backslash, m.open, m.closing = quote, backslash, open, closing
+	m.quote, m.backslash, m.open, m.closing, m.control = quote, backslash, open, closing, control
 }
 
 // gatherMask turns a mask of 0x80 bytes into the byte whose bit i is the byte i of the mask.
@@ -89,8 +93,9 @@ type compoundScanner struct {
 	escaped bool
 }
 
-// scan scans buf[pos:lim] and returns the position after the bracket which closes the value, or,
-// when the value doesn't end before lim, the position it stopped at and false.
+// scan scans buf[pos:lim] and returns the position after the bracket which closes the value, or after a control
+// character in a string of it, which ends it there; or, when the value doesn't end before lim, the position it
+// stopped at and false.
 // A whole block is read at once where the capacity of the buffer has room for it.
 func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error) {
 	const evenBits = 0x5555555555555555
@@ -125,6 +130,7 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 			m.backslash &= valid
 			m.open &= valid
 			m.closing &= valid
+			m.control &= valid
 		}
 		// escaped has the bytes which follow an odd number of backslashes. A backslash which is
 		// itself escaped doesn't escape; a run of backslashes may go on in the next block ( the carry ).
@@ -155,9 +161,17 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 		outside := ^(inside | escaped)
 		open := m.open & outside
 		closing := m.closing & outside
+		// a control character in a string, which a string can't have, ends the value there, unless a bracket
+		// before it does: the decoder reports it, and the input after it is not read
+		control := m.control & inside
+		if control != 0 {
+			before := uint64(1)<<uint(bits.TrailingZeros64(control)) - 1
+			open &= before
+			closing &= before
+		}
 		opens := int64(bits.OnesCount64(open))
 		closes := int64(bits.OnesCount64(closing))
-		if closes < depth && depth+opens <= sc.maxDepth {
+		if control == 0 && closes < depth && depth+opens <= sc.maxDepth {
 			// the value can't end in this block, nor go too deep
 			depth += opens - closes
 			pos += scanBlockSize
@@ -177,6 +191,9 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 				}
 			}
 		}
+		if control != 0 {
+			return pos + int64(bits.TrailingZeros64(control)) + 1, true, nil
+		}
 		pos += scanBlockSize
 	}
 	sc.depth, sc.inString, sc.escaped = depth, inString != 0, prevEscaped != 0
@@ -192,6 +209,9 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 	depth, inString := sc.depth, sc.inString
 	if sc.escaped {
 		sc.escaped = false
+		if inString && buf[pos] < ' ' {
+			return pos + 1, true, nil
+		}
 		pos++
 	}
 	for pos < end {
@@ -203,7 +223,14 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 					inString = false
 					break
 				}
+				if c < ' ' {
+					// a control character, which a string can't have, ends the value ( see scan )
+					return pos, true, nil
+				}
 				if c == '\\' {
+					if pos < end && buf[pos] < ' ' {
+						return pos + 1, true, nil
+					}
 					pos++
 				}
 			}

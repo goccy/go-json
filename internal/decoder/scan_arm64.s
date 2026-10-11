@@ -19,6 +19,27 @@
 	VADDP V4.B16, V4.B16, V4.B16 \
 	VMOV  V4.D[0], R
 
+// CONTROL64 computes into R the 64-bit mask of the bytes of the block in V0..V3 which are below 0x20: the bytes whose
+// three top bits are clear, which V29 ( 0xe0 ) keeps and V28 ( zero ) is compared with, by the weights of MASK64.
+#define CONTROL64(R) \
+	VAND  V29.B16, V0.B16, V24.B16 \
+	VAND  V29.B16, V1.B16, V25.B16 \
+	VAND  V29.B16, V2.B16, V26.B16 \
+	VAND  V29.B16, V3.B16, V27.B16 \
+	VCMEQ V28.B16, V24.B16, V4.B16 \
+	VCMEQ V28.B16, V25.B16, V5.B16 \
+	VCMEQ V28.B16, V26.B16, V6.B16 \
+	VCMEQ V28.B16, V27.B16, V7.B16 \
+	VAND  V20.B16, V4.B16, V4.B16 \
+	VAND  V20.B16, V5.B16, V5.B16 \
+	VAND  V20.B16, V6.B16, V6.B16 \
+	VAND  V20.B16, V7.B16, V7.B16 \
+	VADDP V5.B16, V4.B16, V4.B16 \
+	VADDP V7.B16, V6.B16, V6.B16 \
+	VADDP V6.B16, V4.B16, V4.B16 \
+	VADDP V4.B16, V4.B16, V4.B16 \
+	VMOV  V4.D[0], R
+
 // func scanBlockNEON(p unsafe.Pointer, m *scanMasks)
 //
 // It computes the masks of the 64 bytes at p: bit i of a mask is set if the byte i is the character.
@@ -45,6 +66,11 @@ TEXT ·scanBlockNEON(SB), NOSPLIT, $0-16
 	MOVD R4, 0(R1)
 	MASK64(V17, R4)
 	MOVD R4, 8(R1)
+	MOVD $0xe0, R3
+	VMOV R3, V29.B16
+	VEOR V28.B16, V28.B16, V28.B16
+	CONTROL64(R4)
+	MOVD R4, 32(R1)
 	VAND V21.B16, V0.B16, V0.B16
 	VAND V21.B16, V1.B16, V1.B16
 	VAND V21.B16, V2.B16, V2.B16

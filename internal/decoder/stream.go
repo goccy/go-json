@@ -127,14 +127,13 @@ func (s *Stream) grow() {
 	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
 	if remain*2 > size {
-		// The data which is not consumed yet fills more than half of the buffer: it is a value
-		// larger than the buffer, which is grown faster so that it is copied fewer times.
-		size *= 4
-	}
-	if r, ok := s.r.(interface{ Len() int }); ok {
-		// The reader knows how much is left ( bytes.Reader, strings.Reader, bytes.Buffer ):
-		// the buffer holds all of it at once, so that nothing is copied again.
-		size = remain + int64(r.Len())
+		// The data which is not consumed yet fills more than half of the buffer: it is a value larger than the
+		// buffer, which is grown twice as large, or, from a reader which tells how much it has ( bytes.Reader,
+		// strings.Reader, bytes.Buffer ), as large as that, so that a large value is copied once.
+		size *= 2
+		if r, ok := s.r.(interface{ Len() int }); ok {
+			size = max(size, remain+int64(r.Len()))
+		}
 	}
 	buf := make([]byte, size+bufPadding)
 	copy(buf, s.buf[from:s.length])
@@ -277,6 +276,22 @@ func (s *Stream) scanCompound() (int64, error) {
 	}
 }
 
+// controlByte returns the position of the first control character in buf[pos:end], or -1.
+func controlByte(buf []byte, pos, end int64) int64 {
+	for ; pos+8 <= end; pos += 8 {
+		// the bytes below ' ', without a carry between the bytes
+		if w := load64(buf, pos); ^(((w&^msb)+0x60*lsb)|w)&msb != 0 {
+			break
+		}
+	}
+	for ; pos < end; pos++ {
+		if buf[pos] < ' ' {
+			return pos
+		}
+	}
+	return -1
+}
+
 // scanString finds the end of the string at the cursor: the position after the quote which closes it.
 func (s *Stream) scanString() (int64, error) {
 	var (
@@ -310,10 +325,16 @@ func (s *Stream) scanString() (int64, error) {
 				return pos, nil
 			}
 		}
-		rel = pos - s.cursor
 		if pos < end {
+			rel = pos - s.cursor
 			continue
 		}
+		// a string which doesn't end in what has been read ends at a control character, which it can't have: the
+		// decoder reports it, and the input after it is not read
+		if c := controlByte(buf, s.cursor+rel, pos); c >= 0 {
+			return c + 1, nil
+		}
+		rel = pos - s.cursor
 		if !s.read() {
 			return 0, s.truncatedValueError()
 		}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
 
@@ -295,115 +296,193 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
+// MapItem is a key of a sorted map whose keys are not of a string kind, as it is encoded with a comma after it, and
+// the index of its entry in the MapContext. While the keys are encoded, Key is the keys from the first one up to the
+// end of this one, in the output, which tells where it ends ( see MapContext.SortEncodedKeys ).
 type MapItem struct {
 	Key   []byte
-	Value []byte
+	Entry int
 }
 
 type Mapslice struct {
 	Items []MapItem
-	// escaped is whether a text was escaped while the entries of a map whose keys are texts were encoded ( see
-	// appendText ): a key, or a text of a value, which tells that a key may have an escape.
-	escaped bool
 }
 
-// Sort sorts the items by their keys, which are the names of the keys as encoding/json sorts them: an encoded
-// key is in the order of its name unless it has an escape, and then the names are decoded to be sorted by.
-// A text which was escaped while the entries were encoded tells that a key may have one ( see appendText ).
-//
-// It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
-// the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
-func (m *Mapslice) Sort() {
-	items := m.Items
-	if m.escaped {
-		sortMapItemsByNames(items)
-		return
-	}
-	if len(items) > maxItemsOfInsertionSort {
-		slices.SortFunc(items, func(a, b MapItem) int {
-			return bytes.Compare(a.Key, b.Key)
-		})
-		return
-	}
-	insertionSortMapItems(items)
-}
-
-func insertionSortMapItems(items []MapItem) {
+// insertionSortMapItems sorts the items by their keys without the last tail bytes of each: the quote which ends
+// the name, and what follows it. It reports whether two keys have the same name, which are put in order after
+// ( see sortTiedKeys ).
+func insertionSortMapItems(items []MapItem, tail int) bool {
+	tied := false
 	for i := 1; i < len(items); i++ {
-		if bytes.Compare(items[i-1].Key, items[i].Key) <= 0 {
+		if r := bytes.Compare(items[i-1].Key[:len(items[i-1].Key)-tail], items[i].Key[:len(items[i].Key)-tail]); r <= 0 {
+			if r == 0 {
+				tied = true
+			}
 			continue
 		}
 		item := items[i]
+		name := item.Key[:len(item.Key)-tail]
 		j := i
-		for ; j > 0 && bytes.Compare(items[j-1].Key, item.Key) > 0; j-- {
+		for ; j > 0; j-- {
+			if r := bytes.Compare(items[j-1].Key[:len(items[j-1].Key)-tail], name); r <= 0 {
+				if r == 0 {
+					tied = true
+				}
+				break
+			}
+			items[j] = items[j-1]
+		}
+		items[j] = item
+	}
+	return tied
+}
+
+// sortTiedKeys puts the items of the same name, which are next to each other, in the order of their Go keys
+// ( see compareTiedKeys ). tail is the length of what follows the names of the keys.
+func (c *MapContext) sortTiedKeys(items []MapItem, tail int) {
+	for i := 1; i < len(items); i++ {
+		item := items[i]
+		name := item.Key[:len(item.Key)-tail]
+		j := i
+		for ; j > 0 && compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name) == 0 && c.compareTiedKeys(items[j-1], item) > 0; j-- {
 			items[j] = items[j-1]
 		}
 		items[j] = item
 	}
 }
 
-// sortMapItemsByNames sorts the items by the names their encoded keys are of, which one of them has an escape
-// for: the escape of a character is not in the order of the character.
-func sortMapItemsByNames(items []MapItem) {
-	type named struct {
-		name string
-		item MapItem
+// insertionSortMapItemsByNames is insertionSortMapItems for the keys of a map of which one has an escape
+// ( see compareKeyNames ).
+func insertionSortMapItemsByNames(items []MapItem, tail int) bool {
+	tied := false
+	for i := 1; i < len(items); i++ {
+		item := items[i]
+		name := item.Key[:len(item.Key)-tail]
+		j := i
+		for ; j > 0; j-- {
+			if r := compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name); r <= 0 {
+				if r == 0 {
+					tied = true
+				}
+				break
+			}
+			items[j] = items[j-1]
+		}
+		items[j] = item
 	}
-	byName := make([]named, len(items))
-	for i, item := range items {
-		byName[i] = named{name: encodedKeyName(item.Key), item: item}
+	return tied
+}
+
+// compareTiedKeys compares the entries of two keys of the same name, which the keys of the same text have, or of
+// texts which have invalid UTF-8, replaced in their names: by their Go keys, which the context has, so that a map
+// is encoded the same way every time. encoding/json leaves their order to the order of the map. A key of a string
+// kind is compared by its string, and another one by its bytes, which are the same for the same map.
+func (c *MapContext) compareTiedKeys(a, b MapItem) int {
+	if c.layout.StringKey {
+		return strings.Compare(c.Keys[a.Entry], c.Keys[b.Entry])
 	}
-	slices.SortStableFunc(byName, func(a, b named) int {
-		return strings.Compare(a.name, b.name)
-	})
-	for i := range byName {
-		items[i] = byName[i].item
+	n := int(c.layout.keySize)
+	return bytes.Compare(c.RawKeys[a.Entry*n:a.Entry*n+n], c.RawKeys[b.Entry*n:b.Entry*n+n])
+}
+
+// compareKeyNames compares the names of two encoded keys of a map, without the quotes which end them: by their
+// bytes, which are in the order of the names up to the first one which differs, unless it is in an escape, whose
+// character is not in the order of the escape. The names are decoded as they are compared then
+// ( see compareEncodedNames ). The codes of a color before the names are the same for every key.
+func compareKeyNames(a, b []byte) int {
+	n := min(len(a), len(b))
+	k := 0
+	// the bytes which are the same, eight at a time: the first one which differs is the lowest of the word, as it
+	// is loaded.
+	for ; k+8 <= n; k += 8 {
+		if x := binary.LittleEndian.Uint64(a[k:]) ^ binary.LittleEndian.Uint64(b[k:]); x != 0 {
+			k += bits.TrailingZeros64(x) / 8
+			break
+		}
+	}
+	for k < n && a[k] == b[k] {
+		k++
+	}
+	if k == n {
+		// a name which the other one begins with: the other one has more characters.
+		return len(a) - len(b)
+	}
+	// an escape at the byte, or before it, which the byte may be in: the bytes before it are the same in a and b.
+	escaped := a[k] == '\\' || b[k] == '\\'
+	for i := max(k-5, 0); i < k && !escaped; i++ {
+		escaped = a[i] == '\\'
+	}
+	if escaped {
+		return compareEncodedNames(a, b)
+	}
+	return int(a[k]) - int(b[k])
+}
+
+// compareEncodedNames compares the names of two encoded keys, the strings after their first quotes, whose escapes
+// are the ones AppendString writes, decoded as they are compared. What precedes the quote, as the codes of a
+// color, is not of the name.
+func compareEncodedNames(a, b []byte) int {
+	a, b = a[bytes.IndexByte(a, '"')+1:], b[bytes.IndexByte(b, '"')+1:]
+	// ca and cb are the bytes of the characters being compared which are left: of the input, or of the
+	// character an escape is of, in ra or rb.
+	var ra, rb [utf8.UTFMax]byte
+	var ca, cb []byte
+	for {
+		if len(ca) == 0 {
+			if len(a) == 0 {
+				if len(cb) == 0 && len(b) == 0 {
+					return 0
+				}
+				return -1
+			}
+			ca, a = nextNameChar(a, &ra)
+		}
+		if len(cb) == 0 {
+			if len(b) == 0 {
+				return +1
+			}
+			cb, b = nextNameChar(b, &rb)
+		}
+		if ca[0] != cb[0] {
+			return int(ca[0]) - int(cb[0])
+		}
+		ca, cb = ca[1:], cb[1:]
 	}
 }
 
-// encodedKeyName returns the name of an encoded key: the string from its first quote, whose escapes are the
-// ones AppendString writes, decoded. What follows the string, and what precedes its quote, as the codes of a
-// color, is not of the name.
-func encodedKeyName(key []byte) string {
-	start := bytes.IndexByte(key, '"')
-	if start < 0 {
-		return string(key)
+// nextNameChar returns the bytes of the first character of the encoded name s, decoded into buf if it is an escape,
+// and the rest of s. The escapes of the encoder are valid.
+func nextNameChar(s []byte, buf *[utf8.UTFMax]byte) ([]byte, []byte) {
+	if s[0] != '\\' || len(s) == 1 {
+		return s[:1], s[1:]
 	}
-	var name []byte
-	for i := start + 1; i < len(key); i++ {
-		c := key[i]
-		switch {
-		case c == '"':
-			return string(name)
-		case c != '\\' || i+1 == len(key):
-			name = append(name, c)
-		case key[i+1] == 'u' && i+5 < len(key):
-			r, err := strconv.ParseUint(string(key[i+2:i+6]), 16, 16)
-			if err != nil {
-				name = append(name, c)
-				continue
-			}
-			name = utf8.AppendRune(name, rune(r))
-			i += 5
-		default:
-			i++
-			switch e := key[i]; e {
-			case 'n':
-				name = append(name, '\n')
-			case 'r':
-				name = append(name, '\r')
-			case 't':
-				name = append(name, '\t')
-			case 'b':
-				name = append(name, '\b')
-			case 'f':
-				name = append(name, '\f')
-			default:
-				name = append(name, e)
+	switch e := s[1]; e {
+	case 'u':
+		if len(s) < 6 {
+			return s[:1], s[1:]
+		}
+		r := hexRune(s[2:6])
+		if utf16.IsSurrogate(r) && len(s) >= 12 && s[6] == '\\' && s[7] == 'u' {
+			// a character out of the basic plane, as a pair of surrogates.
+			if r := utf16.DecodeRune(r, hexRune(s[8:12])); r != utf8.RuneError {
+				return buf[:utf8.EncodeRune(buf[:], r)], s[12:]
 			}
 		}
+		return buf[:utf8.EncodeRune(buf[:], r)], s[6:]
+	case 'n':
+		buf[0] = '\n'
+	case 'r':
+		buf[0] = '\r'
+	case 't':
+		buf[0] = '\t'
+	case 'b':
+		buf[0] = '\b'
+	case 'f':
+		buf[0] = '\f'
+	default:
+		buf[0] = e
 	}
-	return string(name)
+	return buf[:1], s[2:]
 }
 
 // maxItemsOfInsertionSort is the number of the items up to which the insertion sort is used.
@@ -423,7 +502,7 @@ type MapContext struct {
 	RawKeys []byte
 	Values  []byte
 	// Order is the entries sorted by their keys ( SortKeys ), for keys of a string kind; Sorted is whether
-	// the entries are encoded in that order.
+	// the entries are encoded in that order, or in the order of Slice, which is sorted when every key is encoded.
 	Order    []int32
 	prefixes []uint64 // the first bytes of the keys as numbers, while they are sorted
 	Sorted   bool
@@ -433,10 +512,9 @@ type MapContext struct {
 	DirectEntries bool
 	Len           int
 	Idx           int
-	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
-	// the order of their encoded keys after: Start is where the key or the value being written starts,
-	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.
-	Start int
+	// The keys of a sorted map whose keys are not of a string kind are encoded first, and the entries are written in
+	// the order of their names after ( see SortEncodedKeys ): First is where the entries start in the buffer, Slice
+	// has the keys and Buf is where they are copied.
 	First int
 	Slice *Mapslice
 	items []MapItem // what Slice.Items is made of, kept between the maps
@@ -491,36 +569,88 @@ func (c *MapContext) ScalarValue() bool {
 	return c.layout.ScalarValue
 }
 
-// SortByEncodedKeys makes the context put the entries in the order of their encoded keys, for a sorted map
-// whose keys are not of a string kind: the VM records the entries in Slice as it encodes them.
+// SortByEncodedKeys makes the context write the entries in the order of their encoded keys, for a sorted map
+// whose keys are not of a string kind: the VM encodes every key first and keeps it in Slice ( see OpMapValue ).
 func (c *MapContext) SortByEncodedKeys() {
 	if cap(c.items) < c.Len {
 		c.items = make([]MapItem, c.Len)
 	}
 	c.Slice.Items = c.items[:c.Len]
-	c.Slice.escaped = false
 }
 
-// appendText appends the text of a marshaler or of the key of a map as a string. A text which is escaped is
-// written longer than itself and its quotes: that tells the map being encoded, if any, that its keys are to be
-// sorted by their names ( see Mapslice.Sort ).
+// SortEncodedKeys sorts the keys of a sorted map whose keys are not of a string kind, which the VM has encoded one
+// after another in b from First, each item with the keys up to the end of its own: they are moved to Buf, and the
+// output is put back to First, where the entries are written in the order of the names.
+//
+// The keys are sorted by their names, as encoding/json sorts them. A key is its name between quotes, with the codes
+// of a color around it, which are the same for every key: the keys are compared without the quote which ends the
+// name and what follows it, as a space or a '!' comes before the quote, and without the codes of the color which
+// end the name of an integer, which is colored within its quotes: footer is their length, which the VM finds from
+// the opcode of the keys. When a key has an escape,
+// which is not in the order of its character, the escapes are decoded where the names differ ( see
+// compareKeyNames ). It is not sort.Sort, which
+// calls Less and Swap through an interface for every comparison: the maps to encode are small in most cases, and
+// the sort was a tenth of the time to encode one.
+func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte, footer int) []byte {
+	c.Buf = append(c.Buf[:0], b[c.First:]...)
+	items := c.Slice.Items
+	start := 0
+	for i := range items {
+		end := len(items[i].Key)
+		items[i].Key = c.Buf[start:end:end]
+		start = end
+	}
+	if len(items) == 1 {
+		c.Sorted = true
+		rctx.Rewrote(c.First)
+		return b[:c.First]
+	}
+	first := items[0].Key
+	tail := 1
+	for first[len(first)-tail] != '"' {
+		tail++
+	}
+	tail += footer
+	switch escaped, many := bytes.IndexByte(c.Buf, '\\') >= 0, len(items) > maxItemsOfInsertionSort; {
+	case escaped && many:
+		// a key with an escape, which is not in the order of its character.
+		slices.SortFunc(items, func(a, b MapItem) int {
+			if r := compareKeyNames(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail]); r != 0 {
+				return r
+			}
+			return c.compareTiedKeys(a, b)
+		})
+	case escaped:
+		if insertionSortMapItemsByNames(items, tail) {
+			c.sortTiedKeys(items, tail)
+		}
+	case many:
+		slices.SortFunc(items, func(a, b MapItem) int {
+			if r := bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail]); r != 0 {
+				return r
+			}
+			return c.compareTiedKeys(a, b)
+		})
+	default:
+		if insertionSortMapItems(items, tail) {
+			c.sortTiedKeys(items, tail)
+		}
+	}
+	c.Sorted = true
+	rctx.Rewrote(c.First)
+	return b[:c.First]
+}
+
+// SortedKeysStart returns where the keys of the sorted map whose keys are being encoded start in the output, which
+// are not entries yet ( see MapContext.SortEncodedKeys ): a method which writes a key sees the output before them.
+func (c *RuntimeContext) SortedKeysStart() int {
+	return c.mapContexts[c.mapDepth-1].First
+}
+
+// appendText appends the text of a marshaler or of the key of a map as a string.
 func appendText(ctx *RuntimeContext, b []byte, text string) []byte {
-	n := len(b)
 	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, text)
-	if len(b)-n != len(text)+2 {
-		ctx.textEscaped()
-	}
 	return b
-}
-
-// textEscaped tells the map being encoded, if any, that a text was escaped ( see appendText ).
-func (c *RuntimeContext) textEscaped() {
-	if c.mapDepth == 0 {
-		return
-	}
-	if m := c.mapContexts[c.mapDepth-1]; m.layout != nil && m.layout.KeysMayEscape {
-		m.Slice.escaped = true
-	}
 }
 
 func ReleaseMapContext(rctx *RuntimeContext, c *MapContext) {
@@ -982,11 +1112,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 		}
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
-	n := len(b)
 	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, *(*string)(unsafe.Pointer(&bytes)))
-	if len(b)-n != len(bytes)+2 {
-		ctx.textEscaped()
-	}
 	return b, nil
 }
 

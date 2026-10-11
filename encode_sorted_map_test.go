@@ -2,7 +2,11 @@ package json_test
 
 import (
 	stdjson "encoding/json"
+	"errors"
+	"fmt"
 	"math"
+	"math/rand/v2"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -68,6 +72,190 @@ func TestEncodeSortedMapDirectEntries(t *testing.T) {
 	for _, v := range []any{map[string]any{"a": 1, "b": math.NaN()}, map[string]float64{"a": math.Inf(1)}} {
 		if _, err := json.Marshal(v); err == nil {
 			t.Fatalf("%v: expected an error", v)
+		}
+	}
+}
+
+// sortedMapFailingValue fails to be marshaled when it is odd.
+type sortedMapFailingValue int
+
+func (v sortedMapFailingValue) MarshalJSON() ([]byte, error) {
+	if v%2 != 0 {
+		return nil, fmt.Errorf("odd value %d", int(v))
+	}
+	return fmt.Appendf(nil, "%d", int(v)), nil
+}
+
+type sortedMapTextKey int
+
+func (k sortedMapTextKey) MarshalText() ([]byte, error) { return fmt.Appendf(nil, "t%03d", int(k)), nil }
+
+// The values of a map whose keys are not strings are encoded in the order of the keys, as encoding/json encodes
+// them: the error is the one of the first value which fails in that order. The error of the method is compared, as
+// the text of the error which wraps it differs between the versions of encoding/json.
+func TestEncodeSortedMapValueError(t *testing.T) {
+	ints := map[int]sortedMapFailingValue{}
+	texts := map[sortedMapTextKey]sortedMapFailingValue{}
+	for i := range 40 {
+		ints[i] = sortedMapFailingValue(i * 7 % 40)
+		texts[sortedMapTextKey(i)] = sortedMapFailingValue(i * 7 % 40)
+	}
+	for _, v := range []any{ints, texts, struct{ A, B any }{0, ints}} {
+		_, wantErr := stdjson.Marshal(v)
+		want := errors.Unwrap(wantErr)
+		_, err := json.Marshal(v)
+		if got := errors.Unwrap(err); got == nil || want == nil || got.Error() != want.Error() {
+			t.Errorf("%T: Marshal error = %v; want %v", v, err, wantErr)
+		}
+		_, err = json.MarshalIndent(v, "", " ")
+		if got := errors.Unwrap(err); got == nil || got.Error() != want.Error() {
+			t.Errorf("%T: MarshalIndent error = %v; want %v", v, err, wantErr)
+		}
+	}
+}
+
+// The entries of a sorted map whose keys are not strings, which are written after every key is encoded, are written
+// as encoding/json writes them, by every VM: with indent and colors.
+func TestEncodeSortedMapNonStringKeys(t *testing.T) {
+	nested := map[int]any{}
+	texts := map[sortedMapTextKey]any{}
+	for i := range 20 {
+		nested[i*7%20-10] = map[uint]any{uint(i): []any{i, "s"}, uint(i + 100): map[sortedMapTextKey]int{1: i}}
+		texts[sortedMapTextKey(i)] = struct{ A, B int }{i, -i}
+	}
+	noColor := json.Colorize(&json.ColorScheme{})
+	for _, v := range []any{nested, texts, map[int]int{1: 1}, struct{ M map[int8]string }{map[int8]string{15: "a", -2: "b", 3: "c"}}} {
+		want, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantIndent, _ := stdjson.MarshalIndent(v, "", "  ")
+		got, err := json.Marshal(v)
+		if err != nil || string(got) != string(want) {
+			t.Errorf("%T:\n got %s %v\nwant %s", v, got, err, want)
+		}
+		got, err = json.MarshalIndent(v, "", "  ")
+		if err != nil || string(got) != string(wantIndent) {
+			t.Errorf("%T with indent:\n got %s %v\nwant %s", v, got, err, wantIndent)
+		}
+		got, err = json.MarshalWithOption(v, noColor)
+		if err != nil || string(got) != string(want) {
+			t.Errorf("%T colored:\n got %s %v\nwant %s", v, got, err, want)
+		}
+		got, err = json.MarshalIndentWithOption(v, "", "  ", noColor)
+		if err != nil || string(got) != string(wantIndent) {
+			t.Errorf("%T colored with indent:\n got %s %v\nwant %s", v, got, err, wantIndent)
+		}
+	}
+}
+
+// sortedMapNameKey is a key named by its text, which may need escapes.
+type sortedMapNameKey string
+
+func (k sortedMapNameKey) MarshalText() ([]byte, error) { return []byte(k), nil }
+
+// The keys named by texts are sorted by their names, as encoding/json sorts them, whatever the names have: escapes,
+// or a space or a '!', which come before the quote that ends a name.
+func TestEncodeSortedMapTextKeyNames(t *testing.T) {
+	runes := []rune("ab5 !\"\\<\x01é")
+	r := rand.New(rand.NewPCG(1, 2))
+	noColor := json.Colorize(&json.ColorScheme{})
+	for range 500 {
+		m := map[sortedMapNameKey]int{}
+		for i := range 1 + r.IntN(20) {
+			var name []rune
+			for range r.IntN(4) {
+				name = append(name, runes[r.IntN(len(runes))])
+			}
+			m[sortedMapNameKey(name)] = i
+		}
+		want, err := stdjson.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.Marshal(m)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("got %s %v\nwant %s", got, err, want)
+		}
+		got, err = json.MarshalWithOption(m, noColor)
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("colored: got %s %v\nwant %s", got, err, want)
+		}
+		want, _ = stdjson.MarshalIndent(m, "", " ")
+		got, err = json.MarshalIndent(m, "", " ")
+		if err != nil || string(got) != string(want) {
+			t.Fatalf("with indent: got %s %v\nwant %s", got, err, want)
+		}
+	}
+}
+
+// The keys are sorted by their names with any colors: an integer is colored within its quotes, which the codes of
+// its color don't put out of the order of its name.
+func TestEncodeSortedMapColoredKeys(t *testing.T) {
+	format := func(name string) json.ColorFormat { return json.ColorFormat{Header: "<" + name + ">", Footer: "</" + name + ">"} }
+	scheme := &json.ColorScheme{Int: format("i"), Uint: format("u"), String: format("s"), ObjectKey: format("k")}
+	tags := regexp.MustCompile(`</?[a-z]>`)
+	for _, v := range []any{
+		map[int]int{1: 1, 10: 2, 100: 3, 2: 4, -1: 5, -10: 6},
+		map[uint8]int{1: 1, 10: 2, 100: 3, 2: 4},
+		map[sortedMapNameKey]int{"a": 1, "a!": 2, "a ": 3, "": 4, "b": 5},
+	} {
+		want, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.MarshalWithOption(v, json.Colorize(scheme))
+		if err != nil || string(tags.ReplaceAll(got, nil)) != string(want) {
+			t.Errorf("%T: got %s %v\nwant %s", v, got, err, want)
+		}
+		want, _ = stdjson.MarshalIndent(v, "", " ")
+		got, err = json.MarshalIndentWithOption(v, "", " ", json.Colorize(scheme))
+		if err != nil || string(tags.ReplaceAll(got, nil)) != string(want) {
+			t.Errorf("%T with indent: got %s %v\nwant %s", v, got, err, want)
+		}
+	}
+	// the footer of a format is left out of the names of the keys of its kind only: the format of the integers
+	// colors the values, not the names of the texts. A pointer to an integer is named by the integer.
+	one, ten := 1, 10
+	for _, c := range []struct {
+		scheme *json.ColorScheme
+		v      any
+		want   string
+	}{
+		{&json.ColorScheme{Uint: json.ColorFormat{Footer: "7"}}, map[uint16]int{14: 1, 1433: 2}, `{"147":1,"14337":2}`},
+		{&json.ColorScheme{Int: json.ColorFormat{Footer: "</i>"}}, map[*int]int{&ten: 1, &one: 2}, `{"1</i>":2</i>,"10</i>":1</i>}`},
+		{&json.ColorScheme{Int: json.ColorFormat{Footer: "!"}}, map[sortedMapNameKey]int{"a!": 1, "a": 2, "b": 3, "a!b": 4},
+			`{"a":2!,"a!":1!,"a!b":4!,"b":3!}`},
+	} {
+		for range 20 {
+			got, err := json.MarshalWithOption(c.v, json.Colorize(c.scheme))
+			if err != nil || string(got) != c.want {
+				t.Fatalf("%T: got %s %v\nwant %s", c.v, got, err, c.want)
+			}
+		}
+	}
+}
+
+// sortedMapStructKey is a key of a struct named by its text.
+type sortedMapStructKey struct{ s string }
+
+func (k sortedMapStructKey) MarshalText() ([]byte, error) { return []byte(k.s), nil }
+
+// Keys of texts with invalid UTF-8, whose names are the same once it is replaced, are sorted the same way every
+// time: encoding/json sorts them by their names, and leaves their order to the order of the map.
+func TestEncodeSortedMapInvalidUTF8Keys(t *testing.T) {
+	for _, v := range []any{
+		map[sortedMapNameKey]int{"\xff": 1, "\xfe": 2, "a": 3, "\xc0": 4, "é": 5},
+		map[sortedMapStructKey]int{{"\xff"}: 1, {"\xfe"}: 2, {"a"}: 3, {"\xc0"}: 4, {"é"}: 5},
+	} {
+		first, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for range 200 {
+			if got, _ := json.Marshal(v); string(got) != string(first) {
+				t.Fatalf("%T: got %s and %s", v, first, got)
+			}
 		}
 	}
 }

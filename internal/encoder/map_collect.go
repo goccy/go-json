@@ -38,9 +38,6 @@ type MapLayout struct {
 	ValueKind reflect.Kind
 	keySize   uintptr
 	valueSize uintptr
-	// KeysMayEscape is whether an encoded key may have an escape, which puts it out of the order of its name
-	// ( see Mapslice.Sort ): the keys of a kind other than a string or an integer are texts.
-	KeysMayEscape bool
 	// Cyclic is whether an entry may hold the map again, which is recorded for the detection of cycles then ( see
 	// RuntimeContext.RecordMap ): the type of a key or a value reaches the type of the map, or an interface.
 	Cyclic bool
@@ -64,14 +61,6 @@ func NewMapLayout(typ reflect.Type) *MapLayout {
 		valueSize: typ.Elem().Size(),
 		ValueKind: typ.Elem().Kind(),
 		Cyclic:    reaches(typ.Key(), typ, map[reflect.Type]bool{}) || reaches(typ.Elem(), typ, map[reflect.Type]bool{}),
-	}
-	switch typ.Key().Kind() {
-	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		// a key of a string kind is sorted by its string, unless it has MarshalText, and an integer has no escape.
-		l.KeysMayEscape = typ.Key().Implements(marshalTextType) || reflect.PointerTo(typ.Key()).Implements(marshalTextType)
-	default:
-		l.KeysMayEscape = true
 	}
 	if collect := stringKeyCollector(l.valueSize); l.StringKey && collect != nil {
 		l.collect = collect

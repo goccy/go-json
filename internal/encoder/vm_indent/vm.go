@@ -143,9 +143,8 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				break
 			}
 			// The entries are read from the map into the context first ( encoder.MapLayout ), and encoded from
-			// there: in the order of the map, or sorted by their keys when they are strings. A sorted map whose
-			// keys are not strings is encoded as it comes and its entries are put in the order of their encoded
-			// keys at OpMapEnd.
+			// there: in the order of the map, or sorted by their keys when they are strings. The keys of a sorted
+			// map which are not strings are encoded first, and the entries are written in the order of their names.
 			mapCtx := encoder.NewMapContext(ctx)
 			if ctx.RecursiveLevel > encoder.StartDetectingMapCyclesAfter && code.Map.Cyclic {
 				if err := ctx.RecordMap(code, p, mapCtx); err != nil {
@@ -195,13 +194,25 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 			// A key of a string is written here, and the value of the entry is given to the opcode of the
 			// value: that saves the opcodes of the key and of the value for every entry. The key of another
 			// kind is given to its opcode, which OpMapValue follows.
+			//
+			// The keys of a sorted map which are not strings are encoded first, each by its opcodes and
+			// OpMapValue, which keeps it, and sorted by their names: the entries are written in that order then,
+			// by the opcodes of the values. So the values are encoded in the order of the output, as
+			// encoding/json encodes them, which a method of a value sees ( its place in the output ), and which
+			// tells the value whose error is reported.
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			byEncodedKeys := mapCtx.Slice.Items != nil
-			idx := mapCtx.Idx
-			if byEncodedKeys && idx >= 0 {
-				mapCtx.Slice.Items[idx].Value = b[mapCtx.Start:]
+			idx := mapCtx.Idx + 1
+			if byEncodedKeys && !mapCtx.Sorted {
+				if idx < mapCtx.Len {
+					mapCtx.Idx = idx
+					store(ctxptr, code.Next.Idx, mapCtx.KeyAt(idx))
+					code = code.Next
+					break
+				}
+				b = mapCtx.SortEncodedKeys(ctx, b, mapKeyFooterLen(ctx, code.Next))
+				idx = 0
 			}
-			idx++
 			if mapCtx.DirectEntries && idx < mapCtx.Len {
 				// the entries from here are written by one call, up to one whose value is left to its opcodes.
 				bb, next, err := appendSortedMapEntries(ctx, code, b, mapCtx, idx)
@@ -212,21 +223,28 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				b, idx = bb, next
 			}
 			if idx == mapCtx.Len {
-				if byEncodedKeys {
-					code = code.End
-				} else {
-					b = appendObjectEnd(ctx, code, b)
-					encoder.ReleaseMapContext(ctx, mapCtx)
-					code = code.End.Next
-				}
+				b = appendObjectEnd(ctx, code, b)
+				encoder.ReleaseMapContext(ctx, mapCtx)
+				code = code.End.Next
 				break
 			}
 			mapCtx.Idx = idx
 			if byEncodedKeys {
-				mapCtx.Start = len(b)
-			} else {
-				b = appendMapKeyIndent(ctx, code, b)
+				// the entry of the key at idx in the order of the names, whose value is given to the opcodes of
+				// the value, which OpMapValue ( NextField ) is followed by.
+				item := &mapCtx.Slice.Items[idx]
+				if idx > 0 && code.End.Op == encoder.OpMapEndCheckNames && encoder.SameMapName(ctx, item.Key, mapCtx.Slice.Items[idx-1].Key) {
+					// the output before the name, which tells where it is.
+					err := encoder.DuplicateMapNameError(item.Key, b)
+					encoder.ReleaseMapContext(ctx, mapCtx)
+					return b, err
+				}
+				b = appendSortedMapKey(ctx, code, b, item.Key)
+				code = code.NextField.Next
+				store(ctxptr, code.Idx, mapCtx.ValueAt(item.Entry))
+				break
 			}
+			b = appendMapKeyIndent(ctx, code, b)
 			if code.Flags&encoder.MapStringKeyFlags == 0 {
 				store(ctxptr, code.Next.Idx, mapCtx.KeyAt(idx))
 				code = code.Next
@@ -243,53 +261,21 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapValue:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			if mapCtx.Slice.Items != nil {
-				mapCtx.Slice.Items[mapCtx.Idx].Key = b[mapCtx.Start:]
-				mapCtx.Start = len(b)
-			} else {
-				b = appendColon(ctx, b)
-			}
-			store(ctxptr, code.Next.Idx, mapCtx.ValueAt(mapCtx.Idx))
-			code = code.Next
-		case encoder.OpMapEnd:
-			// the entries of a sorted map whose keys are not strings, in the order of their encoded keys.
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.Slice.Sort()
-			buf := mapCtx.Buf
-			for _, item := range mapCtx.Slice.Items {
-				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
-			}
-			buf = appendMapEnd(ctx, code, buf)
-			b = b[:mapCtx.First]
-			b = append(b, buf...)
-			ctx.Rewrote(mapCtx.First)
-			mapCtx.Buf = buf
-			encoder.ReleaseMapContext(ctx, mapCtx)
-			code = code.Next
-		case encoder.OpMapEndCheckNames:
-			// the entries of a sorted map whose keys may have the same name, for the semantics of encoding/json/v2:
-			// the same names are next to each other in the order of the names.
-			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
-			mapCtx.Slice.Sort()
-			buf := mapCtx.Buf
-			items := mapCtx.Slice.Items
-			for i, item := range items {
-				if i > 0 && encoder.SameMapName(ctx, item.Key, items[i-1].Key) {
-					// the output before the name, which tells where it is.
-					b = append(b[:mapCtx.First], buf...)
-					ctx.Rewrote(mapCtx.First)
-					mapCtx.Buf = buf
-					err := encoder.DuplicateMapNameError(item.Key, b)
-					encoder.ReleaseMapContext(ctx, mapCtx)
-					return b, err
+				// a key of a sorted map, which follows the keys before it from First, to be written with its entry
+				// when every key is encoded ( see encoder.MapContext.SortEncodedKeys ): the item has the keys up to
+				// the end of this one, which tells where it ends. The next key is given to its opcodes, which follow
+				// the key opcode ( NextField ), and the key opcode sorts the keys after the last one.
+				mapCtx.Slice.Items[mapCtx.Idx] = encoder.MapItem{Key: b[mapCtx.First:], Entry: mapCtx.Idx}
+				code = code.NextField
+				if idx := mapCtx.Idx + 1; idx < mapCtx.Len {
+					mapCtx.Idx = idx
+					code = code.Next
+					store(ctxptr, code.Idx, mapCtx.KeyAt(idx))
 				}
-				buf = appendMapKeyValue(ctx, code, buf, item.Key, item.Value)
+				break
 			}
-			buf = appendMapEnd(ctx, code, buf)
-			b = b[:mapCtx.First]
-			b = append(b, buf...)
-			ctx.Rewrote(mapCtx.First)
-			mapCtx.Buf = buf
-			encoder.ReleaseMapContext(ctx, mapCtx)
+			b = appendColon(ctx, b)
+			store(ctxptr, code.Next.Idx, mapCtx.ValueAt(mapCtx.Idx))
 			code = code.Next
 		case encoder.OpIntPtr:
 			p := ptrToNPtr(load(ctxptr, code.Idx), code.PtrNum)

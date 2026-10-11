@@ -28,7 +28,8 @@ import (
 //   - nil, a bool, a nil pointer, a struct, an array, a slice or a map is not a name; a complex number, a
 //     channel or a function is an unsupported type.
 //
-// The keys are sorted by their names, as the keys of the maps whose keys are not strings are ( see OpMapEnd ).
+// The keys are sorted by their names, as the keys of the maps whose keys are not strings are: OpMapKey sorts them
+// after the last one is encoded ( see MapContext.SortEncodedKeys ).
 
 // interfaceMapKeys is whether a map of an interface type as its key is encoded.
 const interfaceMapKeys = true

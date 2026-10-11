@@ -68,8 +68,8 @@ func BenchmarkVariant_Key(b *testing.B) {
 	}
 }
 
-// where the insertion sort of Mapslice.Sort stops being faster than slices.SortFunc, with keys which are random
-// in their content and in their length.
+// where the insertion sort of MapContext.SortEncodedKeys stops being faster than slices.SortFunc, with keys which
+// are random in their content and in their length.
 func BenchmarkVariant_MapSort(b *testing.B) {
 	rnd := rand.New(rand.NewSource(1))
 	for _, n := range []int{2, 4, 8, 12, 16, 24, 32, 48, 64, 128} {
@@ -89,7 +89,7 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 		b.Run("Insertion/"+strconv.Itoa(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				copy(work, keys[i%sets])
-				insertionSortMapItems(work)
+				insertionSortMapItems(work, 0)
 			}
 		})
 		b.Run("SortFunc/"+strconv.Itoa(n), func(b *testing.B) {

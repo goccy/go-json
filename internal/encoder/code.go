@@ -334,8 +334,8 @@ type MapCode struct {
 	typ   reflect.Type
 	key   Code
 	value Code
-	// checkNames is whether the names of the keys may be the same, which the end of a sorted map checks ( see
-	// OpMapEndCheckNames ).
+	// checkNames is whether the names of the keys may be the same, which OpMapKey checks as it writes the entries of
+	// a sorted map: the opcode of the end is OpMapEndCheckNames then.
 	checkNames bool
 }
 
@@ -410,6 +410,10 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	header.End = end
 	key.End = end
 	value.End = end
+	// the keys of a sorted map are encoded first, and the entries in the order of their names after: OpMapValue goes
+	// back to the key opcode after a key, and the key opcode goes to the opcodes of the value of an entry.
+	key.NextField = value
+	value.NextField = key
 	if c.checkNames {
 		end.Op = OpMapEndCheckNames
 	}

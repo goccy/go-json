@@ -60,7 +60,7 @@ func methodInterfaceOf(typ reflect.Type, p unsafe.Pointer) unsafe.Pointer {
 
 // appendMapKeyName appends the name of the key at p, of typ, by the functions of marshaling, its method or its
 // kind, and records it in the context of the map, failing if the map has the name already. The names of a map
-// whose entries are sorted are checked after they are ( see checkSortedNames ).
+// whose entries are sorted are checked as the entries are written in the order of the names ( see SameMapName ).
 func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, funcs []*MarshalFunc) ([]byte, error) {
 	start := len(b)
 	out, err := b, ErrUseDefault
@@ -73,11 +73,17 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem())
 	}
 	ctx.KeyName = false
-	if err != nil {
-		return b, err
+	if err == nil && out[start] != '"' {
+		err = &errors.TextError{Err: errors.ErrNonStringName, GoType: typ}
 	}
-	if out[start] != '"' {
-		return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: typ}
+	if err != nil {
+		if ctx.Option.Flag&UnorderedMapOption == 0 {
+			// a name of a sorted map, which is encoded after the names before it, which are not entries yet ( see
+			// MapContext.SortEncodedKeys ): the error is at the place of the first name, where encoding/json/v2
+			// writes each name.
+			err = &errors.OutputError{Out: b[:ctx.SortedKeysStart()], Err: err}
+		}
+		return b, err
 	}
 	if ctx.Option.Flag&(RawRewriteOption|AllowDuplicateNamesOption) == RawRewriteOption && bytes.IndexByte(out[start:], '\\') >= 0 {
 		// a name of a raw value which the options of raw values may keep with its escapes, as PreserveRawStrings does,

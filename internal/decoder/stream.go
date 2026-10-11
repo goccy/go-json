@@ -3,7 +3,9 @@ package decoder
 import (
 	"bytes"
 	"io"
+	"math"
 	"math/bits"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -62,6 +64,9 @@ type Stream struct {
 	// a read of a token which fails leaves the stream where it was ( see Token ).
 	keeps    bool
 	keepFrom int64
+	// index is where the objects and the arrays of the value which is decoded element by element end, which the
+	// reads extend ( see scanFailed ). It is nil while no value is decoded so.
+	index *bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -108,6 +113,9 @@ func (s *Stream) read() bool {
 		s.grow()
 	}
 	n, err := s.r.Read(s.buf[s.length : int64(len(s.buf))-bufPadding])
+	if s.index != nil {
+		s.indexRead(n)
+	}
 	s.length += int64(n)
 	s.buf[s.length] = nul
 	if err != nil {
@@ -136,7 +144,17 @@ func (s *Stream) grow() {
 		// the buffer holds all of it at once, so that nothing is copied again.
 		size = remain + int64(r.Len())
 	}
-	buf := make([]byte, size+bufPadding)
+	var buf []byte
+	if s.index != nil && s.index.owns(s.buf) && size == int64(len(s.buf))-bufPadding &&
+		(s.Option.Flags&NoCopyStringOption) == 0 {
+		// a buffer made while a value is decoded element by element, whose strings are copied: nothing refers to it
+		buf = s.buf
+	} else {
+		buf = make([]byte, size+bufPadding)
+		if s.index != nil {
+			s.index.buf = unsafe.SliceData(buf)
+		}
+	}
 	copy(buf, s.buf[from:s.length])
 	s.offset += from
 	s.buf = buf
@@ -241,12 +259,19 @@ var isLiteralChar = [256]bool{
 // and returns the position after the value. The value is not validated: the decoder does it.
 // The cursor is not moved: the value is in buf[cursor:end], but the buffer may have been replaced.
 func (s *Stream) scanValue() (int64, error) {
+	return s.scanValueUpTo(math.MaxInt64)
+}
+
+// scanValueUpTo is scanValue which reads an object or an array only up to limit bytes: if it doesn't end within them,
+// it returns errLongValue, and the value is decoded element by element ( see scanFailed ). A string, a number, true,
+// false and null are read whole.
+func (s *Stream) scanValueUpTo(limit int64) (int64, error) {
 	if !s.fill() {
 		return 0, s.endError()
 	}
 	switch c := s.buf[s.cursor]; {
 	case c == '{' || c == '[':
-		return s.scanCompound()
+		return s.scanCompound(limit)
 	case c == '"':
 		return s.scanString()
 	case isLiteralChar[c]:
@@ -256,9 +281,9 @@ func (s *Stream) scanValue() (int64, error) {
 	return s.cursor + 1, nil
 }
 
-// scanCompound finds the end of the object or the array at the cursor: the position after the bracket
-// which closes it.
-func (s *Stream) scanCompound() (int64, error) {
+// scanCompound finds the end of the object or the array at the cursor: the position after the bracket which closes
+// it. If it doesn't end within limit bytes, it returns errLongValue.
+func (s *Stream) scanCompound(limit int64) (int64, error) {
 	// The position is kept relative to the cursor, because a read may move the data ( grow ).
 	var rel int64
 	sc := compoundScanner{maxDepth: maxDecodeNestingDepth}
@@ -271,13 +296,18 @@ func (s *Stream) scanCompound() (int64, error) {
 			return pos, nil
 		}
 		rel = pos - s.cursor
+		if rel >= limit {
+			return 0, errLongValue
+		}
 		if !s.read() {
 			return 0, s.truncatedValueError()
 		}
 	}
 }
 
-// scanString finds the end of the string at the cursor: the position after the quote which closes it.
+// scanString finds the end of the string at the cursor: the position after the quote which closes it, or after a
+// control character, which a string can't have: the decoder reports it, and a string which is not closed is not
+// read up to the end of the input.
 func (s *Stream) scanString() (int64, error) {
 	var (
 		rel     int64 = 1 // after the opening quote
@@ -287,21 +317,26 @@ func (s *Stream) scanString() (int64, error) {
 		buf := s.buf
 		pos := s.cursor + rel
 		end := s.length
-		for pos+8 <= end {
-			w := load64(buf, pos)
-			if byteMask(w, '\\') != 0 || escaped {
-				break
+		for pos+8 <= end && !escaped {
+			stop := keyEndBytes(load64(buf, pos))
+			if stop == 0 {
+				pos += 8
+				continue
 			}
-			if quote := byteMask(w, '"'); quote != 0 {
-				return pos + int64(bits.TrailingZeros64(quote)/8) + 1, nil
+			// a quote, a backslash or a control character
+			pos += int64(bits.TrailingZeros64(stop) / 8)
+			if buf[pos] == '"' {
+				return pos + 1, nil
 			}
-			pos += 8
+			break
 		}
 		lim := min(pos+8, end)
 		for pos < lim {
 			c := buf[pos]
 			pos++
 			switch {
+			case c < ' ':
+				return pos, nil
 			case escaped:
 				escaped = false
 			case c == '\\':
@@ -357,9 +392,9 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	if err := s.prepare(); err != nil {
 		return err
 	}
-	end, err := s.scanValue()
+	end, err := s.scanValueUpTo(maxWholeValueSize)
 	if err != nil {
-		return s.fail(err)
+		return s.scanFailed(err, dec, typ, p)
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
@@ -397,6 +432,38 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	return nil
 }
 
+// callDecoder decodes the value at the cursor, which ends at end, by dec into p, nested in depth objects and arrays,
+// and returns the position after it. If copyStrings is set, the decoded strings are copied out of the buffer, which
+// they keep alive else.
+func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64, copyStrings bool) (int64, error) {
+	ctx := s.ctx
+	var cursor int64
+	var err error
+	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
+		// The end of the value is known exactly: a nul byte is put there while the value is decoded,
+		// so that the decoder never reads the next value, whatever it makes of a malformed one.
+		// A number needs it too, because the decoder validates the byte which ends it.
+		saved := s.buf[end]
+		s.buf[end] = nul
+		ctx.Buf = s.buf[:end+1]
+		if copyStrings {
+			ctx.origin = ctx.Buf
+		}
+		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
+		s.buf[end] = saved
+	} else {
+		// true, false and null end at the first byte which can't belong to them, and the decoder
+		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
+		ctx.Buf = s.buf[:s.length+1]
+		if copyStrings {
+			ctx.origin = ctx.Buf
+		}
+		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
+	}
+	ctx.Buf, ctx.origin = nil, nil
+	return cursor, err
+}
+
 // decodeError returns the error of the decoder, whose offset is made the one in the whole input, of the value at
 // the cursor, which scanValue ended at end. A type error before it is not kept for the next value.
 //
@@ -427,12 +494,7 @@ func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end 
 // decodeFirstNumber decodes the number at the cursor, which ends at end by the grammar, as Decode does.
 func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64) error {
 	ctx := s.ctx
-	saved := s.buf[end]
-	s.buf[end] = nul
-	ctx.Buf = s.buf[:end+1]
-	cursor, err := dec.Decode(ctx, s.cursor, 0, p)
-	s.buf[end] = saved
-	ctx.Buf = nil
+	cursor, err := s.callDecoder(dec, p, 0, end, false)
 	if err != nil {
 		s.ctx.DiscardTypeError()
 		if serr := s.valueSyntaxError(); serr != nil {
@@ -461,10 +523,32 @@ func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64
 //
 //go:noinline
 func (s *Stream) valueSyntaxError() error {
+	s.fillLastChar()
 	_, err := skipValue(s.buf[:s.length+1], s.cursor, 0)
 	if err == nil {
 		return nil
 	}
+	return s.grammarError(err)
+}
+
+// fillLastChar reads more if a read ended in the middle of a UTF-8 sequence, so that a syntax error at it shows the
+// character, as encoding/json does, whatever the reads of the input.
+func (s *Stream) fillLastChar() {
+	for {
+		// the start of the last character, in the last bytes
+		start := s.length - 1
+		for start > 0 && start > s.length-utf8.UTFMax && !utf8.RuneStart(s.buf[start]) {
+			start--
+		}
+		if start < 0 || utf8.FullRune(s.buf[start:s.length]) || !s.read() {
+			return
+		}
+	}
+}
+
+// grammarError returns the syntax error err of a scan of the grammar in what has been read, as valueSyntaxError
+// reports it.
+func (s *Stream) grammarError(err error) error {
 	if errors.IsAtEnd(err) {
 		return s.unexpectedEndError()
 	}

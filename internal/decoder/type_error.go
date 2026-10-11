@@ -39,6 +39,10 @@ type pendingTypeError struct {
 	// atStart is set for an error whose offset is the start of the value, as encoding/json of Go 1.27 reports the
 	// ones of an interface value which is kept.
 	atStart bool
+	// path is the path to the value of an error of a stream which decodes a value element by element, whose bytes
+	// it drops after an element: the path is made while they are read ( see Stream.keepTypeError ), and start and
+	// end are offsets in the whole input then.
+	path []typeErrorStep
 }
 
 // jsonKind is the kind of a JSON value, which a decoder decodes and a type error reports.
@@ -172,7 +176,13 @@ func (ctx *RuntimeContext) TypeError(dec Decoder, typ reflect.Type, base, offset
 	if p.plain != nil {
 		return p.plain
 	}
-	e := newTypeError(p, typeErrorPath(dec, ctx.Buf, base, p), typ)
+	return p.toError(typeErrorPath(dec, ctx.Buf, base, p), typ, offsetBase)
+}
+
+// toError returns the type error of p, whose value is at the end of path from the root value of typ, with its
+// offset relative to offsetBase.
+func (p *pendingTypeError) toError(path []typeErrorStep, typ reflect.Type, offsetBase int64) error {
+	e := newTypeError(p, path, typ)
 	if p.atStart {
 		e.Offset = p.start
 	}
@@ -308,13 +318,7 @@ func (d *structDecoder) typeErrorChild(buf []byte, cursor int64, p *pendingTypeE
 			if field == nil {
 				return typeErrorStep{}, nil, 0, false
 			}
-			step := typeErrorStep{
-				structName: d.typeName, name: field.key, inputName: string(decodeLiteral(key, info)), isField: true,
-			}
-			if embeddedFieldNames {
-				step.embedded = d.embedded[field]
-			}
-			return step, field.dec, cursor, true
+			return d.typeErrorStep(field, decodeLiteral(key, info)), field.dec, cursor, true
 		}
 		cursor = skipWhiteSpace(buf, end)
 		if buf[cursor] != ',' {
@@ -322,6 +326,15 @@ func (d *structDecoder) typeErrorChild(buf []byte, cursor int64, p *pendingTypeE
 		}
 		cursor++
 	}
+}
+
+// typeErrorStep returns the step to the field, whose key the input has as inputName, decoded.
+func (d *structDecoder) typeErrorStep(field *structFieldSet, inputName []byte) typeErrorStep {
+	step := typeErrorStep{structName: d.typeName, name: field.key, inputName: string(inputName), isField: true}
+	if embeddedFieldNames {
+		step.embedded = d.embedded[field]
+	}
+	return step
 }
 
 // typeErrorElement returns the index of the element of the array at cursor which has the error, and its position.

@@ -308,21 +308,43 @@ type Mapslice struct {
 	Items []MapItem
 }
 
-// insertionSortMapItems sorts the items of c by their keys without the last tail bytes of each: the quote which
-// ends the name, and what follows it. The keys of the same name are in the order of their Go keys
-// ( see compareTiedKeys ).
-func insertionSortMapItems(c *MapContext, items []MapItem, tail int) {
+// insertionSortMapItems sorts the items by their keys without the last tail bytes of each: the quote which ends
+// the name, and what follows it. It reports whether two keys have the same name, which are put in order after
+// ( see sortTiedKeys ).
+func insertionSortMapItems(items []MapItem, tail int) bool {
+	tied := false
+	for i := 1; i < len(items); i++ {
+		if r := bytes.Compare(items[i-1].Key[:len(items[i-1].Key)-tail], items[i].Key[:len(items[i].Key)-tail]); r <= 0 {
+			if r == 0 {
+				tied = true
+			}
+			continue
+		}
+		item := items[i]
+		name := item.Key[:len(item.Key)-tail]
+		j := i
+		for ; j > 0; j-- {
+			if r := bytes.Compare(items[j-1].Key[:len(items[j-1].Key)-tail], name); r <= 0 {
+				if r == 0 {
+					tied = true
+				}
+				break
+			}
+			items[j] = items[j-1]
+		}
+		items[j] = item
+	}
+	return tied
+}
+
+// sortTiedKeys puts the items of the same name, which are next to each other, in the order of their Go keys
+// ( see compareTiedKeys ). tail is the length of what follows the names of the keys.
+func (c *MapContext) sortTiedKeys(items []MapItem, tail int) {
 	for i := 1; i < len(items); i++ {
 		item := items[i]
 		name := item.Key[:len(item.Key)-tail]
-		if r := bytes.Compare(items[i-1].Key[:len(items[i-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[i-1], item) <= 0 {
-			continue
-		}
 		j := i
-		for ; j > 0; j-- {
-			if r := bytes.Compare(items[j-1].Key[:len(items[j-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[j-1], item) <= 0 {
-				break
-			}
+		for ; j > 0 && compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name) == 0 && c.compareTiedKeys(items[j-1], item) > 0; j-- {
 			items[j] = items[j-1]
 		}
 		items[j] = item
@@ -331,19 +353,24 @@ func insertionSortMapItems(c *MapContext, items []MapItem, tail int) {
 
 // insertionSortMapItemsByNames is insertionSortMapItems for the keys of a map of which one has an escape
 // ( see compareKeyNames ).
-func insertionSortMapItemsByNames(c *MapContext, items []MapItem, tail int) {
+func insertionSortMapItemsByNames(items []MapItem, tail int) bool {
+	tied := false
 	for i := 1; i < len(items); i++ {
 		item := items[i]
 		name := item.Key[:len(item.Key)-tail]
 		j := i
 		for ; j > 0; j-- {
-			if r := compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[j-1], item) <= 0 {
+			if r := compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name); r <= 0 {
+				if r == 0 {
+					tied = true
+				}
 				break
 			}
 			items[j] = items[j-1]
 		}
 		items[j] = item
 	}
+	return tied
 }
 
 // compareTiedKeys compares the entries of two keys of the same name, which the keys of the same text have, or of
@@ -573,6 +600,11 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte, footer int)
 		items[i].Key = c.Buf[start:end:end]
 		start = end
 	}
+	if len(items) == 1 {
+		c.Sorted = true
+		rctx.Rewrote(c.First)
+		return b[:c.First]
+	}
 	first := items[0].Key
 	tail := 1
 	for first[len(first)-tail] != '"' {
@@ -589,7 +621,9 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte, footer int)
 			return c.compareTiedKeys(a, b)
 		})
 	case escaped:
-		insertionSortMapItemsByNames(c, items, tail)
+		if insertionSortMapItemsByNames(items, tail) {
+			c.sortTiedKeys(items, tail)
+		}
 	case many:
 		slices.SortFunc(items, func(a, b MapItem) int {
 			if r := bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail]); r != 0 {
@@ -598,7 +632,9 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte, footer int)
 			return c.compareTiedKeys(a, b)
 		})
 	default:
-		insertionSortMapItems(c, items, tail)
+		if insertionSortMapItems(items, tail) {
+			c.sortTiedKeys(items, tail)
+		}
 	}
 	c.Sorted = true
 	rctx.Rewrote(c.First)

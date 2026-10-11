@@ -69,6 +69,9 @@ type Stream struct {
 	// kept for the next value, which allocates them no more.
 	index    *bracketIndex
 	elements bracketIndex
+	// filled is set when the last read filled the room of the buffer: the reader may have more, which a larger
+	// buffer takes at once ( see grow ). Only what a read returned tells it.
+	filled bool
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -114,7 +117,9 @@ func (s *Stream) read() bool {
 	if int64(len(s.buf))-s.length <= bufPadding {
 		s.grow()
 	}
-	n, err := s.r.Read(s.buf[s.length : int64(len(s.buf))-bufPadding])
+	room := int64(len(s.buf)) - bufPadding - s.length
+	n, err := s.r.Read(s.buf[s.length : s.length+room])
+	s.filled = int64(n) == room
 	s.length += int64(n)
 	s.buf[s.length] = nul
 	if err != nil {
@@ -145,9 +150,10 @@ func (s *Stream) grow() {
 	}
 	buf := s.buf
 	x := s.index
-	if x != nil {
-		// the buffer of a value decoded element by element grows four times as large up to elementReadSize, so that a value
-		// is read by large reads, which bring what the reader has, without waiting for more
+	if x != nil && s.filled {
+		// the buffer of a value decoded element by element grows four times as large up to elementReadSize while the
+		// reader fills it, so that a value is read by large reads, which bring what the reader has, without waiting
+		// for more: a reader which brings less is read into the same buffer
 		size = max(size, min(4*(int64(len(buf))-bufPadding), elementReadSize))
 	}
 	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
@@ -398,21 +404,21 @@ func (s *Stream) scanStringInfo() (int64, stringInfo, bool, error) {
 		end := s.length
 		// the words of the bytes up to a quote, a backslash or a control character, which the nul byte at the end of
 		// what has been read is
-		for pos+8 <= int64(len(buf)) && !escaped && hex == 0 {
-			w := load64(buf, pos)
-			stop := keyEndBytes(w)
-			if stop == 0 {
+		if !escaped && hex == 0 {
+			for n := int64(len(buf)); pos+8 <= n; pos += 8 {
+				w := load64(buf, pos)
+				if stop := keyEndBytes(w); stop != 0 {
+					// a quote, a backslash or a control character
+					i := bits.TrailingZeros64(stop) / 8
+					high |= w & (1<<(uint(i)*8&63) - 1)
+					pos += int64(i)
+					break
+				}
 				high |= w
-				pos += 8
-				continue
 			}
-			// a quote, a backslash or a control character
-			i := bits.TrailingZeros64(stop) / 8
-			high |= w & (1<<(uint(i)*8&63) - 1)
-			if pos += int64(i); pos < end && buf[pos] == '"' {
+			if pos < end && buf[pos] == '"' {
 				return pos + 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, true, nil
 			}
-			break
 		}
 		lim := min(pos+8, end)
 		for pos < lim {

@@ -733,7 +733,7 @@ func (s *Stream) skipResume(level int64, objects uint64, resume skipResume) (int
 	case resumeValue, resumeKey:
 		// a value or a key, after the white space after a bracket, a comma or a colon: the end of the object or the
 		// array may follow its bracket only, and the key is skipped here, as skipFast doesn't resume at it
-		open := s.cursor - 1
+		open := max(s.cursor-1, 0)
 		for open > 0 && isWhiteSpace[s.buf[open]] {
 			open--
 		}

@@ -140,26 +140,30 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		d.typ = typ
 		return d, nil
 	}
+	if typ.Kind() == reflect.Pointer {
+		// a key of a pointer type is the key the pointer points to, which is allocated
+		dec, err := compileMapKey(typ.Elem(), structName, fieldName, structTypeToDecoder)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := dec.(*invalidDecoder); ok {
+			return newInvalidDecoder(typ, structName, fieldName), nil
+		}
+		return newPtrDecoder(dec, typ.Elem(), structName, fieldName), nil
+	}
 	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
-	for {
-		switch t := dec.(type) {
-		case *stringDecoder, *interfaceDecoder:
-			return dec, nil
-		case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
-			d := newWrappedStringDecoder(typ, dec, structName, fieldName)
-			d.isMapKey = true
-			return d, nil
-		case *ptrDecoder:
-			dec = t.dec
-		case *basicPtrDecoder:
-			dec = t.dec
-		default:
-			return newInvalidDecoder(typ, structName, fieldName), nil
-		}
+	switch dec.(type) {
+	case *interfaceDecoder:
+		return dec, nil
+	case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
+		d := newWrappedStringDecoder(typ, dec, structName, fieldName)
+		d.isMapKey = true
+		return d, nil
 	}
+	return newInvalidDecoder(typ, structName, fieldName), nil
 }
 
 func compilePtr(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {

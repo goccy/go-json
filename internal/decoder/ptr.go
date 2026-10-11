@@ -61,7 +61,9 @@ func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	c, err := d.dec.Decode(ctx, cursor, depth, newptr)
 	if err != nil {
 		*(*unsafe.Pointer)(p) = nil
-		return 0, err
+		// the cursor is the one of the decoder: after a key of a map of another type, the map goes on from it
+		// ( see errMapKeyType )
+		return c, err
 	}
 	cursor = c
 	return cursor, nil
@@ -95,7 +97,9 @@ func (d *basicPtrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	c, err := d.dec.Decode(ctx, cursor, depth, newptr)
 	if err != nil {
 		*(*unsafe.Pointer)(p) = nil
-		return 0, err
+		// the cursor is the one of the decoder: after a key of a map of another type, the map goes on from it
+		// ( see errMapKeyType )
+		return c, err
 	}
 	return c, nil
 }

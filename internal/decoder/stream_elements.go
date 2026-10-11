@@ -199,7 +199,7 @@ func (s *Stream) elementEnd(depth, limit int64) (int64, bool, error) {
 			}
 			return 0, false, s.truncatedValueErrorAt(depth)
 		}
-		if s.index.inString != 0 {
+		if s.index.inString != 0 && limit == math.MaxInt64 {
 			// a string which doesn't end in what has been read ends at a control character in it ( see scanCompound )
 			if c := controlInString(s.buf, s.cursor+from, s.length, inString, escaped); c >= 0 {
 				return c + 1, true, nil
@@ -243,8 +243,8 @@ func (s *Stream) indexRead(n int) {
 }
 
 // indexDeeper makes the index have the elements of the object or the array at the cursor, which is nested in depth
-// objects and arrays: the bytes read from it are indexed again, to the depth of its elements or twice the depth of
-// before, so that a value nested deep, which is decoded element by element at every level, has its bytes indexed
+// objects and arrays: the bytes read from it are indexed again, to the depth of its elements or four times the depth
+// of before, so that a value nested deep, which is decoded element by element at every level, has its bytes indexed
 // again a few times only.
 func (s *Stream) indexDeeper(depth int64) {
 	x := s.index
@@ -254,7 +254,7 @@ func (s *Stream) indexDeeper(depth int64) {
 		n--
 	}
 	x.closes = x.closes[:n]
-	x.depth, x.bound, x.inString, x.escaped = depth, max(depth+2, 2*x.bound), 0, 0
+	x.depth, x.bound, x.inString, x.escaped = depth, max(depth+2, 4*x.bound), 0, 0
 	x.extend(s.buf, s.cursor, s.length, s.offset)
 }
 

@@ -296,8 +296,9 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 		if found {
 			return pos, nil
 		}
-		if sc.inString {
-			// a string which doesn't end in what has been read ends at a control character in it
+		if sc.inString && limit == math.MaxInt64 {
+			// a string which doesn't end in what has been read ends at a control character in it. A value read up to
+			// a limit is decoded element by element after it, whose strings stop there ( see scanString ).
 			if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
 				return c + 1, nil
 			}

@@ -94,6 +94,9 @@ func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, 
 			if err != nil && err != errMapKeyType {
 				return 0, err
 			}
+			if buf[keyCursor-1] != '"' {
+				return 0, errKeyNotString(buf, cursor)
+			}
 			drop = err != nil
 			cursor = keyCursor
 		}
@@ -121,6 +124,14 @@ func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, 
 		}
 		cursor++
 	}
+}
+
+// errKeyNotString returns the syntax error of the key of an object at cursor, which is not a string.
+//
+//go:noinline
+func errKeyNotString(buf []byte, cursor int64) error {
+	cursor = skipWhiteSpace(buf, cursor)
+	return errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 }
 
 // decodeOther skips the value at cursor, which is not an object: a value of another kind is a type error, and
@@ -204,6 +215,10 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 			}
 			return 0, err
 		}
+		if buf[keyCursor-1] != '"' {
+			// a key is a string, which ends with a quote, but its decoder may decode a value of any kind
+			return 0, errKeyNotString(buf, cursor)
+		}
 		cursor = skipWhiteSpace(buf, keyCursor)
 		if buf[cursor] != ':' {
 			return 0, errors.ErrExpected("colon after object key", cursor)
@@ -273,6 +288,9 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]b
 	}
 	ret := [][]byte{}
 	for {
+		if buf[skipWhiteSpace(buf, cursor)] != '"' {
+			return nil, 0, errKeyNotString(buf, cursor)
+		}
 		key, keyCursor, err := keyDecoder.decodeByte(buf, cursor)
 		if err != nil {
 			return nil, 0, err

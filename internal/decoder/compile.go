@@ -53,7 +53,11 @@ func compile(typ reflect.Type, structName, fieldName string, structTypeToDecoder
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(reflect.PointerTo(typ), structName, fieldName), nil
 	}
+	return compileKind(typ, structName, fieldName, structTypeToDecoder)
+}
 
+// compileKind returns the decoder of a value of the type by its kind, without its methods of unmarshaling.
+func compileKind(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch typ.Kind() {
 	case reflect.Ptr:
 		return compilePtr(typ, structName, fieldName, structTypeToDecoder)
@@ -141,6 +145,9 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		return d, nil
 	}
 	if typ.Kind() == reflect.Pointer {
+		if isPointerCycle(typ) {
+			return newInvalidDecoder(typ, structName, fieldName), nil
+		}
 		// a key of a pointer type is the key the pointer points to, which is allocated
 		dec, err := compileMapKey(typ.Elem(), structName, fieldName, structTypeToDecoder)
 		if err != nil {
@@ -151,13 +158,17 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		}
 		return newPtrDecoder(dec, typ.Elem(), structName, fieldName), nil
 	}
-	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
+	// The other keys are decoded by their kind, whatever other methods they have, as encoding/json decodes them: an
+	// integer, a float, a bool, and an empty interface, which a key of a string is stored in.
+	dec, err := compileKind(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	switch dec.(type) {
 	case *interfaceDecoder:
-		return dec, nil
+		if typ.NumMethod() == 0 {
+			return dec, nil
+		}
 	case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
 		d := newWrappedStringDecoder(typ, dec, structName, fieldName)
 		d.isMapKey = true
@@ -167,11 +178,28 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 }
 
 func compilePtr(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
+	if isPointerCycle(typ) {
+		// No value but null can be decoded into it, which sets the pointer to nil.
+		return newPtrDecoder(newInvalidDecoder(typ.Elem(), structName, fieldName), typ.Elem(), structName, fieldName), nil
+	}
 	dec, err := compile(typ.Elem(), structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
 	return newPtrDecoder(dec, typ.Elem(), structName, fieldName), nil
+}
+
+// isPointerCycle reports whether the pointer type points to pointers only, without an end, as type R *R does:
+// the pointers are followed two at a time and one at a time, which meet in a cycle.
+func isPointerCycle(typ reflect.Type) bool {
+	slow, fast := typ, typ
+	for fast.Kind() == reflect.Pointer && fast.Elem().Kind() == reflect.Pointer {
+		slow, fast = slow.Elem(), fast.Elem().Elem()
+		if slow == fast {
+			return true
+		}
+	}
+	return false
 }
 
 func compileInt(typ reflect.Type, structName, fieldName string) (Decoder, error) {

@@ -214,4 +214,48 @@ func TestEncodeSortedMapColoredKeys(t *testing.T) {
 			t.Errorf("%T with indent: got %s %v\nwant %s", v, got, err, want)
 		}
 	}
+	// the footer of a format is left out of the names of the keys of its kind only: the format of the integers
+	// colors the values, not the names of the texts. A pointer to an integer is named by the integer.
+	one, ten := 1, 10
+	for _, c := range []struct {
+		scheme *json.ColorScheme
+		v      any
+		want   string
+	}{
+		{&json.ColorScheme{Uint: json.ColorFormat{Footer: "7"}}, map[uint16]int{14: 1, 1433: 2}, `{"147":1,"14337":2}`},
+		{&json.ColorScheme{Int: json.ColorFormat{Footer: "</i>"}}, map[*int]int{&ten: 1, &one: 2}, `{"1</i>":2</i>,"10</i>":1</i>}`},
+		{&json.ColorScheme{Int: json.ColorFormat{Footer: "!"}}, map[sortedMapNameKey]int{"a!": 1, "a": 2, "b": 3, "a!b": 4},
+			`{"a":2!,"a!":1!,"a!b":4!,"b":3!}`},
+	} {
+		for range 20 {
+			got, err := json.MarshalWithOption(c.v, json.Colorize(c.scheme))
+			if err != nil || string(got) != c.want {
+				t.Fatalf("%T: got %s %v\nwant %s", c.v, got, err, c.want)
+			}
+		}
+	}
+}
+
+// sortedMapStructKey is a key of a struct named by its text.
+type sortedMapStructKey struct{ s string }
+
+func (k sortedMapStructKey) MarshalText() ([]byte, error) { return []byte(k.s), nil }
+
+// Keys of texts with invalid UTF-8, whose names are the same once it is replaced, are sorted the same way every
+// time: encoding/json sorts them by their names, and leaves their order to the order of the map.
+func TestEncodeSortedMapInvalidUTF8Keys(t *testing.T) {
+	for _, v := range []any{
+		map[sortedMapNameKey]int{"\xff": 1, "\xfe": 2, "a": 3, "\xc0": 4, "é": 5},
+		map[sortedMapStructKey]int{{"\xff"}: 1, {"\xfe"}: 2, {"a"}: 3, {"\xc0"}: 4, {"é"}: 5},
+	} {
+		first, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for range 200 {
+			if got, _ := json.Marshal(v); string(got) != string(first) {
+				t.Fatalf("%T: got %s and %s", v, first, got)
+			}
+		}
+	}
 }

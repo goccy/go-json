@@ -123,6 +123,10 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return b
 }
 
+// mapKeyFooterLen returns the length of the codes of a color which end the names of the keys written by code: none
+// without colors.
+func mapKeyFooterLen(_ *encoder.RuntimeContext, _ *encoder.Opcode) int { return 0 }
+
 // appendSortedMapKey appends the key of an entry of a sorted map, as it was encoded with a comma after it, and the
 // colon after it.
 func appendSortedMapKey(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key []byte) []byte {

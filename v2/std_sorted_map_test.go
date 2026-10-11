@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -201,5 +202,35 @@ func TestSortedMapKeyNamesSameAsStd(t *testing.T) {
 				t.Fatalf("the stacks which the methods saw:\ngot\n%s\nwant\n%s", g, w)
 			}
 		}
+	}
+}
+
+// stdRawKey and rawKey are keys which write a raw string as their names.
+type stdRawKey struct{ s string }
+
+func (k stdRawKey) MarshalJSONTo(enc *stdjsontext.Encoder) error {
+	return enc.WriteValue(stdjsontext.Value(k.s))
+}
+
+type rawKey struct{ s string }
+
+func (k rawKey) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(k.s))
+}
+
+// A name escaped as a pair of surrogates is sorted by its character, as encoding/json/v2 sorts it. The entries are
+// compared by their order, the values: encoding/json/v2 writes the names otherwise with PreserveRawStrings.
+func TestSortedMapSurrogateNamesSameAsStd(t *testing.T) {
+	names := []string{`"\ud83d\ude00"`, "\"\U00010000\"", `"\ud800\udc01"`, "\"\uffff\"", `"\u00e9"`}
+	stdIn, ourIn := map[stdRawKey]int{}, map[rawKey]int{}
+	for i, name := range names {
+		stdIn[stdRawKey{name}] = i
+		ourIn[rawKey{name}] = i
+	}
+	want, wantErr := stdjson.Marshal(stdIn, stdjson.Deterministic(true), stdjsontext.PreserveRawStrings(true))
+	got, err := json.Marshal(ourIn, json.Deterministic(true), jsontext.PreserveRawStrings(true))
+	values := regexp.MustCompile(`:[0-9]+`)
+	if err != nil || wantErr != nil || fmt.Sprint(values.FindAllString(string(got), -1)) != fmt.Sprint(values.FindAllString(string(want), -1)) {
+		t.Fatalf("got %s %v\nwant %s %v", got, err, want, wantErr)
 	}
 }

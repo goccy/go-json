@@ -89,7 +89,7 @@ func BenchmarkVariant_MapSort(b *testing.B) {
 		b.Run("Insertion/"+strconv.Itoa(n), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				copy(work, keys[i%sets])
-				insertionSortMapItems(work, 0)
+				insertionSortMapItems(&MapContext{layout: &MapLayout{}}, work, 0)
 			}
 		})
 		b.Run("SortFunc/"+strconv.Itoa(n), func(b *testing.B) {

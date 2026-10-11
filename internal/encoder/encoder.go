@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode/utf16"
 	"unicode/utf8"
 	"unsafe"
 
@@ -307,17 +308,21 @@ type Mapslice struct {
 	Items []MapItem
 }
 
-// insertionSortMapItems sorts the items by their keys without the last tail bytes of each: the quote which ends
-// the name, and what follows it.
-func insertionSortMapItems(items []MapItem, tail int) {
+// insertionSortMapItems sorts the items of c by their keys without the last tail bytes of each: the quote which
+// ends the name, and what follows it. The keys of the same name are in the order of their Go keys
+// ( see compareTiedKeys ).
+func insertionSortMapItems(c *MapContext, items []MapItem, tail int) {
 	for i := 1; i < len(items); i++ {
-		if bytes.Compare(items[i-1].Key[:len(items[i-1].Key)-tail], items[i].Key[:len(items[i].Key)-tail]) <= 0 {
-			continue
-		}
 		item := items[i]
 		name := item.Key[:len(item.Key)-tail]
+		if r := bytes.Compare(items[i-1].Key[:len(items[i-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[i-1], item) <= 0 {
+			continue
+		}
 		j := i
-		for ; j > 0 && bytes.Compare(items[j-1].Key[:len(items[j-1].Key)-tail], name) > 0; j-- {
+		for ; j > 0; j-- {
+			if r := bytes.Compare(items[j-1].Key[:len(items[j-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[j-1], item) <= 0 {
+				break
+			}
 			items[j] = items[j-1]
 		}
 		items[j] = item
@@ -326,16 +331,31 @@ func insertionSortMapItems(items []MapItem, tail int) {
 
 // insertionSortMapItemsByNames is insertionSortMapItems for the keys of a map of which one has an escape
 // ( see compareKeyNames ).
-func insertionSortMapItemsByNames(items []MapItem, tail int) {
+func insertionSortMapItemsByNames(c *MapContext, items []MapItem, tail int) {
 	for i := 1; i < len(items); i++ {
 		item := items[i]
 		name := item.Key[:len(item.Key)-tail]
 		j := i
-		for ; j > 0 && compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name) > 0; j-- {
+		for ; j > 0; j-- {
+			if r := compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name); r < 0 || r == 0 && c.compareTiedKeys(items[j-1], item) <= 0 {
+				break
+			}
 			items[j] = items[j-1]
 		}
 		items[j] = item
 	}
+}
+
+// compareTiedKeys compares the entries of two keys of the same name, which the keys of the same text have, or of
+// texts which have invalid UTF-8, replaced in their names: by their Go keys, which the context has, so that a map
+// is encoded the same way every time. encoding/json leaves their order to the order of the map. A key of a string
+// kind is compared by its string, and another one by its bytes, which are the same for the same map.
+func (c *MapContext) compareTiedKeys(a, b MapItem) int {
+	if c.layout.StringKey {
+		return strings.Compare(c.Keys[a.Entry], c.Keys[b.Entry])
+	}
+	n := int(c.layout.keySize)
+	return bytes.Compare(c.RawKeys[a.Entry*n:a.Entry*n+n], c.RawKeys[b.Entry*n:b.Entry*n+n])
 }
 
 // compareKeyNames compares the names of two encoded keys of a map, without the quotes which end them: by their
@@ -360,8 +380,12 @@ func compareKeyNames(a, b []byte) int {
 		// a name which the other one begins with: the other one has more characters.
 		return len(a) - len(b)
 	}
-	if a[k] == '\\' || b[k] == '\\' || bytes.IndexByte(a[max(k-5, 0):k], '\\') >= 0 {
-		// an escape at the byte, or before it, which the byte may be in.
+	// an escape at the byte, or before it, which the byte may be in: the bytes before it are the same in a and b.
+	escaped := a[k] == '\\' || b[k] == '\\'
+	for i := max(k-5, 0); i < k && !escaped; i++ {
+		escaped = a[i] == '\\'
+	}
+	if escaped {
 		return compareEncodedNames(a, b)
 	}
 	return int(a[k]) - int(b[k])
@@ -410,7 +434,14 @@ func nextNameChar(s []byte, buf *[utf8.UTFMax]byte) ([]byte, []byte) {
 		if len(s) < 6 {
 			return s[:1], s[1:]
 		}
-		return buf[:utf8.EncodeRune(buf[:], hexRune(s[2:6]))], s[6:]
+		r := hexRune(s[2:6])
+		if utf16.IsSurrogate(r) && len(s) >= 12 && s[6] == '\\' && s[7] == 'u' {
+			// a character out of the basic plane, as a pair of surrogates.
+			if r := utf16.DecodeRune(r, hexRune(s[8:12])); r != utf8.RuneError {
+				return buf[:utf8.EncodeRune(buf[:], r)], s[12:]
+			}
+		}
+		return buf[:utf8.EncodeRune(buf[:], r)], s[6:]
 	case 'n':
 		buf[0] = '\n'
 	case 'r':
@@ -527,12 +558,13 @@ func (c *MapContext) SortByEncodedKeys() {
 // The keys are sorted by their names, as encoding/json sorts them. A key is its name between quotes, with the codes
 // of a color around it, which are the same for every key: the keys are compared without the quote which ends the
 // name and what follows it, as a space or a '!' comes before the quote, and without the codes of the color which
-// end the name of an integer, which is colored within its quotes ( see colorFooterLen ). When a key has an escape,
+// end the name of an integer, which is colored within its quotes: footer is their length, which the VM finds from
+// the opcode of the keys. When a key has an escape,
 // which is not in the order of its character, the escapes are decoded where the names differ ( see
 // compareKeyNames ). It is not sort.Sort, which
 // calls Less and Swap through an interface for every comparison: the maps to encode are small in most cases, and
 // the sort was a tenth of the time to encode one.
-func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
+func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte, footer int) []byte {
 	c.Buf = append(c.Buf[:0], b[c.First:]...)
 	items := c.Slice.Items
 	start := 0
@@ -546,40 +578,31 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
 	for first[len(first)-tail] != '"' {
 		tail++
 	}
-	if rctx.Option.Flag&ColorizeOption != 0 {
-		tail += colorFooterLen(rctx.Option.ColorScheme, first[:len(first)-tail])
-	}
+	tail += footer
 	switch escaped, many := bytes.IndexByte(c.Buf, '\\') >= 0, len(items) > maxItemsOfInsertionSort; {
 	case escaped && many:
 		// a key with an escape, which is not in the order of its character.
 		slices.SortFunc(items, func(a, b MapItem) int {
-			return compareKeyNames(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
+			if r := compareKeyNames(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail]); r != 0 {
+				return r
+			}
+			return c.compareTiedKeys(a, b)
 		})
 	case escaped:
-		insertionSortMapItemsByNames(items, tail)
+		insertionSortMapItemsByNames(c, items, tail)
 	case many:
 		slices.SortFunc(items, func(a, b MapItem) int {
-			return bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
+			if r := bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail]); r != 0 {
+				return r
+			}
+			return c.compareTiedKeys(a, b)
 		})
 	default:
-		insertionSortMapItems(items, tail)
+		insertionSortMapItems(c, items, tail)
 	}
 	c.Sorted = true
 	rctx.Rewrote(c.First)
 	return b[:c.First]
-}
-
-// colorFooterLen returns the length of the codes of a color which end the name of key, an encoded key of a map
-// without the quote which ends it: an integer is colored within its quotes, so its name is followed by the footer
-// of its format, which is the same for every key of the map, and which is not of the name.
-func colorFooterLen(scheme *ColorScheme, key []byte) int {
-	for _, f := range [...]*ColorFormat{&scheme.Int, &scheme.Uint} {
-		n, h := len(f.Footer), len(f.Header)
-		if len(key) >= 1+h+n && key[0] == '"' && string(key[1:1+h]) == f.Header && string(key[len(key)-n:]) == f.Footer {
-			return n
-		}
-	}
-	return 0
 }
 
 // SortedKeysStart returns where the keys of the sorted map whose keys are being encoded start in the output, which

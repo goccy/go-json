@@ -210,7 +210,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					code = code.Next
 					break
 				}
-				b = mapCtx.SortEncodedKeys(ctx, b)
+				b = mapCtx.SortEncodedKeys(ctx, b, mapKeyFooterLen(ctx, code.Next))
 				idx = 0
 			}
 			if mapCtx.DirectEntries && idx < mapCtx.Len {

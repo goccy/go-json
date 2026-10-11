@@ -183,6 +183,19 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b[:len(b)-2], ':', ' ')
 }
 
+// mapKeyFooterLen returns the length of the codes of a color which end the names of the keys written by code, the
+// first opcode of the keys of a map: an integer is colored within its quotes, so its name is followed by the footer
+// of its format, which is not of the name ( see encoder.MapContext.SortEncodedKeys ).
+func mapKeyFooterLen(ctx *encoder.RuntimeContext, code *encoder.Opcode) int {
+	switch code.Op {
+	case encoder.OpIntString, encoder.OpIntPtrString:
+		return len(ctx.Option.ColorScheme.Int.Footer)
+	case encoder.OpUintString, encoder.OpUintPtrString:
+		return len(ctx.Option.ColorScheme.Uint.Footer)
+	}
+	return 0
+}
+
 // appendSortedMapKey appends the key of an entry of a sorted map, as it was encoded with a comma after it, and the
 // colon after it.
 func appendSortedMapKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key []byte) []byte {

@@ -4,7 +4,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"math"
 	"math/bits"
 	"reflect"
 	"strconv"
@@ -48,11 +47,14 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	ctx := s.ctx
 	ctx.Option = s.Option
 	start := s.offset + s.cursor
-	if s.elements == nil {
-		s.elements = &bracketIndex{}
+	closes := s.elements.closes[:0]
+	if closes == nil {
+		// the entries of the first steps of the lookups ( see indexFirstStep ), which a slice grown from nothing
+		// would take a few allocations for
+		closes = make([]bracketClose, 0, indexFirstStep/4)
 	}
-	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start}
-	s.index = s.elements
+	s.elements = bracketIndex{closes: closes, end: start}
+	s.index = &s.elements
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64
@@ -170,7 +172,10 @@ func (s *Stream) decodeElements(dec Decoder, p unsafe.Pointer, depth int64) (boo
 // decodeNested decodes the value at the cursor, nested in depth objects and arrays, by dec into p: whole if the
 // buffer holds it, and else element by element.
 func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error {
-	end, whole, err := s.elementEnd(depth, 0)
+	if c := s.buf[s.cursor]; c != '{' && c != '[' && s.decodeScalar(dec, p, depth) {
+		return nil
+	}
+	end, whole, err := s.elementEnd(depth)
 	if err != nil {
 		return err
 	}
@@ -185,10 +190,43 @@ func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error 
 	return s.decodeWhole(dec, p, depth, end)
 }
 
+// decodeScalar decodes the value at the cursor, which is not an object or an array, nested in depth objects and
+// arrays, by dec into p from what has been read, if dec decodes a string, a number or a boolean, which it writes
+// only: it reports false if the value doesn't end before the end of what has been read, or has an error, for which
+// the value is read whole and decoded again, which writes what it has to then.
+func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
+	switch dec.(type) {
+	case *stringDecoder, *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, *numberDecoder:
+	default:
+		return false
+	}
+	if s.buf[s.cursor] == '"' {
+		// a string which is read whole, which it is not an error of then
+		if _, _, valid, err := s.scanStringInfo(); err != nil || !valid {
+			return false
+		}
+	}
+	ctx := s.ctx
+	had := ctx.typeError
+	ctx.Buf = s.buf[:s.length+1]
+	ctx.origin = ctx.Buf
+	cursor, err := dec.Decode(ctx, s.cursor, depth, p)
+	ctx.Buf, ctx.origin = nil, nil
+	if err != nil || cursor >= s.length {
+		ctx.typeError = had
+		return false
+	}
+	if had == nil && ctx.typeError != nil {
+		s.keepTypeError(dec)
+	}
+	s.cursor = cursor
+	return true
+}
+
 // wholeEnd returns the position after the object or the array at the cursor, nested in depth objects and arrays,
-// which is read whole although it doesn't end within maxWholeValueSize bytes: its grammar is checked element by element
-// first, keeping its bytes, so that a value which is not valid fails at its error, without the input after it being
-// read, as a value decoded element by element does.
+// which is read whole: its grammar is checked as it is read, keeping its bytes ( see skipNested ), so that a value
+// which is not valid fails at its error, without the input after it being read, as a value decoded element by element
+// does.
 func (s *Stream) wholeEnd(depth int64) (int64, error) {
 	start := s.offset + s.cursor
 	keeps, keepFrom := s.keeps, s.keepFrom
@@ -200,38 +238,31 @@ func (s *Stream) wholeEnd(depth int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	end := s.cursor
 	s.cursor = start - s.offset
-	end, _, err := s.elementEnd(depth, math.MaxInt64)
-	return end, err
+	return end, nil
 }
 
-// elementEnd returns the position after the value at the cursor, nested in depth objects and arrays, reading from the
-// reader as needed. An object or an array is found by the index of the brackets if it ends within limit bytes, and
-// else whole is false; any other value is read whole.
-func (s *Stream) elementEnd(depth, limit int64) (int64, bool, error) {
+// elementEnd returns the position after the value at the cursor, nested in depth objects and arrays. An object or an
+// array is found by the index of the brackets in what has been read, and else whole is false; any other value is read
+// whole.
+func (s *Stream) elementEnd(depth int64) (int64, bool, error) {
 	if c := s.buf[s.cursor]; c != '{' && c != '[' {
-		end, err := s.scanValueUpTo(limit)
+		end, err := s.scanValueUpTo(0)
 		return end, true, err
 	}
 	var rel int
-	for {
+	// the index is extended by steps twice as large as the one before, so that it goes past the end of the element
+	// by its size at most, and as many steps as the doublings of its size are taken
+	for step := int64(indexFirstStep); ; step *= 2 {
 		var end int64
 		var ok bool
 		s.indexFrom(depth)
 		if end, ok, rel = s.index.closeOf(s.offset+s.cursor, depth, rel); ok {
 			return end + 1 - s.offset, true, nil
 		}
-		if s.indexAhead() {
-			continue
-		}
-		if s.length-s.cursor >= limit {
+		if !s.indexAhead(step) {
 			return 0, false, nil
-		}
-		if !s.read() {
-			if err := s.depthError(depth); err != nil {
-				return 0, false, err
-			}
-			return 0, false, s.truncatedValueErrorAt(depth)
 		}
 	}
 }
@@ -284,8 +315,8 @@ func (s *Stream) indexAt(depth int64) {
 // indexFrom makes the index go on from the cursor, where an element nested in depth objects and arrays is: it is
 // extended by the bytes read since it was looked at last, as long as the lookups of the elements went on from it, and
 // else made from the cursor, which a skip of elements left it behind, or which is deeper than the index has its
-// entries. A deeper index is four times as deep as before, so that a value nested deep, which is decoded element by
-// element at every level, has its bytes indexed again a few times only.
+// entries. A deeper index is four times as deep as what it is made for, so that a value nested deep, which is decoded
+// element by element at every level, has its bytes indexed again a few times only.
 func (s *Stream) indexFrom(depth int64) {
 	x := s.index
 	if at := s.offset + s.cursor; x.end < at || x.bound < depth+1 {
@@ -295,20 +326,20 @@ func (s *Stream) indexFrom(depth int64) {
 		}
 		x.closes = x.closes[:n]
 		if x.bound < depth+1 {
-			x.bound = max(depth+1, 4*x.bound)
+			x.bound = 4 * max(depth+1, x.bound)
 		}
 		x.depth, x.inString, x.escaped, x.end = depth, 0, 0, at
 	}
 }
 
-// indexStep is what a lookup of the end of an element indexes at a time, so that the bytes after the element, which a
-// skip of elements may pass without the index, are not indexed for it.
-const indexStep = 2 << 10
+// indexFirstStep is what a lookup of the end of an element indexes first ( see elementEnd ), so that the bytes after
+// the element, which a skip of elements may pass without the index, are not indexed for it: four blocks of the scan.
+const indexFirstStep = 4 * scanBlockSize
 
-// indexAhead extends the index by indexStep bytes of what has been read at most, and reports false if it has all.
-func (s *Stream) indexAhead() bool {
+// indexAhead extends the index by step bytes of what has been read at most, and reports false if it has all.
+func (s *Stream) indexAhead(step int64) bool {
 	x := s.index
-	to := min(x.end-s.offset+indexStep, s.length)
+	to := min(x.end-s.offset+step, s.length)
 	if x.end-s.offset >= to {
 		return false
 	}
@@ -546,10 +577,16 @@ func (s *Stream) nextMember(first bool) ([]byte, stringInfo, int64, bool, error)
 	if s.buf[s.cursor] != '"' {
 		return nil, stringInfo{}, 0, false, s.syntaxError(whereKey)
 	}
-	if _, err := s.scanString(); err != nil {
+	end, info, valid, err := s.scanStringInfo()
+	if err != nil {
 		return nil, stringInfo{}, 0, false, err
 	}
 	start := s.cursor
+	if valid {
+		s.cursor = end
+		return s.buf[start+1 : end-1], info, start, true, nil
+	}
+	// the error of the key
 	key, next, info, err := skipStringDecoder.scanString(s.buf[:s.length+1], start)
 	if next < 0 {
 		key, next, info, err = skipStringDecoder.scanStringRest(s.buf[:s.length+1], key, -next-1, info)
@@ -588,76 +625,149 @@ func (s *Stream) memberValue() error {
 }
 
 // skipNested skips the value at the cursor, nested in depth objects and arrays, which is checked by the grammar, as
-// skipValue does: whole if the buffer holds it, and else element by element.
+// skipValue does, reading from the reader as the value goes on past what has been read: skipFast stops at the end of
+// what has been read, and resumes after the read where it stopped, so that each byte is checked once, before the next
+// read.
 func (s *Stream) skipNested(depth int64) error {
-	if _, whole, err := s.elementEnd(depth, 0); err != nil || whole {
-		if err != nil {
-			return err
-		}
-		next, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
-		if err != nil {
-			return s.elementError(err, depth)
-		}
-		s.cursor = next
-		return nil
+	if c := s.buf[s.cursor]; c != '{' && c != '[' {
+		return s.skipScalar()
 	}
-	object := s.buf[s.cursor] == '{'
-	depth, err := s.openElements(depth)
-	if err != nil {
-		return err
+	if depth >= maxDecodeNestingDepth {
+		return s.totalOffsetError(errors.ErrExceededMaxDepth(s.buf[s.cursor], s.cursor))
 	}
-	for first := true; ; first = false {
-		var ok bool
-		var err error
-		if object {
-			if _, _, _, ok, err = s.nextMember(first); ok {
-				err = s.memberValue()
+	maxLevel := skipMaxLevel(depth)
+	cursor, level, objects, resume := s.cursor, int64(0), uint64(0), resumeValue
+	for {
+		var ev skipEvent
+		cursor, level, objects, resume, ev = skipFast(s.buf[:s.length+1], cursor, level, objects, resume, maxLevel)
+		s.cursor = cursor
+		switch ev {
+		case skipDone:
+			return nil
+		case skipAString, skipANumber:
+			// a string or a number which skipFast leaves to its caller
+			if err := s.skipScalar(); err != nil {
+				return err
 			}
-		} else {
-			ok, err = s.nextElement(first)
-		}
-		if !ok || err != nil {
-			return err
-		}
-		if !object {
-			if run, err := s.skipRun(depth); run || err != nil {
-				if err != nil {
-					return err
-				}
-				continue
+		case skipDeep:
+			if err := s.skipNested(depth + level); err != nil {
+				return err
+			}
+			resume = resumeAfterValue
+		default:
+			var err error
+			if level, resume, err = s.skipResume(level, objects, resume); err != nil || level == 0 {
+				return err
 			}
 		}
-		if err := s.skipNested(depth); err != nil {
-			return err
-		}
+		cursor = s.cursor
 	}
 }
 
-// skipRun skips the elements of the array from the one at the cursor which the buffer holds whole, which are checked
-// by the grammar, and leaves the cursor after the last one. It reports false, having moved nothing, if there are none.
-// The elements are nested in depth objects and arrays.
-func (s *Stream) skipRun(depth int64) (bool, error) {
-	buf := s.buf[:s.length+1]
-	cursor, skipped := s.cursor, false
-	for {
-		next, err := skipValue(buf, cursor, depth)
-		if err != nil || next >= s.length {
-			// an element which the buffer may hold a part of only, or invalid: it is skipped by skipNested, which
-			// reads for it
-			if err != nil && !errors.IsAtEnd(err) && !skipped {
-				return true, s.elementError(err, depth)
-			}
-			return skipped, nil
+// skipScalar skips the value at the cursor, which is not an object or an array, as skipValue does: one which is whole
+// and valid in what has been read is skipped by one scan, and any other is read whole first.
+func (s *Stream) skipScalar() error {
+	switch c := s.buf[s.cursor]; {
+	case c == '"':
+		end, _, valid, err := s.scanStringInfo()
+		if err != nil {
+			return err
 		}
-		s.cursor, skipped = next, true
-		if c := skipWhiteSpace(buf, next); buf[c] == ',' {
-			if c = skipWhiteSpace(buf, c+1); c < s.length {
-				cursor = c
-				continue
-			}
+		if valid {
+			s.cursor = end
+			return nil
 		}
-		return true, nil
+	case c == '-' || c-'0' <= 9:
+		// a number which a byte after it ends
+		if n, place := jsonnum.Scan(s.buf[s.cursor:s.length]); place == jsonnum.Valid && s.cursor+int64(n) < s.length {
+			s.cursor += int64(n)
+			return nil
+		}
+		if _, err := s.scanLiteral(); err != nil {
+			return err
+		}
+	default:
+		if lit := literalOf(c); lit != "" && s.length-s.cursor >= int64(len(lit)) && string(s.buf[s.cursor:s.cursor+int64(len(lit))]) == lit {
+			s.cursor += int64(len(lit))
+			return nil
+		}
+		if _, err := s.scanValueUpTo(0); err != nil {
+			return err
+		}
 	}
+	next, err := skipValue(s.buf[:s.length+1], s.cursor, 0)
+	if err != nil {
+		return s.elementError(err, 0)
+	}
+	s.cursor = next
+	return nil
+}
+
+// skipResume does what skipFast stopped at the cursor for, in the state resume, with level objects and arrays open
+// whose kinds are the bits of objects: a byte which the grammar doesn't have there, whose syntax error it returns, or
+// the end of what has been read, for which it reads, and returns the level and the state which skipFast resumes in at
+// the cursor then. The level is 0 after the end of the value.
+func (s *Stream) skipResume(level int64, objects uint64, resume skipResume) (int64, skipResume, error) {
+	if s.cursor < s.length {
+		lit := literalOf(s.buf[s.cursor])
+		if n := s.length - s.cursor; resume != resumeValue || n >= int64(len(lit)) || string(s.buf[s.cursor:s.length]) != lit[:n] {
+			s.fillLastChar()
+			return 0, 0, s.grammarError(skipFastError(s.buf[:s.length+1], s.cursor, level, objects, resume))
+		}
+		// true, false or null which what has been read cuts
+		if !s.read() {
+			return 0, 0, s.unexpectedEndError()
+		}
+		return level, resume, nil
+	}
+	switch resume {
+	case resumeAfterValue:
+		if s.cursor == 0 || s.buf[s.cursor-1]-'0' > 9 {
+			break
+		}
+		// an integer, which the next bytes may go on: it is read whole
+		for s.cursor > 0 && isNumberByte(s.buf[s.cursor-1]) {
+			s.cursor--
+		}
+		return level, resume, s.skipScalar()
+	case resumeValue, resumeKey:
+		// a value or a key, after the white space after a bracket, a comma or a colon: the end of the object or the
+		// array may follow its bracket only, and the key is skipped here, as skipFast doesn't resume at it
+		open := s.cursor - 1
+		for open > 0 && isWhiteSpace[s.buf[open]] {
+			open--
+		}
+		closing := byte(0)
+		switch s.buf[open] {
+		case '[':
+			closing = ']'
+		case '{':
+			closing = '}'
+		}
+		if !s.skipWhiteSpace() {
+			return 0, 0, s.unexpectedEndError()
+		}
+		switch c := s.buf[s.cursor]; {
+		case c == closing:
+			s.cursor++
+			return level - 1, resumeAfterValue, nil
+		case resume == resumeKey && c == '"':
+			return level, resumeAfterKey, s.skipScalar()
+		case resume == resumeKey:
+			s.fillLastChar()
+			return 0, 0, s.grammarError(skipFastError(s.buf[:s.length+1], s.cursor, level, objects, resume))
+		}
+		return level, resume, nil
+	}
+	if !s.read() {
+		return 0, 0, s.unexpectedEndError()
+	}
+	return level, resume, nil
+}
+
+// isNumberByte reports whether c is a byte of a number.
+func isNumberByte(c byte) bool {
+	return c-'0' <= 9 || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-'
 }
 
 // decodeStructElements decodes the object at the cursor into the struct at p, as structDecoder.Decode does.
@@ -696,7 +806,10 @@ func (s *Stream) decodeStructElements(d *structDecoder, p unsafe.Pointer, depth 
 				}
 				return s.restAfter(err, true, depth)
 			}
-			inputName = append(arr[:0], decodedKey...)
+			if field != nil {
+				// the name of the step of a type error of the value, which a read may overwrite in the buffer
+				inputName = append(arr[:0], decodedKey...)
+			}
 		}
 		unsettable := field != nil && field.unsettable(p)
 		if seen != nil && field != nil && !unsettable {

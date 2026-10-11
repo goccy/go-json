@@ -67,7 +67,8 @@ type Stream struct {
 	// index is where the objects and the arrays of the value which is decoded element by element end, which the
 	// lookups extend ( see indexAt ). It is nil while no value is decoded so, and else elements, whose entries are
 	// kept for the next value, which allocates them no more.
-	index, elements *bracketIndex
+	index    *bracketIndex
+	elements bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -145,9 +146,9 @@ func (s *Stream) grow() {
 	buf := s.buf
 	x := s.index
 	if x != nil {
-		// the buffer of a value decoded element by element grows twice as large up to elementReadSize, so that a value
+		// the buffer of a value decoded element by element grows four times as large up to elementReadSize, so that a value
 		// is read by large reads, which bring what the reader has, without waiting for more
-		size = max(size, min(2*(int64(len(buf))-bufPadding), elementReadSize))
+		size = max(size, min(4*(int64(len(buf))-bufPadding), elementReadSize))
 	}
 	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
 		buf = make([]byte, size+bufPadding)
@@ -208,15 +209,22 @@ func (s *Stream) unexpectedEndError() error {
 // skipWhiteSpace moves the cursor to the next byte which is not white space.
 // It returns false when the reader has nothing more.
 func (s *Stream) skipWhiteSpace() bool {
+	// a byte which is not white space, as the tokens of most values are not separated by any, without a call
+	if s.cursor < s.length && !isWhiteSpace[s.buf[s.cursor]] {
+		return true
+	}
+	return s.skipWhiteSpaceRest()
+}
+
+// skipWhiteSpaceRest is skipWhiteSpace for white space at the cursor, or the end of what has been read.
+func (s *Stream) skipWhiteSpaceRest() bool {
 	for {
-		if !s.fill() {
-			return false
-		}
-		switch s.buf[s.cursor] {
-		case ' ', '\n', '\t', '\r':
-			s.cursor++
-		default:
+		// the nul byte at the end of what has been read stops the skip
+		if s.cursor = skipWhiteSpace(s.buf, s.cursor); s.cursor < s.length {
 			return true
+		}
+		if !s.read() {
+			return false
 		}
 	}
 }
@@ -302,7 +310,9 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 		if found {
 			return pos, nil
 		}
-		if pos-s.cursor >= limit {
+		if _, inMemory := s.r.(interface{ Len() int }); pos-s.cursor >= limit && !inMemory {
+			// a reader which tells its length has the input in memory, which is read whole at once ( see grow ),
+			// without a wait
 			return 0, errLongValue
 		}
 		// a value which doesn't end in what has been read ends at a control character in a string of it, which a
@@ -366,40 +376,56 @@ func stringState(buf []byte, pos, end int64, inString, escaped bool) (bool, bool
 // control character or the byte of an escape which is not one, which a string can't have: the decoder reports it, and
 // the input after it is not read.
 func (s *Stream) scanString() (int64, error) {
+	end, _, _, err := s.scanStringInfo()
+	return end, err
+}
+
+// scanStringInfo is scanString which also returns what the string has, as stringDecoder.scanString does, and whether
+// it ends at its quote, and is valid then.
+func (s *Stream) scanStringInfo() (int64, stringInfo, bool, error) {
 	var (
 		rel     int64 = 1 // after the opening quote
 		escaped bool
 		// hex is the number of the hexadecimal digits of a \u escape which are not read yet
 		hex int
+		// high has the high bits of the bytes, and firstEscape is the offset of the first backslash in the string
+		high        uint64
+		firstEscape int64 = -1
 	)
 	for {
 		buf := s.buf
 		pos := s.cursor + rel
 		end := s.length
-		for pos+8 <= end && !escaped && hex == 0 {
-			stop := keyEndBytes(load64(buf, pos))
+		// the words of the bytes up to a quote, a backslash or a control character, which the nul byte at the end of
+		// what has been read is
+		for pos+8 <= int64(len(buf)) && !escaped && hex == 0 {
+			w := load64(buf, pos)
+			stop := keyEndBytes(w)
 			if stop == 0 {
+				high |= w
 				pos += 8
 				continue
 			}
 			// a quote, a backslash or a control character
-			pos += int64(bits.TrailingZeros64(stop) / 8)
-			if buf[pos] == '"' {
-				return pos + 1, nil
+			i := bits.TrailingZeros64(stop) / 8
+			high |= w & (1<<(uint(i)*8&63) - 1)
+			if pos += int64(i); pos < end && buf[pos] == '"' {
+				return pos + 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, true, nil
 			}
 			break
 		}
 		lim := min(pos+8, end)
 		for pos < lim {
 			c := buf[pos]
+			high |= uint64(c)
 			pos++
 			switch {
 			case c < ' ':
-				return pos, nil
+				return pos, stringInfo{}, false, nil
 			case hex > 0:
 				// an escape which is not one ends the string, so that the decoder reports it
 				if !isHexDigit(c) {
-					return pos, nil
+					return pos, stringInfo{}, false, nil
 				}
 				hex--
 			case escaped:
@@ -409,12 +435,15 @@ func (s *Stream) scanString() (int64, error) {
 					hex = 4
 				case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
 				default:
-					return pos, nil
+					return pos, stringInfo{}, false, nil
 				}
 			case c == '\\':
 				escaped = true
+				if firstEscape < 0 {
+					firstEscape = pos - 1 - (s.cursor + 1)
+				}
 			case c == '"':
-				return pos, nil
+				return pos, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, true, nil
 			}
 		}
 		rel = pos - s.cursor
@@ -422,7 +451,7 @@ func (s *Stream) scanString() (int64, error) {
 			continue
 		}
 		if !s.read() {
-			return 0, s.truncatedValueError()
+			return 0, stringInfo{}, false, s.truncatedValueError()
 		}
 	}
 }

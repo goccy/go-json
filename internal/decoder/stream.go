@@ -65,10 +65,9 @@ type Stream struct {
 	keeps    bool
 	keepFrom int64
 	// index is where the objects and the arrays of the value which is decoded element by element end, which the
-	// reads extend ( see scanFailed ). It is nil while no value is decoded so, and else elements, whose entries are
+	// lookups extend ( see indexAt ). It is nil while no value is decoded so, and else elements, whose entries are
 	// kept for the next value, which allocates them no more.
-	index    *bracketIndex
-	elements bracketIndex
+	index, elements *bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -115,9 +114,6 @@ func (s *Stream) read() bool {
 		s.grow()
 	}
 	n, err := s.r.Read(s.buf[s.length : int64(len(s.buf))-bufPadding])
-	if s.index != nil {
-		s.indexRead(n)
-	}
 	s.length += int64(n)
 	s.buf[s.length] = nul
 	if err != nil {
@@ -147,15 +143,16 @@ func (s *Stream) grow() {
 		size = remain + int64(r.Len())
 	}
 	buf := s.buf
-	if x := s.index; x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding ||
-		(s.Option.Flags&NoCopyStringOption) != 0 {
-		if x != nil {
-			// the buffer of a value decoded element by element, whose strings are copied, which nothing refers to
-			// but them: it is reused in place, and grows twice as large up to the reads which a long value deserves
-			size = max(size, min(2*size, elementReadSize))
-		}
+	x := s.index
+	if x != nil {
+		// the buffer of a value decoded element by element grows twice as large up to elementReadSize, so that a value
+		// is read by large reads, which bring what the reader has, without waiting for more
+		size = max(size, min(2*(int64(len(buf))-bufPadding), elementReadSize))
+	}
+	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
 		buf = make([]byte, size+bufPadding)
 		if x != nil {
+			// whose strings are copied, which nothing refers to but them: it is reused in place
 			x.buf = unsafe.SliceData(buf)
 		}
 	}

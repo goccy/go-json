@@ -48,9 +48,11 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	ctx := s.ctx
 	ctx.Option = s.Option
 	start := s.offset + s.cursor
-	s.elements = bracketIndex{closes: s.elements.closes[:0]}
-	s.index = &s.elements
-	s.indexDeeper(0)
+	if s.elements == nil {
+		s.elements = &bracketIndex{}
+	}
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start}
+	s.index = s.elements
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64
@@ -215,8 +217,12 @@ func (s *Stream) elementEnd(depth, limit int64) (int64, bool, error) {
 	for {
 		var end int64
 		var ok bool
+		s.indexFrom(depth)
 		if end, ok, rel = s.index.closeOf(s.offset+s.cursor, depth, rel); ok {
 			return end + 1 - s.offset, true, nil
+		}
+		if s.indexAhead() {
+			continue
 		}
 		if s.length-s.cursor >= limit {
 			return 0, false, nil
@@ -244,6 +250,8 @@ type bracketIndex struct {
 	depth int64
 	// bound is the depth of the deepest brackets indexed: the depth of the closes ( see bracketClose ).
 	bound int64
+	// end is the total offset up to which what has been read is indexed.
+	end int64
 	// next is the first entry which closeOf looks at: the values are looked up in the order of the input.
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
@@ -264,28 +272,49 @@ type bracketClose struct {
 	at, depth int64
 }
 
-// indexRead extends the index by the n bytes which a read put after the data. It is not inlined, so that read keeps
-// the size it had.
-//
-//go:noinline
-func (s *Stream) indexRead(n int) {
-	s.index.extend(s.buf, s.length, s.length+int64(n), s.offset)
+// indexAt makes the index have what has been read from the cursor, where an element nested in depth objects and
+// arrays is ( see indexFrom ).
+func (s *Stream) indexAt(depth int64) {
+	s.indexFrom(depth)
+	x := s.index
+	x.extend(s.buf, x.end-s.offset, s.length, s.offset)
+	x.end = s.offset + s.length
 }
 
-// indexDeeper makes the index have the elements of the object or the array at the cursor, which is nested in depth
-// objects and arrays: the bytes read from it are indexed again, to the depth of its elements or four times the depth
-// of before, so that a value nested deep, which is decoded element by element at every level, has its bytes indexed
-// again a few times only.
-func (s *Stream) indexDeeper(depth int64) {
+// indexFrom makes the index go on from the cursor, where an element nested in depth objects and arrays is: it is
+// extended by the bytes read since it was looked at last, as long as the lookups of the elements went on from it, and
+// else made from the cursor, which a skip of elements left it behind, or which is deeper than the index has its
+// entries. A deeper index is four times as deep as before, so that a value nested deep, which is decoded element by
+// element at every level, has its bytes indexed again a few times only.
+func (s *Stream) indexFrom(depth int64) {
 	x := s.index
-	at := s.offset + s.cursor
-	n := len(x.closes)
-	for n > x.next && x.closes[n-1].at > at {
-		n--
+	if at := s.offset + s.cursor; x.end < at || x.bound < depth+1 {
+		n := len(x.closes)
+		for n > x.next && x.closes[n-1].at > at {
+			n--
+		}
+		x.closes = x.closes[:n]
+		if x.bound < depth+1 {
+			x.bound = max(depth+1, 4*x.bound)
+		}
+		x.depth, x.inString, x.escaped, x.end = depth, 0, 0, at
 	}
-	x.closes = x.closes[:n]
-	x.depth, x.bound, x.inString, x.escaped = depth, max(depth+2, 4*x.bound), 0, 0
-	x.extend(s.buf, s.cursor, s.length, s.offset)
+}
+
+// indexStep is what a lookup of the end of an element indexes at a time, so that the bytes after the element, which a
+// skip of elements may pass without the index, are not indexed for it.
+const indexStep = 2 << 10
+
+// indexAhead extends the index by indexStep bytes of what has been read at most, and reports false if it has all.
+func (s *Stream) indexAhead() bool {
+	x := s.index
+	to := min(x.end-s.offset+indexStep, s.length)
+	if x.end-s.offset >= to {
+		return false
+	}
+	x.extend(s.buf, x.end-s.offset, to, s.offset)
+	x.end = s.offset + to
+	return true
 }
 
 // extend indexes buf[from:to], whose first byte is at the total offset offset.
@@ -539,10 +568,6 @@ func (s *Stream) openElements(depth int64) (int64, error) {
 	if depth >= maxDecodeNestingDepth {
 		return 0, s.totalOffsetError(errors.ErrExceededMaxDepth(s.buf[s.cursor], s.cursor))
 	}
-	if s.index.bound < depth+2 {
-		// the elements are looked up in the index ( see elementEnd )
-		s.indexDeeper(depth)
-	}
 	s.cursor++
 	return depth + 1, nil
 }
@@ -571,7 +596,7 @@ func (s *Stream) skipNested(depth int64) error {
 		}
 		next, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
 		if err != nil {
-			return s.grammarError(err)
+			return s.elementError(err, depth)
 		}
 		s.cursor = next
 		return nil
@@ -594,9 +619,44 @@ func (s *Stream) skipNested(depth int64) error {
 		if !ok || err != nil {
 			return err
 		}
+		if !object {
+			if run, err := s.skipRun(depth); run || err != nil {
+				if err != nil {
+					return err
+				}
+				continue
+			}
+		}
 		if err := s.skipNested(depth); err != nil {
 			return err
 		}
+	}
+}
+
+// skipRun skips the elements of the array from the one at the cursor which the buffer holds whole, which are checked
+// by the grammar, and leaves the cursor after the last one. It reports false, having moved nothing, if there are none.
+// The elements are nested in depth objects and arrays.
+func (s *Stream) skipRun(depth int64) (bool, error) {
+	buf := s.buf[:s.length+1]
+	cursor, skipped := s.cursor, false
+	for {
+		next, err := skipValue(buf, cursor, depth)
+		if err != nil || next >= s.length {
+			// an element which the buffer may hold a part of only, or invalid: it is skipped by skipNested, which
+			// reads for it
+			if err != nil && !errors.IsAtEnd(err) && !skipped {
+				return true, s.elementError(err, depth)
+			}
+			return skipped, nil
+		}
+		s.cursor, skipped = next, true
+		if c := skipWhiteSpace(buf, next); buf[c] == ',' {
+			if c = skipWhiteSpace(buf, c+1); c < s.length {
+				cursor = c
+				continue
+			}
+		}
+		return true, nil
 	}
 }
 
@@ -831,6 +891,7 @@ func (t *sliceTarget) finish(n int, err error) {
 // read. It returns the number of the elements decoded with idx, and leaves the cursor after the last one. The
 // elements of the array are nested in depth objects and arrays.
 func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
+	s.indexAt(depth)
 	end, ok := s.index.lastElementClose(s.offset+s.cursor, depth)
 	if !ok {
 		return idx, nil

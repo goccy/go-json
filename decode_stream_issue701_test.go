@@ -66,7 +66,7 @@ func TestDecodeStreamIssue701(t *testing.T) {
 		{"array", `[{"name":"alice` + "\n" + lines, len(`[{"name":"alice`)},
 		{"later record", rec + "\n" + `{"name":"bob` + "\n" + lines, len(rec + "\n" + `{"name":"bob`)},
 		// a string which ends at the next quote, after which the grammar fails: it has no control character, and
-		// the value is read until its brackets balance, here the end of the input, as master reads it
+		// the value is read until its brackets balance, here the end of the input
 		{"minified", `{"name":"alice` + strings.Repeat(rec, 50000), -1},
 	} {
 		for _, target := range targets {

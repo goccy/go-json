@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	json "github.com/goccy/go-json"
 )
@@ -107,7 +108,7 @@ func TestDecodeSliceBufferGrowth(t *testing.T) {
 	b.WriteByte(']')
 	in := []byte(b.String())
 	var v []int64
-	// the first decoding fills the pools
+	// the first decoding compiles the decoder
 	if err := json.Unmarshal(in, &v); err != nil {
 		t.Fatal(err)
 	}
@@ -126,5 +127,47 @@ func TestDecodeSliceBufferGrowth(t *testing.T) {
 	sliceSize := uint64(n * 8)
 	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > uint64(len(in))+4*sliceSize {
 		t.Fatalf("%d bytes allocated for a slice of %d bytes from %d bytes", allocated, sliceSize, len(in))
+	}
+}
+
+// A slice decoded after a failed decoding of a longer one keeps no more room than its own elements need: the buffer of
+// the longer one, which the pool keeps, is copied from.
+func TestDecodeSliceRoomAfterLongerSlice(t *testing.T) {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i := 0; i < 1<<20; i++ {
+		b.WriteString(strconv.Itoa(i) + ",")
+	}
+	b.WriteString("x]")
+	var long []int
+	if err := json.Unmarshal([]byte(b.String()), &long); err == nil {
+		t.Fatal("no error")
+	}
+	short := "[" + strings.TrimSuffix(strings.Repeat("1,", 70), ",") + "]"
+	var v []int
+	if err := json.Unmarshal([]byte(short), &v); err != nil {
+		t.Fatal(err)
+	}
+	if len(v) != 70 || cap(v) > 3*70 {
+		t.Fatalf("len %d cap %d", len(v), cap(v))
+	}
+}
+
+// A truncated value of a reader which tells it has nothing left, as a bytes.Buffer which may be written to later, ends
+// with the end of its input, whatever the size of the value.
+func TestDecodeStreamTruncatedValueOfLenReader(t *testing.T) {
+	for _, in := range []string{"[" + strings.Repeat("1,", 300), `"` + strings.Repeat("a", 2000), `{"a":` + strings.Repeat(`"b",`, 500)} {
+		for _, r := range []io.Reader{bytes.NewBufferString(in), strings.NewReader(in), bytes.NewReader([]byte(in))} {
+			done := make(chan error, 1)
+			go func() { done <- json.NewDecoder(r).Decode(new(any)) }()
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatalf("%.10q from %T: no error", in, r)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatalf("%.10q from %T: Decode doesn't end", in, r)
+			}
+		}
 	}
 }

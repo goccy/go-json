@@ -114,9 +114,11 @@ func (d *sliceDecoder) decodeLong(ctx *RuntimeContext, cursor, depth int64, dst 
 		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
 		case ']':
-			if dst.cap < idx+1 {
+			if dst.cap < idx+1 && elems.hdr.cap < 3*(idx+1) {
 				// the buffer becomes the slice, which has no room for the elements, instead of a copy of them: a long
-				// slice is not allocated twice, and the pool doesn't keep a buffer of its size
+				// slice is not allocated twice, and the pool doesn't keep a buffer of its size. A buffer which the
+				// pool had from a longer slice, more than the doubling up to the elements ( with the rounding of its
+				// size ) leaves, is copied from instead, so that the slice keeps no more room than that.
 				*dst = elems.hdr
 				dst.len = idx + 1
 				elems.hdr = sliceHeader{}

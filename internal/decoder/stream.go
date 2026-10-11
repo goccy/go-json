@@ -135,9 +135,10 @@ func (s *Stream) grow() {
 		// strings.Reader, bytes.Buffer ), which a value can't go past, grows it four times as large, or to
 		// inMemoryReadSize, up to that, so that a large value is copied fewer times, and a small one once, without a
 		// copy of the whole input for it.
-		if r, ok := s.r.(interface{ Len() int }); ok {
+		if r, ok := s.r.(interface{ Len() int }); ok && r.Len() > 0 {
 			size = max(min(max(4*size, inMemoryReadSize), remain+int64(r.Len())), size)
 		} else {
+			// a reader which has nothing left now, as a bytes.Buffer, may be written to later: the buffer has room
 			size *= 2
 		}
 	}
@@ -273,6 +274,10 @@ func (s *Stream) scanCompound() (int64, error) {
 			return 0, s.totalOffsetError(err)
 		}
 		if found {
+			if s.buf[pos-1] < ' ' {
+				// a control character in a string, which ends the value ( see compoundScanner.scan )
+				return s.escapeWindowEnd(pos), nil
+			}
 			return pos, nil
 		}
 		rel = pos - s.cursor
@@ -280,6 +285,25 @@ func (s *Stream) scanCompound() (int64, error) {
 			return 0, s.truncatedValueError()
 		}
 	}
+}
+
+// escapeWindowEnd returns end, the position after a control character in a string which ends the value at the cursor
+// there, once the buffer holds the bytes which the error of an escape the character is in shows: a \u escape is shown
+// with its four bytes after the u, as the value read at once shows it. They are a few bytes after the character, read
+// on as the reader has them.
+func (s *Stream) escapeWindowEnd(end int64) int64 {
+	// the backslash of a \u escape whose hexadecimal digits before the character are all there are
+	b := end - 2
+	for b > s.cursor && end-1-b <= 5 && isHexDigit(s.buf[b]) {
+		b--
+	}
+	if b-1 < s.cursor || s.buf[b] != 'u' || s.buf[b-1] != '\\' {
+		return end
+	}
+	rel, window := end-s.cursor, b-1+6-s.cursor
+	for s.length-s.cursor < window && s.read() {
+	}
+	return s.cursor + rel
 }
 
 // controlByte returns the position of the first control character in buf[pos:end], or -1.
@@ -303,6 +327,8 @@ func (s *Stream) scanString() (int64, error) {
 	var (
 		rel     int64 = 1 // after the opening quote
 		escaped bool
+		// checked is the position, relative to the cursor, up to which the string is checked for a control character
+		checked int64 = 1
 	)
 	for {
 		buf := s.buf
@@ -337,10 +363,11 @@ func (s *Stream) scanString() (int64, error) {
 		}
 		// a string which doesn't end in what has been read ends at a control character, which it can't have: the
 		// decoder reports it, and the input after it is not read
-		if c := controlByte(buf, s.cursor+rel, pos); c >= 0 {
-			return c + 1, nil
+		if c := controlByte(buf, s.cursor+checked, pos); c >= 0 {
+			return s.escapeWindowEnd(c + 1), nil
 		}
 		rel = pos - s.cursor
+		checked = rel
 		if !s.read() {
 			return 0, s.truncatedValueError()
 		}

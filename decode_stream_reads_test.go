@@ -155,3 +155,56 @@ func TestDecodeStreamNoWaitAfterValue(t *testing.T) {
 	}
 	_ = w.Close()
 }
+
+// chunkedReader reads data by chunks of at most size bytes, and counts the bytes read.
+type chunkedReader struct {
+	data string
+	size int
+	n    int
+}
+
+func (r *chunkedReader) Read(p []byte) (int, error) {
+	if r.n == len(r.data) {
+		return 0, io.EOF
+	}
+	n := copy(p[:min(len(p), r.size)], r.data[r.n:])
+	r.n += n
+	return n, nil
+}
+
+// A control character of a string at the top fails within the read which brings it, wherever the escapes before it
+// are in that read.
+func TestDecodeStreamTopStringControlBeforeEscape(t *testing.T) {
+	rest := strings.Repeat("z", 1<<20)
+	for _, in := range []string{"\"ab\n\\\\cd" + rest + "\"", "\"ab\n\\\\cd" + rest, "\"\\\\\n\\\\" + rest} {
+		for _, size := range []int{1, 16, 4096} {
+			r := &chunkedReader{data: in, size: size}
+			var v string
+			if err := json.NewDecoder(r).Decode(&v); err == nil {
+				t.Fatalf("%.10q by %d: no error", in, size)
+			}
+			if r.n > 4+size {
+				t.Fatalf("%.10q by %d: %d bytes read", in, size, r.n)
+			}
+			// Token reads a string so too
+			r = &chunkedReader{data: in, size: size}
+			if _, err := json.NewDecoder(r).Token(); err == nil || r.n > 4+size {
+				t.Fatalf("%.10q by %d: Token %v after %d bytes", in, size, err, r.n)
+			}
+		}
+	}
+}
+
+// A control character in a \u escape is the error which the input read at once has, which shows the bytes of the
+// escape after it.
+func TestDecodeStreamControlInEscape(t *testing.T) {
+	for _, in := range []string{"[\"\\u0\n0e9\"]", "{\"a\":\"\\u12\x0134\"}", "\"\\u\x01000\"", "{\"\\u1\n23\":1}", "[\"\\u0\n"} {
+		want := json.Unmarshal([]byte(in), new(any))
+		for _, size := range []int{1, 2, 4096} {
+			got := json.NewDecoder(&chunkedReader{data: in, size: size}).Decode(new(any))
+			if want == nil || got == nil || got.Error() != want.Error() {
+				t.Fatalf("%q by %d: got %v, want %v", in, size, got, want)
+			}
+		}
+	}
+}

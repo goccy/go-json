@@ -190,18 +190,28 @@ func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error 
 }
 
 // decodeScalar decodes the value at the cursor, which is not an object or an array, nested in depth objects and
-// arrays, by dec into p from what has been read, if dec decodes a string, a number or a boolean, which it writes
-// only: it reports false if the value doesn't end before the end of what has been read, or has an error, for which
-// the value is read whole and decoded again, which writes what it has to then.
+// arrays, by dec into p from what has been read, if dec decodes a string, a number or a boolean, without the steps of
+// decodeWhole: it reports false, having written nothing, if the value doesn't end before the end of what has been
+// read, or has an error, which decodeWhole reports.
 func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 	switch dec.(type) {
 	case *stringDecoder, *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, *numberDecoder:
 	default:
 		return false
 	}
-	if s.buf[s.cursor] == '"' {
-		// a string which is read whole, which it is not an error of then
+	// the value is decoded only when it is whole, so that the decoder writes nothing of a part of it
+	switch c := s.buf[s.cursor]; {
+	case c == '"':
 		if _, _, valid, err := s.scanStringInfo(); err != nil || !valid {
+			return false
+		}
+	case c == '-' || c-'0' <= 9:
+		// a number which a byte after it ends
+		if n, place := jsonnum.Scan(s.buf[s.cursor:s.length]); place != jsonnum.Valid || s.cursor+int64(n) >= s.length {
+			return false
+		}
+	default:
+		if lit := literalOf(c); lit == "" || s.length-s.cursor < int64(len(lit)) {
 			return false
 		}
 	}

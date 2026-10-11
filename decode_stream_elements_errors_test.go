@@ -238,6 +238,20 @@ func TestDecodeStreamElementsSliceAfterError(t *testing.T) {
 	}
 }
 
+// A number which a read cuts is decoded once it is whole: its first digits are not written to the field, which the
+// type error of the whole number leaves as it was.
+func TestDecodeStreamElementsCutNumber(t *testing.T) {
+	pad := strings.Repeat(" ", 70000)
+	in := `{"A":1,` + pad + `"X":1e400,"B":2}`
+	type target struct{ A, X, B int }
+	var whole, chunked target
+	werr := json.NewDecoder(bytes.NewReader([]byte(in))).Decode(&whole)
+	cerr := json.NewDecoder(&chunkReader{data: []byte(in), chunk: 1}).Decode(&chunked)
+	if werr == nil || cerr == nil || werr.Error() != cerr.Error() || whole != chunked {
+		t.Fatalf("got %+v, %v, want %+v, %v", chunked, cerr, whole, werr)
+	}
+}
+
 // An input which ends in an integer of a value which is skipped, or read whole, ends unexpectedly, whatever the reads:
 // the integer which a read cuts is read on, and the end of the input after it is the error.
 func TestDecodeStreamElementsEndInInteger(t *testing.T) {

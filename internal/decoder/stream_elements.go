@@ -52,9 +52,6 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	s.index = &bracketIndex{}
 	s.indexDeeper(0)
 	decoded, err := s.decodeElements(dec, p, 0)
-	if err != nil {
-		err = s.valueEndError(err, start)
-	}
 	s.index = nil
 	if !decoded {
 		var end int64
@@ -83,33 +80,45 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	return nil
 }
 
-// valueEndError returns the error of Decode for the error err of the decoding of the value which starts at the total
-// offset start: an error which is not one of the grammar or of the input is returned when the value ends, as the
-// decoding of a value read whole returns it, which reads the value first; the end of the input before it is the error
-// else.
-func (s *Stream) valueEndError(err error, start int64) error {
+// restAfter returns the error of Decode for err, the error of a member or an element of the object, if object is set,
+// or the array which has the cursor after it, nested in depth objects and arrays: a syntax error or the end of the
+// input as it is, and any other error once the rest of the object or the array is read, as a value read whole is read
+// before its error is returned, whose syntax error or end is the error then.
+func (s *Stream) restAfter(err error, object bool, depth int64) error {
 	if _, ok := err.(*errors.SyntaxError); ok || err == io.ErrUnexpectedEOF || err == s.readErr {
 		return err
 	}
-	// the error is after a key or a value, out of a string
-	if controlInString(s.buf, s.cursor, s.length, false, false) >= 0 {
-		return err
-	}
 	for {
-		if _, ok, _ := s.index.closeOf(start, 0, 0); ok {
+		var ok bool
+		var rerr error
+		if object {
+			if _, _, _, ok, rerr = s.nextMember(false); ok {
+				rerr = s.memberValue()
+			}
+		} else {
+			ok, rerr = s.nextElement(false)
+		}
+		if rerr != nil {
+			return rerr
+		}
+		if !ok {
 			return err
 		}
-		// what has been read is not needed: it is dropped, and the end of a string which doesn't end is its control
-		// character ( see scanCompound )
-		inString, escaped := s.index.inString != 0, s.index.escaped != 0
-		s.cursor = s.length
-		if !s.read() {
-			return s.unexpectedEndError()
-		}
-		if s.index.inString != 0 && controlInString(s.buf, s.cursor, s.length, inString, escaped) >= 0 {
-			return err
+		if rerr = s.skipNested(depth); rerr != nil {
+			return rerr
 		}
 	}
+}
+
+// skipAfter returns the error of the decoding of the value at the cursor, nested in depth objects and arrays, which is
+// whole in the buffer, and moves the cursor after it: a syntax error of the value first, as for a value read whole.
+func (s *Stream) skipAfter(err error, depth int64) error {
+	next, serr := skipValue(s.buf[:s.length+1], s.cursor, depth)
+	if serr != nil {
+		return s.elementError(serr, depth)
+	}
+	s.cursor = next
+	return s.totalOffsetError(err)
 }
 
 // decodeElements decodes the object or the array at the cursor, nested in depth objects and arrays, by dec into p
@@ -324,13 +333,14 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 // lastElementClose returns the total offset of the bracket which closes the last element which is an object or an
 // array in what has been read of the elements from the total offset at, which are nested in depth objects and arrays.
 func (x *bracketIndex) lastElementClose(at, depth int64) (int64, bool) {
+	// the entries before are passed for good: the lookups are in the order of the input
+	for x.next < len(x.closes) && x.closes[x.next].at < at {
+		x.next++
+	}
 	var end int64
 	found := false
 	for i := x.next; i < len(x.closes); i++ {
 		c := x.closes[i]
-		if c.at < at {
-			continue
-		}
 		if c.depth <= depth {
 			// the end of the array
 			break
@@ -373,8 +383,12 @@ func (s *Stream) decodeWhole(dec Decoder, p unsafe.Pointer, depth, end int64) er
 				cursor, err = s.callDecoder(dec, p, depth, s.cursor+int64(n))
 			}
 		}
-		if err != nil {
+		if _, ok := err.(*errors.SyntaxError); ok {
 			return s.elementError(err, depth)
+		}
+		if err != nil {
+			ctx.typeError = had
+			return s.skipAfter(err, depth)
 		}
 	}
 	if had == nil && ctx.typeError != nil {
@@ -592,7 +606,14 @@ func (s *Stream) decodeStructElements(d *structDecoder, p unsafe.Pointer, depth 
 			var decodedKey []byte
 			field, decodedKey = d.keys.lookup(key, info)
 			if field == nil && disallowUnknownFields {
-				return unknownFieldError(decodedKey)
+				err := unknownFieldError(decodedKey)
+				if serr := s.memberValue(); serr != nil {
+					return serr
+				}
+				if serr := s.skipNested(depth); serr != nil {
+					return serr
+				}
+				return s.restAfter(err, true, depth)
 			}
 			inputName = append(arr[:0], decodedKey...)
 		}
@@ -619,7 +640,7 @@ func (s *Stream) decodeStructElements(d *structDecoder, p unsafe.Pointer, depth 
 			err = s.decodeNested(field.dec, unsafe.Add(p, field.offset), depth)
 		}
 		if err != nil {
-			return err
+			return s.restAfter(err, true, depth)
 		}
 		if s.ctx.typeError != had {
 			s.addTypeErrorStep(d.typeErrorStep(field, inputName))
@@ -684,7 +705,7 @@ func (s *Stream) decodeMapElements(d *mapDecoder, p unsafe.Pointer, depth int64)
 			return err
 		}
 		if err := s.decodeNested(d.valueDecoder, t.v, depth); err != nil {
-			return err
+			return s.restAfter(err, true, depth)
 		}
 		if !drop {
 			mv.SetMapIndex(t.kv, t.vv)
@@ -715,14 +736,14 @@ func (s *Stream) decodeSliceElements(d *sliceDecoder, p unsafe.Pointer, depth in
 		if n, err := s.decodeRun(&t, idx, depth); err != nil || n > idx {
 			if idx = n; err != nil {
 				t.finish(idx, err)
-				return err
+				return s.restAfter(err, false, depth)
 			}
 			continue
 		}
 		had := s.ctx.typeError
 		if err := s.decodeNested(d.valueDecoder, t.elem(idx), depth); err != nil {
 			t.finish(idx, err)
-			return err
+			return s.restAfter(err, false, depth)
 		}
 		t.decoded(idx)
 		if s.ctx.typeError != had {
@@ -794,6 +815,7 @@ func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
 		had := ctx.typeError
 		next, derr := t.d.valueDecoder.Decode(ctx, cursor, depth, t.elem(idx))
 		if derr != nil {
+			ctx.typeError = had
 			if c := buf[start]; c != '-' && c-'0' > 9 {
 				s.cursor, err = start, derr
 			}
@@ -820,8 +842,11 @@ func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
 	}
 	s.buf[stop] = saved
 	ctx.Buf, ctx.origin = nil, nil
-	if err != nil {
+	if _, ok := err.(*errors.SyntaxError); ok {
 		return idx, s.elementError(err, depth)
+	}
+	if err != nil {
+		return idx, s.skipAfter(err, depth)
 	}
 	return idx, nil
 }
@@ -849,7 +874,7 @@ func (s *Stream) decodeArrayElements(d *arrayDecoder, p unsafe.Pointer, depth in
 		}
 		had := s.ctx.typeError
 		if err := s.decodeNested(d.valueDecoder, unsafe.Add(p, uintptr(idx)*d.size), depth); err != nil {
-			return err
+			return s.restAfter(err, false, depth)
 		}
 		if s.ctx.typeError != had {
 			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
@@ -869,6 +894,9 @@ func (s *Stream) decodeInterfaceElements(d *interfaceDecoder, p unsafe.Pointer, 
 		if v == nil {
 			var err error
 			if v, err = d.valueDecoderOf(s.ctx, h.typ, *(*any)(p)); err != nil {
+				if serr := s.skipNested(depth); serr != nil {
+					return true, serr
+				}
 				return true, err
 			}
 		}
@@ -925,7 +953,7 @@ func (s *Stream) decodeAnyObject(d *interfaceDecoder, depth int64) (any, error) 
 		if err := s.decodeNested(d, unsafe.Pointer(&ctx.slot), depth); err != nil {
 			ctx.slot = nil
 			ctx.popEntries(base)
-			return nil, err
+			return nil, s.restAfter(err, true, depth)
 		}
 		ctx.entryStack = append(ctx.entryStack, anyEntry{key: name, value: ctx.slot})
 		ctx.slot = nil
@@ -963,7 +991,7 @@ func (s *Stream) decodeAnyArray(d *interfaceDecoder, depth int64) (any, error) {
 		if err := s.decodeNested(d, unsafe.Pointer(&ctx.slot), depth); err != nil {
 			ctx.slot = nil
 			ctx.popAny(base)
-			return nil, err
+			return nil, s.restAfter(err, false, depth)
 		}
 		ctx.anyStack = append(ctx.anyStack, ctx.slot)
 		ctx.slot = nil

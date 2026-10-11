@@ -507,10 +507,10 @@ func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end 
 		}
 	}
 	s.ctx.DiscardTypeError()
-	if _, ok := err.(*errors.SyntaxError); ok {
-		if serr := s.valueSyntaxError(); serr != nil {
-			return s.fail(serr)
-		}
+	// a syntax error of the value is the error, whatever the decoder met before it, as encoding/json checks the value
+	// before it decodes it
+	if serr := s.valueSyntaxError(); serr != nil {
+		return s.fail(serr)
 	}
 	return s.fail(s.totalOffsetError(err))
 }

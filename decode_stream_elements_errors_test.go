@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -94,6 +95,11 @@ func TestDecodeStreamElementsUnknownFieldError(t *testing.T) {
 		`{"a":1,` + pad + `"zz":1,"b":2`,
 		`{"a":1,` + pad + `"zz":1,"b":2}`,
 		`{"a":1,` + pad + `"zz":"unterminated` + "\n" + strings.Repeat(`{"b":2}`, 1<<16),
+		// a syntax error after the unknown field is the error, as encoding/json reads the value first
+		`{"a":1,` + pad + `"zz":1,"b":2 x`,
+		`{"a":1,` + pad + `"zz":1,"b":[1 2`,
+		`{"a":1,` + pad + `"zz":1,"b":"x` + "\x01",
+		`{"a":1,` + pad + `"zz":{"c":[1,{"d":2}]},"b":2}`,
 	} {
 		var stdErr error
 		{
@@ -106,14 +112,74 @@ func TestDecodeStreamElementsUnknownFieldError(t *testing.T) {
 			if fmt.Sprint(got) != fmt.Sprint(want) {
 				t.Fatalf("%.20q, chunk %d: got %v, want %v (encoding/json: %v)", in, chunk, got, want, stdErr)
 			}
-			if errors.Is(stdErr, io.ErrUnexpectedEOF) != errors.Is(got, io.ErrUnexpectedEOF) {
+			var stdSyntax *stdjson.SyntaxError
+			var syntax *json.SyntaxError
+			if errors.Is(stdErr, io.ErrUnexpectedEOF) != errors.Is(got, io.ErrUnexpectedEOF) ||
+				errors.As(stdErr, &stdSyntax) != errors.As(got, &syntax) {
 				t.Fatalf("%.20q, chunk %d: got %v, encoding/json %v", in, chunk, got, stdErr)
 			}
 		}
 	}
 }
 
-// The length of a slice counts the elements decoded before an error, never the element which failed.
+type elementsFailing struct{}
+
+func (*elementsFailing) UnmarshalJSON([]byte) error { return errors.New("elementsFailing") }
+
+// The error of a method is returned once the value is read, as the one of a value read at once is.
+func TestDecodeStreamElementsMethodError(t *testing.T) {
+	type S struct {
+		A []elementsFailing
+		B int
+	}
+	pad := strings.Repeat(" ", 70000)
+	for _, in := range []string{
+		`{"A":[` + pad + `{},{}],"B":1}`,
+		`{"A":[` + pad + `{},{}],"B":1 x`,
+		`{"A":[` + pad + `{},{}],"B":[1 2`,
+		`{"A":[` + pad + `{},{}],"B":1`,
+		`[` + pad + `{"A":[{}]},{"B":2}]`,
+	} {
+		newValue := func() any { return new(S) }
+		if in[0] == '[' {
+			newValue = func() any { return new([]S) }
+		}
+		for _, chunk := range []int{1000, 65536} {
+			want, got := decodeAtOnceAndByChunks(in, chunk, newValue, func(*json.Decoder) {})
+			if fmt.Sprint(got) != fmt.Sprint(want) {
+				t.Fatalf("%.20q, chunk %d: got %v, want %v", in, chunk, got, want)
+			}
+		}
+	}
+}
+
+// The index of the brackets of a long array keeps only the part not decoded yet, whatever the length of the array.
+func TestDecodeStreamElementsIndexBounded(t *testing.T) {
+	element := "," + strings.Repeat(" ", 61) + "{}"
+	measure := func(n int) uint64 {
+		r := &chunkReader{data: []byte("[{}" + strings.Repeat(element, n) + "]"), chunk: 4096}
+		var v []struct{}
+		runtime.GC()
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		if err := json.NewDecoder(r).Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+		runtime.ReadMemStats(&after)
+		if len(v) != n+1 {
+			t.Fatalf("got %d elements", len(v))
+		}
+		return after.TotalAlloc - before.TotalAlloc
+	}
+	small, large := measure(1<<12), measure(1<<17)
+	if large > small+(1<<20) {
+		t.Fatalf("%d bytes allocated for %d elements, %d for %d", large, 1<<17, small, 1<<12)
+	}
+}
+
+// The length of a slice decoded element by element counts the elements decoded before an error, never the element
+// which failed. A slice decoded whole from the buffer may count it ( see sliceDecoder.Decode ): the value after an error
+// is not specified.
 func TestDecodeStreamElementsSliceAfterError(t *testing.T) {
 	pad := strings.Repeat(" ", 70000)
 	in := `[` + pad + `1,2,3,{]`

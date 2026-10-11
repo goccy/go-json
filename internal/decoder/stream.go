@@ -144,16 +144,11 @@ func (s *Stream) grow() {
 		// the buffer holds all of it at once, so that nothing is copied again.
 		size = remain + int64(r.Len())
 	}
-	var buf []byte
-	if s.index != nil && s.index.owns(s.buf) && size == int64(len(s.buf))-bufPadding &&
-		(s.Option.Flags&NoCopyStringOption) == 0 {
-		// a buffer made while a value is decoded element by element, whose strings are copied: nothing refers to it
-		buf = s.buf
-	} else {
+	buf := s.buf
+	if s.index == nil || size != int64(len(s.buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
+		// the buffer of a value decoded element by element, whose strings are copied, is reused: nothing refers to
+		// it, as the stream made it when the value began ( see scanFailed )
 		buf = make([]byte, size+bufPadding)
-		if s.index != nil {
-			s.index.buf = unsafe.SliceData(buf)
-		}
 	}
 	copy(buf, s.buf[from:s.length])
 	s.offset += from
@@ -185,7 +180,12 @@ func (s *Stream) endError() error {
 //
 //go:noinline
 func (s *Stream) truncatedValueError() error {
-	if err := s.valueSyntaxError(); err != nil {
+	return s.truncatedValueErrorAt(0)
+}
+
+// truncatedValueErrorAt is truncatedValueError for a value nested in depth objects and arrays.
+func (s *Stream) truncatedValueErrorAt(depth int64) error {
+	if err := s.valueSyntaxErrorAt(depth); err != nil {
 		return err
 	}
 	return s.unexpectedEndError()
@@ -288,12 +288,19 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 	var rel int64
 	sc := compoundScanner{maxDepth: maxDecodeNestingDepth}
 	for {
+		inString, escaped := sc.inString, sc.escaped
 		pos, found, err := sc.scan(s.buf, s.cursor+rel, s.length)
 		if err != nil {
 			return 0, s.totalOffsetError(err)
 		}
 		if found {
 			return pos, nil
+		}
+		if sc.inString {
+			// a string which doesn't end in what has been read ends at a control character in it
+			if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
+				return c + 1, nil
+			}
 		}
 		rel = pos - s.cursor
 		if rel >= limit {
@@ -303,6 +310,27 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 			return 0, s.truncatedValueError()
 		}
 	}
+}
+
+// controlInString returns the position of the first control character in a string in buf[pos:end], which a string
+// can't have, or -1. The bytes are in a string from pos if inString is set, and escaped if escaped is set.
+func controlInString(buf []byte, pos, end int64, inString, escaped bool) int64 {
+	for pos < end {
+		switch c := buf[pos]; {
+		case !inString:
+			inString = c == '"'
+		case escaped:
+			escaped = false
+		case c < ' ':
+			return pos
+		case c == '\\':
+			escaped = true
+		case c == '"':
+			inString = false
+		}
+		pos++
+	}
+	return -1
 }
 
 // scanString finds the end of the string at the cursor: the position after the quote which closes it, or after a
@@ -433,9 +461,8 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 }
 
 // callDecoder decodes the value at the cursor, which ends at end, by dec into p, nested in depth objects and arrays,
-// and returns the position after it. If copyStrings is set, the decoded strings are copied out of the buffer, which
-// they keep alive else.
-func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64, copyStrings bool) (int64, error) {
+// and returns the position after it. The decoded strings are copied out of the buffer, which they would keep alive.
+func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64) (int64, error) {
 	ctx := s.ctx
 	var cursor int64
 	var err error
@@ -446,18 +473,14 @@ func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64, co
 		saved := s.buf[end]
 		s.buf[end] = nul
 		ctx.Buf = s.buf[:end+1]
-		if copyStrings {
-			ctx.origin = ctx.Buf
-		}
+		ctx.origin = ctx.Buf
 		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
 		s.buf[end] = saved
 	} else {
 		// true, false and null end at the first byte which can't belong to them, and the decoder
 		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
 		ctx.Buf = s.buf[:s.length+1]
-		if copyStrings {
-			ctx.origin = ctx.Buf
-		}
+		ctx.origin = ctx.Buf
 		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
 	}
 	ctx.Buf, ctx.origin = nil, nil
@@ -494,7 +517,7 @@ func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end 
 // decodeFirstNumber decodes the number at the cursor, which ends at end by the grammar, as Decode does.
 func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64) error {
 	ctx := s.ctx
-	cursor, err := s.callDecoder(dec, p, 0, end, false)
+	cursor, err := s.callDecoder(dec, p, 0, end)
 	if err != nil {
 		s.ctx.DiscardTypeError()
 		if serr := s.valueSyntaxError(); serr != nil {
@@ -523,8 +546,13 @@ func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64
 //
 //go:noinline
 func (s *Stream) valueSyntaxError() error {
+	return s.valueSyntaxErrorAt(0)
+}
+
+// valueSyntaxErrorAt is valueSyntaxError for a value nested in depth objects and arrays.
+func (s *Stream) valueSyntaxErrorAt(depth int64) error {
 	s.fillLastChar()
-	_, err := skipValue(s.buf[:s.length+1], s.cursor, 0)
+	_, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
 	if err == nil {
 		return nil
 	}
@@ -532,17 +560,19 @@ func (s *Stream) valueSyntaxError() error {
 }
 
 // fillLastChar reads more if a read ended in the middle of a UTF-8 sequence, so that a syntax error at it shows the
-// character, as encoding/json does, whatever the reads of the input.
+// character, as encoding/json does, whatever the reads of the input. Only that character is completed: a read may end
+// in the middle of another one.
 func (s *Stream) fillLastChar() {
-	for {
-		// the start of the last character, in the last bytes
-		start := s.length - 1
-		for start > 0 && start > s.length-utf8.UTFMax && !utf8.RuneStart(s.buf[start]) {
-			start--
-		}
-		if start < 0 || utf8.FullRune(s.buf[start:s.length]) || !s.read() {
-			return
-		}
+	if s.length == 0 {
+		return
+	}
+	// the start of the last character, in the last bytes, kept relative to the cursor, as a read may move the data
+	start := s.length - 1
+	for start > 0 && start > s.length-utf8.UTFMax && !utf8.RuneStart(s.buf[start]) {
+		start--
+	}
+	rel := start - s.cursor
+	for s.cursor+rel >= 0 && !utf8.FullRune(s.buf[s.cursor+rel:s.length]) && s.read() {
 	}
 }
 

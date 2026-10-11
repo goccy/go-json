@@ -13,6 +13,17 @@ import (
 
 type mapKeyPointerNamed *int
 
+type mapKeyPointerBool bool
+
+func (b *mapKeyPointerBool) UnmarshalText(text []byte) error {
+	*b = len(text) == 2
+	return nil
+}
+
+type mapKeyPointerBoolValue bool
+
+func (b mapKeyPointerBoolValue) UnmarshalText([]byte) error { return nil }
+
 type mapKeyPointerText string
 
 func (k *mapKeyPointerText) UnmarshalText(b []byte) error {
@@ -57,8 +68,10 @@ func TestDecodeMapKeyPointers(t *testing.T) {
 		reflect.TypeFor[*uint8](), reflect.TypeFor[*float64](), reflect.TypeFor[*bool](),
 		reflect.TypeFor[*string](), reflect.TypeFor[**string](), reflect.TypeFor[*json.Number](),
 		reflect.TypeFor[*mapKeyPointerText](), reflect.TypeFor[**mapKeyPointerText](), reflect.TypeFor[*any](),
+		reflect.TypeFor[bool](), reflect.TypeFor[mapKeyPointerBool](), reflect.TypeFor[*mapKeyPointerBool](),
+		reflect.TypeFor[mapKeyPointerBoolValue](),
 	}
-	inputs := []string{`{"5":1}`, `{"-3":1,"4":2}`, `{"x":1}`, `{"x":1,"5":2,"y":3,"6":4}`, `{"5":1,"x":2}`, `{"":1}`}
+	inputs := []string{`{"5":1}`, `{"-3":1,"4":2}`, `{"x":1}`, `{"x":1,"5":2,"y":3,"6":4}`, `{"5":1,"x":2}`, `{"":1}`, `{"xx":1}`}
 	for _, keyType := range keyTypes {
 		typ := reflect.MapOf(keyType, reflect.TypeFor[int]())
 		for _, in := range inputs {

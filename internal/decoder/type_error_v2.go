@@ -245,7 +245,8 @@ func stringOptionNumberStart(byte) bool {
 }
 
 // mapKeySupported reports whether encoding/json of Go 1.27 decodes the keys of a map of keyType, which dec
-// decodes: any key but a bool, or a pointer to one, and a key of a type which no key is decoded into.
+// decodes: any key but a bool without a method of unmarshaling text, or a pointer to one, and a key of a type which
+// no key is decoded into.
 func mapKeySupported(keyType reflect.Type, dec Decoder) bool {
 	if _, ok := dec.(*invalidDecoder); ok {
 		return false
@@ -253,7 +254,7 @@ func mapKeySupported(keyType reflect.Type, dec Decoder) bool {
 	for keyType.Kind() == reflect.Pointer {
 		keyType = keyType.Elem()
 	}
-	return keyType.Kind() != reflect.Bool
+	return keyType.Kind() != reflect.Bool || reflect.PointerTo(keyType).Implements(unmarshalTextType)
 }
 
 // unsupportedMapKeys records the type error of the first key of the object at cursor of a map whose keys are not

@@ -54,12 +54,6 @@ func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldNam
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
 		reflect.Float32, reflect.Float64:
-		if numberType.Implements(unmarshalJSONType) || reflect.PointerTo(numberType).Implements(unmarshalJSONType) ||
-			reflect.PointerTo(numberType).Implements(unmarshalJSONContextType) ||
-			reflect.PointerTo(numberType).Implements(unmarshalTextType) {
-			// a number decoded by its own unmarshaler
-			break
-		}
 		d.numberKind, d.numberType = numberType.Kind(), numberType
 	}
 	return d
@@ -97,6 +91,13 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	}
 	if d.numberKind != reflect.Invalid && len(bytes) > 0 {
 		if d.decodeNumber(bytes, p) {
+			return c, nil
+		}
+		if !d.isMapKey && string(bytes) == "null" {
+			// encoding/json decodes the string "null" as null: it leaves the number, and sets a pointer to nil
+			if d.isPtrType {
+				*(*unsafe.Pointer)(p) = nil
+			}
 			return c, nil
 		}
 		return d.stringError(ctx, start, c, bytes, p)

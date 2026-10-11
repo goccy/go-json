@@ -108,6 +108,12 @@ func compile(typ reflect.Type, structName, fieldName string, structTypeToDecoder
 }
 
 func isStringTagSupportedType(typ reflect.Type) bool {
+	// The option applies to a field of a string, a number or a bool, as encoding/json documents it. As encoding/json
+	// of Go 1.27 does, it follows one pointer, named or not, and does not apply to the value of a pointer to a pointer,
+	// nor to a value which has a method of unmarshaling.
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
 		return false
@@ -115,18 +121,14 @@ func isStringTagSupportedType(typ reflect.Type) bool {
 		return false
 	}
 	switch typ.Kind() {
-	case reflect.Map:
-		return false
-	case reflect.Slice:
-		return false
-	case reflect.Array:
-		return false
-	case reflect.Struct:
-		return false
-	case reflect.Interface:
-		return false
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.String:
+		return true
 	}
-	return true
+	return false
 }
 
 func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
@@ -138,26 +140,30 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToD
 		d.typ = typ
 		return d, nil
 	}
+	if typ.Kind() == reflect.Pointer {
+		// a key of a pointer type is the key the pointer points to, which is allocated
+		dec, err := compileMapKey(typ.Elem(), structName, fieldName, structTypeToDecoder)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := dec.(*invalidDecoder); ok {
+			return newInvalidDecoder(typ, structName, fieldName), nil
+		}
+		return newPtrDecoder(dec, typ.Elem(), structName, fieldName), nil
+	}
 	dec, err := compile(typ, structName, fieldName, structTypeToDecoder)
 	if err != nil {
 		return nil, err
 	}
-	for {
-		switch t := dec.(type) {
-		case *stringDecoder, *interfaceDecoder:
-			return dec, nil
-		case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
-			d := newWrappedStringDecoder(typ, dec, structName, fieldName)
-			d.isMapKey = true
-			return d, nil
-		case *ptrDecoder:
-			dec = t.dec
-		case *basicPtrDecoder:
-			dec = t.dec
-		default:
-			return newInvalidDecoder(typ, structName, fieldName), nil
-		}
+	switch dec.(type) {
+	case *interfaceDecoder:
+		return dec, nil
+	case *boolDecoder, *intDecoder, *uintDecoder, *floatDecoder, *float32Decoder, *numberDecoder:
+		d := newWrappedStringDecoder(typ, dec, structName, fieldName)
+		d.isMapKey = true
+		return d, nil
 	}
+	return newInvalidDecoder(typ, structName, fieldName), nil
 }
 
 func compilePtr(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {

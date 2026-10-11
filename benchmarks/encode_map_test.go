@@ -22,7 +22,8 @@ import (
 //     MarshalText ) is written before the entries are sorted by it. An unordered map ( UnorderedMap: go-json with
 //     UnorderedMap(), go-json/v2 by default ) is written in the order of the map: as it is read when the keys are
 //     strings and the values scalars or of interface{}, and else through the entries read first. go-json/v2 checks
-//     the names of an unordered map whose keys are not strings for duplicates.
+//     the names of an unordered map for duplicates when its keys are named by a method, as MarshalText: the names
+//     of strings, integers and floats are different for every key.
 //   - The keys: strings, a named string type, int, int8, uint, float64 ( go-json/v2 only: go-json rejects it as
 //     encoding/json before Go 1.27 does ), keys of MarshalText, and keys whose names are escaped, which a sorted
 //     map compares by their unescaped names. SortedMapNoHTMLEscape writes the escaped ones with DisableHTMLEscape(),
@@ -40,12 +41,19 @@ import (
 // time ( see mapBench ): the sorted maps of go-json run every payload, and the other conditions the ones whose path
 // they change. Empty maps and maps of one entry end or skip the sort by the same code in every condition, an
 // unordered map writes values of strings by the same code as the ones of integers, and go-json/v2, which writes
-// the entries by the code of go-json, runs every kind of key and of value but not every size. Encoder.Encode and MarshalNoEscape
-// of go-json encode a map by the same code as Marshal, so they aren't measured apart.
+// the entries by the code of go-json, runs the kinds of keys and of values which take code of their own, and the
+// sizes 10, 100 and 1000. Encoder.Encode and MarshalNoEscape of go-json encode a map by the same code as
+// Marshal, so they aren't measured apart.
 //
 // The libraries: GoJson is go-json, GoJsonV2 is go-json/v2, EncodingJson is encoding/json, which always sorts
 // the keys of a map, and Sonic and SonicStd are sonic.ConfigDefault, which doesn't sort them nor escape HTML,
-// and sonic.ConfigStd, which does both as encoding/json does. Each sub-benchmark checks once, before its first
+// and sonic.ConfigStd, which does both as encoding/json does. Not every pair does the same work for the names
+// which are escaped ( EscapedString10, EscapedText10 ): GoJson escapes HTML and normalizes UTF-8 where Sonic and
+// GoJsonV2 don't. GoJsonLikeSonic is go-json with the options which make it do what Sonic does ( see
+// likeSonicOptions ), measured with the escaped names only: for the other names, which have no character
+// escaped for HTML and are valid UTF-8, it does what GoJson does. So the unordered EscapedText10 of Sonic is to
+// be compared with the one of GoJsonLikeSonic, and the sorted Escaped* of GoJsonV2 with the ones of
+// SortedMapNoHTMLEscape_GoJson. Each sub-benchmark checks once, before its first
 // round, that the library writes what encoding/json writes for the payload: the same bytes when the map is
 // sorted, and the same JSON value, decoded, when it isn't.
 
@@ -61,6 +69,8 @@ const (
 	mapIndent
 	// mapNoHTMLEscape is the sorted maps of go-json with DisableHTMLEscape().
 	mapNoHTMLEscape
+	// mapLikeSonic is the unordered maps of go-json with the options of GoJsonLikeSonic.
+	mapLikeSonic
 	// mapV2 is the maps of go-json/v2, under the conditions above which it has ( sorted, unordered, indented ).
 	mapV2
 	// mapV2Only is a payload of go-json/v2 only.
@@ -180,7 +190,7 @@ var mapPayloads = []mapPayload{
 	},
 	{name: "TextString20", value: newMap(20, func(i int) mapTextKey { return mapTextKey{Region: i % 4, ID: mapKey(i)} }, mapStringValue), bench: mapAll | mapIndent},
 	{name: "EscapedString10", value: newMap(10, mapEscapedName, mapIntValue), bench: mapSortedAll | mapNoHTMLEscape},
-	{name: "EscapedText10", value: newMap(10, func(i int) mapEscapedTextKey { return mapEscapedTextKey(i) }, mapIntValue), bench: mapAll | mapIndent | mapNoHTMLEscape},
+	{name: "EscapedText10", value: newMap(10, func(i int) mapEscapedTextKey { return mapEscapedTextKey(i) }, mapIntValue), bench: mapAll | mapIndent | mapNoHTMLEscape | mapLikeSonic},
 	// the values.
 	{name: "StringString100", value: newMap(100, mapStringKey, mapStringValue), bench: mapSorted},
 	{name: "StringRecord20", value: newMap(20, mapStringKey, mapRecordValue), bench: mapAll | mapIndent},
@@ -292,6 +302,12 @@ func Benchmark_Encode_SortedMapNoHTMLEscape_GoJson(b *testing.B) {
 func Benchmark_Encode_UnorderedMap_GoJson(b *testing.B) {
 	benchMap(b, mapUnordered, mapLibrary{marshal: func(v any) ([]byte, error) {
 		return gojson.MarshalWithOption(v, gojson.UnorderedMap())
+	}})
+}
+
+func Benchmark_Encode_UnorderedMap_GoJsonLikeSonic(b *testing.B) {
+	benchMap(b, mapLikeSonic, mapLibrary{marshal: func(v any) ([]byte, error) {
+		return gojson.MarshalWithOption(v, likeSonicOptions...)
 	}})
 }
 

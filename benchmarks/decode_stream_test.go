@@ -23,8 +23,8 @@ import (
 //
 // The payloads are:
 //   - a value which fits in the first buffer of a decoder ( SmallStruct, 143 B; the one of go-json has 512 bytes );
-//   - values larger than the first buffer, which fit in one chunk or in a few ( MediumStruct, 2 KB, and Twitter,
-//     10 KB );
+//   - values larger than the first buffer, which fit in one chunk or in a few ( MediumStruct, 2 KiB, and Twitter,
+//     10 KiB );
 //   - values of megabytes, many times a chunk ( Code, Records: an array of records, CodeAny: Code into interface{} );
 //   - many values one after another ( NDJSON: one record per line, decoded until the end of the input );
 //   - a large value which is mostly skipped ( SkipRecords: an object of an array of records and the count, decoded
@@ -80,7 +80,9 @@ type streamPayload struct {
 	many bool
 	// collect is set for the payloads of megabytes, whose decoding is preceded by a collection outside of the
 	// measured time. A decoding of them allocates megabytes, so where the collections fall would otherwise move
-	// the time and B/op ( a pool emptied by a collection or not ) from one run to another.
+	// the time and B/op ( a pool emptied by a collection or not ) more from one run to another. The time then
+	// leaves out collecting the garbage of a decoding as far as it fits the room the collection made, so more
+	// garbage is to be judged by B/op and allocs/op, not by ns/op alone.
 	collect bool
 }
 
@@ -129,7 +131,7 @@ func benchStream(b *testing.B, p *streamPayload, newDecoder func(io.Reader) stre
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				if p.collect {
+				if p.collect { // see streamPayload.collect: the time leaves out part of collecting the garbage
 					b.StopTimer()
 					runtime.GC()
 					b.StartTimer()
@@ -224,7 +226,7 @@ type streamAddress struct {
 }
 
 // streamRecordCount ( Records and SkipRecords ) and streamLineCount ( NDJSON ) are the numbers of the records of
-// the generated payloads, about 4 MB and 2 MB.
+// the generated payloads, about 3.7 MiB and 1.8 MiB.
 const (
 	streamRecordCount = 20000
 	streamLineCount   = 10000

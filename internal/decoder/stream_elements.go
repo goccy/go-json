@@ -88,7 +88,7 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 // input as it is, and any other error once the rest of the object or the array is read, as a value read whole is read
 // before its error is returned, whose syntax error or end is the error then.
 func (s *Stream) restAfter(err error, object bool, depth int64) error {
-	if _, ok := err.(*errors.SyntaxError); ok || err == io.ErrUnexpectedEOF || err == s.readErr {
+	if s.grammarFailure(err) {
 		return err
 	}
 	for {
@@ -111,6 +111,13 @@ func (s *Stream) restAfter(err error, object bool, depth int64) error {
 			return rerr
 		}
 	}
+}
+
+// grammarFailure reports whether err is a syntax error or the end of the input, which fail a value read whole before
+// it is decoded: any other error is the one of an element which is decoded, as an unknown field.
+func (s *Stream) grammarFailure(err error) bool {
+	_, ok := err.(*errors.SyntaxError)
+	return ok || err == io.ErrUnexpectedEOF || err == s.readErr
 }
 
 // skipAfter returns the error of the decoding of the value at the cursor, nested in depth objects and arrays, which is
@@ -146,15 +153,17 @@ func (s *Stream) decodeElements(dec Decoder, p unsafe.Pointer, depth int64) (boo
 			return true, s.decodeArrayElements(d, p, depth)
 		}
 	case *ptrDecoder:
-		ptr := *(*unsafe.Pointer)(p)
+		prior := *(*unsafe.Pointer)(p)
+		ptr := prior
 		if ptr == nil {
 			ptr = newValue(d.typ)
 			*(*unsafe.Pointer)(p) = ptr
 		}
 		decoded, err := s.decodeElements(d.dec, ptr, depth)
 		if err != nil || !decoded {
-			// the pointer of a value read whole is set as ptrDecoder sets it
-			*(*unsafe.Pointer)(p) = nil
+			// the pointer of a value read whole is set as ptrDecoder sets it, and the one of a value which fails is
+			// left as it was, as the grammar of a value read whole fails it before it is decoded
+			*(*unsafe.Pointer)(p) = prior
 		}
 		return decoded, err
 	case *anonymousFieldDecoder:
@@ -537,8 +546,7 @@ func (s *Stream) addTypeErrorStep(step typeErrorStep) {
 
 // syntaxError returns the syntax error of the byte at the cursor, which the grammar doesn't have where it is.
 func (s *Stream) syntaxError(where syntaxWhere) error {
-	s.fillLastChar()
-	return s.grammarError(syntaxErrorAt(s.buf[:s.length+1], s.cursor, where))
+	return s.grammarError(s.wholeCharError(func() error { return syntaxErrorAt(s.buf[:s.length+1], s.cursor, where) }))
 }
 
 // nextElement moves the cursor to the next element of the array whose elements are read: first is set before the
@@ -712,6 +720,14 @@ func (s *Stream) skipScalar() error {
 	return nil
 }
 
+// skipError returns the syntax error of the byte at the cursor, where skipFast stopped in the state resume, with level
+// objects and arrays open whose kinds are the bits of objects.
+func (s *Stream) skipError(level int64, objects uint64, resume skipResume) error {
+	return s.grammarError(s.wholeCharError(func() error {
+		return skipFastError(s.buf[:s.length+1], s.cursor, level, objects, resume)
+	}))
+}
+
 // skipResume does what skipFast stopped at the cursor for, in the state resume, with level objects and arrays open
 // whose kinds are the bits of objects: a byte which the grammar doesn't have there, whose syntax error it returns, or
 // the end of what has been read, for which it reads, and returns the level and the state which skipFast resumes in at
@@ -720,8 +736,7 @@ func (s *Stream) skipResume(level int64, objects uint64, resume skipResume) (int
 	if s.cursor < s.length {
 		lit := literalOf(s.buf[s.cursor])
 		if n := s.length - s.cursor; resume != resumeValue || n >= int64(len(lit)) || string(s.buf[s.cursor:s.length]) != lit[:n] {
-			s.fillLastChar()
-			return 0, 0, s.grammarError(skipFastError(s.buf[:s.length+1], s.cursor, level, objects, resume))
+			return 0, 0, s.skipError(level, objects, resume)
 		}
 		// true, false or null which what has been read cuts
 		if !s.read() {
@@ -760,14 +775,13 @@ func (s *Stream) skipResume(level int64, objects uint64, resume skipResume) (int
 			return 0, 0, s.unexpectedEndError()
 		}
 		switch c := s.buf[s.cursor]; {
-		case c == closing:
+		case closing != 0 && c == closing:
 			s.cursor++
 			return level - 1, resumeAfterValue, nil
 		case resume == resumeKey && c == '"':
 			return level, resumeAfterKey, s.skipScalar()
 		case resume == resumeKey:
-			s.fillLastChar()
-			return 0, 0, s.grammarError(skipFastError(s.buf[:s.length+1], s.cursor, level, objects, resume))
+			return 0, 0, s.skipError(level, objects, resume)
 		}
 		return level, resume, nil
 	}
@@ -953,15 +967,13 @@ func (s *Stream) decodeSliceElements(d *sliceDecoder, p unsafe.Pointer, depth in
 		}
 		if n, err := s.decodeRun(&t, idx, depth); err != nil || n > idx {
 			if idx = n; err != nil {
-				t.finish(idx, err)
-				return s.restAfter(err, false, depth)
+				return s.sliceElementsError(&t, idx, err, depth)
 			}
 			continue
 		}
 		had := s.ctx.typeError
 		if err := s.decodeNested(d.valueDecoder, t.elem(idx), depth); err != nil {
-			t.finish(idx, err)
-			return s.restAfter(err, false, depth)
+			return s.sliceElementsError(&t, idx, err, depth)
 		}
 		t.decoded(idx)
 		if s.ctx.typeError != had {
@@ -969,6 +981,18 @@ func (s *Stream) decodeSliceElements(d *sliceDecoder, p unsafe.Pointer, depth in
 		}
 		idx++
 	}
+}
+
+// sliceElementsError returns the error of Decode for err, the error of the element idx of the array which t stores,
+// whose elements are nested in depth objects and arrays. The slice has the element when err is not one of the grammar,
+// as the slice which sliceDecoder.Decode decodes it into, which has a decoded value whose error is returned after it.
+func (s *Stream) sliceElementsError(t *sliceTarget, idx int, err error, depth int64) error {
+	if !s.grammarFailure(err) {
+		t.decoded(idx)
+		idx++
+	}
+	t.finish(idx, err)
+	return s.restAfter(err, false, depth)
 }
 
 // sliceTarget is where the elements of an array decoded element by element are stored: into the slice up to limit,

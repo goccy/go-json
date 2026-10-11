@@ -472,11 +472,14 @@ func (s *Stream) scanStringInfo() (int64, stringInfo, bool, error) {
 func (s *Stream) scanLiteral() (int64, error) {
 	if lit := literalOf(s.buf[s.cursor]); lit != "" {
 		for i := 1; i < len(lit); i++ {
-			if s.cursor+int64(i) >= s.length && !s.read() {
-				if s.readErr != io.EOF {
-					return 0, s.readErr
+			// a read may bring nothing, and the next one more
+			for s.cursor+int64(i) >= s.length {
+				if !s.read() {
+					if s.readErr != io.EOF {
+						return 0, s.readErr
+					}
+					return s.length, nil
 				}
-				return s.length, nil
 			}
 			if s.buf[s.cursor+int64(i)] != lit[i] {
 				return s.cursor + int64(i) + 1, nil
@@ -659,12 +662,34 @@ func (s *Stream) valueSyntaxError() error {
 
 // valueSyntaxErrorAt is valueSyntaxError for a value nested in depth objects and arrays.
 func (s *Stream) valueSyntaxErrorAt(depth int64) error {
-	s.fillLastChar()
-	_, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
+	err := s.wholeCharError(func() error {
+		_, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
+		return err
+	})
 	if err == nil {
 		return nil
 	}
 	return s.grammarError(err)
+}
+
+// wholeCharError returns the syntax error which scan finds in what has been read, or nil. An error at the last
+// character of what has been read, which a read cut, is found again once the character is whole ( see fillLastChar ),
+// and only then: a read after an error before it would wait for input which the error doesn't need.
+func (s *Stream) wholeCharError(scan func() error) error {
+	err := scan()
+	e, ok := err.(*errors.SyntaxError)
+	if !ok || errors.IsAtEnd(err) || s.length == 0 {
+		return err
+	}
+	start := s.length - 1
+	for start > 0 && start > s.length-utf8.UTFMax && !utf8.RuneStart(s.buf[start]) {
+		start--
+	}
+	if utf8.FullRune(s.buf[start:s.length]) || e.Offset <= start {
+		return err
+	}
+	s.fillLastChar()
+	return scan()
 }
 
 // fillLastChar reads more if a read ended in the middle of a UTF-8 sequence, so that a syntax error at it shows the

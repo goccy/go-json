@@ -19,6 +19,25 @@
 	VADDP V4.B16, V4.B16, V4.B16 \
 	VMOV  V4.D[0], R
 
+#define MASK64_LT(Ve0, Vzero, R) \
+	VAND  Ve0.B16, V0.B16, V4.B16 \
+	VAND  Ve0.B16, V1.B16, V5.B16 \
+	VAND  Ve0.B16, V2.B16, V6.B16 \
+	VAND  Ve0.B16, V3.B16, V7.B16 \
+	VCMEQ Vzero.B16, V4.B16, V4.B16 \
+	VCMEQ Vzero.B16, V5.B16, V5.B16 \
+	VCMEQ Vzero.B16, V6.B16, V6.B16 \
+	VCMEQ Vzero.B16, V7.B16, V7.B16 \
+	VAND  V20.B16, V4.B16, V4.B16 \
+	VAND  V20.B16, V5.B16, V5.B16 \
+	VAND  V20.B16, V6.B16, V6.B16 \
+	VAND  V20.B16, V7.B16, V7.B16 \
+	VADDP V5.B16, V4.B16, V4.B16 \
+	VADDP V7.B16, V6.B16, V6.B16 \
+	VADDP V6.B16, V4.B16, V4.B16 \
+	VADDP V4.B16, V4.B16, V4.B16 \
+	VMOV  V4.D[0], R
+
 // func scanBlockNEON(p unsafe.Pointer, m *scanMasks)
 //
 // It computes the masks of the 64 bytes at p: bit i of a mask is set if the byte i is the character.
@@ -40,11 +59,17 @@ TEXT ·scanBlockNEON(SB), NOSPLIT, $0-16
 	VMOV R3, V19.B16
 	MOVD $0xdf, R3
 	VMOV R3, V21.B16
+	MOVD $0xe0, R3
+	VMOV R3, V22.B16
+	MOVD $0x00, R3
+	VMOV R3, V23.B16
 
 	MASK64(V16, R4)
 	MOVD R4, 0(R1)
 	MASK64(V17, R4)
 	MOVD R4, 8(R1)
+	MASK64_LT(V22, V23, R4)
+	MOVD R4, 32(R1)
 	VAND V21.B16, V0.B16, V0.B16
 	VAND V21.B16, V1.B16, V1.B16
 	VAND V21.B16, V2.B16, V2.B16

@@ -48,12 +48,13 @@ type scanMasks struct {
 	backslash uint64
 	open      uint64
 	closing   uint64
+	control   uint64
 }
 
 // scanBlockWords computes the masks of the block at p by words, eight bytes at a time.
 // It is what the architectures without a SIMD scan use.
 func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
-	var quote, backslash, open, closing uint64
+	var quote, backslash, open, closing, control uint64
 	for i := 0; i < scanBlockSize/8; i++ {
 		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i*8))[:])
 		folded := w &^ bit5
@@ -62,8 +63,11 @@ func scanBlockWords(p unsafe.Pointer, m *scanMasks) {
 		backslash |= gatherMask(byteMask(w, '\\')) << shift
 		open |= gatherMask(byteMask(folded, '[')) << shift
 		closing |= gatherMask(byteMask(folded, ']')) << shift
+		v := w & (0xe0 * lsb)
+		nonControl := (v | (v << 1) | (v << 2)) & msb
+		control |= gatherMask(^nonControl & msb) << shift
 	}
-	m.quote, m.backslash, m.open, m.closing = quote, backslash, open, closing
+	m.quote, m.backslash, m.open, m.closing, m.control = quote, backslash, open, closing, control
 }
 
 // gatherMask turns a mask of 0x80 bytes into the byte whose bit i is the byte i of the mask.
@@ -125,6 +129,7 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 			m.backslash &= valid
 			m.open &= valid
 			m.closing &= valid
+			m.control &= valid
 		}
 		// escaped has the bytes which follow an odd number of backslashes. A backslash which is
 		// itself escaped doesn't escape; a run of backslashes may go on in the next block ( the carry ).
@@ -155,16 +160,24 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 		outside := ^(inside | escaped)
 		open := m.open & outside
 		closing := m.closing & outside
+		bad := m.control & inside
 		opens := int64(bits.OnesCount64(open))
 		closes := int64(bits.OnesCount64(closing))
-		if closes < depth && depth+opens <= sc.maxDepth {
+		if bad == 0 && closes < depth && depth+opens <= sc.maxDepth {
 			// the value can't end in this block, nor go too deep
 			depth += opens - closes
 			pos += scanBlockSize
 			continue
 		}
+		firstBad := 64
+		if bad != 0 {
+			firstBad = bits.TrailingZeros64(bad)
+		}
 		for brackets := open | closing; brackets != 0; brackets &= brackets - 1 {
 			i := bits.TrailingZeros64(brackets)
+			if i > firstBad {
+				return pos + int64(firstBad) + 1, true, nil
+			}
 			if open&(1<<uint(i)) != 0 {
 				depth++
 				if depth > sc.maxDepth {
@@ -176,6 +189,9 @@ func (sc *compoundScanner) scan(buf []byte, pos, lim int64) (int64, bool, error)
 					return pos + int64(i) + 1, true, nil
 				}
 			}
+		}
+		if bad != 0 {
+			return pos + int64(firstBad) + 1, true, nil
 		}
 		pos += scanBlockSize
 	}
@@ -192,6 +208,9 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 	depth, inString := sc.depth, sc.inString
 	if sc.escaped {
 		sc.escaped = false
+		if inString && pos < end && buf[pos] < 0x20 {
+			return pos + 1, true, nil
+		}
 		pos++
 	}
 	for pos < end {
@@ -204,7 +223,12 @@ func (sc *compoundScanner) scanBytes(buf []byte, pos, end int64) (int64, bool, e
 					break
 				}
 				if c == '\\' {
+					if pos < end && buf[pos] < 0x20 {
+						return pos + 1, true, nil
+					}
 					pos++
+				} else if c < 0x20 {
+					return pos, true, nil
 				}
 			}
 			continue

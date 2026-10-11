@@ -13,6 +13,16 @@
 	SHLQ      $32, Rt \
 	ORQ       Rt, R
 
+#define MASK64_LE(Yc, Yt, R, Rt) \
+	VPMINUB   Yc, Y0, Yt \
+	VPCMPEQB  Y0, Yt, Yt \
+	VPMOVMSKB Yt, R \
+	VPMINUB   Yc, Y1, Yt \
+	VPCMPEQB  Y1, Yt, Yt \
+	VPMOVMSKB Yt, Rt \
+	SHLQ      $32, Rt \
+	ORQ       Rt, R
+
 // func scanBlockAVX2(p unsafe.Pointer, m *scanMasks)
 //
 // It computes the masks of the 64 bytes at p: bit i of a mask is set if the byte i is the character.
@@ -28,11 +38,14 @@ TEXT ·scanBlockAVX2(SB), NOSPLIT, $0-16
 	VPBROADCASTB cOpen<>(SB), Y10
 	VPBROADCASTB cClose<>(SB), Y11
 	VPBROADCASTB cFold<>(SB), Y12
+	VPBROADCASTB c1f<>(SB), Y13
 
 	MASK64(Y8, Y4, AX, BX)
 	MOVQ AX, 0(DI)
 	MASK64(Y9, Y4, AX, BX)
 	MOVQ AX, 8(DI)
+	MASK64_LE(Y13, Y4, AX, BX)
+	MOVQ AX, 32(DI)
 	VPAND Y12, Y0, Y0
 	VPAND Y12, Y1, Y1
 	MASK64(Y10, Y4, AX, BX)
@@ -52,3 +65,5 @@ DATA cClose<>+0(SB)/1, $0x5d
 GLOBL cClose<>(SB), RODATA|NOPTR, $1
 DATA cFold<>+0(SB)/1, $0xdf
 GLOBL cFold<>(SB), RODATA|NOPTR, $1
+DATA c1f<>+0(SB)/1, $0x1f
+GLOBL c1f<>(SB), RODATA|NOPTR, $1

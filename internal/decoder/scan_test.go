@@ -22,6 +22,9 @@ func referenceMasks(block []byte) scanMasks {
 		case '}', ']':
 			m.closing |= bit
 		}
+		if c < 0x20 {
+			m.control |= bit
+		}
 	}
 	return m
 }
@@ -65,6 +68,9 @@ func referenceSkipCompound(buf []byte, cursor, depth int64) (int64, bool) {
 		switch {
 		case escaped:
 			escaped = false
+			if inString && c < 0x20 {
+				return pos + 1, true
+			}
 			continue
 		case c == '\\':
 			escaped = true
@@ -72,6 +78,8 @@ func referenceSkipCompound(buf []byte, cursor, depth int64) (int64, bool) {
 		case inString:
 			if c == '"' {
 				inString = false
+			} else if c < 0x20 {
+				return pos + 1, true
 			}
 			continue
 		}

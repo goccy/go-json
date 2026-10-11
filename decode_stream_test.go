@@ -248,3 +248,85 @@ func (r *chunkReader) Read(p []byte) (int, error) {
 	r.data = r.data[n:]
 	return n, nil
 }
+
+type countingReader struct {
+	r io.Reader
+	n int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += n
+	return n, err
+}
+
+func TestDecodeStreamUnterminatedStringStop(t *testing.T) {
+	// Issue 701: An unescaped control character (< 0x20) inside a string literal
+	// is invalid JSON per RFC 8259. The stream decoder must terminate scanning
+	// at that offset rather than reading through the entire stream.
+	tests := []struct {
+		name    string
+		prefix  string
+		wantErr bool
+	}{
+		{
+			name:    "unescaped newline in object string value",
+			prefix:  `{"name":"alice` + "\n",
+			wantErr: true,
+		},
+		{
+			name:    "unescaped carriage return in object string value",
+			prefix:  `{"name":"alice` + "\r",
+			wantErr: true,
+		},
+		{
+			name:    "unescaped raw tab in object string value",
+			prefix:  `{"name":"alice` + "\t",
+			wantErr: true,
+		},
+		{
+			name:    "unescaped newline in array string element",
+			prefix:  `["alice` + "\n",
+			wantErr: true,
+		},
+		{
+			name:    "valid escaped characters and formatted newlines",
+			prefix:  "{\n  \"name\": \"alice\\n\\t\\r\"\n}",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stream bytes.Buffer
+			stream.WriteString(tt.prefix)
+			for i := 0; i < 5000; i++ {
+				stream.WriteString(`{"name":"alice","age":30,"address":{"city":"Springfield"}}` + "\n")
+			}
+
+			cr := &countingReader{r: bytes.NewReader(stream.Bytes())}
+			var v any
+			err := json.NewDecoder(cr).Decode(&v)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected decode error, got nil")
+				}
+				if cr.n > 1024 {
+					t.Fatalf("expected decoder to read at most 1024 bytes, read %d bytes", cr.n)
+				}
+				var syntaxErr *json.SyntaxError
+				if !errors.As(err, &syntaxErr) {
+					t.Fatalf("expected SyntaxError, got %T: %v", err, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				// Valid decode of the first value must not consume the subsequent 5000 lines.
+				if cr.n > 2048 {
+					t.Fatalf("expected bounded read, read %d bytes", cr.n)
+				}
+			}
+		})
+	}
+}

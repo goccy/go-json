@@ -183,9 +183,9 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return append(b[:len(b)-2], ':', ' ')
 }
 
-// appendMapKeyName appends the key of an entry of a sorted map, as it was encoded with a comma after it, and the
+// appendSortedMapKey appends the key of an entry of a sorted map, as it was encoded with a comma after it, and the
 // colon after it.
-func appendMapKeyName(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key []byte) []byte {
+func appendSortedMapKey(ctx *encoder.RuntimeContext, code *encoder.Opcode, b, key []byte) []byte {
 	b = appendIndent(ctx, b, code.Indent+1)
 	b = append(b, key...)
 	b[len(b)-2] = ':'

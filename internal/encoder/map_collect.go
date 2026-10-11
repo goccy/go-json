@@ -39,7 +39,7 @@ type MapLayout struct {
 	keySize   uintptr
 	valueSize uintptr
 	// KeysMayEscape is whether an encoded key may have an escape, which puts it out of the order of its name
-	// ( see Mapslice.Sort ): the keys of a kind other than a string or an integer are texts.
+	// ( see MapContext.SortEncodedKeys ): the keys of a kind other than a string or an integer are texts.
 	KeysMayEscape bool
 	// Cyclic is whether an entry may hold the map again, which is recorded for the detection of cycles then ( see
 	// RuntimeContext.RecordMap ): the type of a key or a value reaches the type of the map, or an interface.

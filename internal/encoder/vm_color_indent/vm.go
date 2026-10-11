@@ -210,8 +210,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					code = code.Next
 					break
 				}
-				mapCtx.Slice.Sort()
-				mapCtx.Sorted = true
+				b = mapCtx.SortEncodedKeys(ctx, b)
 				idx = 0
 			}
 			if mapCtx.DirectEntries && idx < mapCtx.Len {
@@ -240,7 +239,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 					encoder.ReleaseMapContext(ctx, mapCtx)
 					return b, err
 				}
-				b = appendMapKeyName(ctx, code, b, item.Key)
+				b = appendSortedMapKey(ctx, code, b, item.Key)
 				code = code.NextField.Next
 				store(ctxptr, code.Idx, mapCtx.ValueAt(item.Entry))
 				break
@@ -262,17 +261,11 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 		case encoder.OpMapValue:
 			mapCtx := (*encoder.MapContext)(load(ctxptr, code.Idx))
 			if mapCtx.Slice.Items != nil {
-				// a key of a sorted map, which is kept to be written with its entry when every key is encoded:
-				// the next key is given to its opcodes, which follow the key opcode ( NextField ), and the key
-				// opcode sorts the keys after the last one.
-				// The output is put back to First, where the next key is encoded: each key is encoded with no
-				// entry written before it, as encoding/json/v2 encodes the keys of a sorted map, which a method of a
-				// key sees.
-				n := len(mapCtx.Buf)
-				mapCtx.Buf = append(mapCtx.Buf, b[mapCtx.First:]...)
-				mapCtx.Slice.Items[mapCtx.Idx] = encoder.MapItem{Key: mapCtx.Buf[n:], Entry: mapCtx.Idx}
-				b = b[:mapCtx.First]
-				ctx.Rewrote(mapCtx.First)
+				// a key of a sorted map, which follows the keys before it from First, to be written with its entry
+				// when every key is encoded ( see encoder.MapContext.SortEncodedKeys ): the item has the keys up to
+				// the end of this one, which tells where it ends. The next key is given to its opcodes, which follow
+				// the key opcode ( NextField ), and the key opcode sorts the keys after the last one.
+				mapCtx.Slice.Items[mapCtx.Idx] = encoder.MapItem{Key: b[mapCtx.First:], Entry: mapCtx.Idx}
 				code = code.NextField
 				if idx := mapCtx.Idx + 1; idx < mapCtx.Len {
 					mapCtx.Idx = idx

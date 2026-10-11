@@ -60,7 +60,7 @@ func methodInterfaceOf(typ reflect.Type, p unsafe.Pointer) unsafe.Pointer {
 
 // appendMapKeyName appends the name of the key at p, of typ, by the functions of marshaling, its method or its
 // kind, and records it in the context of the map, failing if the map has the name already. The names of a map
-// whose entries are sorted are checked after they are ( see checkSortedNames ).
+// whose entries are sorted are checked as the entries are written in the order of the names ( see SameMapName ).
 func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, funcs []*MarshalFunc) ([]byte, error) {
 	start := len(b)
 	out, err := b, ErrUseDefault

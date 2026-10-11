@@ -309,27 +309,6 @@ type Mapslice struct {
 	escaped bool
 }
 
-// Sort sorts the items by their keys, which are the names of the keys as encoding/json sorts them: an encoded
-// key is in the order of its name unless it has an escape, and then the names are decoded to be sorted by.
-// A text which was escaped while the keys were encoded tells that a key may have one ( see appendText ).
-//
-// It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
-// the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
-func (m *Mapslice) Sort() {
-	items := m.Items
-	if m.escaped {
-		sortMapItemsByNames(items)
-		return
-	}
-	if len(items) > maxItemsOfInsertionSort {
-		slices.SortFunc(items, func(a, b MapItem) int {
-			return bytes.Compare(a.Key, b.Key)
-		})
-		return
-	}
-	insertionSortMapItems(items)
-}
-
 func insertionSortMapItems(items []MapItem) {
 	for i := 1; i < len(items); i++ {
 		if bytes.Compare(items[i-1].Key, items[i].Key) <= 0 {
@@ -436,8 +415,8 @@ type MapContext struct {
 	Len           int
 	Idx           int
 	// The keys of a sorted map whose keys are not of a string kind are encoded first, and the entries are written in
-	// the order of their names after ( see OpMapValue ): First is where the entries start in the buffer, Slice has
-	// the keys and Buf is where they are copied.
+	// the order of their names after ( see SortEncodedKeys ): First is where the entries start in the buffer, Slice
+	// has the keys and Buf is where they are copied.
 	First int
 	Slice *Mapslice
 	items []MapItem // what Slice.Items is made of, kept between the maps
@@ -502,9 +481,42 @@ func (c *MapContext) SortByEncodedKeys() {
 	c.Slice.escaped = false
 }
 
+// SortEncodedKeys sorts the keys of a sorted map whose keys are not of a string kind, which the VM has encoded one
+// after another in b from First, each item with the keys up to the end of its own: they are moved to Buf, and the
+// output is put back to First, where the entries are written in the order of the names.
+//
+// The keys are sorted by their names, as encoding/json sorts them: an encoded key is in the order of its name
+// unless it has an escape, and then the names are decoded to be sorted by. A text which was escaped while the keys
+// were encoded tells that a key may have one ( see appendText ). It is not sort.Sort, which calls Less and Swap
+// through an interface for every comparison: the maps to encode are small in most cases, and the sort was a tenth
+// of the time to encode one.
+func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
+	c.Buf = append(c.Buf[:0], b[c.First:]...)
+	items := c.Slice.Items
+	start := 0
+	for i := range items {
+		end := len(items[i].Key)
+		items[i].Key = c.Buf[start:end:end]
+		start = end
+	}
+	switch {
+	case c.Slice.escaped:
+		sortMapItemsByNames(items)
+	case len(items) > maxItemsOfInsertionSort:
+		slices.SortFunc(items, func(a, b MapItem) int {
+			return bytes.Compare(a.Key, b.Key)
+		})
+	default:
+		insertionSortMapItems(items)
+	}
+	c.Sorted = true
+	rctx.Rewrote(c.First)
+	return b[:c.First]
+}
+
 // appendText appends the text of a marshaler or of the key of a map as a string. A text which is escaped is
 // written longer than itself and its quotes: that tells the map being encoded, if any, that its keys are to be
-// sorted by their names ( see Mapslice.Sort ).
+// sorted by their names ( see MapContext.SortEncodedKeys ).
 func appendText(ctx *RuntimeContext, b []byte, text string) []byte {
 	n := len(b)
 	b, _ = jsonstring.AppendQuoted(StringEscaper(ctx), b, text)

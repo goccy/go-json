@@ -16,9 +16,9 @@ import (
 )
 
 // The maps whose entries are written in the order of their names: encoding/json and go-json sort the names of every
-// map, and go-json/v2 sorts them with Deterministic( true ). The name of a key which is not a string, an integer or
-// the text of a key's MarshalText, is written before the entries are sorted by it, so these maps take another path
-// than the maps of strings, which are here too, of the same sizes, to be compared with them.
+// map, and go-json/v2 sorts them with Deterministic( true ). The name of a key which is not a string ( an integer,
+// or the text of a key's MarshalText ) is written before the entries are sorted by it, so these maps take another
+// path than the maps of strings, which are here too, of the same sizes, to be compared with them.
 //
 // Each benchmark encodes every payload of sortedMapPayloads in a sub-benchmark of its name. The libraries:
 //

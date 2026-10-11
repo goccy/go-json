@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -52,13 +53,13 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	s.index = &bracketIndex{}
 	s.indexDeeper(0)
 	decoded, err := s.decodeElements(dec, p, 0)
-	s.index = nil
 	if !decoded {
 		var end int64
-		if end, err = s.scanValue(); err == nil {
+		if end, err = s.wholeEnd(0); err == nil {
 			err = s.decodeWhole(dec, p, 0, end)
 		}
 	}
+	s.index = nil
 	if err != nil {
 		ctx.DiscardTypeError()
 		return s.fail(err)
@@ -176,11 +177,31 @@ func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error 
 		if decoded, err := s.decodeElements(dec, p, depth); decoded {
 			return err
 		}
-		if end, _, err = s.elementEnd(depth, math.MaxInt64); err != nil {
+		if end, err = s.wholeEnd(depth); err != nil {
 			return err
 		}
 	}
 	return s.decodeWhole(dec, p, depth, end)
+}
+
+// wholeEnd returns the position after the object or the array at the cursor, nested in depth objects and arrays,
+// which is read whole although it doesn't end within maxWholeValueSize bytes: its grammar is checked element by element
+// first, keeping its bytes, so that a value which is not valid fails at its error, without the input after it being
+// read, as a value decoded element by element does.
+func (s *Stream) wholeEnd(depth int64) (int64, error) {
+	start := s.offset + s.cursor
+	keeps, keepFrom := s.keeps, s.keepFrom
+	if !s.keeps || s.keepFrom > start {
+		s.keeps, s.keepFrom = true, start
+	}
+	err := s.skipNested(depth)
+	s.keeps, s.keepFrom = keeps, keepFrom
+	if err != nil {
+		return 0, err
+	}
+	s.cursor = start - s.offset
+	end, _, err := s.elementEnd(depth, math.MaxInt64)
+	return end, err
 }
 
 // elementEnd returns the position after the value at the cursor, nested in depth objects and arrays, reading from the
@@ -198,21 +219,19 @@ func (s *Stream) elementEnd(depth, limit int64) (int64, bool, error) {
 		if end, ok, rel = s.index.closeOf(s.offset+s.cursor, depth, rel); ok {
 			return end + 1 - s.offset, true, nil
 		}
+		if c := s.index.control - s.offset; c > s.cursor {
+			// the value ends at a control character in a string of it, which a string can't have: the decoder
+			// reports it, and the input after it is not read
+			return c, true, nil
+		}
 		if s.length-s.cursor >= limit {
 			return 0, false, nil
 		}
-		inString, escaped, from := s.index.inString != 0, s.index.escaped != 0, s.length-s.cursor
 		if !s.read() {
 			if err := s.depthError(depth); err != nil {
 				return 0, false, err
 			}
 			return 0, false, s.truncatedValueErrorAt(depth)
-		}
-		if s.index.inString != 0 && limit == math.MaxInt64 {
-			// a string which doesn't end in what has been read ends at a control character in it ( see scanCompound )
-			if c := controlInString(s.buf, s.cursor+from, s.length, inString, escaped); c >= 0 {
-				return c + 1, true, nil
-			}
 		}
 	}
 }
@@ -235,6 +254,9 @@ type bracketIndex struct {
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
+	// control is the total offset of the first control character in a string in what has been read plus one, or 0:
+	// a string can't have it, so the value read element by element ends there, and the input after it is not read.
+	control int64
 }
 
 // bracketClose is a bracket which closes an object or an array: its total offset, and the number of the objects and
@@ -309,6 +331,9 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 		inside ^= inString
 		inString = uint64(int64(inside) >> 63)
 		outside := ^(inside | escaped)
+		if x.control == 0 {
+			x.control = controlInBlock(unsafe.Add(base, pos), n, inside, offset+pos)
+		}
 		open, closing := m.open&outside, m.closing&outside
 		if closing == 0 || depth-int64(bits.OnesCount64(closing)) >= bound {
 			// no bracket of the block closes an object or an array as shallow as the bound
@@ -328,6 +353,26 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 		}
 	}
 	x.closes, x.depth, x.inString, x.escaped = closes, depth, inString, prevEscaped
+}
+
+// controlInBlock returns the total offset plus one of the first control character in the first n bytes of the block
+// at p, at the total offset at, which is inside a string by the mask inside, or 0. A word without a control character,
+// which most are, is passed by a few operations.
+func controlInBlock(p unsafe.Pointer, n int64, inside uint64, at int64) int64 {
+	var control uint64
+	for i := 0; i < scanBlockSize/8; i++ {
+		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i*8))[:])
+		if bytes := (w - 0x20*lsb) &^ w & msb; bytes != 0 {
+			control |= gatherMask(bytes) << uint(i*8)
+		}
+	}
+	if n < scanBlockSize {
+		control &= uint64(1)<<uint(n) - 1
+	}
+	if control &= inside; control == 0 {
+		return 0
+	}
+	return at + int64(bits.TrailingZeros64(control)) + 1
 }
 
 // lastElementClose returns the total offset of the bracket which closes the last element which is an object or an
@@ -694,8 +739,20 @@ func (s *Stream) decodeMapElements(d *mapDecoder, p unsafe.Pointer, depth int64)
 		s.cursor = start
 		keyEnd, err := s.callDecoder(d.keyDecoder, t.k, depth, end)
 		drop := err == errMapKeyType
-		if err != nil && !drop {
+		if _, ok := err.(*errors.SyntaxError); ok {
 			return s.elementError(err, depth)
+		}
+		if err != nil && !drop {
+			// the error of a key, as the one of its method, is returned once the rest of the object is read
+			s.ctx.typeError = had
+			s.cursor = end
+			if serr := s.memberValue(); serr != nil {
+				return serr
+			}
+			if serr := s.skipNested(depth); serr != nil {
+				return serr
+			}
+			return s.restAfter(s.totalOffsetError(err), true, depth)
 		}
 		if had == nil && s.ctx.typeError != nil {
 			s.keepTypeError(d.keyDecoder)

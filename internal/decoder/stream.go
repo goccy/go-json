@@ -296,12 +296,10 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 		if found {
 			return pos, nil
 		}
-		if sc.inString && limit == math.MaxInt64 {
-			// a string which doesn't end in what has been read ends at a control character in it. A value read up to
-			// a limit is decoded element by element after it, whose strings stop there ( see scanString ).
-			if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
-				return c + 1, nil
-			}
+		// a value which doesn't end in what has been read ends at a control character in a string of it, which a
+		// string can't have: the decoder reports it, and the input after it is not read
+		if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
+			return c + 1, nil
 		}
 		rel = pos - s.cursor
 		if rel >= limit {
@@ -314,24 +312,48 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 }
 
 // controlInString returns the position of the first control character in a string in buf[pos:end], which a string
-// can't have, or -1. The bytes are in a string from pos if inString is set, and escaped if escaped is set.
+// can't have, or -1. The bytes are in a string from pos if inString is set, and escaped if escaped is set. The control
+// characters are found word by word, and only the bytes before one are looked at for the strings: most values have
+// none, or line breaks between their tokens.
 func controlInString(buf []byte, pos, end int64, inString, escaped bool) int64 {
-	for pos < end {
+	for {
+		q := pos
+		for q+8 <= end {
+			if w := load64(buf, q); (w-0x20*lsb)&^w&msb != 0 {
+				break
+			}
+			q += 8
+		}
+		for q < end && buf[q] >= ' ' {
+			q++
+		}
+		if q >= end {
+			return -1
+		}
+		if inString, escaped = stringState(buf, pos, q, inString, escaped); inString {
+			return q
+		}
+		pos = q + 1
+	}
+}
+
+// stringState returns whether the byte at end is in a string, and escaped, from the state at pos.
+func stringState(buf []byte, pos, end int64, inString, escaped bool) (bool, bool) {
+	for ; pos < end; pos++ {
 		switch c := buf[pos]; {
-		case !inString:
-			inString = c == '"'
 		case escaped:
 			escaped = false
-		case c < ' ':
-			return pos
-		case c == '\\':
-			escaped = true
+		case inString:
+			if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
 		case c == '"':
-			inString = false
+			inString = true
 		}
-		pos++
 	}
-	return -1
+	return inString, escaped
 }
 
 // scanString finds the end of the string at the cursor: the position after the quote which closes it, or after a

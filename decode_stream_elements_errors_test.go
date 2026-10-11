@@ -153,6 +153,50 @@ func TestDecodeStreamElementsMethodError(t *testing.T) {
 	}
 }
 
+type elementsBadKey string
+
+func (k *elementsBadKey) UnmarshalText(b []byte) error {
+	if string(b) == "bad" {
+		return errors.New("elementsBadKey")
+	}
+	*k = elementsBadKey(b)
+	return nil
+}
+
+// The error of the method of a key is returned once the value is read, as the one of a value read at once is: a syntax
+// error or the end of the input after it is the error.
+func TestDecodeStreamElementsKeyError(t *testing.T) {
+	pad := strings.Repeat(" ", 70000)
+	for _, in := range []struct {
+		in  string
+		new func() any
+	}{
+		{`{"C":{` + pad + `"bad":1,"ok":2}}`, func() any { return new(struct{ C map[elementsBadKey]int }) }},
+		{`{"C":{` + pad + `"bad":1,"ok":2 x}}`, func() any { return new(struct{ C map[elementsBadKey]int }) }},
+		{`{` + pad + `"bad":{},"ok":{} x}`, func() any { return new(map[elementsBadKey]any) }},
+		{`{` + pad + `"bad":1,"x":2,`, func() any { return new(map[elementsBadKey]int) }},
+		{`{` + pad + `"bad":1,"x":2}`, func() any { return new(map[elementsBadKey]int) }},
+	} {
+		var stdErr error
+		{
+			v := in.new()
+			stdErr = stdjson.NewDecoder(strings.NewReader(in.in)).Decode(v)
+		}
+		for _, chunk := range []int{1000, 65536} {
+			want, got := decodeAtOnceAndByChunks(in.in, chunk, in.new, func(*json.Decoder) {})
+			if fmt.Sprint(got) != fmt.Sprint(want) {
+				t.Fatalf("%.30q, chunk %d: got %v, want %v (encoding/json: %v)", in.in, chunk, got, want, stdErr)
+			}
+			var stdSyntax *stdjson.SyntaxError
+			var syntax *json.SyntaxError
+			if errors.Is(stdErr, io.ErrUnexpectedEOF) != errors.Is(got, io.ErrUnexpectedEOF) ||
+				errors.As(stdErr, &stdSyntax) != errors.As(got, &syntax) {
+				t.Fatalf("%.30q, chunk %d: got %v, encoding/json %v", in.in, chunk, got, stdErr)
+			}
+		}
+	}
+}
+
 // The index of the brackets of a long array keeps only the part not decoded yet, whatever the length of the array.
 func TestDecodeStreamElementsIndexBounded(t *testing.T) {
 	element := "," + strings.Repeat(" ", 61) + "{}"

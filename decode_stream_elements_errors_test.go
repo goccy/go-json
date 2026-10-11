@@ -237,3 +237,26 @@ func TestDecodeStreamElementsSliceAfterError(t *testing.T) {
 		}
 	}
 }
+
+// An input which ends in an integer of a value which is skipped, or read whole, ends unexpectedly, whatever the reads:
+// the integer which a read cuts is read on, and the end of the input after it is the error.
+func TestDecodeStreamElementsEndInInteger(t *testing.T) {
+	pad := strings.Repeat(" ", 1000)
+	for _, in := range []string{
+		`{"unknown":[` + pad + `1,12`,
+		`{"unknown":{"a":` + pad + `12`,
+		`[` + pad + `1,12`,
+	} {
+		for _, chunk := range []int{1, 7, 512} {
+			for _, target := range []func() any{
+				func() any { return new(struct{ Name string }) },
+				func() any { return new(json.RawMessage) },
+			} {
+				whole, chunked := decodeAtOnceAndByChunks(in, chunk, target, func(*json.Decoder) {})
+				if chunked == nil || whole == nil || chunked.Error() != whole.Error() {
+					t.Fatalf("%q by chunks of %d: got %v, want %v", in[:12], chunk, chunked, whole)
+				}
+			}
+		}
+	}
+}

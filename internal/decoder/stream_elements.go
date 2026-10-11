@@ -724,11 +724,14 @@ func (s *Stream) skipResume(level int64, objects uint64, resume skipResume) (int
 		if s.cursor == 0 || s.buf[s.cursor-1]-'0' > 9 {
 			break
 		}
-		// an integer, which the next bytes may go on: it is read whole
+		// an integer, which the next bytes may go on: it is read whole, up to a byte after it, or the end of the input,
+		// which the read below reports
 		for s.cursor > 0 && isNumberByte(s.buf[s.cursor-1]) {
 			s.cursor--
 		}
-		return level, resume, s.skipScalar()
+		if err := s.skipScalar(); err != nil || s.cursor < s.length {
+			return level, resume, err
+		}
 	case resumeValue, resumeKey:
 		// a value or a key, after the white space after a bracket, a comma or a colon: the end of the object or the
 		// array may follow its bracket only, and the key is skipped here, as skipFast doesn't resume at it

@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -17,20 +16,21 @@ import (
 )
 
 // A value of a stream is decoded from the buffer by the decoders of a byte slice when the buffer holds it whole. An
-// object or an array which doesn't end within maxWholeValueSize bytes is decoded element by element instead: each
-// element is decoded the same way, from the buffer if it holds the element whole, and the bytes of the elements
-// decoded are dropped when the buffer is filled again. So the memory of a stream is bounded by a few times
-// maxWholeValueSize, or by the longest string or number, whatever the size of a value. The strings decoded then are
-// copied out of the buffer, which they would keep alive.
+// object or an array which the buffer doesn't hold whole is decoded element by element instead, without a read for
+// it: each element is decoded the same way, from the buffer if it holds the element whole, and else element by element
+// in turn, so that the reader is read only when the next token isn't whole in the buffer. So the decoding never reads
+// past the token being read, which fails a value at the read of its first invalid byte, and the buffer holds a read
+// and the longest token, whatever the size of a value: the bytes of the elements decoded are dropped when the buffer
+// is filled again. The strings decoded then are copied out of the buffer, which they would keep alive.
 //
 // The objects and the arrays of structs, maps, slices, arrays, pointers to them and interface{} values are decoded
 // so. A value of any other type, as one which has an UnmarshalJSON method, which takes the bytes of the whole value,
-// or a value of another kind than its type, whose type error the decoder of its type reports, is read whole.
+// or a value of another kind than its type, whose type error the decoder of its type reports, is read whole, checked
+// element by element as it is read ( see wholeEnd ).
 
-// maxWholeValueSize is the size of the largest object or array which a stream reads whole: the buffer grows for one
-// so long. A reader which tells the length of its data is read whole at once ( see grow ), which the buffer holds
-// every value of then.
-const maxWholeValueSize = 64 << 10
+// elementReadSize is the size which the buffer of a value decoded element by element grows to: what a read brings at
+// most, which a long value is read by.
+const elementReadSize = 64 << 10
 
 // errLongValue is what a scan of a value returns for an object or an array which doesn't end within the bytes it may
 // read ( see scanValueUpTo ).
@@ -48,9 +48,8 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	ctx := s.ctx
 	ctx.Option = s.Option
 	start := s.offset + s.cursor
-	// a buffer of its own, which nothing decoded before refers to, so that it is reused in place ( see grow )
-	s.grow()
-	s.index = &bracketIndex{}
+	s.elements = bracketIndex{closes: s.elements.closes[:0]}
+	s.index = &s.elements
 	s.indexDeeper(0)
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
@@ -169,7 +168,7 @@ func (s *Stream) decodeElements(dec Decoder, p unsafe.Pointer, depth int64) (boo
 // decodeNested decodes the value at the cursor, nested in depth objects and arrays, by dec into p: whole if the
 // buffer holds it, and else element by element.
 func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error {
-	end, whole, err := s.elementEnd(depth, maxWholeValueSize)
+	end, whole, err := s.elementEnd(depth, 0)
 	if err != nil {
 		return err
 	}
@@ -219,11 +218,6 @@ func (s *Stream) elementEnd(depth, limit int64) (int64, bool, error) {
 		if end, ok, rel = s.index.closeOf(s.offset+s.cursor, depth, rel); ok {
 			return end + 1 - s.offset, true, nil
 		}
-		if c := s.index.control - s.offset; c > s.cursor {
-			// the value ends at a control character in a string of it, which a string can't have: the decoder
-			// reports it, and the input after it is not read
-			return c, true, nil
-		}
 		if s.length-s.cursor >= limit {
 			return 0, false, nil
 		}
@@ -254,9 +248,14 @@ type bracketIndex struct {
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
-	// control is the total offset of the first control character in a string in what has been read plus one, or 0:
-	// a string can't have it, so the value read element by element ends there, and the input after it is not read.
-	control int64
+	// buf is the buffer which the stream made while the value is decoded element by element: the strings decoded
+	// then are copied, so nothing refers to it, and the stream reuses it in place ( see grow ).
+	buf *byte
+}
+
+// owns reports whether buf is the buffer which the stream made while the value is decoded element by element.
+func (x *bracketIndex) owns(buf []byte) bool {
+	return x.buf == unsafe.SliceData(buf)
 }
 
 // bracketClose is a bracket which closes an object or an array: its total offset, and the number of the objects and
@@ -331,9 +330,6 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 		inside ^= inString
 		inString = uint64(int64(inside) >> 63)
 		outside := ^(inside | escaped)
-		if x.control == 0 {
-			x.control = controlInBlock(unsafe.Add(base, pos), n, inside, offset+pos)
-		}
 		open, closing := m.open&outside, m.closing&outside
 		if closing == 0 || depth-int64(bits.OnesCount64(closing)) >= bound {
 			// no bracket of the block closes an object or an array as shallow as the bound
@@ -353,26 +349,6 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 		}
 	}
 	x.closes, x.depth, x.inString, x.escaped = closes, depth, inString, prevEscaped
-}
-
-// controlInBlock returns the total offset plus one of the first control character in the first n bytes of the block
-// at p, at the total offset at, which is inside a string by the mask inside, or 0. A word without a control character,
-// which most are, is passed by a few operations.
-func controlInBlock(p unsafe.Pointer, n int64, inside uint64, at int64) int64 {
-	var control uint64
-	for i := 0; i < scanBlockSize/8; i++ {
-		w := binary.LittleEndian.Uint64((*[8]byte)(unsafe.Add(p, i*8))[:])
-		if bytes := (w - 0x20*lsb) &^ w & msb; bytes != 0 {
-			control |= gatherMask(bytes) << uint(i*8)
-		}
-	}
-	if n < scanBlockSize {
-		control &= uint64(1)<<uint(n) - 1
-	}
-	if control &= inside; control == 0 {
-		return 0
-	}
-	return at + int64(bits.TrailingZeros64(control)) + 1
 }
 
 // lastElementClose returns the total offset of the bracket which closes the last element which is an object or an
@@ -589,7 +565,7 @@ func (s *Stream) memberValue() error {
 // skipNested skips the value at the cursor, nested in depth objects and arrays, which is checked by the grammar, as
 // skipValue does: whole if the buffer holds it, and else element by element.
 func (s *Stream) skipNested(depth int64) error {
-	if _, whole, err := s.elementEnd(depth, maxWholeValueSize); err != nil || whole {
+	if _, whole, err := s.elementEnd(depth, 0); err != nil || whole {
 		if err != nil {
 			return err
 		}

@@ -65,8 +65,10 @@ type Stream struct {
 	keeps    bool
 	keepFrom int64
 	// index is where the objects and the arrays of the value which is decoded element by element end, which the
-	// reads extend ( see scanFailed ). It is nil while no value is decoded so.
-	index *bracketIndex
+	// reads extend ( see scanFailed ). It is nil while no value is decoded so, and else elements, whose entries are
+	// kept for the next value, which allocates them no more.
+	index    *bracketIndex
+	elements bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -145,10 +147,17 @@ func (s *Stream) grow() {
 		size = remain + int64(r.Len())
 	}
 	buf := s.buf
-	if s.index == nil || size != int64(len(s.buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
-		// the buffer of a value decoded element by element, whose strings are copied, is reused: nothing refers to
-		// it, as the stream made it when the value began ( see scanFailed )
+	if x := s.index; x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding ||
+		(s.Option.Flags&NoCopyStringOption) != 0 {
+		if x != nil {
+			// the buffer of a value decoded element by element, whose strings are copied, which nothing refers to
+			// but them: it is reused in place, and grows twice as large up to the reads which a long value deserves
+			size = max(size, min(2*size, elementReadSize))
+		}
 		buf = make([]byte, size+bufPadding)
+		if x != nil {
+			x.buf = unsafe.SliceData(buf)
+		}
 	}
 	copy(buf, s.buf[from:s.length])
 	s.offset += from
@@ -262,9 +271,9 @@ func (s *Stream) scanValue() (int64, error) {
 	return s.scanValueUpTo(math.MaxInt64)
 }
 
-// scanValueUpTo is scanValue which reads an object or an array only up to limit bytes: if it doesn't end within them,
-// it returns errLongValue, and the value is decoded element by element ( see scanFailed ). A string, a number, true,
-// false and null are read whole.
+// scanValueUpTo is scanValue which reads for an object or an array only until limit bytes of it have been read: if it
+// doesn't end within them, it returns errLongValue, and the value is decoded element by element ( see scanFailed ).
+// A string, a number, true, false and null are read whole.
 func (s *Stream) scanValueUpTo(limit int64) (int64, error) {
 	if !s.fill() {
 		return 0, s.endError()
@@ -296,15 +305,15 @@ func (s *Stream) scanCompound(limit int64) (int64, error) {
 		if found {
 			return pos, nil
 		}
+		if pos-s.cursor >= limit {
+			return 0, errLongValue
+		}
 		// a value which doesn't end in what has been read ends at a control character in a string of it, which a
 		// string can't have: the decoder reports it, and the input after it is not read
 		if c := controlInString(s.buf, s.cursor+rel, pos, inString, escaped); c >= 0 {
 			return c + 1, nil
 		}
 		rel = pos - s.cursor
-		if rel >= limit {
-			return 0, errLongValue
-		}
 		if !s.read() {
 			return 0, s.truncatedValueError()
 		}
@@ -357,18 +366,20 @@ func stringState(buf []byte, pos, end int64, inString, escaped bool) (bool, bool
 }
 
 // scanString finds the end of the string at the cursor: the position after the quote which closes it, or after a
-// control character, which a string can't have: the decoder reports it, and a string which is not closed is not
-// read up to the end of the input.
+// control character or the byte of an escape which is not one, which a string can't have: the decoder reports it, and
+// the input after it is not read.
 func (s *Stream) scanString() (int64, error) {
 	var (
 		rel     int64 = 1 // after the opening quote
 		escaped bool
+		// hex is the number of the hexadecimal digits of a \u escape which are not read yet
+		hex int
 	)
 	for {
 		buf := s.buf
 		pos := s.cursor + rel
 		end := s.length
-		for pos+8 <= end && !escaped {
+		for pos+8 <= end && !escaped && hex == 0 {
 			stop := keyEndBytes(load64(buf, pos))
 			if stop == 0 {
 				pos += 8
@@ -388,8 +399,21 @@ func (s *Stream) scanString() (int64, error) {
 			switch {
 			case c < ' ':
 				return pos, nil
+			case hex > 0:
+				// an escape which is not one ends the string, so that the decoder reports it
+				if !isHexDigit(c) {
+					return pos, nil
+				}
+				hex--
 			case escaped:
 				escaped = false
+				switch c {
+				case 'u':
+					hex = 4
+				case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				default:
+					return pos, nil
+				}
 			case c == '\\':
 				escaped = true
 			case c == '"':
@@ -406,29 +430,55 @@ func (s *Stream) scanString() (int64, error) {
 	}
 }
 
-// scanLiteral finds the end of the number, true, false or null at the cursor: the position of
-// the first byte which can't belong to it, or the end of the input. The bytes may be more than one value, as 01 is
-// 0 and 1, which the decoder rejects: Decode then decodes the first alone ( see decodeError ).
+// scanLiteral finds the end of the number, true, false or null at the cursor: the position after true, false or null,
+// or of the first byte which differs from it, and the position of the first byte which can't belong to the number by
+// its grammar, or the end of the input. A number is read until a byte ends it, as encoding/json reads it, but a byte
+// which makes it invalid ends it without a read more. The bytes of a number may be more than one value, as 01 is 0 and
+// 1: Decode then decodes the first alone ( see decodeError ).
 func (s *Stream) scanLiteral() (int64, error) {
-	var rel int64
-	for {
-		buf := s.buf
-		pos := s.cursor + rel
-		end := s.length
-		for pos < end {
-			if !isLiteralChar[buf[pos]] {
-				return pos, nil
+	if lit := literalOf(s.buf[s.cursor]); lit != "" {
+		for i := 1; i < len(lit); i++ {
+			if s.cursor+int64(i) >= s.length && !s.read() {
+				if s.readErr != io.EOF {
+					return 0, s.readErr
+				}
+				return s.length, nil
 			}
-			pos++
+			if s.buf[s.cursor+int64(i)] != lit[i] {
+				return s.cursor + int64(i) + 1, nil
+			}
 		}
-		rel = pos - s.cursor
+		return s.cursor + int64(len(lit)), nil
+	}
+	for {
+		n, place := jsonnum.Scan(s.buf[s.cursor:s.length])
+		if end := s.cursor + int64(n); end < s.length {
+			if place == jsonnum.Valid {
+				return end, nil
+			}
+			// the byte where the number is invalid
+			return end + 1, nil
+		}
 		if !s.read() {
 			if s.readErr != io.EOF {
 				return 0, s.readErr
 			}
-			return s.cursor + rel, nil
+			return s.length, nil
 		}
 	}
+}
+
+// literalOf returns true, false or null, which c starts, or "".
+func literalOf(c byte) string {
+	switch c {
+	case 't':
+		return "true"
+	case 'f':
+		return "false"
+	case 'n':
+		return "null"
+	}
+	return ""
 }
 
 // DecoderOf returns the decoder of the type, from the recent decoders of the context of the stream.
@@ -443,7 +493,8 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	if err := s.prepare(); err != nil {
 		return err
 	}
-	end, err := s.scanValueUpTo(maxWholeValueSize)
+	// a value which the buffer doesn't hold whole is decoded element by element, without a read for it
+	end, err := s.scanValueUpTo(0)
 	if err != nil {
 		return s.scanFailed(err, dec, typ, p)
 	}

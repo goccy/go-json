@@ -17,8 +17,8 @@ import (
 // readUntil is a reader of data, which hides its length, and tells the bytes read when the read which brought the byte
 // at the position at returned.
 type readUntil struct {
-	data       string
-	n          int
+	data        string
+	n           int
 	at, reached int
 }
 

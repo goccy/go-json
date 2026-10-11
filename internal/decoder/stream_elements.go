@@ -283,6 +283,27 @@ func (x *bracketIndex) extend(buf []byte, from, to, offset int64) {
 	x.closes, x.depth, x.inString, x.escaped = closes, depth, inString, prevEscaped
 }
 
+// lastElementClose returns the total offset of the bracket which closes the last element which is an object or an
+// array in what has been read of the elements from the total offset at, which are nested in depth objects and arrays.
+func (x *bracketIndex) lastElementClose(at, depth int64) (int64, bool) {
+	var end int64
+	found := false
+	for i := x.next; i < len(x.closes); i++ {
+		c := x.closes[i]
+		if c.at < at {
+			continue
+		}
+		if c.depth <= depth {
+			// the end of the array
+			break
+		}
+		if c.depth == depth+1 {
+			end, found = c.at, true
+		}
+	}
+	return end, found
+}
+
 // closeOf returns the total offset of the bracket which closes the object or the array whose bracket is at the total
 // offset at, nested in depth objects and arrays, if it has been read. The entries are looked at from the one rel
 // after the first one which may close the value, which a lookup returns, so that the lookups of a value which has not
@@ -629,44 +650,117 @@ func (s *Stream) decodeSliceElements(d *sliceDecoder, p unsafe.Pointer, depth in
 	}
 	dst := (*sliceHeader)(p)
 	// the elements are decoded into the slice up to limit, and into a buffer after it, as Decode does
-	limit := max(dst.cap, inPlaceSliceLength)
-	var elems *sliceBuf
-	for idx := 0; ; idx++ {
+	t := sliceTarget{d: d, dst: dst, limit: max(dst.cap, inPlaceSliceLength)}
+	for idx := 0; ; {
 		ok, err := s.nextElement(idx == 0)
 		if err != nil || !ok {
-			switch {
-			case elems != nil:
-				d.storeBuf(dst, elems, idx)
-			case err == nil && idx == 0 && dst.data == nil:
-				dst.data = unsafe.Pointer(&zeroBase)
-			case err == nil:
-				dst.len = idx
-			}
+			t.finish(idx, err)
 			return err
 		}
-		var ep unsafe.Pointer
-		switch {
-		case idx < limit:
-			d.grow(dst, idx, idx+1)
-			ep = unsafe.Add(dst.data, uintptr(idx)*d.size)
-			dst.len = idx + 1
-		case elems == nil:
-			elems = d.takeBuf(dst, idx)
-			fallthrough
-		default:
-			ep = d.bufElem(elems, idx)
+		if n, err := s.decodeRun(&t, idx, depth); err != nil || n > idx {
+			if idx = n; err != nil {
+				t.finish(idx+1, err)
+				return err
+			}
+			continue
 		}
 		had := s.ctx.typeError
-		if err := s.decodeNested(d.valueDecoder, ep, depth); err != nil {
-			if elems != nil {
-				d.storeBuf(dst, elems, idx+1)
-			}
+		if err := s.decodeNested(d.valueDecoder, t.elem(idx), depth); err != nil {
+			t.finish(idx+1, err)
 			return err
 		}
 		if s.ctx.typeError != had {
 			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
 		}
+		idx++
 	}
+}
+
+// sliceTarget is where the elements of an array decoded element by element are stored: into the slice up to limit,
+// and into a buffer of the pool after it, as sliceDecoder.Decode does.
+type sliceTarget struct {
+	d     *sliceDecoder
+	dst   *sliceHeader
+	elems *sliceBuf
+	limit int
+}
+
+// elem returns where the element at idx is decoded into.
+func (t *sliceTarget) elem(idx int) unsafe.Pointer {
+	switch {
+	case idx < t.limit:
+		t.d.grow(t.dst, idx, idx+1)
+		t.dst.len = idx + 1
+		return unsafe.Add(t.dst.data, uintptr(idx)*t.d.size)
+	case t.elems == nil:
+		t.elems = t.d.takeBuf(t.dst, idx)
+	}
+	return t.d.bufElem(t.elems, idx)
+}
+
+// finish makes the slice have the n elements decoded, after the end of the array or the error err.
+func (t *sliceTarget) finish(n int, err error) {
+	switch {
+	case t.elems != nil:
+		t.d.storeBuf(t.dst, t.elems, n)
+	case err == nil && n == 0 && t.dst.data == nil:
+		t.dst.data = unsafe.Pointer(&zeroBase)
+	case err == nil:
+		t.dst.len = n
+	}
+}
+
+// decodeRun decodes the elements of the array from the one at the cursor, the element idx, which the buffer holds
+// whole, by one setting of the decoders' buffer: the ones up to the last object or array element whose end has been
+// read. It returns the number of the elements decoded with idx, and leaves the cursor after the last one. The
+// elements of the array are nested in depth objects and arrays.
+func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
+	end, ok := s.index.lastElementClose(s.offset+s.cursor, depth)
+	if !ok {
+		return idx, nil
+	}
+	ctx := s.ctx
+	stop := end - s.offset + 1
+	saved := s.buf[stop]
+	s.buf[stop] = nul
+	buf := s.buf[:stop+1]
+	ctx.Buf, ctx.origin = buf, buf
+	cursor := s.cursor
+	var err error
+	for {
+		start := cursor
+		had := ctx.typeError
+		next, derr := t.d.valueDecoder.Decode(ctx, cursor, depth, t.elem(idx))
+		if derr != nil {
+			if c := buf[start]; c != '-' && c-'0' > 9 {
+				s.cursor, err = start, derr
+			}
+			// a number is decoded alone, which may be followed by more bytes of the grammar of a number, as 01 is 0
+			// and 1 ( see decodeWhole ): the decoding stops before it, after the comma before it
+			break
+		}
+		if had == nil && ctx.typeError != nil {
+			s.cursor = start
+			s.keepTypeError(t.d.valueDecoder)
+			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
+		}
+		idx++
+		s.cursor = next
+		// the next element is in the run if it starts before its end
+		if c := skipWhiteSpace(buf, next); buf[c] == ',' {
+			if c = skipWhiteSpace(buf, c+1); c < stop {
+				cursor = c
+				continue
+			}
+		}
+		break
+	}
+	s.buf[stop] = saved
+	ctx.Buf, ctx.origin = nil, nil
+	if err != nil {
+		return idx, s.elementError(err)
+	}
+	return idx, nil
 }
 
 // decodeArrayElements decodes the array at the cursor into the array at p, as arrayDecoder.Decode does.

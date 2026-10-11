@@ -94,6 +94,7 @@ func TestDecodeStringTagPointers(t *testing.T) {
 		}{}, &struct {
 			A *stringTagUnmarshaler `json:",string"`
 		}{&unmarshaler}, false},
+		// encoding/json of Go 1.27 decodes it as the key 0, which no other version does: "null" is not a number.
 		{"null in a string as a key of a map of numbers", `{"null":1}`, &map[int]int{}, nil, true},
 	}
 	for _, tt := range tests {

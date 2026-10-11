@@ -54,12 +54,6 @@ func newWrappedStringDecoder(typ reflect.Type, dec Decoder, structName, fieldNam
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
 		reflect.Float32, reflect.Float64:
-		if numberType.Implements(unmarshalJSONType) || reflect.PointerTo(numberType).Implements(unmarshalJSONType) ||
-			reflect.PointerTo(numberType).Implements(unmarshalJSONContextType) ||
-			reflect.PointerTo(numberType).Implements(unmarshalTextType) {
-			// a number decoded by its own unmarshaler
-			break
-		}
 		d.numberKind, d.numberType = numberType.Kind(), numberType
 	}
 	return d

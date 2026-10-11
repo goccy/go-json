@@ -14,6 +14,9 @@ import (
 const (
 	// initBufSize is the size of the buffer of a new stream.
 	initBufSize = 512
+	// inMemoryReadSize is the size which the buffer grows to at least for a value of a reader whose input is in
+	// memory ( see grow ): a value up to its size is read by one read more.
+	inMemoryReadSize = 64 << 10
 	// bufPadding is the number of the bytes kept free after the data in the buffer of a stream:
 	// one for the nul byte which ends the value being decoded, the rest so that a scan reads
 	// a whole block from any byte of the value.
@@ -128,11 +131,14 @@ func (s *Stream) grow() {
 	size := int64(len(s.buf)) - bufPadding
 	if remain*2 > size {
 		// The data which is not consumed yet fills more than half of the buffer: it is a value larger than the
-		// buffer, which is grown twice as large, or, from a reader which tells how much it has ( bytes.Reader,
-		// strings.Reader, bytes.Buffer ), as large as that, so that a large value is copied once.
-		size *= 2
+		// buffer, which is grown twice as large. A reader which tells how much it has left ( bytes.Reader,
+		// strings.Reader, bytes.Buffer ), which a value can't go past, grows it four times as large, or to
+		// inMemoryReadSize, up to that, so that a large value is copied fewer times, and a small one once, without a
+		// copy of the whole input for it.
 		if r, ok := s.r.(interface{ Len() int }); ok {
-			size = max(size, remain+int64(r.Len()))
+			size = max(min(max(4*size, inMemoryReadSize), remain+int64(r.Len())), size)
+		} else {
+			size *= 2
 		}
 	}
 	buf := make([]byte, size+bufPadding)
@@ -345,16 +351,30 @@ func (s *Stream) scanString() (int64, error) {
 // the first byte which can't belong to it, or the end of the input. The bytes may be more than one value, as 01 is
 // 0 and 1, which the decoder rejects: Decode then decodes the first alone ( see decodeError ).
 func (s *Stream) scanLiteral() (int64, error) {
+	// true, false and null end after their bytes, without a read of the byte after them, which may not come yet
+	var size int64
+	switch s.buf[s.cursor] {
+	case 't', 'n':
+		size = 4
+	case 'f':
+		size = 5
+	}
 	var rel int64
 	for {
 		buf := s.buf
 		pos := s.cursor + rel
 		end := s.length
+		if size > 0 {
+			end = min(end, s.cursor+size)
+		}
 		for pos < end {
 			if !isLiteralChar[buf[pos]] {
 				return pos, nil
 			}
 			pos++
+		}
+		if size > 0 && pos == s.cursor+size {
+			return pos, nil
 		}
 		rel = pos - s.cursor
 		if !s.read() {

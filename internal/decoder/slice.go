@@ -114,8 +114,17 @@ func (d *sliceDecoder) decodeLong(ctx *RuntimeContext, cursor, depth int64, dst 
 		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
 		case ']':
-			d.store(dst, elems, idx+1)
-			d.releaseBuf(elems, idx+1)
+			if dst.cap < idx+1 {
+				// the buffer becomes the slice, which has no room for the elements, instead of a copy of them: a long
+				// slice is not allocated twice, and the pool doesn't keep a buffer of its size
+				*dst = elems.hdr
+				dst.len = idx + 1
+				elems.hdr = sliceHeader{}
+				d.bufPool.Put(elems)
+			} else {
+				d.store(dst, elems, idx+1)
+				d.releaseBuf(elems, idx+1)
+			}
 			d.lastLen.Store(int32(min(idx+1, inPlaceSliceLength)))
 			return cursor + 1, nil
 		case ',':

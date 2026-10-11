@@ -288,6 +288,9 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]b
 	}
 	ret := [][]byte{}
 	for {
+		if buf[skipWhiteSpace(buf, cursor)] != '"' {
+			return nil, 0, errKeyNotString(buf, cursor)
+		}
 		key, keyCursor, err := keyDecoder.decodeByte(buf, cursor)
 		if err != nil {
 			return nil, 0, err

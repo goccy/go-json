@@ -265,7 +265,7 @@ func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64
 	if *(*unsafe.Pointer)(p) == nil {
 		*(*unsafe.Pointer)(p) = reflect.MakeMapWithSize(d.mapType, 0).UnsafePointer()
 	}
-	cursor = skipWhiteSpace(buf, skipWhiteSpace(buf, cursor)+1)
+	cursor = skipWhiteSpace(buf, cursor+1)
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}

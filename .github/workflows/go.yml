@@ -107,7 +107,7 @@ jobs:
     # The benchmarks are measured by parts, one by each job, so that the check ends within a few minutes.
     # The decode and the encode benchmarks are apart, so that each group is judged by a mean of its own:
     # in a mean of both, a change of the decoder would count for less than one of the encoder, whose
-    # benchmarks are more. The decode ones are in four parts and the encode ones in two, each with benchmarks of
+    # benchmarks are more. The decode ones are in four parts and the encode ones in five, each with benchmarks of
     # every kind ( see -shard of internal/cmd/benchcheck ).
     name: Benchmark (${{ matrix.part }})
     runs-on: ubuntu-latest
@@ -123,10 +123,16 @@ jobs:
             flags: -group decode -shard 2/4
           - part: decode 3/4
             flags: -group decode -shard 3/4
-          - part: encode 0/2
-            flags: -group encode -shard 0/2
-          - part: encode 1/2
-            flags: -group encode -shard 1/2
+          - part: encode 0/5
+            flags: -group encode -shard 0/5
+          - part: encode 1/5
+            flags: -group encode -shard 1/5
+          - part: encode 2/5
+            flags: -group encode -shard 2/5
+          - part: encode 3/5
+            flags: -group encode -shard 3/5
+          - part: encode 4/5
+            flags: -group encode -shard 4/5
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -169,10 +175,16 @@ jobs:
             flags: -group decode -shard 2/4
           - part: decode 3/4
             flags: -group decode -shard 3/4
-          - part: encode 0/2
-            flags: -group encode -shard 0/2
-          - part: encode 1/2
-            flags: -group encode -shard 1/2
+          - part: encode 0/5
+            flags: -group encode -shard 0/5
+          - part: encode 1/5
+            flags: -group encode -shard 1/5
+          - part: encode 2/5
+            flags: -group encode -shard 2/5
+          - part: encode 3/5
+            flags: -group encode -shard 3/5
+          - part: encode 4/5
+            flags: -group encode -shard 4/5
     steps:
       - name: checkout
         uses: actions/checkout@v7

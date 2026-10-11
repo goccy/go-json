@@ -99,6 +99,13 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		if d.decodeNumber(bytes, p) {
 			return c, nil
 		}
+		if !d.isMapKey && string(bytes) == "null" {
+			// encoding/json decodes the string "null" as null: it leaves the number, and sets a pointer to nil
+			if d.isPtrType {
+				*(*unsafe.Pointer)(p) = nil
+			}
+			return c, nil
+		}
 		return d.stringError(ctx, start, c, bytes, p)
 	}
 	if len(bytes) != 0 && (isWhiteSpace[bytes[0]] || isWhiteSpace[bytes[len(bytes)-1]]) {

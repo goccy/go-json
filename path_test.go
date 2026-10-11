@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"errors"
 	"reflect"
 	"sort"
 	"testing"
@@ -231,4 +232,26 @@ func TestGetPath(t *testing.T) {
 			t.Fatalf("failed to decode by json.Get")
 		}
 	})
+}
+
+// A key of an object is a string: any other key is a syntax error for a path too, wherever the object is.
+func TestPathKeyNotString(t *testing.T) {
+	for _, src := range []string{`{null:1,"a":2}`, `{"a":2,null:3}`, `{5:1,"a":2}`, `{"a":2, true:3}`, `{"a":2,}`, `{"a":{null:7}}`, `{"b":{5:1},"a":2}`} {
+		for _, p := range []string{"$.a", "$.a.b", "$..a"} {
+			t.Run(p+src, func(t *testing.T) {
+				path, err := json.CreatePath(p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var syntaxErr *json.SyntaxError
+				if _, err := path.Extract([]byte(src)); !errors.As(err, &syntaxErr) {
+					t.Errorf("Extract: got error %v, want a syntax error", err)
+				}
+				var v any
+				if err := path.Unmarshal([]byte(src), &v); !errors.As(err, &syntaxErr) {
+					t.Errorf("Unmarshal: got error %v, want a syntax error", err)
+				}
+			})
+		}
+	}
 }

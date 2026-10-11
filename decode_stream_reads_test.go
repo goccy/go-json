@@ -195,16 +195,26 @@ func TestDecodeStreamTopStringControlBeforeEscape(t *testing.T) {
 	}
 }
 
-// A control character in a \u escape is the error which the input read at once has, which shows the bytes of the
-// escape after it.
+// A control character in a string, in a \u escape too, is a syntax error once it is read: the bytes after it are not
+// waited for.
 func TestDecodeStreamControlInEscape(t *testing.T) {
-	for _, in := range []string{"[\"\\u0\n0e9\"]", "{\"a\":\"\\u12\x0134\"}", "\"\\u\x01000\"", "{\"\\u1\n23\":1}", "[\"\\u0\n"} {
-		want := json.Unmarshal([]byte(in), new(any))
-		for _, size := range []int{1, 2, 4096} {
-			got := json.NewDecoder(&chunkedReader{data: in, size: size}).Decode(new(any))
-			if want == nil || got == nil || got.Error() != want.Error() {
-				t.Fatalf("%q by %d: got %v, want %v", in, size, got, want)
+	for _, in := range []string{"[\"\\u0\n", "{\"a\":\"\\u12\x01", "\"\\u\x01", "{\"\\u1\n", "\"\\\\u1\n", "\"\\u\\\n"} {
+		r, w := io.Pipe()
+		go func() {
+			_, _ = w.Write([]byte(in))
+			// the writer neither writes nor closes more: a read more waits for ever
+		}()
+		done := make(chan error, 1)
+		go func() { done <- json.NewDecoder(r).Decode(new(any)) }()
+		select {
+		case err := <-done:
+			var syntaxErr *json.SyntaxError
+			if !errors.As(err, &syntaxErr) {
+				t.Errorf("%q: got %v, want a syntax error", in, err)
 			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%q: Decode waits for input after the control character", in)
 		}
+		_ = w.Close()
 	}
 }

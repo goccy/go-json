@@ -21,17 +21,24 @@ import (
 // bytes.Reader of the *_Stream_* benchmarks ( decode_test.go ), lets go-json read the whole input at once, so these
 // never see a value which is larger than the buffer of the decoder.
 //
-// The payloads are values which fit in one chunk ( MediumStruct, 2 KB ) or in a few ( Twitter, 10 KB ), values of
-// megabytes, many times a chunk and the first buffer of a decoder ( Code, Records: an array of records, CodeAny:
-// Code into interface{} ), many values one after another ( NDJSON: one record per line, decoded until the end of the input ), and a large value which is mostly
-// skipped ( SkipRecords: an object of an array of records and the count, decoded into a struct of the count only ).
-// Each benchmark is run with chunks of 4 KiB and 32 KiB.
+// The payloads are:
+//   - a value which fits in the first buffer of a decoder ( SmallStruct, 143 B; the one of go-json has 512 bytes );
+//   - values larger than the first buffer, which fit in one chunk or in a few ( MediumStruct, 2 KB, and Twitter,
+//     10 KB );
+//   - values of megabytes, many times a chunk ( Code, Records: an array of records, CodeAny: Code into interface{} );
+//   - many values one after another ( NDJSON: one record per line, decoded until the end of the input );
+//   - a large value which is mostly skipped ( SkipRecords: an object of an array of records and the count, decoded
+//     into a struct of the count only ).
+//
+// Each benchmark is run with chunks of 4 KiB and 32 KiB, but a payload which fits in the smaller chunk only with
+// that one: a larger chunk can't change what the reader gives.
 //
 // Besides ns/op, B/op and allocs/op, they report peak-live-B: the most memory which the decoding keeps alive at
 // once, beyond what was live before it ( see measureStreamPeak ). A decoder which reads a whole value before
 // decoding it keeps the input of the value; one which decodes it while reading keeps only what it hasn't decoded.
 
-// streamChunkSizes are the sizes of the chunks which the reader of the benchmarks gives at most at a time.
+// streamChunkSizes are the sizes of the chunks which the reader of the benchmarks gives at most at a time, smallest
+// first.
 var streamChunkSizes = []int{4 << 10, 32 << 10}
 
 // chunkReader reads data in chunks of at most chunk bytes. It has no Len method, so that a decoder can't know how
@@ -71,26 +78,30 @@ type streamPayload struct {
 	newValue func() any
 	// many is set when the input is many values one after another, which are decoded until the end of the input.
 	many bool
+	// collect is set for the payloads of megabytes, whose decoding is preceded by a collection outside of the
+	// measured time. A decoding of them allocates megabytes, so where the collections fall would otherwise move
+	// the time and B/op ( a pool emptied by a collection or not ) from one run to another.
+	collect bool
 }
 
-// decodeStream decodes every value of the input of the payload by dec, each into a new value which is dropped
-// before the next is decoded, unless each keeps it. It returns the last value.
-func (p *streamPayload) decodeStream(dec streamDecoder, each func(v any)) (any, error) {
-	var last any
+// decodeStream decodes every value of the input of the payload by dec, each into a new value which is passed to
+// each, if set, and dropped before the next is decoded. It returns how many values it decoded.
+func (p *streamPayload) decodeStream(dec streamDecoder, each func(v any)) (int, error) {
+	n := 0
 	for {
 		v := p.newValue()
 		if err := dec.Decode(v); err != nil {
-			if p.many && last != nil && errors.Is(err, io.EOF) {
-				return last, nil
+			if p.many && n > 0 && errors.Is(err, io.EOF) {
+				return n, nil
 			}
-			return nil, err
+			return n, err
 		}
+		n++
 		if each != nil {
 			each(v)
 		}
-		last = v
 		if !p.many {
-			return last, nil
+			return n, nil
 		}
 	}
 }
@@ -104,42 +115,31 @@ func (p *streamPayload) decodeAll(b *testing.B, dec streamDecoder) []any {
 	return values
 }
 
-var (
-	expectedStreamValues sync.Map // *streamPayload -> []any
-	streamPeaks          sync.Map // benchmark name -> float64
-)
-
-// expected returns the values of the input decoded by encoding/json from the whole input.
-func (p *streamPayload) expected(b *testing.B) []any {
-	if v, ok := expectedStreamValues.Load(p); ok {
-		return v.([]any)
-	}
-	values := p.decodeAll(b, stdjson.NewDecoder(bytes.NewReader(p.data())))
-	expectedStreamValues.Store(p, values)
-	return values
-}
-
 // benchStream measures decoding every value of the payload from a chunkReader by the decoders of newDecoder.
 func benchStream(b *testing.B, p *streamPayload, newDecoder func(io.Reader) streamDecoder) {
 	data := p.data()
-	for _, chunk := range streamChunkSizes {
+	for i, chunk := range streamChunkSizes {
+		if i > 0 && len(data) <= streamChunkSizes[i-1] {
+			break
+		}
+		peak := measureStreamPeak(b, p, newDecoder, chunk)
 		b.Run(fmt.Sprintf("%dKiB", chunk>>10), func(b *testing.B) {
-			peak, ok := streamPeaks.Load(b.Name())
-			if !ok {
-				peak = measureStreamPeak(b, p, newDecoder, chunk)
-				streamPeaks.Store(b.Name(), peak)
-			}
 			r := &chunkReader{data: data, chunk: chunk}
 			b.SetBytes(int64(len(data)))
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
+				if p.collect {
+					b.StopTimer()
+					runtime.GC()
+					b.StartTimer()
+				}
 				r.pos = 0
 				if _, err := p.decodeStream(newDecoder(r), nil); err != nil {
 					b.Fatal(err)
 				}
 			}
-			b.ReportMetric(peak.(float64), "peak-live-B")
+			b.ReportMetric(peak, "peak-live-B")
 		})
 	}
 }
@@ -147,7 +147,7 @@ func benchStream(b *testing.B, p *streamPayload, newDecoder func(io.Reader) stre
 // streamPeakSamples is how many times measureStreamPeak samples the live heap while the input is read.
 const streamPeakSamples = 64
 
-// measureStreamPeak decodes the payload once, checks that the values are the ones encoding/json decodes, and
+// measureStreamPeak checks that the decoders of newDecoder decode the values which encoding/json decodes, and
 // returns the most memory which a second decoding kept alive at once, beyond what was live before it: the first
 // one fills the caches of the library, as the compiled types, which stay alive after it.
 //
@@ -161,7 +161,9 @@ const streamPeakSamples = 64
 func measureStreamPeak(b *testing.B, p *streamPayload, newDecoder func(io.Reader) streamDecoder, chunk int) float64 {
 	b.Helper()
 	data := p.data()
-	if !reflect.DeepEqual(p.decodeAll(b, newDecoder(&chunkReader{data: data, chunk: chunk})), p.expected(b)) {
+	// the values are dead after the check, so the collections before the measurement free them.
+	got := p.decodeAll(b, newDecoder(&chunkReader{data: data, chunk: chunk}))
+	if !reflect.DeepEqual(got, p.decodeAll(b, stdjson.NewDecoder(bytes.NewReader(data)))) {
 		b.Fatal("the decoded values differ from the ones of encoding/json")
 	}
 	var base, peak uint64
@@ -182,13 +184,17 @@ func measureStreamPeak(b *testing.B, p *streamPayload, newDecoder func(io.Reader
 	runtime.ReadMemStats(&stats)
 	base = stats.HeapAlloc
 	dec := newDecoder(r)
-	last, err := p.decodeStream(dec, nil)
-	if err != nil {
+	var kept any
+	var keep func(v any)
+	if !p.many {
+		keep = func(v any) { kept = v }
+	}
+	if _, err := p.decodeStream(dec, keep); err != nil {
 		b.Fatal(err)
 	}
 	sample()
 	runtime.KeepAlive(dec)
-	runtime.KeepAlive(last)
+	runtime.KeepAlive(kept)
 	return float64(peak)
 }
 
@@ -284,10 +290,15 @@ func streamCodeJSON() []byte {
 }
 
 func init() {
-	sonicTypes = append(sonicTypes, reflect.TypeOf(&[]streamRecord{}), reflect.TypeOf(&streamRecord{}), reflect.TypeOf(&streamCount{}))
+	sonicTypes = append(sonicTypes,
+		reflect.TypeOf(&[]streamRecord{}), reflect.TypeOf(&streamRecord{}), reflect.TypeOf(&streamCount{}))
 }
 
 var (
+	streamSmallPayload = &streamPayload{
+		data:     func() []byte { return SmallFixture },
+		newValue: func() any { return &SmallPayload{} },
+	}
 	streamMediumPayload = &streamPayload{
 		data:     func() []byte { return MediumFixture },
 		newValue: func() any { return &MediumPayload{} },
@@ -299,25 +310,48 @@ var (
 	streamCodePayload = &streamPayload{
 		data:     streamCodeJSON,
 		newValue: func() any { return &codeResponse{} },
+		collect:  true,
 	}
 	streamCodeAnyPayload = &streamPayload{
 		data:     streamCodeJSON,
 		newValue: func() any { return new(any) },
+		collect:  true,
 	}
 	streamRecordsPayload = &streamPayload{
 		data:     streamRecordsJSON,
 		newValue: func() any { return &[]streamRecord{} },
+		collect:  true,
 	}
 	streamNDJSONPayload = &streamPayload{
 		data:     streamNDJSON,
 		newValue: func() any { return &streamRecord{} },
 		many:     true,
+		collect:  true,
 	}
 	streamSkipPayload = &streamPayload{
 		data:     streamSkipJSON,
 		newValue: func() any { return &streamCount{} },
+		collect:  true,
 	}
 )
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_EncodingJson(b *testing.B) {
+	benchStream(b, streamSmallPayload, newEncodingJsonStreamDecoder)
+}
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_GoJson(b *testing.B) {
+	benchStream(b, streamSmallPayload, newGoJsonStreamDecoder)
+}
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_Sonic(b *testing.B) {
+	pretouchSonic()
+	benchStream(b, streamSmallPayload, newSonicStreamDecoder)
+}
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_SonicStd(b *testing.B) {
+	pretouchSonic()
+	benchStream(b, streamSmallPayload, newSonicStdStreamDecoder)
+}
 
 func Benchmark_Decode_MediumStruct_ChunkedStream_EncodingJson(b *testing.B) {
 	benchStream(b, streamMediumPayload, newEncodingJsonStreamDecoder)

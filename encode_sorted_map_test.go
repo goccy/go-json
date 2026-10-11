@@ -2,6 +2,8 @@ package json_test
 
 import (
 	stdjson "encoding/json"
+	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -68,6 +70,79 @@ func TestEncodeSortedMapDirectEntries(t *testing.T) {
 	for _, v := range []any{map[string]any{"a": 1, "b": math.NaN()}, map[string]float64{"a": math.Inf(1)}} {
 		if _, err := json.Marshal(v); err == nil {
 			t.Fatalf("%v: expected an error", v)
+		}
+	}
+}
+
+// sortedMapFailingValue fails to be marshaled when it is odd.
+type sortedMapFailingValue int
+
+func (v sortedMapFailingValue) MarshalJSON() ([]byte, error) {
+	if v%2 != 0 {
+		return nil, fmt.Errorf("odd value %d", int(v))
+	}
+	return fmt.Appendf(nil, "%d", int(v)), nil
+}
+
+type sortedMapTextKey int
+
+func (k sortedMapTextKey) MarshalText() ([]byte, error) { return fmt.Appendf(nil, "t%03d", int(k)), nil }
+
+// The values of a map whose keys are not strings are encoded in the order of the keys, as encoding/json encodes
+// them: the error is the one of the first value which fails in that order. The error of the method is compared, as
+// the text of the error which wraps it differs between the versions of encoding/json.
+func TestEncodeSortedMapValueError(t *testing.T) {
+	ints := map[int]sortedMapFailingValue{}
+	texts := map[sortedMapTextKey]sortedMapFailingValue{}
+	for i := range 40 {
+		ints[i] = sortedMapFailingValue(i * 7 % 40)
+		texts[sortedMapTextKey(i)] = sortedMapFailingValue(i * 7 % 40)
+	}
+	for _, v := range []any{ints, texts, struct{ A, B any }{0, ints}} {
+		_, wantErr := stdjson.Marshal(v)
+		want := errors.Unwrap(wantErr)
+		_, err := json.Marshal(v)
+		if got := errors.Unwrap(err); got == nil || want == nil || got.Error() != want.Error() {
+			t.Errorf("%T: Marshal error = %v; want %v", v, err, wantErr)
+		}
+		_, err = json.MarshalIndent(v, "", " ")
+		if got := errors.Unwrap(err); got == nil || got.Error() != want.Error() {
+			t.Errorf("%T: MarshalIndent error = %v; want %v", v, err, wantErr)
+		}
+	}
+}
+
+// The entries of a sorted map whose keys are not strings, which are written after every key is encoded, are written
+// as encoding/json writes them, by every VM: with indent and colors.
+func TestEncodeSortedMapNonStringKeys(t *testing.T) {
+	nested := map[int]any{}
+	texts := map[sortedMapTextKey]any{}
+	for i := range 20 {
+		nested[i*7%20-10] = map[uint]any{uint(i): []any{i, "s"}, uint(i + 100): map[sortedMapTextKey]int{1: i}}
+		texts[sortedMapTextKey(i)] = struct{ A, B int }{i, -i}
+	}
+	noColor := json.Colorize(&json.ColorScheme{})
+	for _, v := range []any{nested, texts, map[int]int{1: 1}, struct{ M map[int8]string }{map[int8]string{15: "a", -2: "b", 3: "c"}}} {
+		want, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantIndent, _ := stdjson.MarshalIndent(v, "", "  ")
+		got, err := json.Marshal(v)
+		if err != nil || string(got) != string(want) {
+			t.Errorf("%T:\n got %s %v\nwant %s", v, got, err, want)
+		}
+		got, err = json.MarshalIndent(v, "", "  ")
+		if err != nil || string(got) != string(wantIndent) {
+			t.Errorf("%T with indent:\n got %s %v\nwant %s", v, got, err, wantIndent)
+		}
+		got, err = json.MarshalWithOption(v, noColor)
+		if err != nil || string(got) != string(want) {
+			t.Errorf("%T colored:\n got %s %v\nwant %s", v, got, err, want)
+		}
+		got, err = json.MarshalIndentWithOption(v, "", "  ", noColor)
+		if err != nil || string(got) != string(wantIndent) {
+			t.Errorf("%T colored with indent:\n got %s %v\nwant %s", v, got, err, wantIndent)
 		}
 	}
 }

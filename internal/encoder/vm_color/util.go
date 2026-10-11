@@ -183,17 +183,11 @@ func appendColon(_ *encoder.RuntimeContext, b []byte) []byte {
 	return b
 }
 
-func appendMapKeyValue(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key, value []byte) []byte {
+// appendMapKeyName appends the key of an entry of a sorted map, as it was encoded with a comma after it, and the
+// colon after it.
+func appendMapKeyName(_ *encoder.RuntimeContext, _ *encoder.Opcode, b, key []byte) []byte {
 	b = append(b, key[:len(key)-1]...)
-	b = append(b, ':')
-	return append(b, value...)
-}
-
-func appendMapEnd(_ *encoder.RuntimeContext, _ *encoder.Opcode, b []byte) []byte {
-	last := len(b) - 1
-	b[last] = '}'
-	b = append(b, ',')
-	return b
+	return append(b, ':')
 }
 
 func appendMarshalJSON(ctx *encoder.RuntimeContext, code *encoder.Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {

@@ -295,21 +295,23 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
+// MapItem is a key of a sorted map whose keys are not of a string kind, as it is encoded with a comma after it, and
+// the index of its entry in the MapContext.
 type MapItem struct {
 	Key   []byte
-	Value []byte
+	Entry int
 }
 
 type Mapslice struct {
 	Items []MapItem
-	// escaped is whether a text was escaped while the entries of a map whose keys are texts were encoded ( see
-	// appendText ): a key, or a text of a value, which tells that a key may have an escape.
+	// escaped is whether a text was escaped while the keys of a map whose keys are texts were encoded ( see
+	// appendText ), which tells that a key may have an escape.
 	escaped bool
 }
 
 // Sort sorts the items by their keys, which are the names of the keys as encoding/json sorts them: an encoded
 // key is in the order of its name unless it has an escape, and then the names are decoded to be sorted by.
-// A text which was escaped while the entries were encoded tells that a key may have one ( see appendText ).
+// A text which was escaped while the keys were encoded tells that a key may have one ( see appendText ).
 //
 // It is not sort.Sort, which calls Less and Swap through an interface for every comparison:
 // the maps to encode are small in most cases, and the sort was a tenth of the time to encode one.
@@ -423,7 +425,7 @@ type MapContext struct {
 	RawKeys []byte
 	Values  []byte
 	// Order is the entries sorted by their keys ( SortKeys ), for keys of a string kind; Sorted is whether
-	// the entries are encoded in that order.
+	// the entries are encoded in that order, or in the order of Slice, which is sorted when every key is encoded.
 	Order    []int32
 	prefixes []uint64 // the first bytes of the keys as numbers, while they are sorted
 	Sorted   bool
@@ -433,10 +435,9 @@ type MapContext struct {
 	DirectEntries bool
 	Len           int
 	Idx           int
-	// The entries of a sorted map whose keys are not of a string kind are encoded as they come and put in
-	// the order of their encoded keys after: Start is where the key or the value being written starts,
-	// First is where the entries start in the buffer, Slice has the entries and Buf is where they are copied.
-	Start int
+	// The keys of a sorted map whose keys are not of a string kind are encoded first, and the entries are written in
+	// the order of their names after ( see OpMapValue ): First is where the entries start in the buffer, Slice has
+	// the keys and Buf is where they are copied.
 	First int
 	Slice *Mapslice
 	items []MapItem // what Slice.Items is made of, kept between the maps
@@ -491,8 +492,8 @@ func (c *MapContext) ScalarValue() bool {
 	return c.layout.ScalarValue
 }
 
-// SortByEncodedKeys makes the context put the entries in the order of their encoded keys, for a sorted map
-// whose keys are not of a string kind: the VM records the entries in Slice as it encodes them.
+// SortByEncodedKeys makes the context write the entries in the order of their encoded keys, for a sorted map
+// whose keys are not of a string kind: the VM encodes every key first and keeps it in Slice ( see OpMapValue ).
 func (c *MapContext) SortByEncodedKeys() {
 	if cap(c.items) < c.Len {
 		c.items = make([]MapItem, c.Len)

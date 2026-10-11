@@ -324,6 +324,20 @@ func insertionSortMapItems(items []MapItem, tail int) {
 	}
 }
 
+// insertionSortMapItemsByNames is insertionSortMapItems for the keys of a map of which one has an escape
+// ( see compareKeyNames ).
+func insertionSortMapItemsByNames(items []MapItem, tail int) {
+	for i := 1; i < len(items); i++ {
+		item := items[i]
+		name := item.Key[:len(item.Key)-tail]
+		j := i
+		for ; j > 0 && compareKeyNames(items[j-1].Key[:len(items[j-1].Key)-tail], name) > 0; j-- {
+			items[j] = items[j-1]
+		}
+		items[j] = item
+	}
+}
+
 // compareKeyNames compares the names of two encoded keys of a map, without the quotes which end them: by their
 // bytes, which are in the order of the names up to the first one which differs, unless it is in an escape, whose
 // character is not in the order of the escape. The names are decoded as they are compared then
@@ -535,13 +549,15 @@ func (c *MapContext) SortEncodedKeys(rctx *RuntimeContext, b []byte) []byte {
 	if rctx.Option.Flag&ColorizeOption != 0 {
 		tail += colorFooterLen(rctx.Option.ColorScheme, first[:len(first)-tail])
 	}
-	switch {
-	case bytes.IndexByte(c.Buf, '\\') >= 0:
+	switch escaped, many := bytes.IndexByte(c.Buf, '\\') >= 0, len(items) > maxItemsOfInsertionSort; {
+	case escaped && many:
 		// a key with an escape, which is not in the order of its character.
 		slices.SortFunc(items, func(a, b MapItem) int {
 			return compareKeyNames(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
 		})
-	case len(items) > maxItemsOfInsertionSort:
+	case escaped:
+		insertionSortMapItemsByNames(items, tail)
+	case many:
 		slices.SortFunc(items, func(a, b MapItem) int {
 			return bytes.Compare(a.Key[:len(a.Key)-tail], b.Key[:len(b.Key)-tail])
 		})

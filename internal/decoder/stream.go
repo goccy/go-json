@@ -687,20 +687,13 @@ func (s *Stream) valueSyntaxErrorAt(depth int64) error {
 	return s.grammarError(err)
 }
 
-// wholeCharError returns the syntax error which scan finds in what has been read, or nil. An error at the last
-// character of what has been read, which a read cut, is found again once the character is whole ( see fillLastChar ),
-// and only then: a read after an error before it would wait for input which the error doesn't need.
+// wholeCharError returns the syntax error which scan finds in what has been read, or nil. An error whose message shows
+// the last character of what has been read, which a read cut, is found again once the character is whole ( see
+// fillLastChar ), and only then: a read for any other error would wait for input which the error doesn't need.
 func (s *Stream) wholeCharError(scan func() error) error {
 	err := scan()
-	e, ok := err.(*errors.SyntaxError)
-	if !ok || errors.IsAtEnd(err) || s.length == 0 {
-		return err
-	}
-	start := s.length - 1
-	for start > 0 && start > s.length-utf8.UTFMax && !utf8.RuneStart(s.buf[start]) {
-		start--
-	}
-	if utf8.FullRune(s.buf[start:s.length]) || e.Offset <= start {
+	at, ok := errors.CharAt(err)
+	if !ok || at >= s.length || utf8.FullRune(s.buf[at:s.length]) {
 		return err
 	}
 	s.fillLastChar()

@@ -110,32 +110,54 @@ func TestDecodeStreamElementsPrefilledPointer(t *testing.T) {
 // A syntax error is returned without a read more, wherever the last read cut a character after it: the character is
 // read on only when the error is at it.
 func TestDecodeStreamNoReadAfterError(t *testing.T) {
-	for _, in := range []string{
+	cases := []string{
 		"[\"a\x01bé\"]",
 		`[1,2,x,"é"]`,
 		"{\"a\":tru\x01e,\"b\":\"é\"}",
 		`["\q","é"]`,
 		`[1,x] ["é"]`,
 		`{"a":[1,` + strings.Repeat(" ", 1000) + `x,"é"]}`,
-	} {
-		// the input up to the first byte of é, after which the writer waits
-		cut := strings.Index(in, "é") + 1
-		pr, pw := io.Pipe()
-		go func() { _, _ = pw.Write([]byte(in[:cut])) }()
-		done := make(chan error, 1)
-		go func() {
-			var v any
-			done <- json.NewDecoder(pr).Decode(&v)
-		}()
-		select {
-		case err := <-done:
-			if err == nil {
-				t.Fatalf("%q: no error", in)
+		// an escape whose message shows two or six bytes, which have been read
+		`"a\é" 1`,
+		`"\u1xaé"`,
+		`["a\é"]`,
+		`{"a":["a\é"],` + strings.Repeat(" ", 1000) + `"b":1}`,
+	}
+	if !errorsShowWholeChar {
+		// an invalid character which the message shows by its first byte
+		cases = append(cases, `[1,é]`, `{"a":[1,`+strings.Repeat(" ", 1000)+`é]}`, `{"a":é}`)
+	}
+	for _, in := range cases {
+		for _, tokens := range []bool{false, true} {
+			// the input up to the first byte of é, after which the writer waits
+			cut := strings.Index(in, "é") + 1
+			pr, pw := io.Pipe()
+			go func() { _, _ = pw.Write([]byte(in[:cut])) }()
+			done := make(chan error, 1)
+			go func() {
+				dec := json.NewDecoder(pr)
+				if !tokens {
+					var v any
+					done <- dec.Decode(&v)
+					return
+				}
+				for {
+					if _, err := dec.Token(); err != nil {
+						done <- err
+						return
+					}
+				}
+			}()
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatalf("%q: no error", in)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatalf("%q ( tokens: %v ): waits for a read after the error", in, tokens)
 			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("%q: Decode waits for a read after the error", in)
+			pw.Close()
 		}
-		pw.Close()
 	}
 }
 

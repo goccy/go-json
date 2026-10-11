@@ -57,6 +57,9 @@ type SyntaxError struct {
 	// valueAt is the position of the byte of the error, which is not the start of a value where one is waited
 	// for, plus one, or 0 for any other error ( see ValueStartAt ).
 	valueAt int64
+	// charAt is the position of the character which the message shows whole, plus one, or 0 if it shows none: a
+	// stream which has read a part of that character only reads the rest of it for the message ( see CharAt ).
+	charAt int64
 }
 
 func (e *SyntaxError) Error() string { return e.msg }
@@ -140,6 +143,22 @@ func ValueStartAt(err error) (int64, bool) {
 		return 0, false
 	}
 	return e.valueAt - 1, true
+}
+
+// WithCharAt marks e as the error whose message shows the character at cursor whole, and returns it.
+func WithCharAt(e *SyntaxError, cursor int64) *SyntaxError {
+	e.charAt = cursor + 1
+	return e
+}
+
+// CharAt returns the position of the character which the message of err shows whole, if it shows one ( see
+// WithCharAt ).
+func CharAt(err error) (int64, bool) {
+	e, ok := err.(*SyntaxError)
+	if !ok || e.charAt == 0 {
+		return 0, false
+	}
+	return e.charAt - 1, true
 }
 
 // IsAtEnd reports whether err is a syntax error of the end of the input ( see ErrSyntaxAtEnd ).

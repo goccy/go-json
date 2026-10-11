@@ -41,7 +41,7 @@ func invalidCharacterError(buf []byte, cursor int64, what string) *errors.Syntax
 	if r == utf8.RuneError && n == 1 {
 		quoted = `'\x` + strconv.FormatUint(uint64(buf[cursor]), 16) + `'`
 	}
-	return errors.ErrSyntax("invalid character "+quoted+" "+what, cursor+int64(n))
+	return errors.WithCharAt(errors.ErrSyntax("invalid character "+quoted+" "+what, cursor+int64(n)), cursor)
 }
 
 // scalarEndError returns the syntax error of the end of the input at cursor in a number, a literal or an escape,

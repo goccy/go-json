@@ -265,11 +265,13 @@ func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64
 	if *(*unsafe.Pointer)(p) == nil {
 		*(*unsafe.Pointer)(p) = reflect.MakeMapWithSize(d.mapType, 0).UnsafePointer()
 	}
-	cursor = skipWhiteSpace(buf, cursor) + 1
+	cursor = skipWhiteSpace(buf, skipWhiteSpace(buf, cursor)+1)
+	if buf[cursor] == '}' {
+		return cursor + 1, nil
+	}
 	for {
-		cursor = skipWhiteSpace(buf, cursor)
-		if buf[cursor] == '}' {
-			return cursor + 1, nil
+		if buf[cursor] != '"' {
+			return 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
 		}
 		keyStart := cursor
 		keyEnd, err := skipValue(buf, cursor, depth)
@@ -293,7 +295,7 @@ func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64
 		cursor = skipWhiteSpace(buf, end)
 		switch buf[cursor] {
 		case ',':
-			cursor++
+			cursor = skipWhiteSpace(buf, cursor+1)
 		case '}':
 			return cursor + 1, nil
 		default:

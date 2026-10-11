@@ -47,14 +47,13 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 	ctx := s.ctx
 	ctx.Option = s.Option
 	start := s.offset + s.cursor
-	closes := s.elements.closes[:0]
-	if closes == nil {
+	if s.elements == nil {
 		// the entries of the first steps of the lookups ( see indexFirstStep ), which a slice grown from nothing
 		// would take a few allocations for
-		closes = make([]bracketClose, 0, indexFirstStep/4)
+		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
-	s.elements = bracketIndex{closes: closes, end: start}
-	s.index = &s.elements
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start}
+	s.index = s.elements
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64

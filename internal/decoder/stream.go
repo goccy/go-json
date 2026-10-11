@@ -67,8 +67,7 @@ type Stream struct {
 	// index is where the objects and the arrays of the value which is decoded element by element end, which the
 	// lookups extend ( see indexAt ). It is nil while no value is decoded so, and else elements, whose entries are
 	// kept for the next value, which allocates them no more.
-	index    *bracketIndex
-	elements bracketIndex
+	index, elements *bracketIndex
 	// filled is set when the last read filled the room of the buffer: the reader may have more, which a larger
 	// buffer takes at once ( see grow ). Only what a read returned tells it.
 	filled bool

@@ -217,8 +217,20 @@ func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 	// the value is decoded only when it is whole, so that the decoder writes nothing of a part of it
 	switch c := s.buf[s.cursor]; {
 	case c == '"':
-		if _, _, valid, err := s.scanStringInfo(); err != nil || !valid {
+		end, info, valid, err := s.scanStringInfo()
+		if err != nil || !valid {
 			return false
+		}
+		if _, ok := dec.(*stringDecoder); ok && info.firstEscape < 0 && !info.nonASCII {
+			// the bytes of a string without an escape, of ASCII, are its value, as decodeStringField makes it: they
+			// are not scanned again
+			ctx := s.ctx
+			ctx.Buf = s.buf[:s.length+1]
+			ctx.origin = ctx.Buf
+			*(*string)(p) = ctx.makeString(s.buf[s.cursor+1 : end-1])
+			ctx.Buf, ctx.origin = nil, nil
+			s.cursor = end
+			return true
 		}
 	case c == '-' || c-'0' <= 9:
 		// a number which a byte after it ends

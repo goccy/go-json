@@ -323,3 +323,40 @@ func TestDecodeStreamUnsettableFieldReads(t *testing.T) {
 		}
 	}
 }
+
+// A string member of a value decoded element by element is the one of Unmarshal, whatever the reads and whatever the
+// string: a long one of ASCII, which is taken as it is scanned, one with an escape, one with bytes which are not
+// ASCII, valid or not, and one with a control byte, which is an error.
+func TestDecodeStreamElementsStrings(t *testing.T) {
+	pad := strings.Repeat(" ", 1000)
+	ascii := strings.Repeat("abcdefghij", 70)
+	type record struct {
+		ID   int
+		Text string
+	}
+	for _, text := range []string{
+		`""`,
+		`"` + ascii + `"`,
+		`"` + ascii + `\n` + ascii + `"`,
+		`"` + ascii + `\u3042"`,
+		`"` + ascii + `あ` + ascii + `"`,
+		`"` + ascii + "\xff" + `"`,
+		`"` + ascii + "\x01" + `"`,
+	} {
+		in := `[` + pad + `{"ID":1,"Text":` + text + `},{"ID":2,"Text":"x"}]`
+		for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+			var want []record
+			wantErr := json.UnmarshalLikeDecoder([]byte(in), &want, false, false, opts...)
+			for _, chunk := range []int{1, 64, 512, 4096} {
+				var got []record
+				err := json.NewDecoder(&chunkReader{data: []byte(in), chunk: chunk}).DecodeWithOption(&got, opts...)
+				if msg := sameError(wantErr, err, 0); msg != "" {
+					t.Fatalf("%.30q by %d, %d options: %s", text, chunk, len(opts), msg)
+				}
+				if wantErr == nil && !reflect.DeepEqual(got, want) {
+					t.Fatalf("%.30q by %d, %d options: got %.200s, want %.200s", text, chunk, len(opts), fmt.Sprint(got), fmt.Sprint(want))
+				}
+			}
+		}
+	}
+}

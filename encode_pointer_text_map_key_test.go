@@ -16,6 +16,22 @@ type valueTextKey struct{ S string }
 
 func (v valueTextKey) MarshalText() ([]byte, error) { return []byte("v" + v.S), nil }
 
+// directTextKey is stored in an interface value directly, as a map is: its MarshalText takes the map, not its
+// address.
+type directTextKey map[string]string
+
+func (m directTextKey) MarshalText() ([]byte, error) { return []byte("m" + m["s"]), nil }
+
+// directTextKeyPointer is a pointer of a type of its own, which has no methods, to a map of MarshalText.
+type directTextKeyPointer *directTextKey
+
+// shapedTextKey is a struct of one pointer, which an interface value holds directly, as a map.
+type shapedTextKey struct{ p *string }
+
+func (s shapedTextKey) MarshalText() ([]byte, error) { return []byte("s" + *s.p), nil }
+
+type shapedTextKeyPointer *shapedTextKey
+
 type methodKey interface{ M() }
 
 type methodKeyValue struct{ A int }
@@ -24,13 +40,19 @@ func (methodKeyValue) M() {}
 
 // A key of pointers to a value of MarshalText or to an interface is named by the value at the end of its pointers,
 // as encoding/json of Go 1.27 names it, and a nil pointer on the way has no name: a key which was called with a
-// pointer it doesn't take, and one written as null, 5 or an object, which is not JSON, fail or are named.
+// pointer it doesn't take or named by the address of a map, and one written as null, 5 or an object, which is not
+// JSON, fail or are named. A key in a field is named as one at the top.
 func TestEncodeMapKeyPointersToNamedValues(t *testing.T) {
 	p := &pointerTextKey{"d"}
 	pp := &p
 	var nilP *pointerTextKey
 	v := &valueTextKey{"d"}
 	var nilV *valueTextKey
+	d := &directTextKey{"s": "d"}
+	var nilD *directTextKey
+	dp := directTextKeyPointer(d)
+	str := "d"
+	sp := shapedTextKeyPointer(&shapedTextKey{&str})
 	var nothing any
 	var nilText encoding.TextMarshaler
 	var someText encoding.TextMarshaler = valueTextKey{"w"}
@@ -48,12 +70,23 @@ func TestEncodeMapKeyPointersToNamedValues(t *testing.T) {
 		{name: "a nil pointer of MarshalText", v: map[*pointerTextKey]int{nil: 1}, want: `{"":1}`},
 		{name: "a pointer to a pointer to a value of MarshalText", v: map[**valueTextKey]int{&v: 1}, want: `{"vd":1}`},
 		{name: "a nil pointer to a value of MarshalText inside", v: map[**valueTextKey]int{&nilV: 1}, wantErr: true},
+		{name: "a pointer to a pointer to a map of MarshalText", v: map[**directTextKey]int{&d: 1}, want: `{"md":1}`},
+		{name: "a nil pointer to a map of MarshalText inside", v: map[**directTextKey]int{&nilD: 1}, wantErr: true},
+		{name: "a pointer of its own type to a map of MarshalText", v: map[directTextKeyPointer]int{dp: 1}, want: `{"md":1}`},
+		{name: "a pointer to one of its own type", v: map[*directTextKeyPointer]int{&dp: 1}, want: `{"md":1}`},
+		{name: "a pointer of its own type to a struct of a pointer", v: map[shapedTextKeyPointer]int{sp: 1}, want: `{"sd":1}`},
 		{name: "a pointer to a nil interface", v: map[*any]int{&nothing: 1}, wantErr: true},
 		{name: "a nil pointer to an interface", v: map[*any]int{nil: 1}, wantErr: true},
 		{name: "a pointer to a nil TextMarshaler", v: map[*encoding.TextMarshaler]int{&nilText: 1}, wantErr: true},
 		{name: "a pointer to a TextMarshaler", v: map[*encoding.TextMarshaler]int{&someText: 1}, want: `{"vw":1}`},
 		{name: "a pointer to an interface without text", v: map[*methodKey]int{&method: 1}, wantErr: true},
 		{name: "in a field", v: struct{ M map[**pointerTextKey]int }{map[**pointerTextKey]int{&p: 1}}, want: `{"M":{"pd":1}}`},
+		{name: "to a value, in a field", v: struct{ M map[**valueTextKey]int }{map[**valueTextKey]int{&v: 1}}, want: `{"M":{"vd":1}}`},
+		{name: "to a map, in a field", v: struct{ M map[**directTextKey]int }{map[**directTextKey]int{&d: 1}}, want: `{"M":{"md":1}}`},
+		{name: "a nil one in a field", v: struct{ M map[**pointerTextKey]int }{map[**pointerTextKey]int{&nilP: 1}}, wantErr: true},
+		{name: "to a TextMarshaler, in a field", v: struct {
+			M map[*encoding.TextMarshaler]int
+		}{map[*encoding.TextMarshaler]int{&someText: 1}}, want: `{"M":{"vw":1}}`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := json.Marshal(tt.v)
@@ -115,6 +148,7 @@ func TestEncodeMapKeyPointersColored(t *testing.T) {
 	vv := &v
 	var text encoding.TextMarshaler = valueTextKey{"w"}
 	textp := &text
+	d := &directTextKey{"s": "d"}
 	for name, tt := range map[string]struct {
 		v    any
 		name string
@@ -126,6 +160,7 @@ func TestEncodeMapKeyPointersColored(t *testing.T) {
 		"three pointers to a value":              {map[***valueTextKey]int{&vv: 1}, "vd"},
 		"a pointer to a TextMarshaler":           {map[*encoding.TextMarshaler]int{&text: 1}, "vw"},
 		"two pointers to a TextMarshaler":        {map[**encoding.TextMarshaler]int{&textp: 1}, "vw"},
+		"two pointers to a map of MarshalText":   {map[**directTextKey]int{&d: 1}, "md"},
 	} {
 		t.Run(name, func(t *testing.T) { assertColoredKey(t, tt.v, tt.name) })
 	}

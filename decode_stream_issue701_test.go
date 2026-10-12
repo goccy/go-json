@@ -10,8 +10,9 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// A stream with a string which is not closed is not read past the line after it ( issue 701 ): a control character in a
-// string fails within the read which brought it, as encoding/json, which reads a value while it checks it, does.
+// A stream with a string which is not closed is not read past the line after it ( issue 701 ), nor past the record
+// after it when the stream has no line break: the first byte which the grammar of JSON doesn't have where it is fails
+// within the read which brought it, as encoding/json, which reads a value while it checks it, does.
 
 // readUntil is a reader of data, which hides its length, and tells the bytes read when the read which brought the byte
 // at the position at returned.
@@ -59,15 +60,15 @@ func TestDecodeStreamIssue701(t *testing.T) {
 	for _, in := range []struct {
 		name   string
 		stream string
-		// bad is the position of the control character, or -1
+		// bad is the position of the first byte which is not valid
 		bad int
 	}{
 		{"issue", `{"name":"alice` + "\n" + lines, len(`{"name":"alice`)},
 		{"array", `[{"name":"alice` + "\n" + lines, len(`[{"name":"alice`)},
 		{"later record", rec + "\n" + `{"name":"bob` + "\n" + lines, len(rec + "\n" + `{"name":"bob`)},
-		// a string which ends at the next quote, after which the grammar fails: it has no control character, and
-		// the value is read until its brackets balance, here the end of the input
-		{"minified", `{"name":"alice` + strings.Repeat(rec, 50000), -1},
+		// a string which ends at the next quote, after which the grammar fails at the name of the next record
+		{"minified", `{"name":"alice` + strings.Repeat(rec, 50000), len(`{"name":"alice{"`)},
+		{"minified array", `[{"name":"alice` + strings.Repeat(rec+",", 50000), len(`[{"name":"alice{"`)},
 	} {
 		for _, target := range targets {
 			r := &readUntil{data: in.stream, at: in.bad}
@@ -83,8 +84,8 @@ func TestDecodeStreamIssue701(t *testing.T) {
 				t.Errorf("%s into %s: got %v", in.name, target.name, err)
 				continue
 			}
-			if in.bad >= 0 && r.n > r.reached {
-				t.Errorf("%s into %s: %d bytes read, the control character came with the read up to %d", in.name, target.name, r.n, r.reached)
+			if r.n > r.reached {
+				t.Errorf("%s into %s: %d bytes read, the byte which is not valid came with the read up to %d", in.name, target.name, r.n, r.reached)
 			}
 		}
 	}

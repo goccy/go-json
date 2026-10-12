@@ -2,6 +2,7 @@ package json_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
@@ -41,39 +42,85 @@ func TestDecodeStreamLenReaderNotReadWhole(t *testing.T) {
 	}
 }
 
-// zeroReader gives one byte of data per read, and nothing, without an error, every other read: a reader may return
-// nothing, and more at the next read.
-type zeroReader struct {
-	data []byte
-	zero bool
+// roomReader is a strings.Reader which tells its length, and keeps the room of every read, len(p). It reads most
+// bytes at most per read, if most is set, as a pipe or a connection may.
+type roomReader struct {
+	*strings.Reader
+	most  int
+	rooms []int
 }
 
-func (r *zeroReader) Read(p []byte) (int, error) {
-	if r.zero = !r.zero; r.zero {
-		return 0, nil
+func (r *roomReader) Read(p []byte) (int, error) {
+	r.rooms = append(r.rooms, len(p))
+	if r.most > 0 {
+		p = p[:min(len(p), r.most)]
 	}
-	if len(r.data) == 0 {
-		return 0, io.EOF
-	}
-	n := copy(p[:1], r.data)
-	r.data = r.data[n:]
-	return n, nil
+	return r.Reader.Read(p)
 }
 
-// A read which returns nothing is followed by another one.
-func TestDecodeStreamZeroReads(t *testing.T) {
-	for _, in := range []string{`null`, `true`, `false`, `12 `, `"s"`, `{"a":null}`, `[true,false]`, `{"a":[1,` + strings.Repeat(" ", 1000) + `null]}`} {
-		var want, got any
-		if err := json.Unmarshal([]byte(in), &want); err != nil {
-			t.Fatal(err)
-		}
-		if err := json.NewDecoder(&zeroReader{data: []byte(in)}).Decode(&got); err != nil {
-			t.Fatalf("%q: %v", in, err)
-		}
-		gotJSON, _ := json.Marshal(got)
-		wantJSON, _ := json.Marshal(want)
-		if !bytes.Equal(gotJSON, wantJSON) {
-			t.Fatalf("%q: got %s, want %s", in, gotJSON, wantJSON)
+// envelopeItems is a value of an envelope which an interface value points to.
+type envelopeItems struct {
+	Items []map[string]any `json:"items"`
+}
+
+func (*envelopeItems) String() string { return "envelopeItems" }
+
+// A stream is read by reads of the size of its first buffer at most, whatever the size of a value, whatever the reader
+// tells and however few bytes it gives a read, also while and after the buffer grows for a token longer than it, or a
+// value which is kept whole.
+func TestDecodeStreamFixedReads(t *testing.T) {
+	rec := `{"name":"alice","age":30,"tags":["a","b"],"address":{"city":"Springfield"}}`
+	records := "[" + strings.Repeat(rec+",", 20000) + rec + "]"
+	long := strings.Repeat("x", 100000)
+	// a value of 2.5 MB in what a pointer held by an interface points to
+	envelope := `{"Type":"records","Data":{"items":[` + strings.Repeat(rec+",", 32000) + rec + `]}}`
+	for _, c := range []struct {
+		name     string
+		in       string
+		newValue func() any
+	}{
+		{"records", records, func() any { return new([]map[string]any) }},
+		{"records into any", records, func() any { return new(any) }},
+		{"array into []byte", `{"b":[` + strings.Repeat("1,", 100000) + `1]}`, func() any { return new(struct{ B []byte }) }},
+		{"skipped", `{"skip":` + records + `,"name":"x"}`, func() any { return new(struct{ Name string }) }},
+		{"lines", strings.Repeat(rec+"\n", 20000), func() any { return new(any) }},
+		{"interface holding a pointer", envelope, func() any {
+			return &struct {
+				Type string
+				Data any
+			}{Data: &envelopeItems{}}
+		}},
+		{"interface with methods holding a pointer", envelope, func() any {
+			return &struct {
+				Type string
+				Data fmt.Stringer
+			}{Data: &envelopeItems{}}
+		}},
+		{"long string", `["` + long + `",` + records[1:], func() any { return new([]any) }},
+		{"raw message", records, func() any { return new(json.RawMessage) }},
+		{"raw message, then records", `{"raw":` + records + `,"rest":` + records + `}`, func() any {
+			return new(struct {
+				Raw  json.RawMessage
+				Rest []any
+			})
+		}},
+	} {
+		for _, most := range []int{0, 100} {
+			r := &roomReader{Reader: strings.NewReader(c.in), most: most}
+			dec := json.NewDecoder(r)
+			for {
+				if err := dec.Decode(c.newValue()); err == io.EOF {
+					break
+				} else if err != nil {
+					t.Fatalf("%s: %v", c.name, err)
+				}
+			}
+			// the first read is given the whole buffer
+			for i, room := range r.rooms {
+				if room > r.rooms[0] {
+					t.Fatalf("%s, %d bytes at most a read: read %d of %d bytes, the buffer has %d", c.name, most, i, room, r.rooms[0])
+				}
+			}
 		}
 	}
 }
@@ -130,18 +177,20 @@ func TestDecodeSliceBufferGrowth(t *testing.T) {
 	}
 }
 
-// A slice decoded after a failed decoding of a longer one keeps no more room than its own elements need: the buffer of
-// the longer one, which the pool keeps, is copied from.
+// A slice decoded after a longer one keeps no more room than its own elements need: the buffer of the longer one, which
+// the pool keeps, is copied from. The pool keeps it when a stream which decodes the elements of an array one by one
+// into a slice with room for them fails at the first element past that room: the elements go back to the slice.
 func TestDecodeSliceRoomAfterLongerSlice(t *testing.T) {
+	const n = 1 << 20
 	var b strings.Builder
-	b.WriteByte('[')
-	for i := 0; i < 1<<20; i++ {
+	b.WriteString("[" + strings.Repeat(" ", 1000))
+	for i := 0; i < n; i++ {
 		b.WriteString(strconv.Itoa(i) + ",")
 	}
 	b.WriteString("x]")
-	var long []int
-	if err := json.Unmarshal([]byte(b.String()), &long); err == nil {
-		t.Fatal("no error")
+	long := make([]int, 0, n)
+	if err := json.NewDecoder(strings.NewReader(b.String())).Decode(&long); err == nil || len(long) != n {
+		t.Fatalf("%d elements, %v", len(long), err)
 	}
 	short := "[" + strings.TrimSuffix(strings.Repeat("1,", 70), ",") + "]"
 	var v []int
@@ -169,5 +218,38 @@ func TestDecodeStreamTruncatedValueOfLenReader(t *testing.T) {
 				t.Fatalf("%.10q from %T: Decode doesn't end", in, r)
 			}
 		}
+	}
+}
+
+// A long number is read in a time linear in its length, by reads of the size of the buffer: the digits read are
+// scanned once. Skipping it takes a few times as long as skipping a string of its length, where a scan of the whole
+// number at every read takes hundreds of times as long, however fast or busy the machine.
+func TestDecodeStreamLongNumber(t *testing.T) {
+	const n = 1 << 20
+	number, str := "1"+strings.Repeat("2", n-1), `"`+strings.Repeat("s", n-2)+`"`
+	// skipTime returns the least time of a few decodings of an object whose member, value, is skipped: the least of
+	// enough of them is one which no other work of the machine interrupted
+	skipTime := func(value string) time.Duration {
+		in := `{"x":` + value + `}`
+		least := time.Duration(1<<63 - 1)
+		for i := 0; i < 7; i++ {
+			var v struct{}
+			start := time.Now()
+			if err := json.NewDecoder(struct{ io.Reader }{strings.NewReader(in)}).Decode(&v); err != nil {
+				t.Fatal(err)
+			}
+			least = min(least, time.Since(start))
+		}
+		return least
+	}
+	if numberTime, stringTime := skipTime(number), skipTime(str); numberTime > 50*stringTime {
+		t.Fatalf("%v to skip a number of %d bytes, %v to skip a string of as many", numberTime, n, stringTime)
+	}
+	var v []json.Number
+	if err := json.NewDecoder(struct{ io.Reader }{strings.NewReader("[" + number + "]")}).Decode(&v); err != nil || len(v) != 1 {
+		t.Fatalf("len(v) = %d and err = %v, want 1 and nil", len(v), err)
+	}
+	if string(v[0]) != number {
+		t.Fatalf("got a number of %d bytes, which differs from the one of %d bytes", len(v[0]), n)
 	}
 }

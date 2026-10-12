@@ -1,9 +1,13 @@
 package json_test
 
 import (
+	"bytes"
 	stdjson "encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"math/rand"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -11,9 +15,9 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// A Decoder reads no more than the value it decodes needs: a value which has a control character in a string fails at
-// the read of that character, as encoding/json, which reads a value while it checks it, fails there, and a value is
-// decoded once its last byte is read, without a read more.
+// A Decoder reads no more than the value it decodes needs: a value which is not valid fails at the read of its first
+// byte which the grammar of JSON doesn't have where it is, as encoding/json, which reads a value while it checks it,
+// fails there, and a value is decoded once its last byte is read, without a read more.
 
 // oneByteReader reads data a byte at a time, and counts the bytes read.
 type oneByteReader struct {
@@ -38,17 +42,43 @@ func TestDecodeStreamFailsAtInvalidByte(t *testing.T) {
 	rec := `{"name":"alice","age":30,"tags":["a","b"],"address":{"city":"Springfield"}}`
 	tail := strings.Repeat(rec+"\n", 2000)
 	flat := strings.Repeat(rec, 2000)
-	// a string which is not closed fails at the control character which follows it, as the line break after it ( issue
-	// 701 ): the scan of a value stops there. Any other error of the grammar is found once the brackets of the value
-	// balance, or at the end of the input.
+	// the errors after more than a read of valid bytes
+	long := `{"items":[` + strings.Repeat(rec+",", 100)
 	inputs := []string{
 		`{"name":"alice` + "\n" + tail,
 		`{"name":"alice` + "\t" + flat,
+		`{"name":"alice` + flat,
 		`[{"name":"alice` + "\n" + tail,
 		rec + "\n" + `{"name":"bob` + "\n" + tail,
 		`{"name":"a\` + "\n" + tail,
 		`"unterminated` + "\n" + tail,
+		`"unterminated\x` + tail,
+		`{"name":"a\x` + flat,
+		`{"name":"a\u12x` + flat,
+		`{"age":01` + flat,
+		`{"age":1.x` + flat,
+		`{"age":tru,` + flat,
+		`{"age" 1,` + flat,
+		`{"a":[1,2 3` + flat,
+		`[` + flat,
+		`{"tags":["a" "b"]` + flat,
 		`{"a":{"b":[{"c":"x` + "\n" + tail,
+		long + rec + rec + tail,
+		long + `{"name" "x"}` + tail,
+		long + `{"name":tru}` + tail,
+		long + `{"name":nul` + tail,
+		long + `{"age":1.}` + tail,
+		long + `{"age":-x}` + tail,
+		long + `{"age":01}` + tail,
+		long + `{"age":1e}` + tail,
+		long + rec + `]]` + tail,
+		long + rec + `}` + tail,
+		long + rec + `,]` + tail,
+		long + `{"name":"a\x"}` + tail,
+		long + `{"name":"a\u12g4"}` + tail,
+		long + `{,}` + tail,
+		long + `[}` + tail,
+		long + `{"a":1,}` + tail,
 	}
 	targets := []struct {
 		name string
@@ -77,11 +107,57 @@ func TestDecodeStreamFailsAtInvalidByte(t *testing.T) {
 				t.Errorf("%.30q into %s: got %v, encoding/json %v", in, target.name, err, stdErr)
 				continue
 			}
-			// a character cut by the read is read whole for the error
-			if got.n > std.n+4 {
+			// the bytes read byte by byte are the ones encoding/json reads
+			if got.n > std.n {
 				t.Errorf("%.30q into %s: %d bytes read, encoding/json %d", in, target.name, got.n, std.n)
 			}
+			// by reads of more than a byte, the read which brings the byte is the last one
+			chunked := &chunkedReader{data: in, size: 4096}
+			if err := decodeTwo(json.NewDecoder(chunked).Decode, func() any { return target.new(false) }); (err == nil) != (stdErr == nil) || chunked.n > std.n+4096 {
+				t.Errorf("%.30q into %s by 4096 bytes: %v after %d bytes, encoding/json %v at %d", in, target.name, err, chunked.n, stdErr, std.n)
+			}
+			if stdErr != nil {
+				decodePipeFails(t, in[:std.n], func() any { return target.new(false) })
+			}
 		}
+	}
+}
+
+// watchdog runs f, and fails the test with the stacks of the goroutines if f doesn't end within a while: a decoding
+// which goes round without a read fails with where it does, instead of the test hanging.
+func watchdog(t *testing.T, what string, f func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		f()
+	}()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		buf := make([]byte, 1<<20)
+		t.Fatalf("%s doesn't end:\n%s", what, buf[:runtime.Stack(buf, true)])
+	}
+}
+
+// decodePipeFails checks that the input, from a reader which is not closed after it, fails without a wait for more.
+func decodePipeFails(t *testing.T, in string, newValue func() any) {
+	t.Helper()
+	r, w := io.Pipe()
+	defer w.Close()
+	go func() {
+		_, _ = w.Write([]byte(in))
+		// the writer neither writes nor closes more: a read more waits for ever
+	}()
+	done := make(chan error, 1)
+	go func() { done <- decodeTwo(json.NewDecoder(r).Decode, newValue) }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Errorf("%.30q from a pipe: no error", in)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatalf("%.30q from a pipe: Decode waits for input after the byte which is not valid", in)
 	}
 }
 
@@ -156,11 +232,12 @@ func TestDecodeStreamNoWaitAfterValue(t *testing.T) {
 	_ = w.Close()
 }
 
-// chunkedReader reads data by chunks of at most size bytes, and counts the bytes read.
+// chunkedReader reads data by chunks of at most size bytes, and counts the bytes read, and where each read ended.
 type chunkedReader struct {
 	data string
 	size int
 	n    int
+	ends []int
 }
 
 func (r *chunkedReader) Read(p []byte) (int, error) {
@@ -169,7 +246,18 @@ func (r *chunkedReader) Read(p []byte) (int, error) {
 	}
 	n := copy(p[:min(len(p), r.size)], r.data[r.n:])
 	r.n += n
+	r.ends = append(r.ends, r.n)
 	return n, nil
+}
+
+// readAfter reports whether a read followed the one which brought the byte at pos.
+func (r *chunkedReader) readAfter(pos int) bool {
+	for i, end := range r.ends {
+		if end > pos {
+			return i < len(r.ends)-1
+		}
+	}
+	return false
 }
 
 // A control character of a string at the top fails within the read which brings it, wherever the escapes before it
@@ -216,5 +304,164 @@ func TestDecodeStreamControlInEscape(t *testing.T) {
 			t.Fatalf("%q: Decode waits for input after the control character", in)
 		}
 		_ = w.Close()
+	}
+}
+
+// A value where Token waits for the name of a member is read on only while it is valid: a control character in a
+// string of it fails it, without a read more.
+func TestDecodeStreamMemberNameControl(t *testing.T) {
+	for _, in := range []string{"{[\"abc\n, 1, 2", "{{\"a\":\"b\x01"} {
+		r, w := io.Pipe()
+		go func() {
+			_, _ = w.Write([]byte(in))
+			// the writer neither writes nor closes more: a read more waits for ever
+		}()
+		done := make(chan error, 1)
+		go func() {
+			dec := json.NewDecoder(r)
+			if _, err := dec.Token(); err != nil {
+				done <- err
+				return
+			}
+			done <- dec.Decode(new(any))
+		}()
+		select {
+		case err := <-done:
+			if !errors.As(err, new(*json.SyntaxError)) {
+				t.Errorf("%q: got %v, want a syntax error", in, err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%q: Decode waits for input after the control character", in)
+		}
+		_ = w.Close()
+	}
+}
+
+// The comma or the colon before a value which Decode reads after Token, followed by more white space than the buffer
+// holds, is decoded as encoding/json decodes it, wherever the reads cut the input.
+func TestDecodeStreamDelimiterBeforeLongSpace(t *testing.T) {
+	space := strings.Repeat("\n", 600)
+	for _, c := range []struct {
+		in     string
+		tokens int
+	}{{"[:" + space + "]", 1}, {"[," + space, 1}, {"[1," + space, 2}} {
+		in := c.in
+		for _, size := range []int{1, 64, 512, 4096} {
+			sd := stdjson.NewDecoder(&chunkedReader{data: in, size: size})
+			gd := json.NewDecoder(&chunkedReader{data: in, size: size})
+			for i := 0; i < c.tokens; i++ {
+				if _, err := sd.Token(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := gd.Token(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var want, got any
+			stdErr := sd.Decode(&want)
+			err := gd.Decode(&got)
+			if errors.As(stdErr, new(*stdjson.SyntaxError)) != errors.As(err, new(*json.SyntaxError)) || (stdErr == nil) != (err == nil) {
+				t.Fatalf("%.10q by %d: got %v, encoding/json %v", in, size, err, stdErr)
+			}
+		}
+	}
+}
+
+type skippedMembers struct {
+	Name string
+	A    [1]any
+}
+
+// The values which nothing decodes, of every kind, are skipped as encoding/json skips them, whatever the reads cut, and
+// the ones which are not valid fail, wherever they are.
+func TestDecodeStreamSkipUnknownMembers(t *testing.T) {
+	pad := `"pad":"` + strings.Repeat("p", 700) + `"`
+	members := `"o":{"a":[1,{"b":"c"},null],"d":{}},"l":[[],{},[1,2,[3]],"x\"]",{"k":"v}"}],"s":"str]}","n":-1.5e3,` +
+		`"t":true,"z":null,"e":{},"f":[],"A":[{"x":[1]},[2,{"y":3}],"s"]`
+	valid := "{" + pad + "," + members + `,"Name":"x"}`
+	inputs := []string{
+		valid,
+		strings.Replace(valid, `"b":"c"`, `"b" "c"`, 1),
+		strings.Replace(valid, `[3]`, `[3}`, 1),
+		strings.Replace(valid, `"k":"v}"`, `"k":v`, 1),
+		strings.Replace(valid, `{"y":3}`, `{"y":3,}`, 1),
+		valid[:len(valid)-1] + `,"late":{"x":[1,2,}]}}`,
+		// deeper than the stream checks before a read, and too deep
+		"{" + pad + "," + members + `,"deep":` + strings.Repeat("[", 100) + strings.Repeat("]", 100) + `,"Name":"x"}`,
+		"{" + pad + `,"deep":` + strings.Repeat("[", 10001) + strings.Repeat("]", 10001) + `,"Name":"x"}`,
+	}
+	for _, in := range inputs {
+		var want skippedMembers
+		wantErr := stdjson.Unmarshal([]byte(in), &want)
+		for _, size := range []int{1, 2, 3, 5, 7, 16, 64, 100, 300, 512, 1000, 4096} {
+			for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeFieldPriorityFirstWin()}} {
+				var got skippedMembers
+				err := json.NewDecoder(&chunkedReader{data: in, size: size}).DecodeWithOption(&got, opts...)
+				if (err == nil) != (wantErr == nil) {
+					t.Fatalf("%.40q by %d: got %v, encoding/json %v", in, size, err, wantErr)
+				}
+				if err == nil && (got.Name != want.Name || fmt.Sprint(got.A) != fmt.Sprint(want.A)) {
+					t.Fatalf("%.40q by %d: got %+v, want %+v", in, size, got, want)
+				}
+			}
+		}
+	}
+}
+
+// A random value, valid or made not valid by a change of a byte, after more than a read of valid bytes, read by small
+// reads which cut it anywhere, into any kind of target, fails as encoding/json fails, at the read of the same byte,
+// or is decoded as it.
+func TestDecodeStreamGrammarAgainstStd(t *testing.T) {
+	targets := []func(std bool) any{
+		func(bool) any { return new(any) },
+		func(std bool) any {
+			if std {
+				return new(stdjson.RawMessage)
+			}
+			return new(json.RawMessage)
+		},
+		func(bool) any { return new(struct{ V any }) },
+		func(bool) any { return new(readsUnmarshaler) },
+	}
+	r := rand.New(rand.NewSource(3))
+	pad := `"` + strings.Repeat("x", 600) + `"`
+	for i := 0; i < 3000; i++ {
+		v := randomSkippedValue(r, 1+r.Intn(4))
+		if r.Intn(2) == 0 {
+			v = mutate(r, v)
+		}
+		in := `{"pad":` + pad + `,"v":` + v + `}` + " " + `{"next":1}`
+		if r.Intn(4) == 0 {
+			in = v + " " + `{"next":1}`
+		}
+		size := []int{1, 64, 512, 4096}[r.Intn(4)]
+		target := targets[r.Intn(len(targets))]
+		std := &chunkedReader{data: in, size: size}
+		sd := stdjson.NewDecoder(std)
+		got := &chunkedReader{data: in, size: size}
+		gd := json.NewDecoder(got)
+		for n := 0; n < 2; n++ {
+			want, value := target(true), target(false)
+			stdErr := sd.Decode(want)
+			var err error
+			watchdog(t, fmt.Sprintf("%.200q by %d: value %d", in, size, n), func() { err = gd.Decode(value) })
+			if errors.As(stdErr, new(*stdjson.SyntaxError)) != errors.As(err, new(*json.SyntaxError)) || (stdErr == nil) != (err == nil) {
+				t.Fatalf("%q by %d: value %d: got %v, encoding/json %v", in, size, n, err, stdErr)
+			}
+			if stdErr != nil {
+				// the read which brought the byte which encoding/json rejects is the last one: the reads are not the
+				// ones of encoding/json, which has a buffer of its own
+				var syntax *stdjson.SyntaxError
+				if errors.As(stdErr, &syntax) && got.readAfter(int(syntax.Offset)-1) {
+					t.Fatalf("%q by %d: value %d: %d bytes read, a read after the one of the byte at %d", in, size, n, got.n, syntax.Offset-1)
+				}
+				break
+			}
+			wantJSON, _ := stdjson.Marshal(want)
+			gotJSON, _ := stdjson.Marshal(value)
+			if !bytes.Equal(gotJSON, wantJSON) {
+				t.Fatalf("%q by %d: value %d: got %s, want %s", in, size, n, gotJSON, wantJSON)
+			}
+		}
 	}
 }

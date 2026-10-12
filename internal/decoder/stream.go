@@ -12,11 +12,9 @@ import (
 )
 
 const (
-	// initBufSize is the size of the buffer of a new stream.
+	// initBufSize is the size of the buffer of a new stream, and the most bytes a read reads: the buffer grows only for
+	// a token longer than it, or a value which is kept whole ( see grow ).
 	initBufSize = 512
-	// inMemoryReadSize is the size which the buffer grows to at least for a value of a reader whose input is in
-	// memory ( see grow ): a value up to its size is read by one read more.
-	inMemoryReadSize = 64 << 10
 	// bufPadding is the number of the bytes kept free after the data in the buffer of a stream:
 	// one for the nul byte which ends the value being decoded, the rest so that a scan reads
 	// a whole block from any byte of the value.
@@ -25,10 +23,12 @@ const (
 
 // Stream reads the values of a JSON text from an io.Reader one by one.
 //
-// A value is decoded by the same decoders as a byte slice is: the stream reads until its buffer
-// holds the whole value ( scanValue ), puts a nul byte after the value and lets the decoder work
-// on the buffer. The decoded strings refer to the buffer, so a byte which has been read is never
-// overwritten: when the buffer is full, the bytes which are not consumed yet are copied to a new one.
+// A value is decoded by the same decoders as a byte slice is: a value which the buffer holds whole is decoded from
+// it, with a nul byte put after the value, and an object or an array which it doesn't is decoded element by element
+// as it is read ( see scanFailed ), so that the buffer keeps its size. The strings decoded from the buffer refer to
+// it, so a byte which has been read is not overwritten: when the buffer is full, the bytes which are not consumed yet
+// are copied to a new one. A buffer made while a value is decoded element by element, whose strings are copied, is
+// reused in place instead ( see bracketIndex.buf ).
 type Stream struct {
 	// buf[:length] is what has been read, buf[length] is nul, and bufPadding bytes are free at the end.
 	buf    []byte
@@ -65,6 +65,12 @@ type Stream struct {
 	// a read of a token which fails leaves the stream where it was ( see Token ).
 	keeps    bool
 	keepFrom int64
+	// index is where the objects and the arrays of the value which is decoded element by element end, which the
+	// lookups extend ( see indexAt ). It is nil while no value is decoded so, and else elements, whose entries are
+	// kept for the next value, which allocates them no more. Whether a value is decoded so is what grow needs to
+	// reuse in place a buffer which it made then ( see bracketIndex.buf ), and the buffer of the index can't tell it:
+	// none is made yet when the decoding of the value begins.
+	index, elements *bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -83,10 +89,12 @@ func (s *Stream) markPrevEnd() {
 	s.prevEnd = s.offset + s.cursor
 }
 
-// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does.
+// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does: the
+// error of an unmarshal method as the method returned it ( see unmarshalMethodError ).
 //
 //go:noinline
 func (s *Stream) fail(err error) error {
+	err = MethodErrorOf(err)
 	s.err, s.errOffset, s.tokenState = err, s.prevEnd, tokenFailed
 	return err
 }
@@ -101,7 +109,7 @@ func (s *Stream) Buffered() io.Reader {
 	return bytes.NewReader(s.buf[s.cursor:s.length])
 }
 
-// read reads more bytes from the reader into the buffer.
+// read reads more bytes from the reader into the buffer, initBufSize bytes at most, whatever the size of the buffer.
 // It returns false when nothing more can be read: the reader ended or failed ( readErr ).
 func (s *Stream) read() bool {
 	if s.readErr != nil {
@@ -110,7 +118,7 @@ func (s *Stream) read() bool {
 	if int64(len(s.buf))-s.length <= bufPadding {
 		s.grow()
 	}
-	n, err := s.r.Read(s.buf[s.length : int64(len(s.buf))-bufPadding])
+	n, err := s.r.Read(s.buf[s.length:min(int64(len(s.buf))-bufPadding, s.length+initBufSize)])
 	s.length += int64(n)
 	s.buf[s.length] = nul
 	if err != nil {
@@ -119,8 +127,10 @@ func (s *Stream) read() bool {
 	return n > 0 || err == nil
 }
 
-// grow moves the bytes which are not consumed yet to a new buffer, so that the reader
-// has room to read into. The old buffer is left to the strings which refer to it.
+// grow moves the bytes which are not consumed yet to the start of a buffer, so that the reader has room to read into:
+// a new one, as the old buffer is left to the strings which refer to it, or the same one, if it was made while a value
+// is decoded element by element, whose strings are copied, unless they refer to the input ( NoCopyStringOption ), and
+// it has room for the bytes.
 func (s *Stream) grow() {
 	// the bytes from the cursor are moved, or from the one which is kept before it
 	from := s.cursor
@@ -129,20 +139,21 @@ func (s *Stream) grow() {
 	}
 	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
-	if remain*2 > size {
-		// The data which is not consumed yet fills more than half of the buffer: it is a value larger than the
-		// buffer, which is grown twice as large. A reader which tells how much it has left ( bytes.Reader,
-		// strings.Reader, bytes.Buffer ), which a value can't go past, grows it four times as large, or to
-		// inMemoryReadSize, up to that, so that a large value is copied fewer times, and a small one once, without a
-		// copy of the whole input for it.
-		if r, ok := s.r.(interface{ Len() int }); ok && r.Len() > 0 {
-			size = max(min(max(4*size, inMemoryReadSize), remain+int64(r.Len())), size)
-		} else {
-			// a reader which has nothing left now, as a bytes.Buffer, may be written to later: the buffer has room
-			size *= 2
+	if remain >= size {
+		// What is not consumed yet fills the buffer: a token longer than it, or a value which is kept whole ( see
+		// wholeEnd ). The buffer grows only for it, twice as large.
+		size *= 2
+	}
+	buf := s.buf
+	x := s.index
+	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
+		buf = make([]byte, size+bufPadding)
+		if x != nil {
+			// whose strings are copied, which nothing refers to but them: it is reused in place while it has room for
+			// the bytes, unless the strings refer to it
+			x.buf = unsafe.SliceData(buf)
 		}
 	}
-	buf := make([]byte, size+bufPadding)
 	copy(buf, s.buf[from:s.length])
 	s.offset += from
 	s.buf = buf
@@ -190,15 +201,22 @@ func (s *Stream) unexpectedEndError() error {
 // skipWhiteSpace moves the cursor to the next byte which is not white space.
 // It returns false when the reader has nothing more.
 func (s *Stream) skipWhiteSpace() bool {
+	// a byte which is not white space, as the tokens of most values are not separated by any, without a call
+	if s.cursor < s.length && !isWhiteSpace[s.buf[s.cursor]] {
+		return true
+	}
+	return s.skipWhiteSpaceRest()
+}
+
+// skipWhiteSpaceRest is skipWhiteSpace without its check of the byte at the cursor first.
+func (s *Stream) skipWhiteSpaceRest() bool {
 	for {
-		if !s.fill() {
-			return false
-		}
-		switch s.buf[s.cursor] {
-		case ' ', '\n', '\t', '\r':
-			s.cursor++
-		default:
+		// the nul byte at the end of what has been read stops the skip
+		if s.cursor = skipWhiteSpace(s.buf, s.cursor); s.cursor < s.length {
 			return true
+		}
+		if !s.read() {
+			return false
 		}
 	}
 }
@@ -230,10 +248,25 @@ func (s *Stream) prepare() error {
 		return s.prepareInTokens()
 	}
 	s.readStart = s.offset + s.cursor
-	if !s.skipWhiteSpace() {
+	if !s.skipSpaceBefore() {
 		return s.fail(s.endError())
 	}
 	return nil
+}
+
+// skipSpaceBefore is skipWhiteSpace for the white space before a value of the stream, which is little.
+func (s *Stream) skipSpaceBefore() bool {
+	for {
+		if !s.fill() {
+			return false
+		}
+		switch s.buf[s.cursor] {
+		case ' ', '\n', '\t', '\r':
+			s.cursor++
+		default:
+			return true
+		}
+	}
 }
 
 // isLiteralChar is true for the bytes of a number, true, false and null.
@@ -243,9 +276,11 @@ var isLiteralChar = [256]bool{
 	't': true, 'r': true, 'u': true, 'f': true, 'a': true, 'l': true, 's': true, 'n': true,
 }
 
-// scanValue finds the end of the value which begins at the cursor, reading from the reader as needed,
-// and returns the position after the value. The value is not validated: the decoder does it.
-// The cursor is not moved: the value is in buf[cursor:end], but the buffer may have been replaced.
+// scanValue finds the end of the value which begins at the cursor, reading from the reader as needed, and returns the
+// position after the value. The value is not validated: the decoder does it. The cursor is not moved: the value is in
+// buf[cursor:end], but the buffer may have been replaced. A string, a number, true, false and null are read whole; an
+// object or an array which doesn't end in what has been read is not read on: errLongValue is returned, and it is
+// decoded element by element ( see scanFailed ).
 func (s *Stream) scanValue() (int64, error) {
 	if !s.fill() {
 		return 0, s.endError()
@@ -262,50 +297,27 @@ func (s *Stream) scanValue() (int64, error) {
 	return s.cursor + 1, nil
 }
 
-// scanCompound finds the end of the object or the array at the cursor: the position after the bracket
-// which closes it.
+// scanCompound finds the end of the object or the array at the cursor in what has been read: the position after the
+// bracket which closes it, or errLongValue if it doesn't end there.
 func (s *Stream) scanCompound() (int64, error) {
-	// The position is kept relative to the cursor, because a read may move the data ( grow ).
-	var rel int64
 	sc := compoundScanner{maxDepth: maxDecodeNestingDepth}
-	for {
-		pos, found, err := sc.scan(s.buf, s.cursor+rel, s.length)
-		if err != nil {
-			return 0, s.totalOffsetError(err)
-		}
-		if found {
-			return pos, nil
-		}
-		rel = pos - s.cursor
-		if !s.read() {
-			return 0, s.truncatedValueError()
-		}
+	pos, found, err := sc.scan(s.buf, s.cursor, s.length)
+	if err != nil {
+		return 0, s.totalOffsetError(err)
 	}
+	if !found {
+		return 0, errLongValue
+	}
+	return pos, nil
 }
 
-// controlByte returns the position of the first control character in buf[pos:end], or -1.
-func controlByte(buf []byte, pos, end int64) int64 {
-	for ; pos+8 <= end; pos += 8 {
-		// the bytes below ' ', without a carry between the bytes
-		if w := load64(buf, pos); ^(((w&^msb)+0x60*lsb)|w)&msb != 0 {
-			break
-		}
-	}
-	for ; pos < end; pos++ {
-		if buf[pos] < ' ' {
-			return pos
-		}
-	}
-	return -1
-}
-
-// scanString finds the end of the string at the cursor: the position after the quote which closes it.
+// scanString finds the end of the string at the cursor: the position after the quote which closes it, or, for a string
+// which goes on past what has been read, after a control character or the byte of an escape which is not one, which a
+// string can't have: the decoder reports it, and the input after it is not read ( see scanStringInfo ).
 func (s *Stream) scanString() (int64, error) {
 	var (
 		rel     int64 = 1 // after the opening quote
 		escaped bool
-		// checked is the position, relative to the cursor, up to which the string is checked for a control character
-		checked int64 = 1
 	)
 	for {
 		buf := s.buf
@@ -334,60 +346,185 @@ func (s *Stream) scanString() (int64, error) {
 				return pos, nil
 			}
 		}
+		rel = pos - s.cursor
 		if pos < end {
-			rel = pos - s.cursor
 			continue
 		}
-		// a string which doesn't end in what has been read ends at a control character, which it can't have: the
-		// decoder reports it, and the input after it is not read
-		if c := controlByte(buf, s.cursor+checked, pos); c >= 0 {
-			return c + 1, nil
-		}
-		rel = pos - s.cursor
-		checked = rel
-		if !s.read() {
-			return 0, s.truncatedValueError()
-		}
+		// a string which goes on past what has been read is checked before a read
+		end, _, _, err := s.scanStringInfo()
+		return end, err
 	}
 }
 
-// scanLiteral finds the end of the number, true, false or null at the cursor: the position of
-// the first byte which can't belong to it, or the end of the input. The bytes may be more than one value, as 01 is
-// 0 and 1, which the decoder rejects: Decode then decodes the first alone ( see decodeError ).
-func (s *Stream) scanLiteral() (int64, error) {
-	// true, false and null end after their bytes, without a read of the byte after them, which may not come yet
-	var size int64
-	switch s.buf[s.cursor] {
-	case 't', 'n':
-		size = 4
-	case 'f':
-		size = 5
-	}
-	var rel int64
+// scanStringInfo is scanString which also returns what the string has, as stringDecoder.scanString does, and whether
+// it ends at its quote, and is valid then.
+func (s *Stream) scanStringInfo() (int64, stringInfo, bool, error) {
+	var (
+		rel     int64 = 1 // after the opening quote
+		escaped bool
+		// hex is the number of the hexadecimal digits of a \u escape which are not read yet
+		hex int
+		// high has the high bits of the bytes, and firstEscape is the offset of the first backslash in the string
+		high        uint64
+		firstEscape int64 = -1
+	)
 	for {
 		buf := s.buf
 		pos := s.cursor + rel
 		end := s.length
-		if size > 0 {
-			end = min(end, s.cursor+size)
-		}
-		for pos < end {
-			if !isLiteralChar[buf[pos]] {
-				return pos, nil
+		// the words of the bytes up to a quote, a backslash or a control character, which the nul byte at the end of
+		// what has been read is
+		if !escaped && hex == 0 {
+			for n := int64(len(buf)); pos+8 <= n; pos += 8 {
+				w := load64(buf, pos)
+				if stop := keyEndBytes(w); stop != 0 {
+					// a quote, a backslash or a control character
+					i := bits.TrailingZeros64(stop) / 8
+					high |= w & (1<<(uint(i)*8&63) - 1)
+					pos += int64(i)
+					break
+				}
+				high |= w
 			}
-			pos++
+			if pos < end && buf[pos] == '"' {
+				return pos + 1, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, true, nil
+			}
 		}
-		if size > 0 && pos == s.cursor+size {
-			return pos, nil
+		lim := min(pos+8, end)
+		for pos < lim {
+			c := buf[pos]
+			high |= uint64(c)
+			pos++
+			switch {
+			case c < ' ':
+				return pos, stringInfo{}, false, nil
+			case hex > 0:
+				// an escape which is not one ends the string, so that the decoder reports it
+				if !isHexDigit(c) {
+					return pos, stringInfo{}, false, nil
+				}
+				hex--
+			case escaped:
+				escaped = false
+				switch c {
+				case 'u':
+					hex = 4
+				case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				default:
+					return pos, stringInfo{}, false, nil
+				}
+			case c == '\\':
+				escaped = true
+				if firstEscape < 0 {
+					firstEscape = pos - 1 - (s.cursor + 1)
+				}
+			case c == '"':
+				return pos, stringInfo{firstEscape: int(firstEscape), nonASCII: high&msb != 0}, true, nil
+			}
 		}
 		rel = pos - s.cursor
+		if pos < end {
+			continue
+		}
 		if !s.read() {
-			if s.readErr != io.EOF {
-				return 0, s.readErr
-			}
-			return s.cursor + rel, nil
+			return 0, stringInfo{}, false, s.truncatedValueError()
 		}
 	}
+}
+
+// scanLiteral finds the end of the number, true, false or null at the cursor: the position after true, false or null,
+// or of the first byte which differs from it, and the position of the first byte which can't belong to the number by
+// its grammar, or the end of the input. A number is read until a byte ends it, as encoding/json reads it, but a byte
+// which makes it invalid ends it without a read more. A number ends where its grammar ends it, so that 01 is 0 and then
+// 1, as encoding/json reads them.
+func (s *Stream) scanLiteral() (int64, error) {
+	if lit := literalOf(s.buf[s.cursor]); lit != "" {
+		for i := 1; i < len(lit); i++ {
+			// a read may bring nothing, and the next one more
+			for s.cursor+int64(i) >= s.length {
+				if !s.read() {
+					return s.scanLiteralEnd()
+				}
+			}
+			if s.buf[s.cursor+int64(i)] != lit[i] {
+				return s.cursor + int64(i) + 1, nil
+			}
+		}
+		return s.cursor + int64(len(lit)), nil
+	}
+	// an integer which doesn't start with 0, which most numbers are, ended by a byte in what has been read, without a
+	// call: the nul byte at the end of what has been read stops the digits
+	c := s.cursor
+	if s.buf[c] == '-' {
+		c++
+	}
+	if s.buf[c]-'1' <= 8 {
+		c++
+		for s.buf[c]-'0' <= 9 {
+			c++
+		}
+		if b := s.buf[c]; c < s.length && b != '.' && b != 'e' && b != 'E' {
+			return c, nil
+		}
+	}
+	// rel is the end of the digits which end what has been read and continue the number, relative to the cursor, as a
+	// read may move the data, or 0: the digits read after them are skipped, and the number is scanned again from its
+	// start only at another byte, which a number has a few of, so that a long number is scanned in linear time
+	var rel int64
+	for {
+		if rel > 0 {
+			if rel = int64(jsonnum.ScanDigits(s.buf[s.cursor:s.length], int(rel))); s.cursor+rel == s.length {
+				if !s.read() {
+					return s.scanLiteralEnd()
+				}
+				continue
+			}
+		}
+		n, place := jsonnum.Scan(s.buf[s.cursor:s.length])
+		if end := s.cursor + int64(n); end < s.length {
+			if place == jsonnum.Valid {
+				return end, nil
+			}
+			// the byte where the number is invalid
+			return end + 1, nil
+		}
+		rel = 0
+		if place == jsonnum.Valid && digitsContinue(s.buf[s.cursor:s.length]) {
+			rel = int64(n)
+		}
+		if !s.read() {
+			return s.scanLiteralEnd()
+		}
+	}
+}
+
+// scanLiteralEnd returns what scanLiteral returns at the end of the input in a literal: the end of what has been read,
+// or the error of the reader.
+func (s *Stream) scanLiteralEnd() (int64, error) {
+	if s.readErr != io.EOF {
+		return 0, s.readErr
+	}
+	return s.length, nil
+}
+
+// digitsContinue reports whether a digit after num, a valid number, belongs to it: after a digit of any number but 0
+// and -0, whose zero is the whole of the integer part.
+func digitsContinue(num []byte) bool {
+	last := num[len(num)-1]
+	return last-'0' <= 9 && !(last == '0' && (len(num) == 1 || len(num) == 2 && num[0] == '-'))
+}
+
+// literalOf returns true, false or null, which c starts, or "".
+func literalOf(c byte) string {
+	switch c {
+	case 't':
+		return "true"
+	case 'f':
+		return "false"
+	case 'n':
+		return "null"
+	}
+	return ""
 }
 
 // DecoderOf returns the decoder of the type, from the recent decoders of the context of the stream.
@@ -402,9 +539,11 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	if err := s.prepare(); err != nil {
 		return err
 	}
+	// a value which the buffer doesn't hold whole is decoded element by element, without a read for it ( see
+	// scanCompound )
 	end, err := s.scanValue()
 	if err != nil {
-		return s.fail(err)
+		return s.scanFailed(err, dec, typ, p)
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
@@ -426,7 +565,7 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	ctx.Buf = nil
 	if err != nil {
-		return s.decodeError(err, dec, typ, p, end)
+		return s.decodeError(err)
 	}
 	if ctx.HasTypeError() {
 		return s.typeError(typ, cursor)
@@ -442,61 +581,48 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	return nil
 }
 
+// callDecoder decodes the value at the cursor, which ends at end, by dec into p, nested in depth objects and arrays,
+// and returns the position after it. The decoded strings are copied out of the buffer, which they would keep alive.
+func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64) (int64, error) {
+	ctx := s.ctx
+	var cursor int64
+	var err error
+	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
+		// The end of the value is known exactly: a nul byte is put there while the value is decoded,
+		// so that the decoder never reads the next value, whatever it makes of a malformed one.
+		// A number needs it too, because the decoder validates the byte which ends it.
+		saved := s.buf[end]
+		s.buf[end] = nul
+		ctx.Buf = s.buf[:end+1]
+		ctx.origin = ctx.Buf
+		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
+		s.buf[end] = saved
+	} else {
+		// true, false and null end at the first byte which can't belong to them, and the decoder
+		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
+		ctx.Buf = s.buf[:s.length+1]
+		ctx.origin = ctx.Buf
+		cursor, err = dec.Decode(ctx, s.cursor, depth, p)
+	}
+	ctx.Buf, ctx.origin = nil, nil
+	return cursor, err
+}
+
 // decodeError returns the error of the decoder, whose offset is made the one in the whole input, of the value at
-// the cursor, which scanValue ended at end. A type error before it is not kept for the next value.
+// the cursor. A type error before it is not kept for the next value.
 //
 // A syntax error is the first one of the value by the grammar, as encoding/json reports it: it checks the value
 // before it decodes it. The decoder never writes the buffer, which keeps the input.
 //
 //go:noinline
-func (s *Stream) decodeError(err error, dec Decoder, typ, p unsafe.Pointer, end int64) error {
-	if c := s.buf[s.cursor]; c == '-' || c-'0' <= 9 {
-		// the end of the number by the grammar, which an invalid number has where it is invalid
-		if n, _ := jsonnum.Scan(s.buf[s.cursor:end]); s.cursor+int64(n) < end {
-			first := s.cursor + int64(n)
-			// the bytes of the numbers which scanLiteral read are more than one value, as 01 is 0 and 1: the first
-			// is decoded alone, and the next one after it
-			s.ctx.DiscardTypeError()
-			return s.decodeFirstNumber(dec, typ, p, first)
-		}
-	}
+func (s *Stream) decodeError(err error) error {
 	s.ctx.DiscardTypeError()
-	if _, ok := err.(*errors.SyntaxError); ok {
-		if serr := s.valueSyntaxError(); serr != nil {
-			return s.fail(serr)
-		}
+	// a syntax error of the value is the error, whatever the decoder met before it, as encoding/json checks the value
+	// before it decodes it
+	if serr := s.valueSyntaxError(); serr != nil {
+		return s.fail(serr)
 	}
 	return s.fail(s.totalOffsetError(err))
-}
-
-// decodeFirstNumber decodes the number at the cursor, which ends at end by the grammar, as Decode does.
-func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64) error {
-	ctx := s.ctx
-	saved := s.buf[end]
-	s.buf[end] = nul
-	ctx.Buf = s.buf[:end+1]
-	cursor, err := dec.Decode(ctx, s.cursor, 0, p)
-	s.buf[end] = saved
-	ctx.Buf = nil
-	if err != nil {
-		s.ctx.DiscardTypeError()
-		if serr := s.valueSyntaxError(); serr != nil {
-			return s.fail(serr)
-		}
-		return s.fail(s.totalOffsetError(err))
-	}
-	if ctx.HasTypeError() {
-		return s.typeError(typ, cursor)
-	}
-	s.cursor = cursor
-	if countsScanned {
-		s.scanned += s.offset + cursor - s.readStart
-	}
-	s.more.reset()
-	if s.tokenState != tokenTopValue {
-		s.tokenValueEnd()
-	}
-	return nil
 }
 
 // valueSyntaxError returns the first syntax error of the value at the cursor by the grammar, in what has been read:
@@ -506,10 +632,21 @@ func (s *Stream) decodeFirstNumber(dec Decoder, typ, p unsafe.Pointer, end int64
 //
 //go:noinline
 func (s *Stream) valueSyntaxError() error {
-	_, err := skipValue(s.buf[:s.length+1], s.cursor, 0)
+	return s.valueSyntaxErrorAt(0)
+}
+
+// valueSyntaxErrorAt is valueSyntaxError for a value nested in depth objects and arrays.
+func (s *Stream) valueSyntaxErrorAt(depth int64) error {
+	_, err := skipValue(s.buf[:s.length+1], s.cursor, depth)
 	if err == nil {
 		return nil
 	}
+	return s.grammarError(err)
+}
+
+// grammarError returns the syntax error err of a scan of the grammar in what has been read, as valueSyntaxError
+// reports it.
+func (s *Stream) grammarError(err error) error {
 	if errors.IsAtEnd(err) {
 		return s.unexpectedEndError()
 	}
@@ -571,6 +708,12 @@ func (s *Stream) totalOffsetError(err error) error {
 		e.Offset += s.offset
 	case *errors.UnmarshalTypeError:
 		e.Offset += s.offset
+	case *unmarshalMethodError:
+		// a syntax error of a method is at the value in the buffer ( see annotateMethodError ), and any other error
+		// keeps the offset which the method gave
+		if se, ok := e.err.(*errors.SyntaxError); ok {
+			se.Offset += s.offset
+		}
 	}
 	return err
 }

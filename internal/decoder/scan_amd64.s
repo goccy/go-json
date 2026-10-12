@@ -33,18 +33,6 @@ TEXT ·scanBlockAVX2(SB), NOSPLIT, $0-16
 	MOVQ AX, 0(DI)
 	MASK64(Y9, Y4, AX, BX)
 	MOVQ AX, 8(DI)
-	// the bytes below 0x20: the bytes whose three top bits are clear
-	VPBROADCASTB cControl<>(SB), Y13
-	VPXOR     Y14, Y14, Y14
-	VPAND     Y13, Y0, Y2
-	VPAND     Y13, Y1, Y3
-	VPCMPEQB  Y14, Y2, Y4
-	VPMOVMSKB Y4, AX
-	VPCMPEQB  Y14, Y3, Y4
-	VPMOVMSKB Y4, BX
-	SHLQ      $32, BX
-	ORQ       BX, AX
-	MOVQ AX, 32(DI)
 	VPAND Y12, Y0, Y0
 	VPAND Y12, Y1, Y1
 	MASK64(Y10, Y4, AX, BX)
@@ -62,7 +50,5 @@ DATA cOpen<>+0(SB)/1, $0x5b
 GLOBL cOpen<>(SB), RODATA|NOPTR, $1
 DATA cClose<>+0(SB)/1, $0x5d
 GLOBL cClose<>(SB), RODATA|NOPTR, $1
-DATA cControl<>+0(SB)/1, $0xe0
-GLOBL cControl<>(SB), RODATA|NOPTR, $1
 DATA cFold<>+0(SB)/1, $0xdf
 GLOBL cFold<>(SB), RODATA|NOPTR, $1

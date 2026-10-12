@@ -11,8 +11,9 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// The stream decoder reads a whole value into its buffer before decoding it, so a value
-// which arrives in pieces is decoded exactly as by Unmarshal, wherever the reads end.
+// The stream decoder reads a value into its buffer before decoding it, or, for a long object or array, each of its
+// elements ( see decode_stream_elements_test.go ), so a value which arrives in pieces is decoded exactly as by
+// Unmarshal, wherever the reads end.
 
 func TestDecodeStreamMultibyteRuneSplitByRead(t *testing.T) {
 	type Struct struct {

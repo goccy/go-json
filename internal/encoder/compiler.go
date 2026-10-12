@@ -744,31 +744,47 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 
 // pointerMapKeyCode returns the code of a key of the pointer type typ, which is named as the value it points to, as
 // encoding/json of Go 1.27 names it, and true: a nil pointer has no name, and a value which can't be a key fails.
-// It returns false for a pointer to a value of MarshalText, and for a type of pointers which points to itself,
-// which mapKeyCode compiles as the pointers they are.
+// The pointers are followed by the opcode of what they lead to: a pointer of MarshalText is followed too, and its
+// method is called with its value ( see PtrCode.ToOpcode ). A key of a type of pointers which points to itself is
+// followed when it is encoded ( see appendInterfaceMapKey ). It returns false for a pointer whose own type has
+// MarshalText, which mapKeyCode compiles as the pointer it is: a nil one is named "".
 func (c *Compiler) pointerMapKeyCode(typ reflect.Type) (Code, bool, error) {
 	var pointers []reflect.Type
 	elem := typ
 	for elem.Kind() == reflect.Ptr && !c.implementsMarshalText(elem) {
 		if slices.Contains(pointers, elem) {
-			return nil, false, nil
+			// a type of pointers which points to itself, as type R *R: the pointers of a key end at nil or lead back
+			// to themselves, which fails when it is encoded. A map without keys is written as any other.
+			return &MarshalTextCode{typ: typ, isInterfaceMapKey: true}, true, nil
 		}
 		pointers = append(pointers, elem)
 		elem = elem.Elem()
 	}
+	var key Code
 	if elem.Kind() == reflect.Ptr {
-		return nil, false, nil // a pointer of MarshalText
+		// a pointer of MarshalText, which is followed as well: the opcode is given its value, the receiver of the
+		// method, which it doesn't load.
+		pointers = append(pointers, elem)
+		key = &MarshalTextCode{typ: elem}
 	}
 	if len(pointers) > math.MaxUint8 {
 		// more pointers than an opcode counts ( see Opcode.PtrNum ).
 		return nil, true, &errors.UnsupportedTypeError{Type: typ}
 	}
-	key, err := c.mapKeyCode(elem)
-	if err != nil {
-		return nil, true, err
-	}
-	if _, text := key.(*MarshalTextCode); text {
-		return nil, false, nil
+	if key == nil {
+		var err error
+		if key, err = c.mapKeyCode(elem); err != nil {
+			return nil, true, err
+		}
+		if _, text := key.(*MarshalTextCode); text && elem.Kind() != reflect.Interface {
+			if typ.Implements(marshalTextType) {
+				return nil, false, nil
+			}
+			// a value of MarshalText, whose method the pointer to it has: the opcode is given the pointer, as for a
+			// pointer of MarshalText, not the value, which an interface may hold directly, as a map behind a pointer
+			// of a type of its own ( type P *M ) is.
+			key = &MarshalTextCode{typ: reflect.PointerTo(elem)}
+		}
 	}
 	return &PtrCode{typ: typ, value: key, ptrNum: uint8(len(pointers)), isMapKey: true}, true, nil
 }

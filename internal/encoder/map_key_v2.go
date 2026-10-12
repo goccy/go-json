@@ -189,23 +189,34 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		b = append(b, '"')
 		return append(appendFloatOfBits(b, f, bits), '"'), nil
 	case reflect.Pointer, reflect.Interface:
-		if v.IsNil() {
-			return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
-		}
-		elem := v.Elem()
-		if t.Kind() == reflect.Interface {
-			// the dynamic value, in a variable of its own, which is addressable.
-			copied := reflect.New(elem.Type()).Elem()
-			copied.Set(elem)
-			elem = copied
-		}
-		// named by the functions of its own type first, as a key of that type is.
-		if funcs := ctx.Option.Funcs.funcsOf(elem.Type()); len(funcs) > 0 {
-			if out, err := appendByFuncs(ctx, b, elem.Addr().UnsafePointer(), elem.Type(), funcs); err != ErrUseDefault {
-				return out, err
+		// the pointers and the interfaces are followed here, one by one, up to a value which is named otherwise: by
+		// its functions, its method or its kind.
+		var cycle keyCycle
+		for {
+			if v.IsNil() {
+				return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: v.Type()}
 			}
+			elem := v.Elem()
+			if v.Kind() == reflect.Interface {
+				// the dynamic value, in a variable of its own, which is addressable.
+				copied := reflect.New(elem.Type()).Elem()
+				copied.Set(elem)
+				elem = copied
+			}
+			// named by the functions of its own type first, as a key of that type is.
+			if funcs := ctx.Option.Funcs.funcsOf(elem.Type()); len(funcs) > 0 {
+				if out, err := appendByFuncs(ctx, b, elem.Addr().UnsafePointer(), elem.Type(), funcs); err != ErrUseDefault {
+					return out, err
+				}
+			}
+			if k := elem.Kind(); k != reflect.Pointer && k != reflect.Interface || v2MethodOf(elem.Type(), noMethod) != noMethod {
+				return appendKeyName(ctx, b, elem)
+			}
+			if cycle.reached(elem) {
+				return b, &errors.SemanticError{GoType: t, Err: errors.ErrCycle}
+			}
+			v = elem
 		}
-		return appendKeyName(ctx, b, elem)
 	case reflect.Array:
 		if t.Elem().Kind() == reflect.Uint8 && t.Elem().PkgPath() == "" {
 			src := unsafe.Slice((*byte)(v.Addr().UnsafePointer()), t.Len())

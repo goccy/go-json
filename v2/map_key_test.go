@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	ierrors "github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/jsontext"
 )
 
@@ -104,6 +105,85 @@ func TestMarshalEncodeNumberAsName(t *testing.T) {
 		}
 		if want := fmt.Sprintf("{%q:null}\n", fmt.Sprint(v)); b.String() != want {
 			t.Errorf("%T: got %q, want %q", v, b.String(), want)
+		}
+	}
+}
+
+// selfPointerKey is a pointer to itself: its pointers never reach a value which names a key.
+type selfPointerKey *selfPointerKey
+
+// A key whose pointers lead back to themselves fails with a cycle, and a nil one has no name, as encoding/json/v2
+// reports it: encoding them never ends or writes a name which is not a string.
+func TestMarshalMapKeysPointingToThemselves(t *testing.T) {
+	self := new(selfPointerKey)
+	*self = selfPointerKey(self)
+	viaInterface := new(any)
+	*viaInterface = viaInterface
+	for _, tt := range []struct {
+		name  string
+		in    any
+		cycle bool
+	}{
+		{"nil", map[selfPointerKey]int{nil: 1}, false},
+		{"nil behind a pointer", map[*selfPointerKey]int{new(selfPointerKey): 1}, false},
+		{"itself", map[selfPointerKey]int{selfPointerKey(self): 1}, true},
+		{"itself behind a pointer", map[*selfPointerKey]int{self: 1}, true},
+		{"itself in an interface", map[any]int{selfPointerKey(self): 1}, true},
+		{"itself through an interface", map[any]int{viaInterface: 1}, true},
+	} {
+		for _, deterministic := range []bool{false, true} {
+			got, err := Marshal(tt.in, Deterministic(deterministic))
+			if err == nil || got != nil || errors.Is(err, ierrors.ErrCycle) != tt.cycle {
+				t.Errorf("%s (deterministic %v): got %q %v, want an error (a cycle %v)", tt.name, deterministic, got, err, tt.cycle)
+			}
+		}
+	}
+
+	// The pointers are followed one by one: a function of a type in the chain names the key before the pointers
+	// lead back, and a pointer to a struct is not the one to its first field, which has the same address.
+	byFunc := WithMarshalers(MarshalFunc(func(*any) ([]byte, error) { return []byte(`"R"`), nil }))
+	s := &selfPointerTextKey{}
+	s.P = s
+	var text any = &s.P
+	for _, tt := range []struct {
+		name string
+		in   any
+		opts []Options
+		want string
+	}{
+		{"by a function of the key", map[*any]int{viaInterface: 1}, []Options{byFunc}, `{"R":1}`},
+		{"by a function inside", map[**any]int{&viaInterface: 1}, []Options{byFunc}, `{"R":1}`},
+		{"a struct at the same place", map[*any]int{&text: 1}, nil, `{"S":1}`},
+		{"a struct at the same place, in an interface", map[any]int{&text: 1}, nil, `{"S":1}`},
+	} {
+		got, err := Marshal(tt.in, tt.opts...)
+		if err != nil || string(got) != tt.want {
+			t.Errorf("%s: got %s %v, want %s", tt.name, got, err, tt.want)
+		}
+	}
+}
+
+// selfPointerTextKey names a key by MarshalText, and holds a pointer to itself at the address of the struct.
+type selfPointerTextKey struct{ P any }
+
+func (*selfPointerTextKey) MarshalText() ([]byte, error) { return []byte("S"), nil }
+
+// The pointers and the interfaces of a key are followed one by one, not by a call each: a key of 200000 of them is
+// named, where the stack would overflow.
+func TestMarshalMapKeyOfManyPointers(t *testing.T) {
+	deep := new(any)
+	last := deep
+	for range 200000 {
+		next := new(any)
+		*last = next
+		last = next
+	}
+	*last = "end"
+	for _, in := range []any{map[*any]int{deep: 1}, map[any]int{deep: 1}} {
+		for _, deterministic := range []bool{false, true} {
+			if got, err := Marshal(in, Deterministic(deterministic)); err != nil || string(got) != `{"end":1}` {
+				t.Errorf("%T (deterministic %v): got %s %v, want {\"end\":1}", in, deterministic, got, err)
+			}
 		}
 	}
 }

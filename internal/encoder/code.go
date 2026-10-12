@@ -1353,7 +1353,8 @@ type MarshalTextCode struct {
 	isAddrForMarshaler bool
 	isNilableType      bool
 	// isInterfaceMapKey is whether the code is the one of the key of a map of an interface type, whose name is
-	// of the dynamic value of the key ( see appendInterfaceMapKey ).
+	// of the dynamic value of the key, or of a type of pointers, whose name is of what they lead to ( see
+	// appendInterfaceMapKey ).
 	isInterfaceMapKey bool
 	// isMapKey is whether the code is the one of the key of a map, whose name is "" for a nil pointer.
 	isMapKey bool

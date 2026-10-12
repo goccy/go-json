@@ -42,67 +42,87 @@ var (
 	jsonMarshalerToType = reflect.TypeOf((*jsonv2.MarshalerTo)(nil)).Elem()
 )
 
-// appendInterfaceMapKey appends the name of the key of a map of an interface type as a string. p is the address
-// of the key as the map is read into the context: an interface{}, whatever the interface type of the key is
-// ( see newReflectCollector ).
+// appendInterfaceMapKey appends the name of the key of a map of an interface type, or of a type of pointers which
+// is named by what they lead to ( see pointerMapKeyCode ), as a string. p is the address of the key as the map is
+// read into the context: an interface{} for a key of an interface type, whatever the interface type is ( see
+// newReflectCollector ), and the pointer for a key of pointers.
 func appendInterfaceMapKey(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Pointer) ([]byte, error) {
 	keyType := runtime.TypeOfPtr(code.Type)
-	name, err := interfaceMapKeyName(keyType, reflect.NewAt(emptyInterfaceType, p).Elem())
+	var name string
+	var err error
+	if keyType.Kind() == reflect.Pointer {
+		name, err = mapKeyName(reflect.NewAt(keyType, p).Elem(), nil)
+	} else {
+		name, err = mapKeyName(reflect.NewAt(emptyInterfaceType, p).Elem(), keyType)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return appendText(ctx, b, name), nil
 }
 
-// interfaceMapKeyName returns the name of the key, which is a value of the interface type keyType.
-func interfaceMapKeyName(keyType reflect.Type, key reflect.Value) (string, error) {
-	// A key of an interface type with methods is set to the interface{} as the value of its interface type,
-	// which holds the dynamic value.
-	v := key
-	for v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return "", notStringMapKey(v)
+// mapKeyName returns the name of the key v: its pointers and its interfaces are followed, one by one, to the value
+// which names it. iface is the interface type of v when v is the interface{} which a key of an interface type is
+// read into.
+func mapKeyName(v reflect.Value, iface reflect.Type) (string, error) {
+	var cycle keyCycle
+	// byPointer is whether the value is the one of a pointer, whose methods on the pointer are called.
+	byPointer := false
+	for {
+		switch v.Kind() {
+		case reflect.Interface:
+			if v.IsNil() {
+				return "", notStringMapKey(v)
+			}
+			if iface == nil {
+				// an interface which a pointer of the key points to.
+				iface = v.Type()
+			}
+			v, byPointer = v.Elem(), false
+			if v.Kind() == reflect.Pointer && v.IsNil() {
+				// The method of the marshaler which the interface type is, if any, is called with the nil pointer. A
+				// MarshalJSON is not called for a name.
+				switch {
+				case iface.Implements(jsonMarshalerToType), iface.Implements(jsonMarshalerType):
+					return "", notStringMapKey(v)
+				case iface.Implements(textAppenderType):
+					return appendTextName(v.Interface().(encoding.TextAppender))
+				case iface.Implements(marshalTextType):
+					return marshalTextName(v.Interface().(encoding.TextMarshaler))
+				}
+				return "", notStringMapKey(v)
+			}
+			if iface == emptyInterfaceType && v.Type() == float64Type {
+				// interface{} writes a float64 as a number, which is not a name.
+				if f := v.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
+					return "", nonFiniteMapKey(v, f)
+				}
+				return "", notStringMapKey(v)
+			}
+			iface = nil
+			continue
+		case reflect.Pointer:
+			if v.IsNil() {
+				return "", notStringMapKey(v)
+			}
+			if cycle.reached(v) {
+				return "", &errors.UnsupportedValueError{Value: v, Str: "encountered a cycle via " + v.Type().String()}
+			}
+			v, byPointer = v.Elem(), true
+			continue
 		}
-		v = v.Elem()
+		break
 	}
-	if v.Kind() == reflect.Pointer && v.IsNil() {
-		// The method of the marshaler which the interface type of the key is, if any, is called with the nil
-		// pointer. A MarshalJSON is not called for a name.
-		switch {
-		case keyType.Implements(jsonMarshalerToType), keyType.Implements(jsonMarshalerType):
-			return "", notStringMapKey(v)
-		case keyType.Implements(textAppenderType):
-			return appendTextName(v.Interface().(encoding.TextAppender))
-		case keyType.Implements(marshalTextType):
-			return marshalTextName(v.Interface().(encoding.TextMarshaler))
-		}
-		return "", notStringMapKey(v)
-	}
-	if keyType == emptyInterfaceType && v.Type() == float64Type {
-		// interface{} writes a float64 as a number, which is not a name.
-		if f := v.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
-			return "", nonFiniteMapKey(v, f)
-		}
-		return "", notStringMapKey(v)
-	}
-	return mapKeyNameOf(v, false)
-}
-
-// mapKeyNameOf returns the name of the value of a key. byPointer is whether the value is the one of a pointer,
-// whose methods on the pointer are called.
-func mapKeyNameOf(v reflect.Value, byPointer bool) (string, error) {
 	t := v.Type()
-	if t.Kind() != reflect.Pointer {
-		switch {
-		case t.Implements(textAppenderType):
-			return appendTextName(v.Interface().(encoding.TextAppender))
-		case byPointer && reflect.PointerTo(t).Implements(textAppenderType):
-			return appendTextName(v.Addr().Interface().(encoding.TextAppender))
-		case t.Implements(marshalTextType):
-			return marshalTextName(v.Interface().(encoding.TextMarshaler))
-		case byPointer && reflect.PointerTo(t).Implements(marshalTextType):
-			return marshalTextName(v.Addr().Interface().(encoding.TextMarshaler))
-		}
+	switch {
+	case t.Implements(textAppenderType):
+		return appendTextName(v.Interface().(encoding.TextAppender))
+	case byPointer && reflect.PointerTo(t).Implements(textAppenderType):
+		return appendTextName(v.Addr().Interface().(encoding.TextAppender))
+	case t.Implements(marshalTextType):
+		return marshalTextName(v.Interface().(encoding.TextMarshaler))
+	case byPointer && reflect.PointerTo(t).Implements(marshalTextType):
+		return marshalTextName(v.Addr().Interface().(encoding.TextMarshaler))
 	}
 	switch t.Kind() {
 	case reflect.String:
@@ -121,11 +141,6 @@ func mapKeyNameOf(v reflect.Value, byPointer bool) (string, error) {
 			bits = 32
 		}
 		return string(appendFloatOfBits(nil, f, bits)), nil
-	case reflect.Pointer:
-		if v.IsNil() {
-			return "", notStringMapKey(v)
-		}
-		return mapKeyNameOf(v.Elem(), true)
 	case reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		return "", &errors.UnsupportedTypeError{Type: t}
 	}

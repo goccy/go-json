@@ -116,6 +116,40 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	return out, nil
 }
 
+// startDetectingKeyCyclesAfter is the number of the pointers a key is followed through before they are checked for
+// a cycle, as encoding/json starts to check its values after 1000 levels: a key whose pointers lead back to
+// themselves, as a key of type R *R can, never reaches a value which names it, and the keys of fewer pointers cost
+// nothing more than counting them.
+const startDetectingKeyCyclesAfter = 1000
+
+// keyCycle finds a cycle of the pointers which a key is followed through, one by one: past
+// startDetectingKeyCyclesAfter, each pointer is compared with one seen before it, which is replaced at every power
+// of 2 ( Brent's algorithm ), so a cycle is found within twice its length. Two pointers are the same by their type
+// and their address: a pointer to a struct and one to its first field have the same address.
+type keyCycle struct {
+	steps, power, length int
+	typ                  reflect.Type
+	addr                 unsafe.Pointer
+}
+
+// reached is whether v, the next pointer or interface of a key, is one which was followed before.
+func (c *keyCycle) reached(v reflect.Value) bool {
+	if c.steps++; c.steps <= startDetectingKeyCyclesAfter || v.Kind() != reflect.Pointer {
+		// an interface holds a value which is not an interface: a cycle has a pointer in it.
+		return false
+	}
+	typ, addr := v.Type(), v.UnsafePointer()
+	if typ == c.typ && addr == c.addr {
+		return true
+	}
+	if c.length == c.power {
+		c.typ, c.addr = typ, addr
+		c.power, c.length = max(2*c.power, 1), 0
+	}
+	c.length++
+	return false
+}
+
 // appendKeyName appends the name of the value v, which is addressable, as a JSON string.
 func appendKeyName(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, error) {
 	return appendKeyNameAfter(ctx, b, v, noMethod)
@@ -189,23 +223,34 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		b = append(b, '"')
 		return append(appendFloatOfBits(b, f, bits), '"'), nil
 	case reflect.Pointer, reflect.Interface:
-		if v.IsNil() {
-			return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
-		}
-		elem := v.Elem()
-		if t.Kind() == reflect.Interface {
-			// the dynamic value, in a variable of its own, which is addressable.
-			copied := reflect.New(elem.Type()).Elem()
-			copied.Set(elem)
-			elem = copied
-		}
-		// named by the functions of its own type first, as a key of that type is.
-		if funcs := ctx.Option.Funcs.funcsOf(elem.Type()); len(funcs) > 0 {
-			if out, err := appendByFuncs(ctx, b, elem.Addr().UnsafePointer(), elem.Type(), funcs); err != ErrUseDefault {
-				return out, err
+		// the pointers and the interfaces are followed here, one by one, up to a value which is named otherwise: by
+		// its functions, its method or its kind.
+		var cycle keyCycle
+		for {
+			if v.IsNil() {
+				return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: v.Type()}
 			}
+			elem := v.Elem()
+			if v.Kind() == reflect.Interface {
+				// the dynamic value, in a variable of its own, which is addressable.
+				copied := reflect.New(elem.Type()).Elem()
+				copied.Set(elem)
+				elem = copied
+			}
+			// named by the functions of its own type first, as a key of that type is.
+			if funcs := ctx.Option.Funcs.funcsOf(elem.Type()); len(funcs) > 0 {
+				if out, err := appendByFuncs(ctx, b, elem.Addr().UnsafePointer(), elem.Type(), funcs); err != ErrUseDefault {
+					return out, err
+				}
+			}
+			if k := elem.Kind(); k != reflect.Pointer && k != reflect.Interface || v2MethodOf(elem.Type(), noMethod) != noMethod {
+				return appendKeyName(ctx, b, elem)
+			}
+			if cycle.reached(elem) {
+				return b, &errors.SemanticError{GoType: t, Err: errors.ErrCycle}
+			}
+			v = elem
 		}
-		return appendKeyName(ctx, b, elem)
 	case reflect.Array:
 		if t.Elem().Kind() == reflect.Uint8 && t.Elem().PkgPath() == "" {
 			src := unsafe.Slice((*byte)(v.Addr().UnsafePointer()), t.Len())

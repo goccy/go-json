@@ -47,7 +47,7 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 		// would take a few allocations for
 		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
-	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start}
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start, buf: s.elements.buf}
 	s.index = s.elements
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
@@ -323,9 +323,12 @@ type bracketIndex struct {
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
-	// buf is the buffer which the stream made while the value is decoded element by element: the strings decoded
-	// then are copied, so nothing refers to it, and the stream reuses it in place, unless the strings refer to the
-	// input ( NoCopyStringOption ), when it makes a new one whenever it is full ( see grow ).
+	// buf is the buffer which the stream made while a value was decoded element by element, which no decoded value
+	// refers to: the strings decoded then are copied, so the stream reuses it in place ( see grow ), for the next
+	// values too, until a value read whole is decoded from it, whose strings refer to it ( see Stream.Decode ). It is
+	// nil under NoCopyStringOption, whose strings refer to the buffer. The bytes given to UnmarshalText, of a value or
+	// a map key, are a part of the buffer, which may be written again then: encoding.TextUnmarshaler has the method
+	// copy them to keep them, and the Decoder of encoding/json gives a part of its buffer too.
 	buf *byte
 }
 

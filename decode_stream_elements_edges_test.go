@@ -360,3 +360,43 @@ func TestDecodeStreamElementsStrings(t *testing.T) {
 		}
 	}
 }
+
+// The values decoded from the buffer of a stream refer to it, which is not read into again: values decoded whole
+// between values decoded element by element keep their strings, numbers, keys and interface values, whatever the
+// reads.
+func TestDecodeStreamBufferKeptForTopValues(t *testing.T) {
+	type small struct {
+		S string
+		N json.Number
+		M map[string]string
+		A any
+	}
+	long := `[` + strings.Repeat(" ", 600) + strings.Repeat(`"`+strings.Repeat("a", 100)+`",`, 30) + `"z"]`
+	value := `{"S":"keep-s","N":12345,"M":{"key-m":"val-m"},"A":"keep-a"}`
+	want := small{S: "keep-s", N: "12345", M: map[string]string{"key-m": "val-m"}, A: "keep-a"}
+	in := strings.Repeat(long+value, 8) + long
+	for _, chunk := range []int{1, 64, 512, 4096} {
+		dec := json.NewDecoder(&chunkReader{data: []byte(in), chunk: chunk})
+		dec.UseNumber()
+		var kept []small
+		for i := 0; i < 17; i++ {
+			if i%2 == 0 {
+				var v []string
+				if err := dec.Decode(&v); err != nil || len(v) != 31 {
+					t.Fatalf("by %d: value %d: %d strings, %v", chunk, i, len(v), err)
+				}
+				continue
+			}
+			var v small
+			if err := dec.Decode(&v); err != nil {
+				t.Fatalf("by %d: value %d: %v", chunk, i, err)
+			}
+			kept = append(kept, v)
+		}
+		for i, v := range kept {
+			if !reflect.DeepEqual(v, want) {
+				t.Fatalf("by %d: value %d is %+v after the values after it, want %+v", chunk, 2*i+1, v, want)
+			}
+		}
+	}
+}

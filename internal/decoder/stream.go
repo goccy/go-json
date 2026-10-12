@@ -28,7 +28,8 @@ const (
 // as it is read ( see scanFailed ), so that the buffer keeps its size. The strings decoded from the buffer refer to
 // it, so a byte which has been read is not overwritten: when the buffer is full, the bytes which are not consumed yet
 // are copied to a new one. A buffer made while a value is decoded element by element, whose strings are copied, is
-// reused in place instead ( see bracketIndex.buf ).
+// reused in place instead, also for the next values, until a value read whole is decoded from it ( see
+// bracketIndex.buf ).
 type Stream struct {
 	// buf[:length] is what has been read, buf[length] is nul, and bufPadding bytes are free at the end.
 	buf    []byte
@@ -128,9 +129,8 @@ func (s *Stream) read() bool {
 }
 
 // grow moves the bytes which are not consumed yet to the start of a buffer, so that the reader has room to read into:
-// a new one, as the old buffer is left to the strings which refer to it, or the same one, if it was made while a value
-// is decoded element by element, whose strings are copied, unless they refer to the input ( NoCopyStringOption ), and
-// it has room for the bytes.
+// a new one, as the old buffer is left to the strings which refer to it, or the same one, if nothing refers to it
+// ( see bracketIndex.buf ) and it has room for the bytes.
 func (s *Stream) grow() {
 	// the bytes from the cursor are moved, or from the one which is kept before it
 	from := s.cursor
@@ -145,13 +145,16 @@ func (s *Stream) grow() {
 		size *= 2
 	}
 	buf := s.buf
-	x := s.index
+	x := s.elements
 	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
 		buf = make([]byte, size+bufPadding)
 		if x != nil {
-			// whose strings are copied, which nothing refers to but them: it is reused in place while it has room for
-			// the bytes, unless the strings refer to it
-			x.buf = unsafe.SliceData(buf)
+			// a buffer made while a value is decoded element by element, whose strings are copied, is reused in
+			// place while nothing refers to it
+			x.buf = nil
+			if s.index != nil && (s.Option.Flags&NoCopyStringOption) == 0 {
+				x.buf = unsafe.SliceData(buf)
+			}
 		}
 	}
 	copy(buf, s.buf[from:s.length])
@@ -547,6 +550,10 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
+	if x := s.elements; x != nil {
+		// the strings of the value refer to the buffer, which is not reused in place then ( see grow )
+		x.buf = nil
+	}
 	var cursor int64
 	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
 		// The end of the value is known exactly: a nul byte is put there while the value is decoded,

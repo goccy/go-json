@@ -154,7 +154,7 @@ func annotateMethodError(cursor int64, err error, structName, fieldName string) 
 // before Go 1.27 stops the decoding with it, with the field of a type error and the offset of a syntax error.
 func (ctx *RuntimeContext) methodError(cursor, _ int64, err error, structName, fieldName string) (int64, error) {
 	annotateMethodError(cursor, err, structName, fieldName)
-	return 0, err
+	return 0, &unmarshalMethodError{err: err}
 }
 
 // timeKindTypeErrors is whether a value of a time.Time which is not a string or null is a type error: encoding/json
@@ -223,19 +223,12 @@ func textUnmarshalerNullSetsZero(kind reflect.Kind) bool {
 	return false
 }
 
-// unsettableFieldError records err, the error of a field of the struct typ which can't be set, as an embedded
-// pointer to an unexported struct, for the value at cursor, and skips the value: encoding/json before Go 1.27
-// returns the error as it is.
-func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, _ reflect.Type, err error) (int64, error) {
-	buf := ctx.Buf
-	end, skipErr := skipValue(buf, skipWhiteSpace(buf, cursor), depth)
-	if skipErr != nil {
-		return 0, skipErr
-	}
+// unsettableValueError records err, the error of a field of the struct typ which can't be set, for its value of the
+// kind between start and end: encoding/json before Go 1.27 returns the error as it is.
+func (ctx *RuntimeContext) unsettableValueError(_, _ int64, _ jsonKind, _ reflect.Type, err error) {
 	if ctx.typeError == nil {
 		ctx.typeError = &pendingTypeError{plain: err}
 	}
-	return end, nil
 }
 
 // storesFloatsOutOfRange reports whether a number out of the range of a float is stored as ±Inf with its type

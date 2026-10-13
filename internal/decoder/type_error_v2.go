@@ -213,17 +213,16 @@ func textUnmarshalerNullSetsZero(reflect.Kind) bool {
 // embedded pointer to an unexported struct, which can't be set.
 var errUnsettableEmbeddedPointer = stderrors.New("cannot set embedded pointer to unexported struct type")
 
-// unsettableFieldError records the type error of the value at cursor of a field of the struct typ which can't be
-// set, as an embedded pointer to an unexported struct, and skips the value: encoding/json of Go 1.27 reports it as
-// a type error of the struct at the start of the value.
-func (ctx *RuntimeContext) unsettableFieldError(cursor, depth int64, typ reflect.Type, _ error) (int64, error) {
-	first := ctx.typeError == nil
-	next, err := ctx.skipTypeError(cursor, depth, typ)
-	if err == nil && first {
-		ctx.typeError.err = errUnsettableEmbeddedPointer
-		ctx.typeError.atStart = true
+// unsettableValueError records the type error of a field of the struct typ which can't be set, for its value of the
+// kind between start and end: encoding/json of Go 1.27 reports it as a type error of the struct at the start of the
+// value.
+func (ctx *RuntimeContext) unsettableValueError(start, end int64, kind jsonKind, typ reflect.Type, _ error) {
+	if ctx.typeError == nil {
+		ctx.typeError = &pendingTypeError{
+			typ: typ, start: start, end: end, value: kind.String(), kind: kind, err: errUnsettableEmbeddedPointer,
+			atStart: true,
+		}
 	}
-	return next, err
 }
 
 // storesFloatsOutOfRange reports whether a number out of the range of a float is stored as ±Inf with its type

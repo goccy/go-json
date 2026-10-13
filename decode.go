@@ -129,8 +129,10 @@ func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) er
 }
 
 // inputSyntaxError returns err, the error of the decoding of the input of ctx, or, for a syntax error, the first
-// syntax error of the input as encoding/json reports it: it checks the whole input before it decodes it.
+// syntax error of the input as encoding/json reports it: it checks the whole input before it decodes it. The error of
+// an unmarshal method is the one which the method returned ( see decoder.MethodErrorOf ).
 func inputSyntaxError(ctx *decoder.RuntimeContext, err error) error {
+	err = decoder.MethodErrorOf(err)
 	if _, ok := err.(*errors.SyntaxError); ok {
 		if serr := ctx.InputSyntaxError(); serr != nil {
 			return serr

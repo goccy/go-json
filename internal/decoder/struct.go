@@ -267,7 +267,14 @@ func (d *structDecoder) decodedBefore(idx int, more *[]uint64) bool {
 //
 //go:noinline
 func (d *structDecoder) unsettableField(ctx *RuntimeContext, cursor, depth int64, err error) (int64, error) {
-	return ctx.unsettableFieldError(cursor, depth, d.typ, err)
+	buf := ctx.Buf
+	cursor = skipWhiteSpace(buf, cursor)
+	end, skipErr := skipValue(buf, cursor, depth)
+	if skipErr != nil {
+		return 0, skipErr
+	}
+	ctx.unsettableValueError(cursor, end, kindOf(buf[cursor]), d.typ, err)
+	return end, nil
 }
 
 func (d *structDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

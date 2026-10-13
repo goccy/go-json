@@ -93,38 +93,66 @@ func (d *sliceDecoder) grow(dst *sliceHeader, length, n int) {
 //go:noinline
 func (d *sliceDecoder) decodeLong(ctx *RuntimeContext, cursor, depth int64, dst *sliceHeader, n int) (int64, error) {
 	buf := ctx.Buf
+	elems := d.takeBuf(dst, n)
+	idx := n
+	for {
+		ep := d.bufElem(elems, idx)
+		c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
+		if err != nil {
+			d.storeBuf(dst, elems, idx+1, idx+1)
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, c)
+		switch buf[cursor] {
+		case ']':
+			d.storeBuf(dst, elems, idx+1, idx+1)
+			d.lastLen.Store(int32(min(idx+1, inPlaceSliceLength)))
+			return cursor + 1, nil
+		case ',':
+			idx++
+		default:
+			d.storeBuf(dst, elems, idx+1, idx+1)
+			return 0, errors.ErrInvalidCharacter(buf[cursor], "slice", cursor)
+		}
+		cursor++
+	}
+}
+
+// takeBuf takes a buffer of the pool, which the n elements decoded into the slice at dst are copied to.
+func (d *sliceDecoder) takeBuf(dst *sliceHeader, n int) *sliceBuf {
 	elems := d.bufPool.Get().(*sliceBuf)
 	d.growBuf(elems, 0, 2*n)
 	elems.hdr.len = n
 	head := *dst
 	head.len = n
 	reflect.Copy(d.sliceValue(&elems.hdr), d.sliceValue(&head))
-	idx := n
-	for {
-		d.growBuf(elems, idx, idx+1)
-		ep := unsafe.Add(elems.hdr.data, uintptr(idx)*d.size)
-		c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
-		if err != nil {
-			d.store(dst, elems, idx+1)
-			d.releaseBuf(elems, idx+1)
-			return 0, err
-		}
-		cursor = skipWhiteSpace(buf, c)
-		switch buf[cursor] {
-		case ']':
-			d.store(dst, elems, idx+1)
-			d.releaseBuf(elems, idx+1)
-			d.lastLen.Store(int32(min(idx+1, inPlaceSliceLength)))
-			return cursor + 1, nil
-		case ',':
-			idx++
-		default:
-			d.store(dst, elems, idx+1)
-			d.releaseBuf(elems, idx+1)
-			return 0, errors.ErrInvalidCharacter(buf[cursor], "slice", cursor)
-		}
-		cursor++
+	return elems
+}
+
+// bufElem returns the element of the buffer at idx, which follows the elements decoded into it. The buffer doubles,
+// so that the slice which it becomes ( see storeBuf ) leaves little garbage.
+func (d *sliceDecoder) bufElem(elems *sliceBuf, idx int) unsafe.Pointer {
+	if idx >= elems.hdr.cap {
+		d.growBuf(elems, idx, 2*idx+1)
 	}
+	return unsafe.Add(elems.hdr.data, uintptr(idx)*d.size)
+}
+
+// storeBuf stores the n elements of the buffer into the slice at dst, and puts the buffer back to the pool, with its
+// first used elements, which were decoded into, whole or in part, cleared. The buffer becomes the slice, which has no
+// room for the elements, instead of a copy of them: a long slice is not allocated twice, and the pool doesn't keep a
+// buffer of its size. A buffer which the pool had from a longer slice, more than the doubling up to the elements ( with
+// the rounding of its size ) leaves, is copied from instead, so that the slice keeps no more room than that.
+func (d *sliceDecoder) storeBuf(dst *sliceHeader, elems *sliceBuf, n, used int) {
+	if dst.cap < n && elems.hdr.cap < 3*n {
+		*dst = elems.hdr
+		dst.len = n
+		elems.hdr = sliceHeader{}
+		d.bufPool.Put(elems)
+		return
+	}
+	d.store(dst, elems, n)
+	d.releaseBuf(elems, used)
 }
 
 // growBuf makes the capacity of the buffer n or more, keeping its first length elements.

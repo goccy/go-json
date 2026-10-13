@@ -173,6 +173,23 @@ func TestFieldQueryEmbeddedRecursiveStructWithNothingSelected(t *testing.T) {
 	}
 }
 
+// A field selected by a query, of a pointer type which is a value of itself through what it points to.
+func TestFieldQueryRecursivePointerType(t *testing.T) {
+	query, err := json.BuildFieldQuery("A", "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := json.SetFieldQueryToContext(context.Background(), query)
+	v := struct {
+		A, B int
+		P    recursivePtrToSlice
+	}{1, 2, ptrToSlice(nil, ptrToSlice(ptrToSlice(), nil))}
+	got, err := json.MarshalContext(ctx, v)
+	if err != nil || string(got) != `{"A":1,"P":[null,[[],null]]}` {
+		t.Errorf("got %s, %v", got, err)
+	}
+}
+
 func TestFieldQueryEmptyName(t *testing.T) {
 	if _, err := json.BuildFieldQuery(""); err == nil {
 		t.Error("got no error for an empty field name")

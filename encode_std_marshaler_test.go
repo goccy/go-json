@@ -103,9 +103,11 @@ func checkStdEncoding(t *testing.T, values ...any) {
 			}
 		}
 		wantIndent, _ := stdjson.MarshalIndent(v, "", "  ")
-		got, err := json.MarshalIndent(v, "", "  ")
-		if (err != nil) != (wantErr != nil) || string(got) != string(wantIndent) {
-			t.Fatalf("%#v with indent:\n got %s %v\nwant %s %v", v, got, err, wantIndent, wantErr)
+		for i, opts := range [][]json.EncodeOptionFunc{nil, {json.Colorize(&json.ColorScheme{})}} {
+			got, err := json.MarshalIndentWithOption(v, "", "  ", opts...)
+			if (err != nil) != (wantErr != nil) || string(got) != string(wantIndent) {
+				t.Fatalf("%#v with indent ( options %d ):\n got %s %v\nwant %s %v", v, i, got, err, wantIndent, wantErr)
+			}
 		}
 	}
 }

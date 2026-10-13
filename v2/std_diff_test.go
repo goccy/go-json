@@ -142,6 +142,19 @@ type diffRaw struct {
 // diffStamp has MarshalJSON of time.Time, by embedding it.
 type diffStamp struct{ time.Time }
 
+// pointer types which are values of themselves, through an array or a struct.
+type (
+	diffPtrToArray  *[1]diffPtrToArray
+	diffPtrToPair   *[2]diffPtrToPair
+	diffPtrToStruct *diffStructOfPtr
+	diffStructOfPtr struct {
+		A int
+		F diffPtrToStruct
+	}
+	diffPtrToStructOfSlice *diffStructOfSlice
+	diffStructOfSlice      struct{ F []diffPtrToStructOfSlice }
+)
+
 func diffValues() []any {
 	n := 7
 	empty, nonEmpty := "", "x"
@@ -194,6 +207,12 @@ func diffValues() []any {
 		struct{ M map[diffDupKey]int }{map[diffDupKey]int{1: 1, 3: 3}},
 		diffRaw{Value: stdjsonv1.RawMessage(`{"a":1}`), Null: stdjsonv1.RawMessage(`null`)},
 		diffRaw{Empty: stdjsonv1.RawMessage{}}, diffRaw{Value: stdjsonv1.RawMessage(`{}`)},
+		diffPtrToArray(&[1]diffPtrToArray{&[1]diffPtrToArray{}}), []diffPtrToArray{&[1]diffPtrToArray{&[1]diffPtrToArray{}}},
+		diffPtrToPair(&[2]diffPtrToPair{nil, &[2]diffPtrToPair{&[2]diffPtrToPair{}, nil}}),
+		[]diffPtrToStruct{&diffStructOfPtr{A: 1, F: &diffStructOfPtr{A: 2, F: &diffStructOfPtr{A: 3}}}},
+		[]diffPtrToStructOfSlice{&diffStructOfSlice{F: []diffPtrToStructOfSlice{
+			&diffStructOfSlice{F: []diffPtrToStructOfSlice{}}, &diffStructOfSlice{}, nil,
+		}}},
 	}
 }
 

@@ -2,7 +2,8 @@ name: Measure PR 738 slowdown
 # A throwaway workflow of a measure/* branch: why the benchmark gate finds
 # Benchmark_Encode_SmallStructCached_GoJsonOptimizedFieldOrder +32% slower on PR 738, whose code doesn't run in it.
 # The gate itself ( benchcheck, 8 layouts, the fastest of each side ) compares master with: master and a pad, the PR,
-# the PR with its helper as a function instead of a method of Compiler, and the PR without the helper.
+# the PR with an unused function which gives the hot functions the alignment of master, the PR with its helper as a
+# function instead of a method of Compiler, and the PR without the helper.
 on:
   push:
     branches:
@@ -16,7 +17,7 @@ jobs:
       matrix:
         run: [1, 2, 3, 4, 5, 6]
     env:
-      BENCH: '^Benchmark_Encode_SmallStructCached_GoJson(OptimizedFieldOrder|LikeSonic)?$'
+      BENCH: '^Benchmark_Encode_SmallStructCached_GoJson(OptimizedFieldOrder)?$'
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -32,14 +33,15 @@ jobs:
       - name: gate
         run: |
           lscpu | grep 'Model name'
-          git fetch -q origin fix/encoder-recursive-pointer-types measure/pr738-func measure/pr738-nohelper
+          git fetch -q origin fix/encoder-recursive-pointer-types measure/pr738-func measure/pr738-nohelper measure/pr738-align
           git worktree add /tmp/master_pad 100268a > /dev/null 2>&1
           git worktree add /tmp/pr 0ef5826 > /dev/null 2>&1
           git worktree add /tmp/pr_func b8f15fc > /dev/null 2>&1
           git worktree add /tmp/pr_nohelper e01bb74 > /dev/null 2>&1
+          git worktree add /tmp/pr_align 64c1865 > /dev/null 2>&1
           printf 'package encoder\n\n//go:noinline\nfunc zzPad(n int) int { return n*3 + 1 }\n\nvar zzPadSink = zzPad(1)\n' > /tmp/master_pad/internal/encoder/aa_pad.go
-          for r in 1 2; do
-            for v in master_pad pr pr_func pr_nohelper; do
+          for r in 1; do
+            for v in master_pad pr pr_align pr_func pr_nohelper; do
               echo "== $v ( round $r )"
               (cd /tmp/$v && go run ./internal/cmd/benchcheck -base 100268a -bench "$BENCH" -no-cache 2>/dev/null | grep -E 'SmallStructCached|^mean|^OK|^FAIL') || true
             done

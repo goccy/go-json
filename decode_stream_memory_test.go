@@ -227,18 +227,22 @@ func TestDecodeStreamTruncatedValueOfLenReader(t *testing.T) {
 func TestDecodeStreamLongNumber(t *testing.T) {
 	const n = 1 << 20
 	number, str := "1"+strings.Repeat("2", n-1), `"`+strings.Repeat("s", n-2)+`"`
-	// skipTime returns the least time of a few decodings of an object whose member, value, is skipped: the least of
-	// enough of them is one which no other work of the machine interrupted
+	// skipTime returns the least time of a decoding of an object whose member, value, is skipped, over a few batches of
+	// decodings, each long enough for the clock of any machine to measure: the least is one which the other work of the
+	// machine hardly interrupted
 	skipTime := func(value string) time.Duration {
 		in := `{"x":` + value + `}`
 		least := time.Duration(1<<63 - 1)
-		for i := 0; i < 7; i++ {
-			var v struct{}
+		for i := 0; i < 5; i++ {
+			count := 0
 			start := time.Now()
-			if err := json.NewDecoder(struct{ io.Reader }{strings.NewReader(in)}).Decode(&v); err != nil {
-				t.Fatal(err)
+			for ; count == 0 || time.Since(start) < 20*time.Millisecond; count++ {
+				var v struct{}
+				if err := json.NewDecoder(struct{ io.Reader }{strings.NewReader(in)}).Decode(&v); err != nil {
+					t.Fatal(err)
+				}
 			}
-			least = min(least, time.Since(start))
+			least = min(least, time.Since(start)/time.Duration(count))
 		}
 		return least
 	}

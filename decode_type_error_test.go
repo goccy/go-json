@@ -7,15 +7,17 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	json "github.com/goccy/go-json"
 )
 
-// The type errors of the decoding are the ones of encoding/json of the running Go: a value which is not of the
-// type of its destination is skipped, the decoding goes on, and the first such error is returned, unless the
-// input has a syntax error, which is returned instead. Its Value, Type, Offset, Struct and Field, and its
-// message, are the ones of encoding/json, whose rules differ between Go 1.27, which is made of
-// encoding/json/v2, and the earlier versions.
+// The type errors of the decoding are the ones of encoding/json of Go 1.27, on every version of Go: a value which is
+// not of the type of its destination is skipped, the decoding goes on, and the first such error is returned, unless
+// the input has a syntax error, which is returned instead. Its Value, Type, Offset, Struct and Field, and its
+// message, are the ones of encoding/json of Go 1.27, which is made of encoding/json/v2: the tests compare them with
+// the running encoding/json where it is the one of Go 1.27 ( see comparesWithStd ), and TestDecodeAsGo127 checks
+// them on every version.
 
 type typeErrorInner struct {
 	F int
@@ -119,11 +121,23 @@ func describeTypeError(err error) string {
 	return err.Error()
 }
 
+// comparesWithStd reports whether a decoding by go-json is compared with the one by encoding/json of the running Go,
+// which returned stdErr: go-json decodes as encoding/json of Go 1.27 does on every version of Go, but for the syntax
+// errors, which are the ones of the running Go.
+func comparesWithStd(stdErr error) bool {
+	var syntaxErr *stdjson.SyntaxError
+	return stdDecodesAsGo127 || errors.As(stdErr, &syntaxErr)
+}
+
 func checkTypeError(t *testing.T, doc string, newValue func() any) {
 	t.Helper()
 	want, got := newValue(), newValue()
-	wantErr := describeTypeError(stdjson.Unmarshal([]byte(doc), want))
+	stdErr := stdjson.Unmarshal([]byte(doc), want)
+	wantErr := describeTypeError(stdErr)
 	gotErr := describeTypeError(json.Unmarshal([]byte(doc), got))
+	if !comparesWithStd(stdErr) {
+		return
+	}
 	if gotErr != wantErr {
 		t.Errorf("%s:\n got %s\nwant %s", doc, gotErr, wantErr)
 		return
@@ -191,6 +205,9 @@ func TestDecodeTypeErrorsBeforeSyntaxErrors(t *testing.T) {
 
 func TestDecodeTypeErrorsOfStream(t *testing.T) {
 	// The decoder of a stream returns the type error of a value, and decodes the next ones.
+	if !stdDecodesAsGo127 {
+		t.Skip("encoding/json of the running Go doesn't decode as the one of Go 1.27")
+	}
 	const input = `{"X":1} {"X":"s","Last":2} {"A":{"F":true}} {"X":3}`
 	std := stdjson.NewDecoder(strings.NewReader(input))
 	dec := json.NewDecoder(strings.NewReader(input))
@@ -228,7 +245,7 @@ func TestDecodeTypeErrorsNotKept(t *testing.T) {
 }
 
 // typeErrorMethods is an interface type with methods, whose value is decoded into what it points to if it is a
-// pointer, and is kept else.
+// pointer, and is set to nil else.
 type typeErrorMethods interface {
 	Method()
 }
@@ -262,7 +279,7 @@ func (v typeErrorValueType) Method() {}
 func TestDecodeTypeErrorsOfInterfaceValues(t *testing.T) {
 	// The value which an interface value holds is decoded into what it points to if it is a pointer, with the
 	// unmarshalers of the pointer type, whatever the interface type is. A value of an interface type with
-	// methods which is not a pointer is kept: null sets it to nil, and anything else is a type error.
+	// methods which is not a pointer is set to nil: by null, and by anything else, which is a type error.
 	var nilPlain *typeErrorPlainValue
 	values := []func() typeErrorMethods{
 		func() typeErrorMethods { return nil },
@@ -291,8 +308,7 @@ func TestDecodeTypeErrorsOfInterfaceValues(t *testing.T) {
 }
 
 func TestDecodeTypeErrorsOfKeysOfOtherCase(t *testing.T) {
-	// A key which matches a field in another case: encoding/json of Go 1.27 reports the path by the keys as the
-	// input has them.
+	// A key which matches a field in another case: the path is reported by the keys as the input has them.
 	type continent struct{ Name int }
 	type country struct {
 		Continent continent
@@ -306,5 +322,58 @@ func TestDecodeTypeErrorsOfKeysOfOtherCase(t *testing.T) {
 		`{"code":"x"}`,
 	} {
 		checkTypeError(t, doc, func() any { return new(country) })
+	}
+}
+
+// typeErrorDeep is a struct which nests itself, whose deepest value has the type error of
+// TestDecodeTypeErrorPathLinear.
+type typeErrorDeep struct {
+	A *typeErrorDeep `json:"a"`
+	N int            `json:"n"`
+}
+
+func TestDecodeTypeErrorPathLinear(t *testing.T) {
+	// The path of a type error is found in a time linear in the bytes before its value, whatever its depth: a value
+	// whose type error is deep in it is decoded in a few times the time of the same value without the error, which
+	// the walk of the input and the names of the path take. A walk which reads the value again at every level the
+	// error is in, or a path which is copied at every level, takes the square of the depth, tens of times the time
+	// here: the ratio of the two times tells them apart on any machine.
+	const depth = 4000
+	valid := strings.Repeat(`{"a":`, depth) + `{"n":1}` + strings.Repeat(`}`, depth)
+	invalid := strings.Repeat(`{"a":`, depth) + `{"n":"x"}` + strings.Repeat(`}`, depth)
+	decodes := []struct {
+		name   string
+		decode func(in string) error
+	}{
+		{"Unmarshal", func(in string) error { return json.Unmarshal([]byte(in), new(typeErrorDeep)) }},
+		{"Decoder of 1-byte reads", func(in string) error {
+			return json.NewDecoder(&asGo127Reader{b: []byte(in), n: 1}).Decode(new(typeErrorDeep))
+		}},
+		{"Decoder of 512-byte reads", func(in string) error {
+			return json.NewDecoder(&asGo127Reader{b: []byte(in), n: 512}).Decode(new(typeErrorDeep))
+		}},
+	}
+	for _, d := range decodes {
+		// the fastest of a few decodings of each, in turn, so that the load of the machine weighs on neither
+		var fastest [2]time.Duration
+		for i := 0; i < 5; i++ {
+			for j, in := range []string{valid, invalid} {
+				start := time.Now()
+				err := d.decode(in)
+				elapsed := time.Since(start)
+				var typeErr *json.UnmarshalTypeError
+				if (j == 0 && err != nil) || (j == 1 && !errors.As(err, &typeErr)) {
+					t.Fatalf("%s: got %v", d.name, err)
+				}
+				if i == 0 || elapsed < fastest[j] {
+					fastest[j] = elapsed
+				}
+			}
+		}
+		ratio := float64(fastest[1]) / float64(fastest[0])
+		t.Logf("%s: %v with the type error, %v without it", d.name, fastest[1], fastest[0])
+		if ratio > 6 {
+			t.Errorf("%s: the value with a type error %d levels deep takes %.1f times the time of the value without it", d.name, depth, ratio)
+		}
 	}
 }

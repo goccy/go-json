@@ -111,17 +111,13 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 
 // endWithError releases the context of a decoding into a value of the pointer type typ, which failed with err or
 // else has a type error, and returns the error: the type error is returned only when the whole input is valid, as
-// encoding/json does. It takes the decoder of typ again, so that the functions which decode keep nothing more
-// across their call of it: an error is rare.
+// encoding/json does.
 //
 //go:noinline
 func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) error {
 	err = inputSyntaxError(ctx, err)
 	if err == nil {
-		var dec decoder.Decoder
-		if dec, err = ctx.DecoderOf(typ); err == nil {
-			err = ctx.TypeError(dec, runtime.TypeOfPtr(typ), 0, 0)
-		}
+		err = ctx.TypeError(runtime.TypeOfPtr(typ), 0, 0)
 	}
 	ctx.DiscardTypeError()
 	decoder.ReleaseRuntimeContext(ctx)
@@ -129,10 +125,8 @@ func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) er
 }
 
 // inputSyntaxError returns err, the error of the decoding of the input of ctx, or, for a syntax error, the first
-// syntax error of the input as encoding/json reports it: it checks the whole input before it decodes it. The error of
-// an unmarshal method is the one which the method returned ( see decoder.MethodErrorOf ).
+// syntax error of the input as encoding/json reports it: it checks the whole input before it decodes it.
 func inputSyntaxError(ctx *decoder.RuntimeContext, err error) error {
-	err = decoder.MethodErrorOf(err)
 	if _, ok := err.(*errors.SyntaxError); ok {
 		if serr := ctx.InputSyntaxError(); serr != nil {
 			return serr

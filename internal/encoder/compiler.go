@@ -233,7 +233,7 @@ func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
 	if _, ok := c.valuesOnPath[uintptr(runtime.TypePtr(typ))]; !ok {
 		return nil, false
 	}
-	if c.compilesToPointee(typ) {
+	if compilesToPointee(c.funcs, typ) {
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: typ, static: true}, ptrNum: 1}, true
 	}
 	return &InterfaceCode{typ: typ, static: true}, true
@@ -242,8 +242,8 @@ func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
 // compilesToPointee is whether the opcodes of typ are the ones of the value it points to: a pointer is the address
 // of a value. A pointer which a function of marshaling takes is a value of its own, whose address the function is
 // given.
-func (c *Compiler) compilesToPointee(typ reflect.Type) bool {
-	return typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0
+func compilesToPointee(funcs *MarshalFuncs, typ reflect.Type) bool {
+	return typ.Kind() == reflect.Ptr && len(funcs.funcsOf(typ)) == 0
 }
 
 // enterValue records that the code of typ is being compiled, if typ may be a value of itself ( see
@@ -289,7 +289,7 @@ func newCompiler(mode compileMode) *Compiler {
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := runtime.TypeOfPtr(*(*unsafe.Pointer)(unsafe.Pointer(&typeptr)))
-	if c.compilesToPointee(typ) {
+	if compilesToPointee(c.funcs, typ) {
 		code, err := c.pointeeCode(typ.Elem())
 		if err != nil {
 			return nil, err
@@ -370,7 +370,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	codeLength := keyCodes[0].TotalLength()
 	// the data word is the address of the value which the opcodes take, which identifies it, or the value itself,
 	// whose first word identifies it, as the array of a slice identifies the slice ( see recordSeenValue ).
-	dataWordIsAddr := runtime.IfaceIndir(typ) || c.compilesToPointee(typ)
+	dataWordIsAddr := runtime.IfaceIndir(typ) || compilesToPointee(c.funcs, typ)
 	return &OpcodeSet{
 		Type:              typ,
 		IfaceIndir:        runtime.IfaceIndir(typ),

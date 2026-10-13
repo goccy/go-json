@@ -285,6 +285,132 @@ func TestDecodeStreamElements(t *testing.T) {
 	}
 }
 
+// keptCases is the number of the streams TestDecodeStreamValuesKept decodes.
+var keptCases = 100
+
+// The values decoded from a stream keep their content after the values after them are decoded, whatever the reads,
+// the option DecodeNoCopyString set or cleared on each call, and the Token calls between them: the buffers which their
+// strings refer to are not read into again. Every value is kept until the end of the stream, and compared then with
+// Unmarshal of its bytes. Token reads some strings at the top level, and the names of the members of some objects,
+// whose values are decoded.
+func TestDecodeStreamValuesKept(t *testing.T) {
+	var noCopy json.DecodeOption
+	json.DecodeNoCopyString()(&noCopy)
+	setNoCopy := func(o *json.DecodeOption) { o.Flags |= noCopy.Flags }
+	clearNoCopy := func(o *json.DecodeOption) { o.Flags &^= noCopy.Flags }
+	r := rand.New(rand.NewSource(elementsSeed))
+	for i := 0; i < keptCases; i++ {
+		// the values, and whether each is read by Token, which reads a string at the top level as a token
+		var texts []string
+		var tokens []bool
+		var b strings.Builder
+		for n := 2 + r.Intn(6); len(texts) < n; {
+			var v strings.Builder
+			keptValue(r, &v, 3)
+			text := v.String()
+			texts = append(texts, text)
+			tokens = append(tokens, (text[0] == '"' || text[0] == '{') && r.Intn(2) == 0)
+			b.WriteString(text + " ")
+		}
+		in := b.String()
+		want := make([]any, len(texts))
+		for k, text := range texts {
+			if err := json.Unmarshal([]byte(text), &want[k]); err != nil {
+				t.Fatalf("%.80q: %v", text, err)
+			}
+		}
+		for _, chunk := range []int{1, 7, 64, 512, 4096} {
+			dec := json.NewDecoder(&chunkReader{data: []byte(in), chunk: chunk})
+			got := make([]any, len(texts))
+			for k := range texts {
+				var err error
+				switch {
+				case tokens[k] && texts[k][0] == '{':
+					got[k], err = keptMembersByToken(dec, r, setNoCopy, clearNoCopy)
+				case tokens[k]:
+					got[k], err = dec.Token()
+				case r.Intn(2) == 0:
+					err = dec.DecodeWithOption(&got[k], setNoCopy)
+				default:
+					err = dec.DecodeWithOption(&got[k], clearNoCopy)
+				}
+				if err != nil {
+					t.Fatalf("case %d by %d: value %d: %v", i, chunk, k, err)
+				}
+			}
+			for k := range texts {
+				if !reflect.DeepEqual(got[k], want[k]) {
+					t.Fatalf("case %d by %d: value %d is %#.200v at the end of the stream, want %#.200v", i, chunk, k, got[k], want[k])
+				}
+			}
+		}
+	}
+}
+
+// keptMembersByToken reads the object at the top level of dec by Token, the names of its members and the delimiters,
+// and decodes their values, with DecodeNoCopyString set or cleared at random.
+func keptMembersByToken(dec *json.Decoder, r *rand.Rand, opts ...json.DecodeOptionFunc) (map[string]any, error) {
+	m := map[string]any{}
+	if _, err := dec.Token(); err != nil {
+		return nil, err
+	}
+	for dec.More() {
+		name, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		var v any
+		if err := dec.DecodeWithOption(&v, opts[r.Intn(len(opts))]); err != nil {
+			return nil, err
+		}
+		m[name.(string)] = v
+	}
+	_, err := dec.Token()
+	return m, err
+}
+
+// keptValue writes a random value, nested up to depth, of strings of random letters, long and short, and numbers,
+// with white space which makes some objects and arrays too long for a read.
+func keptValue(r *rand.Rand, b *strings.Builder, depth int) {
+	pad := func() {
+		if r.Intn(4) == 0 {
+			b.WriteString(strings.Repeat(" ", 600))
+		}
+	}
+	switch n := r.Intn(6); {
+	case depth > 0 && n < 2:
+		open, end := byte('['), byte(']')
+		if n == 0 {
+			open, end = '{', '}'
+		}
+		b.WriteByte(open)
+		for i, m := 0, r.Intn(5); i < m; i++ {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			pad()
+			if open == '{' {
+				b.WriteString(`"k` + strconv.Itoa(r.Intn(100)) + `":`)
+				pad()
+			}
+			keptValue(r, b, depth-1)
+		}
+		b.WriteByte(end)
+	case n < 4:
+		size := r.Intn(20)
+		if n == 3 {
+			size = r.Intn(700)
+		}
+		b.WriteByte('"')
+		for i := 0; i < size; i++ {
+			b.WriteByte(byte('a' + r.Intn(26)))
+		}
+		b.WriteByte('"')
+	default:
+		b.WriteString(strconv.Itoa(r.Intn(1000000)))
+	}
+}
+
 // withSyntaxErrorKind returns the results with the kind of a syntax error only, whose message and offset are the ones
 // of the bytes read when it is returned ( see compareWithUnmarshal ).
 func withSyntaxErrorKind(results []elementsResult) []elementsResult {

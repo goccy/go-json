@@ -27,8 +27,9 @@ const (
 // it, with a nul byte put after the value, and an object or an array which it doesn't is decoded element by element
 // as it is read ( see scanFailed ), so that the buffer keeps its size. The strings decoded from the buffer refer to
 // it, so a byte which has been read is not overwritten: when the buffer is full, the bytes which are not consumed yet
-// are copied to a new one. Once a value has been decoded element by element, whose strings are copied, a buffer is
-// reused in place instead, until a value read whole is decoded from it ( see bracketIndex.buf ).
+// are copied to a new one. Once a value has been decoded element by element, whose strings are copied unless
+// NoCopyStringOption is set, a buffer is reused in place instead, until a value whose strings refer to it is decoded
+// from it ( see bracketIndex.buf ).
 type Stream struct {
 	// buf[:length] is what has been read, buf[length] is nul, and bufPadding bytes are free at the end.
 	buf    []byte
@@ -143,12 +144,16 @@ func (s *Stream) grow() {
 	}
 	buf := s.buf
 	x := s.elements
-	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
+	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding {
 		buf = make([]byte, size+bufPadding)
 		if x != nil {
 			// nothing refers to the new buffer yet: a value read whole clears the mark before its strings refer to it
-			// ( see Stream.Decode ), and the element path and Token copy theirs
-			x.buf = unsafe.SliceData(buf)
+			// ( see Stream.Decode ), and the element path and Token copy theirs. Under NoCopyStringOption the element
+			// path doesn't, so the buffer is not marked: an option may clear the flag before the next value.
+			x.buf = nil
+			if (s.Option.Flags & NoCopyStringOption) == 0 {
+				x.buf = unsafe.SliceData(buf)
+			}
 		}
 	}
 	copy(buf, s.buf[from:s.length])
@@ -583,7 +588,8 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 }
 
 // callDecoder decodes the value at the cursor, which ends at end, by dec into p, nested in depth objects and arrays,
-// and returns the position after it. The decoded strings are copied out of the buffer, which they would keep alive.
+// and returns the position after it. The decoded strings are copied out of the buffer, which they would keep alive,
+// unless NoCopyStringOption is set.
 func (s *Stream) callDecoder(dec Decoder, p unsafe.Pointer, depth, end int64) (int64, error) {
 	ctx := s.ctx
 	var cursor int64

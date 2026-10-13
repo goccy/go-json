@@ -400,3 +400,37 @@ func TestDecodeStreamBufferKeptForTopValues(t *testing.T) {
 		}
 	}
 }
+
+// The strings of a value decoded element by element under DecodeNoCopyString refer to the buffer, which is not read
+// into again, also after an option clears it for the next values: a value long or short after one which made the
+// buffer which the stream reuses.
+func TestDecodeStreamBufferKeptForNoCopyStrings(t *testing.T) {
+	long := `[` + strings.Repeat(`"`+strings.Repeat("a", 100)+`",`, 30) + `"z"]`
+	clear := func(o *json.DecodeOption) { o.Flags = 0 }
+	for _, value := range []string{long, `["short-value-under-nocopy"]`} {
+		in := long + value + strings.Repeat(long, 3)
+		var want []string
+		if err := json.Unmarshal([]byte(value), &want); err != nil {
+			t.Fatal(err)
+		}
+		for _, chunk := range []int{1, 7, 64, 512, 4096} {
+			dec := json.NewDecoder(&chunkReader{data: []byte(in), chunk: chunk})
+			var first, kept []string
+			if err := dec.Decode(&first); err != nil {
+				t.Fatal(err)
+			}
+			if err := dec.DecodeWithOption(&kept, json.DecodeNoCopyString()); err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; i < 3; i++ {
+				var v []string
+				if err := dec.DecodeWithOption(&v, clear); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !reflect.DeepEqual(kept, want) {
+				t.Fatalf("%.30q by %d: the strings decoded under DecodeNoCopyString changed: %.100q", value, chunk, strings.Join(kept, ","))
+			}
+		}
+	}
+}

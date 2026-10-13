@@ -19,7 +19,8 @@ import (
 // in turn, so that the reader is read only when the next token isn't whole in the buffer. So the decoding never reads
 // past the token being read, which fails a value at the read of its first invalid byte, and the buffer holds a read
 // and the longest token, whatever the size of a value: the bytes of the elements decoded are dropped when the buffer
-// is filled again. The strings decoded then are copied out of the buffer, which they would keep alive.
+// is filled again. The strings decoded then are copied out of the buffer, which they would keep alive, unless
+// NoCopyStringOption is set.
 //
 // The objects and the arrays of structs, maps, slices, arrays, pointers to them and interface{} values are decoded
 // so. A value of any other type, as one which has an UnmarshalJSON method, which takes the bytes of the whole value,
@@ -47,7 +48,12 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 		// would take a few allocations for
 		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
-	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start, buf: s.elements.buf}
+	keep := s.elements.buf
+	if (s.Option.Flags & NoCopyStringOption) != 0 {
+		// the strings of the value refer to the buffer, which is not reused in place then ( see grow )
+		keep = nil
+	}
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start, buf: keep}
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64
@@ -322,11 +328,12 @@ type bracketIndex struct {
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
 	// buf is the last buffer which the stream made, which no decoded value refers to: the strings decoded element by
-	// element and the ones of Token are copied, so the stream reuses it in place ( see grow ), until a value read whole
-	// is decoded from it, whose strings refer to it ( see Stream.Decode ). It is never reused under
-	// NoCopyStringOption, whose strings refer to it. The bytes given to UnmarshalText, of a value or a map key, are a
-	// part of the buffer, which may be written again then: encoding.TextUnmarshaler has the method copy them to keep
-	// them, and the Decoder of encoding/json gives a part of its buffer too.
+	// element and the ones of Token are copied, so the stream reuses it in place ( see grow ), until a value whose
+	// strings refer to it is decoded from it: a value read whole ( see Stream.Decode ), or one decoded element by
+	// element under NoCopyStringOption ( see scanFailed ), under which no buffer is marked. The bytes given to
+	// UnmarshalText, of a value or a map key, are a part of the buffer, which may be written again then:
+	// encoding.TextUnmarshaler has the method copy them to keep them, and the Decoder of encoding/json gives a part of
+	// its buffer too.
 	buf *byte
 }
 

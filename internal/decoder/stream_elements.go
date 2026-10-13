@@ -48,7 +48,6 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
 	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start, buf: s.elements.buf}
-	s.index = s.elements
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64
@@ -56,7 +55,6 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 			err = s.decodeWhole(dec, p, 0, end)
 		}
 	}
-	s.index = nil
 	if err != nil {
 		ctx.DiscardTypeError()
 		return s.fail(err)
@@ -294,7 +292,7 @@ func (s *Stream) elementEnd(depth int64) (int64, bool, error) {
 		var end int64
 		var ok bool
 		s.indexFrom(depth)
-		if end, ok, rel = s.index.closeOf(s.offset+s.cursor, depth, rel); ok {
+		if end, ok, rel = s.elements.closeOf(s.offset+s.cursor, depth, rel); ok {
 			return end + 1 - s.offset, true, nil
 		}
 		if !s.indexAhead(step) {
@@ -323,12 +321,12 @@ type bracketIndex struct {
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
-	// buf is the buffer which the stream made while a value was decoded element by element, which no decoded value
-	// refers to: the strings decoded then are copied, so the stream reuses it in place ( see grow ), for the next
-	// values too, until a value read whole is decoded from it, whose strings refer to it ( see Stream.Decode ). It is
-	// nil under NoCopyStringOption, whose strings refer to the buffer. The bytes given to UnmarshalText, of a value or
-	// a map key, are a part of the buffer, which may be written again then: encoding.TextUnmarshaler has the method
-	// copy them to keep them, and the Decoder of encoding/json gives a part of its buffer too.
+	// buf is the last buffer which the stream made, which no decoded value refers to: the strings decoded element by
+	// element and the ones of Token are copied, so the stream reuses it in place ( see grow ), until a value read whole
+	// is decoded from it, whose strings refer to it ( see Stream.Decode ). It is never reused under
+	// NoCopyStringOption, whose strings refer to it. The bytes given to UnmarshalText, of a value or a map key, are a
+	// part of the buffer, which may be written again then: encoding.TextUnmarshaler has the method copy them to keep
+	// them, and the Decoder of encoding/json gives a part of its buffer too.
 	buf *byte
 }
 
@@ -347,7 +345,7 @@ type bracketClose struct {
 // arrays is ( see indexFrom ).
 func (s *Stream) indexAt(depth int64) {
 	s.indexFrom(depth)
-	x := s.index
+	x := s.elements
 	x.extend(s.buf, x.end-s.offset, s.length, s.offset)
 	x.end = s.offset + s.length
 }
@@ -358,7 +356,7 @@ func (s *Stream) indexAt(depth int64) {
 // entries. A deeper index is four times as deep as what it is made for, so that a value nested deep, which is decoded
 // element by element at every level, has its bytes indexed again a few times only.
 func (s *Stream) indexFrom(depth int64) {
-	x := s.index
+	x := s.elements
 	if at := s.offset + s.cursor; x.end < at || x.bound < depth+1 {
 		n := len(x.closes)
 		for n > x.next && x.closes[n-1].at > at {
@@ -378,7 +376,7 @@ const indexFirstStep = 4 * scanBlockSize
 
 // indexAhead extends the index by step bytes of what has been read at most, and reports false if it has all.
 func (s *Stream) indexAhead(step int64) bool {
-	x := s.index
+	x := s.elements
 	to := min(x.end-s.offset+step, s.length)
 	if x.end-s.offset >= to {
 		return false
@@ -1053,7 +1051,7 @@ func (t *sliceTarget) finish(n, used int, err error) {
 // elements of the array are nested in depth objects and arrays.
 func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
 	s.indexAt(depth)
-	end, ok := s.index.lastElementClose(s.offset+s.cursor, depth)
+	end, ok := s.elements.lastElementClose(s.offset+s.cursor, depth)
 	if !ok {
 		return idx, nil
 	}

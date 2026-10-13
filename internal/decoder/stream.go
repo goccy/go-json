@@ -27,9 +27,8 @@ const (
 // it, with a nul byte put after the value, and an object or an array which it doesn't is decoded element by element
 // as it is read ( see scanFailed ), so that the buffer keeps its size. The strings decoded from the buffer refer to
 // it, so a byte which has been read is not overwritten: when the buffer is full, the bytes which are not consumed yet
-// are copied to a new one. A buffer made while a value is decoded element by element, whose strings are copied, is
-// reused in place instead, also for the next values, until a value read whole is decoded from it ( see
-// bracketIndex.buf ).
+// are copied to a new one. Once a value has been decoded element by element, whose strings are copied, a buffer is
+// reused in place instead, until a value read whole is decoded from it ( see bracketIndex.buf ).
 type Stream struct {
 	// buf[:length] is what has been read, buf[length] is nul, and bufPadding bytes are free at the end.
 	buf    []byte
@@ -66,12 +65,10 @@ type Stream struct {
 	// a read of a token which fails leaves the stream where it was ( see Token ).
 	keeps    bool
 	keepFrom int64
-	// index is where the objects and the arrays of the value which is decoded element by element end, which the
-	// lookups extend ( see indexAt ). It is nil while no value is decoded so, and else elements, whose entries are
-	// kept for the next value, which allocates them no more. Whether a value is decoded so is what grow needs to
-	// reuse in place a buffer which it made then ( see bracketIndex.buf ), and the buffer of the index can't tell it:
-	// none is made yet when the decoding of the value begins.
-	index, elements *bracketIndex
+	// elements is where the objects and the arrays of the value which is decoded element by element end, which the
+	// lookups extend ( see indexAt ), made for the first such value and kept for the next ones, which allocate its
+	// entries no more, and the buffer which is reused ( see bracketIndex.buf ). It is nil until a value is decoded so.
+	elements *bracketIndex
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -149,12 +146,9 @@ func (s *Stream) grow() {
 	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding || (s.Option.Flags&NoCopyStringOption) != 0 {
 		buf = make([]byte, size+bufPadding)
 		if x != nil {
-			// a buffer made while a value is decoded element by element, whose strings are copied, is reused in
-			// place while nothing refers to it
-			x.buf = nil
-			if s.index != nil && (s.Option.Flags&NoCopyStringOption) == 0 {
-				x.buf = unsafe.SliceData(buf)
-			}
+			// nothing refers to the new buffer yet: a value read whole clears the mark before its strings refer to it
+			// ( see Stream.Decode ), and the element path and Token copy theirs
+			x.buf = unsafe.SliceData(buf)
 		}
 	}
 	copy(buf, s.buf[from:s.length])

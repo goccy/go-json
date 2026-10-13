@@ -186,11 +186,6 @@ func (d *sliceDecoder) store(dst *sliceHeader, buf *sliceBuf, n int) {
 
 func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-	}
-
 	for {
 		switch buf[cursor] {
 		case ' ', '\n', '\t', '\r':
@@ -204,6 +199,11 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			*(*sliceHeader)(p) = sliceHeader{}
 			return cursor, nil
 		case '[':
+			// only an array nests its values one level deeper: null or another value at the limit is not too deep
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+			}
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			dst := (*sliceHeader)(p)
@@ -254,7 +254,7 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				cursor++
 			}
 		default:
-			return d.decodeOther(ctx, cursor, depth-1)
+			return d.decodeOther(ctx, cursor, depth)
 		}
 	}
 }
@@ -272,11 +272,6 @@ func (d *sliceDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (in
 
 func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	buf := ctx.Buf
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return nil, 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-	}
-
 	ret := [][]byte{}
 	for {
 		switch buf[cursor] {
@@ -290,6 +285,10 @@ func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 			cursor += 4
 			return [][]byte{nullbytes}, cursor, nil
 		case '[':
+			depth++
+			if depth > maxDecodeNestingDepth {
+				return nil, 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+			}
 			cursor++
 			cursor = skipWhiteSpace(buf, cursor)
 			if buf[cursor] == ']' {

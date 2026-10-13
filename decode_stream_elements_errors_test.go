@@ -86,8 +86,9 @@ func unmarshalReference(data []byte, v any, disallowUnknownFields, useNumber boo
 }
 
 // sameError returns what differs between want, the error of a value read at once, and got, the one of a Decoder, or
-// "": both have none, or are the end of the input, or are syntax errors at the same offset, from base for want, or are
-// type errors of the same struct, field, offset and value, or are other errors of the same message.
+// "": both have none, or are the end of the input, or are syntax errors of the same message at the same offset, from
+// base for want, or are type errors of the same struct, field, offset and value, or are other errors of the same
+// message.
 func sameError(want, got error, base int64) string {
 	var wantSyntax, gotSyntax *json.SyntaxError
 	var wantType, gotType *json.UnmarshalTypeError
@@ -101,7 +102,7 @@ func sameError(want, got error, base int64) string {
 			return fmt.Sprintf("got %v, want %v", got, want)
 		}
 	case errors.As(want, &wantSyntax):
-		if !errors.As(got, &gotSyntax) || gotSyntax.Offset != base+wantSyntax.Offset {
+		if !errors.As(got, &gotSyntax) || gotSyntax.Offset != base+wantSyntax.Offset || got.Error() != want.Error() {
 			return fmt.Sprintf("got %v, want %v at %d", got, want, base+wantSyntax.Offset)
 		}
 	case errors.As(want, &wantType):
@@ -118,36 +119,19 @@ func sameError(want, got error, base int64) string {
 }
 
 // The depth of a value is counted from the root for a syntax error in an element, and the depth limit of encoding/json
-// applies to the value as it does to a value read at once, whatever the reads. The error of a nesting too deep of a
-// Decoder is at its bracket, a byte before the one of Unmarshal, which a Decoder which reads the value at once has too:
-// only its kind is compared with Unmarshal.
+// applies to the value as it does to a value read at once, whatever the reads: a nesting too deep is the error of
+// Unmarshal, at the same offset.
 func TestDecodeStreamElementsDepthErrors(t *testing.T) {
 	pad := strings.Repeat(" ", 70000)
-	for _, c := range []struct {
-		in      string
-		tooDeep bool
-	}{
-		{`{"a":` + pad + strings.Repeat(`{"a":`, 19999) + `null` + strings.Repeat("}", 20000), true},
-		{`{"a":` + pad + strings.Repeat(`{"a":`, 10001), true},
-		{`[` + pad + strings.Repeat(`[`, 9998) + `x` + strings.Repeat(`]`, 9999), false},
+	for _, in := range []string{
+		`{"a":` + pad + strings.Repeat(`{"a":`, 19999) + `null` + strings.Repeat("}", 20000),
+		`{"a":` + pad + strings.Repeat(`{"a":`, 10001),
+		`[` + pad + strings.Repeat(`[`, 9998) + `x` + strings.Repeat(`]`, 9999),
 	} {
-		var first error
 		for _, chunk := range []int{1000, 65536} {
-			want, got := decodeAtOnceAndByChunks(c.in, chunk, func() any { return new(any) }, false)
-			if first == nil {
-				first = got
-			} else if fmt.Sprint(got) != fmt.Sprint(first) {
-				t.Fatalf("%d bytes, chunk %d: got %v, by the other reads %v", len(c.in), chunk, got, first)
-			}
-			var ws, gs *json.SyntaxError
-			if c.tooDeep {
-				if !errors.As(want, &ws) || !errors.As(got, &gs) {
-					t.Fatalf("%d bytes, chunk %d: got %v, want %v", len(c.in), chunk, got, want)
-				}
-				continue
-			}
+			want, got := decodeAtOnceAndByChunks(in, chunk, func() any { return new(any) }, false)
 			if msg := sameError(want, got, 0); msg != "" {
-				t.Fatalf("%d bytes, chunk %d: %s", len(c.in), chunk, msg)
+				t.Fatalf("%d bytes, chunk %d: %s", len(in), chunk, msg)
 			}
 		}
 	}

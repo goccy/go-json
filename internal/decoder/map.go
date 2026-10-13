@@ -47,7 +47,6 @@ type mapTemps struct {
 }
 
 func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, valueType reflect.Type, valueDec Decoder, structName, fieldName string) *mapDecoder {
-	_, isIfaceValue := valueDec.(*interfaceDecoder)
 	d := &mapDecoder{
 		mapType:        mapType,
 		keyDecoder:     keyDec,
@@ -56,7 +55,7 @@ func newMapDecoder(mapType reflect.Type, keyType reflect.Type, keyDec Decoder, v
 		mapTypePtr:     runtime.TypePtr(mapType),
 		keyPtrType:     ptrTypeOf(keyType),
 		valuePtrType:   ptrTypeOf(valueType),
-		isStringAnyMap: mapType == interfaceMapType && isIfaceValue,
+		isStringAnyMap: mapType == interfaceMapType,
 		valueDecoder:   valueDec,
 		keyUnsupported: !mapKeySupported(keyType, keyDec),
 		structName:     structName,

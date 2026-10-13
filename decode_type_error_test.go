@@ -334,10 +334,11 @@ type typeErrorDeep struct {
 
 func TestDecodeTypeErrorPathLinear(t *testing.T) {
 	// The path of a type error is found in a time linear in the bytes before its value, whatever its depth: a value
-	// whose type error is deep in it is decoded in a few times the time of the same value without the error, which
+	// whose type error is deep in it is decoded in about twice the time of the same value without the error, which
 	// the walk of the input and the names of the path take. A walk which reads the value again at every level the
-	// error is in, or a path which is copied at every level, takes the square of the depth, tens of times the time
-	// here: the ratio of the two times tells them apart on any machine.
+	// error is in, or a path which is copied at every level, takes the square of the depth, more than fifty times the
+	// time here: the ratio of the two times tells them apart on any machine. The limit leaves room for a clock which
+	// ticks a few times in a measurement only, as the one of Windows may.
 	const depth = 4000
 	valid := strings.Repeat(`{"a":`, depth) + `{"n":1}` + strings.Repeat(`}`, depth)
 	invalid := strings.Repeat(`{"a":`, depth) + `{"n":"x"}` + strings.Repeat(`}`, depth)
@@ -354,25 +355,38 @@ func TestDecodeTypeErrorPathLinear(t *testing.T) {
 		}},
 	}
 	for _, d := range decodes {
-		// the fastest of a few decodings of each, in turn, so that the load of the machine weighs on neither
-		var fastest [2]time.Duration
-		for i := 0; i < 5; i++ {
-			for j, in := range []string{valid, invalid} {
+		var typeErr *json.UnmarshalTypeError
+		if err := d.decode(valid); err != nil {
+			t.Fatalf("%s: got %v", d.name, err)
+		}
+		if err := d.decode(invalid); !errors.As(err, &typeErr) {
+			t.Fatalf("%s: got %v, want a type error", d.name, err)
+		}
+		// the time of a decoding is measured by a run of decodings long enough for the clock of any system, and the
+		// fastest of a few measurements of each value, in turn, is taken, so that the load of the machine weighs on
+		// neither
+		perDecoding := func(in string) time.Duration {
+			for n := 1; ; n *= 2 {
 				start := time.Now()
-				err := d.decode(in)
-				elapsed := time.Since(start)
-				var typeErr *json.UnmarshalTypeError
-				if (j == 0 && err != nil) || (j == 1 && !errors.As(err, &typeErr)) {
-					t.Fatalf("%s: got %v", d.name, err)
+				for i := 0; i < n; i++ {
+					_ = d.decode(in)
 				}
-				if i == 0 || elapsed < fastest[j] {
+				if elapsed := time.Since(start); elapsed >= 25*time.Millisecond {
+					return elapsed / time.Duration(n)
+				}
+			}
+		}
+		var fastest [2]time.Duration
+		for i := 0; i < 3; i++ {
+			for j, in := range []string{valid, invalid} {
+				if elapsed := perDecoding(in); i == 0 || elapsed < fastest[j] {
 					fastest[j] = elapsed
 				}
 			}
 		}
 		ratio := float64(fastest[1]) / float64(fastest[0])
 		t.Logf("%s: %v with the type error, %v without it", d.name, fastest[1], fastest[0])
-		if ratio > 6 {
+		if ratio > 15 {
 			t.Errorf("%s: the value with a type error %d levels deep takes %.1f times the time of the value without it", d.name, depth, ratio)
 		}
 	}

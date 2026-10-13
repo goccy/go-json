@@ -227,23 +227,15 @@ type Compiler struct {
 // code is being compiled, as a value of itself: such a type, as `type T []T`, would have a code of an infinite
 // size, which a struct type avoids by a jump to the code of the struct ( see linkRecursiveCode ). Its value is
 // encoded as a value of interface{} of typ would be, by the opcodes of typ, which are compiled when the first
-// value is encoded. They take the address of the value, or, for a pointer type compiled to the value it points to
-// ( see compilesToPointee ), the pointer: the code returned for such a type is a PtrCode, which loads it first.
+// value is encoded.
 func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
 	if _, ok := c.valuesOnPath[uintptr(runtime.TypePtr(typ))]; !ok {
 		return nil, false
 	}
-	if c.compilesToPointee(typ) {
+	if typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0 {
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: typ, static: true}, ptrNum: 1}, true
 	}
 	return &InterfaceCode{typ: typ, static: true}, true
-}
-
-// compilesToPointee is whether the opcodes of typ are the ones of the value it points to: a pointer is the address
-// of a value. A pointer which a function of marshaling takes is a value of its own, whose address the function is
-// given.
-func (c *Compiler) compilesToPointee(typ reflect.Type) bool {
-	return typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0
 }
 
 // enterValue records that the code of typ is being compiled, if typ may be a value of itself ( see
@@ -289,7 +281,9 @@ func newCompiler(mode compileMode) *Compiler {
 func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	// noescape trick for header.typ ( reflect.*rtype )
 	typ := runtime.TypeOfPtr(*(*unsafe.Pointer)(unsafe.Pointer(&typeptr)))
-	if c.compilesToPointee(typ) {
+	if typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0 {
+		// a pointer is the address of a value, so the opcodes are the ones of the value it points to. A pointer
+		// which a function of marshaling takes is a value of its own, whose address the function is given.
 		code, err := c.pointeeCode(typ.Elem())
 		if err != nil {
 			return nil, err
@@ -370,7 +364,7 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 	codeLength := keyCodes[0].TotalLength()
 	// the data word is the address of the value which the opcodes take, which identifies it, or the value itself,
 	// whose first word identifies it, as the array of a slice identifies the slice ( see recordSeenValue ).
-	dataWordIsAddr := runtime.IfaceIndir(typ) || c.compilesToPointee(typ)
+	dataWordIsAddr := runtime.IfaceIndir(typ) || (typ.Kind() == reflect.Ptr && len(c.funcs.funcsOf(typ)) == 0)
 	return &OpcodeSet{
 		Type:              typ,
 		IfaceIndir:        runtime.IfaceIndir(typ),

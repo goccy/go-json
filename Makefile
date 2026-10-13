@@ -82,6 +82,8 @@ bench-compare-encode:
 # the OpenAI and Anthropic ones the responses and the streams of the APIs of LLMs ( benchmarks/llm_api_test.go ).
 # The ChunkedStream ones decode by Decoder from a reader which gives the input in chunks and has no Len method,
 # and report the most memory which the decoding keeps alive ( benchmarks/decode_stream_test.go ).
+# The Stream ones decode one value by a new Decoder from a bytes.Reader, the SlowReader ones from a reader which gives
+# at most the chunk size at a time, and CodeDecoder values one after another by one Decoder ( benchmarks/sonic_stream_test.go ).
 # BENCH_LIVE_HEAP_MB gives the benchmarks a live heap of that size, as a real program has, which sets the goal of the
 # GC for every library alike ( benchmarks/live_heap_test.go ).
 .PHONY: bench-compare-decode
@@ -92,6 +94,7 @@ bench-compare-decode:
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_GitHub(REST|GraphQL)_Unmarshal_' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_(OpenAIChatCompletion|OpenAIResponse|AnthropicMessage)(Stream)?_Unmarshal_' -benchtime 300ms -count 3 .
 	cd benchmarks && go test -run '^$$' -bench '^Benchmark_Decode_.*_ChunkedStream_' -benchtime 300ms -count 3 .
+	cd benchmarks && go test -run '^$$' -bench '^(Benchmark_Decode_(Small|Medium|Large)Struct_Stream|Benchmark_Decode_SlowReader|BenchmarkCodeDecoder)(_GoJson|_Sonic|_SonicStd)?$$' -benchtime 300ms -count 3 .
 
 # bench-report measures the JSON libraries doing the same work, as the benchmark report does on the CI, and
 # renders the page and the summary into benchmarks/site ( see benchmarks/report_test.go ).

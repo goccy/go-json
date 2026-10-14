@@ -600,16 +600,20 @@ func TestDecodeStreamDepthErrorsByReads(t *testing.T) {
 				if json.IsAtEnd(want) {
 					want = io.ErrUnexpectedEOF
 				}
-				// the error is the one of Unmarshal, but for the offset of a type error of a value which is not the
-				// first of the input ( see typeErrorsFromValueStart ) and the one of an error after Token, which
-				// encoding/json before Go 1.27 counts without the bytes which Token read
-				var typeErr *json.UnmarshalTypeError
-				sameAsUnmarshal := c.before != inTokens && (base == 0 || !errors.As(want, &typeErr))
+				// the error is the one of Unmarshal, but after Token. Where encoding/json counts the arrays which Token
+				// opened in the depth of the value ( see tokenDepthCounted ), nothing is compared: Unmarshal of the
+				// value has none of them, and go-json, which does not count them either, is not to be held to that.
+				// Elsewhere all but a syntax error is compared, since the offset of a syntax error is the one of the
+				// Token of the running Go, which does not count the bytes Token read there.
+				var syntaxErr *json.SyntaxError
+				sameAsUnmarshal := c.before != inTokens || (!tokenDepthCounted && !errors.As(want, &syntaxErr))
 				// encoding/json reads a value up to its end, its first syntax error or the end of the input before it
-				// decodes it: its error is the same whatever its reads.
-				// encoding/json of Go 1.27 counts the arrays which Token opened in the depth of the value.
-				std := describeError(decode(stdjson.NewDecoder(strings.NewReader(in)), c.before, target.new), 0)
-				sameAsStd := c.before != inTokens || !tokenDepthCounted
+				// decodes it: its error is the same whatever its reads. After Token, it is compared only where it
+				// does not count the arrays which Token opened in the depth of the value, and the type error of an
+				// encoding/json which does not decode as the one of Go 1.27 may differ from go-json's.
+				stdErr := decode(stdjson.NewDecoder(strings.NewReader(in)), c.before, target.new)
+				std := describeError(stdErr, 0)
+				sameAsStd := (c.before != inTokens || !tokenDepthCounted) && !stdTypeErrorMayDiffer(stdErr)
 				var first string
 				for _, size := range reads {
 					got := describeError(decode(json.NewDecoder(&chunkReader{data: []byte(in), chunk: size}), c.before, target.new), 0)

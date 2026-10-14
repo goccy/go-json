@@ -13,15 +13,20 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// The cases of the reported issues of the decoder: go-json decodes them as encoding/json of the running Go does.
+// The cases of the reported issues of the decoder: go-json decodes them as encoding/json of Go 1.27 does, and its
+// syntax errors are the ones of the running Go.
 
 // checkUnmarshal decodes doc into the values which newValue makes by go-json and by encoding/json, and compares
-// the errors and the decoded values.
+// the errors and the decoded values where they are compared ( see comparesWithStd ).
 func checkUnmarshal(t *testing.T, doc string, newValue func() any) {
 	t.Helper()
 	want, got := newValue(), newValue()
-	wantErr := describeTypeError(stdjson.Unmarshal([]byte(doc), want))
+	stdErr := stdjson.Unmarshal([]byte(doc), want)
+	wantErr := describeTypeError(stdErr)
 	gotErr := describeTypeError(json.Unmarshal([]byte(doc), got))
+	if !comparesWithStd(stdErr) {
+		return
+	}
 	if gotErr != wantErr {
 		t.Errorf("%q:\n got %s\nwant %s", doc, gotErr, wantErr)
 		return
@@ -57,8 +62,7 @@ func (n *issue642Name) UnmarshalText(b []byte) error {
 	return nil
 }
 
-// issue642List is a slice whose pointer implements encoding.TextUnmarshaler: null sets it to nil, as it does to
-// any slice.
+// issue642List is a slice whose pointer implements encoding.TextUnmarshaler: null leaves it as it is.
 type issue642List []string
 
 func (l *issue642List) UnmarshalText(b []byte) error {
@@ -66,7 +70,7 @@ func (l *issue642List) UnmarshalText(b []byte) error {
 	return nil
 }
 
-// issue642Map is a map whose pointer implements encoding.TextUnmarshaler: null sets it to nil.
+// issue642Map is a map whose pointer implements encoding.TextUnmarshaler: null leaves it as it is.
 type issue642Map map[string]int
 
 func (m *issue642Map) UnmarshalText(b []byte) error {
@@ -76,7 +80,7 @@ func (m *issue642Map) UnmarshalText(b []byte) error {
 
 func TestIssue642NullIntoTextUnmarshaler(t *testing.T) {
 	// null is not given to UnmarshalText: a value of a type whose pointer implements encoding.TextUnmarshaler is
-	// left as it is by null, but a slice, a map, a pointer or an interface value is set to nil.
+	// left as it is by null, whatever its kind, and a pointer to one is set to nil.
 	type fields struct {
 		P  issue642Pair
 		N  issue642Name
@@ -198,7 +202,7 @@ func TestIssue448NumberGrammar(t *testing.T) {
 
 func TestIssue555NumbersOutOfRange(t *testing.T) {
 	// A number out of the range of a float64 decoded into an interface{} is a type error, after which the
-	// decoding goes on, and a float field is set as encoding/json of the Go version sets it.
+	// decoding goes on, and a float is set to ±Inf.
 	huge := "1" + strings.Repeat("0", 400)
 	for _, n := range []string{`1e400`, `-1e400`, huge, `1e39`, `-1e39`, `1e-400`} {
 		for _, doc := range []string{n, `{"n":` + n + `,"m":1}`, `[` + n + `,1]`} {
@@ -362,8 +366,8 @@ func TestFuncFieldTypeError(t *testing.T) {
 }
 
 func TestStringOptionJSONNumber(t *testing.T) {
-	// The bytes of the string of a json.Number of the string option are checked as encoding/json of the Go version
-	// checks them: before Go 1.27, any bytes which start as a number are stored as they are.
+	// The bytes of the string of a json.Number of the string option are stored if they are a number by the grammar of
+	// the numbers, and are a type error else.
 	type number struct {
 		N json.Number `json:",string"`
 		A int
@@ -375,9 +379,10 @@ func TestStringOptionJSONNumber(t *testing.T) {
 	check := func(doc string) {
 		t.Helper()
 		want, got := new(stdNumber), new(number)
-		wantErr := describeTypeError(stdjson.Unmarshal([]byte(doc), want))
+		stdErr := stdjson.Unmarshal([]byte(doc), want)
+		wantErr := describeTypeError(stdErr)
 		gotErr := describeTypeError(json.Unmarshal([]byte(doc), got))
-		if gotErr != wantErr || string(got.N) != string(want.N) || got.A != want.A {
+		if comparesWithStd(stdErr) && (gotErr != wantErr || string(got.N) != string(want.N) || got.A != want.A) {
 			t.Errorf("%q:\n got %q %d %s\nwant %q %d %s", doc, got.N, got.A, gotErr, want.N, want.A, wantErr)
 		}
 	}
@@ -416,8 +421,7 @@ func TestStringOptionWhiteSpace(t *testing.T) {
 }
 
 func TestTimeOfOtherKinds(t *testing.T) {
-	// A time.Time is decoded from a string: any other value is given to its UnmarshalJSON before Go 1.27, and is a
-	// type error by Go 1.27.
+	// A time.Time is decoded from a string: any other value is a type error, after which the decoding goes on.
 	type times struct {
 		T time.Time
 		U int
@@ -461,8 +465,8 @@ func (*methodStdTypeError) UnmarshalJSON([]byte) error {
 }
 
 func TestUnmarshalMethodErrors(t *testing.T) {
-	// The error of an unmarshal method stops the decoding before Go 1.27. By Go 1.27, the decoding goes on after
-	// it, as after a type error, and the first error is returned: the error of the method as it is.
+	// The decoding goes on after the error of an unmarshal method, as after a type error, and the first error is
+	// returned: the error of the method as it is.
 	type fields struct {
 		A int
 		B methodErrorValue
@@ -476,7 +480,7 @@ func TestUnmarshalMethodErrors(t *testing.T) {
 	} {
 		checkUnmarshal(t, doc, func() any { return new(fields) })
 	}
-	// a type error of encoding/json has its field set before Go 1.27, as encoding/json sets it
+	// a type error of encoding/json is returned as it is too
 	type stdTypeError struct {
 		N methodStdTypeError
 		E int
@@ -485,7 +489,7 @@ func TestUnmarshalMethodErrors(t *testing.T) {
 }
 
 func TestTypeErrorPathOfKeys(t *testing.T) {
-	// The path of a type error has the keys of the input, which Go 1.27 escapes as the tokens of a JSON pointer.
+	// The path of a type error has the keys of the input, escaped as the tokens of a JSON pointer.
 	for _, doc := range []string{`{"a/b":"x"}`, `{"a~b":"x"}`, `{"a.b":"x"}`, `{"~1/":{"c":"x"}}`} {
 		checkUnmarshal(t, doc, func() any { return new(map[string]int) })
 		checkUnmarshal(t, doc, func() any { return new(map[string]map[string]int) })

@@ -2,7 +2,6 @@ package decoder
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"unicode"
 	"unsafe"
@@ -39,9 +38,9 @@ func compileHead(typ reflect.Type, structTypeToDecoder map[uintptr]Decoder) (Dec
 	}
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
-		return newUnmarshalJSONDecoder(reflect.PointerTo(typ), "", ""), nil
+		return newUnmarshalJSONDecoder(reflect.PointerTo(typ)), nil
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(reflect.PointerTo(typ), "", ""), nil
+		return newUnmarshalTextDecoder(reflect.PointerTo(typ)), nil
 	}
 	return compile(typ.Elem(), "", "", structTypeToDecoder)
 }
@@ -49,9 +48,9 @@ func compileHead(typ reflect.Type, structTypeToDecoder map[uintptr]Decoder) (Dec
 func compile(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
-		return newUnmarshalJSONDecoder(reflect.PointerTo(typ), structName, fieldName), nil
+		return newUnmarshalJSONDecoder(reflect.PointerTo(typ)), nil
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
-		return newUnmarshalTextDecoder(reflect.PointerTo(typ), structName, fieldName), nil
+		return newUnmarshalTextDecoder(reflect.PointerTo(typ)), nil
 	}
 	return compileKind(typ, structName, fieldName, structTypeToDecoder)
 }
@@ -137,7 +136,7 @@ func isStringTagSupportedType(typ reflect.Type) bool {
 
 func compileMapKey(typ reflect.Type, structName, fieldName string, structTypeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	if reflect.PointerTo(typ).Implements(unmarshalTextType) {
-		return newUnmarshalTextDecoder(reflect.PointerTo(typ), structName, fieldName), nil
+		return &textKeyDecoder{unmarshalTextDecoder{typ: reflect.PointerTo(typ)}}, nil
 	}
 	if typ.Kind() == reflect.String {
 		d := newStringDecoder(structName, fieldName)
@@ -375,7 +374,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 		return dec, nil
 	}
 	structDec := newStructDecoder(structName, fieldName)
-	structDec.typ, structDec.typeName = typ, typ.Name()
+	structDec.typ = typ
 	structTypeToDecoder[typeptr] = structDec
 	structName = typ.Name()
 	tags := typeToStructTags(typ)
@@ -408,7 +407,6 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 						key:         v.key,
 						keyLen:      int64(len(v.key)),
 					}
-					structDec.setEmbedded(fieldSet, append([]string{field.Name}, stDec.embedded[v]...))
 					allFields = append(allFields, fieldSet)
 				}
 			} else if pdec, ok := dec.(*ptrDecoder); ok {
@@ -421,10 +419,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 				// is reported when it is nil, at the decoding
 				var fieldSetErr error
 				if isUnexportedField {
-					fieldSetErr = fmt.Errorf(
-						"json: cannot set embedded pointer to unexported struct: %v",
-						field.Type.Elem(),
-					)
+					fieldSetErr = errUnsettableEmbeddedPointer
 				}
 				if dec, ok := contentDec.(*structDecoder); ok {
 					for _, v := range dec.fields {
@@ -439,7 +434,6 @@ func compileStruct(typ reflect.Type, structName, fieldName string, structTypeToD
 							keyLen:      int64(len(v.key)),
 							err:         fieldSetErr,
 						}
-						structDec.setEmbedded(fieldSet, append([]string{field.Name}, dec.embedded[v]...))
 						allFields = append(allFields, fieldSet)
 					}
 				} else {

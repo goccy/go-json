@@ -11,21 +11,11 @@ import (
 )
 
 type unmarshalTextDecoder struct {
-	typ        reflect.Type
-	structName string
-	fieldName  string
-	// nullSetsZero is set for a value which null sets to its zero value ( see textUnmarshalerNullSetsZero ): null
-	// leaves any other value as it is, and is not given to UnmarshalText.
-	nullSetsZero bool
+	typ reflect.Type
 }
 
-func newUnmarshalTextDecoder(typ reflect.Type, structName, fieldName string) *unmarshalTextDecoder {
-	return &unmarshalTextDecoder{
-		typ:          typ,
-		structName:   structName,
-		fieldName:    fieldName,
-		nullSetsZero: textUnmarshalerNullSetsZero(typ.Elem().Kind()),
-	}
+func newUnmarshalTextDecoder(typ reflect.Type) *unmarshalTextDecoder {
+	return &unmarshalTextDecoder{typ: typ}
 }
 
 var (
@@ -33,23 +23,32 @@ var (
 )
 
 func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	end, methodErr, err := d.decodeText(ctx, cursor, depth, p)
+	if methodErr != nil {
+		ctx.methodError(methodErr)
+	}
+	return end, err
+}
+
+// decodeText decodes the value at cursor into p, and returns the position after it, and the error of UnmarshalText
+// apart from the one of the decoding.
+func (d *unmarshalTextDecoder) decodeText(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
 	start := cursor
 	end, err := skipValue(buf, cursor, depth)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	src := buf[start:end]
 	switch c := src[0]; {
 	case c == 'n':
-		if d.nullSetsZero {
-			reflect.NewAt(d.typ.Elem(), p).Elem().SetZero()
-		}
-		return end, nil
+		// null leaves the value as it is, and is not given to UnmarshalText
+		return end, nil, nil
 	case c != '"':
 		// a value of another kind than a string, which is a type error
-		return ctx.textUnmarshalerKindError(start, depth, d.typ)
+		end, err := ctx.textUnmarshalerKindError(start, depth, d.typ)
+		return end, nil, err
 	}
 
 	// a string, which skipValue checked
@@ -58,10 +57,23 @@ func (d *unmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: runtime.TypePtr(d.typ),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),
 	}))
-	if err := v.(encoding.TextUnmarshaler).UnmarshalText(src); err != nil {
-		return ctx.methodError(cursor, end, err, d.structName, d.fieldName)
+	return end, v.(encoding.TextUnmarshaler).UnmarshalText(src), nil
+}
+
+// textKeyDecoder is the decoder of the keys of a map whose type implements encoding.TextUnmarshaler by its pointer
+// type: the entry of a key which UnmarshalText fails for is dropped, as the one of a key of another type is ( see
+// errMapKeyType ), and the error of the method is recorded as the one of a value.
+type textKeyDecoder struct {
+	unmarshalTextDecoder
+}
+
+func (d *textKeyDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	end, methodErr, err := d.decodeText(ctx, cursor, depth, p)
+	if methodErr != nil {
+		ctx.methodError(methodErr)
+		return end, errMapKeyType
 	}
-	return end, nil
+	return end, err
 }
 
 func (d *unmarshalTextDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

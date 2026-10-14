@@ -133,8 +133,8 @@ const (
 	// ifaceValuePointee is a pointer to a value which is not an interface value: the value is decoded into what it
 	// points to, as a value of the pointer type, whose unmarshalers are used.
 	ifaceValuePointee
-	// ifaceValueKept is a value of an interface type with methods which is not a pointer: it is kept, and can be
-	// decoded from null only, which sets the interface value to nil.
+	// ifaceValueKept is a value of an interface type with methods which is not a pointer: nothing is decoded into it,
+	// and the interface value is set to nil ( see decodeKept ).
 	ifaceValueKept
 )
 
@@ -145,7 +145,7 @@ type ifaceValueDecoder struct {
 	// dec is the decoder of a pointer of ifaceValuePointee.
 	dec Decoder
 	// textType is the pointer type of ifaceValuePointee which implements encoding.TextUnmarshaler: a value which
-	// is not a string is a type error of the interface value ( see ifaceTextUnmarshalerKindError ).
+	// is not a string is a type error of the value it points to ( see textUnmarshalerKindError ).
 	textType reflect.Type
 }
 
@@ -187,7 +187,7 @@ func (d *interfaceDecoder) decodeValue(ctx *RuntimeContext, cursor, depth int64,
 			return cursor + 4, nil
 		}
 		if v.textType != nil && isOtherValue(buf[cursor], stringValue) {
-			return ctx.ifaceTextUnmarshalerKindError(cursor, depth, d.typ, v.textType)
+			return ctx.textUnmarshalerKindError(cursor, depth, v.textType)
 		}
 		return v.dec.Decode(ctx, cursor, depth, ptr)
 	}
@@ -195,8 +195,8 @@ func (d *interfaceDecoder) decodeValue(ctx *RuntimeContext, cursor, depth int64,
 }
 
 // decodeKept decodes the value at cursor into the interface value at p of an interface type with methods, whose
-// value is not decoded into: null sets it to nil, and any other value is a type error, which keeps it, as
-// encoding/json does.
+// value is not decoded into: null sets it to nil, and any other value is a type error at the start of the value,
+// which sets it to nil too, as encoding/json does.
 func (d *interfaceDecoder) decodeKept(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
@@ -207,7 +207,13 @@ func (d *interfaceDecoder) decodeKept(ctx *RuntimeContext, cursor, depth int64, 
 		*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 		return cursor + 4, nil
 	}
-	return ctx.keptInterfaceTypeError(cursor, depth, d.typ, p)
+	*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
+	first := ctx.typeError == nil
+	next, err := ctx.skipTypeError(cursor, depth, d.typ)
+	if err == nil && first {
+		ctx.typeError.atStart = true
+	}
+	return next, err
 }
 
 // nonEmptyInterface is the layout of a value of an interface type with methods: the itab of the type it holds,
@@ -238,8 +244,8 @@ func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth 
 
 // decodeFloatSlow decodes the number at cursor into the interface{} at p, which the fast parse doesn't: a number
 // which is not valid by the grammar is a syntax error, and a number out of the range of a float64 is a type error,
-// after which the decoding goes on ( see floatRangeErrorOfInterface ). It is not inlined, so that the decoding of
-// the values of interface{} keeps the size it had.
+// after which the decoding goes on, which stores ±Inf. It is not inlined, so that the decoding of the values of
+// interface{} keeps the size it had.
 //
 //go:noinline
 func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64, error) {
@@ -252,8 +258,7 @@ func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64
 	f, parseErr := strconv.ParseFloat(*(*string)(unsafe.Pointer(&b)), 64)
 	// a number of the grammar which ParseFloat fails is out of the range of float64
 	if inRange := parseErr == nil; !inRange {
-		ctx.floatRangeErrorOfInterface(cursor, end, f, p)
-		return end, nil
+		ctx.numberTypeError(cursor, end, float64Type)
 	}
 	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
 	return end, nil

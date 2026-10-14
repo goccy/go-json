@@ -1866,10 +1866,11 @@ func TestUnmarshal(t *testing.T) {
 			if tt.disallowUnknownFields {
 				dec.DisallowUnknownFields()
 			}
-			// An error which is not a syntax error is the one of encoding/json of the running Go, whose messages
-			// differ by its version; a syntax error is the one of the test.
+			// An error which is not a syntax error is the one of encoding/json of Go 1.27, whose messages differ from
+			// the ones of the earlier versions: the one of the running encoding/json where it decodes as Go 1.27 does,
+			// and else the case is not checked ( see comparesWithStd ). A syntax error is the one of the test.
 			wantErr := tt.err
-			if e, ok := wantErr.(*json.UnmarshalTypeError); ok && methodErrorsAsIs && e.Type == reflect.TypeOf(SS("")) {
+			if e, ok := wantErr.(*json.UnmarshalTypeError); ok && e.Type == reflect.TypeOf(SS("")) {
 				// the type error which the method of SS returns, as it is
 				wantErr = &json.UnmarshalTypeError{Value: e.Value, Type: e.Type}
 			}
@@ -1883,6 +1884,9 @@ func TestUnmarshal(t *testing.T) {
 			var syntaxErr *stdjson.SyntaxError
 			var ownErr *json.UnmarshalTypeError
 			if err := stdDec.Decode(reflect.New(typ).Interface()); err != nil && !errors.As(err, &syntaxErr) && !errors.As(err, &ownErr) {
+				if !stdDecodesAsGo127 {
+					return
+				}
 				// an error of go-json which a method returns is not the one of encoding/json
 				wantErr = err
 			}
@@ -2058,12 +2062,13 @@ var wrongStringTests = []wrongStringTest{
 // If people misuse the ,string modifier, the error message should be
 // helpful, telling the user that they're doing it wrong.
 func TestErrorMessageFromMisusedString(t *testing.T) {
-	// The errors of the misuses of the string option are the ones of encoding/json of the running Go.
+	// The errors of the misuses of the string option are the ones of encoding/json of Go 1.27 ( see
+	// comparesWithStd ).
 	for n, tt := range wrongStringTests {
 		var s, stdS WrongString
 		err := json.NewDecoder(strings.NewReader(tt.in)).Decode(&s)
 		want := stdjson.NewDecoder(strings.NewReader(tt.in)).Decode(&stdS)
-		if fmt.Sprint(err) != fmt.Sprint(want) {
+		if comparesWithStd(want) && fmt.Sprint(err) != fmt.Sprint(want) {
 			t.Errorf("%d. got err = %q, want %q", n, fmt.Sprint(err), fmt.Sprint(want))
 		}
 	}
@@ -2567,7 +2572,7 @@ var invalidUnmarshalTextTests = []struct {
 }
 
 func TestInvalidUnmarshalText(t *testing.T) {
-	// The errors are the ones of encoding/json of the running Go.
+	// The errors are the ones of encoding/json of Go 1.27 ( see comparesWithStd ).
 	buf := []byte(`123`)
 	for _, tt := range invalidUnmarshalTextTests {
 		err := json.Unmarshal(buf, tt.v)
@@ -2576,6 +2581,9 @@ func TestInvalidUnmarshalText(t *testing.T) {
 			continue
 		}
 		want := stdjson.Unmarshal(buf, tt.v)
+		if _, invalid := want.(*stdjson.InvalidUnmarshalError); !invalid && !comparesWithStd(want) {
+			continue
+		}
 		if got := err.Error(); want == nil || got != want.Error() {
 			t.Errorf("Unmarshal = %q; want %v", got, want)
 		}
@@ -2778,9 +2786,9 @@ func TestUnmarshalEmbeddedUnexported(t *testing.T) {
 		if (err != nil) != (tt.err != nil) {
 			t.Errorf("#%d: %v, want %v", i, err, tt.err)
 		}
-		// the error is the one of encoding/json of the Go version: a type error of the struct with Go 1.27
+		// the error is the one of encoding/json of Go 1.27, a type error of the struct ( see comparesWithStd )
 		wantErr := stdjson.Unmarshal([]byte(tt.in), reflect.New(reflect.TypeOf(tt.ptr).Elem()).Interface())
-		if describeTypeError(err) != describeTypeError(wantErr) {
+		if comparesWithStd(wantErr) && describeTypeError(err) != describeTypeError(wantErr) {
 			t.Errorf("#%d: %v, want %v", i, err, wantErr)
 		}
 		if !reflect.DeepEqual(tt.ptr, tt.out) {
@@ -2899,6 +2907,9 @@ func TestUnmarshalEmbeddedUnexportedSet(t *testing.T) {
 	for i, tt := range tests {
 		want := tt.new()
 		wantErr := stdjson.Unmarshal([]byte(tt.in), want)
+		if !comparesWithStd(wantErr) {
+			continue
+		}
 		for _, d := range decodes {
 			got := tt.new()
 			err := d.decode(tt.in, got)
@@ -3152,43 +3163,42 @@ func TestDecodeValueAtMaxDepth(t *testing.T) {
 		// member is in the object nested so deep that the value of the member is depth levels deep
 		member string
 		depth  int
-		// typeError is set for a type error, whose path through every level takes a time which grows with the
-		// square of the depth to be found: it is decoded by reads of 1 and of 512 bytes only
-		typeError bool
 	}{
-		{`"s":null`, 10000, false}, {`"s":1`, 10000, true},
-		{`"r":null`, 10000, false}, {`"r":"x"`, 10000, true},
-		{`"m":null`, 10000, false}, {`"m":true`, 10000, true},
-		{`"t":null`, 10000, false}, {`"t":1`, 10000, true},
+		{`"s":null`, 10000}, {`"s":1`, 10000},
+		{`"r":null`, 10000}, {`"r":"x"`, 10000},
+		{`"m":null`, 10000}, {`"m":true`, 10000},
+		{`"t":null`, 10000}, {`"t":1`, 10000},
 		// an object or an array of the kind of the field, or of the other kind, is nested too deep: encoding/json
 		// checks the depth before it decodes the value
-		{`"s":[]`, 10000, false}, {`"s":{}`, 10000, false},
-		{`"r":[]`, 10000, false}, {`"r":{}`, 10000, false},
-		{`"m":{}`, 10000, false}, {`"m":[]`, 10000, false},
-		{`"t":{}`, 10000, false}, {`"t":[]`, 10000, false},
-		{`"a":{}`, 10000, false}, {`"a":[]`, 10000, false},
+		{`"s":[]`, 10000}, {`"s":{}`, 10000},
+		{`"r":[]`, 10000}, {`"r":{}`, 10000},
+		{`"m":{}`, 10000}, {`"m":[]`, 10000},
+		{`"t":{}`, 10000}, {`"t":[]`, 10000},
+		{`"a":{}`, 10000}, {`"a":[]`, 10000},
 		// a map of a key type which is not decoded, a type error for which the object is skipped, with an empty
 		// object as its value which opens the last level allowed, and one which opens a level past it
-		{`"b":{"true":{}}`, 9998, true}, {`"b":{"true":{}}`, 9999, false},
+		{`"b":{"true":{}}`, 9998}, {`"b":{"true":{}}`, 9999},
 	} {
 		t.Run(fmt.Sprintf("%s at %d", c.member, c.depth), func(t *testing.T) {
 			t.Parallel()
 			in := []byte(strings.Repeat(`{"a":`, c.depth-1) + "{" + c.member + "}" + strings.Repeat("}", c.depth-1))
-			want := describeError(stdjson.Unmarshal(in, new(chain)), 0)
-			if got := describeError(json.Unmarshal(in, new(chain)), 0); got != want {
-				t.Fatalf("Unmarshal: got %.300s, encoding/json %.300s", got, want)
+			unmarshaled := describeError(json.Unmarshal(in, new(chain)), 0)
+			if stdErr := stdjson.Unmarshal(in, new(chain)); !stdTypeErrorMayDiffer(stdErr) && unmarshaled != describeError(stdErr, 0) {
+				t.Fatalf("Unmarshal: got %.300s, encoding/json %.300s", unmarshaled, describeError(stdErr, 0))
 			}
 			reads := []int{1, 2, 3, 7, 13, 64, 65, 511, 512, 513, 1 << 20}
-			if c.typeError {
-				reads = []int{1, 512}
-			}
 			// encoding/json reads a value up to its end, its first syntax error or the end of the input before it
-			// decodes it: its error is the same whatever its reads
-			std := describeError(stdjson.NewDecoder(bytes.NewReader(in)).Decode(new(chain)), 0)
+			// decodes it: its error is the same whatever its reads. The type error of an encoding/json which does not
+			// decode as the one of Go 1.27 may differ from go-json's, whose Decoder has the one of its Unmarshal.
+			stdErr := stdjson.NewDecoder(bytes.NewReader(in)).Decode(new(chain))
+			want, from := describeError(stdErr, 0), "encoding/json"
+			if stdTypeErrorMayDiffer(stdErr) {
+				want, from = unmarshaled, "Unmarshal"
+			}
 			for _, size := range reads {
 				got := describeError(json.NewDecoder(&chunkReader{data: in, chunk: size}).Decode(new(chain)), 0)
-				if got != std {
-					t.Fatalf("Decode by %d: got %.300s, encoding/json %.300s", size, got, std)
+				if got != want {
+					t.Fatalf("Decode by %d: got %.300s, %s %.300s", size, got, from, want)
 				}
 			}
 		})

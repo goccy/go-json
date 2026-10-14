@@ -22,8 +22,8 @@ type mapDecoder struct {
 	isStringAnyMap bool
 	keyDecoder     Decoder
 	valueDecoder   Decoder
-	// keyUnsupported is set for a map whose keys encoding/json of the Go version doesn't decode ( see
-	// mapKeySupported ): an object is a type error.
+	// keyUnsupported is set for a map whose keys are not decoded ( see mapKeySupported ): an object is a type
+	// error.
 	keyUnsupported bool
 	structName     string
 	fieldName      string
@@ -105,12 +105,16 @@ func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, 
 		if buf[cursor] != ':' {
 			return 0, errors.ErrExpected("colon after object key", cursor)
 		}
-		valueCursor, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
+		var valueCursor int64
+		var err error
+		if drop {
+			// the value of an entry which is dropped is skipped, as encoding/json does
+			valueCursor, err = skipValue(buf, cursor+1, depth)
+		} else if valueCursor, err = d.valueDecoder.Decode(ctx, cursor+1, depth, v); err == nil {
+			mv.SetMapIndex(kv, vv)
+		}
 		if err != nil {
 			return 0, err
-		}
-		if !drop {
-			mv.SetMapIndex(kv, vv)
 		}
 		kv.SetZero()
 		vv.SetZero()

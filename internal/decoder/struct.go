@@ -16,8 +16,8 @@ type structFieldSet struct {
 	fieldIdx    int
 	key         string
 	keyLen      int64
-	// err is the error of a field promoted from an embedded pointer to an unexported struct, at offset, which
-	// can't be allocated: it is reported only when the pointer is nil ( see unsettable ).
+	// err is the cause of the type error of a field promoted from an embedded pointer to an unexported struct, at
+	// offset, which can't be allocated: it is reported only when the pointer is nil ( see unsettable ).
 	err error
 }
 
@@ -37,12 +37,8 @@ type structDecoder struct {
 	stringDecoder      *stringDecoder
 	structName         string
 	fieldName          string
-	// typ is the struct type, and typeName its name, which the type errors report.
-	typ      reflect.Type
-	typeName string
-	// embedded are the names of the embedded fields which the fields are promoted through, from the struct, which
-	// only the type errors report ( see typeErrorPath ).
-	embedded map[*structFieldSet][]string
+	// typ is the struct type, which the type errors of the fields which can't be set report.
+	typ reflect.Type
 }
 
 func newStructDecoder(structName, fieldName string) *structDecoder {

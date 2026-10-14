@@ -428,19 +428,14 @@ func withSyntaxErrorKind(results []elementsResult) []elementsResult {
 // the Decoder, and returns what differs, or "". A value decoded, or which has a type error, is the bytes up to the
 // offset after it; the end of the input is in the rest of the input, and a syntax error in the rest of the bytes read:
 // the message of an error at a character which the reads cut quotes the bytes of it which have been read. The offset of
-// a type error of a value is from the end of the value before, or its start ( see typeErrorsFromValueStart ), as the
-// offset of an error of Unmarshal of the bytes from there; the one of a syntax error is in the whole input. A value
-// with an error other than a type error is not compared.
+// a type error of a value is from its start, as the offset of an error of Unmarshal of the bytes from there; the one
+// of a syntax error is in the whole input. A value with an error other than a type error is not compared.
 func compareWithUnmarshal(in string, read int64, got []elementsResult, newValue func() any, disallowUnknownFields, useNumber bool) string {
 	prevEnd := int64(0)
 	for k, res := range got {
 		start := prevEnd
 		for start < int64(len(in)) && strings.IndexByte(" \t\n\r", in[start]) >= 0 {
 			start++
-		}
-		base := prevEnd
-		if typeErrorsFromValueStart {
-			base = start
 		}
 		if res.eof && start == int64(len(in)) {
 			// the end of the input after the values
@@ -462,7 +457,7 @@ func compareWithUnmarshal(in string, read int64, got []elementsResult, newValue 
 			}
 		}
 		v := newValue()
-		err := unmarshalReference([]byte(in[base:end]), v, disallowUnknownFields, useNumber)
+		err := unmarshalReference([]byte(in[start:end]), v, disallowUnknownFields, useNumber)
 		var typeErr *json.UnmarshalTypeError
 		var syntaxErr *json.SyntaxError
 		switch {
@@ -481,8 +476,8 @@ func compareWithUnmarshal(in string, read int64, got []elementsResult, newValue 
 			if !errors.As(err, &syntaxErr) || json.IsAtEnd(err) {
 				return fmt.Sprintf("value %d: syntax error %v, Unmarshal %v", k, res.syntaxErr, err)
 			}
-			if base+syntaxErr.Offset != res.syntaxErr.Offset {
-				return fmt.Sprintf("value %d: syntax error %v at %d, Unmarshal %v at %d from %d", k, res.syntaxErr, res.syntaxErr.Offset, syntaxErr, syntaxErr.Offset, base)
+			if start+syntaxErr.Offset != res.syntaxErr.Offset {
+				return fmt.Sprintf("value %d: syntax error %v at %d, Unmarshal %v at %d from %d", k, res.syntaxErr, res.syntaxErr.Offset, syntaxErr, syntaxErr.Offset, start)
 			}
 		case res.eof:
 			// the end of the input in the value, which is the end of the input of Unmarshal too
@@ -623,9 +618,8 @@ func TestDecodeStreamElementsMemory(t *testing.T) {
 	})
 }
 
-// An object or an array decoded element by element is nested no deeper than a value decoded whole. The error of a
-// nesting too deep of a Decoder is at its bracket, a byte before the one of Unmarshal ( see
-// TestDecodeStreamElementsDepthErrors ): only its kind is compared with Unmarshal.
+// An object or an array decoded element by element is nested no deeper than a value decoded whole, and a nesting too
+// deep is the error of Unmarshal.
 func TestDecodeStreamElementsDepth(t *testing.T) {
 	pad := strings.Repeat(" ", 70000)
 	for _, in := range []string{
@@ -641,9 +635,8 @@ func TestDecodeStreamElementsDepth(t *testing.T) {
 		var v any
 		got := json.NewDecoder(&chunkReader{data: []byte(in), chunk: 1 << 20}).Decode(&v)
 		want := unmarshalReference([]byte(in), &v, false, false)
-		var ws, gs *json.SyntaxError
-		if (want == nil) != (got == nil) || errors.As(want, &ws) != errors.As(got, &gs) {
-			t.Fatalf("%d bytes: got %v, want %v", len(in), got, want)
+		if msg := sameError(want, got, 0); msg != "" {
+			t.Fatalf("%d bytes: %s", len(in), msg)
 		}
 	}
 }

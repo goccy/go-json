@@ -5,6 +5,7 @@ import (
 	"io"
 	"math/bits"
 	"reflect"
+	"slices"
 	"strconv"
 	"unsafe"
 
@@ -77,7 +78,9 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 		if e.plain != nil {
 			return e.plain
 		}
-		return e.toError(e.path, runtime.TypeOfPtr(typ), StreamOffsetBase(s.prevEnd, start))
+		// the steps were added from the value of the error up to the root ( see addTypeErrorStep )
+		slices.Reverse(e.path)
+		return e.toError(e.path, runtime.TypeOfPtr(typ), start)
 	}
 	return nil
 }
@@ -174,13 +177,7 @@ func (s *Stream) decodeElements(dec Decoder, p unsafe.Pointer, depth int64) (boo
 		return s.decodeInterfaceElements(d, p, depth)
 	case *bytesDecoder:
 		if c == '[' {
-			had := s.ctx.typeError
-			decoded, err := s.decodeElements(d.sliceDecoder, p, depth)
-			if e := s.ctx.typeError; e != had {
-				// the steps in the array are not the ones of the path of the bytes ( see typeErrorPath )
-				e.path, e.rest = nil, append(e.path, e.rest...)
-			}
-			return decoded, err
+			return s.decodeElements(d.sliceDecoder, p, depth)
 		}
 	}
 	return false, nil
@@ -257,7 +254,7 @@ func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 		return false
 	}
 	if had == nil && ctx.typeError != nil {
-		s.keepTypeError(dec)
+		s.keepTypeError()
 	}
 	s.cursor = cursor
 	return true
@@ -508,7 +505,7 @@ func (s *Stream) decodeWhole(dec Decoder, p unsafe.Pointer, depth, end int64) er
 		return s.skipAfter(err, depth)
 	}
 	if had == nil && ctx.typeError != nil {
-		s.keepTypeError(dec)
+		s.keepTypeError()
 	}
 	s.cursor = cursor
 	return nil
@@ -525,43 +522,25 @@ func (s *Stream) elementError(err error, depth int64) error {
 	return s.totalOffsetError(err)
 }
 
-// keepTypeError makes the type error which dec recorded in the value at the cursor one of the whole input: its path
-// from the value is made while the buffer holds the value, and the objects and the arrays the value is in add theirs
-// to it ( see addTypeErrorStep ).
-func (s *Stream) keepTypeError(dec Decoder) {
+// keepTypeError makes the type error recorded in the value at the cursor one of the whole input: its path from the
+// value is made while the buffer holds the value, and the objects and the arrays the value is in add theirs to it
+// ( see addTypeErrorStep ).
+func (s *Stream) keepTypeError() {
 	e := s.ctx.typeError
 	if e.plain == nil {
-		buf := s.buf[:s.length+1]
-		e.path = typeErrorPath(dec, buf, s.cursor, e)
-		// the path of the value of an interface{} has every step of the input
-		e.rest = typeErrorPath(&interfaceDecoder{}, buf, s.cursor, e)[len(e.path):]
+		e.path = typeErrorPath(s.buf[:s.length+1], s.cursor, e)
+		slices.Reverse(e.path)
 	}
 	e.start += s.offset
 	e.end += s.offset
 }
 
-// addTypeErrorStep adds the step to an element to the path of the type error recorded in it: the decoding of the
-// element had none before, which it is called for.
-func (s *Stream) addTypeErrorStep(step typeErrorStep) {
+// addTypeErrorStep adds the step to a member or an element, named name, to the path of the type error recorded in
+// it: the decoding of the member or the element had none before, which it is called for. The path is kept from the
+// value up to the root, so that a step is added without a copy of the path.
+func (s *Stream) addTypeErrorStep(name string) {
 	e := s.ctx.typeError
-	e.path = append([]typeErrorStep{step}, e.path...)
-}
-
-// interfaceValuePath makes the path of the type error, recorded in a value which a pointer held by an interface value
-// points to, the one which typeErrorPath makes of the value of an interface: every step of the input, whose fields of
-// structs are their keys, without the embedded fields they are promoted through, up to its first step for an interface
-// type with methods, whose other steps are left for an interface{} which the interface value is in.
-func (p *pendingTypeError) interfaceValuePath(hasMethods bool) {
-	steps := append(p.path, p.rest...)
-	for i, step := range steps {
-		if step.isField {
-			steps[i] = typeErrorStep{name: step.inputName}
-		}
-	}
-	p.path, p.rest = steps, nil
-	if hasMethods && len(steps) > 1 {
-		p.path, p.rest = steps[:1], steps[1:]
-	}
+	e.path = append(e.path, name)
 }
 
 // syntaxError returns the syntax error of the byte at the cursor, which the grammar doesn't have where it is.
@@ -636,11 +615,11 @@ func (s *Stream) nextMember(first bool) ([]byte, stringInfo, int64, bool, error)
 }
 
 // openElements moves the cursor after the bracket which opens the object or the array whose elements are read, nested
-// in depth objects and arrays, and returns the depth of its elements. The depth is checked as the scan of a value
-// checks it ( see compoundScanner ), which a value decoded element by element has no scan of.
+// in depth objects and arrays, and returns the depth of its elements. A bracket nested too deep is the syntax error
+// which the grammar of a value read whole reports ( see skipGrammar ), wherever the reads of the input end.
 func (s *Stream) openElements(depth int64) (int64, error) {
 	if depth >= maxDecodeNestingDepth {
-		return 0, s.totalOffsetError(errors.ErrExceededMaxDepth(s.buf[s.cursor], s.cursor))
+		return 0, s.grammarError(depthSyntaxError(s.buf[:s.length+1], s.cursor))
 	}
 	s.cursor++
 	return depth + 1, nil
@@ -670,7 +649,7 @@ func (s *Stream) skipNested(depth int64) error {
 		return s.skipScalar()
 	}
 	if depth >= maxDecodeNestingDepth {
-		return s.totalOffsetError(errors.ErrExceededMaxDepth(s.buf[s.cursor], s.cursor))
+		return s.grammarError(depthSyntaxError(s.buf[:s.length+1], s.cursor))
 	}
 	maxLevel := skipMaxLevel(depth)
 	cursor, level, objects, resume := s.cursor, int64(0), uint64(0), resumeValue
@@ -881,7 +860,7 @@ func (s *Stream) decodeStructElements(d *structDecoder, p unsafe.Pointer, depth 
 			return s.restAfter(err, true, depth)
 		}
 		if s.ctx.typeError != had {
-			s.addTypeErrorStep(d.typeErrorStep(field, inputName))
+			s.addTypeErrorStep(string(inputName))
 		}
 	}
 }
@@ -932,7 +911,7 @@ func (s *Stream) decodeMapElements(d *mapDecoder, p unsafe.Pointer, depth int64)
 			return s.elementError(err, depth)
 		}
 		if err != nil && !drop {
-			// the error of a key, as the one of its method, is returned once the rest of the object is read
+			// the error of a key is returned once the rest of the object is read
 			s.ctx.typeError = had
 			s.cursor = end
 			if serr := s.memberValue(); serr != nil {
@@ -944,22 +923,25 @@ func (s *Stream) decodeMapElements(d *mapDecoder, p unsafe.Pointer, depth int64)
 			return s.restAfter(s.totalOffsetError(err), true, depth)
 		}
 		if had == nil && s.ctx.typeError != nil {
-			s.keepTypeError(d.keyDecoder)
+			s.keepTypeError()
 		}
 		s.cursor = keyEnd
 		if err := s.memberValue(); err != nil {
 			return err
 		}
-		if err := s.decodeNested(d.valueDecoder, t.v, depth); err != nil {
-			return s.restAfter(err, true, depth)
-		}
-		if !drop {
+		if drop {
+			// the value of an entry which is dropped is skipped, as encoding/json does
+			err = s.skipNested(depth)
+		} else if err = s.decodeNested(d.valueDecoder, t.v, depth); err == nil {
 			mv.SetMapIndex(t.kv, t.vv)
+		}
+		if err != nil {
+			return s.restAfter(err, true, depth)
 		}
 		t.kv.SetZero()
 		t.vv.SetZero()
 		if s.ctx.typeError != had {
-			s.addTypeErrorStep(typeErrorStep{name: string(decodeLiteral(name, info))})
+			s.addTypeErrorStep(string(decodeLiteral(name, info)))
 		}
 	}
 }
@@ -991,7 +973,7 @@ func (s *Stream) decodeSliceElements(d *sliceDecoder, p unsafe.Pointer, depth in
 		}
 		t.decoded(idx)
 		if s.ctx.typeError != had {
-			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
+			s.addTypeErrorStep(strconv.Itoa(idx))
 		}
 		idx++
 	}
@@ -1086,8 +1068,8 @@ func (s *Stream) decodeRun(t *sliceTarget, idx int, depth int64) (int, error) {
 		t.decoded(idx)
 		if had == nil && ctx.typeError != nil {
 			s.cursor = start
-			s.keepTypeError(t.d.valueDecoder)
-			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
+			s.keepTypeError()
+			s.addTypeErrorStep(strconv.Itoa(idx))
 		}
 		idx++
 		s.cursor = next
@@ -1148,7 +1130,7 @@ func (s *Stream) decodeArrayElements(d *arrayDecoder, p unsafe.Pointer, depth in
 			return s.restAfter(err, false, depth)
 		}
 		if s.ctx.typeError != had {
-			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
+			s.addTypeErrorStep(strconv.Itoa(idx))
 		}
 	}
 }
@@ -1177,12 +1159,7 @@ func (s *Stream) decodeInterfaceElements(d *interfaceDecoder, p unsafe.Pointer, 
 		}
 		if v.kind == ifaceValuePointee {
 			// what the pointer points to is decoded into, as a value of the pointer type
-			had := s.ctx.typeError
-			decoded, err := s.decodeElements(v.dec, ptr, depth)
-			if e := s.ctx.typeError; e != had {
-				e.interfaceValuePath(d.hasMethods)
-			}
-			return decoded, err
+			return s.decodeElements(v.dec, ptr, depth)
 		}
 	}
 	if d.hasMethods {
@@ -1240,7 +1217,7 @@ func (s *Stream) decodeAnyObject(d *interfaceDecoder, depth int64) (any, error) 
 		ctx.entryStack = append(ctx.entryStack, anyEntry{key: name, value: ctx.slot})
 		ctx.slot = nil
 		if ctx.typeError != had {
-			s.addTypeErrorStep(typeErrorStep{name: name})
+			s.addTypeErrorStep(name)
 		}
 	}
 }
@@ -1278,7 +1255,7 @@ func (s *Stream) decodeAnyArray(d *interfaceDecoder, depth int64) (any, error) {
 		ctx.anyStack = append(ctx.anyStack, ctx.slot)
 		ctx.slot = nil
 		if ctx.typeError != had {
-			s.addTypeErrorStep(typeErrorStep{name: strconv.Itoa(idx)})
+			s.addTypeErrorStep(strconv.Itoa(idx))
 		}
 	}
 }

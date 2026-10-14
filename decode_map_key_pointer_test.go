@@ -60,7 +60,7 @@ func mapKeyPointerDumpMap(m reflect.Value) string {
 }
 
 // The keys of a map of a pointer type are decoded into the values the pointers point to, at any depth, as
-// encoding/json of the Go version decodes them, or fails for them.
+// encoding/json of Go 1.27 decodes them, or fails for them ( see comparesWithStd ).
 func TestDecodeMapKeyPointers(t *testing.T) {
 	keyTypes := []reflect.Type{
 		reflect.TypeFor[int](), reflect.TypeFor[*int](), reflect.TypeFor[**int](), reflect.TypeFor[***int](),
@@ -76,13 +76,14 @@ func TestDecodeMapKeyPointers(t *testing.T) {
 		typ := reflect.MapOf(keyType, reflect.TypeFor[int]())
 		for _, in := range inputs {
 			t.Run(typ.String()+in, func(t *testing.T) {
-				decode := func(unmarshal func([]byte, any) error) string {
+				decode := func(unmarshal func([]byte, any) error) (string, error) {
 					p := reflect.New(typ)
 					err := unmarshal([]byte(in), p.Interface())
-					return fmt.Sprintf("%s, error %t", mapKeyPointerDumpMap(p.Elem()), err != nil)
+					return fmt.Sprintf("%s, error %t", mapKeyPointerDumpMap(p.Elem()), err != nil), err
 				}
-				got, want := decode(json.Unmarshal), decode(stdjson.Unmarshal)
-				if got != want {
+				got, _ := decode(json.Unmarshal)
+				want, stdErr := decode(stdjson.Unmarshal)
+				if comparesWithStd(stdErr) && got != want {
 					t.Errorf("got %s, want %s", got, want)
 				}
 			})

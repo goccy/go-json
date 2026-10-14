@@ -465,3 +465,171 @@ func TestDecodeStreamGrammarAgainstStd(t *testing.T) {
 		}
 	}
 }
+
+// describeError returns what the depth tests compare of an error of go-json or of encoding/json: its kind, its offset,
+// from base for a syntax error, and its message.
+func describeError(err error, base int64) string {
+	var syntax *json.SyntaxError
+	var stdSyntax *stdjson.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	var stdTypeErr *stdjson.UnmarshalTypeError
+	switch {
+	case err == nil:
+		return "no error"
+	case errors.As(err, &syntax):
+		return fmt.Sprintf("syntax error at %d: %s", base+syntax.Offset, err)
+	case errors.As(err, &stdSyntax):
+		return fmt.Sprintf("syntax error at %d: %s", base+stdSyntax.Offset, err)
+	case errors.As(err, &typeErr):
+		return fmt.Sprintf("type error at %d: %s", typeErr.Offset, err)
+	case errors.As(err, &stdTypeErr):
+		return fmt.Sprintf("type error at %d: %s", stdTypeErr.Offset, err)
+	}
+	return err.Error()
+}
+
+// mixedNesting returns a number nested in n arrays and objects, which are arrays and objects in turn.
+func mixedNesting(n int) string {
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			b.WriteString("[")
+		} else {
+			b.WriteString(`{"a":`)
+		}
+	}
+	b.WriteString("1")
+	for i := n - 1; i >= 0; i-- {
+		if i%2 == 0 {
+			b.WriteString("]")
+		} else {
+			b.WriteString("}")
+		}
+	}
+	return b.String()
+}
+
+// A value nested deeper than the limit fails at the bracket past it, with the offset and the message of Unmarshal and
+// of encoding/json, wherever the reads of the input end: a Decoder decodes the value whole when the reads have brought
+// it, and else element by element, and skips a value which its target doesn't decode. A value nested as deep as the
+// limit is decoded as Unmarshal and encoding/json decode it. The value may follow another value, or be in arrays which
+// Token opened.
+func TestDecodeStreamDepthErrorsByReads(t *testing.T) {
+	type chain struct {
+		A *chain `json:"a"`
+	}
+	type field struct {
+		A any `json:"a"`
+	}
+	type otherField struct {
+		B int `json:"b"`
+	}
+	targets := []struct {
+		name string
+		new  func() any
+	}{
+		{"any", func() any { return new(any) }},
+		{"[]any", func() any { return new([]any) }},
+		{"[][]any", func() any { return new([][]any) }},
+		{"map[string]any", func() any { return new(map[string]any) }},
+		{"struct{A any}", func() any { return new(field) }},
+		{"recursive struct", func() any { return new(chain) }},
+		{"struct of an unknown field", func() any { return new(otherField) }},
+	}
+	const (
+		afterValue = "null "
+		inTokens   = "[[["
+	)
+	type depthCase struct {
+		name  string
+		value string
+		// before is what the input has before the value: a value decoded first, or arrays which Token opens
+		before string
+	}
+	var cases []depthCase
+	for _, n := range []int{9999, 10000, 10001, 10002} {
+		arrays := strings.Repeat("[", n) + strings.Repeat("]", n)
+		cases = append(cases,
+			depthCase{fmt.Sprintf("arrays %d", n), arrays, ""},
+			// null in the objects, which the recursive struct decodes too ( TestDecodeValueAtMaxDepth has the type
+			// errors at the depth limit )
+			depthCase{fmt.Sprintf("objects %d", n), strings.Repeat(`{"a":`, n) + "null" + strings.Repeat("}", n), ""},
+			depthCase{fmt.Sprintf("arrays and objects %d", n), mixedNesting(n), ""},
+			depthCase{fmt.Sprintf("arrays %d in an object", n), `{"a":` + arrays + `}`, ""},
+			depthCase{fmt.Sprintf("arrays %d in an array before a string with a newline", n), "[" + arrays + `,"x` + "\n" + `"]`, ""},
+			depthCase{fmt.Sprintf("arrays %d not closed", n), strings.Repeat("[", n), ""},
+			depthCase{fmt.Sprintf("arrays %d after a value", n), arrays, afterValue},
+			depthCase{fmt.Sprintf("arrays %d in arrays opened by Token", n), arrays, inTokens},
+		)
+	}
+	// decode decodes the value of the input of dec into a new value by newValue, after what is before the value, and
+	// returns the error, which is the one of what is before the value if it fails.
+	decode := func(dec interface {
+		Decode(any) error
+		Token() (stdjson.Token, error)
+		More() bool
+	}, before string, newValue func() any) error {
+		switch before {
+		case afterValue:
+			if err := dec.Decode(newValue()); err != nil {
+				return fmt.Errorf("the value before: %w", err)
+			}
+		case inTokens:
+			for range len(inTokens) {
+				if _, err := dec.Token(); err != nil {
+					return fmt.Errorf("Token: %w", err)
+				}
+			}
+			if !dec.More() {
+				return errors.New("More is false")
+			}
+		}
+		return dec.Decode(newValue())
+	}
+	reads := []int{1, 2, 3, 7, 13, 64, 65, 511, 512, 513, 1 << 20}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			in := c.before + c.value
+			if c.before == inTokens {
+				in += "]]]"
+			}
+			base := int64(len(c.before))
+			for _, target := range targets {
+				want := unmarshalReference([]byte(c.value), target.new(), false, false)
+				if json.IsAtEnd(want) {
+					want = io.ErrUnexpectedEOF
+				}
+				// the error is the one of Unmarshal, but after Token. Where encoding/json counts the arrays which Token
+				// opened in the depth of the value ( see tokenDepthCounted ), nothing is compared: Unmarshal of the
+				// value has none of them, and go-json, which does not count them either, is not to be held to that.
+				// Elsewhere all but a syntax error is compared, since the offset of a syntax error is the one of the
+				// Token of the running Go, which does not count the bytes Token read there.
+				var syntaxErr *json.SyntaxError
+				sameAsUnmarshal := c.before != inTokens || (!tokenDepthCounted && !errors.As(want, &syntaxErr))
+				// encoding/json reads a value up to its end, its first syntax error or the end of the input before it
+				// decodes it: its error is the same whatever its reads. After Token, it is compared only where it
+				// does not count the arrays which Token opened in the depth of the value, and the type error of an
+				// encoding/json which does not decode as the one of Go 1.27 may differ from go-json's.
+				stdErr := decode(stdjson.NewDecoder(strings.NewReader(in)), c.before, target.new)
+				std := describeError(stdErr, 0)
+				sameAsStd := (c.before != inTokens || !tokenDepthCounted) && !stdTypeErrorMayDiffer(stdErr)
+				var first string
+				for _, size := range reads {
+					got := describeError(decode(json.NewDecoder(&chunkReader{data: []byte(in), chunk: size}), c.before, target.new), 0)
+					if first == "" {
+						first = got
+					} else if got != first {
+						t.Fatalf("into %s by %d: got %.300s, by other reads %.300s", target.name, size, got, first)
+					}
+					if sameAsUnmarshal && got != describeError(want, base) {
+						t.Fatalf("into %s by %d: got %.300s, Unmarshal %.300s", target.name, size, got, describeError(want, base))
+					}
+					if sameAsStd && got != std {
+						t.Fatalf("into %s by %d: got %.300s, encoding/json %.300s", target.name, size, got, std)
+					}
+				}
+			}
+		})
+	}
+}

@@ -22,8 +22,8 @@ type mapDecoder struct {
 	isStringAnyMap bool
 	keyDecoder     Decoder
 	valueDecoder   Decoder
-	// keyUnsupported is set for a map whose keys encoding/json of the Go version doesn't decode ( see
-	// mapKeySupported ): an object is a type error.
+	// keyUnsupported is set for a map whose keys are not decoded ( see mapKeySupported ): an object is a type
+	// error.
 	keyUnsupported bool
 	structName     string
 	fieldName      string
@@ -105,12 +105,16 @@ func (d *mapDecoder) decodeEntries(ctx *RuntimeContext, cursor, depth int64, p, 
 		if buf[cursor] != ':' {
 			return 0, errors.ErrExpected("colon after object key", cursor)
 		}
-		valueCursor, err := d.valueDecoder.Decode(ctx, cursor+1, depth, v)
+		var valueCursor int64
+		var err error
+		if drop {
+			// the value of an entry which is dropped is skipped, as encoding/json does
+			valueCursor, err = skipValue(buf, cursor+1, depth)
+		} else if valueCursor, err = d.valueDecoder.Decode(ctx, cursor+1, depth, v); err == nil {
+			mv.SetMapIndex(kv, vv)
+		}
 		if err != nil {
 			return 0, err
-		}
-		if !drop {
-			mv.SetMapIndex(kv, vv)
 		}
 		kv.SetZero()
 		vv.SetZero()
@@ -147,11 +151,6 @@ func (d *mapDecoder) decodeOther(ctx *RuntimeContext, cursor, depth int64) (int6
 
 func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-	}
-
 	cursor = skipWhiteSpace(buf, cursor)
 	buflen := int64(len(buf))
 	if buflen < 2 {
@@ -166,8 +165,13 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = nil
 		return cursor, nil
 	case '{':
+		// only an object nests its values one level deeper: null or another value at the limit is not too deep
+		depth++
+		if depth > maxDecodeNestingDepth {
+			return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+		}
 	default:
-		return d.decodeOther(ctx, cursor, depth-1)
+		return d.decodeOther(ctx, cursor, depth)
 	}
 	if d.keyUnsupported {
 		return ctx.unsupportedMapKeys(d, cursor, depth-1, p)
@@ -249,11 +253,6 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 
 func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	buf := ctx.Buf
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return nil, 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-	}
-
 	cursor = skipWhiteSpace(buf, cursor)
 	buflen := int64(len(buf))
 	if buflen < 2 {
@@ -267,6 +266,10 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]b
 		cursor += 4
 		return [][]byte{nullbytes}, cursor, nil
 	case '{':
+		depth++
+		if depth > maxDecodeNestingDepth {
+			return nil, 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+		}
 	default:
 		return nil, 0, errors.ErrExpected("{ character for map value", cursor)
 	}

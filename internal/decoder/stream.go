@@ -44,8 +44,8 @@ type Stream struct {
 	readErr error
 	ctx     *RuntimeContext
 	Option  *Option
-	// prevEnd is the total offset of the end of the previous value, which the offset of a type error may be
-	// relative to ( see StreamOffsetBase ).
+	// prevEnd is the total offset of the end of the previous value, which InputOffset reports after a read which
+	// fails.
 	prevEnd int64
 	// tokenState is where the stream is between the tokens, and tokenStack the states of the objects and the
 	// arrays which Token opened, the innermost last ( see Token ).
@@ -82,18 +82,15 @@ func NewStream(r io.Reader) *Stream {
 	}
 }
 
-// markPrevEnd keeps the end of the previous value of the stream: the offsets of the type errors of the next value
-// may be relative to it ( see StreamOffsetBase ), and InputOffset reports it after a read which fails.
+// markPrevEnd keeps the end of the previous value of the stream, which InputOffset reports after a read which fails.
 func (s *Stream) markPrevEnd() {
 	s.prevEnd = s.offset + s.cursor
 }
 
-// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does: the
-// error of an unmarshal method as the method returned it ( see unmarshalMethodError ).
+// fail keeps err, the error which a read failed with, which every read returns after it, as encoding/json does.
 //
 //go:noinline
 func (s *Stream) fail(err error) error {
-	err = MethodErrorOf(err)
 	s.err, s.errOffset, s.tokenState = err, s.prevEnd, tokenFailed
 	return err
 }
@@ -302,11 +299,8 @@ func (s *Stream) scanValue() (int64, error) {
 // scanCompound finds the end of the object or the array at the cursor in what has been read: the position after the
 // bracket which closes it, or errLongValue if it doesn't end there.
 func (s *Stream) scanCompound() (int64, error) {
-	sc := compoundScanner{maxDepth: maxDecodeNestingDepth}
-	pos, found, err := sc.scan(s.buf, s.cursor, s.length)
-	if err != nil {
-		return 0, s.totalOffsetError(err)
-	}
+	var sc compoundScanner
+	pos, found := sc.scan(s.buf, s.cursor, s.length)
 	if !found {
 		return 0, errLongValue
 	}
@@ -676,8 +670,7 @@ func (s *Stream) scannedOffset(err error) error {
 
 // typeError returns the type error of the value of the pointer type typ which Decode decoded from the cursor up
 // to end, and moves the cursor after the value: the stream goes on after it, as the one of encoding/json does.
-// Its offset is relative to the value, as encoding/json of the Go version reports it ( see StreamOffsetBase ).
-// It takes the decoder of the type again, so that Decode keeps nothing more across its call of the decoder.
+// Its offset is relative to the start of the value, as encoding/json reports it.
 //
 //go:noinline
 func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
@@ -691,17 +684,11 @@ func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
 		s.tokenValueEnd()
 	}
 	ctx := s.ctx
-	dec, err := s.DecoderOf(typ)
-	if err != nil {
-		ctx.DiscardTypeError()
-		return err
-	}
 	// the path of the error is walked in the value ended by the nul byte, as it was decoded
 	saved := s.buf[end]
 	s.buf[end] = nul
 	ctx.Buf = s.buf[:end+1]
-	base := StreamOffsetBase(s.prevEnd, s.offset+start) - s.offset
-	err = ctx.TypeError(dec, runtime.TypeOfPtr(typ), start, base)
+	err := ctx.TypeError(runtime.TypeOfPtr(typ), start, start)
 	ctx.Buf = nil
 	s.buf[end] = saved
 	return err
@@ -715,12 +702,6 @@ func (s *Stream) totalOffsetError(err error) error {
 		e.Offset += s.offset
 	case *errors.UnmarshalTypeError:
 		e.Offset += s.offset
-	case *unmarshalMethodError:
-		// a syntax error of a method is at the value in the buffer ( see annotateMethodError ), and any other error
-		// keeps the offset which the method gave
-		if se, ok := e.err.(*errors.SyntaxError); ok {
-			se.Offset += s.offset
-		}
 	}
 	return err
 }

@@ -113,23 +113,17 @@ func TestScanCompoundAgainstReference(t *testing.T) {
 		value := randomValue(r)
 		buf := NewInput(value)
 		wantEnd, wantFound := referenceSkipCompound(buf, 1, 1)
-		sc := compoundScanner{depth: 1, maxDepth: maxDecodeNestingDepth}
-		gotEnd, gotFound, err := sc.scan(buf, 1, int64(len(buf)))
-		if err != nil {
-			t.Fatalf("%q: %v", value, err)
-		}
+		sc := compoundScanner{depth: 1}
+		gotEnd, gotFound := sc.scan(buf, 1, int64(len(buf)))
 		if gotFound != wantFound || (gotFound && gotEnd != wantEnd) {
 			t.Fatalf("%q: got (%d, %v), want (%d, %v)", value, gotEnd, gotFound, wantEnd, wantFound)
 		}
 		// The same value scanned in pieces, as a stream does, ends at the same place.
-		sc = compoundScanner{depth: 1, maxDepth: maxDecodeNestingDepth}
+		sc = compoundScanner{depth: 1}
 		pos := int64(1)
 		for pos < int64(len(buf)) {
 			lim := min(pos+int64(r.Intn(70)), int64(len(buf)))
-			end, found, err := sc.scan(buf, pos, lim)
-			if err != nil {
-				t.Fatalf("%q: %v", value, err)
-			}
+			end, found := sc.scan(buf, pos, lim)
 			if found {
 				if !wantFound || end != wantEnd {
 					t.Fatalf("%q in pieces: got %d, want (%d, %v)", value, end, wantEnd, wantFound)

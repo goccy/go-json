@@ -73,10 +73,6 @@ func (d *structDecoder) setFields(fields []*structFieldSet) {
 
 func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
-	depth++
-	if depth > maxDecodeNestingDepth {
-		return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
-	}
 	buflen := int64(len(buf))
 	cursor = skipWhiteSpace(buf, cursor)
 	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
@@ -88,8 +84,13 @@ func (d *structDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsaf
 		cursor += 4
 		return cursor, nil
 	case '{':
+		// only an object nests its values one level deeper: null or another value at the limit is not too deep
+		depth++
+		if depth > maxDecodeNestingDepth {
+			return 0, errors.ErrExceededMaxDepth(buf[cursor], cursor)
+		}
 	default:
-		return d.decodeOther(ctx, cursor, depth-1)
+		return d.decodeOther(ctx, cursor, depth)
 	}
 	cursor++
 	cursor = skipWhiteSpace(buf, cursor)

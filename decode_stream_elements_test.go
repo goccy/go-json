@@ -618,9 +618,8 @@ func TestDecodeStreamElementsMemory(t *testing.T) {
 	})
 }
 
-// An object or an array decoded element by element is nested no deeper than a value decoded whole. The error of a
-// nesting too deep of a Decoder is at its bracket, a byte before the one of Unmarshal ( see
-// TestDecodeStreamElementsDepthErrors ): only its kind is compared with Unmarshal.
+// An object or an array decoded element by element is nested no deeper than a value decoded whole, and a nesting too
+// deep is the error of Unmarshal.
 func TestDecodeStreamElementsDepth(t *testing.T) {
 	pad := strings.Repeat(" ", 70000)
 	for _, in := range []string{
@@ -636,9 +635,8 @@ func TestDecodeStreamElementsDepth(t *testing.T) {
 		var v any
 		got := json.NewDecoder(&chunkReader{data: []byte(in), chunk: 1 << 20}).Decode(&v)
 		want := unmarshalReference([]byte(in), &v, false, false)
-		var ws, gs *json.SyntaxError
-		if (want == nil) != (got == nil) || errors.As(want, &ws) != errors.As(got, &gs) {
-			t.Fatalf("%d bytes: got %v, want %v", len(in), got, want)
+		if msg := sameError(want, got, 0); msg != "" {
+			t.Fatalf("%d bytes: %s", len(in), msg)
 		}
 	}
 }

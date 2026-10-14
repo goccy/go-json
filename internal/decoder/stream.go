@@ -299,11 +299,8 @@ func (s *Stream) scanValue() (int64, error) {
 // scanCompound finds the end of the object or the array at the cursor in what has been read: the position after the
 // bracket which closes it, or errLongValue if it doesn't end there.
 func (s *Stream) scanCompound() (int64, error) {
-	sc := compoundScanner{maxDepth: maxDecodeNestingDepth}
-	pos, found, err := sc.scan(s.buf, s.cursor, s.length)
-	if err != nil {
-		return 0, s.totalOffsetError(err)
-	}
+	var sc compoundScanner
+	pos, found := sc.scan(s.buf, s.cursor, s.length)
 	if !found {
 		return 0, errLongValue
 	}

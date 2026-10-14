@@ -615,11 +615,11 @@ func (s *Stream) nextMember(first bool) ([]byte, stringInfo, int64, bool, error)
 }
 
 // openElements moves the cursor after the bracket which opens the object or the array whose elements are read, nested
-// in depth objects and arrays, and returns the depth of its elements. The depth is checked as the scan of a value
-// checks it ( see compoundScanner ), which a value decoded element by element has no scan of.
+// in depth objects and arrays, and returns the depth of its elements. A bracket nested too deep is the syntax error
+// which the grammar of a value read whole reports ( see skipGrammar ), wherever the reads of the input end.
 func (s *Stream) openElements(depth int64) (int64, error) {
 	if depth >= maxDecodeNestingDepth {
-		return 0, s.totalOffsetError(errors.ErrExceededMaxDepth(s.buf[s.cursor], s.cursor))
+		return 0, s.grammarError(depthSyntaxError(s.buf[:s.length+1], s.cursor))
 	}
 	s.cursor++
 	return depth + 1, nil
@@ -649,8 +649,7 @@ func (s *Stream) skipNested(depth int64) error {
 		return s.skipScalar()
 	}
 	if depth >= maxDecodeNestingDepth {
-		// the error of the depth, as the scan of a value read whole has it ( see skipGrammar )
-		return s.totalOffsetError(depthSyntaxError(s.buf, s.cursor))
+		return s.grammarError(depthSyntaxError(s.buf[:s.length+1], s.cursor))
 	}
 	maxLevel := skipMaxLevel(depth)
 	cursor, level, objects, resume := s.cursor, int64(0), uint64(0), resumeValue

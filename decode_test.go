@@ -3146,6 +3146,65 @@ func TestUnmarshalMaxDepth(t *testing.T) {
 	}
 }
 
+// A value which is neither an object nor an array is nested no deeper than the one it is in: at the depth limit, null
+// for a struct, a map, a slice or an array is decoded, and a string, a number or a bool is a type error, as
+// encoding/json decodes them, and only an object or an array there is nested too deep, whatever its type, for
+// Unmarshal and for a Decoder, wherever its reads end.
+func TestDecodeValueAtMaxDepth(t *testing.T) {
+	type chain struct {
+		A *chain          `json:"a"`
+		S []int           `json:"s"`
+		R [1]int          `json:"r"`
+		M map[string]int  `json:"m"`
+		T struct{ X int } `json:"t"`
+		B map[bool]any    `json:"b"`
+	}
+	for _, c := range []struct {
+		// member is in the object nested so deep that the value of the member is depth levels deep
+		member string
+		depth  int
+	}{
+		{`"s":null`, 10000}, {`"s":1`, 10000},
+		{`"r":null`, 10000}, {`"r":"x"`, 10000},
+		{`"m":null`, 10000}, {`"m":true`, 10000},
+		{`"t":null`, 10000}, {`"t":1`, 10000},
+		// an object or an array of the kind of the field, or of the other kind, is nested too deep: encoding/json
+		// checks the depth before it decodes the value
+		{`"s":[]`, 10000}, {`"s":{}`, 10000},
+		{`"r":[]`, 10000}, {`"r":{}`, 10000},
+		{`"m":{}`, 10000}, {`"m":[]`, 10000},
+		{`"t":{}`, 10000}, {`"t":[]`, 10000},
+		{`"a":{}`, 10000}, {`"a":[]`, 10000},
+		// a map of a key type which is not decoded, a type error for which the object is skipped, with an empty
+		// object as its value which opens the last level allowed, and one which opens a level past it
+		{`"b":{"true":{}}`, 9998}, {`"b":{"true":{}}`, 9999},
+	} {
+		t.Run(fmt.Sprintf("%s at %d", c.member, c.depth), func(t *testing.T) {
+			t.Parallel()
+			in := []byte(strings.Repeat(`{"a":`, c.depth-1) + "{" + c.member + "}" + strings.Repeat("}", c.depth-1))
+			unmarshaled := describeError(json.Unmarshal(in, new(chain)), 0)
+			if stdErr := stdjson.Unmarshal(in, new(chain)); !stdTypeErrorMayDiffer(stdErr) && unmarshaled != describeError(stdErr, 0) {
+				t.Fatalf("Unmarshal: got %.300s, encoding/json %.300s", unmarshaled, describeError(stdErr, 0))
+			}
+			reads := []int{1, 2, 3, 7, 13, 64, 65, 511, 512, 513, 1 << 20}
+			// encoding/json reads a value up to its end, its first syntax error or the end of the input before it
+			// decodes it: its error is the same whatever its reads. The type error of an encoding/json which does not
+			// decode as the one of Go 1.27 may differ from go-json's, whose Decoder has the one of its Unmarshal.
+			stdErr := stdjson.NewDecoder(bytes.NewReader(in)).Decode(new(chain))
+			want, from := describeError(stdErr, 0), "encoding/json"
+			if stdTypeErrorMayDiffer(stdErr) {
+				want, from = unmarshaled, "Unmarshal"
+			}
+			for _, size := range reads {
+				got := describeError(json.NewDecoder(&chunkReader{data: in, chunk: size}).Decode(new(chain)), 0)
+				if got != want {
+					t.Fatalf("Decode by %d: got %.300s, %s %.300s", size, got, from, want)
+				}
+			}
+		})
+	}
+}
+
 func TestDecodeSlice(t *testing.T) {
 	type B struct{ Int int32 }
 	type A struct{ B *B }

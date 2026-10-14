@@ -459,6 +459,8 @@ func (ctx *RuntimeContext) unsupportedMapKeys(d *mapDecoder, cursor, depth int64
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}
+	// the keys and the values are in the object, a level deeper than it
+	depth++
 	for {
 		if buf[cursor] != '"' {
 			return 0, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)

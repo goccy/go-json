@@ -129,6 +129,14 @@ func comparesWithStd(stdErr error) bool {
 	return stdDecodesAsGo127 || errors.As(stdErr, &syntaxErr)
 }
 
+// stdTypeErrorMayDiffer reports whether err is a type error of an encoding/json which does not decode as the one of
+// Go 1.27 ( see stdDecodesAsGo127 ): the type error of go-json may differ from it, since go-json has the ones of Go 1.27
+// on every version of Go.
+func stdTypeErrorMayDiffer(err error) bool {
+	var typeErr *stdjson.UnmarshalTypeError
+	return !stdDecodesAsGo127 && errors.As(err, &typeErr)
+}
+
 func checkTypeError(t *testing.T, doc string, newValue func() any) {
 	t.Helper()
 	want, got := newValue(), newValue()

@@ -97,3 +97,40 @@ func StructTagFromField(field reflect.StructField) *StructTag {
 	}
 	return st
 }
+
+// NamedField is a field of a struct, or of a struct embedded in it whose fields are promoted, which has a key in the
+// JSON object.
+type NamedField interface {
+	// Depth is how deep the field is in the structs embedded in the struct: 0 for a field of the struct itself.
+	Depth() int
+	// IsTaggedKey reports whether the key is the name in the field's tag.
+	IsTaggedKey() bool
+}
+
+// DominantField returns which one of fields, the fields of a struct which have the same key, is written and read
+// with the key, as encoding/json chooses it: the least deep one, or, if more than one are at that depth, the only
+// one of them with the key in its tag. It returns -1 when none is.
+func DominantField[F NamedField](fields []F) int {
+	depth := fields[0].Depth()
+	for _, f := range fields[1:] {
+		depth = min(depth, f.Depth())
+	}
+	dominant := -1
+	var least, tagged int
+	for i, f := range fields {
+		if f.Depth() != depth {
+			continue
+		}
+		least++
+		if f.IsTaggedKey() {
+			tagged++
+			dominant = i
+		} else if least == 1 {
+			dominant = i
+		}
+	}
+	if least > 1 && tagged != 1 {
+		return -1
+	}
+	return dominant
+}

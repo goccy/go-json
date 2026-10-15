@@ -3,7 +3,8 @@ package decoder
 import (
 	"encoding/json"
 	"reflect"
-	"unicode"
+	"slices"
+	"strings"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -56,8 +57,8 @@ func compile(typ reflect.Type, structName, fieldName string, typeToDecoder map[u
 }
 
 // compileKind returns the decoder of a value of the type by its kind, without its methods of unmarshaling.
-// typeToDecoder has the decoders of the struct, array, slice and map types which are being compiled: a value of such
-// a type inside itself is decoded by its decoder.
+// typeToDecoder has the decoders of the struct types compiled by this compile, and of the array, slice and map types
+// which are being compiled: a value of such a type inside itself, or a struct met again, is decoded by its decoder.
 func compileKind(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
 	if dec, exists := typeToDecoder[uintptr(runtime.TypePtr(typ))]; exists {
 		return dec, nil
@@ -365,190 +366,152 @@ func compileFunc(typ reflect.Type, strutName, fieldName string) (Decoder, error)
 	return newFuncDecoder(typ, strutName, fieldName), nil
 }
 
-// typeToStructTags returns the tags of the fields of typ which have a key, which hides a field of the same key
-// promoted from an embedded struct. An embedded struct without a key in its tag has no key of its own: its fields
-// are promoted, and one of them may have the name of the embedded struct.
-func typeToStructTags(typ reflect.Type) runtime.StructTags {
-	tags := runtime.StructTags{}
-	fieldNum := typ.NumField()
-	for i := 0; i < fieldNum; i++ {
-		field := typ.Field(i)
-		if runtime.IsIgnoredStructField(field) {
-			continue
-		}
-		tag := runtime.StructTagFromField(field)
-		if field.Anonymous && !tag.IsTaggedKey && isStructOrPointerToStruct(field.Type) {
-			continue
-		}
-		tags = append(tags, tag)
-	}
-	return tags
+// embeddedStruct is a struct type whose fields are found for the struct being compiled: the struct itself, at no
+// indexes, or a struct embedded in it, through the embedded fields at the indexes of index.
+type embeddedStruct struct {
+	typ   reflect.Type
+	index []int
 }
 
-func isStructOrPointerToStruct(typ reflect.Type) bool {
-	if typ.Kind() == reflect.Pointer {
-		typ = typ.Elem()
-	}
-	return typ.Kind() == reflect.Struct
+// fieldCandidate is a field of the struct being compiled or of a struct embedded in it, at the indexes of index.
+type fieldCandidate struct {
+	set   *structFieldSet
+	index []int
 }
 
+func (c fieldCandidate) Depth() int        { return len(c.index) - 1 }
+func (c fieldCandidate) IsTaggedKey() bool { return c.set.isTaggedKey }
+
+// compileStruct returns the decoder of the struct type typ. It stays in typeToDecoder after the compile, so that a
+// struct type met again in the same compile, by another field or by the fields of the structs it is embedded in, which
+// are compiled as fields of each struct it is embedded in, is not compiled again.
 func compileStruct(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
-	fieldNum := typ.NumField()
-	typeptr := uintptr(runtime.TypePtr(typ))
 	structDec := newStructDecoder(structName, fieldName)
 	structDec.typ = typ
-	typeToDecoder[typeptr] = structDec
-	structName = typ.Name()
-	tags := typeToStructTags(typ)
-	allFields := []*structFieldSet{}
-	for i := 0; i < fieldNum; i++ {
-		field := typ.Field(i)
-		if runtime.IsIgnoredStructField(field) {
-			continue
-		}
-		isUnexportedField := unicode.IsLower([]rune(field.Name)[0])
-		tag := runtime.StructTagFromField(field)
-		dec, err := compile(field.Type, structName, field.Name, typeToDecoder)
-		if err != nil {
-			return nil, err
-		}
-		if field.Anonymous && !tag.IsTaggedKey {
-			if stDec, ok := dec.(*structDecoder); ok {
-				if field.Type == typ {
-					// recursive definition
-					continue
-				}
-				for _, v := range stDec.fields {
-					if tags.ExistsKey(v.key) {
-						continue
-					}
-					fieldSet := &structFieldSet{
-						dec:         v.dec,
-						offset:      field.Offset + v.offset,
-						isTaggedKey: v.isTaggedKey,
-						key:         v.key,
-						keyLen:      int64(len(v.key)),
-					}
-					allFields = append(allFields, fieldSet)
-				}
-			} else if pdec, ok := dec.(*ptrDecoder); ok {
-				contentDec := pdec.contentDecoder()
-				if pdec.typ == typ {
-					// recursive definition
-					continue
-				}
-				// the pointer of an unexported field can't be allocated, but one which is set is followed: the error
-				// is reported when it is nil, at the decoding
-				var fieldSetErr error
-				if isUnexportedField {
-					fieldSetErr = errUnsettableEmbeddedPointer
-				}
-				if dec, ok := contentDec.(*structDecoder); ok {
-					for _, v := range dec.fields {
-						if tags.ExistsKey(v.key) {
-							continue
-						}
-						fieldSet := &structFieldSet{
-							dec:         newAnonymousFieldDecoder(pdec.typ, v.offset, v.dec),
-							offset:      field.Offset,
-							isTaggedKey: v.isTaggedKey,
-							key:         v.key,
-							keyLen:      int64(len(v.key)),
-							err:         fieldSetErr,
-						}
-						allFields = append(allFields, fieldSet)
-					}
-				} else {
-					fieldSet := &structFieldSet{
-						dec:         pdec,
-						offset:      field.Offset,
-						isTaggedKey: tag.IsTaggedKey,
-						key:         field.Name,
-						keyLen:      int64(len(field.Name)),
-					}
-					allFields = append(allFields, fieldSet)
-				}
-			} else {
-				fieldSet := &structFieldSet{
-					dec:         dec,
-					offset:      field.Offset,
-					isTaggedKey: tag.IsTaggedKey,
-					key:         field.Name,
-					keyLen:      int64(len(field.Name)),
-				}
-				allFields = append(allFields, fieldSet)
-			}
-		} else {
-			if tag.IsString && isStringTagSupportedType(field.Type) {
-				dec = newWrappedStringDecoder(field.Type, dec, structName, field.Name)
-			}
-			var key string
-			if tag.Key != "" {
-				key = tag.Key
-			} else {
-				key = field.Name
-			}
-			fieldSet := &structFieldSet{
-				dec:         dec,
-				offset:      field.Offset,
-				isTaggedKey: tag.IsTaggedKey,
-				key:         key,
-				keyLen:      int64(len(key)),
-			}
-			allFields = append(allFields, fieldSet)
-		}
-	}
-	// A key which remains more than once is the one of the last field, as it was when the fields were kept
-	// in a map, at the place of the first.
-	fields := []*structFieldSet{}
-	indexByKey := map[string]int{}
-	for _, set := range filterDuplicatedFields(allFields) {
-		if i, exists := indexByKey[set.key]; exists {
-			fields[i] = set
-			continue
-		}
-		indexByKey[set.key] = len(fields)
-		fields = append(fields, set)
+	typeToDecoder[uintptr(runtime.TypePtr(typ))] = structDec
+	fields, err := structFields(typ, typeToDecoder)
+	if err != nil {
+		return nil, err
 	}
 	structDec.setFields(fields)
-	delete(typeToDecoder, typeptr)
 	return structDec, nil
 }
 
-func filterDuplicatedFields(allFields []*structFieldSet) []*structFieldSet {
-	fieldMap := map[string][]*structFieldSet{}
-	for _, field := range allFields {
-		fieldMap[field.key] = append(fieldMap[field.key], field)
-	}
-	duplicatedFieldMap := map[string]struct{}{}
-	for k, sets := range fieldMap {
-		sets = filterFieldSets(sets)
-		if len(sets) != 1 {
-			duplicatedFieldMap[k] = struct{}{}
+// structFields returns the fields of the struct type typ in their order, as encoding/json finds them: the fields of
+// the structs embedded without a key are promoted, the least nested first, and a struct already met is not met again.
+// Of the fields of a key, the one runtime.DominantField chooses is taken.
+func structFields(typ reflect.Type, typeToDecoder map[uintptr]Decoder) ([]*structFieldSet, error) {
+	var candidates []fieldCandidate
+	visited := map[reflect.Type]bool{}
+	// the structs of a level and of the next one, and how many times each is embedded at its level
+	var current []embeddedStruct
+	next := []embeddedStruct{{typ: typ}}
+	count, nextCount := map[reflect.Type]int{}, map[reflect.Type]int{}
+	for len(next) > 0 {
+		current, next = next, current[:0]
+		count, nextCount = nextCount, count
+		clear(nextCount)
+		for _, e := range current {
+			if visited[e.typ] {
+				continue
+			}
+			visited[e.typ] = true
+			for i := 0; i < e.typ.NumField(); i++ {
+				field := e.typ.Field(i)
+				if runtime.IsIgnoredStructField(field) {
+					continue
+				}
+				tag := runtime.StructTagFromField(field)
+				index := append(slices.Clip(e.index), i)
+				if st := promotingStruct(field, tag); st != nil {
+					nextCount[st]++
+					if nextCount[st] == 1 {
+						next = append(next, embeddedStruct{typ: st, index: index})
+					}
+					continue
+				}
+				dec, err := compile(field.Type, e.typ.Name(), field.Name, typeToDecoder)
+				if err != nil {
+					return nil, err
+				}
+				if tag.IsString && isStringTagSupportedType(field.Type) {
+					dec = newWrappedStringDecoder(field.Type, dec, e.typ.Name(), field.Name)
+				}
+				dec, offset, setErr := promotedField(typ, index, dec)
+				set := &structFieldSet{
+					dec:         dec,
+					offset:      offset,
+					isTaggedKey: tag.IsTaggedKey,
+					key:         tag.Key,
+					keyLen:      int64(len(tag.Key)),
+					err:         setErr,
+				}
+				candidates = append(candidates, fieldCandidate{set: set, index: index})
+				if count[e.typ] > 1 {
+					// a struct embedded more than once at this level promotes each field more than once: none is taken
+					candidates = append(candidates, fieldCandidate{set: set, index: index})
+				}
+			}
 		}
 	}
-
-	filtered := make([]*structFieldSet, 0, len(allFields))
-	for _, field := range allFields {
-		if _, exists := duplicatedFieldMap[field.key]; exists {
-			continue
+	slices.SortStableFunc(candidates, func(a, b fieldCandidate) int { return strings.Compare(a.set.key, b.set.key) })
+	taken := candidates[:0]
+	for i := 0; i < len(candidates); {
+		j := i + 1
+		for j < len(candidates) && candidates[j].set.key == candidates[i].set.key {
+			j++
 		}
-		filtered = append(filtered, field)
+		if dominant := runtime.DominantField(candidates[i:j]); dominant >= 0 {
+			taken = append(taken, candidates[i+dominant])
+		}
+		i = j
 	}
-	return filtered
+	slices.SortFunc(taken, func(a, b fieldCandidate) int { return slices.Compare(a.index, b.index) })
+	fields := make([]*structFieldSet, 0, len(taken))
+	for _, c := range taken {
+		fields = append(fields, c.set)
+	}
+	return fields, nil
 }
 
-func filterFieldSets(sets []*structFieldSet) []*structFieldSet {
-	if len(sets) == 1 {
-		return sets
+// promotingStruct returns the struct type of an embedded field without a key, or a pointer to it, whose fields are
+// promoted, or nil. Its methods of unmarshaling don't matter, as in encoding/json: a struct to which they are promoted
+// is decoded by them instead of by its fields.
+func promotingStruct(field reflect.StructField, tag *runtime.StructTag) reflect.Type {
+	if !field.Anonymous || tag.IsTaggedKey {
+		return nil
 	}
-	filtered := make([]*structFieldSet, 0, len(sets))
-	for _, set := range sets {
-		if set.isTaggedKey {
-			filtered = append(filtered, set)
-		}
+	typ := field.Type
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
 	}
-	return filtered
+	if typ.Kind() != reflect.Struct {
+		return nil
+	}
+	return typ
+}
+
+// promotedField returns the decoder and the offset in the struct type typ of the field at index, a field of a struct
+// embedded in typ when index has more than one, whose decoder in the struct which has it is dec, and the error of the
+// field when the embedded pointer at that offset can't be allocated ( see structFieldSet ). An embedded pointer is
+// allocated by the decoder when it is nil. Only the error of the pointer at the offset is returned: the one of an
+// unexported pointer embedded in the struct it points to is not.
+func promotedField(typ reflect.Type, index []int, dec Decoder) (Decoder, uintptr, error) {
+	field := typ.Field(index[0])
+	if len(index) == 1 {
+		return dec, field.Offset, nil
+	}
+	if field.Type.Kind() != reflect.Pointer {
+		dec, offset, err := promotedField(field.Type, index[1:], dec)
+		return dec, field.Offset + offset, err
+	}
+	embedded := field.Type.Elem()
+	dec, offset, _ := promotedField(embedded, index[1:], dec)
+	dec = newAnonymousFieldDecoder(embedded, offset, dec)
+	if !field.IsExported() {
+		return dec, field.Offset, errUnsettableEmbeddedPointer
+	}
+	return dec, field.Offset, nil
 }
 
 func implementsUnmarshalJSONType(typ reflect.Type) bool {

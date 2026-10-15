@@ -2,6 +2,7 @@ package json_test
 
 import (
 	stdjson "encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -278,11 +279,254 @@ func TestDecodeRecursiveType(t *testing.T) {
 	}
 }
 
+// Struct types which embed a struct type holding them, which is still being compiled when they are. The embedded
+// types are exported, so that the fields which embed them are exported.
+type (
+	// embedded by value, reached through a slice
+	AncestorInSlice struct {
+		X int
+		L []embedsAncestorInSlice
+	}
+	embedsAncestorInSlice struct {
+		AncestorInSlice
+		Y int
+	}
+
+	// embedded by pointer, reached through a slice
+	PtrAncestorInSlice struct {
+		X int
+		L []embedsPtrAncestorInSlice
+	}
+	embedsPtrAncestorInSlice struct {
+		*PtrAncestorInSlice
+		Y int
+	}
+
+	// reached through a slice and a map
+	AncestorInSliceAndMap struct {
+		X int
+		L []embedsAncestorInSliceAndMap
+		M map[string]embedsAncestorInSliceAndMap
+	}
+	embedsAncestorInSliceAndMap struct {
+		AncestorInSliceAndMap
+		Y int
+	}
+
+	// reached through a pointer field
+	AncestorInPtr struct {
+		X int
+		P *embedsAncestorInPtr
+	}
+	embedsAncestorInPtr struct {
+		AncestorInPtr
+		Y int
+	}
+
+	// embedding each other by pointer
+	MutualEmbedA struct {
+		*MutualEmbedB
+		X int
+	}
+	MutualEmbedB struct {
+		*MutualEmbedA
+		Y int
+	}
+
+	// embedding each other by pointer, reached through a slice, with a key promoted from both at the same depth
+	MutualEmbedInSliceA struct {
+		*MutualEmbedInSliceB
+		X int
+		S []MutualEmbedInSliceB
+	}
+	MutualEmbedInSliceB struct {
+		*MutualEmbedInSliceA
+		Y int
+		Z int `json:"X"`
+	}
+
+	// embedding itself by pointer, and embedded by value in the elements of its slice
+	SelfEmbed struct {
+		*SelfEmbed
+		X int
+		L []embedsSelfEmbed
+	}
+	embedsSelfEmbed struct {
+		SelfEmbed
+		W int
+	}
+
+	// embedded two levels down
+	AncestorTwoLevels struct {
+		X int
+		L []embedsTwoLevelsOuter
+	}
+	EmbedsTwoLevelsInner struct {
+		AncestorTwoLevels
+		Y int
+	}
+	embedsTwoLevelsOuter struct {
+		EmbedsTwoLevelsInner
+		Z int
+	}
+
+	// embedded beside a struct with a field of the same key: neither field is promoted
+	AncestorWithConflict struct {
+		X int
+		L []embedsWithConflict
+	}
+	ConflictingX       struct{ X int }
+	embedsWithConflict struct {
+		AncestorWithConflict
+		ConflictingX
+	}
+
+	// embedded with a key of its own, so that its fields are not promoted
+	TaggedAncestor struct {
+		X int
+		L []embedsTaggedAncestor
+	}
+	embedsTaggedAncestor struct {
+		TaggedAncestor `json:"va"`
+		Y              int
+	}
+
+	// with a field of the option ,string, promoted
+	StringAncestor struct {
+		X int `json:",string"`
+		L []embedsStringAncestor
+	}
+	embedsStringAncestor struct {
+		StringAncestor
+		Y int
+	}
+
+	// embedded by pointer, reached through an array of pointers and a pointer to a slice
+	AncestorInArrayAndSlicePtr struct {
+		X int
+		A [1]*embedsAncestorInArrayAndSlicePtr
+		P *[]embedsAncestorInArrayAndSlicePtr
+	}
+	embedsAncestorInArrayAndSlicePtr struct {
+		*AncestorInArrayAndSlicePtr
+		Y int
+	}
+
+	// unexported, embedded by pointer, which can't be allocated
+	unexportedAncestor struct {
+		X int
+		L []EmbedsUnexportedAncestor
+	}
+	EmbedsUnexportedAncestor struct {
+		*unexportedAncestor
+		Y int
+	}
+
+	// the same, in a struct embedded by value
+	unexportedAncestorBelowValue struct {
+		X int
+		L []EmbedsUnexportedAncestorBelowValue
+	}
+	EmbedsUnexportedAncestorBelowValue struct {
+		PointsToUnexportedAncestor
+		Y int
+	}
+	PointsToUnexportedAncestor struct{ *unexportedAncestorBelowValue }
+
+	// a struct embedded in a struct which it embeds by pointer, beside another embedded struct, whose fields are
+	// promoted to both
+	CycleWithSibling struct {
+		CycleBack
+		CycleSibling
+	}
+	CycleBack struct {
+		*CycleWithSibling
+		Y int
+	}
+	CycleSibling struct{ Z int }
+
+	// the same, embedded by pointer
+	PtrCycleWithSibling struct {
+		*PtrCycleBack
+		CycleSibling
+		X int
+	}
+	PtrCycleBack struct {
+		*PtrCycleWithSibling
+		Y int
+	}
+
+	// the same, with the other embedded struct in the struct embedded by pointer
+	CycleSiblingBelow struct {
+		*CycleBackWithSibling
+		X int
+	}
+	CycleBackWithSibling struct {
+		*CycleSiblingBelow
+		CycleSibling
+		Y int
+	}
+
+	// the same, with a slice of the struct embedded
+	SliceCycleWithSibling struct {
+		SliceCycleBack
+		CycleSibling
+	}
+	SliceCycleBack struct {
+		*SliceCycleWithSibling
+		Y int
+		L []SliceCycleBack
+	}
+)
+
+// A struct which embeds a struct type still being compiled, such as one which holds it, has the fields which that
+// type promotes, as encoding/json decodes them.
+func TestDecodeEmbeddedAncestor(t *testing.T) {
+	tests := []struct {
+		in    string
+		value func() any
+	}{
+		{`{"X":1,"L":[{"X":2,"Y":3,"L":[{"X":4}]}]}`, func() any { return new(AncestorInSlice) }},
+		{`{"X":1,"L":[{"Y":3,"X":"a"}]}`, func() any { return new(AncestorInSlice) }},
+		{`{"X":1,"L":[{"X":2,"Y":3,"L":[{"X":4}]}]}`, func() any { return new(PtrAncestorInSlice) }},
+		{`{"X":1,"L":[{"X":true}]}`, func() any { return new(PtrAncestorInSlice) }},
+		{`{"X":1,"L":[{"X":2,"Y":3}],"M":{"a":{"X":4,"L":[{"X":5}],"Y":6}}}`, func() any { return new(AncestorInSliceAndMap) }},
+		{`{"X":1,"P":{"X":2,"Y":3,"P":{"X":4}}}`, func() any { return new(AncestorInPtr) }},
+		{`{"X":1,"Y":2}`, func() any { return new(MutualEmbedA) }},
+		{`{"X":1,"Y":2}`, func() any { return new(MutualEmbedB) }},
+		{`{"X":1,"Y":2,"S":[{"X":3,"Y":4,"S":[{"Y":5}]}]}`, func() any { return new(MutualEmbedInSliceA) }},
+		{`{"X":1,"Y":2,"S":[{"X":3,"Y":4}]}`, func() any { return new(MutualEmbedInSliceB) }},
+		{`{"X":1,"L":[{"X":2,"W":3,"L":[{"X":4}]}]}`, func() any { return new(SelfEmbed) }},
+		{`{"X":1,"L":[{"X":2,"Y":3,"Z":4,"L":[{"Z":5}]}]}`, func() any { return new(AncestorTwoLevels) }},
+		{`{"X":1,"L":[{"X":2,"L":[{}]}]}`, func() any { return new(AncestorWithConflict) }},
+		{`{"X":1,"L":[{"va":{"X":2,"L":[{"Y":3}]},"X":9,"Y":4}]}`, func() any { return new(TaggedAncestor) }},
+		{`{"X":"1","L":[{"X":"2","Y":3}]}`, func() any { return new(StringAncestor) }},
+		{`{"X":"1","L":[{"X":2,"Y":3}]}`, func() any { return new(StringAncestor) }},
+		{`{"X":1,"A":[{"X":2,"Y":3}],"P":[{"X":4,"Y":5}]}`, func() any { return new(AncestorInArrayAndSlicePtr) }},
+		{`{"X":1,"L":[{"Y":3}]}`, func() any { return new(unexportedAncestor) }},
+		{`{"X":1,"L":[{"X":2,"Y":3}]}`, func() any { return new(unexportedAncestor) }},
+		{`{"X":1,"L":[{"Y":3}]}`, func() any { return new(unexportedAncestorBelowValue) }},
+		{`{"X":1,"L":[{"X":2,"Y":3}]}`, func() any { return new(unexportedAncestorBelowValue) }},
+		{`{"Y":2,"Z":1}`, func() any { return new(CycleWithSibling) }},
+		{`{"Y":2,"Z":1}`, func() any { return new(CycleBack) }},
+		{`{"X":3,"Y":2,"Z":1}`, func() any { return new(PtrCycleWithSibling) }},
+		{`{"X":3,"Y":2,"Z":1}`, func() any { return new(PtrCycleBack) }},
+		{`{"X":3,"Y":2,"Z":1}`, func() any { return new(CycleSiblingBelow) }},
+		{`{"X":3,"Y":2,"Z":1}`, func() any { return new(CycleBackWithSibling) }},
+		{`{"Y":1,"Z":2,"L":[{"Y":3,"Z":4}]}`, func() any { return new(SliceCycleWithSibling) }},
+	}
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d %T", i, test.value()), func(t *testing.T) {
+			checkRecursiveDecode(t, test.in, test.value, checkValuesAndErrors)
+		})
+	}
+}
+
 // checkRecursiveDecode compares the decoding of in into the value of newValue by Unmarshal, and by a Decoder which
 // reads it a byte at a time and 512 bytes at a time, with the one of encoding/json, as check says. The type error of
-// an encoding/json which does not decode as the one of Go 1.27 may differ from go-json's ( see stdTypeErrorMayDiffer ):
-// the error of Unmarshal is not compared with it then, and the Decoders are compared in full with Unmarshal, as they
-// are for keys which are pointers.
+// an encoding/json which does not decode as the one of Go 1.27 may differ from go-json's ( see stdTypeErrorMayDiffer ),
+// and some type errors of Go 1.27 are other errors there: the error of Unmarshal is not compared with it then, and the
+// Decoders are compared in full with Unmarshal, as they are for keys which are pointers.
 func checkRecursiveDecode(t *testing.T, in string, newValue func() any, check recursiveCheck) {
 	t.Helper()
 	stdDescribe := describeTypeError
@@ -305,8 +549,10 @@ func checkRecursiveDecode(t *testing.T, in string, newValue func() any, check re
 	unmarshalErr := json.Unmarshal([]byte(in), unmarshaled)
 	std := newValue()
 	stdErr := stdjson.Unmarshal([]byte(in), std)
+	var typeErr *json.UnmarshalTypeError
+	errMayDiffer := stdTypeErrorMayDiffer(stdErr) || !stdDecodesAsGo127 && stdErr != nil && errors.As(unmarshalErr, &typeErr)
 	switch {
-	case !stdTypeErrorMayDiffer(stdErr):
+	case !errMayDiffer:
 		compareErrors("Unmarshal", stdDescribe, unmarshalErr, "encoding/json", stdErr)
 		compareValues("Unmarshal", unmarshaled, "encoding/json", std)
 	case check == checkValuesAndErrors:
@@ -315,7 +561,7 @@ func checkRecursiveDecode(t *testing.T, in string, newValue func() any, check re
 	stdStream := newValue()
 	stdStreamErr := stdjson.NewDecoder(strings.NewReader(in)).Decode(stdStream)
 	want, wantErr, from, describe := stdStream, stdStreamErr, "encoding/json", stdDescribe
-	if check == checkUndecodedPointerKeys || stdTypeErrorMayDiffer(stdStreamErr) {
+	if check == checkUndecodedPointerKeys || errMayDiffer || stdTypeErrorMayDiffer(stdStreamErr) {
 		want, wantErr, from, describe = unmarshaled, unmarshalErr, "Unmarshal", describeTypeError
 	}
 	for _, d := range []struct {

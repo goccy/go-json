@@ -9,7 +9,7 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 
 # Features
 
-- Drop-in replacement of `encoding/json`: values are decoded and encoded, and errors are reported, as `encoding/json` of the Go version in use does, including Go 1.27, whose `encoding/json` is built on `encoding/json/v2`
+- Drop-in replacement of `encoding/json`. Values are decoded, and their errors are reported, as `encoding/json` of Go 1.27 (built on `encoding/json/v2`) does, on every Go version. Only the syntax errors of decoding and the reading of a stream token by token (`Token`, `More`, `InputOffset`, and `Decode` between calls of `Token`) follow the `encoding/json` the program is built with. Values are encoded as the `encoding/json` the program is built with encodes them, except for some behaviors of Go 1.27 that apply on every version, such as the limit of 10000 nested levels, map keys of pointer types, and the syntax errors of `MarshalJSON` output, `Compact` and `Indent`. The `MarshalJSONTo` and `UnmarshalJSONFrom` methods, which `encoding/json` of Go 1.27 calls, are not called yet.
 - Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
 - `MarshalOf` and `UnmarshalOf`, which take the value by its type and save the allocations `Marshal` and `Unmarshal` need for an `interface{}` argument
 - Flexible customization with options
@@ -395,7 +395,7 @@ for {
 }
 ```
 
-`Unmarshal` copies the input once, into a buffer followed by the `NUL` character which the runtime context keeps from a call to the next, so the copy allocates nothing in most calls. The stream decoder ( `Decoder` ) reads until its buffer holds a whole value, puts the `NUL` character after it, and decodes it by the same decoders.
+`Unmarshal` copies the input once, into a buffer followed by the `NUL` character which the runtime context keeps from a call to the next, so the copy allocates nothing in most calls. The stream decoder ( `Decoder` ) puts the `NUL` character after the bytes it has read, and decodes a value that its buffer holds whole by the same decoders. An object decoded into a struct, a map or an `interface{}`, or an array decoded into a slice, an array or an `interface{}`, that its buffer does not hold whole, is decoded element by element, each element whole if the buffer holds it and element by element otherwise, so that the buffer holds one read and the longest token, whatever the size of the value. Any other object or array is read whole, such as one decoded into a type with an `UnmarshalJSON` method, or an array decoded into a struct.
 
 ### Use Boundary Check Elimination
 

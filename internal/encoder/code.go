@@ -1232,8 +1232,9 @@ type InterfaceCode struct {
 	typ        reflect.Type
 	fieldQuery *FieldQuery
 	isPtr      bool
-	// static is whether the code encodes the value at its address by typ, as a value of interface{} of typ
-	// would be: the value of a type which is a value of itself ( see Compiler.recursiveValueCode ).
+	// static is whether the code encodes a value by the opcodes of typ, as a value of interface{} of typ would be.
+	// The opcodes are given what they take: the address of the value, or, for a pointer type compiled to the value
+	// it points to, the pointer ( see Compiler.recursiveValueCode ).
 	static bool
 }
 

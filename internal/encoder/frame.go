@@ -179,8 +179,9 @@ func (c *RuntimeContext) EnterInterface(code *Opcode, p unsafe.Pointer) (*Opcode
 		ifacePtr = iface.ptr
 		typ = iface.typ
 	case code.Flags&StaticTypeFlags != 0:
-		// the value at p of the type of the opcode, which is encoded as it would be held by an interface value,
-		// by the opcodes of the type, at its address ( see InterfaceCode.static ).
+		// a value of the type of the opcode, encoded as it would be held by an interface value, by the opcodes
+		// of the type. p is what they take: the address of the value, or, for a pointer type compiled to the value
+		// it points to, the pointer itself ( see InterfaceCode.static ).
 		typ = code.Type
 		ifacePtr = p
 	default:

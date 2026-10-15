@@ -197,6 +197,135 @@ func TestEncodeRecursiveNonStructType(t *testing.T) {
 	}
 }
 
+// Pointer types which are values of themselves through what they point to. The opcodes of a pointer type are the
+// ones of the value it points to, which the code of such a value in itself follows the pointer to.
+type (
+	recursivePtrToSlice      *[]recursivePtrToSlice
+	recursivePtrToMap        *map[string]recursivePtrToMap
+	recursivePtrToArray      *[1]recursivePtrToArray
+	recursivePtrToPair       *[2]recursivePtrToPair
+	recursivePtrToPtrToSlice **[]recursivePtrToPtrToSlice
+	recursivePtrToStruct     *recursiveStructOfPtr
+	recursiveStructOfPtr     struct {
+		A int
+		F recursivePtrToStruct
+	}
+	recursivePtrToStructOfSlice *struct{ F []recursivePtrToStructOfSlice }
+	recursivePtrToTagged        *recursiveTaggedStruct
+	recursiveTaggedStruct       struct {
+		A int
+		F recursivePtrToTagged `json:",omitempty"`
+		G recursivePtrToTagged `json:"g,string"`
+		H []any
+	}
+)
+
+func ptrToSlice(elems ...recursivePtrToSlice) recursivePtrToSlice {
+	s := append([]recursivePtrToSlice{}, elems...)
+	return &s
+}
+
+func ptrToMap(m map[string]recursivePtrToMap) recursivePtrToMap { return &m }
+
+func ptrToPtrToSlice(elems ...recursivePtrToPtrToSlice) recursivePtrToPtrToSlice {
+	s := append([]recursivePtrToPtrToSlice{}, elems...)
+	p := &s
+	return &p
+}
+
+func ptrToStructOfSlice(elems ...recursivePtrToStructOfSlice) recursivePtrToStructOfSlice {
+	return &struct{ F []recursivePtrToStructOfSlice }{F: elems}
+}
+
+// throughContainers returns each value and the values which hold it in a pointer, a slice, an array, a field of a
+// struct, a map and interface values: each of them is a level of opcodes before the ones of the value.
+func throughContainers[T any](values ...T) []any {
+	var out []any
+	for _, v := range values {
+		out = append(out, v, &v, []T{v}, [1]T{v}, struct{ F T }{v}, struct {
+			F T `json:",omitempty"`
+		}{v}, map[string]T{"a": v}, []any{v}, map[string]any{"a": &v})
+	}
+	return out
+}
+
+func TestEncodeRecursivePointerType(t *testing.T) {
+	var nilSlice []recursivePtrToSlice
+	s1 := ptrToSlice()
+	s2 := ptrToSlice(nil, s1)
+	s3 := ptrToSlice(s2, &nilSlice, nil)
+	s4 := ptrToSlice(s3, s1)
+	// the opcodes of the type are compiled from the slice it points to, where the type is not yet on the path, so
+	// they hold two levels and a frame of the type is entered every second level: 2100 levels are 1050 frames, past
+	// StartDetectingCyclesAfter.
+	deepSlice := ptrToSlice()
+	for range 2100 {
+		deepSlice = ptrToSlice(deepSlice)
+	}
+	cycleSlice := []recursivePtrToSlice{nil}
+	cycleSlice[0] = &cycleSlice
+
+	m1 := ptrToMap(map[string]recursivePtrToMap{})
+	m2 := ptrToMap(map[string]recursivePtrToMap{"a": nil, "b": m1})
+	m3 := ptrToMap(map[string]recursivePtrToMap{"c": m2, "d": ptrToMap(nil)})
+	m4 := ptrToMap(map[string]recursivePtrToMap{"e": m3, "f": m1})
+	cycleMap := map[string]recursivePtrToMap{}
+	cycleMap["a"] = &cycleMap
+
+	a1 := recursivePtrToArray(&[1]recursivePtrToArray{})
+	a2 := recursivePtrToArray(&[1]recursivePtrToArray{a1})
+	a3 := recursivePtrToArray(&[1]recursivePtrToArray{a2})
+	a4 := recursivePtrToArray(&[1]recursivePtrToArray{a3})
+	var cycleArray [1]recursivePtrToArray
+	cycleArray[0] = &cycleArray
+
+	p1 := recursivePtrToPair(&[2]recursivePtrToPair{})
+	p2 := recursivePtrToPair(&[2]recursivePtrToPair{nil, p1})
+	p3 := recursivePtrToPair(&[2]recursivePtrToPair{p2, p1})
+	p4 := recursivePtrToPair(&[2]recursivePtrToPair{p3, nil})
+
+	var nilInner *[]recursivePtrToPtrToSlice
+	q1 := ptrToPtrToSlice()
+	q2 := ptrToPtrToSlice(nil, q1)
+	q3 := ptrToPtrToSlice(q2, &nilInner)
+	q4 := ptrToPtrToSlice(q3, q1)
+
+	r1 := recursivePtrToStruct(&recursiveStructOfPtr{A: 1})
+	r2 := recursivePtrToStruct(&recursiveStructOfPtr{A: 2, F: r1})
+	r3 := recursivePtrToStruct(&recursiveStructOfPtr{A: 3, F: r2})
+	r4 := recursivePtrToStruct(&recursiveStructOfPtr{A: 4, F: r3})
+	deepStruct := recursivePtrToStruct(&recursiveStructOfPtr{})
+	for i := range 1100 {
+		deepStruct = &recursiveStructOfPtr{A: i, F: deepStruct}
+	}
+	cycleStruct := &recursiveStructOfPtr{A: 1}
+	cycleStruct.F = cycleStruct
+
+	l1 := ptrToStructOfSlice()
+	l2 := ptrToStructOfSlice(l1, nil)
+	l3 := ptrToStructOfSlice(l2, ptrToStructOfSlice(ptrToStructOfSlice()))
+	l4 := ptrToStructOfSlice(l3, l1)
+
+	g1 := recursivePtrToTagged(&recursiveTaggedStruct{A: 1})
+	g2 := recursivePtrToTagged(&recursiveTaggedStruct{A: 2, F: g1, H: []any{g1, recursivePtrToSlice(nil), s2}})
+	g3 := recursivePtrToTagged(&recursiveTaggedStruct{A: 3, F: g2, G: g2})
+	g4 := recursivePtrToTagged(&recursiveTaggedStruct{A: 4, G: g3, H: []any{g3, a3}})
+
+	var values []any
+	values = append(values, throughContainers(nil, s1, s2, s3, s4)...)
+	values = append(values, throughContainers(nil, m1, m2, m3, m4)...)
+	values = append(values, throughContainers(nil, a1, a2, a3, a4)...)
+	values = append(values, throughContainers(nil, p1, p2, p3, p4)...)
+	values = append(values, throughContainers(nil, q1, q2, q3, q4)...)
+	values = append(values, throughContainers(nil, r1, r2, r3, r4)...)
+	values = append(values, throughContainers(nil, l1, l2, l3, l4)...)
+	values = append(values, throughContainers(nil, g1, g2, g3, g4)...)
+	// the values nested past the start of the detection of cycles, and the cycles, which fail as with encoding/json.
+	values = append(values, deepSlice, []recursivePtrToStruct{deepStruct}, &cycleSlice, &cycleMap, &cycleArray,
+		[]recursivePtrToStruct{cycleStruct})
+	checkStdEncoding(t, values...)
+}
+
 // cycleMapOfValues is a cycle through the values of a map, which are copies: the map alone is reached again.
 type cycleMapOfValues struct{ M map[string]cycleMapOfValues }
 

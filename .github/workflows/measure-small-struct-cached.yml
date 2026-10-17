@@ -1,17 +1,19 @@
 name: Measure SmallStructCached field order
-# A throwaway workflow of a measure/* branch ( see .github/measure/small_struct_cached.sh ).
+# A throwaway workflow of a measure/* branch ( see .github/measure/same_code_layouts.sh ).
 on:
   push:
     branches:
       - measure/small-struct-cached-layout
 jobs:
   measure:
-    name: measure (${{ matrix.run }})
+    name: measure (shard ${{ matrix.shard }}, ${{ matrix.run }})
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        run: [1, 2, 3, 4, 5, 6]
+        shard: [0, 1, 2, 3, 4]
+        run: [a, b]
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -25,6 +27,4 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: |
-          cp .github/measure/small_struct_cached.sh /tmp/measure.sh
-          bash /tmp/measure.sh
+        run: bash .github/measure/same_code_layouts.sh ${{ matrix.shard }}

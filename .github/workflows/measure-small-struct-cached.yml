@@ -8,12 +8,12 @@ jobs:
   measure:
     name: measure (shard ${{ matrix.shard }}, ${{ matrix.run }})
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4]
-        run: [a, b]
+        shard: [0, 1]
+        run: [a, b, c]
     steps:
       - name: checkout
         uses: actions/checkout@v7

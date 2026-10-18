@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +21,12 @@ type repository struct {
 }
 
 func (r *repository) git(ctx context.Context, args ...string) (string, error) {
+	out, err := r.gitOutput(ctx, args...)
+	return strings.TrimSpace(out), err
+}
+
+// gitOutput returns the output of the git command as it is.
+func (r *repository) gitOutput(ctx context.Context, args ...string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = r.root
@@ -27,7 +35,7 @@ func (r *repository) git(ctx context.Context, args ...string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to run git %s: %w: %s", strings.Join(args, " "), err, stderr.String())
 	}
-	return strings.TrimSpace(stdout.String()), nil
+	return stdout.String(), nil
 }
 
 func openRepository(ctx context.Context) (*repository, error) {
@@ -93,4 +101,74 @@ func (r *repository) checkout(ctx context.Context, dir, commit string) (func(), 
 		}
 	}
 	return cleanup, nil
+}
+
+// copyWorkingTree copies the files of the working tree to dir, with the changes which are not committed yet: the
+// tracked files, as a worktree of a commit has them, and the untracked ones which are not ignored, except the ones
+// which the go command doesn't read ( see ignoredByGo ). The ignored files are not copied, as a worktree of the base
+// doesn't have them either.
+func (r *repository) copyWorkingTree(ctx context.Context, dir string) error {
+	tracked, err := r.gitOutput(ctx, "ls-files", "-z", "--cached")
+	if err != nil {
+		return err
+	}
+	untracked, err := r.gitOutput(ctx, "ls-files", "-z", "--others", "--exclude-standard")
+	if err != nil {
+		return err
+	}
+	names := strings.Split(tracked, "\x00")
+	for _, name := range strings.Split(untracked, "\x00") {
+		if !ignoredByGo(name) {
+			names = append(names, name)
+		}
+	}
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		src := filepath.Join(r.root, filepath.FromSlash(name))
+		dst := filepath.Join(dir, filepath.FromSlash(name))
+		info, err := os.Lstat(src)
+		if errors.Is(err, fs.ErrNotExist) {
+			// a tracked file which is removed and not committed yet.
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		switch {
+		case info.Mode().IsRegular():
+			err = copyFile(dst, src)
+		case info.Mode()&fs.ModeSymlink != 0:
+			var target string
+			target, err = os.Readlink(src)
+			if err == nil {
+				err = os.Symlink(target, dst)
+			}
+		default:
+			// a directory: a repository inside the working tree, untracked or a submodule, whose files a worktree
+			// of a commit doesn't have either.
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ignoredByGo reports whether the go command ignores the file at the slash-separated path name when it finds
+// packages: "Directory and file names that begin with "." or "_" are ignored by the go tool" ( go help packages ).
+// A working tree may have such directories of untracked scratch files, as large as the rest of it many times over,
+// which are not copied. An untracked file there which a benchmark reads, or which //go:embed names, is not copied
+// either: it has to be tracked.
+func ignoredByGo(name string) bool {
+	for _, elem := range strings.Split(name, "/") {
+		if strings.HasPrefix(elem, ".") || strings.HasPrefix(elem, "_") {
+			return true
+		}
+	}
+	return false
 }

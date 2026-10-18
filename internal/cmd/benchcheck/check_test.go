@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +44,9 @@ func Work() int {
 	return 0
 }
 `
-	testLibWithNewAPI = testLibFast + `
+	// testLibExtra is a new API in a file of its own.
+	testLibExtra = `package lib
+
 func Extra() int {
 	return Work() + 1
 }
@@ -72,12 +75,14 @@ func BenchmarkSub(b *testing.B) {
 	}
 }
 `
-	// testRecordDirEnv is the directory where a benchmark records the name of the binary which ran it.
+	// testRecordDirEnv is the directory where a benchmark records the binary which ran it: a file named after the
+	// binary has the symbols of the binary, with their addresses and sizes ( go tool nm -size ).
 	testRecordDirEnv         = "BENCHCHECK_TEST_RECORD_DIR"
 	testBenchRecordingBinary = `package bench
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -85,8 +90,12 @@ import (
 )
 
 func BenchmarkWork(b *testing.B) {
+	symbols, err := exec.Command("go", "tool", "nm", "-size", os.Args[0]).Output()
+	if err != nil {
+		b.Fatal(err)
+	}
 	name := filepath.Join(os.Getenv("` + testRecordDirEnv + `"), filepath.Base(os.Args[0]))
-	if err := os.WriteFile(name, nil, 0o600); err != nil {
+	if err := os.WriteFile(name, symbols, 0o600); err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < b.N; i++ {
@@ -130,8 +139,10 @@ func BenchmarkExtra(b *testing.B) {
 type testRepo struct {
 	t   *testing.T
 	dir string
-	// layouts is the number of the function layouts ( and of the rounds ) of a measurement.
+	// layouts is the number of the function layouts of a measurement, and rounds the number of its rounds, as many
+	// as the layouts if it is zero.
 	layouts int
+	rounds  int
 }
 
 func newTestRepo(t *testing.T) *testRepo {
@@ -183,9 +194,13 @@ func (r *testRepo) commit(message string) {
 
 func (r *testRepo) check(tolerance float64) *outcome {
 	r.t.Helper()
+	rounds := r.rounds
+	if rounds == 0 {
+		rounds = r.layouts
+	}
 	c := &checker{
 		opt: &options{
-			config:   benchConfig{Dir: "benchmarks", Bench: ".", BenchTime: "1x", Rounds: r.layouts, Layouts: r.layouts},
+			config:   benchConfig{Dir: "benchmarks", Bench: ".", BenchTime: "1x", Rounds: rounds, Layouts: r.layouts},
 			attempts: defaultAttempts,
 			// the tests slow the library down several times, which is beyond both of the tolerances.
 			tolerance:       tolerance,
@@ -325,7 +340,9 @@ func TestCheck(t *testing.T) {
 	})
 
 	t.Run("benchmark of the API which the base doesn't have", func(t *testing.T) {
-		r.write("lib.go", testLibWithNewAPI)
+		r.write("lib.go", testLibFast)
+		// the head has the files which are not tracked yet.
+		r.write("extra.go", testLibExtra)
 		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchWithNewAPI)
 		out := r.check(ignoreNoise)
 		if out.cachedBaseline {
@@ -338,6 +355,112 @@ func TestCheck(t *testing.T) {
 			"BenchmarkExtra": statusNew,
 		})
 	})
+}
+
+func TestCheckBuildsBothSidesAlike(t *testing.T) {
+	// the tolerance to make the verdict independent of the measurement noise.
+	const ignoreNoise = 1e12
+
+	r := newTestRepo(t)
+	r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchRecordingBinary)
+	r.commit("record the binaries")
+	// a change which is not code: both sides build identical code.
+	r.write("notes.txt", "notes\n")
+	recordDir := t.TempDir()
+	t.Setenv(testRecordDirEnv, recordDir)
+	out := r.check(ignoreNoise)
+	assertStatuses(t, out.verdict, map[string]status{"BenchmarkWork": statusOK})
+
+	symbols := map[string][]string{}
+	for _, side := range []string{"base", "head"} {
+		b, err := os.ReadFile(filepath.Join(recordDir, filepath.Base(binaryPath("", side+".layout0.test"))))
+		if err != nil {
+			t.Fatal(err)
+		}
+		symbols[side] = strings.Split(string(b), "\n")
+	}
+	// the paths of the files of the library are in the binaries, and a path of another length moves the symbols
+	// after them.
+	base, head := symbols["base"], symbols["head"]
+	if len(base) != len(head) {
+		t.Fatalf("the binaries of identical code have %d and %d symbols", len(base), len(head))
+	}
+	for i := range base {
+		if base[i] != head[i] {
+			t.Fatalf("the binaries of identical code have other symbols:\nbase: %s\nhead: %s", base[i], head[i])
+		}
+	}
+}
+
+func TestCopyWorkingTree(t *testing.T) {
+	r := newTestRepo(t)
+	r.write("notes.txt", "notes\n")
+	r.write(filepath.Join(".config", "settings"), "tracked\n")
+	r.write(".gitignore", "ignored.txt\n")
+	r.git("add", "notes.txt", ".config", ".gitignore")
+	r.commit("add files which are not code")
+
+	r.write("lib.go", testLibSlow)
+	if err := os.Remove(filepath.Join(r.dir, "notes.txt")); err != nil {
+		t.Fatal(err)
+	}
+	r.write("extra.go", testLibExtra)
+	r.write(filepath.Join(".scratch", "out.txt"), "scratch\n")
+	r.write(filepath.Join("_x", "broken.go"), "broken\n")
+	r.write("ignored.txt", "ignored\n")
+
+	dst := t.TempDir()
+	if err := (&repository{root: r.dir}).copyWorkingTree(context.Background(), dst); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"go.mod": "module example.com/lib\n\ngo 1.19\n",
+		// the changes which are not committed yet.
+		"lib.go":   testLibSlow,
+		"extra.go": testLibExtra,
+		filepath.Join("benchmarks", "bench_test.go"): testBench,
+		// tracked files are copied wherever they are.
+		filepath.Join(".config", "settings"): "tracked\n",
+		".gitignore":                         "ignored.txt\n",
+	} {
+		got, err := os.ReadFile(filepath.Join(dst, name))
+		if err != nil {
+			t.Fatalf("%s must be copied: %v", name, err)
+		}
+		if string(got) != want {
+			t.Fatalf("%s: got %q, want %q", name, got, want)
+		}
+	}
+	for _, name := range []string{
+		// removed and not committed yet.
+		"notes.txt",
+		// untracked files which the go command doesn't read.
+		filepath.Join(".scratch", "out.txt"),
+		filepath.Join("_x", "broken.go"),
+		"ignored.txt",
+		// the repository itself.
+		".git",
+	} {
+		if _, err := os.Lstat(filepath.Join(dst, name)); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("%s must not be copied: %v", name, err)
+		}
+	}
+}
+
+func TestIgnoredByGo(t *testing.T) {
+	for name, want := range map[string]bool{
+		"encode.go":                        false,
+		"internal/encoder/vm/vm.go":        false,
+		"benchmarks/testdata/code.json.gz": false,
+		".prof/out.txt":                    true,
+		"benchmarks/_scratch/a.go":         true,
+		"internal/.cache/b":                true,
+		".golangci.yml":                    true,
+	} {
+		if got := ignoredByGo(name); got != want {
+			t.Errorf("%s: got %v, want %v", name, got, want)
+		}
+	}
 }
 
 func TestCheckIgnoresComparedLibraries(t *testing.T) {
@@ -356,12 +479,13 @@ func TestCheckIgnoresComparedLibraries(t *testing.T) {
 
 func TestIsComparedLibraryBenchmark(t *testing.T) {
 	for name, want := range map[string]bool{
-		"Benchmark_Encode_SmallStruct_EncodingJson":   true,
-		"Benchmark_Decode_SmallStruct_GoJayUnsafe":    true,
-		"Benchmark_Encode_SmallStruct_GoJson":         false,
-		"Benchmark_Encode_SmallStruct_GoJsonNoEscape": false,
-		"Benchmark_Encode_FilterByMap":                false,
-		"BenchmarkUnmarshalString":                    false,
+		"Benchmark_Encode_SmallStruct_EncodingJson":                    true,
+		"Benchmark_Decode_SmallStruct_GoJayUnsafe":                     true,
+		"Benchmark_Decode_GitHubREST_Unmarshal_SonicFastestValidating": true,
+		"Benchmark_Encode_SmallStruct_GoJson":                          false,
+		"Benchmark_Encode_SmallStruct_GoJsonNoEscape":                  false,
+		"Benchmark_Encode_FilterByMap":                                 false,
+		"BenchmarkUnmarshalString":                                     false,
 		// the library is only the part after the last underscore.
 		"Benchmark_EncodingJson_Compatible_GoJson": false,
 	} {

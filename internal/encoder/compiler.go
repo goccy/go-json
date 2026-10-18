@@ -1216,6 +1216,9 @@ type fieldAtDepth struct {
 	tagged    bool
 }
 
+func (f fieldAtDepth) Depth() int        { return f.depth }
+func (f fieldAtDepth) IsTaggedKey() bool { return f.tagged }
+
 // fieldsByName appends the fields written to the JSON object of fields, the ones of the structs embedded in it
 // too, by their names, at the depth of fields and deeper.
 func (c *Compiler) fieldsByName(m map[string][]fieldAtDepth, fields []*StructFieldCode, depth int) {
@@ -1251,8 +1254,7 @@ func (c *Compiler) recursiveFieldsByName(m map[string][]fieldAtDepth, recursive 
 }
 
 // hiddenFields returns the fields of a struct which are not written because another field has the same name, as
-// encoding/json chooses them: of the fields of a name, only the least deep ones are written, and if they are more
-// than one, only the one with a name in its tag, or none. The names hidden in a recursive struct embedded in it
+// encoding/json chooses them ( see runtime.DominantField ). The names hidden in a recursive struct embedded in it
 // are added to that struct ( see StructCode.hiddenNames ).
 func (c *Compiler) hiddenFields(fields []*StructFieldCode) map[*StructFieldCode]struct{} {
 	byName := map[string][]fieldAtDepth{}
@@ -1262,26 +1264,7 @@ func (c *Compiler) hiddenFields(fields []*StructFieldCode) map[*StructFieldCode]
 		if len(named) == 1 {
 			continue
 		}
-		depth := named[0].depth
-		for _, f := range named {
-			depth = min(depth, f.depth)
-		}
-		dominant := -1
-		var least, tagged int
-		for i, f := range named {
-			if f.depth == depth {
-				least++
-				if f.tagged {
-					tagged++
-					dominant = i
-				} else if least == 1 {
-					dominant = i
-				}
-			}
-		}
-		if least > 1 && tagged != 1 {
-			dominant = -1
-		}
+		dominant := runtime.DominantField(named)
 		for i, f := range named {
 			switch {
 			case i == dominant:

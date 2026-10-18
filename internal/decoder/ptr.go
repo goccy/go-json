@@ -28,16 +28,6 @@ func newPtrDecoder(dec Decoder, typ reflect.Type, structName, fieldName string) 
 	return &d
 }
 
-func (d *ptrDecoder) contentDecoder() Decoder {
-	switch dec := d.dec.(type) {
-	case *ptrDecoder:
-		return dec.contentDecoder()
-	case *basicPtrDecoder:
-		return dec.contentDecoder()
-	}
-	return d.dec
-}
-
 func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)

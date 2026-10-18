@@ -94,12 +94,12 @@ func (c *comparison) add(fn string, base, head layoutMeasurement) {
 }
 
 // judge decides the status of a benchmark. It is slower beyond the tolerance only if both its fastest layout
-// and the median of its layouts are: on a machine where the layouts of a benchmark have two clusters of results
-// ( see suite ), the fastest of 8 layouts can be in the fast cluster for one side and not for the other one, whose
-// functions are laid out otherwise, when few layouts are fast, and the median can be in either cluster when about
-// half of them are.
-// In comparisons of 8 layouts of each side, drawn from the results of 24 layouts of identical code measured on the
-// machines of the CI, a part of the benchmarks of the CI had a benchmark slower beyond 15% in 9.8% of them by the
+// and the median of its layouts are: on a machine where the binaries of a benchmark have two clusters of results
+// ( see suite ), the fastest of 8 layouts can be in the fast cluster for one side and not for the other one when few
+// binaries are fast, even if every symbol of both sides has the same address and size, and the median can be in
+// either cluster when about half of them are.
+// In comparisons of 8 layouts of each side, drawn from the results of 24 layouts ( at the default alignment of
+// functions ) of identical code measured on the machines of the CI, a part of the benchmarks of the CI had a benchmark slower beyond 15% in 9.8% of them by the
 // fastest layout, 13.4% by the median and 0.1% by both. A single benchmark made 20% slower was found in 96.5% of
 // them by both, and 98.4% by the fastest layout alone.
 func (c *comparison) judge(result *benchResult) {
@@ -119,7 +119,7 @@ func (c *comparison) judge(result *benchResult) {
 
 // meanDeltaPercent returns how much slower the head is than the base on average, in percent.
 // It is the geometric mean of the ratios of the fastest layouts, which is the mean of how many times slower each
-// benchmark is. The clusters of the layouts of a few benchmarks ( see judge ) hardly move it: in the comparisons of
+// benchmark is. The clusters of the results of a few benchmarks ( see suite ) hardly move it: in the comparisons of
 // identical code which judge describes, it was never beyond 3%, and every benchmark made 4% slower was found in 99.2%
 // of them.
 func (c *comparison) meanDeltaPercent() float64 {

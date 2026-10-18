@@ -152,19 +152,19 @@ func trimProcsSuffix(name string, procs int) string {
 
 // suite is the compiled test binaries of the benchmarks.
 //
-// A change of the library shifts where the linker places every function of the binary,
-// and the alignment of a hot loop alone makes a benchmark faster or slower by more than 10%,
-// even if the code it runs is not changed at all.
-// Measuring the same binary again never removes this difference,
+// A change of the library shifts where the linker places every function of the binary, which moves a benchmark by
+// several percent even if the code it runs is not changed at all ( see defaultLayouts ), while the rounds of one
+// binary differ by about 1%. Measuring the same binary again doesn't remove this difference,
 // so a suite has the binaries of the same code with different function layouts,
 // and a benchmark is measured with all of them.
 //
-// On some machines a benchmark has two clusters of results over the layouts, 20-50% apart, while the rounds of a
-// layout differ by about 1%: the small encode benchmarks on AMD EPYC 7763 and 9V74 ( Zen 3 and 4 ), not on the
-// Intel machines of the CI nor on EPYC 9V45. How many layouts fall in the fast cluster depends on the benchmark,
-// from about one in sixteen to about one in two, so neither the fastest layout nor the median of 8 layouts is the
-// same for the same benchmark linked with other layouts, as a change anywhere in the library moves the functions:
-// see comparison.judge.
+// On some machines a benchmark has two clusters of results over the binaries, 20-50% apart: the small encode
+// benchmarks on AMD EPYC 7763 and 9V74 ( Zen 3 and 4 ), not on the Intel machines of the CI; on EPYC 9V45 they
+// spread by up to 26-37% in one job, less in others. The content of a binary does not decide its cluster: copies of
+// one binary file fell in either cluster, and after the page cache was dropped many binaries fell in the other one.
+// How many binaries fall in the fast cluster depends on the benchmark, from about one in sixteen to about one in
+// two, so the fastest layout and the median of 8 layouts can differ between two sides of identical code: see
+// comparison.judge.
 type suite struct {
 	// binaries is indexed by the layout.
 	binaries []string

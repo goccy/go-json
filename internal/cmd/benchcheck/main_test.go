@@ -130,10 +130,10 @@ func TestComparison(t *testing.T) {
 
 	t.Run("a single benchmark is slower beyond the tolerance by both its fastest layout and its median", func(t *testing.T) {
 		cmp := newComparison(3, 15)
-		// only the fastest layout of the base is faster: few of its layouts happen to be in the fast cluster.
+		// only the fastest layout of the base is faster: few of its binaries happen to be in the fast cluster.
 		cmp.add("BenchmarkFastest", layoutMeasurement{{"BenchmarkFastest": 100}, {"BenchmarkFastest": 120}, {"BenchmarkFastest": 120}, {"BenchmarkFastest": 120}},
 			layoutMeasurement{{"BenchmarkFastest": 120}, {"BenchmarkFastest": 120}, {"BenchmarkFastest": 120}, {"BenchmarkFastest": 120}})
-		// only the median of the head is slower: about half of the layouts are in the fast cluster.
+		// only the median of the head is slower: about half of the binaries are in the fast cluster.
 		cmp.add("BenchmarkMedian", layoutMeasurement{{"BenchmarkMedian": 100}, {"BenchmarkMedian": 100}, {"BenchmarkMedian": 130}, {"BenchmarkMedian": 130}},
 			layoutMeasurement{{"BenchmarkMedian": 100}, {"BenchmarkMedian": 140}, {"BenchmarkMedian": 140}, {"BenchmarkMedian": 140}})
 		cmp.add("BenchmarkBoth", layoutMeasurement{{"BenchmarkBoth": 100}, {"BenchmarkBoth": 100}, {"BenchmarkBoth": 100}, {"BenchmarkBoth": 100}},

@@ -50,20 +50,21 @@ const (
 	defaultRounds = 8
 	// defaultLayouts is the number of the function layouts with which a benchmark is measured.
 	// The fastest layout of each side and the median of the layouts are compared, so the more layouts are
-	// measured, the less the result depends on how well a single layout happens to fit the code.
+	// measured, the less the result depends on a single binary.
 	//
 	// The layouts and the rounds are by -calibrate on the machines of the CI ( 37 decode benchmarks, two
 	// machines for each setting ): identical code linked with other layouts differs by at most 2.4%, 1.8% at
 	// the 90th percentile, with 8 layouts of 300ms; 4 layouts left up to 5.8%, and more rounds of the same
-	// layouts gained nothing, since how the functions are laid out moves a benchmark more than the load does.
+	// layouts gained nothing, since the binary a benchmark is measured with moves it more than the load does.
 	defaultLayouts   = 8
 	defaultBenchTime = "300ms"
 	// defaultTolerance is for the mean of all the benchmarks. The mean of identical code measured
 	// on a shared machine stays within about 1.5%.
 	defaultTolerance = 3.0
 	// defaultSingleTolerance is for a single benchmark, which differs by up to about 8% for identical code
-	// on a shared machine even if the function layout is varied, and by up to 50% in the fastest layout or in the
-	// median on the machines where the layouts of a benchmark have two clusters of results ( see suite ). It
+	// on a shared machine even if the function layout is varied, and by as much as the clusters are apart in the
+	// fastest layout or in the median on the machines where the binaries of a benchmark have two clusters of results
+	// ( see suite ). It
 	// exists to notice the degradation of only a few benchmarks, which hardly moves the mean.
 	defaultSingleTolerance = 15.0
 )
@@ -192,8 +193,8 @@ func (c *checker) cleanup() {
 // The binaries of both sides are built alike: the library of each side is in tmpDir, at base or at head, and is
 // what the replace directive of its own copy of go.mod points to ( see createModFile ). The paths of the files of
 // the library are in the binary, and a path of another length moves the data after them: the same code built in
-// two directories differed by 12 KB in the addresses of its data, and the fastest layout of a small encode
-// benchmark by 12%. With paths of the same length, the binaries of identical code have the same layout.
+// two directories differed by 12 KB in the addresses of its data. With paths of the same length, the binaries of
+// identical code have the same addresses and sizes of every symbol.
 func (c *checker) headSuite(ctx context.Context) (*suite, error) {
 	headDir := filepath.Join(c.tmpDir, "head")
 	if err := c.repo.copyWorkingTree(ctx, headDir); err != nil {

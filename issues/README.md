@@ -20,6 +20,7 @@ Priority 2: first after the v2 decoder
 - [decoder-disallow-unknown-fields-order.md](decoder-disallow-unknown-fields-order.md)
 - [decoder-unexported-embedded-pointer-error.md](decoder-unexported-embedded-pointer-error.md)
 - [decoder-case-insensitive-field-choice.md](decoder-case-insensitive-field-choice.md)
+- [decoder-float32-rounding.md](decoder-float32-rounding.md)
 - [decoder-valid-long-strings.md](decoder-valid-long-strings.md)
 - [encoder-sorted-map-speed.md](encoder-sorted-map-speed.md)
 

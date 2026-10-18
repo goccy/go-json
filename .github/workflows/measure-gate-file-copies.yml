@@ -1,0 +1,27 @@
+name: Measure copies of identical binaries
+# A throwaway workflow of a measure/* branch ( see .github/measure/file_copies.sh ).
+on:
+  push:
+    branches:
+      - measure/gate-file-copies
+jobs:
+  measure:
+    name: measure (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [a, b, c, d, e, f, g, h]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: measure
+        run: bash .github/measure/file_copies.sh

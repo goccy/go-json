@@ -23,6 +23,7 @@ func init() {
 		e.invalid = true
 		e.vs.st = nil
 	}
+	textcoder.UnmarshalPlace = unmarshalPlace
 }
 
 // encoderPosition returns the levels of enc and the offset of its next value.

@@ -104,3 +104,31 @@ func (e *MethodError) Error() string {
 }
 
 func (e *MethodError) Unwrap() error { return e.Err }
+
+// UnmarshalError is an error of decoding the value at Start of the input into a value of GoType by the semantics of
+// encoding/json/v2, which the decoder stops at: the v2 json package reports it as its SemanticError, at the place
+// of the value, unless the input has a syntax error before it.
+type UnmarshalError struct {
+	GoType reflect.Type
+	Err    error
+	// Start is the position of the value in the input, or of the bracket which ends an array for an error of the
+	// length of the array. End is the position after the value if HasValue is set: the error reports the value, a
+	// number or a string.
+	Start, End int64
+	HasValue   bool
+	// NoKind is set for an error of the Go type, before the value is read: it reports no kind of JSON value.
+	NoKind bool
+}
+
+func (e *UnmarshalError) Error() string {
+	s := "json: cannot unmarshal"
+	if e.GoType != nil {
+		s += " into Go " + e.GoType.String()
+	}
+	if e.Err != nil {
+		s += ": " + e.Err.Error()
+	}
+	return s
+}
+
+func (e *UnmarshalError) Unwrap() error { return e.Err }

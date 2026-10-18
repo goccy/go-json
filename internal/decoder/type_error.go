@@ -116,6 +116,10 @@ func isOtherValue(c byte, kind jsonKind) bool {
 func (ctx *RuntimeContext) skipTypeError(cursor, depth int64, typ reflect.Type) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
+	if ctx.Option.V2 != 0 {
+		// the semantics of encoding/json/v2 stop at the error
+		return 0, &errors.UnmarshalError{GoType: typ, Start: cursor}
+	}
 	end, err := skipValue(buf, cursor, depth)
 	if err != nil {
 		return 0, err

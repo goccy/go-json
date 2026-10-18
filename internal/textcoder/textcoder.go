@@ -84,3 +84,21 @@ var (
 	// failed at it: the value which enc was given the place of fails with it, whatever its method returns.
 	Fail func(enc any, err error)
 )
+
+// Read is how UnmarshalPlace reads the value which it stops at.
+type Read uint8
+
+const (
+	// ReadToken reads the first token of the value: all of it but for an object or an array.
+	ReadToken Read = iota
+	// ReadValue reads the whole value.
+	ReadValue
+	// ReadNothing reads nothing of the value.
+	ReadNothing
+)
+
+// UnmarshalPlace reads in, the input of an unmarshaling of the v2 json package, by the options, as
+// encoding/json/v2 reads it, up to the value which starts at stop, which it reads as read says: it returns the
+// syntax error it meets first, a *jsontext.SyntacticError, or else the JSON pointer of the value. With stop -1,
+// it reads the whole input and returns its first syntax error, or nil if it has none.
+var UnmarshalPlace func(in []byte, opts *options.Config, stop int64, read Read) (string, error)

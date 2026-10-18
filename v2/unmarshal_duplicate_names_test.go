@@ -22,17 +22,22 @@ func TestUnmarshalDuplicateNamesDeepIsLinear(t *testing.T) {
 		{"objects in arrays", `[{"a":`, `}]`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			// the fastest of a few decodings, which the noise of the machine only makes slower
+			// the time of a decoding in the fastest of a few batches, which the noise of the machine only makes
+			// slower: a batch decodes for long enough to be measured by a coarse clock, as the one of Windows is.
 			fastest := func(depth int) time.Duration {
 				in := []byte(strings.Repeat(c.open, depth) + `{"x":1,"x":2}` + strings.Repeat(c.close, depth))
 				best := time.Duration(1<<63 - 1)
-				for range 10 {
+				for range 5 {
 					start := time.Now()
-					var v any
-					if err := json.Unmarshal(in, &v, jsontext.AllowDuplicateNames(true)); err != nil {
-						t.Fatal(err)
+					n := 0
+					for time.Since(start) < 20*time.Millisecond {
+						var v any
+						if err := json.Unmarshal(in, &v, jsontext.AllowDuplicateNames(true)); err != nil {
+							t.Fatal(err)
+						}
+						n++
 					}
-					best = min(best, time.Since(start))
+					best = min(best, time.Since(start)/time.Duration(n))
 				}
 				return best
 			}

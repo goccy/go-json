@@ -32,6 +32,9 @@ type machine struct {
 	GOARCH    string `json:"goarch"`
 	NumCPU    int    `json:"numCpu"`
 	GoVersion string `json:"goVersion"`
+	// TempDir is os.TempDir, in which makeTempDir creates the directory of the build: the paths there, which are in
+	// the binaries, have the same length on every run with the same TempDir.
+	TempDir string `json:"tempDir"`
 }
 
 type baselineKey struct {
@@ -53,9 +56,9 @@ type verdictKey struct {
 }
 
 type baseline struct {
-	Commit  string      `json:"commit"`
-	Key     baselineKey `json:"key"`
-	Results measurement `json:"results"`
+	Commit  string            `json:"commit"`
+	Key     baselineKey       `json:"key"`
+	Results layoutMeasurement `json:"results"`
 }
 
 type verdict struct {
@@ -73,8 +76,16 @@ type cache struct {
 	readable bool
 }
 
+// cacheFormat is the version of the format of the cached files. It is a part of the hash of every key, so that a
+// file of another format is never read: until the version 2, the results of a side were the fastest of all its
+// layouts, and its binaries were built in another way.
+const cacheFormat = 2
+
 func keyHash(key any) (string, error) {
-	b, err := json.Marshal(key)
+	b, err := json.Marshal(struct {
+		Format int `json:"format"`
+		Key    any `json:"key"`
+	}{Format: cacheFormat, Key: key})
 	if err != nil {
 		return "", err
 	}

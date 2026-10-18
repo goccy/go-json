@@ -6,11 +6,15 @@
 // benchmark of identical code differs by several percent on a shared machine, so its tolerance is large
 // and the mean, whose noise is far smaller, is what notices a small degradation.
 //
+// Both sides are built alike, from copies of their libraries in one temporary directory, and linked with several
+// function layouts. A benchmark is compared by the fastest of its layouts and by their median, and is slower
+// beyond the tolerance only if it is by both: see comparison.judge.
+//
 // To make the comparison robust against the load of the machine changing over time,
 // the base and the working tree are measured alternately for each benchmark function.
 // While the working tree is degraded, an additional attempt measures both of them again for the benchmarks
 // which make the mean slow. The noise of a measurement only makes it slower, so the fastest result of all
-// the attempts is what is compared, for each side.
+// the attempts is what is kept, for each layout of each side.
 //
 // The measured results are cached by commit hash:
 //   - the result of the base branch is reused as long as it is measured on the same machine.
@@ -24,6 +28,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
+	"math"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -42,21 +49,23 @@ const (
 	// Every layout is measured once by default.
 	defaultRounds = 8
 	// defaultLayouts is the number of the function layouts with which a benchmark is measured.
-	// The fastest layout of each side is compared, so the more layouts are measured,
-	// the less the result depends on how well a single layout happens to fit the code.
+	// The fastest layout of each side and the median of the layouts are compared, so the more layouts are
+	// measured, the less the result depends on a single binary.
 	//
 	// The layouts and the rounds are by -calibrate on the machines of the CI ( 37 decode benchmarks, two
 	// machines for each setting ): identical code linked with other layouts differs by at most 2.4%, 1.8% at
 	// the 90th percentile, with 8 layouts of 300ms; 4 layouts left up to 5.8%, and more rounds of the same
-	// layouts gained nothing, since how the functions are laid out moves a benchmark more than the load does.
+	// layouts gained nothing, since the binary a benchmark is measured with moves it more than the load does.
 	defaultLayouts   = 8
 	defaultBenchTime = "300ms"
 	// defaultTolerance is for the mean of all the benchmarks. The mean of identical code measured
 	// on a shared machine stays within about 1.5%.
 	defaultTolerance = 3.0
 	// defaultSingleTolerance is for a single benchmark, which differs by up to about 8% for identical code
-	// on a shared machine even if the function layout is varied. It exists to notice the degradation of only
-	// a few benchmarks, which hardly moves the mean.
+	// on a shared machine even if the function layout is varied, and by as much as the clusters are apart in the
+	// fastest layout or in the median on the machines where the binaries of a benchmark have two clusters of results
+	// ( see suite ). It
+	// exists to notice the degradation of only a few benchmarks, which hardly moves the mean.
 	defaultSingleTolerance = 15.0
 )
 
@@ -146,6 +155,7 @@ func currentMachine(ctx context.Context) (machine, error) {
 		GOARCH:    runtime.GOARCH,
 		NumCPU:    runtime.NumCPU(),
 		GoVersion: strings.TrimSpace(string(out)),
+		TempDir:   os.TempDir(),
 	}, nil
 }
 
@@ -157,10 +167,12 @@ func binaryPath(dir, name string) string {
 }
 
 type checker struct {
-	opt      *options
-	repo     *repository
-	cache    *cache
-	tmpDir   string
+	opt   *options
+	repo  *repository
+	cache *cache
+	// tmpDir has the libraries of both sides, the base at base and the working tree at head ( see headSuite ).
+	tmpDir string
+	// benchDir is the directory of the benchmarks of the working tree, in its copy.
 	benchDir string
 
 	baseCommit string
@@ -176,7 +188,32 @@ func (c *checker) cleanup() {
 	c.base = nil
 }
 
-// baseSuite builds the benchmarks for the base commit on the first call.
+// headSuite copies the working tree to head in tmpDir and builds its benchmarks there, with the library of the copy.
+//
+// The binaries of both sides are built alike: the library of each side is in tmpDir, at base or at head, and is
+// what the replace directive of its own copy of go.mod points to ( see createModFile ). The paths of the files of
+// the library are in the binary, and a path of another length moves the data after them: the same code built in
+// two directories differed by 12 KB in the addresses of its data. With paths of the same length, the binaries of
+// identical code have the same addresses and sizes of every symbol.
+func (c *checker) headSuite(ctx context.Context) (*suite, error) {
+	headDir := filepath.Join(c.tmpDir, "head")
+	if err := c.repo.copyWorkingTree(ctx, headDir); err != nil {
+		return nil, err
+	}
+	modFile := filepath.Join(c.tmpDir, "head.mod")
+	if err := createModFile(ctx, modFile, c.benchDir, headDir); err != nil {
+		return nil, err
+	}
+	// A calibration links the head with other layouts than the base, as a change of the code moves the functions.
+	seedOffset := 0
+	if c.opt.calibrate {
+		seedOffset = c.opt.config.Layouts
+	}
+	return buildSuite(ctx, c.benchDir, modFile, c.tmpDir, "head", c.opt.config.Layouts, seedOffset)
+}
+
+// baseSuite builds the benchmarks for the base commit on the first call, as headSuite builds the ones of the
+// working tree.
 //
 // The benchmarks of the working tree are built with the library of the base commit,
 // so that exactly the same benchmarks are compared.
@@ -194,14 +231,18 @@ func (c *checker) baseSuite(ctx context.Context) (*suite, error) {
 	}
 	c.cleanups = append(c.cleanups, cleanup)
 
-	modFile, err := createModFile(ctx, c.tmpDir, c.benchDir, baseDir)
-	if err != nil {
+	modFile := filepath.Join(c.tmpDir, "base.mod")
+	if err := createModFile(ctx, modFile, c.benchDir, baseDir); err != nil {
 		return nil, err
 	}
 	base, err := buildSuite(ctx, c.benchDir, modFile, c.tmpDir, "base", c.opt.config.Layouts, 0)
 	if err != nil {
 		fmt.Printf("benchmarks of the working tree can't be built with base %s: use the benchmarks of the base\n", c.baseCommit)
-		base, err = buildSuite(ctx, filepath.Join(baseDir, c.opt.config.Dir), "", c.tmpDir, "base", c.opt.config.Layouts, 0)
+		benchDir := filepath.Join(baseDir, c.opt.config.Dir)
+		if err := createModFile(ctx, modFile, benchDir, baseDir); err != nil {
+			return nil, err
+		}
+		base, err = buildSuite(ctx, benchDir, modFile, c.tmpDir, "base", c.opt.config.Layouts, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -219,34 +260,32 @@ func formatDelta(baseNs, headNs float64) string {
 	return fmt.Sprintf("%+.2f%%", (headNs-baseNs)/baseNs*100)
 }
 
-func printProgress(base, head measurement) {
-	names := make([]string, 0, len(head))
-	for name := range head {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		headNs := head[name]
-		baseNs, exists := base[name]
+// printProgress prints the results of an attempt of a benchmark function: the fastest layout and the median of
+// the layouts of each side.
+func printProgress(base, head layoutMeasurement) {
+	for _, name := range head.names() {
+		headNs, headMedianNs, _ := head.stats(name)
+		baseNs, baseMedianNs, exists := base.stats(name)
 		if !exists {
-			fmt.Printf("%s\tbase: -\thead: %.2f ns/op\n", name, headNs)
+			fmt.Printf("%s\tbase: -\thead: %.2f ns/op ( median %.2f )\n", name, headNs, headMedianNs)
 			continue
 		}
-		fmt.Printf("%s\tbase: %.2f ns/op\thead: %.2f ns/op\t%s\n", name, baseNs, headNs, formatDelta(baseNs, headNs))
+		fmt.Printf("%s\tbase: %.2f ns/op ( median %.2f )\thead: %.2f ns/op ( median %.2f )\t%s ( median %s )\n",
+			name, baseNs, baseMedianNs, headNs, headMedianNs, formatDelta(baseNs, headNs), formatDelta(baseMedianNs, headMedianNs))
 	}
 }
 
 // measureFunc measures the benchmark function fn of the base and of the working tree.
 // The rounds of both sides are interleaved so that they run under the same load,
-// and each round uses the next layout so that the fastest layout of each side is compared.
+// and each round uses the next layout so that every layout of each side is measured.
 // If base is nil, only the working tree is measured.
-func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst bool) (measurement, measurement, error) {
+func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst bool) (layoutMeasurement, layoutMeasurement, error) {
 	type side struct {
 		suite  *suite
-		result measurement
+		result layoutMeasurement
 	}
-	baseSide := &side{suite: base, result: measurement{}}
-	headSide := &side{suite: head, result: measurement{}}
+	baseSide := &side{suite: base, result: newLayoutMeasurement(c.opt.config.Layouts)}
+	headSide := &side{suite: head, result: newLayoutMeasurement(c.opt.config.Layouts)}
 	sides := []*side{baseSide, headSide}
 	if !baseFirst {
 		sides = []*side{headSide, baseSide}
@@ -256,11 +295,12 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 			if s.suite == nil {
 				continue
 			}
-			result, err := s.suite.run(ctx, round%c.opt.config.Layouts, fn, c.opt.config.BenchTime)
+			layout := round % c.opt.config.Layouts
+			result, err := s.suite.run(ctx, layout, fn, c.opt.config.BenchTime)
 			if err != nil {
 				return nil, nil, err
 			}
-			s.result.mergeFastest(result)
+			s.result[layout].mergeFastest(result)
 		}
 	}
 	return baseSide.result, headSide.result, nil
@@ -268,6 +308,11 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 
 // measure runs the benchmarks until all of them reach the result of the base or the attempts are exhausted.
 func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) {
+	fmt.Println("build benchmarks for working tree")
+	head, err := c.headSuite(ctx)
+	if err != nil {
+		return nil, err
+	}
 	m, err := currentMachine(ctx)
 	if err != nil {
 		return nil, err
@@ -286,16 +331,6 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 		out.cachedBaseline = true
 	}
 
-	fmt.Println("build benchmarks for working tree")
-	// A calibration links the head with other layouts than the base, as a change of the code moves the functions.
-	headSeedOffset := 0
-	if c.opt.calibrate {
-		headSeedOffset = c.opt.config.Layouts
-	}
-	head, err := buildSuite(ctx, c.benchDir, "", c.tmpDir, "head", c.opt.config.Layouts, headSeedOffset)
-	if err != nil {
-		return nil, err
-	}
 	funcs, err := head.funcs(ctx, c.opt.config.Bench)
 	if err != nil {
 		return nil, err
@@ -314,7 +349,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 		// the cached results are valid only for the first attempt:
 		// a retry exists to get rid of the noise, so both sides are measured again at the same time.
 		useCache := attempt == 1 && cached != nil
-		measured := measurement{}
+		var measured layoutMeasurement
 		for i, fn := range funcs {
 			var baseSuite *suite
 			if !useCache {
@@ -331,7 +366,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 			if useCache {
 				baseResult = cached.Results
 			} else {
-				measured.mergeFastest(baseResult)
+				measured = measured.mergeFastest(baseResult)
 			}
 			cmp.add(fn, baseResult, headResult)
 			printProgress(baseResult, headResult)
@@ -394,14 +429,14 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 		}
 	}
 
-	tmpDir, err := os.MkdirTemp("", "benchcheck-")
+	tmpDir, err := makeTempDir()
 	if err != nil {
 		return nil, err
 	}
 	c.cleanups = append(c.cleanups, func() { os.RemoveAll(tmpDir) })
 	defer c.cleanup()
 	c.tmpDir = tmpDir
-	c.benchDir = filepath.Join(c.repo.root, c.opt.config.Dir)
+	c.benchDir = filepath.Join(tmpDir, "head", c.opt.config.Dir)
 	c.baseCommit = base
 
 	out := &outcome{}
@@ -416,6 +451,23 @@ func (c *checker) check(ctx context.Context) (*outcome, error) {
 		}
 	}
 	return out, nil
+}
+
+// makeTempDir creates a temporary directory in os.TempDir whose name has the same length on every run: a cached
+// result of the base was measured with the binaries an earlier run built in its own temporary directory, which must
+// be built as the binaries of the head are ( see headSuite ). The result is cached for the same os.TempDir only
+// ( see machine ).
+func makeTempDir() (string, error) {
+	for {
+		dir := filepath.Join(os.TempDir(), fmt.Sprintf("benchcheck-%010d", rand.Uint32()))
+		err := os.Mkdir(dir, 0o700)
+		if err == nil {
+			return dir, nil
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return "", err
+		}
+	}
 }
 
 func (c *checker) run(ctx context.Context) error {
@@ -433,49 +485,66 @@ func (c *checker) run(ctx context.Context) error {
 	return report(out.verdict)
 }
 
-// reportCalibration prints the results of identical code and how much they differ: the mean, the 90th
-// percentile and the largest of the differences, whichever side is slower.
+// reportCalibration prints the results of identical code and how much they differ, by the fastest layouts, by the
+// medians and by both, which a single benchmark has to be beyond to fail ( see comparison.judge ): the mean, the
+// 90th percentile and the largest of the differences, whichever side is slower.
 func reportCalibration(v *verdict) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "benchmark	base ns/op	head ns/op	delta")
-	var deltas []float64
+	fmt.Fprintln(w, "benchmark\tbase ns/op\thead ns/op\tdelta\tbase median\thead median\tdelta of medians")
+	var fastest, median, both []float64
 	for _, result := range v.Benchmarks {
 		if result.Status != statusOK && result.Status != statusRegressed {
 			continue
 		}
-		fmt.Fprintf(w, "%s	%.2f	%.2f	%s\n", result.Name, result.BaseNs, result.HeadNs, formatDelta(result.BaseNs, result.HeadNs))
-		if result.BaseNs != 0 {
-			d := (result.HeadNs - result.BaseNs) / result.BaseNs * 100
-			if d < 0 {
-				d = -d
-			}
-			deltas = append(deltas, d)
+		fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%s\t%.2f\t%.2f\t%s\n", result.Name,
+			result.BaseNs, result.HeadNs, formatDelta(result.BaseNs, result.HeadNs),
+			result.BaseMedianNs, result.HeadMedianNs, formatDelta(result.BaseMedianNs, result.HeadMedianNs))
+		if !result.comparable() {
+			continue
 		}
+		d, m := result.deltaPercent(), result.medianDeltaPercent()
+		fastest = append(fastest, math.Abs(d))
+		median = append(median, math.Abs(m))
+		// both are beyond a difference only if they are slower on the same side.
+		var b float64
+		if d*m > 0 {
+			b = math.Min(math.Abs(d), math.Abs(m))
+		}
+		both = append(both, b)
 	}
 	_ = w.Flush()
-	if len(deltas) == 0 {
+	if len(fastest) == 0 {
 		return
 	}
-	sort.Float64s(deltas)
-	var sum float64
-	for _, d := range deltas {
-		sum += d
+	fmt.Printf("calibration: %d benchmarks, mean of the deltas %+.2f%%\n", len(fastest), v.MeanDeltaPercent)
+	for _, s := range []struct {
+		name   string
+		deltas []float64
+	}{{"fastest layout", fastest}, {"median", median}, {"both", both}} {
+		sort.Float64s(s.deltas)
+		var sum float64
+		for _, d := range s.deltas {
+			sum += d
+		}
+		n := len(s.deltas)
+		fmt.Printf("  %s: mean |delta| %.2f%%, p90 %.2f%%, max %.2f%%\n", s.name, sum/float64(n), s.deltas[n*9/10], s.deltas[n-1])
 	}
-	fmt.Printf("calibration: %d benchmarks, mean |delta| %.2f%%, p90 %.2f%%, max %.2f%%, mean of the deltas %+.2f%%\n",
-		len(deltas), sum/float64(len(deltas)), deltas[len(deltas)*9/10], deltas[len(deltas)-1], v.MeanDeltaPercent)
 }
 
 func report(v *verdict) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "benchmark\tbase ns/op\thead ns/op\tdelta\tattempts\tstatus")
+	// the fastest layout of each side, and the median of the layouts.
+	fmt.Fprintln(w, "benchmark\tbase ns/op\thead ns/op\tdelta\tbase median\thead median\tdelta of medians\tattempts\tstatus")
 	regressed := []string{}
 	for _, result := range v.Benchmarks {
 		switch result.Status {
 		case statusOK, statusRegressed:
-			delta := formatDelta(result.BaseNs, result.HeadNs)
-			fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%s\t%d\t%s\n", result.Name, result.BaseNs, result.HeadNs, delta, result.Attempts, result.Status)
+			fmt.Fprintf(w, "%s\t%.2f\t%.2f\t%s\t%.2f\t%.2f\t%s\t%d\t%s\n", result.Name,
+				result.BaseNs, result.HeadNs, formatDelta(result.BaseNs, result.HeadNs),
+				result.BaseMedianNs, result.HeadMedianNs, formatDelta(result.BaseMedianNs, result.HeadMedianNs),
+				result.Attempts, result.Status)
 		case statusNew:
-			fmt.Fprintf(w, "%s\t-\t%.2f\t-\t%d\t%s\n", result.Name, result.HeadNs, result.Attempts, result.Status)
+			fmt.Fprintf(w, "%s\t-\t%.2f\t-\t-\t%.2f\t-\t%d\t%s\n", result.Name, result.HeadNs, result.HeadMedianNs, result.Attempts, result.Status)
 		}
 		if result.Status == statusRegressed {
 			regressed = append(regressed, result.Name)
@@ -494,7 +563,7 @@ func report(v *verdict) error {
 		fmt.Printf("FAIL: the mean of the benchmarks is slower than base %s beyond the tolerance\n", v.Base)
 	}
 	if len(regressed) != 0 {
-		fmt.Printf("FAIL: %d benchmarks are slower than base %s beyond the tolerance of a single benchmark ( %v%% )\n", len(regressed), v.Base, v.Key.SingleTolerance)
+		fmt.Printf("FAIL: %d benchmarks are slower than base %s beyond the tolerance of a single benchmark ( %v%% ), by both the fastest layout and the median\n", len(regressed), v.Base, v.Key.SingleTolerance)
 		for _, name := range regressed {
 			fmt.Printf("  %s\n", name)
 		}

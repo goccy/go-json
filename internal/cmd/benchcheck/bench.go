@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -22,6 +23,68 @@ func (m measurement) mergeFastest(other measurement) {
 			m[name] = nsPerOp
 		}
 	}
+}
+
+// layoutMeasurement is the results of a side by the layout of its binaries: the element N is the result of the
+// layout N, the fastest of its rounds.
+type layoutMeasurement []measurement
+
+// newLayoutMeasurement returns the results of no round of the layouts.
+func newLayoutMeasurement(layouts int) layoutMeasurement {
+	m := make(layoutMeasurement, layouts)
+	for i := range m {
+		m[i] = measurement{}
+	}
+	return m
+}
+
+// mergeFastest merges other into m layout by layout, keeping the faster result for each benchmark, and returns m
+// with the layouts which only other has, as append does.
+func (m layoutMeasurement) mergeFastest(other layoutMeasurement) layoutMeasurement {
+	for len(m) < len(other) {
+		m = append(m, measurement{})
+	}
+	for layout, results := range other {
+		m[layout].mergeFastest(results)
+	}
+	return m
+}
+
+// names returns the names of the benchmarks which any layout reported.
+func (m layoutMeasurement) names() []string {
+	seen := map[string]struct{}{}
+	names := []string{}
+	for _, results := range m {
+		for name := range results {
+			if _, exists := seen[name]; !exists {
+				seen[name] = struct{}{}
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// stats returns the result of the fastest layout and the median of the results of the layouts of the benchmark,
+// and false if no layout reported it.
+func (m layoutMeasurement) stats(name string) (float64, float64, bool) {
+	var values []float64
+	for _, results := range m {
+		if nsPerOp, exists := results[name]; exists {
+			values = append(values, nsPerOp)
+		}
+	}
+	if len(values) == 0 {
+		return 0, 0, false
+	}
+	sort.Float64s(values)
+	half := len(values) / 2
+	median := values[half]
+	if len(values)%2 == 0 {
+		median = (values[half-1] + values[half]) / 2
+	}
+	return values[0], median, true
 }
 
 const (
@@ -89,12 +152,19 @@ func trimProcsSuffix(name string, procs int) string {
 
 // suite is the compiled test binaries of the benchmarks.
 //
-// A change of the library shifts where the linker places every function of the binary,
-// and the alignment of a hot loop alone makes a benchmark faster or slower by more than 10%,
-// even if the code it runs is not changed at all.
-// Measuring the same binary again never removes this difference,
+// A change of the library shifts where the linker places every function of the binary, which moves a benchmark by
+// several percent even if the code it runs is not changed at all ( see defaultLayouts ), while the rounds of one
+// binary differ by about 1%. Measuring the same binary again doesn't remove this difference,
 // so a suite has the binaries of the same code with different function layouts,
 // and a benchmark is measured with all of them.
+//
+// On some machines a benchmark has two clusters of results over the binaries, 20-50% apart: the small encode
+// benchmarks on AMD EPYC 7763 and 9V74 ( Zen 3 and 4 ), not on the Intel machines of the CI; on EPYC 9V45 they
+// spread by up to 26-37% in one job, less in others. The content of a binary does not decide its cluster: copies of
+// one binary file fell in either cluster, and after the page cache was dropped many binaries fell in the other one.
+// How many binaries fall in the fast cluster depends on the benchmark, from about one in sixteen to about one in
+// two, so the fastest layout and the median of 8 layouts can differ between two sides of identical code: see
+// comparison.judge.
 type suite struct {
 	// binaries is indexed by the layout.
 	binaries []string
@@ -165,8 +235,10 @@ var comparedLibraries = map[string]struct{}{
 	"Sonic":         {},
 	"SonicFast":     {},
 	"SonicFastest":  {},
-	"SonicStd":      {},
-	"StdLib":        {},
+	// sonic at its fastest with the checks of the input which go-json does.
+	"SonicFastestValidating": {},
+	"SonicStd":               {},
+	"StdLib":                 {},
 }
 
 // isComparedLibraryBenchmark reports whether the benchmark function measures a library other than go-json.

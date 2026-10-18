@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan to be approved
+- Status: plan approved on 2026-10-19; pull request 1 in progress
 
 ## What
 
@@ -49,7 +49,48 @@
   string, number and bytes kinds after the whole value, those of bool, struct, map, slice and
   array at the first token; unknown names before the `:`.
 
-## Next step
+## Plan
 
-Write the plan of the pull requests and have it approved before any code.
-Then [v1-calls-v2-methods.md](v1-calls-v2-methods.md) follows right after the series.
+The reference is the first commit of the branch, c7d2227, before the emulation was added.
+
+- A v2 value is decoded by the v1 decoder of its type where the documented behavior is the same.
+  Types of their own only where it differs: structs, maps, `[]byte` (strict base64), the UTF-8
+  checks of strings, `time.Time`, methods and functions. The hot functions of v1 get no v2
+  branch.
+- The v2 state is one pointer in `RuntimeContext`, which must stay in its size class.
+- The JSON pointer of an error is built from the path that the type errors of master already
+  record (the steps of `pendingTypeError`), never by reading the input again from its start, so
+  that streams can use the same.
+- `UnmarshalRead` and `UnmarshalDecode` add v2 paths for structs, maps and slices to the
+  element-wise stream decoding of #736. Their design is shown for approval before they start.
+- The tests of encoding/json/v2 are ported to `v2/internal/stdtest` (tests only, as for
+  marshaling), and each pull request enables the part it covers.
+- Benchmarks of v2 decoding come with the first pull request, so the gate measures v2 from then.
+
+Pull requests, in order (sizes without tests are estimates):
+
+| # | Content | Size |
+|---|---|---|
+| 1 | `Unmarshal` of bool, numbers, strings, `[]byte`, `any`, slices, arrays and pointers; null as the zero value; `AllowInvalidUTF8`, `StringifyNumbers`, `AllowDuplicateNames`; `SemanticError` and `SyntacticError`; benchmarks of `any` payloads | 1,200-1,800 |
+| 2 | Structs and maps: fields chosen by `jsonfields.Of` (shared with the encoder), exact names, `case:ignore`, `MatchCaseInsensitiveNames`, duplicate names, unknown members (skipped, `RejectUnknownMembers`, inline and unknown fields), `format`, map keys; benchmarks of struct payloads | 1,500-2,000 |
+| 3 | Methods and functions: `UnmarshalJSON`, `UnmarshalText`, `time.Time`, `time.Duration`, `UnmarshalFunc`, `WithUnmarshalers`, `JoinUnmarshalers`, the exported `Unmarshaler` | 600-900 |
+| 4 | `UnmarshalJSONFrom` and `UnmarshalFromFunc`: a `jsontext.Decoder` attached to the input of the engine, the counterpart of the encoder's | 400-600 |
+| 5 | `UnmarshalOf`, the rows of the benchmark report, and v2 at least as fast as v1 | 150 and speed work |
+| 6 | `UnmarshalRead` with bounded memory, and `UnmarshalReadOf` | 600-1,200 |
+| 7 | `UnmarshalDecode` and `UnmarshalDecodeOf` | 500-900 |
+
+Then [v1-calls-v2-methods.md](v1-calls-v2-methods.md).
+
+Risks:
+
+- Code shared with v1 can slow v1; the gate measures it, and a pull request that slows v1
+  fixes it itself. v2 runs through functions of its own where v1's hot ones are kept as they
+  are (the reference branch was 5-7% slower than v1 from it), which pull request 5 wins back.
+- Until the series ends, master has an incomplete v2 decoding API, with the gaps documented;
+  no release is tagged before it is complete.
+- Pull requests 6 and 7 are new designs of unknown size and touch the stream decoding of v1
+  (`stream_elements.go`).
+- Where the positions built from the path differ from std's documented `ByteOffset` or
+  `JSONPointer`, the pull request that finds it makes them equal.
+- Where the reference branch and master differ (its own fix of recursive types, field choice),
+  master's way is used: #742 for recursion, `jsonfields.Of` for the v2 field rules.

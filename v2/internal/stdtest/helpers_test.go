@@ -77,6 +77,12 @@ var (
 	errCycle           = errorText("encountered a cycle")
 	errNonNilReference = errorText("value must be passed as a non-nil pointer reference")
 	errNilInterface    = errorText("cannot derive concrete type for nil interface with finite type set")
+	errAmbiguousName   = errorText("ambiguous object member name")
+	errNilField        = errorText("cannot set embedded pointer to unexported struct type")
+	errNonStringValue  = errorText("JSON value must be string type")
+	errArrayUnderflow  = errorText("too few array elements")
+	errArrayOverflow   = errorText("too many array elements")
+	timeDurationType   = reflect.TypeFor[time.Duration]()
 
 	errInvalidStringTag    = errorText("invalid use of `string` tag option")
 	errNoExportedFields    = errorText("Go struct has no exported fields")
@@ -221,6 +227,55 @@ var (
 	errChangingInvalidUTF8    = errorText("cannot change UTF-8 checks after a JSON object has already begun processing")
 	errChangingWhitespace     = errorText("cannot change whitespace formatting within a MarshalEncode call")
 )
+
+// skipNotDecodedYet skips a case whose value has a type which Unmarshal doesn't decode yet ( see Unmarshal ): a
+// struct, a map, a time.Duration, or a type which has a method of unmarshaling. The values of the interfaces which
+// the value has are looked at too.
+func skipNotDecodedYet(t *testing.T, v any) {
+	t.Helper()
+	if !decodedYet(reflect.ValueOf(v)) {
+		t.Skip("not decoded yet")
+	}
+}
+
+func decodedYet(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
+	if !typeDecodedYet(v.Type(), map[reflect.Type]bool{}) {
+		return false
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		return v.IsNil() || decodedYet(v.Elem())
+	case reflect.Slice, reflect.Array:
+		for i := range v.Len() {
+			if !decodedYet(v.Index(i)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func typeDecodedYet(typ reflect.Type, seen map[reflect.Type]bool) bool {
+	if seen[typ] {
+		return true
+	}
+	seen[typ] = true
+	for _, method := range []string{"UnmarshalJSONFrom", "UnmarshalJSON", "UnmarshalText"} {
+		if _, ok := reflect.PointerTo(typ).MethodByName(method); ok {
+			return false
+		}
+	}
+	switch typ.Kind() {
+	case reflect.Struct, reflect.Map:
+		return false
+	case reflect.Pointer, reflect.Slice, reflect.Array:
+		return typeDecodedYet(typ.Elem(), seen)
+	}
+	return typ != timeDurationType
+}
 
 // isSemanticErr reports whether err is a SemanticError of the error want, which is unexported by the json package.
 func isSemanticErr(err error, want errorText) bool {

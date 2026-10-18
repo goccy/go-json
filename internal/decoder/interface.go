@@ -421,6 +421,10 @@ func decodeNewStringAnyMap(ctx *RuntimeContext, d *interfaceDecoder, cursor, dep
 				m[entries[i].key] = entries[i].value
 			}
 			ctx.popEntries(base)
+			if len(m) != len(entries) && ctx.Option.V2 != 0 {
+				// a name which the object has twice, which the semantics of v2 reject or merge
+				return nil, 0, errV2DuplicateName
+			}
 			return m, cursor + 1, nil
 		case ',':
 			cursor++

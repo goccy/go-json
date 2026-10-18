@@ -19,7 +19,7 @@ func CompileToGetDecoder(typ unsafe.Pointer) (Decoder, error) {
 	if dec := cachedDecoder.Load(typeptr); dec != nil {
 		return *dec, nil
 	}
-	dec, err := compileHead(runtime.TypeOfPtr(typ), map[uintptr]Decoder{})
+	dec, err := compileHead(runtime.TypeOfPtr(typ), newCompiler(false))
 	if err != nil {
 		return nil, err
 	}
@@ -31,53 +31,74 @@ var (
 	cachedDecoder  runtime.TypeCache[Decoder]
 )
 
-func compileHead(typ reflect.Type, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+// compiler compiles the decoder of a type and the ones of the types of its values.
+type compiler struct {
+	// decoders has the decoders of the struct types compiled by this compile, and of the array, slice and map types
+	// which are being compiled ( see compileKind ).
+	decoders map[uintptr]Decoder
+	// v2 is set for the decoders of the semantics of encoding/json/v2 ( see compileV2 ).
+	v2 bool
+	// stringifyNumbers is set, with v2, for the decoders of its option StringifyNumbers.
+	stringifyNumbers bool
+}
+
+func newCompiler(v2 bool) *compiler {
+	return &compiler{decoders: map[uintptr]Decoder{}, v2: v2}
+}
+
+func compileHead(typ reflect.Type, c *compiler) (Decoder, error) {
 	// The kind is validated here, once per type, instead of for every call of the decoding functions:
 	// the decoder of a non-pointer type is never created, so it is never cached either.
 	if typ.Kind() != reflect.Ptr {
 		return nil, &errors.InvalidUnmarshalError{Type: typ}
 	}
+	if c.v2 {
+		return compile(typ.Elem(), "", "", c)
+	}
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
 		return newUnmarshalJSONDecoder(reflect.PointerTo(typ)), nil
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(reflect.PointerTo(typ)), nil
 	}
-	return compile(typ.Elem(), "", "", typeToDecoder)
+	return compile(typ.Elem(), "", "", c)
 }
 
-func compile(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compile(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
+	if c.v2 {
+		return c.compileV2(typ, structName, fieldName)
+	}
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
 		return newUnmarshalJSONDecoder(reflect.PointerTo(typ)), nil
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
 		return newUnmarshalTextDecoder(reflect.PointerTo(typ)), nil
 	}
-	return compileKind(typ, structName, fieldName, typeToDecoder)
+	return compileKind(typ, structName, fieldName, c)
 }
 
 // compileKind returns the decoder of a value of the type by its kind, without its methods of unmarshaling.
-// typeToDecoder has the decoders of the struct types compiled by this compile, and of the array, slice and map types
+// c.decoders has the decoders of the struct types compiled by this compile, and of the array, slice and map types
 // which are being compiled: a value of such a type inside itself, or a struct met again, is decoded by its decoder.
-func compileKind(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
-	if dec, exists := typeToDecoder[uintptr(runtime.TypePtr(typ))]; exists {
+func compileKind(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
+	if dec, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; exists {
 		return dec, nil
 	}
 	switch typ.Kind() {
 	case reflect.Ptr:
-		return compilePtr(typ, structName, fieldName, typeToDecoder)
+		return compilePtr(typ, structName, fieldName, c)
 	case reflect.Struct:
-		return compileStruct(typ, structName, fieldName, typeToDecoder)
+		return compileStruct(typ, structName, fieldName, c)
 	case reflect.Slice:
 		elem := typ.Elem()
 		if elem.Kind() == reflect.Uint8 {
 			return compileBytes(typ, structName, fieldName)
 		}
-		return compileSlice(typ, structName, fieldName, typeToDecoder)
+		return compileSlice(typ, structName, fieldName, c)
 	case reflect.Array:
-		return compileArray(typ, structName, fieldName, typeToDecoder)
+		return compileArray(typ, structName, fieldName, c)
 	case reflect.Map:
-		return compileMap(typ, structName, fieldName, typeToDecoder)
+		return compileMap(typ, structName, fieldName, c)
 	case reflect.Interface:
 		return compileInterface(typ, structName, fieldName)
 	case reflect.Uintptr:
@@ -140,7 +161,7 @@ func isStringTagSupportedType(typ reflect.Type) bool {
 	return false
 }
 
-func compileMapKey(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compileMapKey(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	if reflect.PointerTo(typ).Implements(unmarshalTextType) {
 		return &textKeyDecoder{unmarshalTextDecoder{typ: reflect.PointerTo(typ)}}, nil
 	}
@@ -154,7 +175,7 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, typeToDecoder
 			return newInvalidDecoder(typ, structName, fieldName), nil
 		}
 		// a key of a pointer type is the key the pointer points to, which is allocated
-		dec, err := compileMapKey(typ.Elem(), structName, fieldName, typeToDecoder)
+		dec, err := compileMapKey(typ.Elem(), structName, fieldName, c)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +192,7 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, typeToDecoder
 	}
 	// The other keys are decoded by their kind, whatever other methods they have, as encoding/json decodes them: an
 	// integer, a float, a bool, and an empty interface, which a key of a string is stored in.
-	dec, err := compileKind(typ, structName, fieldName, typeToDecoder)
+	dec, err := compileKind(typ, structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
@@ -188,12 +209,12 @@ func compileMapKey(typ reflect.Type, structName, fieldName string, typeToDecoder
 	return newInvalidDecoder(typ, structName, fieldName), nil
 }
 
-func compilePtr(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compilePtr(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	if isPointerCycle(typ) {
 		// No value but null can be decoded into it, which sets the pointer to nil.
 		return newPtrDecoder(newInvalidDecoder(typ.Elem(), structName, fieldName), typ.Elem(), structName, fieldName), nil
 	}
-	dec, err := compile(typ.Elem(), structName, fieldName, typeToDecoder)
+	dec, err := compile(typ.Elem(), structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
@@ -312,31 +333,35 @@ func compileBytes(typ reflect.Type, structName, fieldName string) (Decoder, erro
 	return d, nil
 }
 
-func compileSlice(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compileSlice(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	elem := typ.Elem()
 	d := newSliceDecoder(nil, elem, elem.Size(), structName, fieldName)
 	d.typ = typ
-	decoder, err := compileElem(typ, d, structName, fieldName, typeToDecoder)
+	var dec Decoder = d
+	if c.v2 {
+		dec = newV2SliceDecoder(d)
+	}
+	decoder, err := compileElem(typ, dec, structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
 	d.valueDecoder = decoder
-	return d, nil
+	return dec, nil
 }
 
 // compileElem returns the decoder of the elements of typ, an array, a slice or a map type whose decoder is dec, which
 // decodes the values of typ inside them, as compileStruct does for the fields of a struct.
-func compileElem(typ reflect.Type, dec Decoder, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compileElem(typ reflect.Type, dec Decoder, structName, fieldName string, c *compiler) (Decoder, error) {
 	typeptr := uintptr(runtime.TypePtr(typ))
-	typeToDecoder[typeptr] = dec
-	elemDec, err := compile(typ.Elem(), structName, fieldName, typeToDecoder)
-	delete(typeToDecoder, typeptr)
+	c.decoders[typeptr] = dec
+	elemDec, err := compile(typ.Elem(), structName, fieldName, c)
+	delete(c.decoders, typeptr)
 	return elemDec, err
 }
 
-func compileArray(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compileArray(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	d := newArrayDecoder(nil, typ, structName, fieldName)
-	decoder, err := compileElem(typ, d, structName, fieldName, typeToDecoder)
+	decoder, err := compileElem(typ, d, structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
@@ -344,13 +369,13 @@ func compileArray(typ reflect.Type, structName, fieldName string, typeToDecoder 
 	return d, nil
 }
 
-func compileMap(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
-	keyDec, err := compileMapKey(typ.Key(), structName, fieldName, typeToDecoder)
+func compileMap(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
+	keyDec, err := compileMapKey(typ.Key(), structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
 	d := newMapDecoder(typ, typ.Key(), keyDec, typ.Elem(), nil, structName, fieldName)
-	valueDec, err := compileElem(typ, d, structName, fieldName, typeToDecoder)
+	valueDec, err := compileElem(typ, d, structName, fieldName, c)
 	if err != nil {
 		return nil, err
 	}
@@ -382,14 +407,14 @@ type fieldCandidate struct {
 func (c fieldCandidate) Depth() int        { return len(c.index) - 1 }
 func (c fieldCandidate) IsTaggedKey() bool { return c.set.isTaggedKey }
 
-// compileStruct returns the decoder of the struct type typ. It stays in typeToDecoder after the compile, so that a
+// compileStruct returns the decoder of the struct type typ. It stays in c.decoders after the compile, so that a
 // struct type met again in the same compile, by another field or by the fields of the structs it is embedded in, which
 // are compiled as fields of each struct it is embedded in, is not compiled again.
-func compileStruct(typ reflect.Type, structName, fieldName string, typeToDecoder map[uintptr]Decoder) (Decoder, error) {
+func compileStruct(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	structDec := newStructDecoder(structName, fieldName)
 	structDec.typ = typ
-	typeToDecoder[uintptr(runtime.TypePtr(typ))] = structDec
-	fields, err := structFields(typ, typeToDecoder)
+	c.decoders[uintptr(runtime.TypePtr(typ))] = structDec
+	fields, err := structFields(typ, c)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +425,7 @@ func compileStruct(typ reflect.Type, structName, fieldName string, typeToDecoder
 // structFields returns the fields of the struct type typ in their order, as encoding/json finds them: the fields of
 // the structs embedded without a key are promoted, the least nested first, and a struct already met is not met again.
 // Of the fields of a key, the one runtime.DominantField chooses is taken.
-func structFields(typ reflect.Type, typeToDecoder map[uintptr]Decoder) ([]*structFieldSet, error) {
+func structFields(typ reflect.Type, c *compiler) ([]*structFieldSet, error) {
 	var candidates []fieldCandidate
 	visited := map[reflect.Type]bool{}
 	// the structs of a level and of the next one, and how many times each is embedded at its level
@@ -430,7 +455,7 @@ func structFields(typ reflect.Type, typeToDecoder map[uintptr]Decoder) ([]*struc
 					}
 					continue
 				}
-				dec, err := compile(field.Type, e.typ.Name(), field.Name, typeToDecoder)
+				dec, err := compile(field.Type, e.typ.Name(), field.Name, c)
 				if err != nil {
 					return nil, err
 				}

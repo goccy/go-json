@@ -198,7 +198,7 @@ func TestCompileStructTypeOnce(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			allocs := func(typ reflect.Type) float64 {
 				return testing.AllocsPerRun(1, func() {
-					if _, err := compileHead(typ, map[uintptr]Decoder{}); err != nil {
+					if _, err := compileHead(typ, newCompiler(false)); err != nil {
 						t.Fatal(err)
 					}
 				})

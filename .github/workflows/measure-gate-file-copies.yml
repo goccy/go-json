@@ -1,5 +1,5 @@
 name: Measure copies of identical binaries
-# A throwaway workflow of a measure/* branch ( see .github/measure/file_copies.sh ).
+# A throwaway workflow of a measure/* branch ( see .github/measure/file_copies_tmpfs.sh ).
 on:
   push:
     branches:
@@ -24,4 +24,4 @@ jobs:
             go.sum
             benchmarks/go.sum
       - name: measure
-        run: bash .github/measure/file_copies.sh
+        run: bash .github/measure/file_copies_tmpfs.sh

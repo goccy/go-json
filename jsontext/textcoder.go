@@ -24,6 +24,7 @@ func init() {
 		e.vs.st = nil
 	}
 	textcoder.UnmarshalPlace = unmarshalPlace
+	textcoder.ValidValue = validValue
 }
 
 // encoderPosition returns the levels of enc and the offset of its next value.

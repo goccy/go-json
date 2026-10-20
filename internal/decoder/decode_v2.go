@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 	"unsafe"
 
@@ -35,11 +36,16 @@ var (
 	// decodeNewStringAnyMap returns with the semantics of v2: they reject it, or decode the value of the name into
 	// the value of its first one ( see v2InterfaceDecoder ).
 	errV2DuplicateName = stderrors.New("json: duplicate name of encoding/json/v2")
+	// errNoDefaultRepresentation is the error of a time.Duration, which v2 has no representation of without the
+	// `format` option.
+	errNoDefaultRepresentation = stderrors.New("no default representation")
 	// errV2NotSupported is the error of a type which the decoding of v2 doesn't support yet.
 	errV2NotSupported = stderrors.New("not supported yet by github.com/goccy/go-json/v2")
 	errArrayUnderflow = stderrors.New("too few array elements")
 	errArrayOverflow  = stderrors.New("too many array elements")
 )
+
+var timeDurationType = reflect.TypeOf(time.Duration(0))
 
 // cachedV2Decoders are the decoders of v2, without and with StringifyNumbers.
 var cachedV2Decoders [2]runtime.TypeCache[Decoder]
@@ -74,8 +80,15 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	if dec, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; exists {
 		return dec, nil
 	}
+	if typ == timeDurationType {
+		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
+	}
 	if hasUnmarshalMethod(typ) {
 		return &v2InvalidDecoder{typ: typ, err: errV2NotSupported}, nil
+	}
+	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) {
+		// the option applies to a number, through pointers
+		return &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}, nil
 	}
 	switch kind := typ.Kind(); kind {
 	case reflect.Ptr:
@@ -108,8 +121,10 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 			return nil, err
 		}
 		return &v2ScalarDecoder{dec: dec, size: typ.Size()}, nil
-	case reflect.Struct, reflect.Map:
-		return &v2InvalidDecoder{typ: typ, err: errV2NotSupported}, nil
+	case reflect.Struct:
+		return c.compileStructV2(typ)
+	case reflect.Map:
+		return c.compileMapV2(typ, structName, fieldName)
 	}
 	// a complex number, a channel, a function or an unsafe.Pointer, which has no representation
 	return &v2InvalidDecoder{typ: typ}, nil
@@ -228,6 +243,17 @@ func hexValue(b []byte) rune {
 		r = r<<4 | rune(c)
 	}
 	return r
+}
+
+// isNumberKind reports whether a value of the kind is a JSON number.
+func isNumberKind(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64:
+		return true
+	}
+	return false
 }
 
 // v2ScalarDecoder is the decoder of a bool or a number of v2: null is its zero value, and any other value is decoded

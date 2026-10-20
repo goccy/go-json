@@ -102,3 +102,7 @@ const (
 // syntax error it meets first, a *jsontext.SyntacticError, or else the JSON pointer of the value. With stop -1,
 // it reads the whole input and returns its first syntax error, or nil if it has none.
 var UnmarshalPlace func(in []byte, opts *options.Config, stop int64, read Read) (string, error)
+
+// ValidValue reports whether v, a JSON value valid by the grammar, has the text which jsontext reads by the
+// options: valid UTF-8 unless allowInvalidUTF8, and no object with a name twice unless allowDuplicateNames.
+var ValidValue func(v []byte, allowDuplicateNames, allowInvalidUTF8 bool) bool

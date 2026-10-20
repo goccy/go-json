@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"io"
 	"reflect"
 	"strconv"
@@ -22,11 +21,11 @@ import (
 //	}
 //
 // It is only reported if RejectUnknownMembers is true.
-var ErrUnknownName = errors.New("unknown object member name")
+var ErrUnknownName = ierrors.ErrUnknownName
 
 // errAmbiguousName reports that a JSON object member could be unmarshaled into more than one field of the Go
 // struct.
-var errAmbiguousName = errors.New("ambiguous object member name")
+var errAmbiguousName = ierrors.ErrAmbiguousName
 
 // SemanticError describes an error determining the meaning of JSON data as Go data, or vice versa.
 //

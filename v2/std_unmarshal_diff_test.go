@@ -31,11 +31,14 @@ type unmarshalDiffCase struct {
 	in   string
 	out  func() any
 	opts unmarshalDiffOptions
+	// errorOnly is set for a value which is not compared, as a map of pointer keys, whose keys are new pointers.
+	errorOnly bool
 }
 
 // unmarshalDiffOptions are the options of a case, which are given to both packages.
 type unmarshalDiffOptions struct {
 	stringifyNumbers, allowInvalidUTF8, allowDuplicateNames bool
+	matchCaseInsensitiveNames, rejectUnknownMembers         bool
 }
 
 func (o unmarshalDiffOptions) ours() []json.Options {
@@ -43,6 +46,8 @@ func (o unmarshalDiffOptions) ours() []json.Options {
 		json.StringifyNumbers(o.stringifyNumbers),
 		jsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		jsontext.AllowDuplicateNames(o.allowDuplicateNames),
+		json.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
+		json.RejectUnknownMembers(o.rejectUnknownMembers),
 	}
 }
 
@@ -51,6 +56,8 @@ func (o unmarshalDiffOptions) std() []stdjson.Options {
 		stdjson.StringifyNumbers(o.stringifyNumbers),
 		stdjsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		stdjsontext.AllowDuplicateNames(o.allowDuplicateNames),
+		stdjson.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
+		stdjson.RejectUnknownMembers(o.rejectUnknownMembers),
 	}
 }
 
@@ -292,7 +299,7 @@ type unmarshalDiffText string
 type unmarshalDiffSlices []unmarshalDiffSlices
 
 func TestUnmarshalMatchesStd(t *testing.T) {
-	for _, c := range unmarshalDiffCases() {
+	for _, c := range append(unmarshalDiffCases(), unmarshalDiffStructCases()...) {
 		t.Run(c.name, func(t *testing.T) {
 			ours, theirs := c.out(), c.out()
 			err := json.Unmarshal([]byte(c.in), ours, c.opts.ours()...)
@@ -300,7 +307,7 @@ func TestUnmarshalMatchesStd(t *testing.T) {
 			if got, want := describeUnmarshalError(err), describeUnmarshalError(stdErr); got != want {
 				t.Fatalf("error:\n got %s\nwant %s", got, want)
 			}
-			if err == nil && !reflect.DeepEqual(ours, theirs) {
+			if err == nil && !c.errorOnly && !reflect.DeepEqual(ours, theirs) {
 				t.Fatalf("value:\n got %#v\nwant %#v", reflect.ValueOf(ours).Elem(), reflect.ValueOf(theirs).Elem())
 			}
 		})

@@ -36,6 +36,13 @@ var (
 	ErrMaxDepth      = errors.New("exceeded max depth")
 )
 
+// The errors of a member of an object which is unmarshaled into a struct, which the v2 json package reports in its
+// SemanticError, by these very errors.
+var (
+	ErrUnknownName   = errors.New("unknown object member name")
+	ErrAmbiguousName = errors.New("ambiguous object member name")
+)
+
 // TextError is an error of the JSON text which the encoder of the semantics of encoding/json/v2 would write, which
 // it returns with the output written before it: the v2 json package reports it as jsontext.SyntacticError at the
 // place of that output. Err is ErrInvalidUTF8, ErrDuplicateName or ErrNonStringName.

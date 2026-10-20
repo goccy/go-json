@@ -35,11 +35,21 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //     it fails with a SemanticError.
 //
 //   - A Go integer is decoded from a JSON number. It must be decoded from a JSON string containing a JSON number
-//     if StringifyNumbers is specified. It fails with a SemanticError if the JSON number has a fractional or
-//     exponent component. It also fails if it overflows the representation of the Go integer type.
+//     if StringifyNumbers is specified or decoding a JSON object name. It fails with a SemanticError if the JSON
+//     number has a fractional or exponent component. It also fails if it overflows the representation of the Go
+//     integer type.
 //
 //   - A Go float is decoded from a JSON number. It must be decoded from a JSON string containing a JSON number if
-//     StringifyNumbers is specified. It fails if it overflows the representation of the Go float type.
+//     StringifyNumbers is specified or decoding a JSON object name. It fails if it overflows the representation of
+//     the Go float type.
+//
+//   - A Go map is decoded from a JSON object, where each JSON object name and value pair is recursively decoded as
+//     the Go map key and value. Maps are not cleared. If the Go map is nil, then a new map is allocated to decode
+//     into. If the decoded key matches an existing Go map entry, the entry value is reused by decoding the JSON
+//     object value into it.
+//
+//   - A Go struct is decoded from a JSON object. See the “JSON Representation of Go structs” section in the
+//     package-level documentation for more details.
 //
 //   - A Go slice is decoded from a JSON array, where each JSON element is recursively decoded and appended to the
 //     Go slice. Before appending into a Go slice, a new slice is allocated if it is nil, otherwise the slice length
@@ -60,14 +70,16 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //     SemanticError since decoding could not determine an appropriate Go type to decode into. Otherwise an
 //     underlying value exists and it recursively decodes the JSON input into it.
 //
+//   - A Go time.Duration currently has no default representation and results in a SemanticError.
+//
 //   - A JSON null is decoded into any of the other values above as its zero value.
 //
 //   - All other Go types (e.g., complex numbers, channels, and functions) have no default representation and
 //     result in a SemanticError.
 //
-// Unmarshal does not decode yet a struct, a map but the map[string]any of an interface value, a value whose type
-// has an UnmarshalJSONFrom, UnmarshalJSON or UnmarshalText method, as time.Time has, nor a time.Duration, and it
-// doesn't call the functions of WithUnmarshalers: a value of such a type fails with a SemanticError.
+// Unmarshal does not decode yet a value whose type has an UnmarshalJSONFrom, UnmarshalJSON or UnmarshalText method,
+// as time.Time has, and it doesn't call the functions of WithUnmarshalers: a value of such a type fails with a
+// SemanticError.
 func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()
@@ -124,6 +136,12 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 	}
 	if c.Has(options.StringifyNumbers) {
 		flags |= decoder.V2StringifyNumbers
+	}
+	if c.Has(options.MatchCaseInsensitiveNames) {
+		flags |= decoder.V2MatchCaseInsensitiveNames
+	}
+	if c.Has(options.RejectUnknownMembers) {
+		flags |= decoder.V2RejectUnknownMembers
 	}
 	return flags
 }
@@ -193,12 +211,17 @@ func unmarshalError(in []byte, err error, cfg *options.Config) error {
 	switch {
 	case e.NoKind:
 		read = textcoder.ReadNothing
-	case readsWhole(e.GoType):
+	case e.GoType != nil && readsWhole(e.GoType):
 		read = textcoder.ReadValue
 	}
 	ptr, serr := textcoder.UnmarshalPlace(in, cfg, e.Start, read)
 	if serr != nil {
 		return serr
+	}
+	if e.Err == ierrors.ErrDuplicateName {
+		// a name of an object of a struct or of a map, which is the one of an earlier member by its field or its
+		// key: a syntax error of the name.
+		return &jsontext.SyntacticError{ByteOffset: e.Start, JSONPointer: jsontext.Pointer(ptr), Err: e.Err}
 	}
 	se := &SemanticError{
 		action: "unmarshal", ByteOffset: e.Start, JSONPointer: jsontext.Pointer(ptr), GoType: e.GoType,

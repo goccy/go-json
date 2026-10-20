@@ -3,11 +3,15 @@
 package json_test
 
 import (
+	stdjsontext "encoding/json/jsontext"
+	stdjson "encoding/json/v2"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/goccy/go-json/jsontext"
+	json "github.com/goccy/go-json/v2"
 )
 
 // The cases of structs and maps of TestUnmarshalMatchesStd.
@@ -50,26 +54,21 @@ type udOuterUnexportedPtr struct {
 	C int
 }
 
-type udRawFallback struct {
-	A    int
-	Rest jsontext.Value `json:",unknown"`
-}
-
 type udMapFallback struct {
 	A    int
-	Rest map[string]any `json:",unknown"`
+	Rest map[string]any `json:",embed"`
 }
 
 type udNamedKey string
 
 type udNamedMapFallback struct {
 	A    int
-	Rest map[udNamedKey]int `json:",unknown"`
+	Rest map[udNamedKey]int `json:",embed"`
 }
 
 type udPtrFallback struct {
 	A    int
-	Rest *map[string]int `json:",unknown"`
+	Rest *map[string]int `json:",embed"`
 }
 
 type udInlinedFallback struct {
@@ -182,12 +181,6 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct embedded pointer not set", in: `{"C":2}`, out: outOf(udOuterPtr{})},
 		{name: "struct embedded unexported pointer", in: `{"X":1}`, out: outOf(udOuterUnexportedPtr{})},
 		{name: "struct embedded unexported pointer set", in: `{"X":1}`, out: outOf(udOuterUnexportedPtr{udUnexportedEmbed: &udUnexportedEmbed{}})},
-		{name: "struct raw fallback", in: `{"A":1,"B":[2],"C":{"d":3}}`, out: outOf(udRawFallback{})},
-		{name: "struct raw fallback appended", in: `{"B":2}`, out: outOf(udRawFallback{Rest: jsontext.Value(`{"a":1} `)})},
-		{name: "struct raw fallback after an empty object", in: `{"B":2}`, out: outOf(udRawFallback{Rest: jsontext.Value(`{}`)})},
-		{name: "struct raw fallback not an object", in: `{"B":2}`, out: outOf(udRawFallback{Rest: jsontext.Value(`[1]`)})},
-		{name: "struct raw fallback of invalid UTF-8", in: "{\"B\":\"\xff\"}", out: outOf(udRawFallback{})},
-		{name: "struct raw fallback rejecting", in: `{"B":2}`, out: outOf(udRawFallback{}), opts: reject},
 		{name: "struct map fallback", in: `{"A":1,"B":[2],"C":{"d":3}}`, out: outOf(udMapFallback{})},
 		{name: "struct map fallback merged", in: `{"B":{"y":2}}`, out: outOf(udMapFallback{Rest: map[string]any{"B": map[string]any{"x": 1.0}}})},
 		{name: "struct map fallback twice", in: `{"B":1,"B":2}`, out: outOf(udMapFallback{})},
@@ -284,8 +277,6 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct embedded unexported struct", in: `{"X":1}`, out: outOf(udUnexportedValue{})},
 		{name: "struct case ignore of non-ASCII", in: `{"ÉTÉ":"x"}`, out: outOf(udNonASCIICased{})},
 		{name: "struct case ignore ambiguous", in: `{"ab":1}`, out: outOf(udAmbiguousIgnore{})},
-		{name: "struct raw fallback of an escaped name", in: `{"B":2}`, out: outOf(udRawFallback{})},
-		{name: "struct raw fallback of white space", in: `{"B":2}`, out: outOf(udRawFallback{Rest: jsontext.Value(" ")})},
 		{name: "map of int8 keys overflow", in: `{"128":1}`, out: outOf(map[int8]int(nil))},
 		{name: "map of uintptr keys", in: `{"5":1}`, out: outOf(map[uintptr]int(nil))},
 		{name: "map of float32 keys overflow", in: `{"1e40":1}`, out: outOf(map[float32]int(nil))},
@@ -367,4 +358,55 @@ type udStringOptionMore struct {
 	S udPoint `json:",string"`
 	A [1]int  `json:",string"`
 	P *[]int  `json:",string"`
+}
+
+// udRawFallback and udStdRawFallback are a struct of a raw embedded fallback for each package: the jsontext.Value of
+// each is its own type, which the other doesn't take as one.
+type udRawFallback struct {
+	A    int
+	Rest jsontext.Value `json:",embed"`
+}
+
+type udStdRawFallback struct {
+	A    int
+	Rest stdjsontext.Value `json:",embed"`
+}
+
+// TestUnmarshalRawFallbackMatchesStd compares the decoding into a struct of a raw embedded fallback, a
+// jsontext.Value, with the one of encoding/json/v2, each of its own type: the errors, and the values without one.
+func TestUnmarshalRawFallbackMatchesStd(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		in   string
+		rest string
+		opts unmarshalDiffOptions
+	}{
+		{name: "members", in: `{"A":1,"B":[2],"C":{"d":3}}`},
+		{name: "appended", in: `{"B":2}`, rest: `{"a":1} `},
+		{name: "after an empty object", in: `{"B":2}`, rest: `{}`},
+		{name: "after a comma", in: `{"B":2}`, rest: `{"a":1,}`},
+		{name: "not an object", in: `{"B":2}`, rest: `[1]`},
+		{name: "white space", in: `{"B":2}`, rest: " \n"},
+		{name: "invalid UTF-8", in: "{\"B\":\"\xff\"}"},
+		{name: "invalid UTF-8 allowed", in: "{\"B\":\"\xff\"}", opts: invalidUTF8},
+		{name: "rejecting unknown members", in: `{"B":2}`, opts: reject},
+		{name: "escaped name", in: `{"B":2}`},
+		{name: "name twice", in: `{"B":1,"B":2}`},
+		{name: "name twice allowed", in: `{"B":1,"B":2}`, opts: duplicates},
+		{name: "syntax error in a member", in: `{"B":[1,}`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			ours := &udRawFallback{Rest: jsontext.Value(c.rest)}
+			theirs := &udStdRawFallback{Rest: stdjsontext.Value(c.rest)}
+			err := json.Unmarshal([]byte(c.in), ours, c.opts.ours()...)
+			stdErr := stdjson.Unmarshal([]byte(c.in), theirs, c.opts.std()...)
+			want := strings.ReplaceAll(describeUnmarshalError(stdErr), "udStdRawFallback", "udRawFallback")
+			if got := describeUnmarshalError(err); got != want {
+				t.Fatalf("error:\n got %s\nwant %s", got, want)
+			}
+			if err == nil && (ours.A != theirs.A || string(ours.Rest) != string(theirs.Rest)) {
+				t.Fatalf("value:\n got %d %q\nwant %d %q", ours.A, ours.Rest, theirs.A, theirs.Rest)
+			}
+		})
+	}
 }

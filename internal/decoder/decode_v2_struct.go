@@ -222,7 +222,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		case field != nil:
 			cursor, err = field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
 		case d.fallback != nil:
-			cursor, err = d.fallback.decodeMember(ctx, cursor, depth, p, buf[start:end])
+			cursor, err = d.fallback.decodeMember(ctx, cursor, depth, p, start, end)
 		default:
 			cursor, err = ctx.skipValueV2(cursor, depth)
 		}
@@ -389,9 +389,10 @@ func (fb *v2Fallback) target(p unsafe.Pointer) unsafe.Pointer {
 	return p
 }
 
-// decodeMember decodes the value at cursor of the member whose name, quoted as the input has it, is of no field of
-// the struct at p, into its fallback.
-func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, quoted []byte) (int64, error) {
+// decodeMember decodes the value at cursor of the member whose name, between start and end of the input, quoted, is
+// of no field of the struct at p, into its fallback.
+func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, start, end int64) (int64, error) {
+	quoted := ctx.Buf[start:end]
 	target := fb.target(p)
 	if fb.mapType == nil {
 		// the value which the member is appended to is checked before the value of the member is read
@@ -401,23 +402,26 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 		} else {
 			*b = bytes.TrimRight(*b, " \t\r\n")
 			if len(*b) == 0 || (*b)[len(*b)-1] != '}' {
-				return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Err: errRawNotObject}
+				// the error of the member, at its name
+				return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: errRawNotObject}
 			}
 			*b = bytes.TrimRight((*b)[:len(*b)-1], " \t\r\n")
 			if n := len(*b); n == 0 || (*b)[n-1] != ',' && (*b)[n-1] != '{' {
 				*b = append(*b, ',')
 			}
 		}
-		start := skipWhiteSpace(ctx.Buf, cursor)
-		end, err := ctx.skipValueV2(start, depth)
+		valueStart := skipWhiteSpace(ctx.Buf, cursor)
+		valueEnd, err := ctx.skipValueV2(valueStart, depth)
 		if err != nil {
-			return 0, err
+			// a syntax error of the value, which encoding/json/v2 reads whole: the v2 json package reads it whole
+			// to find it again ( see readsWhole ).
+			return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: valueStart, Err: err}
 		}
 		*b = append(*b, quoted...)
 		*b = append(*b, ':')
-		*b = append(*b, ctx.Buf[start:end]...)
+		*b = append(*b, ctx.Buf[valueStart:valueEnd]...)
 		*b = append(*b, '}')
-		return end, nil
+		return valueEnd, nil
 	}
 	m := valueAt(ptrTypeOf(fb.mapType), target)
 	if m.IsNil() {

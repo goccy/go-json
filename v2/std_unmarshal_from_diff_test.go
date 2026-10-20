@@ -67,6 +67,7 @@ func ufRead[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D
 		}
 		return errors.New("an object")
 	}
+	from := dec.InputOffset()
 	v, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -76,7 +77,7 @@ func ufRead[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D
 		k, n := dec.StackIndex(i)
 		levels += fmt.Sprintf("%c%d", max(k, '0'), n)
 	}
-	*got = fmt.Sprintf("%s at %s, %d, %s, %d, %s", v, dec.StackPointer(), dec.StackDepth(), levels, dec.InputOffset(), opts)
+	*got = fmt.Sprintf("%s at %s, %d, %s, from %d to %d, %s", v, dec.StackPointer(), dec.StackDepth(), levels, from, dec.InputOffset(), opts)
 	switch string(v) {
 	case `"unsupported"`:
 		return errors.ErrUnsupported
@@ -113,6 +114,27 @@ func (u *ufStd) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
 func (u *ufStd) UnmarshalJSON(b []byte) error {
 	u.Got = "UnmarshalJSON " + string(b)
 	return nil
+}
+
+// ufOursTokens and ufStdTokens read their value token by token, to its end, and fail.
+type ufOursTokens struct{}
+
+func (*ufOursTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return ufReadTokens(dec) }
+
+type ufStdTokens struct{}
+
+func (*ufStdTokens) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error { return ufReadTokens(dec) }
+
+func ufReadTokens[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D) error {
+	depth := dec.StackDepth()
+	for {
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		if dec.StackDepth() == depth {
+			return errors.New("read by tokens")
+		}
+	}
 }
 
 type ufFieldsOurs struct {
@@ -279,6 +301,12 @@ func ufCases() []ufCase {
 		c("method error after a literal", `{"a": false}`, ufOut[map[string]ufOurs, map[string]ufStd], umOptions{}),
 		c("method error after a literal at the top level", ` false `, ufOut[ufOurs, ufStd], umOptions{}),
 		c("method of an array type", `["a", ["b"]]`, ufOut[[2]ufOurs, [2]ufStd], umOptions{}),
+		c("method of white space around delimiters", `[ "a" , "b" ,"c"]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
+		c("method of a member of white space", `{ "a" : "x" , "b":"y"}`, ufOut[map[string]ufOurs, map[string]ufStd], umOptions{}),
+		c("method of keys of white space", `{ "a" : 1 , "b" :2}`, ufOut[map[ufOurs]int, map[ufStd]int], umOptions{}),
+		c("method error after the end of an array", ` [true] `, ufOut[ufOursTokens, ufStdTokens], umOptions{}),
+		c("method error after the end of nested arrays", `[[[{"a":null}]]]`, ufOut[[]ufOursTokens, []ufStdTokens], umOptions{}),
+		c("method error after the end of a field", `{"X":[true]}`, ufOut[struct{ X ufOursTokens }, struct{ X ufStdTokens }], umOptions{}),
 		c("method of no input", ``, ufOut[ufOurs, ufStd], umOptions{}),
 		c("method of white space", ` `, ufOut[ufOurs, ufStd], umOptions{}),
 		c("method of an element cut", `[`, ufOut[[]ufOurs, []ufStd], umOptions{}),

@@ -148,30 +148,36 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 }
 
 // placeBefore returns the place in front of the value at start of in, which a decoder attached to it reads from: the
-// end of the token before the value, in front of the delimiter, and the innermost level which the delimiter tells,
-// whether it is an object, whether it is the top level, and its count, of which only the parity, which the
-// delimiter needs, is right: the real one is in the levels of the state. The value is a name of an object if it is
-// the key of a map.
+// end of the token before the value, in front of the delimiter and the white space, where the input offset of
+// encoding/json/v2 is, and the innermost level which the delimiter tells, whether it is an object, whether it is
+// the top level, and its count, of which only the parity, which the delimiter needs, is right: the real one is in
+// the levels of the state. The value is a name of an object if it is the key of a map.
 func placeBefore(in []byte, start int64) (int, bool, bool, int64) {
 	name := isName(in, start)
 	i := start - 1
 	for i >= 0 && isSpace(in[i]) {
 		i--
 	}
-	switch {
-	case i < 0:
+	if i < 0 {
 		return 0, false, true, 0
-	case in[i] == ':':
-		return int(i), true, false, 1
-	case in[i] == ',':
-		// the next name of an object, or the next element of an array
-		if name {
-			return int(i), true, false, 2
-		}
-		return int(i), false, false, 1
 	}
-	// the first name of an object, or the first element of an array
-	return int(start), name, false, 0
+	if in[i] != ':' && in[i] != ',' {
+		// the first name of an object, or the first element of an array, after its begin
+		return int(i) + 1, name, false, 0
+	}
+	end := i
+	for end > 0 && isSpace(in[end-1]) {
+		end--
+	}
+	switch {
+	case in[i] == ':':
+		return int(end), true, false, 1
+	case name:
+		// the next name of an object
+		return int(end), true, false, 2
+	}
+	// the next element of an array
+	return int(end), false, false, 1
 }
 
 // isName reports whether the value at start of in is the name of a member of an object: a string which a colon

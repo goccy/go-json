@@ -79,9 +79,10 @@ func detachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 		// a delimiter or a literal, which ends there: the buffer doesn't keep it as the last token.
 		if c := d.buf[start-1]; c == '{' || c == '}' || c == '[' || c == ']' {
 			start--
-		}
-		for start > 0 && 'a' <= d.buf[start-1] && d.buf[start-1] <= 'z' {
-			start--
+		} else {
+			for start > 0 && 'a' <= d.buf[start-1] && d.buf[start-1] <= 'z' {
+				start--
+			}
 		}
 	}
 	p.Depth, p.Count, p.Pos, p.PrevStart = d.st.depth(), d.st.last().count, d.pos, start

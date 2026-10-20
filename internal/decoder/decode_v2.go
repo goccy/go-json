@@ -699,8 +699,9 @@ type v2InterfaceDecoder struct {
 	ptrType unsafe.Pointer
 	empty   bool
 	fast    *interfaceDecoder
-	// fromAny is whether a function of unmarshaling takes a type of the values of a nil interface{}: the value is
-	// then decoded as a value of its type, by the decoder of the functions ( see decodeByKind ).
+	// fromAny is whether a function of unmarshaling takes an interface{} or a type of the values of a nil
+	// interface{}: a value is then decoded by the decoders of the functions, as a value of its type ( see
+	// decodeByKind ), and never by decodeMerging, which calls no function.
 	fromAny bool
 }
 
@@ -724,7 +725,7 @@ func (c *compiler) newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
 	d := &v2InterfaceDecoder{
 		typ: typ, ptrType: ptrTypeOf(typ), empty: typ.NumMethod() == 0, fast: newEmptyInterfaceDecoder("", ""),
 	}
-	for _, t := range []reflect.Type{boolType, stringType, float64Type, interfaceMapType, anySliceType} {
+	for _, t := range []reflect.Type{emptyInterfaceType, boolType, stringType, float64Type, interfaceMapType, anySliceType} {
 		d.fromAny = d.fromAny || len(c.funcs.funcsOf(t)) > 0
 	}
 	return d
@@ -776,15 +777,11 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 }
 
 // decodeByKind decodes the value at cursor into the nil interface value at p as a value of the type of its kind,
-// by the decoder of the functions of unmarshaling, which the interface value is set to: an object is merged into a
-// new map ( see decodeMerging ), unless a function takes the map.
+// by the decoder of the functions of unmarshaling, which the interface value is set to.
 func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	typ := anyValueTypes[ctx.Buf[cursor]]
 	if typ == nil {
 		return 0, syntaxErrorAt(ctx.Buf, cursor, whereValue)
-	}
-	if typ == interfaceMapType && d.merges(ctx, typ) {
-		return d.decodeMerging(ctx, cursor, depth, p)
 	}
 	v := reflect.New(typ)
 	dec, err := ctx.DecoderOfV2(runtime.TypePtr(v.Type()))
@@ -796,17 +793,11 @@ func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int
 	return next, err
 }
 
-// merges reports whether a value of typ, a map[string]interface{} or a []interface{}, is decoded by decodeMerging:
-// unless a function of unmarshaling takes it.
-func (d *v2InterfaceDecoder) merges(ctx *RuntimeContext, typ reflect.Type) bool {
-	return !d.fromAny || len(ctx.v2Funcs.funcsOf(typ)) == 0
-}
-
 // decodeHeld decodes the value at cursor into the value which the interface value at p holds.
 func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	iface := valueAt(d.ptrType, p)
 	held := iface.Elem()
-	if d.empty && (held.Type() == interfaceMapType || held.Type() == anySliceType) && d.merges(ctx, held.Type()) {
+	if !d.fromAny && (held.Type() == interfaceMapType || held.Type() == anySliceType) {
 		return d.decodeMerging(ctx, cursor, depth, p)
 	}
 	v := reflect.New(held.Type())
@@ -859,7 +850,7 @@ func (d *v2InterfaceDecoder) decodeMerging(ctx *RuntimeContext, cursor, depth in
 // decodeMerging too, so that the input is read once, whatever names it has twice.
 func (d *v2InterfaceDecoder) decodeElem(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
-	if c := ctx.Buf[cursor]; (c == '{' || c == '[') && *(*any)(p) == nil && !d.fromAny {
+	if c := ctx.Buf[cursor]; (c == '{' || c == '[') && *(*any)(p) == nil {
 		return d.decodeMerging(ctx, cursor, depth, p)
 	}
 	return d.Decode(ctx, cursor, depth, p)
@@ -877,16 +868,6 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}
-	// the names are decoded by a function of unmarshaling which takes a string, if one does, as encoding/json/v2
-	// decodes the names of a map[string]interface{}
-	var nameDec Decoder
-	if d.fromAny && len(ctx.v2Funcs.funcsOf(stringType)) > 0 {
-		dec, err := ctx.DecoderOfV2(runtime.TypePtr(reflect.PointerTo(stringType)))
-		if err != nil {
-			return 0, err
-		}
-		nameDec = dec
-	}
 	var names nameSet
 	for {
 		if buf[cursor] != '"' {
@@ -901,13 +882,6 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		}
 		if !names.add(key) && ctx.Option.V2&V2AllowDuplicateNames == 0 {
 			return 0, errV2Text
-		}
-		if nameDec != nil {
-			// the function is given the name after the checks of the name, and a new string
-			key = ""
-			if _, err := nameDec.Decode(ctx, cursor, depth, unsafe.Pointer(&key)); err != nil {
-				return 0, err
-			}
 		}
 		cursor = skipWhiteSpace(buf, c)
 		if buf[cursor] != ':' {

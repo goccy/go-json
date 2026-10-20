@@ -441,7 +441,11 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 // type, but the numbers, which are in the names, as with StringifyNumbers.
 func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
 	if typ == interfaceMapType {
-		return &v2AnyMapDecoder{iface: c.newV2InterfaceDecoder(emptyInterfaceType)}, nil
+		// a function of unmarshaling which takes a string, an interface{} or a type of its values decodes the
+		// names or the values: the map is then decoded as any other
+		if iface := c.newV2InterfaceDecoder(emptyInterfaceType); !iface.fromAny {
+			return &v2AnyMapDecoder{iface: iface}, nil
+		}
 	}
 	d := &v2MapDecoder{typ: typ, ptrType: ptrTypeOf(typ)}
 	c.decoders[uintptr(runtime.TypePtr(typ))] = d
@@ -576,8 +580,7 @@ func (d *v2MapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 }
 
 // v2AnyMapDecoder is the decoder of a map[string]interface{} of v2, which is decoded as the one of an interface{}: a
-// nil map as a nil interface{}, by v1, and else merged ( see v2InterfaceDecoder.decodeMerging ), as a nil map is if a
-// function of unmarshaling takes a value of an interface{}.
+// nil map as a nil interface{}, by v1, and else merged ( see v2InterfaceDecoder.decodeMerging ).
 type v2AnyMapDecoder struct {
 	iface *v2InterfaceDecoder
 }
@@ -600,7 +603,7 @@ func (d *v2AnyMapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	var v any
 	var next int64
 	var err error
-	if m == nil && !d.iface.fromAny {
+	if m == nil {
 		next, err = d.iface.Decode(ctx, cursor, depth, unsafe.Pointer(&v))
 	} else {
 		v = m

@@ -157,6 +157,10 @@ var (
 		*v = string(b)
 		return nil
 	})
+	umOneName = umFuncs(func(b []byte, v *string) error {
+		*v = "name"
+		return nil
+	})
 	umAnyFunc = umFuncs(func(b []byte, v *any) error {
 		*v = "any:" + string(b)
 		return nil
@@ -195,7 +199,10 @@ func umCases() []umCase {
 		{name: "both methods", in: `"x"`, out: outOf(umBoth{})},
 		{name: "fields", in: `{"T":"a","P":"b","J":[1],"JP":2,"Tm":"2006-01-02T15:04:05Z","TP":"2006-01-02T15:04:05Z"}`, out: outOf(umFields{})},
 		{name: "fields null", in: `{"T":null,"P":null,"J":null,"JP":null,"Tm":null,"TP":null}`,
-			out: outOf(umFields{T: umText{S: "x"}, P: &umText{}, J: umJSON{Raw: "x"}, JP: &umJSON{}, Tm: time.Unix(1, 0).UTC(), TP: new(time.Time)})},
+			out: func() any {
+				v := umFields{T: umText{S: "x"}, P: &umText{}, J: umJSON{Raw: "x"}, JP: &umJSON{}, Tm: time.Unix(1, 0).UTC(), TP: new(time.Time)}
+				return &v
+			}},
 		{name: "fields error", in: `{"T":"a","J":"bad"}`, out: outOf(umFields{})},
 		{name: "map of text keys", in: `{"a":1,"b":2}`, out: outOf(map[umTextKey]int(nil))},
 		{name: "map of text keys escaped", in: `{"\u0061":1}`, out: outOf(map[umTextKey]int(nil))},
@@ -234,7 +241,16 @@ func umCases() []umCase {
 		{name: "function of maps into any", in: `[{"a":1},2]`, out: outOf[any](nil), opts: umMapFunc},
 		{name: "function of any", in: `[1,"a"]`, out: outOf([]any(nil)), opts: umAnyFunc},
 		{name: "function of strings into a map of any", in: `{"a":"x","b":[1,"y"]}`, out: outOf(map[string]any(nil)), opts: umStringFunc},
-		{name: "function of strings into an existing map of any", in: `{"a":"x"}`, out: outOf(map[string]any{"z": 1.0}), opts: umStringFunc},
+		{name: "function of strings into an existing map of any", in: `{"a":"x"}`,
+			out: func() any { v := map[string]any{"z": 1.0}; return &v }, opts: umStringFunc},
+		{name: "function of any into a map of any", in: `{"a":1,"b":[2]}`, out: outOf(map[string]any(nil)), opts: umAnyFunc},
+		{name: "function of any into an existing map of any", in: `{"a":1}`,
+			out: func() any { v := map[string]any{"z": 1.0}; return &v }, opts: umAnyFunc},
+		{name: "function of any into a field of a map of any", in: `{"M":{"a":1}}`, out: outOf(struct{ M map[string]any }{}), opts: umAnyFunc},
+		{name: "functions of any and strings into a map of any", in: `{"a":1,"b":"s"}`, out: outOf(map[string]any(nil)),
+			opts: umJoin(umAnyFunc, umStringFunc)},
+		{name: "function of strings into any of names of one key", in: `{"a":1,"b":2}`, out: outOf[any](nil), opts: umOneName},
+		{name: "function of strings into a map of any of names of one key", in: `{"a":1,"b":2}`, out: outOf(map[string]any(nil)), opts: umOneName},
 		{name: "function of strings into any of a syntax error", in: `["a",x]`, out: outOf[any](nil), opts: umStringFunc},
 		{name: "function of strings into any of a name twice", in: `{"a":1,"a":2}`, out: outOf[any](nil), opts: umStringFunc},
 		{name: "function of strings into any of a name twice allowed", in: `{"a":1,"a":2}`, out: outOf[any](nil),
@@ -242,8 +258,8 @@ func umCases() []umCase {
 		{name: "function error of a name into any", in: `{"a":{"bad":1}}`, out: outOf[any](nil), opts: umStringFailing},
 		{name: "function of slices into any", in: `{"a":[1],"b":{"c":[2]}}`, out: outOf[any](nil), opts: umSliceFunc},
 		{name: "function of maps into any of arrays", in: `[[{"a":1}],{"b":2}]`, out: outOf[any](nil), opts: umMapFunc},
-		{name: "function of maps into any of a map", in: `{"a":1}`, out: outOf[any](map[string]any{"z": 1.0}), opts: umMapFunc},
-		{name: "function of slices into any of a slice", in: `[1]`, out: outOf[any]([]any{2.0}), opts: umSliceFunc},
+		{name: "function of maps into any of a map", in: `{"a":1}`, out: func() any { var v any = map[string]any{"z": 1.0}; return &v }, opts: umMapFunc},
+		{name: "function of slices into any of a slice", in: `[1]`, out: func() any { var v any = []any{2.0}; return &v }, opts: umSliceFunc},
 	}
 }
 

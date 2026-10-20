@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull requests 1 (#746), 2 and 3 merged, pull request 4 in progress
+- Status: plan approved on 2026-10-19; pull requests 1 (#746) to 4 merged, pull request 5 in progress
 
 ## What
 
@@ -75,9 +75,12 @@ Pull requests, in order (sizes without tests are estimates):
 | 2 | Structs and maps: fields chosen by `jsonfields.Of` (shared with the encoder), exact names, `case:ignore`, `MatchCaseInsensitiveNames`, duplicate names, unknown members (skipped, `RejectUnknownMembers`, inline and unknown fields), `format`, map keys; benchmarks of struct payloads | 1,500-2,000 |
 | 3 | Methods and functions: `UnmarshalJSON`, `UnmarshalText`, `time.Time`, `time.Duration`, `UnmarshalFunc`, `WithUnmarshalers`, `JoinUnmarshalers`, the exported `Unmarshaler` | 600-900 |
 | 4 | `UnmarshalJSONFrom` and `UnmarshalFromFunc`: a `jsontext.Decoder` attached to the input of the engine, the counterpart of the encoder's | 400-600 |
-| 5 | `UnmarshalOf`, the rows of the benchmark report, and v2 at least as fast as v1 | 150 and speed work |
+| 5 | `UnmarshalOf` and the rows of the benchmark report; v2 at least as fast as v1 after pull request 7 | 150, then speed work |
 | 6 | `UnmarshalRead` with bounded memory, and `UnmarshalReadOf` | 600-1,200 |
 | 7 | `UnmarshalDecode` and `UnmarshalDecodeOf` | 500-900 |
+
+The speed work of pull request 5 comes after pull request 7: the API is completed first, as decided on
+2026-10-19 (see the order in [README.md](README.md)).
 
 Then [v1-calls-v2-methods.md](v1-calls-v2-methods.md).
 

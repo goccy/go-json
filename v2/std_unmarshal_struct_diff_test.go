@@ -271,6 +271,11 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "duration map key", in: `{"1":1}`, out: outOf(map[time.Duration]int(nil))},
 		{name: "duration map value", in: `{"a":1}`, out: outOf(map[string]time.Duration(nil))},
 		{name: "duration string option", in: `{"D":"1"}`, out: outOf(udStringDuration{})},
+		{name: "duration pointer field", in: `{"D":1}`, out: outOf(udDurationPointer{})},
+		{name: "duration slice", in: `[1]`, out: outOf([]time.Duration(nil))},
+		{name: "duration slice empty", in: `[]`, out: outOf([]time.Duration(nil))},
+		{name: "map of pointer keys twice escaped", in: `{"1":1,"1":2}`, out: outOf(map[*int]int(nil)), errorOnly: true},
+		{name: "map of string pointer keys twice after replacement", in: "{\"a\xff\":1,\"a\xfe\":2}", out: outOf(map[*string]int(nil)), errorOnly: true, opts: invalidUTF8},
 		{name: "struct embedded three levels", in: `{"A":1,"B":"b","C":2,"D":3}`, out: outOf(udThreeLevels{})},
 		{name: "struct conflicting names at a depth", in: `{"X":1}`, out: outOf(udConflict{})},
 		{name: "struct conflicting names rejected", in: `{"X":1}`, out: outOf(udConflict{}), opts: reject},
@@ -292,6 +297,8 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 }
 
 type udDuration struct{ D time.Duration }
+
+type udDurationPointer struct{ D *time.Duration }
 
 type udStringDuration struct {
 	D time.Duration `json:",string"`

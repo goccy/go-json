@@ -114,6 +114,24 @@ func (o umOptions) and(ours json.Options, std stdjson.Options) umOptions {
 	return umOptions{ours: append(append([]json.Options{}, o.ours...), ours), std: append(append([]stdjson.Options{}, o.std...), std)}
 }
 
+// umNumbering returns the options of a function which decodes every string into the number of the strings it
+// decoded before it: one name of an object is two keys.
+func umNumbering() umOptions {
+	var ours, theirs int
+	return umOptions{
+		ours: []json.Options{json.WithUnmarshalers(json.UnmarshalFunc(func(b []byte, v *string) error {
+			ours++
+			*v = strconv.Itoa(ours)
+			return nil
+		}))},
+		std: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFunc(func(b []byte, v *string) error {
+			theirs++
+			*v = strconv.Itoa(theirs)
+			return nil
+		}))},
+	}
+}
+
 // The functions of the cases.
 var (
 	umLength = umFuncs(func(b []byte, v *int) error {
@@ -230,6 +248,9 @@ func umCases() []umCase {
 		{name: "function duplicate name", in: `[{"a":1,"a":2}]`, out: outOf([]map[string]int(nil)), opts: umFuncs(func(b []byte, v *map[string]int) error { return nil })},
 		{name: "function declining", in: `[1]`, out: outOf([]int(nil)), opts: umDeclining},
 		{name: "function of a map key", in: `{"1":1}`, out: outOf(map[int]int(nil)), opts: umLength},
+		{name: "function of map keys of a name twice", in: `{"a":1,"a":2}`, out: outOf(map[string]int(nil)), opts: umNumbering()},
+		{name: "function of map keys of a name twice allowed", in: `{"a":1,"a":2}`, out: outOf(map[string]int(nil)),
+			opts: umNumbering().and(jsontext.AllowDuplicateNames(true), stdjsontext.AllowDuplicateNames(true))},
 		{name: "function before a method", in: `"x"`, out: outOf(umText{}), opts: umTextFunc},
 		{name: "function of an interface", in: `{"T":"x","P":"y"}`, out: outOf(umFields{}), opts: umTextFunc},
 		{name: "functions joined", in: `[12]`, out: outOf([]int(nil)), opts: umJoin(umDouble, umLength)},

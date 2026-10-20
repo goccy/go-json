@@ -476,9 +476,14 @@ type v2MapDecoder struct {
 
 var emptyStructType = reflect.TypeOf(struct{}{})
 
-// uniqueKeyNames reports whether two names of an object which are decoded into equal keys of the kind are equal: a
-// bool, an integer, and a string, unless its invalid UTF-8 is replaced.
-func uniqueKeyNames(kind reflect.Kind, allowInvalidUTF8 bool) bool {
+// uniqueKeyNames reports whether two names of an object which dec decodes into equal keys of the kind are equal: a
+// bool, an integer, and a string, unless its invalid UTF-8 is replaced, which are decoded by their kind. A method
+// or a function of unmarshaling may decode two names into one key, and one name into two keys.
+func uniqueKeyNames(dec Decoder, kind reflect.Kind, allowInvalidUTF8 bool) bool {
+	switch dec.(type) {
+	case *v2FuncDecoder, *v2UnmarshalJSONDecoder, *v2UnmarshalTextDecoder:
+		return false
+	}
 	switch kind {
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -519,13 +524,14 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	// the keys of the object, if the map had keys before, which a name of the object can't be told from by the map;
 	// and the names of the object as they are written, which a key of another kind than a bool, an integer and a
-	// string of valid UTF-8 doesn't tell apart, as a pointer, a float or an interface value.
+	// string of valid UTF-8 doesn't tell apart, as a pointer, a float or an interface value, nor a key which a method
+	// or a function decodes.
 	var seen reflect.Value
 	if checkNames && m.Len() > 0 {
 		seen = reflect.MakeMap(reflect.MapOf(d.typ.Key(), emptyStructType))
 	}
 	var names *nameSet
-	if checkNames && !uniqueKeyNames(d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
+	if checkNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		names = &nameSet{}
 	}
 	k, v := reflect.New(d.typ.Key()), reflect.New(d.typ.Elem())

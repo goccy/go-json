@@ -39,10 +39,8 @@ var (
 	// errNoDefaultRepresentation is the error of a time.Duration, which v2 has no representation of without the
 	// `format` option.
 	errNoDefaultRepresentation = stderrors.New("no default representation")
-	// errV2NotSupported is the error of a type which the decoding of v2 doesn't support yet.
-	errV2NotSupported = stderrors.New("not supported yet by github.com/goccy/go-json/v2")
-	errArrayUnderflow = stderrors.New("too few array elements")
-	errArrayOverflow  = stderrors.New("too many array elements")
+	errArrayUnderflow          = stderrors.New("too few array elements")
+	errArrayOverflow           = stderrors.New("too many array elements")
 )
 
 var timeDurationType = reflect.TypeOf(time.Duration(0))
@@ -73,8 +71,8 @@ func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, 
 // DecoderOfV2 returns the decoder of the semantics of encoding/json/v2 of the type, for the options and the
 // functions of unmarshaling of ctx.
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
-	if ctx.v2Funcs != nil {
-		return ctx.v2Funcs.decoderOf(typ, ctx.Option.V2&V2StringifyNumbers != 0)
+	if funcs := ctx.v2Funcs(); funcs != nil {
+		return funcs.decoderOf(typ, ctx.Option.V2&V2StringifyNumbers != 0)
 	}
 	return CompileToGetDecoderV2(typ, ctx.Option.V2&V2StringifyNumbers != 0)
 }
@@ -85,9 +83,40 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 		return dec, nil
 	}
 	if funcs := c.funcs.funcsOf(typ); len(funcs) > 0 {
-		// a function of UnmarshalFunc can't decline: the first one decodes the value
-		return &v2FuncDecoder{typ: typ, fn: funcs[0]}, nil
+		d := &v2FuncDecoder{typ: typ, funcs: funcs}
+		for i, fn := range funcs {
+			if !fn.Declines {
+				// the functions after it are never called
+				d.funcs = funcs[:i+1]
+				return d, nil
+			}
+		}
+		return d, c.compileNextV2(d, &d.next, typ, methodUnmarshalJSONFrom, structName, fieldName)
 	}
+	return c.compileDefaultV2(typ, methodUnmarshalJSONFrom, structName, fieldName)
+}
+
+// compileNextV2 compiles into next the decoder of typ which dec leaves a value to, by the methods of typ from first
+// on, or by its kind ( see compileDefaultV2 ): dec stays the decoder of typ in c.decoders, so that the values of typ
+// within the value are decoded by it too. Only a type which may have values of itself is put there: a decoder of a
+// kind of v1 looks itself up there ( see compileKind ).
+func (c *compiler) compileNextV2(dec Decoder, next *Decoder, typ reflect.Type, first int, structName, fieldName string) error {
+	key := uintptr(runtime.TypePtr(typ))
+	switch typ.Kind() {
+	case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array, reflect.Pointer:
+		if _, exists := c.decoders[key]; !exists {
+			c.decoders[key] = dec
+		}
+	}
+	d, err := c.compileDefaultV2(typ, first, structName, fieldName)
+	*next = d
+	return err
+}
+
+// compileDefaultV2 returns the decoder of a value of typ without the functions of unmarshaling: by the time types,
+// by the first of its methods of unmarshaling from first on, or by its kind. A method which may decline a value
+// leaves it to the decoder of the methods after it.
+func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fieldName string) (Decoder, error) {
 	switch typ {
 	case timeDurationType:
 		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
@@ -97,8 +126,14 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 		}
 		return v2TimeDecoder{}, nil
 	}
-	if dec := compileMethodV2(typ); dec != nil {
-		return dec, nil
+	switch v2MethodOf(typ, first) {
+	case methodUnmarshalJSONFrom:
+		d := &v2UnmarshalFromDecoder{typ: typ}
+		return d, c.compileNextV2(d, &d.next, typ, methodUnmarshalJSON, structName, fieldName)
+	case methodUnmarshalJSON:
+		return &v2UnmarshalJSONDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ))}, nil
+	case methodUnmarshalText:
+		return &v2UnmarshalTextDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ)), zero: newZeroer(typ)}, nil
 	}
 	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) {
 		// the option applies to a number, through pointers

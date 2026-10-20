@@ -1,11 +1,13 @@
 package decoder
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
 	"unsafe"
 
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -17,9 +19,15 @@ import (
 // runtime.CastableTo ).
 type UnmarshalFunc struct {
 	Type reflect.Type
-	// Decode decodes the value at cursor into the value at p, of the type from, and returns the cursor after it.
-	Decode func(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error)
+	// Decode decodes the value at cursor into the value at p, of the type from, and returns the cursor after it, or
+	// ErrUseDefault if the function declined the value, which it may if Declines is set.
+	Decode   func(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error)
+	Declines bool
 }
+
+// ErrUseDefault is the error of a method or a function of unmarshaling which declined a value without reading it:
+// the next function, or the next method or the kind of the type, decodes it.
+var ErrUseDefault = errors.New("json: the value is decoded by the next representation")
 
 // UnmarshalFuncs are the functions of unmarshaling of a call, in the order they are tried, with the decoders
 // compiled for them.
@@ -66,19 +74,53 @@ func (f *UnmarshalFuncs) funcsOf(typ reflect.Type) []*UnmarshalFunc {
 	return v.([]*UnmarshalFunc)
 }
 
-// SetV2Funcs makes ctx decode by the functions of unmarshaling, or by none if funcs is nil.
-func (ctx *RuntimeContext) SetV2Funcs(funcs *UnmarshalFuncs) {
-	ctx.v2Funcs = funcs
+// V2Call is the state of a call of the v2 json package which its decoders read, which a context keeps from a call to
+// the next once a call made it ( see RuntimeContext.V2Call ).
+type V2Call struct {
+	// Funcs are the functions of unmarshaling of the call, which the decoders are compiled for ( see
+	// DecoderOfV2 ), or nil.
+	Funcs *UnmarshalFuncs
+	// Config are the options of the call, which a method or a function of unmarshaling which reads a
+	// jsontext.Decoder is given.
+	Config *options.Config
+	// From is the state of the v2 json package for the methods and the functions which read a jsontext.Decoder,
+	// which the decoder doesn't know.
+	From unsafe.Pointer
 }
 
-// v2FuncDecoder is the decoder of a value of a type which a function of unmarshaling takes, which decodes it.
+// V2Call returns the state of the call of the v2 json package which decodes by ctx, which it makes the first time.
+func (ctx *RuntimeContext) V2Call() *V2Call {
+	if ctx.v2 == nil {
+		ctx.v2 = new(V2Call)
+	}
+	return ctx.v2
+}
+
+// v2Funcs returns the functions of unmarshaling of the call which decodes by ctx, or nil.
+func (ctx *RuntimeContext) v2Funcs() *UnmarshalFuncs {
+	if v2 := ctx.v2; v2 != nil {
+		return v2.Funcs
+	}
+	return nil
+}
+
+// v2FuncDecoder is the decoder of a value of a type which the functions of unmarshaling take, which decode it in
+// their order: a function which declines it leaves it to the next one, and the last one to next, the decoder of
+// the type without them, which is nil if the last one can't decline.
 type v2FuncDecoder struct {
-	typ reflect.Type
-	fn  *UnmarshalFunc
+	typ   reflect.Type
+	funcs []*UnmarshalFunc
+	next  Decoder
 }
 
 func (d *v2FuncDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	return d.fn.Decode(ctx, cursor, depth, p, d.typ)
+	for _, fn := range d.funcs {
+		next, err := fn.Decode(ctx, cursor, depth, p, d.typ)
+		if err != ErrUseDefault {
+			return next, err
+		}
+	}
+	return d.next.Decode(ctx, cursor, depth, p)
 }
 
 func (d *v2FuncDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

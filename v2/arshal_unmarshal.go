@@ -27,13 +27,17 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 // Functions or methods that operate on *T are only called when decoding a value of type T (by taking its address)
 // or a non-nil value of *T. Unmarshal ensures that a value is always addressable (by boxing it on the heap if
 // necessary) so that these functions and methods can be consistently called. If a value must be shallow copied to
-// call a pointer-receiver Unmarshaler or encoding.TextUnmarshaler method, then any mutations performed by the
-// method are shallow copied back into the destination value.
+// call a pointer-receiver Unmarshaler, UnmarshalerFrom, or encoding.TextUnmarshaler method, then any mutations
+// performed by the method are shallow copied back into the destination value.
 //
 // The input is decoded into the output according to the following rules:
 //
 //   - If any type-specific functions in a WithUnmarshalers option match the value type, then those functions are
-//     called to decode the JSON value.
+//     called to decode the JSON value. If all applicable functions return errors.ErrUnsupported, then the input is
+//     decoded according to subsequent rules.
+//
+//   - If the value type implements UnmarshalerFrom, then the UnmarshalJSONFrom method is called to decode the JSON
+//     value. If the method returns errors.ErrUnsupported, then the input is decoded according to subsequent rules.
 //
 //   - If the value type implements Unmarshaler, then the UnmarshalJSON method is called to decode the JSON value.
 //
@@ -99,9 +103,7 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //
 //   - All other Go types (e.g., complex numbers, channels, and functions) have no default representation and
 //     result in a SemanticError.
-//
-// Unmarshal does not call yet the UnmarshalJSONFrom method of UnmarshalerFrom and the functions of
-// UnmarshalFromFunc: a value of a type which has the method fails with a SemanticError.
+
 func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()
@@ -138,11 +140,16 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 	}
 	ctx.Option.Flags = 0
 	ctx.Option.V2 = flags
+	call := ctx.V2Call()
+	call.Config = cfg
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
-		ctx.SetV2Funcs(u.funcs)
+		call.Funcs = u.funcs
 	}
 	err := decodeInput(ctx, buf, typ, p, cfg)
-	ctx.SetV2Funcs(nil)
+	call.Funcs, call.Config = nil, nil
+	if st := (*fromState)(call.From); st != nil && st.in != nil {
+		st.release()
+	}
 	if cfg != &noOptions {
 		// the config may hold the functions of the caller
 		*cfg = options.Config{}
@@ -225,6 +232,11 @@ func endsAt(buf []byte, cursor int64) bool {
 // reported at its place, which jsontext finds, unless the input has a syntax error before, which encoding/json/v2
 // would meet first.
 func unmarshalError(in []byte, err error, cfg *options.Config) error {
+	switch err.(type) {
+	case *SemanticError, *jsontext.SyntacticError:
+		// the error of a method or a function which read a jsontext.Decoder, at its place ( see unmarshalFrom )
+		return err
+	}
 	e, ok := err.(*ierrors.UnmarshalError)
 	if !ok {
 		if _, serr := textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken); serr != nil {

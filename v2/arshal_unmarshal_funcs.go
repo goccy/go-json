@@ -7,6 +7,7 @@ import (
 	"github.com/goccy/go-json/internal/decoder"
 	ierrors "github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/options"
+	"github.com/goccy/go-json/jsontext"
 )
 
 // Unmarshalers is a list of functions that may override the unmarshal behavior of specific types. Populate
@@ -63,6 +64,24 @@ func UnmarshalFunc[T any](fn func([]byte, T) error) *Unmarshalers {
 			}
 			return end, nil
 		},
+	}}}}
+}
+
+// UnmarshalFromFunc constructs a type-specific unmarshaler that specifies how to unmarshal values of type T. T must
+// be an unnamed pointer or an interface type. The function is always provided with a non-nil pointer value.
+//
+// Implementations must follow the requirements of UnmarshalerFrom.
+//
+// Implementations must not retain the pointer to jsontext.Decoder or the value of T.
+func UnmarshalFromFunc[T any](fn func(*jsontext.Decoder, T) error) *Unmarshalers {
+	t := reflect.TypeFor[T]()
+	assertCastableTo(t, false)
+	return &Unmarshalers{funcs: &decoder.UnmarshalFuncs{Funcs: []decoder.UnmarshalFunc{{
+		Type: t,
+		Decode: func(ctx *decoder.RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error) {
+			return unmarshalFrom(ctx, cursor, depth, t, fromFunc[T]{fn, castTo[T](p, from)})
+		},
+		Declines: true,
 	}}}}
 }
 

@@ -85,6 +85,49 @@ var (
 	Fail func(enc any, err error)
 )
 
+// DecoderAttachment is the place of the input where a decoder is attached ( see AttachDecoder ), and, after
+// AttachDecoder and DetachDecoder, where it stopped reading.
+type DecoderAttachment struct {
+	// In is the whole input, at the offset Base of the input of the call, which the decoder reads from Pos: the end
+	// of the token before the value, so that it reads the delimiter before the value as its own.
+	In   []byte
+	Pos  int
+	Base int64
+	// Object and Count are the innermost level of the place, an open object or array, or the top level if Top is
+	// set: Count has the parity of the place, which is a value, and is 0 only if the level has no token before
+	// it. The levels around it, and its name and its count, Outer gives when the decoder needs them.
+	Object bool
+	Top    bool
+	Count  int64
+	Outer  Outer
+	// OuterDepth is the number of the arrays and the objects which are open around the place in the whole input,
+	// which the decoder counts its levels after: it fails to begin one past the deepest level, as the decoder of
+	// the whole input does.
+	OuterDepth int
+	// Opts are the options of the decoder, which are the ones it was attached with the last time if Same is set.
+	Opts *options.Config
+	Same bool
+	// Depth and Count of the innermost level, Pos and PrevStart, the start of the last token or value which was
+	// read, DetachDecoder sets after the reads; Depth is the one of the place after AttachDecoder.
+	Depth     int
+	PrevStart int
+}
+
+var (
+	// AttachDecoder makes dec, a *jsontext.Decoder, read the input of the place p by its options ( see
+	// DecoderAttachment ).
+	AttachDecoder func(dec unsafe.Pointer, p *DecoderAttachment)
+	// DetachDecoder sets where dec, which AttachDecoder set up, stopped reading in p, and drops its input: a
+	// decoder kept past its call reads nothing more.
+	DetachDecoder func(dec unsafe.Pointer, p *DecoderAttachment)
+	// DecoderPointer returns the JSON pointer of the place of dec, which DetachDecoder detached, which where points
+	// to: the last value which was read (-1), the next value (+1), or the level it is in (0).
+	DecoderPointer func(dec unsafe.Pointer, where int) string
+	// ReleaseDecoder drops the options of dec, which it was attached with, and its outer levels: the decoder, which
+	// is kept for the next call, must not keep the functions of the caller.
+	ReleaseDecoder func(dec unsafe.Pointer)
+)
+
 // Read is how UnmarshalPlace reads the value which it stops at.
 type Read uint8
 

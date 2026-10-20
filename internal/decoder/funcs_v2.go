@@ -20,9 +20,8 @@ import (
 type UnmarshalFunc struct {
 	Type reflect.Type
 	// Decode decodes the value at cursor into the value at p, of the type from, and returns the cursor after it, or
-	// ErrUseDefault if the function declined the value, which it may if Declines is set.
-	Decode   func(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error)
-	Declines bool
+	// ErrUseDefault if the function declined the value, which a function of UnmarshalFromFunc may.
+	Decode func(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error)
 }
 
 // ErrUseDefault is the error of a method or a function of unmarshaling which declined a value without reading it:
@@ -106,7 +105,7 @@ func (ctx *RuntimeContext) v2Funcs() *UnmarshalFuncs {
 
 // v2FuncDecoder is the decoder of a value of a type which the functions of unmarshaling take, which decode it in
 // their order: a function which declines it leaves it to the next one, and the last one to next, the decoder of
-// the type without them, which is nil if the last one can't decline.
+// the type without them.
 type v2FuncDecoder struct {
 	typ   reflect.Type
 	funcs []*UnmarshalFunc

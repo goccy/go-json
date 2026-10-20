@@ -26,31 +26,44 @@ type ufDecoder[V ~[]byte, P ~string, K ~byte, T any] interface {
 	ReadToken() (T, error)
 	PeekKind() K
 	StackDepth() int
+	StackIndex(int) (K, int64)
 	StackPointer() P
 	InputOffset() int64
 }
 
 // ufRead reads dec as the kind of its next value says, and keeps in got what it read: a string is read and kept with
-// the pointer, the depth and the offset of the decoder after it, but "unsupported", which is followed by
-// errors.ErrUnsupported, and "two", which reads the next value too; an array is read whole and kept; null is
-// declined; a bool is not read; a number is read and followed by an error; and an object is read up to its first
-// name, and followed by an error. stringify says whether the options of the decoder stringify numbers.
-func ufRead[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D, got *string, stringify bool) error {
+// the pointer, the depth, the levels and the offset of the decoder after it, and opts, the options it has, but
+// "unsupported", which is followed by errors.ErrUnsupported, and "two", which reads the next value too; an array
+// is read whole and kept; null is declined; true is not read; false and a number are read and followed by an
+// error; and an object is read up to its first name, or whole if it has none, and followed by an error.
+func ufRead[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D, got *string, opts string) error {
 	switch dec.PeekKind() {
 	case 'n':
 		return errors.ErrUnsupported
-	case 't', 'f':
+	case 't':
 		return nil
+	case 'f':
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		return errors.New("false")
 	case '0':
 		if _, err := dec.ReadValue(); err != nil {
 			return err
 		}
 		return errors.New("a number")
 	case '{':
-		for range 2 {
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		if dec.PeekKind() == '}' {
 			if _, err := dec.ReadToken(); err != nil {
 				return err
 			}
+			return errors.New("an empty object")
+		}
+		if _, err := dec.ReadToken(); err != nil {
+			return err
 		}
 		return errors.New("an object")
 	}
@@ -58,7 +71,12 @@ func ufRead[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]](dec D
 	if err != nil {
 		return err
 	}
-	*got = fmt.Sprintf("%s at %s, %d, %d, %v", v, dec.StackPointer(), dec.StackDepth(), dec.InputOffset(), stringify)
+	levels := ""
+	for i := range dec.StackDepth() + 1 {
+		k, n := dec.StackIndex(i)
+		levels += fmt.Sprintf("%c%d", max(k, '0'), n)
+	}
+	*got = fmt.Sprintf("%s at %s, %d, %s, %d, %s", v, dec.StackPointer(), dec.StackDepth(), levels, dec.InputOffset(), opts)
 	switch string(v) {
 	case `"unsupported"`:
 		return errors.ErrUnsupported
@@ -75,7 +93,8 @@ type ufOurs struct{ Got string }
 
 func (u *ufOurs) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	stringify, _ := json.GetOption(dec.Options(), json.StringifyNumbers)
-	return ufRead(dec, &u.Got, stringify)
+	duplicates, _ := json.GetOption(dec.Options(), jsontext.AllowDuplicateNames)
+	return ufRead(dec, &u.Got, fmt.Sprint(stringify, duplicates))
 }
 
 func (u *ufOurs) UnmarshalJSON(b []byte) error {
@@ -87,7 +106,8 @@ type ufStd struct{ Got string }
 
 func (u *ufStd) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
 	stringify, _ := stdjson.GetOption(dec.Options(), stdjson.StringifyNumbers)
-	return ufRead(dec, &u.Got, stringify)
+	duplicates, _ := stdjson.GetOption(dec.Options(), stdjsontext.AllowDuplicateNames)
+	return ufRead(dec, &u.Got, fmt.Sprint(stringify, duplicates))
 }
 
 func (u *ufStd) UnmarshalJSON(b []byte) error {
@@ -114,10 +134,10 @@ type ufValue struct{ Got string }
 func ufFrom() umOptions {
 	return umOptions{
 		ours: []json.Options{json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *ufValue) error {
-			return ufRead(dec, &v.Got, false)
+			return ufRead(dec, &v.Got, "")
 		}))},
 		std: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(dec *stdjsontext.Decoder, v *ufValue) error {
-			return ufRead(dec, &v.Got, false)
+			return ufRead(dec, &v.Got, "")
 		}))},
 	}
 }
@@ -126,10 +146,28 @@ func ufFrom() umOptions {
 func ufFromString() umOptions {
 	return umOptions{
 		ours: []json.Options{json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
-			return ufRead(dec, v, false)
+			return ufRead(dec, v, "")
 		}))},
 		std: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(dec *stdjsontext.Decoder, v *string) error {
-			return ufRead(dec, v, false)
+			return ufRead(dec, v, "")
+		}))},
+	}
+}
+
+// ufFromAny returns the options of a function of interface values, which reads by ufRead into a string it sets.
+func ufFromAny() umOptions {
+	return umOptions{
+		ours: []json.Options{json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+			var got string
+			err := ufRead(dec, &got, "")
+			*v = got
+			return err
+		}))},
+		std: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(dec *stdjsontext.Decoder, v *any) error {
+			var got string
+			err := ufRead(dec, &got, "")
+			*v = got
+			return err
 		}))},
 	}
 }
@@ -237,6 +275,17 @@ func ufCases() []ufCase {
 		c("method reading nothing", `["a", true]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
 		c("method error after its value", `{"x":1}`, ufOut[map[string]ufOurs, map[string]ufStd], umOptions{}),
 		c("method error in an object", `[{"a":1}]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
+		c("method error after the begin of an object", `[ {} ]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
+		c("method error after a literal", `{"a": false}`, ufOut[map[string]ufOurs, map[string]ufStd], umOptions{}),
+		c("method error after a literal at the top level", ` false `, ufOut[ufOurs, ufStd], umOptions{}),
+		c("method of an array type", `["a", ["b"]]`, ufOut[[2]ufOurs, [2]ufStd], umOptions{}),
+		c("method of no input", ``, ufOut[ufOurs, ufStd], umOptions{}),
+		c("method of white space", ` `, ufOut[ufOurs, ufStd], umOptions{}),
+		c("method of an element cut", `[`, ufOut[[]ufOurs, []ufStd], umOptions{}),
+		c("method of an element cut after a comma", `["a",`, ufOut[[]ufOurs, []ufStd], umOptions{}),
+		c("method of a member cut", `{"a":`, ufOut[map[string]ufOurs, map[string]ufStd], umOptions{}),
+		c("method of a key cut", `{"a":1,`, ufOut[map[ufOurs]int, map[ufStd]int], umOptions{}),
+		c("method of a first key cut", `{`, ufOut[map[ufOurs]int, map[ufStd]int], umOptions{}),
 		c("method error in a nested object", `{"x":{"y":{"a":1}}}`, ufOut[map[string]map[string]ufOurs, map[string]map[string]ufStd], umOptions{}),
 		c("method reading the next value", `["two", "x"]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
 		c("method unsupported after reading", `["unsupported"]`, ufOut[[]ufOurs, []ufStd], umOptions{}),
@@ -247,6 +296,7 @@ func ufCases() []ufCase {
 		c("method invalid UTF-8 in its value", "[\"a\xffb\"]", ufOut[[]ufOurs, []ufStd], umOptions{}),
 		c("method invalid UTF-8 in its value allowed", "[\"a\xffb\"]", ufOut[[]ufOurs, []ufStd], invalidUTF8),
 		c("method with options", `["a"]`, ufOut[[]ufOurs, []ufStd], stringify),
+		c("method with other options", `["a"]`, ufOut[[]ufOurs, []ufStd], duplicates),
 		c("method of map keys", `{"a":1, "b":2}`, ufOut[map[ufOurs]int, map[ufStd]int], umOptions{}),
 		c("method of map keys of a name twice", `{"a":1,"a":2}`, ufOut[map[ufOurs]int, map[ufStd]int], umOptions{}),
 		c("function", `["a",["b"]]`, ufOut[[]ufValue, []ufValue], ufFrom()),
@@ -255,6 +305,9 @@ func ufCases() []ufCase {
 		c("function declining to the default", `[1, "22"]`, ufOut[[]int, []int], ufFromQuotedInt()),
 		c("function declining to a default error", `[true]`, ufOut[[]int, []int], ufFromQuotedInt()),
 		c("function of strings into any", `{"a":"x","b":["y"]}`, ufOut[any, any], ufFromString()),
+		c("function of strings cut", `["a",`, ufOut[[]string, []string], ufFromString()),
+		c("function of any", `{"a":"x","b":["y"]}`, ufOut[map[string]any, map[string]any], ufFromAny()),
+		c("function of any cut", `{"a":`, ufOut[any, any], ufFromAny()),
 		c("function of strings into a map of strings", `{"a":"x", "b":"y"}`, ufOut[map[string]string, map[string]string], ufFromString()),
 		c("function of a type of itself", `[[null, []], null]`, ufOut[ufTree, ufTree],
 			ufDecliningValues(func(v *ufTree) { *v = ufTree{nil} })),

@@ -878,10 +878,7 @@ func (d *Decoder) StackDepth() int {
 	if !d.d.ready() {
 		d.d.setUp()
 	}
-	if d.d.st.outer != nil {
-		return d.d.st.full().depth() // a decoder attached at the place of a value
-	}
-	return d.d.st.depth()
+	return d.d.st.depth() + d.d.st.base // base: the levels around a decoder attached at the place of a value
 }
 
 // StackIndex returns the kind and the length of the level i of the stack, which is from 0 to

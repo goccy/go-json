@@ -147,7 +147,7 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 	}
 	err := decodeInput(ctx, buf, typ, p, cfg)
 	call.Funcs, call.Config = nil, nil
-	if st := (*fromState)(call.From); st != nil && st.in != nil {
+	if st := (*fromState)(call.From); st != nil && st.att.In != nil {
 		st.release()
 	}
 	if cfg != &noOptions {

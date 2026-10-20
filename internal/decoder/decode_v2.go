@@ -84,13 +84,6 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	}
 	if funcs := c.funcs.funcsOf(typ); len(funcs) > 0 {
 		d := &v2FuncDecoder{typ: typ, funcs: funcs}
-		for i, fn := range funcs {
-			if !fn.Declines {
-				// the functions after it are never called
-				d.funcs = funcs[:i+1]
-				return d, nil
-			}
-		}
 		return d, c.compileNextV2(d, &d.next, typ, methodUnmarshalJSONFrom, structName, fieldName)
 	}
 	return c.compileDefaultV2(typ, methodUnmarshalJSONFrom, structName, fieldName)

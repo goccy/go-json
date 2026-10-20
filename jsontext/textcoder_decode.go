@@ -65,7 +65,7 @@ func attachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 	st.outer, st.outerDepth, st.outerCount = p.Outer, len(st.levels)-1, p.Count
 	st.base = p.OuterDepth - st.outerDepth
 	d.buf, d.shared = p.In, true
-	d.base, d.pos, d.prevStart, d.prevEnd = p.Base, p.Pos, p.Pos, p.Pos
+	d.base, d.pos, d.prevStart, d.prevEnd = 0, p.Pos, p.Pos, p.Pos
 	d.rerr, d.peekErr = nil, nil
 	d.vs.scratch = d.vs.scratch[:0]
 	p.Depth = st.depth()
@@ -74,7 +74,17 @@ func attachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 // detachDecoder sets where dec stopped reading in p, and drops its input ( see textcoder.DetachDecoder ).
 func detachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 	d := &(*Decoder)(dec).d
-	p.Depth, p.Count, p.Pos, p.PrevStart = d.st.depth(), d.st.last().count, d.pos, d.prevStart
+	start := d.prevStart
+	if start == d.prevEnd && start > 0 {
+		// a delimiter or a literal, which ends there: the buffer doesn't keep it as the last token.
+		if c := d.buf[start-1]; c == '{' || c == '}' || c == '[' || c == ']' {
+			start--
+		}
+		for start > 0 && 'a' <= d.buf[start-1] && d.buf[start-1] <= 'z' {
+			start--
+		}
+	}
+	p.Depth, p.Count, p.Pos, p.PrevStart = d.st.depth(), d.st.last().count, d.pos, start
 	d.buf, d.vs.in = nil, nil
 	d.pos, d.prevStart, d.prevEnd = 0, 0, 0
 	d.peekErr = nil

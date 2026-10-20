@@ -88,11 +88,10 @@ var (
 // DecoderAttachment is the place of the input where a decoder is attached ( see AttachDecoder ), and, after
 // AttachDecoder and DetachDecoder, where it stopped reading.
 type DecoderAttachment struct {
-	// In is the whole input, at the offset Base of the input of the call, which the decoder reads from Pos: the end
-	// of the token before the value, so that it reads the delimiter before the value as its own.
-	In   []byte
-	Pos  int
-	Base int64
+	// In is the whole input of the call, which the decoder reads from Pos: the end of the token before the value,
+	// so that it reads the delimiter before the value as its own.
+	In  []byte
+	Pos int
 	// Object and Count are the innermost level of the place, an open object or array, or the top level if Top is
 	// set: Count has the parity of the place, which is a value, and is 0 only if the level has no token before
 	// it. The levels around it, and its name and its count, Outer gives when the decoder needs them.

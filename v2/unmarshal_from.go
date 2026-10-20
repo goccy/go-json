@@ -3,6 +3,7 @@ package json
 import (
 	"cmp"
 	"errors"
+	"io"
 	"math"
 	"reflect"
 	"unsafe"
@@ -29,13 +30,12 @@ func init() {
 // the input of the call at the place of each value which they decode, and the levels of the input before the
 // place, which are found only when the decoder needs them, for its stack or a JSON pointer ( see Levels ).
 type fromState struct {
+	// att is where dec is attached, of the input of the call, att.In, which is set if dec was attached in the call,
+	// by the options of the call.
 	dec jsontext.Decoder
 	att textcoder.DecoderAttachment
-	// attached is whether dec was attached in the call, by the options of the call.
-	attached bool
-	// in is the input of the call, and at the place where dec was attached last, in front of the delimiter before
-	// the value: tracked follows the levels of in up to it.
-	in      []byte
+	// at is the place where dec was attached last, in front of the delimiter before the value, which the detach
+	// moves att.Pos from: tracked follows the levels of the input up to it.
 	at      int
 	tracked tracker
 }
@@ -43,7 +43,7 @@ type fromState struct {
 // Levels returns the levels of the input in front of the place where the decoder is attached ( see
 // textcoder.Outer ). The places of a call only go forward, so the input is read once, as far as the last place.
 func (st *fromState) Levels() []textcoder.Level {
-	return st.tracked.sync(st.in[:st.at], math.MaxInt)
+	return st.tracked.sync(st.att.In[:st.at], math.MaxInt)
 }
 
 // release ends the call of the state, which a method or a function used: the input of the call and its options,
@@ -52,7 +52,6 @@ func (st *fromState) Levels() []textcoder.Level {
 func (st *fromState) release() {
 	textcoder.ReleaseDecoder(unsafe.Pointer(&st.dec))
 	st.att.In, st.att.Opts, st.att.Outer = nil, nil, nil
-	st.in, st.attached = nil, false
 	st.tracked.release()
 	st.tracked.stale = true
 }
@@ -95,13 +94,16 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		start++ // the nul byte after the input ends the white space
 	}
 	in := buf[:len(buf)-1]
+	if depth == 0 && start == int64(len(in)) {
+		// no value: encoding/json/v2 calls no method at the end of the input, which is a syntax error.
+		return 0, io.ErrUnexpectedEOF
+	}
 	att := &st.att
-	att.In, att.Base, att.Opts, att.Same = in, 0, call.Config, st.attached
+	att.In, att.Opts, att.Same = in, call.Config, att.In != nil
 	att.Pos, att.Object, att.Top, att.Count = placeBefore(in, start)
 	att.Outer, att.OuterDepth = st, int(depth)
-	st.in, st.at = in, att.Pos
+	st.at = att.Pos
 	textcoder.AttachDecoder(unsafe.Pointer(&st.dec), att)
-	st.attached = true
 	depthBefore, countBefore := att.Depth, att.Count
 	err := c.call(&st.dec)
 	textcoder.DetachDecoder(unsafe.Pointer(&st.dec), att)
@@ -175,7 +177,7 @@ func placeBefore(in []byte, start int64) (int, bool, bool, int64) {
 // isName reports whether the value at start of in is the name of a member of an object: a string which a colon
 // follows.
 func isName(in []byte, start int64) bool {
-	if in[start] != '"' {
+	if start == int64(len(in)) || in[start] != '"' {
 		return false
 	}
 	i := start + 1

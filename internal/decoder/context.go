@@ -49,6 +49,9 @@ type RuntimeContext struct {
 	// Only the contexts of the pool have them: a Decoder has a context of its own, which it would allocate
 	// with them for every stream.
 	recentDecoders *[recentDecoderSets]recentDecoderSet
+	// v2Funcs are the functions of unmarshaling of a decoding of the semantics of encoding/json/v2, which its
+	// decoders are compiled for ( see DecoderOfV2 ), or nil.
+	v2Funcs *UnmarshalFuncs
 	// typeError is the first type error of the decoding, which is returned at its end ( see TypeError ). It is nil
 	// in a context of the pool: TypeError clears it, and DiscardTypeError when the decoding fails.
 	typeError *pendingTypeError

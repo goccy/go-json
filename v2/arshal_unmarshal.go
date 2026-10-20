@@ -23,6 +23,26 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 // ignoring marshal or encode options). The input must be a single JSON value with optional whitespace
 // interspersed. The output must be a non-nil pointer.
 //
+// Type-specific unmarshal functions and methods take precedence over the default representation of a value.
+// Functions or methods that operate on *T are only called when decoding a value of type T (by taking its address)
+// or a non-nil value of *T. Unmarshal ensures that a value is always addressable (by boxing it on the heap if
+// necessary) so that these functions and methods can be consistently called. If a value must be shallow copied to
+// call a pointer-receiver Unmarshaler or encoding.TextUnmarshaler method, then any mutations performed by the
+// method are shallow copied back into the destination value.
+//
+// The input is decoded into the output according to the following rules:
+//
+//   - If any type-specific functions in a WithUnmarshalers option match the value type, then those functions are
+//     called to decode the JSON value.
+//
+//   - If the value type implements Unmarshaler, then the UnmarshalJSON method is called to decode the JSON value.
+//
+//   - If the value type implements encoding.TextUnmarshaler, then the input is decoded as a JSON string and the
+//     UnmarshalText method is called with the decoded string value. This fails with a SemanticError if the input
+//     is not a JSON string.
+//
+//   - Otherwise, the JSON value is decoded according to the value's type as described in detail below.
+//
 // The input is decoded into the output as follows:
 //
 //   - A Go boolean is decoded from a JSON boolean (e.g., true or false).
@@ -70,6 +90,9 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //     SemanticError since decoding could not determine an appropriate Go type to decode into. Otherwise an
 //     underlying value exists and it recursively decodes the JSON input into it.
 //
+//   - A Go time.Time is decoded from a JSON string containing the time formatted in RFC 3339 with nanosecond
+//     precision.
+//
 //   - A Go time.Duration currently has no default representation and results in a SemanticError.
 //
 //   - A JSON null is decoded into any of the other values above as its zero value.
@@ -77,9 +100,8 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //   - All other Go types (e.g., complex numbers, channels, and functions) have no default representation and
 //     result in a SemanticError.
 //
-// Unmarshal does not decode yet a value whose type has an UnmarshalJSONFrom, UnmarshalJSON or UnmarshalText method,
-// as time.Time has, and it doesn't call the functions of WithUnmarshalers: a value of such a type fails with a
-// SemanticError.
+// Unmarshal does not call yet the UnmarshalJSONFrom method of UnmarshalerFrom and the functions of
+// UnmarshalFromFunc: a value of a type which has the method fails with a SemanticError.
 func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()
@@ -116,7 +138,11 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 	}
 	ctx.Option.Flags = 0
 	ctx.Option.V2 = flags
+	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
+		ctx.SetV2Funcs(u.funcs)
+	}
 	err := decodeInput(ctx, buf, typ, p, cfg)
+	ctx.SetV2Funcs(nil)
 	if cfg != &noOptions {
 		// the config may hold the functions of the caller
 		*cfg = options.Config{}
@@ -211,7 +237,7 @@ func unmarshalError(in []byte, err error, cfg *options.Config) error {
 	switch {
 	case e.NoKind:
 		read = textcoder.ReadNothing
-	case e.GoType != nil && readsWhole(e.GoType):
+	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType):
 		read = textcoder.ReadValue
 	}
 	ptr, serr := textcoder.UnmarshalPlace(in, cfg, e.Start, read)
@@ -232,6 +258,29 @@ func unmarshalError(in []byte, err error, cfg *options.Config) error {
 	}
 	if e.HasValue {
 		se.JSONValue = jsontext.Value(bytes.Clone(in[e.Start:e.End]))
+	}
+	return methodError(se, e)
+}
+
+// methodError returns se, the error of e, an error of the value, as encoding/json/v2 reports it when a method or a
+// function of unmarshaling returned it: a SemanticError of UnmarshalJSON or of a function of UnmarshalFunc is
+// within the value, and a SemanticError or a SyntacticError of UnmarshalText is reported as it is.
+func methodError(se *SemanticError, e *ierrors.UnmarshalError) error {
+	switch e.Method {
+	case ierrors.UnmarshalJSONMethod:
+		se.Err = wrapErrUnsupported(se.Err, "UnmarshalJSON method")
+		if inner, ok := se.Err.(*SemanticError); ok {
+			collapsed := *inner
+			collapsed.ByteOffset += se.ByteOffset
+			collapsed.JSONPointer = se.JSONPointer + collapsed.JSONPointer
+			return &collapsed
+		}
+	case ierrors.UnmarshalTextMethod:
+		se.Err = wrapErrUnsupported(se.Err, "UnmarshalText method")
+		switch se.Err.(type) {
+		case *SemanticError, *jsontext.SyntacticError:
+			return se.Err
+		}
 	}
 	return se
 }

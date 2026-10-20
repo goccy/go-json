@@ -43,6 +43,8 @@ type compiler struct {
 	// `string` option ( see compiler.stringTagCompiler ).
 	stringifyNumbers bool
 	stringTag        bool
+	// funcs are the functions of unmarshaling which the decoders of v2 are compiled for, or nil.
+	funcs *UnmarshalFuncs
 }
 
 func newCompiler(v2 bool) *compiler {

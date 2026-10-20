@@ -228,9 +228,8 @@ var (
 	errChangingWhitespace     = errorText("cannot change whitespace formatting within a MarshalEncode call")
 )
 
-// skipNotDecodedYet skips a case whose value has a type which Unmarshal doesn't decode yet ( see Unmarshal ): a
-// time.Duration, or a type which has a method of unmarshaling. The values of the interfaces which the value has are
-// looked at too.
+// skipNotDecodedYet skips a case whose value has a type which Unmarshal doesn't decode yet ( see Unmarshal ): a type
+// which has the method UnmarshalJSONFrom. The values of the interfaces which the value has are looked at too.
 func skipNotDecodedYet(t *testing.T, v any) {
 	t.Helper()
 	if !decodedYet(reflect.ValueOf(v)) {
@@ -269,10 +268,8 @@ func typeDecodedYet(typ reflect.Type, seen map[reflect.Type]bool) bool {
 		return true
 	}
 	seen[typ] = true
-	for _, method := range []string{"UnmarshalJSONFrom", "UnmarshalJSON", "UnmarshalText"} {
-		if _, ok := reflect.PointerTo(typ).MethodByName(method); ok {
-			return false
-		}
+	if _, ok := reflect.PointerTo(typ).MethodByName("UnmarshalJSONFrom"); ok {
+		return false
 	}
 	switch typ.Kind() {
 	case reflect.Struct:
@@ -286,7 +283,7 @@ func typeDecodedYet(typ reflect.Type, seen map[reflect.Type]bool) bool {
 	case reflect.Pointer, reflect.Slice, reflect.Array:
 		return typeDecodedYet(typ.Elem(), seen)
 	}
-	return typ != timeDurationType
+	return true
 }
 
 // isSemanticErr reports whether err is a SemanticError of the error want, which is unexported by the json package.

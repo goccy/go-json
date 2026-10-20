@@ -125,7 +125,24 @@ type UnmarshalError struct {
 	HasValue   bool
 	// NoKind is set for an error of the Go type, before the value is read: it reports no kind of JSON value.
 	NoKind bool
+	// Method is the method of unmarshaling, or the time type, which the value was read whole for and which returned
+	// Err, which the v2 json package wraps as encoding/json/v2 wraps it, or whose read of the value failed with Err.
+	Method UnmarshalMethod
 }
+
+// UnmarshalMethod is the method of unmarshaling of an UnmarshalError.
+type UnmarshalMethod uint8
+
+const (
+	// UnmarshalByKind is an error of the value of its kind, which no method read.
+	UnmarshalByKind UnmarshalMethod = iota
+	// UnmarshalJSONMethod is an error of UnmarshalJSON or of a function of UnmarshalFunc: a SemanticError it returns
+	// is within the value, after the place of the value.
+	UnmarshalJSONMethod
+	// UnmarshalTextMethod is an error of UnmarshalText or of the time.Time of a string: a SemanticError or a
+	// SyntacticError it returns is reported as it is.
+	UnmarshalTextMethod
+)
 
 func (e *UnmarshalError) Error() string {
 	s := "json: cannot unmarshal"

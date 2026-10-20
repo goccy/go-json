@@ -103,7 +103,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 // stringTagCompiler returns the compiler of the values of a field of the `string` option: a number is decoded from
 // a JSON string, through the pointers to it, and a value of any other type can't be decoded.
 func (c *compiler) stringTagCompiler() *compiler {
-	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true}
+	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, funcs: c.funcs}
 }
 
 // fieldPathV2 returns the offset of the field of the struct typ at index, by reflect.Type.FieldByIndex, and the
@@ -441,13 +441,13 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 // type, but the numbers, which are in the names, as with StringifyNumbers.
 func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
 	if typ == interfaceMapType {
-		return &v2AnyMapDecoder{iface: newV2InterfaceDecoder(emptyInterfaceType)}, nil
+		return &v2AnyMapDecoder{iface: c.newV2InterfaceDecoder(emptyInterfaceType)}, nil
 	}
 	d := &v2MapDecoder{typ: typ, ptrType: ptrTypeOf(typ)}
 	c.decoders[uintptr(runtime.TypePtr(typ))] = d
 	defer delete(c.decoders, uintptr(runtime.TypePtr(typ)))
 	// the keys are compiled apart: a type of them, compiled for the names, is not the one of a value
-	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true}
+	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, funcs: c.funcs}
 	keyDec, err := keyCompiler.compileV2(typ.Key(), structName, fieldName)
 	if err != nil {
 		return nil, err
@@ -576,7 +576,8 @@ func (d *v2MapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 }
 
 // v2AnyMapDecoder is the decoder of a map[string]interface{} of v2, which is decoded as the one of an interface{}: a
-// nil map as a nil interface{}, by v1, and else merged ( see v2InterfaceDecoder.decodeMerging ).
+// nil map as a nil interface{}, by v1, and else merged ( see v2InterfaceDecoder.decodeMerging ), as a nil map is if a
+// function of unmarshaling takes a value of an interface{}.
 type v2AnyMapDecoder struct {
 	iface *v2InterfaceDecoder
 }
@@ -599,7 +600,7 @@ func (d *v2AnyMapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	var v any
 	var next int64
 	var err error
-	if m == nil {
+	if m == nil && !d.iface.fromAny {
 		next, err = d.iface.Decode(ctx, cursor, depth, unsafe.Pointer(&v))
 	} else {
 		v = m

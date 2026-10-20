@@ -4,13 +4,15 @@ import (
 	"reflect"
 	"sync"
 	"unsafe"
+
+	"github.com/goccy/go-json/internal/runtime"
 )
 
 // The functions of marshaling of WithMarshalers of encoding/json/v2: a value of a type which a function takes is
 // written by the function, before its method or its kind. The opcodes of a type depend on the functions, so they
 // are compiled for the functions and cached with them, apart from the tables shared by every goroutine.
 
-// MarshalFunc is a function of marshaling, for the values of the types castable to Type ( see castableTo ).
+// MarshalFunc is a function of marshaling, for the values of the types castable to Type ( see runtime.CastableTo ).
 type MarshalFunc struct {
 	Type reflect.Type
 	// Append appends the value at p, of the type from: ErrUseDefault if the function declined to write it, which
@@ -58,25 +60,12 @@ func (f *MarshalFuncs) funcsOf(typ reflect.Type) []*MarshalFunc {
 	}
 	var funcs []*MarshalFunc
 	for i := range f.Funcs {
-		if castableTo(typ, f.Funcs[i].Type) {
+		if runtime.CastableTo(typ, f.Funcs[i].Type) {
 			funcs = append(funcs, &f.Funcs[i])
 		}
 	}
 	v, _ := f.castable.LoadOrStore(typ, funcs)
 	return v.([]*MarshalFunc)
-}
-
-// castableTo reports whether a value of the type from is given to a function of the type to: as itself, as its
-// address if to is the pointer to it, or as its address in an interface value if its pointer type implements to.
-func castableTo(from, to reflect.Type) bool {
-	switch to.Kind() {
-	case reflect.Interface:
-		return reflect.PointerTo(from).Implements(to)
-	case reflect.Pointer:
-		return reflect.PointerTo(from) == to
-	default:
-		return from == to
-	}
 }
 
 // appendByFuncs appends the value at p, of typ, by the first of the functions which doesn't decline it, or

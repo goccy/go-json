@@ -5,6 +5,8 @@
 package stdtest_test
 
 import (
+	"bytes"
+	"encoding"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
@@ -16,6 +18,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -3701,6 +3704,342 @@ func TestUnmarshal(t *testing.T) {
 		inBuf: `"2000-01-01T00:00:00Z"`,
 		inVal: addr(time.Time{}),
 		want:  addr(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+	}, {
+		name: Name("Structs/Format/Bytes/Array"),
+		opts: []Options{
+			unsupported("ExperimentalSupportFormatTag"),
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *byte) error {
+				if string(b) == "true" {
+					*v = 1
+				} else {
+					*v = 0
+				}
+				return nil
+			})),
+		},
+		inBuf: `{"Array":[false,true,false,true,false,true]}`,
+		inVal: new(struct {
+			Array []byte `json:",format:array"`
+		}),
+		want: addr(struct {
+			Array []byte `json:",format:array"`
+		}{
+			Array: []byte{0, 1, 0, 1, 0, 1},
+		}),
+	}, {
+		name: Name("Structs/EmbeddedFallback/MapStringInt/UnmarshalFunc"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *any) error {
+				var err error
+				*v, err = strconv.ParseFloat(string(bytes.Trim(b, `"`)), 64)
+				return err
+			})),
+		},
+		inBuf: `{"D":"1.1","E":"2.2","F":"3.3"}`,
+		inVal: new(structEmbedMapStringAny),
+		want:  addr(structEmbedMapStringAny{X: jsonObject{"D": 1.1, "E": 2.2, "F": 3.3}}),
+	}, {
+		name: Name("Structs/EmbeddedFallback/MapStringInt/UnmarshalFunc"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *int) error {
+				i, err := strconv.ParseInt(string(bytes.Trim(b, `"`)), 10, 64)
+				if err != nil {
+					return err
+				}
+				*v = int(i)
+				return nil
+			})),
+		},
+		inBuf: `{"zero": "0", "one": "1", "two": "2"}`,
+		inVal: new(structEmbedMapStringInt),
+		want: addr(structEmbedMapStringInt{
+			X: map[string]int{"zero": 0, "one": 1, "two": 2},
+		}),
+	}, {
+		name: Name("Structs/EmbeddedFallback/MapNamedStringInt/UnmarshalFunc"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *int) error {
+				i, err := strconv.ParseInt(string(bytes.Trim(b, `"`)), 10, 64)
+				if err != nil {
+					return err
+				}
+				*v = int(i)
+				return nil
+			})),
+		},
+		inBuf: `{"zero": "0", "one": "1", "two": "2"}`,
+		inVal: new(structEmbedMapNamedStringInt),
+		want: addr(structEmbedMapNamedStringInt{
+			X: map[namedString]int{"zero": 0, "one": 1, "two": 2},
+		}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/Any"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *any) error {
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{"called"}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/Bool"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *bool) error {
+				*v = string(b) != "true"
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{[]any{nil, true, false, "", 0.0, map[string]any{}, []any{}}}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/String"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *string) error {
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{[]any{nil, false, true, "called", 0.0, map[string]any{}, []any{}}}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/Float64"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *float64) error {
+				*v = 3.14159
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{[]any{nil, false, true, "", 3.14159, map[string]any{}, []any{}}}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/MapStringAny"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *map[string]any) error {
+				*v = map[string]any{"called": nil}
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{[]any{nil, false, true, "", 0.0, map[string]any{"called": nil}, []any{}}}),
+	}, {
+		name: Name("Interfaces/Any/UnmarshalFunc/SliceAny"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *[]any) error {
+				*v = []any{"called"}
+				return nil
+			})),
+		},
+		inBuf: `{"X":[null,false,true,"",0,{},[]]}`,
+		inVal: new(struct{ X any }),
+		want:  addr(struct{ X any }{[]any{"called"}}),
+	}, {
+		name: Name("Functions/String/V1"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *string) error {
+				if string(b) != `""` {
+					return fmt.Errorf("got %s, want %s", b, `""`)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr("called"),
+	}, {
+		name:  Name("Functions/String/Empty"),
+		opts:  []Options{WithUnmarshalers(nil)},
+		inBuf: `"hello"`,
+		inVal: addr(""),
+		want:  addr("hello"),
+	}, {
+		name: Name("Functions/NamedString/V1/NoMatch"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *namedString) error {
+				panic("should not be called")
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/NamedString/V1/Match"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *namedString) error {
+				if string(b) != `""` {
+					return fmt.Errorf("got %s, want %s", b, `""`)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(namedString("")),
+		want:  addr(namedString("called")),
+	}, {
+		name: Name("Functions/String/Empty1/NoMatch"),
+		opts: []Options{
+			WithUnmarshalers(new(Unmarshalers)),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/String/Empty2/NoMatch"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers()),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/String/V1/DirectError"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func([]byte, *string) error {
+				return errSomeError
+			})),
+		},
+		inBuf:   `""`,
+		inVal:   addr(""),
+		want:    addr(""),
+		wantErr: EU(errSomeError).withType('"', reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/String/V1/SkipError"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func([]byte, *string) error {
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf:   `""`,
+		inVal:   addr(""),
+		want:    addr(""),
+		wantErr: EU(wrapErrUnsupported(errors.ErrUnsupported, "unmarshal function of type func([]byte, T) error")).withType('"', reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/Map/Key/NoCaseString/V1"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *nocaseString) error {
+				if string(b) != `"hello"` {
+					return fmt.Errorf("got %s, want %s", b, `"hello"`)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[nocaseString]string{}),
+		want:  addr(map[nocaseString]string{"called": "world"}),
+	}, {
+		name: Name("Functions/Map/Key/TextMarshaler/V1"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v encoding.TextMarshaler) error {
+				if string(b) != `"hello"` {
+					return fmt.Errorf("got %s, want %s", b, `"hello"`)
+				}
+				*v.(*nocaseString) = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[nocaseString]string{}),
+		want:  addr(map[nocaseString]string{"called": "world"}),
+	}, {
+		name: Name("Functions/Map/Value/NoCaseString/V1"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *nocaseString) error {
+				if string(b) != `"world"` {
+					return fmt.Errorf("got %s, want %s", b, `"world"`)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[string]nocaseString{}),
+		want:  addr(map[string]nocaseString{"hello": "called"}),
+	}, {
+		name: Name("Functions/Map/Value/TextMarshaler/V1"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v encoding.TextMarshaler) error {
+				if string(b) != `"world"` {
+					return fmt.Errorf("got %s, want %s", b, `"world"`)
+				}
+				*v.(*nocaseString) = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[string]nocaseString{}),
+		want:  addr(map[string]nocaseString{"hello": "called"}),
+	}, {
+		name: Name("Functions/Slice/Elem"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *string) error {
+				*v = strings.Trim(strings.ToUpper(string(b)), `"`)
+				return nil
+			})),
+		},
+		inBuf: `["hello","World"]`,
+		inVal: addr([]string{}),
+		want:  addr([]string{"HELLO", "WORLD"}),
+	}, {
+		name: Name("Functions/Array/Elem"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFunc(func(b []byte, v *string) error {
+				*v = strings.Trim(strings.ToUpper(string(b)), `"`)
+				return nil
+			})),
+		},
+		inBuf: `["hello","World"]`,
+		inVal: addr([2]string{}),
+		want:  addr([2]string{"HELLO", "WORLD"}),
+	}, {
+		name: Name("Functions/Precedence/NestedFirst"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				JoinUnmarshalers(
+					UnmarshalFunc(func(b []byte, v *string) error {
+						if string(b) != `"called"` {
+							return fmt.Errorf("got %s, want %s", b, `"called"`)
+						}
+						*v = "called"
+						return nil
+					}),
+				),
+				UnmarshalFunc(func([]byte, *string) error {
+					panic("should not be called")
+				}),
+			)),
+		},
+		inBuf: `"called"`,
+		inVal: addr(""),
+		want:  addr("called"),
+	}, {
+		name: Name("Functions/Precedence/NestedLast"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFunc(func(b []byte, v *string) error {
+					if string(b) != `"called"` {
+						return fmt.Errorf("got %s, want %s", b, `"called"`)
+					}
+					*v = "called"
+					return nil
+				}),
+				JoinUnmarshalers(
+					UnmarshalFunc(func([]byte, *string) error {
+						panic("should not be called")
+					}),
+				),
+			)),
+		},
+		inBuf: `"called"`,
+		inVal: addr(""),
+		want:  addr("called"),
 	}}
 
 	for _, tt := range tests {

@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull request 1 merged (#746), pull request 2 in progress
+- Status: plan approved on 2026-10-19; pull requests 1 (#746) and 2 merged, pull request 3 in progress
 
 ## What
 
@@ -91,6 +91,8 @@ Speed of v2 against v1 measured so far, for pull request 5 (arm64, Apple M5):
 | `SmallStruct_Unmarshal`, case-insensitive | 106 ns | 316 ns | names of another case go through `jsonfields.FoldName` and a map |
 | `MediumStruct_Unmarshal`, case-insensitive | 776 ns | 3.65 µs | the same |
 | `LargeStruct_Unmarshal`, case-insensitive | 10.0 µs | 66 µs | the same |
+| `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 185 ns | 565 ns | not looked into |
+| `Times_Unmarshal` (`[]time.Time`) | 4.1 µs | 6.0 µs | not looked into |
 
 `TwitterGeneric_Unmarshal` and `CodeAny_Unmarshal` (`any`) are as fast as v1.
 

@@ -103,7 +103,6 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 //
 //   - All other Go types (e.g., complex numbers, channels, and functions) have no default representation and
 //     result in a SemanticError.
-
 func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()

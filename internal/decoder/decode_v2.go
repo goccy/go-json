@@ -70,8 +70,12 @@ func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, 
 	return *cache.Store(typeptr, &dec), nil
 }
 
-// DecoderOfV2 returns the decoder of the semantics of encoding/json/v2 of the type, for the options of ctx.
+// DecoderOfV2 returns the decoder of the semantics of encoding/json/v2 of the type, for the options and the
+// functions of unmarshaling of ctx.
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
+	if ctx.v2Funcs != nil {
+		return ctx.v2Funcs.decoderOf(typ, ctx.Option.V2&V2StringifyNumbers != 0)
+	}
 	return CompileToGetDecoderV2(typ, ctx.Option.V2&V2StringifyNumbers != 0)
 }
 
@@ -80,11 +84,21 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	if dec, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; exists {
 		return dec, nil
 	}
-	if typ == timeDurationType {
-		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
+	if funcs := c.funcs.funcsOf(typ); len(funcs) > 0 {
+		// a function of UnmarshalFunc can't decline: the first one decodes the value
+		return &v2FuncDecoder{typ: typ, fn: funcs[0]}, nil
 	}
-	if hasUnmarshalMethod(typ) {
-		return &v2InvalidDecoder{typ: typ, err: errV2NotSupported}, nil
+	switch typ {
+	case timeDurationType:
+		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
+	case timeType:
+		if c.stringTag {
+			return &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}, nil
+		}
+		return v2TimeDecoder{}, nil
+	}
+	if dec := compileMethodV2(typ); dec != nil {
+		return dec, nil
 	}
 	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) {
 		// the option applies to a number, through pointers
@@ -104,7 +118,7 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 		}
 		return c.compileArrayV2(typ, structName, fieldName)
 	case reflect.Interface:
-		return newV2InterfaceDecoder(typ), nil
+		return c.newV2InterfaceDecoder(typ), nil
 	case reflect.String:
 		d := newStringDecoder(structName, fieldName)
 		d.typ = typ
@@ -128,17 +142,6 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	}
 	// a complex number, a channel, a function or an unsafe.Pointer, which has no representation
 	return &v2InvalidDecoder{typ: typ}, nil
-}
-
-// hasUnmarshalMethod reports whether a value of typ has a method of unmarshaling, which the decoding of v2 doesn't
-// call yet.
-func hasUnmarshalMethod(typ reflect.Type) bool {
-	ptr := reflect.PointerTo(typ)
-	if implementsUnmarshalJSONType(ptr) || ptr.Implements(unmarshalTextType) {
-		return true
-	}
-	_, ok := ptr.MethodByName("UnmarshalJSONFrom")
-	return ok
 }
 
 // isV2Bytes reports whether typ is a []byte or a [N]byte, whose value is a base64 string: a slice or an array of a
@@ -696,12 +699,36 @@ type v2InterfaceDecoder struct {
 	ptrType unsafe.Pointer
 	empty   bool
 	fast    *interfaceDecoder
+	// fromAny is whether a function of unmarshaling takes an interface{} or a type of the values of a nil
+	// interface{}: a value is then decoded by the decoders of the functions, as a value of its type ( see
+	// decodeByKind ), and never by decodeMerging, which calls no function.
+	fromAny bool
 }
 
-func newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
-	return &v2InterfaceDecoder{
+// anyValueTypes are the types of the values of a nil interface{}, by the first byte of the JSON value.
+var anyValueTypes = func() [256]reflect.Type {
+	var types [256]reflect.Type
+	types['t'], types['f'] = boolType, boolType
+	types['"'] = stringType
+	types['-'] = float64Type
+	for c := '0'; c <= '9'; c++ {
+		types[c] = float64Type
+	}
+	types['{'] = interfaceMapType
+	types['['] = anySliceType
+	return types
+}()
+
+var boolType = reflect.TypeOf(false)
+
+func (c *compiler) newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
+	d := &v2InterfaceDecoder{
 		typ: typ, ptrType: ptrTypeOf(typ), empty: typ.NumMethod() == 0, fast: newEmptyInterfaceDecoder("", ""),
 	}
+	for _, t := range []reflect.Type{emptyInterfaceType, boolType, stringType, float64Type, interfaceMapType, anySliceType} {
+		d.fromAny = d.fromAny || len(c.funcs.funcsOf(t)) > 0
+	}
+	return d
 }
 
 func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -720,6 +747,9 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 	}
 	if !d.empty {
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, NoKind: true, Err: errNilInterface}
+	}
+	if d.fromAny {
+		return d.decodeByKind(ctx, cursor, depth, p)
 	}
 	next, err := d.fast.decodeEmptyInterface(ctx, cursor, depth, p)
 	if (err != nil || ctx.typeError != nil) && ctx.Option.V2&V2AllowDuplicateNames != 0 {
@@ -746,11 +776,28 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 	return next, nil
 }
 
+// decodeByKind decodes the value at cursor into the nil interface value at p as a value of the type of its kind,
+// by the decoder of the functions of unmarshaling, which the interface value is set to.
+func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	typ := anyValueTypes[ctx.Buf[cursor]]
+	if typ == nil {
+		return 0, syntaxErrorAt(ctx.Buf, cursor, whereValue)
+	}
+	v := reflect.New(typ)
+	dec, err := ctx.DecoderOfV2(runtime.TypePtr(v.Type()))
+	if err != nil {
+		return 0, err
+	}
+	next, err := dec.Decode(ctx, cursor, depth, v.UnsafePointer())
+	valueAt(d.ptrType, p).Set(v.Elem())
+	return next, err
+}
+
 // decodeHeld decodes the value at cursor into the value which the interface value at p holds.
 func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	iface := valueAt(d.ptrType, p)
 	held := iface.Elem()
-	if d.empty && (held.Type() == interfaceMapType || held.Type() == anySliceType) {
+	if !d.fromAny && (held.Type() == interfaceMapType || held.Type() == anySliceType) {
 		return d.decodeMerging(ctx, cursor, depth, p)
 	}
 	v := reflect.New(held.Type())

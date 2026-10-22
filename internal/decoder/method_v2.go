@@ -9,7 +9,6 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
-	"github.com/goccy/go-json/internal/runtime"
 )
 
 // The methods of unmarshaling of the semantics of encoding/json/v2, and the time types. A value is always
@@ -26,23 +25,52 @@ const (
 	methodUnmarshalText
 )
 
-// v2MethodOf returns the method of unmarshaling which decodes a value of the type, or noMethod. A pointer and an
-// interface value have none: the value they point to or hold has, which is addressable.
-func v2MethodOf(typ reflect.Type) int {
+// V2Hooks are what the decoder needs of the v2 json package, which it can't import: the decoding by the methods
+// which read a jsontext.Decoder, which the package sets.
+var V2Hooks struct {
+	// UnmarshalerFromType is the type of the interface json.UnmarshalerFrom.
+	UnmarshalerFromType reflect.Type
+	// UnmarshalFrom decodes the value at cursor into the value at p, of typ, by its UnmarshalJSONFrom: it returns
+	// the cursor after the value, or ErrUseDefault if the method declined the value.
+	UnmarshalFrom func(ctx *RuntimeContext, cursor, depth int64, typ reflect.Type, p unsafe.Pointer) (int64, error)
+}
+
+// v2MethodOf returns the first method of unmarshaling from first on which decodes a value of the type, or noMethod.
+// A pointer and an interface value have none: the value they point to or hold has, which is addressable.
+func v2MethodOf(typ reflect.Type, first int) int {
 	if typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Interface {
 		return noMethod
 	}
 	ptr := reflect.PointerTo(typ)
-	if _, ok := ptr.MethodByName("UnmarshalJSONFrom"); ok {
-		return methodUnmarshalJSONFrom
-	}
 	switch {
-	case ptr.Implements(unmarshalJSONType):
+	case first <= methodUnmarshalJSONFrom && V2Hooks.UnmarshalerFromType != nil && ptr.Implements(V2Hooks.UnmarshalerFromType):
+		return methodUnmarshalJSONFrom
+	case first <= methodUnmarshalJSON && ptr.Implements(unmarshalJSONType):
 		return methodUnmarshalJSON
 	case ptr.Implements(unmarshalTextType):
 		return methodUnmarshalText
 	}
 	return noMethod
+}
+
+// v2UnmarshalFromDecoder is the decoder of a value whose UnmarshalJSONFrom decodes it, from a jsontext.Decoder at
+// its place in the input ( see V2Hooks.UnmarshalFrom ), and next of a value the method declines: the decoder of its
+// next method, or of its kind.
+type v2UnmarshalFromDecoder struct {
+	typ  reflect.Type
+	next Decoder
+}
+
+func (d *v2UnmarshalFromDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	end, err := V2Hooks.UnmarshalFrom(ctx, cursor, depth, d.typ, p)
+	if err == ErrUseDefault {
+		return d.next.Decode(ctx, cursor, depth, p)
+	}
+	return end, err
+}
+
+func (d *v2UnmarshalFromDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
+	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
 // ReadValue reads the value at cursor whole, as the method of unmarshaling, or the function, of a value of typ is
@@ -115,19 +143,6 @@ func (d *v2UnmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64
 
 func (d *v2UnmarshalTextDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
-}
-
-// compileMethodV2 returns the decoder of a value of typ by its method of unmarshaling, or nil if it has none.
-func compileMethodV2(typ reflect.Type) Decoder {
-	switch v2MethodOf(typ) {
-	case methodUnmarshalJSONFrom:
-		return &v2InvalidDecoder{typ: typ, err: errV2NotSupported}
-	case methodUnmarshalJSON:
-		return &v2UnmarshalJSONDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ))}
-	case methodUnmarshalText:
-		return &v2UnmarshalTextDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ)), zero: newZeroer(typ)}
-	}
-	return nil
 }
 
 // v2TimeDecoder is the decoder of a time.Time, from a string of RFC 3339, which time.Time.UnmarshalText reads, but

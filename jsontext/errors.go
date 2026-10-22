@@ -42,6 +42,9 @@ var (
 	// an object or an array it opened.
 	errInvalidNamespace = errors.New("object namespace is in an invalid state")
 	errEndOfPlace       = errors.New("cannot end the object or array which the value being written is in")
+	// errEndOfReadPlace is the error of a decoder attached at the place of a value, which a method or a function of
+	// unmarshaling reads, which reads the end of the object or the array the value is in.
+	errEndOfReadPlace = errors.New("cannot read the end of the object or array which the value being read is in")
 )
 
 // SyntacticError describes an error of the JSON grammar found while encoding or decoding.

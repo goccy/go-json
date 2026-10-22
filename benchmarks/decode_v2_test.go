@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -8,8 +9,7 @@ import (
 	gojsonv2 "github.com/goccy/go-json/v2"
 )
 
-// The decoding of github.com/goccy/go-json/v2, beside go-json's own of the same input: the values which its
-// Unmarshal decodes so far, without UnmarshalJSONFrom.
+// The decoding of github.com/goccy/go-json/v2, beside go-json's own of the same input.
 
 func unmarshalV2(data []byte, v any) error { return gojsonv2.Unmarshal(data, v) }
 
@@ -98,4 +98,38 @@ func Benchmark_Decode_Times_Unmarshal_GoJson(b *testing.B) {
 
 func Benchmark_Decode_Times_Unmarshal_GoJsonV2(b *testing.B) {
 	benchDecode[[]time.Time](b, timesDocument, unmarshalV2)
+}
+
+// TestGitHubPayloadsV2 checks that the v2 decoding of the payloads of the GitHub API gives the values of go-json's
+// own: the times of the REST API by UnmarshalJSONFrom, and the fields of the GraphQL API, which have no tags, by
+// their names of another case.
+func TestGitHubPayloadsV2(t *testing.T) {
+	var restWant, restGot []*GitHubIssue
+	if err := gojson.Unmarshal(githubRESTIssues, &restWant); err != nil {
+		t.Fatal(err)
+	}
+	if err := unmarshalV2(githubRESTIssues, &restGot); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(restGot, restWant) {
+		t.Fatal("the REST payload decodes differently")
+	}
+	var graphqlWant, graphqlGot GitHubGraphQLIssues
+	if err := gojson.Unmarshal(githubGraphQLIssues, &graphqlWant); err != nil {
+		t.Fatal(err)
+	}
+	if err := unmarshalV2Insensitive(githubGraphQLIssues, &graphqlGot); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(graphqlGot, graphqlWant) {
+		t.Fatal("the GraphQL payload decodes differently")
+	}
+}
+
+func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonV2(b *testing.B) {
+	benchDecode[[]*GitHubIssue](b, githubRESTIssues, unmarshalV2)
+}
+
+func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonV2(b *testing.B) {
+	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, unmarshalV2Insensitive)
 }

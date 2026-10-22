@@ -112,6 +112,9 @@ func (d *decoder) reset(r io.Reader, opts []Options) {
 		}
 	}
 	d.st.reset()
+	if d.st.outer != nil {
+		d.st.outer, d.st.outerDepth, d.st.outerCount = nil, 0, 0 // of an attach by the v2 json package
+	}
 	if _, wasBuffer := d.r.(*bytes.Buffer); d.shared || wasBuffer {
 		// the buffer of a bytes.Buffer which was read before is dropped, as encoding/json/jsontext drops it
 		d.buf, d.shared = nil, false
@@ -399,6 +402,9 @@ func (d *decoder) readToken() (Token, error) {
 	c := b[pos]
 	switch {
 	case c == '}' && l.object && l.count%2 == 0, c == ']' && !l.object:
+		if len(d.st.levels)-1 == d.st.outerDepth {
+			return d.readTokenSlow() // the level an attached decoder is in
+		}
 		d.st.pop()
 		d.done(pos+1, pos+1)
 		if c == '}' {
@@ -523,6 +529,9 @@ func (d *decoder) closeError(pos int) error {
 	switch {
 	case d.st.depth() == 0:
 		return d.charError(pos, placeStartOfValue, pointAt)
+	case d.st.outer != nil && d.st.depth() == d.st.outerDepth:
+		// the level a decoder attached at the place of a value is in, which is not a part of the value
+		return d.failAt(errEndOfReadPlace, pos, pointAt)
 	case l.object != (c == '}'):
 		if l.needValue() {
 			return d.charError(pos, placeAfterObjectValue, pointHere)
@@ -869,7 +878,7 @@ func (d *Decoder) StackDepth() int {
 	if !d.d.ready() {
 		d.d.setUp()
 	}
-	return d.d.st.depth()
+	return d.d.st.depth() + d.d.st.base // base: the levels around a decoder attached at the place of a value
 }
 
 // StackIndex returns the kind and the length of the level i of the stack, which is from 0 to
@@ -878,6 +887,9 @@ func (d *Decoder) StackDepth() int {
 func (d *Decoder) StackIndex(i int) (Kind, int64) {
 	if !d.d.ready() {
 		d.d.setUp()
+	}
+	if d.d.st.outer != nil {
+		return d.d.st.full().index(i) // a decoder attached at the place of a value
 	}
 	return d.d.st.index(i)
 }

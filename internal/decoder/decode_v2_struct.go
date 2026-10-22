@@ -48,10 +48,12 @@ type v2StructDecoder struct {
 }
 
 // compileStructV2 returns the decoder of the struct type typ. It stays in c.decoders after the compile, as the one
-// of compileStruct does.
+// of compileStruct does, unless a decoder which declines values to it is there ( see compileNextV2 ).
 func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 	d := &v2StructDecoder{typ: typ, zero: newZeroer(typ), folded: map[string][]*structFieldSet{}}
-	c.decoders[uintptr(runtime.TypePtr(typ))] = d
+	if _, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; !exists {
+		c.decoders[uintptr(runtime.TypePtr(typ))] = d
+	}
 	fields := jsonfields.Of(typ)
 	switch {
 	case fields.Err != nil:
@@ -448,8 +450,11 @@ func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) 
 		}
 	}
 	d := &v2MapDecoder{typ: typ, ptrType: ptrTypeOf(typ)}
-	c.decoders[uintptr(runtime.TypePtr(typ))] = d
-	defer delete(c.decoders, uintptr(runtime.TypePtr(typ)))
+	if _, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; !exists {
+		// a decoder which declines values to it stays there ( see compileNextV2 )
+		c.decoders[uintptr(runtime.TypePtr(typ))] = d
+		defer delete(c.decoders, uintptr(runtime.TypePtr(typ)))
+	}
 	// the keys are compiled apart: a type of them, compiled for the names, is not the one of a value
 	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, funcs: c.funcs}
 	keyDec, err := keyCompiler.compileV2(typ.Key(), structName, fieldName)
@@ -481,7 +486,7 @@ var emptyStructType = reflect.TypeOf(struct{}{})
 // or a function of unmarshaling may decode two names into one key, and one name into two keys.
 func uniqueKeyNames(dec Decoder, kind reflect.Kind, allowInvalidUTF8 bool) bool {
 	switch dec.(type) {
-	case *v2FuncDecoder, *v2UnmarshalJSONDecoder, *v2UnmarshalTextDecoder:
+	case *v2FuncDecoder, *v2UnmarshalFromDecoder, *v2UnmarshalJSONDecoder, *v2UnmarshalTextDecoder:
 		return false
 	}
 	switch kind {

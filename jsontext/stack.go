@@ -58,8 +58,13 @@ func (s *stack) full() *stack {
 		}
 		inner.named = at.named + delta
 	}
-	for _, l := range s.levels[s.outerDepth+1:] {
+	levels := s.levels[s.outerDepth+1:]
+	for i, l := range levels {
 		_ = t.push(l.object)
+		if i > 0 {
+			// the open value, which the push counted again in the level before
+			t.levels[len(t.levels)-2].count = levels[i-1].count
+		}
 		c := t.last()
 		if l.object && l.last >= l.first {
 			for k := l.first; k <= l.last; k++ {

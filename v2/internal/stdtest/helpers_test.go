@@ -50,6 +50,12 @@ func stackPosition(e *jsontext.Encoder) (int, int64) {
 	return e.StackDepth(), n
 }
 
+// decoderPosition is stackPosition of a decoder.
+func decoderPosition(d *jsontext.Decoder) (int, int64) {
+	_, n := d.StackIndex(d.StackDepth())
+	return d.StackDepth(), n
+}
+
 func wrapErrUnsupported(err error, what string) error {
 	if errors.Is(err, errors.ErrUnsupported) {
 		return errorText(what + " may not return errors.ErrUnsupported")
@@ -227,64 +233,6 @@ var (
 	errChangingInvalidUTF8    = errorText("cannot change UTF-8 checks after a JSON object has already begun processing")
 	errChangingWhitespace     = errorText("cannot change whitespace formatting within a MarshalEncode call")
 )
-
-// skipNotDecodedYet skips a case whose value has a type which Unmarshal doesn't decode yet ( see Unmarshal ): a type
-// which has the method UnmarshalJSONFrom. The values of the interfaces which the value has are looked at too.
-func skipNotDecodedYet(t *testing.T, v any) {
-	t.Helper()
-	if !decodedYet(reflect.ValueOf(v)) {
-		t.Skip("not decoded yet")
-	}
-}
-
-func decodedYet(v reflect.Value) bool {
-	if !v.IsValid() {
-		return true
-	}
-	if !typeDecodedYet(v.Type(), map[reflect.Type]bool{}) {
-		return false
-	}
-	switch v.Kind() {
-	case reflect.Pointer, reflect.Interface:
-		return v.IsNil() || decodedYet(v.Elem())
-	case reflect.Struct:
-		for i := range v.NumField() {
-			if !decodedYet(v.Field(i)) {
-				return false
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		for i := range v.Len() {
-			if !decodedYet(v.Index(i)) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func typeDecodedYet(typ reflect.Type, seen map[reflect.Type]bool) bool {
-	if seen[typ] {
-		return true
-	}
-	seen[typ] = true
-	if _, ok := reflect.PointerTo(typ).MethodByName("UnmarshalJSONFrom"); ok {
-		return false
-	}
-	switch typ.Kind() {
-	case reflect.Struct:
-		for i := range typ.NumField() {
-			if !typeDecodedYet(typ.Field(i).Type, seen) {
-				return false
-			}
-		}
-	case reflect.Map:
-		return typeDecodedYet(typ.Key(), seen) && typeDecodedYet(typ.Elem(), seen)
-	case reflect.Pointer, reflect.Slice, reflect.Array:
-		return typeDecodedYet(typ.Elem(), seen)
-	}
-	return true
-}
 
 // isSemanticErr reports whether err is a SemanticError of the error want, which is unexported by the json package.
 func isSemanticErr(err error, want errorText) bool {

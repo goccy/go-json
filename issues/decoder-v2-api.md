@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull requests 1 (#746) and 2 merged, pull request 3 in progress
+- Status: plan approved on 2026-10-19; pull requests 1 (#746), 2 and 3 merged, pull request 4 in progress
 
 ## What
 
@@ -93,6 +93,8 @@ Speed of v2 against v1 measured so far, for pull request 5 (arm64, Apple M5):
 | `LargeStruct_Unmarshal`, case-insensitive | 10.0 µs | 66 µs | the same |
 | `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 185 ns | 565 ns | not looked into |
 | `Times_Unmarshal` (`[]time.Time`) | 4.1 µs | 6.0 µs | not looked into |
+| `GitHubREST_Unmarshal` (times by `UnmarshalJSONFrom` in v2, `UnmarshalJSON` in v1) | 98 µs, 2,703 allocations | 130 µs, 2,840 allocations | not looked into |
+| `GitHubGraphQL_Unmarshal`, case-insensitive | 57 µs, 135 allocations | 105 µs, 1,749 allocations | not looked into; maybe the names of another case, as for the struct payloads |
 
 `TwitterGeneric_Unmarshal` and `CodeAny_Unmarshal` (`any`) are as fast as v1.
 

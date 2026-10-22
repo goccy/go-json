@@ -358,6 +358,11 @@ func compileSlice(typ reflect.Type, structName, fieldName string, c *compiler) (
 // decodes the values of typ inside them, as compileStruct does for the fields of a struct.
 func compileElem(typ reflect.Type, dec Decoder, structName, fieldName string, c *compiler) (Decoder, error) {
 	typeptr := uintptr(runtime.TypePtr(typ))
+	if _, exists := c.decoders[typeptr]; exists {
+		// a decoder of v2 which declines values to dec, which the values of typ in the element are decoded by ( see
+		// compileNextV2 )
+		return compile(typ.Elem(), structName, fieldName, c)
+	}
 	c.decoders[typeptr] = dec
 	elemDec, err := compile(typ.Elem(), structName, fieldName, c)
 	delete(c.decoders, typeptr)

@@ -45,9 +45,11 @@ Priority 4
 - [decoder-redundant-skip-white-space.md](decoder-redundant-skip-white-space.md)
 - [decoder-compile-embedded-chains.md](decoder-compile-embedded-chains.md)
 - [decoder-v2-error-before-colon.md](decoder-v2-error-before-colon.md)
+- [decoder-v2-small-deviations.md](decoder-v2-small-deviations.md)
 - [decoder-error-source-display.md](decoder-error-source-display.md)
 - [encoder-error-texts.md](encoder-error-texts.md)
 - [encoder-vm-structure.md](encoder-vm-structure.md)
+- [encoder-marshal-to-stack-depth.md](encoder-marshal-to-stack-depth.md)
 - [encoder-type-table-guards.md](encoder-type-table-guards.md)
 - [ci-benchcheck-binary-placement.md](ci-benchcheck-binary-placement.md)
 

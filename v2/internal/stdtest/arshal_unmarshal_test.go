@@ -4040,6 +4040,416 @@ func TestUnmarshal(t *testing.T) {
 		inBuf: `"called"`,
 		inVal: addr(""),
 		want:  addr("called"),
+	}, {
+		name: Name("Functions/String/V2"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				switch b, err := dec.ReadValue(); {
+				case err != nil:
+					return err
+				case string(b) != `""`:
+					return fmt.Errorf("got %s, want %s", b, `""`)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr("called"),
+	}, {
+		name: Name("Functions/NamedString/V2/NoMatch"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *namedString) error {
+				panic("should not be called")
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/NamedString/V2/Match"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *namedString) error {
+				switch t, err := dec.ReadToken(); {
+				case err != nil:
+					return err
+				case t.String() != ``:
+					return fmt.Errorf("got %q, want %q", t, ``)
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(namedString("")),
+		want:  addr(namedString("called")),
+	}, {
+		name: Name("Functions/String/V2/DirectError"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				return errSomeError
+			})),
+		},
+		inBuf:   `""`,
+		inVal:   addr(""),
+		want:    addr(""),
+		wantErr: EU(errSomeError).withType(0, reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/String/V2/TooFew"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				return nil
+			})),
+		},
+		inBuf:   `""`,
+		inVal:   addr(""),
+		want:    addr(""),
+		wantErr: EU(errNonSingularValue).withType(0, reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/String/V2/TooMany"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				if _, err := dec.ReadValue(); err != nil {
+					return err
+				}
+				if _, err := dec.ReadValue(); err != nil {
+					return err
+				}
+				return nil
+			})),
+		},
+		inBuf:   `{"X":["",""]}`,
+		inVal:   addr(struct{ X []string }{}),
+		want:    addr(struct{ X []string }{[]string{""}}),
+		wantErr: EU(errNonSingularValue).withPos(`{"X":["",`, "/X").withType(0, reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/String/V2/Skipped"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/String/V2/ProcessBeforeSkip"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				if _, err := dec.ReadValue(); err != nil {
+					return err
+				}
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf:   `""`,
+		inVal:   addr(""),
+		want:    addr(""),
+		wantErr: EU(errUnsupportedMutation).withType(0, reflect.PointerTo(stringType)),
+	}, {
+		name: Name("Functions/String/V2/WrappedUnsupported"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				return fmt.Errorf("wrap: %w", errors.ErrUnsupported)
+			})),
+		},
+		inBuf: `""`,
+		inVal: addr(""),
+		want:  addr(""),
+	}, {
+		name: Name("Functions/Map/Key/NoCaseString/V2"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *nocaseString) error {
+				switch t, err := dec.ReadToken(); {
+				case err != nil:
+					return err
+				case t.String() != "hello":
+					return fmt.Errorf("got %q, want %q", t, "hello")
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[nocaseString]string{}),
+		want:  addr(map[nocaseString]string{"called": "world"}),
+	}, {
+		name: Name("Functions/Map/Key/TextMarshaler/V2"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v encoding.TextMarshaler) error {
+				switch b, err := dec.ReadValue(); {
+				case err != nil:
+					return err
+				case string(b) != `"hello"`:
+					return fmt.Errorf("got %s, want %s", b, `"hello"`)
+				}
+				*v.(*nocaseString) = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[nocaseString]string{}),
+		want:  addr(map[nocaseString]string{"called": "world"}),
+	}, {
+		name: Name("Functions/Map/Key/String/V1/DuplicateName"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				if _, err := dec.ReadValue(); err != nil {
+					return err
+				}
+				xdDepth, xdLength := decoderPosition(dec)
+				*v = fmt.Sprintf("%d-%d", xdDepth, xdLength)
+				return nil
+			})),
+		},
+		inBuf:   `{"name":"value","name":"value"}`,
+		inVal:   addr(map[string]string{}),
+		want:    addr(map[string]string{"1-1": "1-2"}),
+		wantErr: newDuplicateNameError("", []byte(`"name"`), len64(`{"name":"value",`)),
+	}, {
+		name: Name("Functions/Map/Value/NoCaseString/V2"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *nocaseString) error {
+				switch t, err := dec.ReadToken(); {
+				case err != nil:
+					return err
+				case t.String() != "world":
+					return fmt.Errorf("got %q, want %q", t, "world")
+				}
+				*v = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[string]nocaseString{}),
+		want:  addr(map[string]nocaseString{"hello": "called"}),
+	}, {
+		name: Name("Functions/Map/Value/TextMarshaler/V2"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v encoding.TextMarshaler) error {
+				switch b, err := dec.ReadValue(); {
+				case err != nil:
+					return err
+				case string(b) != `"world"`:
+					return fmt.Errorf("got %s, want %s", b, `"world"`)
+				}
+				*v.(*nocaseString) = "called"
+				return nil
+			})),
+		},
+		inBuf: `{"hello":"world"}`,
+		inVal: addr(map[string]nocaseString{}),
+		want:  addr(map[string]nocaseString{"hello": "called"}),
+	}, {
+		name: Name("Funtions/Struct/Fields"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFunc(func(b []byte, v *bool) error {
+					if string(b) != `"called1"` {
+						return fmt.Errorf("got %s, want %s", b, `"called1"`)
+					}
+					*v = true
+					return nil
+				}),
+				UnmarshalFunc(func(b []byte, v *string) error {
+					if string(b) != `"called2"` {
+						return fmt.Errorf("got %s, want %s", b, `"called2"`)
+					}
+					*v = "called2"
+					return nil
+				}),
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *[]byte) error {
+					switch t, err := dec.ReadToken(); {
+					case err != nil:
+						return err
+					case t.String() != "called3":
+						return fmt.Errorf("got %q, want %q", t, "called3")
+					}
+					*v = []byte("called3")
+					return nil
+				}),
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *int64) error {
+					switch b, err := dec.ReadValue(); {
+					case err != nil:
+						return err
+					case string(b) != `"called4"`:
+						return fmt.Errorf("got %s, want %s", b, `"called4"`)
+					}
+					*v = 123
+					return nil
+				}),
+			)),
+		},
+		inBuf: `{"Bool":"called1","String":"called2","Bytes":"called3","Int":"called4","Uint":456,"Float":789}`,
+		inVal: addr(structScalars{}),
+		want:  addr(structScalars{Bool: true, String: "called2", Bytes: []byte("called3"), Int: 123, Uint: 456, Float: 789}),
+	}, {
+		name: Name("Functions/Struct/Embedded"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFunc(func([]byte, *structEmbeddedL1) error {
+					panic("should not be called")
+				}),
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *StructEmbed2) error {
+					panic("should not be called")
+				}),
+			)),
+		},
+		inBuf: `{"E":"E3","F":"F3","G":"G3","A":"A1","B":"B1","D":"D2"}`,
+		inVal: new(structEmbedded),
+		want: addr(structEmbedded{
+			X: structEmbeddedL1{
+				X:            &structEmbeddedL2{A: "A1", B: "B1" /* C: "C1" */},
+				StructEmbed1: StructEmbed1{ /* C: "C2" */ D: "D2" /* E: "E2" */},
+			},
+			StructEmbed2: &StructEmbed2{E: "E3", F: "F3", G: "G3"},
+		}),
+	}, {
+		name: Name("Functions/Pointer/Nil"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				t, err := dec.ReadToken()
+				*v = strings.ToUpper(t.String())
+				return err
+			})),
+		},
+		inBuf: `{"X":"hello"}`,
+		inVal: addr(struct{ X *string }{nil}),
+		want:  addr(struct{ X *string }{addr("HELLO")}),
+	}, {
+		name: Name("Functions/Pointer/NonNil"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+				t, err := dec.ReadToken()
+				*v = strings.ToUpper(t.String())
+				return err
+			})),
+		},
+		inBuf: `{"X":"hello"}`,
+		inVal: addr(struct{ X *string }{addr("")}),
+		want:  addr(struct{ X *string }{addr("HELLO")}),
+	}, {
+		name: Name("Functions/Interface/Nil"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v fmt.Stringer) error {
+				panic("should not be called")
+			})),
+		},
+		inBuf:   `{"X":"hello"}`,
+		inVal:   addr(struct{ X fmt.Stringer }{nil}),
+		want:    addr(struct{ X fmt.Stringer }{nil}),
+		wantErr: EU(errNilInterface).withPos(`{"X":`, "/X").withType(0, T[fmt.Stringer]()),
+	}, {
+		name: Name("Functions/Interface/NetIP"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *fmt.Stringer) error {
+				*v = net.IP{}
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf: `{"X":"1.1.1.1"}`,
+		inVal: addr(struct{ X fmt.Stringer }{nil}),
+		want:  addr(struct{ X fmt.Stringer }{net.IPv4(1, 1, 1, 1)}),
+	}, {
+		name: Name("Functions/Interface/NewPointerNetIP"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *fmt.Stringer) error {
+				*v = new(net.IP)
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf: `{"X":"1.1.1.1"}`,
+		inVal: addr(struct{ X fmt.Stringer }{nil}),
+		want:  addr(struct{ X fmt.Stringer }{addr(net.IPv4(1, 1, 1, 1))}),
+	}, {
+		name: Name("Functions/Interface/NilPointerNetIP"),
+		opts: []Options{
+			WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, v *fmt.Stringer) error {
+				*v = (*net.IP)(nil)
+				return errors.ErrUnsupported
+			})),
+		},
+		inBuf: `{"X":"1.1.1.1"}`,
+		inVal: addr(struct{ X fmt.Stringer }{nil}),
+		want:  addr(struct{ X fmt.Stringer }{addr(net.IPv4(1, 1, 1, 1))}),
+	}, {
+		name: Name("Functions/Interface/NilPointerNetIP/Override"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *fmt.Stringer) error {
+					*v = (*net.IP)(nil)
+					return errors.ErrUnsupported
+				}),
+				UnmarshalFunc(func(b []byte, v *net.IP) error {
+					b = bytes.ReplaceAll(b, []byte(`1`), []byte(`8`))
+					return v.UnmarshalText(bytes.Trim(b, `"`))
+				}),
+			)),
+		},
+		inBuf: `{"X":"1.1.1.1"}`,
+		inVal: addr(struct{ X fmt.Stringer }{nil}),
+		want:  addr(struct{ X fmt.Stringer }{addr(net.IPv4(8, 8, 8, 8))}),
+	}, {
+		name: Name("Functions/Precedence/V1First"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFunc(func(b []byte, v *string) error {
+					if string(b) != `"called"` {
+						return fmt.Errorf("got %s, want %s", b, `"called"`)
+					}
+					*v = "called"
+					return nil
+				}),
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+					panic("should not be called")
+				}),
+			)),
+		},
+		inBuf: `"called"`,
+		inVal: addr(""),
+		want:  addr("called"),
+	}, {
+		name: Name("Functions/Precedence/V2First"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+					switch t, err := dec.ReadToken(); {
+					case err != nil:
+						return err
+					case t.String() != "called":
+						return fmt.Errorf("got %q, want %q", t, "called")
+					}
+					*v = "called"
+					return nil
+				}),
+				UnmarshalFunc(func([]byte, *string) error {
+					panic("should not be called")
+				}),
+			)),
+		},
+		inBuf: `"called"`,
+		inVal: addr(""),
+		want:  addr("called"),
+	}, {
+		name: Name("Functions/Precedence/V2Skipped"),
+		opts: []Options{
+			WithUnmarshalers(JoinUnmarshalers(
+				UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+					return errors.ErrUnsupported
+				}),
+				UnmarshalFunc(func(b []byte, v *string) error {
+					if string(b) != `"called"` {
+						return fmt.Errorf("got %s, want %s", b, `"called"`)
+					}
+					*v = "called"
+					return nil
+				}),
+			)),
+		},
+		inBuf: `"called"`,
+		inVal: addr(""),
+		want:  addr("called"),
 	}}
 
 	for _, tt := range tests {
@@ -4048,7 +4458,6 @@ func TestUnmarshal(t *testing.T) {
 		}
 		t.Run(tt.name.Name, func(t *testing.T) {
 			skipUnsupported(t, tt.opts)
-			skipNotDecodedYet(t, tt.inVal)
 			got := tt.inVal
 			gotErr := Unmarshal([]byte(tt.inBuf), got, tt.opts...)
 			// the value is compared only without an error: what is decoded before an error is not specified.

@@ -157,3 +157,59 @@ func TestMarshalToStackSameAsStd(t *testing.T) {
 		}
 	}
 }
+
+// stdNestedWriter and nestedWriter write [{"a":[1]}] token by token, and log the stack of the encoder after each
+// token: the levels which the method opened are counted after the ones around its value.
+type stdNestedWriter struct{ log *stackLog }
+
+func (w stdNestedWriter) MarshalJSONTo(enc *stdjsontext.Encoder) error {
+	toks := []stdjsontext.Token{
+		stdjsontext.BeginArray, stdjsontext.BeginObject, stdjsontext.String("a"), stdjsontext.BeginArray,
+		stdjsontext.Int(1), stdjsontext.EndArray, stdjsontext.EndObject, stdjsontext.EndArray,
+	}
+	for _, tok := range toks {
+		if err := enc.WriteToken(tok); err != nil {
+			return err
+		}
+		var kinds []string
+		for i := range enc.StackDepth() + 1 {
+			k, n := enc.StackIndex(i)
+			kinds = append(kinds, fmt.Sprintf("%v:%d", k, n))
+		}
+		w.log.add(string(enc.StackPointer()), enc.StackDepth(), kinds)
+	}
+	return nil
+}
+
+type nestedWriter struct{ log *stackLog }
+
+func (w nestedWriter) MarshalJSONTo(enc *jsontext.Encoder) error {
+	toks := []jsontext.Token{
+		jsontext.BeginArray, jsontext.BeginObject, jsontext.String("a"), jsontext.BeginArray,
+		jsontext.Int(1), jsontext.EndArray, jsontext.EndObject, jsontext.EndArray,
+	}
+	for _, tok := range toks {
+		if err := enc.WriteToken(tok); err != nil {
+			return err
+		}
+		var kinds []string
+		for i := range enc.StackDepth() + 1 {
+			k, n := enc.StackIndex(i)
+			kinds = append(kinds, fmt.Sprintf("%v:%d", k, n))
+		}
+		w.log.add(string(enc.StackPointer()), enc.StackDepth(), kinds)
+	}
+	return nil
+}
+
+func TestMarshalToNestedStackSameAsStd(t *testing.T) {
+	var stdLog, ourLog stackLog
+	want, wantErr := stdjson.Marshal(map[string]any{"k": []any{1, stdNestedWriter{&stdLog}}})
+	got, err := json.Marshal(map[string]any{"k": []any{1, nestedWriter{&ourLog}}})
+	if err != nil || wantErr != nil || string(got) != string(want) {
+		t.Fatalf("Marshal = %s, %v; std %s, %v", got, err, want, wantErr)
+	}
+	if g, w := strings.Join(ourLog.lines, "\n"), strings.Join(stdLog.lines, "\n"); g != w {
+		t.Fatalf("the stacks which the method saw:\ngot\n%s\nwant\n%s", g, w)
+	}
+}

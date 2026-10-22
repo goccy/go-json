@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -134,6 +135,86 @@ func BenchmarkExtra(b *testing.B) {
 	}
 }
 `
+	// testLibDecodeUnsupported has an API which doesn't support its work yet, which testLibDecodeSupported does.
+	testLibDecodeUnsupported = testLibFast + `
+func Decode() error {
+	return errNotSupported
+}
+
+type notSupported struct{}
+
+func (notSupported) Error() string { return "not supported yet" }
+
+var errNotSupported error = notSupported{}
+`
+	testLibDecodeSupported = testLibFast + `
+func Decode() error {
+	Work()
+	return nil
+}
+`
+	// testBenchDecode has two functions of Decode next to each other, so that one is measured with the base first,
+	// and the other with the working tree first.
+	testBenchDecode = testBench + `
+func BenchmarkDecode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if err := lib.Decode(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkDecodeTwice(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if err := lib.Decode(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+`
+	// testLibDecodeInterrupted has an API which interrupts the process, as a Ctrl-C does a test binary which a
+	// check runs.
+	testLibDecodeInterrupted = `package lib
+
+import (
+	"os"
+	"time"
+)
+
+func Work() int {
+	time.Sleep(20 * time.Millisecond)
+	return 0
+}
+
+func Decode() error {
+	p, err := os.FindProcess(os.Getpid())
+	if err != nil {
+		return err
+	}
+	if err := p.Signal(os.Interrupt); err != nil {
+		return err
+	}
+	// the signal ends the process
+	time.Sleep(time.Minute)
+	return nil
+}
+`
+	testBenchDecodeOnly = `package bench
+
+import (
+	"testing"
+
+	"example.com/lib"
+)
+
+func BenchmarkDecode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if err := lib.Decode(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+`
 )
 
 type testRepo struct {
@@ -194,6 +275,16 @@ func (r *testRepo) commit(message string) {
 
 func (r *testRepo) check(tolerance float64) *outcome {
 	r.t.Helper()
+	out, err := r.checkResult(tolerance)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return out
+}
+
+// checkResult is check, which returns the error of the check.
+func (r *testRepo) checkResult(tolerance float64) (*outcome, error) {
+	r.t.Helper()
 	rounds := r.rounds
 	if rounds == 0 {
 		rounds = r.layouts
@@ -210,14 +301,11 @@ func (r *testRepo) check(tolerance float64) *outcome {
 		cache: &cache{dir: filepath.Join(r.dir, ".git", "benchcheck"), readable: true},
 	}
 	out, err := c.check(context.Background())
-	if err != nil {
-		r.t.Fatal(err)
-	}
 	// the temporary worktree of the base commit must always be removed.
 	if got := strings.Count(r.git("worktree", "list", "--porcelain"), "worktree "); got != 1 {
 		r.t.Fatalf("temporary worktree is left: %d worktrees exist", got)
 	}
-	return out
+	return out, err
 }
 
 func statusOf(t *testing.T, v *verdict) map[string]status {
@@ -354,6 +442,69 @@ func TestCheck(t *testing.T) {
 			"BenchmarkSub/b": statusOK,
 			"BenchmarkExtra": statusNew,
 		})
+	})
+}
+
+func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
+	// the tolerance to make the verdict independent of the measurement noise.
+	const ignoreNoise = 1e12
+
+	t.Run("is new", func(t *testing.T) {
+		r := newTestRepo(t)
+		r.layouts, r.rounds = 2, 2
+		r.write("lib.go", testLibDecodeUnsupported)
+		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecode)
+		r.commit("an API which doesn't support its work yet")
+		r.write("lib.go", testLibDecodeSupported)
+		want := map[string]status{
+			"BenchmarkWork":        statusOK,
+			"BenchmarkSub/a":       statusOK,
+			"BenchmarkSub/b":       statusOK,
+			"BenchmarkDecode":      statusNew,
+			"BenchmarkDecodeTwice": statusNew,
+		}
+		out := r.check(ignoreNoise)
+		assertStatuses(t, out.verdict, want)
+		// the results of the base are not kept: the base is measured again, with the same statuses.
+		out = r.check(ignoreNoise)
+		if out.cachedBaseline {
+			t.Fatal("the results of a base which failed a function must not be kept")
+		}
+		assertStatuses(t, out.verdict, want)
+	})
+	t.Run("of every function is an error", func(t *testing.T) {
+		r := newTestRepo(t)
+		r.write("lib.go", testLibDecodeUnsupported)
+		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecodeOnly)
+		r.commit("only an API which doesn't support its work yet")
+		r.write("lib.go", testLibDecodeSupported)
+		if _, err := r.checkResult(ignoreNoise); !errors.Is(err, errBaseFailsEveryFunc) {
+			t.Fatalf("got %v, want the error of a base which fails every benchmark function", err)
+		}
+	})
+	t.Run("ended by a signal is an error", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("a process can't send itself an interrupt on Windows")
+		}
+		r := newTestRepo(t)
+		r.write("lib.go", testLibDecodeInterrupted)
+		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecode)
+		r.commit("an API which interrupts the process")
+		r.write("lib.go", testLibDecodeSupported)
+		if _, err := r.checkResult(ignoreNoise); err == nil || errors.Is(err, errBaseFailsEveryFunc) {
+			t.Fatalf("got %v, want the error of the base which was ended by a signal", err)
+		}
+	})
+	t.Run("in the working tree is an error", func(t *testing.T) {
+		r := newTestRepo(t)
+		r.write("lib.go", testLibDecodeSupported)
+		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecode)
+		r.commit("an API which supports its work")
+		r.write("lib.go", testLibDecodeUnsupported)
+		var exitErr *exec.ExitError
+		if _, err := r.checkResult(ignoreNoise); !errors.As(err, &exitErr) || errors.Is(err, errBaseFailsEveryFunc) {
+			t.Fatalf("got %v, want the error of the benchmark which fails in the working tree", err)
+		}
 	})
 }
 

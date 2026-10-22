@@ -275,11 +275,22 @@ func printProgress(base, head layoutMeasurement) {
 	}
 }
 
+// errBaseFailsEveryFunc is the error of a check whose base fails every benchmark function which it measures:
+// nothing is compared then.
+var errBaseFailsEveryFunc = errors.New("every benchmark function fails in the base")
+
 // measureFunc measures the benchmark function fn of the base and of the working tree.
 // The rounds of both sides are interleaved so that they run under the same load,
 // and each round uses the next layout so that every layout of each side is measured.
 // If base is nil, only the working tree is measured.
-func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst bool) (layoutMeasurement, layoutMeasurement, error) {
+//
+// If newInBase is set, which it is for a function which has no result of the base yet, a function which fails in
+// the base, as the benchmark of a behavior which the API of the base has but doesn't support yet does, has no result
+// of the base, and the working tree is measured on: it is new. A failure is a benchmark which exits by itself with
+// an error; a cancellation, a binary ended by a signal, an error to run the binary, and a failure of a function which
+// has results of the base are errors.
+// It returns whether the base failed.
+func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst, newInBase bool) (layoutMeasurement, layoutMeasurement, bool, error) {
 	type side struct {
 		suite  *suite
 		result layoutMeasurement
@@ -297,13 +308,20 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 			}
 			layout := round % c.opt.config.Layouts
 			result, err := s.suite.run(ctx, layout, fn, c.opt.config.BenchTime)
+			var exitErr *exec.ExitError
+			if err != nil && s == baseSide && newInBase && ctx.Err() == nil && errors.As(err, &exitErr) && exitErr.Exited() {
+				fmt.Printf("%s fails in the base: %v; it is compared with nothing\n", fn, err)
+				// the results of the rounds before, of a failure which is not of every round, are dropped too.
+				s.suite, s.result = nil, newLayoutMeasurement(c.opt.config.Layouts)
+				continue
+			}
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, false, err
 			}
 			s.result[layout].mergeFastest(result)
 		}
 	}
-	return baseSide.result, headSide.result, nil
+	return baseSide.result, headSide.result, base != nil && baseSide.suite == nil, nil
 }
 
 // measure runs the benchmarks until all of them reach the result of the base or the attempts are exhausted.
@@ -350,6 +368,8 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 		// a retry exists to get rid of the noise, so both sides are measured again at the same time.
 		useCache := attempt == 1 && cached != nil
 		var measured layoutMeasurement
+		// failed is the number of the functions which fail in the base: if all of them do, nothing is compared.
+		failed := 0
 		for i, fn := range funcs {
 			var baseSuite *suite
 			if !useCache {
@@ -358,10 +378,14 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 					return nil, err
 				}
 			}
-			// alternate the order so that neither side is systematically favored.
-			baseResult, headResult, err := c.measureFunc(ctx, fn, baseSuite, head, i%2 == 0)
+			// alternate the order so that neither side is systematically favored. The functions of a retry have
+			// results of the base, of the first attempt.
+			baseResult, headResult, baseFailed, err := c.measureFunc(ctx, fn, baseSuite, head, i%2 == 0, attempt == 1)
 			if err != nil {
 				return nil, err
+			}
+			if baseFailed {
+				failed++
 			}
 			if useCache {
 				baseResult = cached.Results
@@ -371,7 +395,12 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 			cmp.add(fn, baseResult, headResult)
 			printProgress(baseResult, headResult)
 		}
-		if attempt == 1 && cached == nil {
+		if failed == len(funcs) {
+			return nil, fmt.Errorf("%w %s", errBaseFailsEveryFunc, c.baseCommit)
+		}
+		// the results of a base which failed a function are not kept as the baseline: the next check measures it
+		// again, so that a failure which happens once is not kept for the base.
+		if attempt == 1 && cached == nil && failed == 0 {
 			if err := c.cache.storeBaseline(&baseline{Commit: c.baseCommit, Key: key, Results: measured}); err != nil {
 				return nil, err
 			}

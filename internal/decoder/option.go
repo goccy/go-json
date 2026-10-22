@@ -29,6 +29,12 @@ const (
 	V2AllowDuplicateNames
 	// V2StringifyNumbers decodes the numbers of the numeric types from JSON strings, by decoders of their own.
 	V2StringifyNumbers
+	// V2MatchCaseInsensitiveNames matches the names of an object with the names of the fields of a struct by their
+	// folded names too, unless a field has the `case:strict` option.
+	V2MatchCaseInsensitiveNames
+	// V2RejectUnknownMembers makes a name of an object which is the name of no field of a struct an error, unless
+	// the struct has an embedded fallback.
+	V2RejectUnknownMembers
 )
 
 type Option struct {

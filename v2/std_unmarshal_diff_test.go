@@ -31,11 +31,14 @@ type unmarshalDiffCase struct {
 	in   string
 	out  func() any
 	opts unmarshalDiffOptions
+	// errorOnly is set for a value which is not compared, as a map of pointer keys, whose keys are new pointers.
+	errorOnly bool
 }
 
 // unmarshalDiffOptions are the options of a case, which are given to both packages.
 type unmarshalDiffOptions struct {
 	stringifyNumbers, allowInvalidUTF8, allowDuplicateNames bool
+	matchCaseInsensitiveNames, rejectUnknownMembers         bool
 }
 
 func (o unmarshalDiffOptions) ours() []json.Options {
@@ -43,6 +46,8 @@ func (o unmarshalDiffOptions) ours() []json.Options {
 		json.StringifyNumbers(o.stringifyNumbers),
 		jsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		jsontext.AllowDuplicateNames(o.allowDuplicateNames),
+		json.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
+		json.RejectUnknownMembers(o.rejectUnknownMembers),
 	}
 }
 
@@ -51,10 +56,14 @@ func (o unmarshalDiffOptions) std() []stdjson.Options {
 		stdjson.StringifyNumbers(o.stringifyNumbers),
 		stdjsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		stdjsontext.AllowDuplicateNames(o.allowDuplicateNames),
+		stdjson.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
+		stdjson.RejectUnknownMembers(o.rejectUnknownMembers),
 	}
 }
 
-// outOf returns the function which makes a pointer to a new value of T set to v.
+// outOf returns the function which makes a pointer to a new value of T set to v. v must refer to no memory, which
+// the values of the two packages would share: a value which does, a map, a slice or a pointer which is not nil, is
+// made by a function of its own.
 func outOf[T any](v T) func() any {
 	return func() any {
 		p := new(T)
@@ -67,7 +76,6 @@ var (
 	stringify    = unmarshalDiffOptions{stringifyNumbers: true}
 	invalidUTF8  = unmarshalDiffOptions{allowInvalidUTF8: true}
 	duplicates   = unmarshalDiffOptions{allowDuplicateNames: true}
-	five         = 5
 	deepArray    = strings.Repeat("[", 10001) + strings.Repeat("]", 10001)
 	deepArrayMax = strings.Repeat("[", 10000) + strings.Repeat("]", 10000)
 )
@@ -101,7 +109,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "int leading zero", in: `01`, out: outOf(7)},
 		{name: "int stringified", in: `"12"`, out: outOf(7), opts: stringify},
 		{name: "int stringified negative", in: `"-12"`, out: outOf(int8(7)), opts: stringify},
-		{name: "int stringified escaped", in: `"1"`, out: outOf(7), opts: stringify},
+		{name: "int stringified escaped", in: `"\u0031"`, out: outOf(7), opts: stringify},
 		{name: "int stringified plain", in: `12`, out: outOf(7), opts: stringify},
 		{name: "int stringified space", in: `" 12"`, out: outOf(7), opts: stringify},
 		{name: "int stringified null", in: `null`, out: outOf(7), opts: stringify},
@@ -118,7 +126,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "float32 stringified overflow", in: `"1e40"`, out: outOf(float32(0)), opts: stringify},
 		{name: "float stringified NaN", in: `"NaN"`, out: outOf(0.0), opts: stringify},
 		{name: "string", in: `"abc"`, out: outOf("")},
-		{name: "string of escapes", in: `"é\n😀"`, out: outOf("")},
+		{name: "string of escapes", in: `"\u00e9\n\ud83d\ude00"`, out: outOf("")},
 		{name: "string null", in: `null`, out: outOf("x")},
 		{name: "string of invalid UTF-8", in: "\"a\xffb\"", out: outOf("x")},
 		{name: "string of invalid UTF-8 allowed", in: "\"a\xffb\"", out: outOf("x"), opts: invalidUTF8},
@@ -126,7 +134,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "string of a lone low surrogate", in: `"a\udc00"`, out: outOf("x")},
 		{name: "string of a high surrogate before a letter", in: `"\ud83dA"`, out: outOf("x")},
 		{name: "string of a lone surrogate allowed", in: `"a\ud800b"`, out: outOf("x"), opts: invalidUTF8},
-		{name: "string of an escaped replacement character", in: `"�"`, out: outOf("")},
+		{name: "string of an escaped replacement character", in: `"\ufffd"`, out: outOf("")},
 		{name: "string of a replacement character", in: "\"\xef\xbf\xbd\"", out: outOf("")},
 		{name: "string of an escaped backslash before u", in: `"\\ud800"`, out: outOf("")},
 		{name: "string number", in: `1`, out: outOf("x")},
@@ -134,14 +142,14 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "string of a control byte", in: "\"a\tb\"", out: outOf("x")},
 		{name: "named string", in: `"abc"`, out: outOf(unmarshalDiffText(""))},
 		{name: "bytes", in: `"AQID"`, out: outOf([]byte(nil))},
-		{name: "bytes null", in: `null`, out: outOf([]byte{1})},
+		{name: "bytes null", in: `null`, out: func() any { v := []byte{1}; return &v }},
 		{name: "bytes empty", in: `""`, out: outOf([]byte(nil))},
 		{name: "bytes reused", in: `"AQ=="`, out: func() any { b := make([]byte, 1, 8); b[0] = 9; return &b }},
 		{name: "bytes of a line feed", in: `"AQ\nID"`, out: outOf([]byte(nil))},
 		{name: "bytes without padding", in: `"AQI"`, out: outOf([]byte(nil))},
 		{name: "bytes of the URL alphabet", in: `"-_8="`, out: outOf([]byte(nil))},
 		{name: "bytes array", in: `[1,2]`, out: outOf([]byte(nil))},
-		{name: "bytes not base64", in: `"!!!!"`, out: outOf([]byte{5})},
+		{name: "bytes not base64", in: `"!!!!"`, out: func() any { v := []byte{5}; return &v }},
 		{name: "bytes of invalid UTF-8", in: "\"AQ\xff\"", out: outOf([]byte(nil))},
 		{name: "byte array", in: `"AQID"`, out: outOf([3]byte{})},
 		{name: "byte array short", in: `"AQI="`, out: outOf([3]byte{9, 9, 9})},
@@ -181,15 +189,15 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "any number in a string", in: `"1"`, out: outOf[any](nil), opts: stringify},
 		{name: "named empty interface", in: `[1]`, out: outOf[unmarshalDiffEmpty](nil)},
 		{name: "reader nil", in: `{}`, out: outOf[io.Reader](nil)},
-		{name: "slice", in: `[1,2]`, out: outOf([]int{9, 9, 9})},
-		{name: "slice null", in: `null`, out: outOf([]int{9})},
+		{name: "slice", in: `[1,2]`, out: func() any { v := []int{9, 9, 9}; return &v }},
+		{name: "slice null", in: `null`, out: func() any { v := []int{9}; return &v }},
 		{name: "slice empty", in: `[]`, out: outOf([]int(nil))},
 		{name: "slice of a syntax error after a comma", in: `[1,]`, out: outOf([]int(nil))},
-		{name: "slice of an element of another type", in: `[1,"x",3]`, out: outOf([]int{9, 9, 9})},
+		{name: "slice of an element of another type", in: `[1,"x",3]`, out: func() any { v := []int{9, 9, 9}; return &v }},
 		{name: "slice of pointers reused", in: `[2]`, out: func() any { n := 1; s := []*int{&n}; return &s }},
-		{name: "slice of any reused", in: `["s"]`, out: outOf([]any{5})},
+		{name: "slice of any reused", in: `["s"]`, out: func() any { v := []any{5}; return &v }},
 		{name: "slice of a type error then a syntax error", in: `["x", }`, out: outOf([]int(nil))},
-		{name: "slice of slices", in: `[[1],[],null,[2,3]]`, out: outOf([][]int{{9, 9}})},
+		{name: "slice of slices", in: `[[1],[],null,[2,3]]`, out: func() any { v := [][]int{{9, 9}}; return &v }},
 		{name: "array", in: `[1,2]`, out: outOf([2]int{5, 5})},
 		{name: "array short", in: `[1]`, out: outOf([2]int{5, 5})},
 		{name: "array long", in: `[1,2,3]`, out: outOf([2]int{5, 5})},
@@ -197,7 +205,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "array null", in: `null`, out: outOf([2]int{5, 5})},
 		{name: "array of pointers reused", in: `[3]`, out: func() any { n := 1; a := [1]*int{&n}; return &a }},
 		{name: "array nested short", in: `[[1]]`, out: outOf([][2]int(nil))},
-		{name: "pointer null", in: `null`, out: outOf(&five)},
+		{name: "pointer null", in: `null`, out: func() any { n := 5; v := &n; return &v }},
 		{name: "pointer allocated", in: `3`, out: outOf[*int](nil)},
 		{name: "pointer to a pointer", in: `3`, out: outOf[**int](nil)},
 		{name: "pointer reused", in: `4`, out: func() any { n := 1; p := &n; return &p }},
@@ -237,7 +245,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "any holding a named type", in: `"x"`, out: outOf[any](unmarshalDiffText("s"))},
 		{name: "any holding an array", in: `[1,2]`, out: outOf[any]([2]int{5, 5})},
 		{name: "any holding an array short", in: `[1]`, out: outOf[any]([2]int{5, 5})},
-		{name: "any holding a slice", in: `[1,2]`, out: outOf[any]([]int{5})},
+		{name: "any holding a slice", in: `[1,2]`, out: func() any { var v any = []int{5}; return &v }},
 		{name: "any holding a typed nil map", in: `{"a":1}`, out: outOf[any](map[string]any(nil))},
 		{name: "int64 stringified min", in: `"-9223372036854775808"`, out: outOf(int64(0)), opts: stringify},
 		{name: "int64 stringified below min", in: `"-9223372036854775809"`, out: outOf(int64(0)), opts: stringify},
@@ -292,7 +300,7 @@ type unmarshalDiffText string
 type unmarshalDiffSlices []unmarshalDiffSlices
 
 func TestUnmarshalMatchesStd(t *testing.T) {
-	for _, c := range unmarshalDiffCases() {
+	for _, c := range append(unmarshalDiffCases(), unmarshalDiffStructCases()...) {
 		t.Run(c.name, func(t *testing.T) {
 			ours, theirs := c.out(), c.out()
 			err := json.Unmarshal([]byte(c.in), ours, c.opts.ours()...)
@@ -300,7 +308,7 @@ func TestUnmarshalMatchesStd(t *testing.T) {
 			if got, want := describeUnmarshalError(err), describeUnmarshalError(stdErr); got != want {
 				t.Fatalf("error:\n got %s\nwant %s", got, want)
 			}
-			if err == nil && !reflect.DeepEqual(ours, theirs) {
+			if err == nil && !c.errorOnly && !reflect.DeepEqual(ours, theirs) {
 				t.Fatalf("value:\n got %#v\nwant %#v", reflect.ValueOf(ours).Elem(), reflect.ValueOf(theirs).Elem())
 			}
 		})

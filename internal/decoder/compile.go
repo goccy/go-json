@@ -38,8 +38,11 @@ type compiler struct {
 	decoders map[uintptr]Decoder
 	// v2 is set for the decoders of the semantics of encoding/json/v2 ( see compileV2 ).
 	v2 bool
-	// stringifyNumbers is set, with v2, for the decoders of its option StringifyNumbers.
+	// stringifyNumbers is set, with v2, for the decoders of its option StringifyNumbers, and of the names of the
+	// objects decoded into maps; stringTag, with stringifyNumbers, for the decoders of the values of a field of the
+	// `string` option ( see compiler.stringTagCompiler ).
 	stringifyNumbers bool
+	stringTag        bool
 }
 
 func newCompiler(v2 bool) *compiler {

@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull request 1 in progress
+- Status: plan approved on 2026-10-19; pull request 1 merged (#746), pull request 2 in progress
 
 ## What
 
@@ -80,6 +80,19 @@ Pull requests, in order (sizes without tests are estimates):
 | 7 | `UnmarshalDecode` and `UnmarshalDecodeOf` | 500-900 |
 
 Then [v1-calls-v2-methods.md](v1-calls-v2-methods.md).
+
+Speed of v2 against v1 measured so far, for pull request 5 (arm64, Apple M5):
+
+| Benchmark | v1 | v2 | Cause found |
+|---|---|---|---|
+| `LargeSlice_EscapedString` (`[]string`) | 181-197 µs | 215 µs | each decoded string is scanned again for U+FFFD |
+| `Code_Unmarshal` | 1.53 ms | 2.07 ms | not looked into |
+| `TwitterBinding_Unmarshal` | 5.0 µs | 7.7 µs | not looked into |
+| `SmallStruct_Unmarshal`, case-insensitive | 106 ns | 316 ns | names of another case go through `jsonfields.FoldName` and a map |
+| `MediumStruct_Unmarshal`, case-insensitive | 776 ns | 3.65 µs | the same |
+| `LargeStruct_Unmarshal`, case-insensitive | 10.0 µs | 66 µs | the same |
+
+`TwitterGeneric_Unmarshal` and `CodeAny_Unmarshal` (`any`) are as fast as v1.
 
 Risks:
 

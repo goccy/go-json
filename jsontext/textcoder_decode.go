@@ -37,6 +37,33 @@ func unmarshalPlace(in []byte, opts *options.Config, stop int64, read textcoder.
 	}
 }
 
+// validValueOptions are the options of validValue, by AllowDuplicateNames and AllowInvalidUTF8, made once so that a
+// call makes no Options.
+var validValueOptions = func() [2][2][]Options {
+	var opts [2][2][]Options
+	for i, dup := range []bool{false, true} {
+		for j, utf8 := range []bool{false, true} {
+			opts[i][j] = []Options{AllowDuplicateNames(dup), AllowInvalidUTF8(utf8)}
+		}
+	}
+	return opts
+}()
+
+// validValue is textcoder.ValidValue: v is checked as Value.IsValid checks it.
+func validValue(v []byte, allowDuplicateNames, allowInvalidUTF8 bool) bool {
+	var i, j int
+	if allowDuplicateNames {
+		i = 1
+	}
+	if allowInvalidUTF8 {
+		j = 1
+	}
+	e := getEncoder(validValueOptions[i][j])
+	defer putEncoder(e)
+	e.vs.write, e.vs.spaced = false, false
+	return e.writeValue(v) == nil
+}
+
 // readPlace reads the value at the start of the input of dec as read says, and returns the syntax error it meets,
 // or else the pointer of the value.
 func readPlace(dec *Decoder, read textcoder.Read) (string, error) {

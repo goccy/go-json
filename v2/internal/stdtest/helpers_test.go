@@ -229,8 +229,8 @@ var (
 )
 
 // skipNotDecodedYet skips a case whose value has a type which Unmarshal doesn't decode yet ( see Unmarshal ): a
-// struct, a map, a time.Duration, or a type which has a method of unmarshaling. The values of the interfaces which
-// the value has are looked at too.
+// time.Duration, or a type which has a method of unmarshaling. The values of the interfaces which the value has are
+// looked at too.
 func skipNotDecodedYet(t *testing.T, v any) {
 	t.Helper()
 	if !decodedYet(reflect.ValueOf(v)) {
@@ -248,6 +248,12 @@ func decodedYet(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Pointer, reflect.Interface:
 		return v.IsNil() || decodedYet(v.Elem())
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if !decodedYet(v.Field(i)) {
+				return false
+			}
+		}
 	case reflect.Slice, reflect.Array:
 		for i := range v.Len() {
 			if !decodedYet(v.Index(i)) {
@@ -269,8 +275,14 @@ func typeDecodedYet(typ reflect.Type, seen map[reflect.Type]bool) bool {
 		}
 	}
 	switch typ.Kind() {
-	case reflect.Struct, reflect.Map:
-		return false
+	case reflect.Struct:
+		for i := range typ.NumField() {
+			if !typeDecodedYet(typ.Field(i).Type, seen) {
+				return false
+			}
+		}
+	case reflect.Map:
+		return typeDecodedYet(typ.Key(), seen) && typeDecodedYet(typ.Elem(), seen)
 	case reflect.Pointer, reflect.Slice, reflect.Array:
 		return typeDecodedYet(typ.Elem(), seen)
 	}

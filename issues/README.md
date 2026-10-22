@@ -44,6 +44,7 @@ Priority 4
 
 - [decoder-redundant-skip-white-space.md](decoder-redundant-skip-white-space.md)
 - [decoder-compile-embedded-chains.md](decoder-compile-embedded-chains.md)
+- [decoder-v2-error-before-colon.md](decoder-v2-error-before-colon.md)
 - [decoder-error-source-display.md](decoder-error-source-display.md)
 - [encoder-error-texts.md](encoder-error-texts.md)
 - [encoder-vm-structure.md](encoder-vm-structure.md)

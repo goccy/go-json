@@ -143,6 +143,16 @@ type udNames struct {
 	Upper   int `json:"Name"`
 }
 
+// udFoldRunes has names which other names fold to: by a rune which is not ASCII, by '_' and '-', which folding drops,
+// and two of the same folded name, of which a name matches the one of `case:strict` only as it is.
+type udFoldRunes struct {
+	K      int `json:"k"`
+	S      int `json:"s,case:ignore"`
+	AB     int `json:"a_b"`
+	Strict int `json:"Name,case:strict"`
+	Loose  int `json:"NAME,case:ignore"`
+}
+
 var (
 	insensitive = unmarshalDiffOptions{matchCaseInsensitiveNames: true}
 	reject      = unmarshalDiffOptions{rejectUnknownMembers: true}
@@ -257,6 +267,14 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name of fields which differ in case insensitive", in: `{"NAME":1}`, out: outOf(udNames{}), opts: insensitive},
 		{name: "struct many names of no field twice", in: manyUnknown, out: outOf(udNames{})},
 		{name: "struct many names of no field twice allowed", in: manyUnknown, out: outOf(udNames{}), opts: duplicates},
+		{name: "struct name of the Kelvin sign", in: `{"\u212a":1}`, out: outOf(udFoldRunes{})},
+		{name: "struct name of the Kelvin sign insensitive", in: `{"\u212a":1}`, out: outOf(udFoldRunes{}), opts: insensitive},
+		{name: "struct name of the long s", in: `{"\u017f":1}`, out: outOf(udFoldRunes{})},
+		{name: "struct name without the underscore of a field", in: `{"AB":1}`, out: outOf(udFoldRunes{})},
+		{name: "struct name without the underscore of a field insensitive", in: `{"AB":1}`, out: outOf(udFoldRunes{}), opts: insensitive},
+		{name: "struct name with a dash for the underscore of a field insensitive", in: `{"a-b":1}`, out: outOf(udFoldRunes{}), opts: insensitive},
+		{name: "struct name of a strict field and an ignoring one", in: `{"Name":1,"name":2}`, out: outOf(udFoldRunes{})},
+		{name: "struct name of a strict field and an ignoring one insensitive", in: `{"Name":1,"nAME":2}`, out: outOf(udFoldRunes{}), opts: insensitive},
 		{name: "map", in: `{"a":1,"b":2}`, out: outOf(map[string]int(nil))},
 		{name: "map merged", in: `{"b":2}`, out: func() any { v := map[string]int{"a": 1}; return &v }},
 		{name: "map null", in: `null`, out: func() any { v := map[string]int{"a": 1}; return &v }},

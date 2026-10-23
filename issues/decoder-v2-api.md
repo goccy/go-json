@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull requests 1 (#746) to 5 merged, pull request 6 in progress
+- Status: plan approved on 2026-10-19; pull requests 1 (#746) to 6 merged, pull request 7 in progress
 
 ## What
 
@@ -79,8 +79,11 @@ The reference is the first commit of the branch, c7d2227, before the emulation w
   - A member which no field takes and which the buffer doesn't hold whole is skipped by the
     attached decoder, which checks it as encoding/json/v2 does (duplicate names, UTF-8).
   - After a failed `UnmarshalDecode`, a `SemanticError` leaves the decoder after the value, whose
-    rest is read and checked; a syntactic error or an error of the reader is returned by every
-    later read. The place where encoding/json/v2 stops is not imitated.
+    rest is read and checked by its grammar; any other error leaves the decoder before the value, as
+    an error of `Decoder.ReadValue` does, which encoding/json/v2's `TestUnmarshalDecodeOptions` reads
+    again with other options (decided first as "every later read fails", changed for that test),
+    but if the stream dropped the start of the value, which every later read fails with then. The
+    place where encoding/json/v2 stops within a value is not imitated.
 - The tests of encoding/json/v2 are ported to `v2/internal/stdtest` (tests only, as for
   marshaling), and each pull request enables the part it covers.
 - Benchmarks of v2 decoding come with the first pull request, so the gate measures v2 from then.
@@ -132,6 +135,7 @@ reading 512 bytes at a time in both): the most memory kept alive at once and the
 | `SkipRecords_ChunkedStream` | 1.93 ms | 4.64 ms | a value of no field which the buffer doesn't hold whole is skipped by a `jsontext.Decoder`, token by token, which checks it as encoding/json/v2 does |
 | `Twitter_ChunkedStream` | 10.8 µs | 15.1 µs | the ones of `TwitterBinding_Unmarshal` |
 | `CodeAny_ChunkedStream` | 4.18 ms | 4.91 ms | not looked into; the objects decoded element by element are merged into maps of no size |
+| `NDJSON_ChunkedStream` (a record by `UnmarshalDecode`, against `Decoder.Decode`) | 2.38 ms | 4.33 ms | not looked into; each call sets up its state and its stream, which copies 512 bytes of the buffer of the decoder for a record of 180 |
 
 The causes come from CPU and allocation profiles in a linux/arm64 container (2026-10-23), and the percentages are
 of the time of v2. Each is the work of one function of a decoder of v2; none is in the attached decoder of

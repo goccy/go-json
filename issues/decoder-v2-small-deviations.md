@@ -4,7 +4,8 @@
 - Kind: deviation
 - Priority: 4
 - Status: recorded 2026-10-20, found in the review of `UnmarshalJSONFrom`, and 2026-10-23 in the
-  review of `UnmarshalRead`; left by the rule of matching the documented behavior only
+  reviews of `UnmarshalRead` and `UnmarshalDecode`; left by the rule of matching the documented
+  behavior only
 
 ## What
 
@@ -27,3 +28,10 @@
   of the object or array which the value being read is in`, at `/K`); encoding/json/v2 reports
   the invalid character (`invalid character ']' after object value`, at the offset, pointer
   `""`). The offset is the same.
+- `UnmarshalDecode` at the name of a member, into a type of an `UnmarshalJSONFrom` method or of a
+  function of `UnmarshalFromFunc`: the decoder which go-json gives the method reads the name alone,
+  as a value at the top level, which the decoder of the caller read with `ReadValue`, so that
+  `InputOffset`, `StackPointer` and `StackDepth` are the ones of the name alone (0, `""` and 0
+  before it, for `{"abc":1}`); encoding/json/v2 gives the method the decoder of the caller (1,
+  `""` and 1 before the name, 6, `/abc` and 1 after it). The value decoded and the place of a
+  `SemanticError` are the same.

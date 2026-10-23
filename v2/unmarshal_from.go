@@ -52,6 +52,11 @@ type fromState struct {
 	levels     []textcoder.Level
 	reader     streamReader
 	room       []byte
+	// nested is the state of the calls of a value which a method of a stream decodes by UnmarshalDecode, whose
+	// decoder is not the one of the method, and nestedPath the array of the path of the value ( see
+	// decodeOnStream ).
+	nested     *fromState
+	nestedPath []textcoder.Level
 }
 
 // maxKeptRoom is the size of the largest room which a state keeps: one which grew for a long token is dropped.
@@ -155,19 +160,25 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 	depthBefore, countBefore := att.Depth, att.Count
 	err := c.call(&st.dec)
 	textcoder.DetachDecoder(unsafe.Pointer(&st.dec), att)
+	// the decoder which an UnmarshalDecode of c made fail, which lost the input it read ( see afterError ): the value
+	// can't be read again, and the stream can't go on
+	failed := textcoder.DecoderFailed(unsafe.Pointer(&st.dec))
 	if readsOn {
 		// the stream goes on where the decoder stopped, which may have read on, and the room is kept
-		st.stream.Resume(att.End, att.Rest)
+		if !failed {
+			st.stream.Resume(att.End, att.Rest)
+		}
 		st.room = att.In[:0]
 	}
-	if err == nil && (att.Depth != depthBefore || att.Count != countBefore+1) {
+	if err == nil && (failed || att.Depth != depthBefore || att.Count != countBefore+1) {
+		// a failed decoder stopped within a value
 		err = errNonSingularValue
 	}
 	if err == nil {
 		return int64(att.Pos), nil
 	}
 	if errors.Is(err, errors.ErrUnsupported) {
-		if att.Depth == depthBefore && att.Count == countBefore {
+		if att.Depth == depthBefore && att.Count == countBefore && !failed {
 			return 0, decoder.ErrUseDefault
 		}
 		err = errUnsupportedMutation

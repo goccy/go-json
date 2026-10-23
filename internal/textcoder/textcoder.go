@@ -139,6 +139,38 @@ var (
 	ReleaseDecoder func(dec unsafe.Pointer)
 )
 
+// The decoding of the next value of a *jsontext.Decoder by the v2 json package ( UnmarshalDecode ), which reads the
+// value itself from the input of the decoder, and then makes the decoder go on after it.
+var (
+	// DecoderPlace returns the place of the next value of dec: the levels of the whole input around it, the top
+	// level first, appended to levels ( see Level ), whether it is a name of an object, the Outer of the attach of
+	// dec, or nil, and the number of the arrays and the objects open around it.
+	DecoderPlace func(dec unsafe.Pointer, levels []Level) ([]Level, bool, Outer, int)
+	// BeginValue reads what dec reads before its next value, which is not a name, as ReadValue reads it: the
+	// white space and the delimiter, which it checks, and returns the offset of the value in the whole input, or
+	// the error which ReadValue returns there, io.EOF after the last value of the input. The value isn't read.
+	BeginValue func(dec unsafe.Pointer) (int64, error)
+	// DecoderInput returns the input of dec from the offset start of the whole input, which its buffer has: the
+	// bytes of its buffer, and its reader, which reads the input after them.
+	DecoderInput func(dec unsafe.Pointer, start int64) ([]byte, io.Reader)
+	// EndValue makes dec go on after the next value, which was read from start to end, offsets of the whole
+	// input: in its buffer, or, if rest is set, from rest, the input after the value which was read from its
+	// reader, which it copies.
+	EndValue func(dec unsafe.Pointer, start, end int64, rest []byte)
+	// PutBack makes dec read in, the input from the offset start of the whole input, which a caller read from its
+	// reader, as the next input: dec is where it was before its next value, which the caller didn't decode.
+	PutBack func(dec unsafe.Pointer, start int64, in []byte)
+	// FailDecoder makes every later read of dec fail with err, which the read returns as it is.
+	FailDecoder func(dec unsafe.Pointer, err error)
+	// DecoderFailed reports whether FailDecoder made every read of dec fail.
+	DecoderFailed func(dec unsafe.Pointer) bool
+	// SkipToEnd reads the input of the place p as UnmarshalPlaceAt reads it, up to the end of the value of the
+	// level of the place at depth, which has count tokens before the value: the levels deeper are read to their
+	// ends. It returns the offset of the end of the value, and what it read from the reader of p and didn't use,
+	// or the error of the input.
+	SkipToEnd func(p *DecoderAttachment, depth int, count int64) (int64, []byte, error)
+)
+
 // Read is how UnmarshalPlace reads the value which it stops at.
 type Read uint8
 

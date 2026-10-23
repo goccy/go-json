@@ -61,6 +61,29 @@ func ReleaseStreamV2(s *Stream) {
 	streamsV2.Put(s)
 }
 
+// StartAt makes the stream, which has read nothing, start at the offset of the input, which its reader reads from.
+func (s *Stream) StartAt(offset int64) {
+	s.offset = offset
+}
+
+// Offset returns the offset in the input of the cursor of the stream.
+func (s *Stream) Offset() int64 {
+	return s.offset + s.cursor
+}
+
+// Drop empties the buffer of the stream, which a decoder attached at its value read on from and failed after: the
+// stream has nothing to give back ( see Read ), as the decoding of the value fails.
+func (s *Stream) Drop() {
+	s.offset += s.length
+	s.cursor, s.length = 0, 0
+	s.buf[0] = nul
+}
+
+// Unread returns the bytes of the buffer which the stream read after its cursor.
+func (s *Stream) Unread() []byte {
+	return s.buf[s.cursor:s.length]
+}
+
 // Context returns the context of the stream, which its values are decoded by.
 func (s *Stream) Context() *RuntimeContext {
 	return s.ctx
@@ -121,6 +144,28 @@ func (s *Stream) DecodeV2(dec Decoder, p unsafe.Pointer, depth int64) error {
 		s.keeps, s.keepFrom = keeps, keepFrom
 		return s.endError()
 	}
+	return s.decodeTopV2(dec, p, depth, from, keeps, keepFrom)
+}
+
+// DecodeV2After is DecodeV2 for a value at the offset start of the input, after from, the offset of the end of the
+// token before it, which the stream reads from: the white space and the delimiter between them, which were checked,
+// are skipped. It never returns io.EOF.
+func (s *Stream) DecodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
+	s.ctx.v2.Place.Set = false
+	keeps, keepFrom := s.keepFromHere(from)
+	for s.offset+s.length <= start {
+		if !s.read() {
+			s.keeps, s.keepFrom = keeps, keepFrom
+			return s.unexpectedEndError()
+		}
+	}
+	s.cursor = start - s.offset
+	return s.decodeTopV2(dec, p, depth, from, keeps, keepFrom)
+}
+
+// decodeTopV2 decodes the value at the cursor of DecodeV2, after from, the end of the token before it, which is kept
+// while the value is looked for: keeps and keepFrom are what the stream kept before.
+func (s *Stream) decodeTopV2(dec Decoder, p unsafe.Pointer, depth, from int64, keeps bool, keepFrom int64) error {
 	switch dec.(type) {
 	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder:
 		// a method or a function which reads a jsontext.Decoder, which may read on past the value, as the one of
@@ -195,6 +240,41 @@ func (s *Stream) keepFromHere(from int64) (bool, int64) {
 		s.keeps, s.keepFrom = true, from
 	}
 	return keeps, keepFrom
+}
+
+// SetPath sets the path of the call of the stream to levels, the place of the next value which it decodes, copied
+// into path, whose arrays it reuses, and returns the path it had, which the caller sets back by RestorePath.
+func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
+	call := s.ctx.v2
+	saved := call.Path
+	path = path[:0]
+	for _, l := range levels {
+		n := len(path)
+		if n < cap(path) {
+			// the entry, whose name keeps its array: the name of the level is copied, as the names of the path are
+			// copied into ( see setName )
+			path = path[:n+1]
+			path[n].Object, path[n].Count = l.Object, l.Count
+		} else {
+			path = append(path, textcoder.Level{Object: l.Object, Count: l.Count})
+		}
+		name := append(path[n].Name[:0], l.Name...)
+		if name == nil && l.Name != nil {
+			name = []byte{} // the name "", which is a name
+		}
+		path[n].Name = name
+	}
+	call.Path = path
+	return saved
+}
+
+// RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path
+// which it set, whose arrays the caller keeps for the next SetPath.
+func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
+	call := s.ctx.v2
+	path := call.Path
+	call.Path = saved
+	return path
 }
 
 // pushLevel adds the level of an object or an array which is decoded element by element to the path, and returns

@@ -14,6 +14,31 @@ func init() {
 	textcoder.AttachDecoder = attachDecoder
 	textcoder.DetachDecoder = detachDecoder
 	textcoder.UnmarshalPlaceAt = unmarshalPlaceAt
+	textcoder.DecoderPlace = decoderPlace
+	textcoder.BeginValue = beginValue
+	textcoder.DecoderInput = func(dec unsafe.Pointer, start int64) ([]byte, io.Reader) {
+		d := &(*Decoder)(dec).d
+		return d.buf[start-d.base:], d.r
+	}
+	textcoder.EndValue = endValue
+	textcoder.PutBack = func(dec unsafe.Pointer, start int64, in []byte) {
+		d := &(*Decoder)(dec).d
+		if d.shared {
+			d.buf, d.shared = nil, false
+		}
+		d.buf = append(d.buf[:0], in...)
+		d.base, d.pos, d.prevStart, d.prevEnd = start, 0, 0, 0
+	}
+	textcoder.SkipToEnd = skipToEnd
+	textcoder.FailDecoder = func(dec unsafe.Pointer, err error) {
+		d := &(*Decoder)(dec).d
+		d.buf, d.shared = d.buf[:d.pos], true
+		d.r, d.bb, d.rerr, d.peekErr = &failedInput{err: err}, nil, nil, nil
+	}
+	textcoder.DecoderFailed = func(dec unsafe.Pointer) bool {
+		_, failed := (*Decoder)(dec).d.r.(*failedInput)
+		return failed
+	}
 	textcoder.ReadError = func(err error) error { return &ioError{err: err} }
 	textcoder.IsReadError = func(err error) bool {
 		var e *ioError
@@ -146,6 +171,99 @@ func unmarshalPlace(in []byte, opts *options.Config, stop int64, read textcoder.
 		}
 	}
 }
+
+// decoderPlace is textcoder.DecoderPlace.
+func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Level, bool, textcoder.Outer, int) {
+	d := &(*Decoder)(dec).d
+	if !d.ready() {
+		d.setUp()
+	}
+	st := &d.st
+	if st.outer != nil {
+		st = st.full()
+	}
+	for i := range st.levels {
+		l := &st.levels[i]
+		tl := textcoder.Level{Object: l.object, Count: l.count}
+		if i < len(st.levels)-1 {
+			tl.Count-- // the value of the next level, which is open, is not counted
+		}
+		if l.object && l.last >= l.first {
+			tl.Name = st.names.get(l.last)
+		}
+		levels = append(levels, tl)
+	}
+	return levels, d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
+}
+
+// beginValue is textcoder.BeginValue: the start of readValue, up to the value, which is not a name.
+func beginValue(dec unsafe.Pointer) (int64, error) {
+	d := &(*Decoder)(dec).d
+	if !d.ready() {
+		d.setUp()
+	}
+	d.invalidate()
+	if err := d.peekErr; err != nil {
+		d.peekErr = nil
+		return 0, err
+	}
+	pos, err := d.beforeToken(false)
+	if err != nil {
+		return 0, err
+	}
+	if c := d.buf[pos]; c == '}' || c == ']' {
+		// as readValue reports an end delimiter where a value is
+		if l := d.st.last(); !(l.needValue() && c == '}') {
+			if err := d.closeError(pos); err != nil {
+				return 0, err
+			}
+		}
+		return 0, d.charError(pos, placeStartOfValue, pointNext)
+	}
+	return d.base + int64(pos), nil
+}
+
+// endValue is textcoder.EndValue: the decoder is where done leaves it after a value, which its level counts.
+func endValue(dec unsafe.Pointer, start, end int64, rest []byte) {
+	d := &(*Decoder)(dec).d
+	if rest == nil {
+		d.done(int(start-d.base), int(end-d.base))
+	} else {
+		// the input after the value, which the reader gave the caller, in a buffer of the decoder
+		if d.shared {
+			d.buf, d.shared = nil, false
+		}
+		d.buf = append(d.buf[:0], rest...)
+		d.base, d.pos, d.prevStart, d.prevEnd = end, 0, 0, 0
+	}
+	d.st.last().count++
+}
+
+// skipToEnd is textcoder.SkipToEnd: the input is read as unmarshalPlaceAt reads it.
+func skipToEnd(p *textcoder.DecoderAttachment, depth int, count int64) (int64, []byte, error) {
+	dec := new(Decoder)
+	attachDecoder(unsafe.Pointer(dec), p)
+	d := &dec.d
+	if d.st.outer != nil {
+		d.st = *d.st.full()
+	}
+	for d.st.depth() != depth || d.st.levels[depth].count <= count {
+		if _, err := dec.ReadToken(); err != nil {
+			return 0, nil, err
+		}
+	}
+	var rest []byte
+	if !d.shared {
+		rest = d.buf[d.pos:]
+	}
+	return d.base + int64(d.pos), rest, nil
+}
+
+// failedInput is the reader of a decoder which failed ( see textcoder.FailDecoder ): every read returns err, which
+// the decoder returns as it is.
+type failedInput struct{ err error }
+
+func (r *failedInput) Read([]byte) (int, error) { return 0, r.err }
 
 // unmarshalPlaceAt is textcoder.UnmarshalPlaceAt: the part of the input is read by a Decoder attached at its place,
 // whose stack is made the one of the whole input, so that the levels of the place may end in the part.

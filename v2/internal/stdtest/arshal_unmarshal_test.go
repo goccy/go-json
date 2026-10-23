@@ -4396,6 +4396,230 @@ func unmarshalTests() []unmarshalTest {
 		inVal: addr(struct{ X fmt.Stringer }{nil}),
 		want:  addr(struct{ X fmt.Stringer }{addr(net.IPv4(8, 8, 8, 8))}),
 	}, {
+		name: Name("Functions/Interface/Any"),
+		opts: []Options{
+			WithUnmarshalers(func() *Unmarshalers {
+				type P struct {
+					D int
+					N int64
+				}
+				type PV struct {
+					P P
+					V any
+				}
+
+				var lastChecks []func() error
+				checkLast := func() error {
+					for _, fn := range lastChecks {
+						if err := fn(); err != nil {
+							return err
+						}
+					}
+					return errors.ErrUnsupported
+				}
+				makeValueChecker := func(name string, want []PV) func(d *jsontext.Decoder, v any) error {
+					checkNext := func(d *jsontext.Decoder, v any) error {
+						depth, length := decoderPosition(d)
+						p := P{depth, length}
+						rv := reflect.ValueOf(v)
+						pv := PV{p, v}
+						switch {
+						case len(want) == 0:
+							return fmt.Errorf("%s: %v: got more values than expected", name, p)
+						case !rv.IsValid() || rv.Kind() != reflect.Pointer || rv.IsNil():
+							return fmt.Errorf("%s: %v: got %#v, want non-nil pointer type", name, p, v)
+						case !reflect.DeepEqual(pv, want[0]):
+							return fmt.Errorf("%s:\n\tgot  %#v\n\twant %#v", name, pv, want[0])
+						default:
+							want = want[1:]
+							return errors.ErrUnsupported
+						}
+					}
+					lastChecks = append(lastChecks, func() error {
+						if len(want) > 0 {
+							return fmt.Errorf("%s: did not get enough values, want %d more", name, len(want))
+						}
+						return nil
+					})
+					return checkNext
+				}
+				makePositionChecker := func(name string, want []P) func(d *jsontext.Decoder, v any) error {
+					checkNext := func(d *jsontext.Decoder, v any) error {
+						depth, length := decoderPosition(d)
+						p := P{depth, length}
+						switch {
+						case len(want) == 0:
+							return fmt.Errorf("%s: %v: got more values than wanted", name, p)
+						case p != want[0]:
+							return fmt.Errorf("%s: got %v, want %v", name, p, want[0])
+						default:
+							want = want[1:]
+							return errors.ErrUnsupported
+						}
+					}
+					lastChecks = append(lastChecks, func() error {
+						if len(want) > 0 {
+							return fmt.Errorf("%s: did not get enough values, want %d more", name, len(want))
+						}
+						return nil
+					})
+					return checkNext
+				}
+
+				// In contrast to marshal, unmarshal automatically allocates for
+				// nil pointers, which causes unmarshal to visit more values.
+				wantAny := []PV{
+					{P{1, 0}, addr(any(nil))},
+					{P{1, 1}, addr(any(valueStringer{}))},
+					{P{1, 1}, addr(valueStringer{})},
+					{P{1, 2}, addr(any((*valueStringer)(nil)))},
+					{P{1, 2}, addr((*valueStringer)(nil))},
+					{P{1, 2}, addr(valueStringer{})},
+					{P{1, 3}, addr(any(addr(valueStringer{})))},
+					{P{1, 3}, addr(addr(valueStringer{}))},
+					{P{1, 3}, addr(valueStringer{})},
+					{P{1, 4}, addr(any((**valueStringer)(nil)))},
+					{P{1, 4}, addr((**valueStringer)(nil))},
+					{P{1, 4}, addr((*valueStringer)(nil))},
+					{P{1, 4}, addr(valueStringer{})},
+					{P{1, 5}, addr(any(addr((*valueStringer)(nil))))},
+					{P{1, 5}, addr(addr((*valueStringer)(nil)))},
+					{P{1, 5}, addr((*valueStringer)(nil))},
+					{P{1, 5}, addr(valueStringer{})},
+					{P{1, 6}, addr(any(addr(addr(valueStringer{}))))},
+					{P{1, 6}, addr(addr(addr(valueStringer{})))},
+					{P{1, 6}, addr(addr(valueStringer{}))},
+					{P{1, 6}, addr(valueStringer{})},
+					{P{1, 7}, addr(any(pointerStringer{}))},
+					{P{1, 7}, addr(pointerStringer{})},
+					{P{1, 8}, addr(any((*pointerStringer)(nil)))},
+					{P{1, 8}, addr((*pointerStringer)(nil))},
+					{P{1, 8}, addr(pointerStringer{})},
+					{P{1, 9}, addr(any(addr(pointerStringer{})))},
+					{P{1, 9}, addr(addr(pointerStringer{}))},
+					{P{1, 9}, addr(pointerStringer{})},
+					{P{1, 10}, addr(any((**pointerStringer)(nil)))},
+					{P{1, 10}, addr((**pointerStringer)(nil))},
+					{P{1, 10}, addr((*pointerStringer)(nil))},
+					{P{1, 10}, addr(pointerStringer{})},
+					{P{1, 11}, addr(any(addr((*pointerStringer)(nil))))},
+					{P{1, 11}, addr(addr((*pointerStringer)(nil)))},
+					{P{1, 11}, addr((*pointerStringer)(nil))},
+					{P{1, 11}, addr(pointerStringer{})},
+					{P{1, 12}, addr(any(addr(addr(pointerStringer{}))))},
+					{P{1, 12}, addr(addr(addr(pointerStringer{})))},
+					{P{1, 12}, addr(addr(pointerStringer{}))},
+					{P{1, 12}, addr(pointerStringer{})},
+					{P{1, 13}, addr(any("LAST"))},
+					{P{1, 13}, addr("LAST")},
+				}
+				checkAny := makeValueChecker("any", wantAny)
+				anyUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v any) error {
+					return checkAny(dec, v)
+				})
+
+				var wantPointerAny []PV
+				for _, v := range wantAny {
+					if _, ok := v.V.(*any); ok {
+						wantPointerAny = append(wantPointerAny, v)
+					}
+				}
+				checkPointerAny := makeValueChecker("*any", wantPointerAny)
+				pointerAnyUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+					return checkPointerAny(dec, v)
+				})
+
+				checkNamedAny := makeValueChecker("namedAny", wantAny)
+				namedAnyUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v namedAny) error {
+					return checkNamedAny(dec, v)
+				})
+
+				checkPointerNamedAny := makeValueChecker("*namedAny", nil)
+				pointerNamedAnyUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *namedAny) error {
+					return checkPointerNamedAny(dec, v)
+				})
+
+				type stringer = fmt.Stringer
+				var wantStringer []PV
+				for _, v := range wantAny {
+					if _, ok := v.V.(stringer); ok {
+						wantStringer = append(wantStringer, v)
+					}
+				}
+				checkStringer := makeValueChecker("stringer", wantStringer)
+				stringerUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v stringer) error {
+					return checkStringer(dec, v)
+				})
+
+				checkPointerStringer := makeValueChecker("*stringer", nil)
+				pointerStringerUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *stringer) error {
+					return checkPointerStringer(dec, v)
+				})
+
+				wantValueStringer := []P{{1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {1, 6}}
+				checkPointerValueStringer := makePositionChecker("*valueStringer", wantValueStringer)
+				pointerValueStringerUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *valueStringer) error {
+					return checkPointerValueStringer(dec, v)
+				})
+
+				wantPointerStringer := []P{{1, 7}, {1, 8}, {1, 9}, {1, 10}, {1, 11}, {1, 12}}
+				checkPointerPointerStringer := makePositionChecker("*pointerStringer", wantPointerStringer)
+				pointerPointerStringerUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *pointerStringer) error {
+					return checkPointerPointerStringer(dec, v)
+				})
+
+				lastUnmarshaler := UnmarshalFromFunc(func(dec *jsontext.Decoder, v *string) error {
+					return checkLast()
+				})
+
+				return JoinUnmarshalers(
+					// This is just like unmarshaling into a Go array,
+					// but avoids zeroing the element before calling unmarshal.
+					UnmarshalFromFunc(func(dec *jsontext.Decoder, v *[14]any) error {
+						if _, err := dec.ReadToken(); err != nil {
+							return err
+						}
+						for i := range len(*v) {
+							if err := UnmarshalDecode(dec, &(*v)[i]); err != nil {
+								return err
+							}
+						}
+						if _, err := dec.ReadToken(); err != nil {
+							return err
+						}
+						return nil
+					}),
+
+					anyUnmarshaler,
+					pointerAnyUnmarshaler,
+					namedAnyUnmarshaler,
+					pointerNamedAnyUnmarshaler, // never called
+					stringerUnmarshaler,
+					pointerStringerUnmarshaler, // never called
+					pointerValueStringerUnmarshaler,
+					pointerPointerStringerUnmarshaler,
+					lastUnmarshaler,
+				)
+			}()),
+		},
+		inBuf: `[null,{},{},{},{},{},{},{},{},{},{},{},{},"LAST"]`,
+		inVal: addr([...]any{
+			nil,                           // nil
+			valueStringer{},               // T
+			(*valueStringer)(nil),         // *T
+			addr(valueStringer{}),         // *T
+			(**valueStringer)(nil),        // **T
+			addr((*valueStringer)(nil)),   // **T
+			addr(addr(valueStringer{})),   // **T
+			pointerStringer{},             // T
+			(*pointerStringer)(nil),       // *T
+			addr(pointerStringer{}),       // *T
+			(**pointerStringer)(nil),      // **T
+			addr((*pointerStringer)(nil)), // **T
+			addr(addr(pointerStringer{})), // **T
+			"LAST",
+		}),
+	}, {
 		name: Name("Functions/Precedence/V1First"),
 		opts: []Options{
 			WithUnmarshalers(JoinUnmarshalers(
@@ -4515,7 +4739,8 @@ func (unmarshalerEOF) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return io.EOF // should be wrapped and converted by Unmarshal to io.ErrUnexpectedEOF
 }
 
-// TestUnmarshalEOF verifies that io.EOF is converted to io.ErrUnexpectedEOF by Unmarshal and UnmarshalRead.
+// TestUnmarshalEOF verifies that io.EOF is only ever returned by
+// UnmarshalDecode for a top-level value.
 func TestUnmarshalEOF(t *testing.T) {
 	opts := WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, _ *struct{}) error {
 		return io.EOF // should be wrapped and converted by Unmarshal to io.ErrUnexpectedEOF
@@ -4535,6 +4760,187 @@ func TestUnmarshalEOF(t *testing.T) {
 			if gotErr := UnmarshalRead(strings.NewReader(in), newOut(), opts); !errors.Is(gotErr, wantErr) {
 				t.Errorf("Unmarshal = %v, want %v", gotErr, wantErr)
 			}
+			switch gotErr := UnmarshalDecode(jsontext.NewDecoder(strings.NewReader(in)), newOut(), opts); {
+			case in != "" && !errors.Is(gotErr, wantErr):
+				t.Errorf("Unmarshal = %v, want %v", gotErr, wantErr)
+			case in == "" && gotErr != io.EOF:
+				t.Errorf("Unmarshal = %v, want %v", gotErr, io.EOF)
+			}
+		}
+	}
+}
+
+func TestUnmarshalInvalidNamespace(t *testing.T) {
+	tests := []struct {
+		name CaseName
+		val  any
+	}{
+		{Name("Map"), addr(map[string]int{})},
+		{Name("Struct"), addr(struct{ X int }{})},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name.Name, func(t *testing.T) {
+			dec := jsontext.NewDecoder(strings.NewReader(`{"X":""}`))
+			if err := UnmarshalDecode(dec, tt.val); err == nil {
+				t.Fatalf("%s: UnmarshalDecode error is nil, want non-nil", tt.name.Where)
+			}
+			if _, err := dec.ReadToken(); err == nil {
+				t.Fatalf("%s: ReadToken error is nil, want non-nil", tt.name.Where)
+			}
+			if _, err := dec.ReadValue(); err == nil {
+				t.Fatalf("%s: ReadValue error is nil, want non-nil", tt.name.Where)
+			}
+		})
+	}
+}
+
+func TestUnmarshalDecodeOptions(t *testing.T) {
+	var calledFuncs int
+	var calledOptions Options
+	in := strings.NewReader(strings.Repeat("\"\xde\xad\xbe\xef\"\n", 5))
+	dec := jsontext.NewDecoder(in,
+		jsontext.AllowInvalidUTF8(true), // decoder-specific option
+		WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, _ any) error {
+			opts := dec.Options()
+			if v, _ := GetOption(opts, jsontext.AllowInvalidUTF8); !v {
+				t.Errorf("nested Options.AllowInvalidUTF8 = false, want true")
+			}
+			calledFuncs++
+			calledOptions = opts
+			return errors.ErrUnsupported
+		})), // unmarshal-specific option; only relevant for UnmarshalDecode
+	)
+
+	if err := UnmarshalDecode(dec, new(string)); err != nil {
+		t.Fatalf("UnmarshalDecode: %v", err)
+	}
+	if calledFuncs != 1 {
+		t.Fatalf("calledFuncs = %d, want 1", calledFuncs)
+	}
+	if err := UnmarshalDecode(dec, new(string), calledOptions); err != nil {
+		t.Fatalf("UnmarshalDecode: %v", err)
+	}
+	if calledFuncs != 2 {
+		t.Fatalf("calledFuncs = %d, want 2", calledFuncs)
+	}
+	var ye *jsontext.SyntacticError
+	if err := UnmarshalDecode(dec, new(string),
+		jsontext.AllowInvalidUTF8(false), // expect to see invalid UTF-8 error
+		WithUnmarshalers(nil),            // avoid calling previously registered unmarshalers
+	); !errors.As(err, &ye) || !equalError(ye.Err, errInvalidUTF8) {
+		t.Fatalf("UnmarshalDecode = %v, want %v", err, errInvalidUTF8)
+	}
+	if err := UnmarshalDecode(dec, new(string),
+		WithUnmarshalers(nil),
+	); err != nil {
+		t.Fatalf("UnmarshalDecode: %v", err)
+	}
+	if calledFuncs != 2 {
+		t.Fatalf("calledFuncs = %d, want 2", calledFuncs)
+	}
+	if err := UnmarshalDecode(dec, new(string)); err != nil {
+		t.Fatalf("UnmarshalDecode: %v", err)
+	}
+	if calledFuncs != 3 {
+		t.Fatalf("calledFuncs = %d, want 3", calledFuncs)
+	}
+	if err := UnmarshalDecode(dec, new(string), JoinOptions(
+		WithUnmarshalers(UnmarshalFromFunc(func(_ *jsontext.Decoder, _ any) error {
+			opts := dec.Options()
+			if v, _ := GetOption(opts, jsontext.AllowInvalidUTF8); !v {
+				t.Errorf("nested Options.AllowInvalidUTF8 = false, want true")
+			}
+			calledFuncs = math.MaxInt
+			return errors.ErrUnsupported
+		})), // should override
+	)); err != nil {
+		t.Fatalf("UnmarshalDecode: %v", err)
+	}
+	if calledFuncs != math.MaxInt {
+		t.Fatalf("calledFuncs = %d, want %d", calledFuncs, math.MaxInt)
+	}
+
+	// Reset with the decoder options as part of the arguments should not
+	// observe mutations to the options until after Reset is done.
+	opts := dec.Options()                                 // AllowInvalidUTF8 is currently true
+	dec.Reset(in, jsontext.AllowInvalidUTF8(false), opts) // earlier AllowInvalidUTF8(false) should be overridden by latter AllowInvalidUTF8(true) in opts
+	if v, _ := GetOption(dec.Options(), jsontext.AllowInvalidUTF8); v == false {
+		t.Errorf("Options.AllowInvalidUTF8 = false, want true")
+	}
+
+	// Verify that AllowInvalidUTF8 and AllowDuplicateNames cannot be changed
+	// when positioned at a JSON object name, but can be changed for the value.
+	{
+		dec2 := jsontext.NewDecoder(strings.NewReader(`{"name":{"dupe":"value","dupe":"value"}}`))
+		if tok, err := dec2.ReadToken(); tok.Kind() != '{' || err != nil {
+			t.Fatalf("ReadToken = (%v, %v), want ('{', nil)", tok.Kind(), err)
+		}
+		var name string
+		if err := UnmarshalDecode(dec2, &name, jsontext.AllowDuplicateNames(true)); !isSemanticErr(err, errChangingDuplicateNames) {
+			t.Errorf("UnmarshalDecode(name) = %v, want %v", err, errChangingDuplicateNames)
+		}
+		if err := UnmarshalDecode(dec2, &name, jsontext.AllowInvalidUTF8(true)); !isSemanticErr(err, errChangingInvalidUTF8) {
+			t.Errorf("UnmarshalDecode(name) = %v, want %v", err, errChangingInvalidUTF8)
+		}
+		// Setting the same option value does not report an error.
+		if err := UnmarshalDecode(dec2, &name, jsontext.AllowDuplicateNames(false)); err != nil {
+			t.Errorf("UnmarshalDecode(name) = %v, want nil", err)
+		} else if name != "name" {
+			t.Errorf("UnmarshalDecode(name) = %q, want %q", name, "name")
+		}
+		// At value position, changing AllowDuplicateNames is allowed.
+		var value jsontext.Value
+		if err := UnmarshalDecode(dec2, &value, jsontext.AllowDuplicateNames(true)); err != nil {
+			t.Errorf("UnmarshalDecode(value) = %v, want nil", err)
+		}
+		const want = `{"dupe":"value","dupe":"value"}`
+		if string(value) != string(want) {
+			t.Errorf("UnmarshalDecode(value) = %s, want %s", value, want)
+		}
+	}
+}
+
+func TestUnmarshalDecodeStream(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []any
+		err  error
+	}{
+		{in: ``, err: io.EOF},
+		{in: `{`, err: &jsontext.SyntacticError{ByteOffset: len64(`{`), Err: io.ErrUnexpectedEOF}},
+		{in: `{"`, err: &jsontext.SyntacticError{ByteOffset: len64(`{"`), Err: io.ErrUnexpectedEOF}},
+		{in: `{"k"`, err: &jsontext.SyntacticError{ByteOffset: len64(`{"k"`), JSONPointer: "/k", Err: io.ErrUnexpectedEOF}},
+		{in: `{"k":`, err: &jsontext.SyntacticError{ByteOffset: len64(`{"k":`), JSONPointer: "/k", Err: io.ErrUnexpectedEOF}},
+		{in: `{"k",`, err: newInvalidCharacterError(",", "after object name (expecting ':')", len64(`{"k"`), "/k")},
+		{in: `{"k"}`, err: newInvalidCharacterError("}", "after object name (expecting ':')", len64(`{"k"`), "/k")},
+		{in: `[`, err: &jsontext.SyntacticError{ByteOffset: len64(`[`), Err: io.ErrUnexpectedEOF}},
+		{in: `[0`, err: &jsontext.SyntacticError{ByteOffset: len64(`[0`), Err: io.ErrUnexpectedEOF}},
+		{in: ` [0`, err: &jsontext.SyntacticError{ByteOffset: len64(` [0`), Err: io.ErrUnexpectedEOF}},
+		{in: `[0.`, err: &jsontext.SyntacticError{ByteOffset: len64(`[`), JSONPointer: "/0", Err: io.ErrUnexpectedEOF}},
+		{in: `[0. `, err: newInvalidCharacterError(" ", "in number (expecting digit)", len64(`[0.`), "/0")},
+		{in: `[0,`, err: &jsontext.SyntacticError{ByteOffset: len64(`[0,`), Err: io.ErrUnexpectedEOF}},
+		{in: `[0:`, err: newInvalidCharacterError(":", "after array element (expecting ',' or ']')", len64(`[0`), "")},
+		{in: `n`, err: &jsontext.SyntacticError{ByteOffset: len64(`n`), Err: io.ErrUnexpectedEOF}},
+		{in: `nul`, err: &jsontext.SyntacticError{ByteOffset: len64(`nul`), Err: io.ErrUnexpectedEOF}},
+		{in: `fal `, err: newInvalidCharacterError(" ", "in literal false (expecting 's')", len64(`fal`), "")},
+		{in: `false`, want: []any{false}, err: io.EOF},
+		{in: `false0.0[]null`, want: []any{false, 0.0, []any{}, nil}, err: io.EOF},
+	}
+	for _, tt := range tests {
+		d := jsontext.NewDecoder(strings.NewReader(tt.in))
+		var got []any
+		for {
+			var v any
+			if err := UnmarshalDecode(d, &v); err != nil {
+				if !equalError(err, tt.err) {
+					t.Errorf("`%s`: UnmarshalDecode error = %v, want %v", tt.in, err, tt.err)
+				}
+				break
+			}
+			got = append(got, v)
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("`%s`: UnmarshalDecode = %v, want %v", tt.in, got, tt.want)
 		}
 	}
 }

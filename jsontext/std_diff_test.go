@@ -467,6 +467,18 @@ func (r *noInput) Read(p []byte) (int, error) {
 	return r.r.Read(p)
 }
 
+// TestStdDiffReaderSyntacticError compares the error of a reader which is a SyntacticError, which is wrapped as any
+// other error of a reader.
+func TestStdDiffReaderSyntacticError(t *testing.T) {
+	d := jsontext.NewDecoder(iotest.ErrReader(&jsontext.SyntacticError{Err: errBoom}))
+	s := stdjsontext.NewDecoder(iotest.ErrReader(&stdjsontext.SyntacticError{Err: errBoom}))
+	_, err := d.ReadToken()
+	_, stdErr := s.ReadToken()
+	if got, want := errorString(err), errorString(stdErr); got != want {
+		t.Errorf("got:  %s\nwant: %s", got, want)
+	}
+}
+
 // TestStdDiffReaderErrors compares reads from readers which fail after the input, or with it, and from a
 // bytes.Buffer which is written to after the decoder read it.
 func TestStdDiffReaderErrors(t *testing.T) {

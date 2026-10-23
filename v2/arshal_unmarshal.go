@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
+	"github.com/goccy/go-json/internal/encoder/run"
 	ierrors "github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/options"
 	iruntime "github.com/goccy/go-json/internal/runtime"
@@ -111,6 +112,42 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	decoder.ReleaseRuntimeContext(ctx)
 	// the decoder refers to the value by its address only.
 	runtime.KeepAlive(out)
+	return err
+}
+
+// UnmarshalOf decodes a []byte input into the value out points to, as Unmarshal does.
+//
+// Unmarshal takes its output as an interface value, and the decoder refers to the value by its address, so the
+// value always escapes to the heap. UnmarshalOf takes the pointer by its type and never gives it to the decoder: it
+// copies *out to a value in the heap which is reused, decodes into that value, and copies the result back to *out,
+// also after an error. So out may point to a variable on the stack of the caller, and a value which needs no
+// allocation of its own (no pointer, slice or map to fill) is decoded without an allocation: the strings are copied
+// into a buffer shared by the calls.
+//
+// A value is copied twice, so a large value is faster with Unmarshal when it is in the heap anyway. As the result
+// is a copy, an UnmarshalJSONFrom, UnmarshalJSON or UnmarshalText method of a type in the value must not keep the
+// address of its receiver, which is the address of the copy.
+func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
+	ptrType := reflect.TypeFor[*T]()
+	if out == nil {
+		return &SemanticError{action: "unmarshal", GoType: ptrType, Err: errNonNilReference}
+	}
+	ctx := decoder.TakeRuntimeContext()
+	var p unsafe.Pointer
+	if unsafe.Sizeof(*out) > run.MaxReusedValueSize {
+		// every context of the pool would keep such a value: it is left to the GC.
+		p = reflect.New(ptrType.Elem()).UnsafePointer()
+	} else {
+		p = ctx.TakeValue(ptrType.Elem(), iruntime.TypePtr(ptrType.Elem()))
+	}
+	*(*T)(p) = *out
+	err := unmarshalInput(ctx, ctx.SetInput(in), iruntime.TypePtr(ptrType), p, opts)
+	ctx.Option.V2 = 0
+	*out = *(*T)(p)
+	// the pool must not keep what the value refers to alive.
+	var zero T
+	*(*T)(p) = zero
+	decoder.ReleaseRuntimeContext(ctx)
 	return err
 }
 

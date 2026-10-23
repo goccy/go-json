@@ -20,6 +20,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	gojson "github.com/goccy/go-json"
+	gojsonv2 "github.com/goccy/go-json/v2"
 	jsoniter "github.com/json-iterator/go"
 	segmentio "github.com/segmentio/encoding/json"
 )
@@ -90,8 +91,10 @@ type reportConfig struct {
 	// unmarshal returns the function which decodes the data into a value: what it prepares, as the string
 	// sonic decodes from, is made once, outside of the measured loop.
 	unmarshal func(data []byte) func(v any) error
-	// decodeOf is set for go-json's UnmarshalOf, which takes the value by its type: the options it is called with.
-	decodeOf []gojson.DecodeOptionFunc
+	// decodeOf is set for go-json's UnmarshalOf, which takes the value by its type: the options it is called with,
+	// and decodeOfV2 for the one of github.com/goccy/go-json/v2.
+	decodeOf   []gojson.DecodeOptionFunc
+	decodeOfV2 []gojsonv2.Options
 }
 
 func stdUnmarshal(f func([]byte, any) error) func([]byte) func(any) error {
@@ -266,8 +269,9 @@ type reportPayload struct {
 	data []byte
 	// newValue returns a pointer to a new zero value of T.
 	newValue func() any
-	// decodeOf decodes the data into a new value of T by go-json's UnmarshalOf.
-	decodeOf func(opts []gojson.DecodeOptionFunc) error
+	// decodeOf and decodeOfV2 decode the data into a new value of T by go-json's UnmarshalOf, of v1 and of v2.
+	decodeOf   func(opts []gojson.DecodeOptionFunc) error
+	decodeOfV2 func(opts []gojsonv2.Options) error
 	// value is a pointer to the value of the data, decoded by encoding/json, which the encoders encode.
 	value any
 }
@@ -284,6 +288,10 @@ func newReportPayload[T any](id, title, description string, data []byte) *report
 		decodeOf: func(opts []gojson.DecodeOptionFunc) error {
 			var v T
 			return gojson.UnmarshalOf(data, &v, opts...)
+		},
+		decodeOfV2: func(opts []gojsonv2.Options) error {
+			var v T
+			return gojsonv2.UnmarshalOf(data, &v, opts...)
 		},
 		value: v,
 	}
@@ -432,7 +440,19 @@ func (c *reportConfig) does(op string) bool {
 	if op == report.OpEncode {
 		return c.marshal != nil
 	}
-	return c.unmarshal != nil || c.decodeOf != nil
+	return c.unmarshal != nil || c.decodeOf != nil || c.decodeOfV2 != nil
+}
+
+// decodeInto decodes data into v as the configuration decodes it: by Unmarshal for UnmarshalOf, which decodes as it
+// does.
+func (c *reportConfig) decodeInto(data []byte, v any) error {
+	switch {
+	case c.decodeOf != nil:
+		return gojson.UnmarshalWithOption(data, v, c.decodeOf...)
+	case c.decodeOfV2 != nil:
+		return gojsonv2.Unmarshal(data, v, c.decodeOfV2...)
+	}
+	return c.unmarshal(data)(v)
 }
 
 // measure measures the configuration on the payload.
@@ -450,6 +470,12 @@ func measure(c *reportConfig, op string, p *reportPayload) testing.BenchmarkResu
 		case c.decodeOf != nil:
 			for i := 0; i < b.N; i++ {
 				if err := p.decodeOf(c.decodeOf); err != nil {
+					b.Fatal(err)
+				}
+			}
+		case c.decodeOfV2 != nil:
+			for i := 0; i < b.N; i++ {
+				if err := p.decodeOfV2(c.decodeOfV2); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -497,13 +523,7 @@ func checkPayload(c *reportConfig, op string, p *reportPayload) (string, error) 
 	base := baselineOf(c.Category)
 	if op == report.OpDecode {
 		v := p.newValue()
-		var err error
-		if c.decodeOf != nil {
-			// UnmarshalOf decodes the value as Unmarshal does: it is checked by a decode into the value.
-			err = gojson.UnmarshalWithOption(p.data, v, c.decodeOf...)
-		} else {
-			err = c.unmarshal(p.data)(v)
-		}
+		err := c.decodeInto(p.data, v)
 		if err != nil || c == base {
 			return "", err
 		}
@@ -584,12 +604,7 @@ func encodeProbe(v any, want string, exact bool) func(c *reportConfig) string {
 func decodeProbe(data string, newValue func() any, check func(v any) string) func(c *reportConfig) string {
 	return func(c *reportConfig) string {
 		v := newValue()
-		var err error
-		if c.decodeOf != nil {
-			err = gojson.UnmarshalWithOption([]byte(data), v, c.decodeOf...)
-		} else {
-			err = c.unmarshal([]byte(data))(v)
-		}
+		err := c.decodeInto([]byte(data), v)
 		if check == nil {
 			if err == nil {
 				return "accepted invalid input"
@@ -696,13 +711,7 @@ var reportProbes = []reportProbe{
 		check: func(c *reportConfig) string {
 			data := []byte(`{"Name":"abcdefghijklmnopqrstuvwxyz"}`)
 			v := new(probeFields)
-			var err error
-			if c.decodeOf != nil {
-				err = gojson.UnmarshalWithOption(data, v, c.decodeOf...)
-			} else {
-				err = c.unmarshal(data)(v)
-			}
-			if err != nil {
+			if err := c.decodeInto(data, v); err != nil {
 				return "error: " + err.Error()
 			}
 			copy(data[9:], "ZZZZ")

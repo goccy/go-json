@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: feature
 - Priority: 1
-- Status: plan approved on 2026-10-19; pull requests 1 (#746), 2 and 3 merged, pull request 4 in progress
+- Status: plan approved on 2026-10-19; pull requests 1 (#746) to 4 merged, pull request 5 in progress
 
 ## What
 
@@ -75,34 +75,42 @@ Pull requests, in order (sizes without tests are estimates):
 | 2 | Structs and maps: fields chosen by `jsonfields.Of` (shared with the encoder), exact names, `case:ignore`, `MatchCaseInsensitiveNames`, duplicate names, unknown members (skipped, `RejectUnknownMembers`, inline and unknown fields), `format`, map keys; benchmarks of struct payloads | 1,500-2,000 |
 | 3 | Methods and functions: `UnmarshalJSON`, `UnmarshalText`, `time.Time`, `time.Duration`, `UnmarshalFunc`, `WithUnmarshalers`, `JoinUnmarshalers`, the exported `Unmarshaler` | 600-900 |
 | 4 | `UnmarshalJSONFrom` and `UnmarshalFromFunc`: a `jsontext.Decoder` attached to the input of the engine, the counterpart of the encoder's | 400-600 |
-| 5 | `UnmarshalOf`, the rows of the benchmark report, and v2 at least as fast as v1 | 150 and speed work |
+| 5 | `UnmarshalOf` and the rows of the benchmark report; v2 at least as fast as v1 after pull request 7 | 150, then speed work |
 | 6 | `UnmarshalRead` with bounded memory, and `UnmarshalReadOf` | 600-1,200 |
 | 7 | `UnmarshalDecode` and `UnmarshalDecodeOf` | 500-900 |
 
+The speed work of pull request 5 comes after pull request 7: the API is completed first, as decided on
+2026-10-19 (see the order in [README.md](README.md)).
+
 Then [v1-calls-v2-methods.md](v1-calls-v2-methods.md).
 
-Speed of v2 against v1 measured so far, for pull request 5 (arm64, Apple M5):
+Speed of v2 against v1 measured so far, for the speed work after pull request 7 (arm64, Apple M5):
 
 | Benchmark | v1 | v2 | Cause found |
 |---|---|---|---|
 | `LargeSlice_EscapedString` (`[]string`) | 181-197 µs | 215 µs | each decoded string is scanned again for U+FFFD |
-| `Code_Unmarshal` | 1.53 ms | 2.07 ms | not looked into |
-| `TwitterBinding_Unmarshal` | 5.0 µs | 7.7 µs | not looked into |
+| `Code_Unmarshal` | 1.53 ms | 2.07 ms | `memberOf` for each name (15%: the scan for a byte which is not ASCII or an escape, and the comparison with the name of the field), the loop of `v2StructDecoder` (5% more than the one of v1), the check of the fields met twice (`fieldSeen`, 2%), and `v2ScalarDecoder` before the decoder of v1 of each number (3%) |
+| `TwitterBinding_Unmarshal` | 5.0 µs | 7.7 µs | `memberOf` (23%: 14% the scan of the names, 6% the comparison), and the scan of each decoded string for U+FFFD (3%) |
 | `SmallStruct_Unmarshal`, case-insensitive | 106 ns | 316 ns | names of another case go through `jsonfields.FoldName` and a map |
 | `MediumStruct_Unmarshal`, case-insensitive | 776 ns | 3.65 µs | the same |
 | `LargeStruct_Unmarshal`, case-insensitive | 10.0 µs | 66 µs | the same |
-| `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 185 ns | 565 ns | not looked into |
-| `Times_Unmarshal` (`[]time.Time`) | 4.1 µs | 6.0 µs | not looked into |
-| `GitHubREST_Unmarshal` (times by `UnmarshalJSONFrom` in v2, `UnmarshalJSON` in v1) | 98 µs, 2,703 allocations | 130 µs, 2,840 allocations | not looked into |
-| `GitHubGraphQL_Unmarshal`, case-insensitive | 57 µs, 135 allocations | 105 µs, 1,749 allocations | not looked into; maybe the names of another case, as for the struct payloads |
+| `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 185 ns | 565 ns | `decodeHeld` decodes the value which an interface holds through reflect (about 55%): `reflect.New` for a copy, and `reflect.Value.Set` back into the interface (29%, of which 15% checks that the type implements it); `DecoderOfV2` looks the decoder up for each value (4%) |
+| `Times_Unmarshal` (`[]time.Time`) | 4.1 µs | 6.0 µs | each string is read three times: skipped by `ReadValue`, scanned for a byte which is not ASCII or an escape and for `{` (17%), and read again by `unquotedName` (11%) |
+| `GitHubREST_Unmarshal` (times by `UnmarshalJSONFrom` in v2, `UnmarshalJSON` in v1) | 98 µs, 2,703 allocations | 130 µs, 2,840 allocations | the scan of each decoded string for U+FFFD (6%), and `memberOf` (9%); the times are not slower by `UnmarshalJSONFrom` than by `UnmarshalJSON` in v1 |
+| `GitHubGraphQL_Unmarshal`, case-insensitive | 57 µs, 135 allocations | 105 µs, 1,749 allocations | the names of another case: `jsonfields.FoldName` allocates each folded name (88% of the allocations), and `memberOf` is 37% (`FoldName` 20%, the map of the folded names 9%) |
 
 `TwitterGeneric_Unmarshal` and `CodeAny_Unmarshal` (`any`) are as fast as v1.
+
+The causes come from CPU and allocation profiles in a linux/arm64 container (2026-10-23), and the percentages are
+of the time of v2. Each is the work of one function of a decoder of v2; none is in the attached decoder of
+`UnmarshalJSONFrom` or in the way v2 is lowered onto the engine of v1, so the speed work changes those functions,
+not the design which the next pull requests build on.
 
 Risks:
 
 - Code shared with v1 can slow v1; the gate measures it, and a pull request that slows v1
   fixes it itself. v2 runs through functions of its own where v1's hot ones are kept as they
-  are (the reference branch was 5-7% slower than v1 from it), which pull request 5 wins back.
+  are (the reference branch was 5-7% slower than v1 from it), which the speed work wins back.
 - Until the series ends, master has an incomplete v2 decoding API, with the gaps documented;
   no release is tagged before it is complete.
 - Pull requests 6 and 7 are new designs of unknown size and touch the stream decoding of v1

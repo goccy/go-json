@@ -76,13 +76,20 @@ func init() {
 		},
 		{
 			Config: report.Config{ID: "v2/go-json/v2", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json/v2",
-				Setting: "json.Marshal of github.com/goccy/go-json/v2 ( encode only )"},
+				Setting: "json.Marshal / json.Unmarshal of github.com/goccy/go-json/v2"},
 			module: goJSONModule, marshal: func(v any) ([]byte, error) { return gojsonv2.Marshal(v) },
+			unmarshal: stdUnmarshal(func(data []byte, v any) error { return gojsonv2.Unmarshal(data, v) }),
 		},
 		{
 			Config: report.Config{ID: "v2/go-json/v2/fastest", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json/v2 ( fastest )",
-				Setting: "github.com/goccy/go-json/v2 with jsontext.AllowDuplicateNames( true ), jsontext.AllowInvalidUTF8( true ) ( encode only )"},
+				Setting: "github.com/goccy/go-json/v2 with jsontext.AllowDuplicateNames( true ), jsontext.AllowInvalidUTF8( true )"},
 			module: goJSONModule, marshal: func(v any) ([]byte, error) { return gojsonv2.Marshal(v, goJSONV2Fastest) },
+			unmarshal: stdUnmarshal(func(data []byte, v any) error { return gojsonv2.Unmarshal(data, v, goJSONV2Fastest) }),
+		},
+		{
+			Config: report.Config{ID: "v2/go-json/v2/of", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json/v2 ( UnmarshalOf )",
+				Setting: "json.UnmarshalOf of github.com/goccy/go-json/v2, which takes the value by its type ( decode only )"},
+			module: goJSONModule, decodeOfV2: []gojsonv2.Options{},
 		},
 		{
 			Config: report.Config{ID: "v2/go-json/of", Library: "goccy/go-json", Category: "v2", Title: "goccy/go-json ( UnmarshalOf )",

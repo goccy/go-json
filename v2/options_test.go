@@ -43,6 +43,46 @@ func TestGetOption(t *testing.T) {
 	}
 }
 
+// An option of a property which is true or false is made without an allocation, as the constants which
+// encoding/json/v2 returns are: an option made for each call costs nothing more. It sets its property.
+func TestBoolOptions(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		of   func(bool) json.Options
+	}{
+		{"StringifyNumbers", json.StringifyNumbers},
+		{"Deterministic", json.Deterministic},
+		{"FormatNilSliceAsNull", json.FormatNilSliceAsNull},
+		{"FormatNilMapAsNull", json.FormatNilMapAsNull},
+		{"OmitZeroStructFields", json.OmitZeroStructFields},
+		{"MatchCaseInsensitiveNames", json.MatchCaseInsensitiveNames},
+		{"RejectUnknownMembers", json.RejectUnknownMembers},
+		{"AllowDuplicateNames", jsontext.AllowDuplicateNames},
+		{"AllowInvalidUTF8", jsontext.AllowInvalidUTF8},
+		{"EscapeForHTML", jsontext.EscapeForHTML},
+		{"EscapeForJS", jsontext.EscapeForJS},
+		{"PreserveRawStrings", jsontext.PreserveRawStrings},
+		{"CanonicalizeRawInts", jsontext.CanonicalizeRawInts},
+		{"CanonicalizeRawFloats", jsontext.CanonicalizeRawFloats},
+		{"ReorderRawObjects", jsontext.ReorderRawObjects},
+		{"SpaceAfterColon", jsontext.SpaceAfterColon},
+		{"SpaceAfterComma", jsontext.SpaceAfterComma},
+		{"Multiline", jsontext.Multiline},
+	} {
+		for _, v := range []bool{true, false} {
+			if allocs := testing.AllocsPerRun(10, func() { _ = c.of(v) }); allocs != 0 {
+				t.Errorf("%s(%v): %v allocations", c.name, v, allocs)
+			}
+			if got, set := json.GetOption(c.of(v), c.of); got != v || !set {
+				t.Errorf("GetOption(%s(%v)) = %v, %v", c.name, v, got, set)
+			}
+			if got, set := json.GetOption(json.JoinOptions(c.of(!v), json.Deterministic(true), c.of(v)), c.of); got != v || !set {
+				t.Errorf("GetOption of %s(%v) after %v = %v, %v", c.name, v, !v, got, set)
+			}
+		}
+	}
+}
+
 // DefaultOptionsV2 sets the options of the v1 semantics, false.
 func TestDefaultOptionsV2(t *testing.T) {
 	opts := json.DefaultOptionsV2()

@@ -3,8 +3,8 @@
 - Area: decoder
 - Kind: defect
 - Priority: 2
-- Status: recorded 2026-10-19 (found by the review of the first v2 decoding pull request); re-check on master
-  before fixing
+- Status: recorded 2026-10-19 (found by the review of the first v2 decoding pull request); checked on master
+  on 2026-10-23
 
 ## What
 

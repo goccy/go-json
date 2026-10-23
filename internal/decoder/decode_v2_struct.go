@@ -4,6 +4,7 @@ import (
 	"bytes"
 	stderrors "errors"
 	"fmt"
+	"math/bits"
 	"reflect"
 	"slices"
 	"unsafe"
@@ -91,7 +92,11 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		// the first field of a folded name by the breadth-first order is the one a name matches
 		slices.SortFunc(sets, func(a, b *structFieldSet) int { return ids[a] - ids[b] })
 	}
-	d.keyDecoder = &structDecoder{fields: d.fields, keys: newStructKeys(d.fields), stringDecoder: skipStringDecoder}
+	keys := newStructKeys(d.fields)
+	// every name of a field by its bytes as they are, which a name as the input has it is found by ( see
+	// exactFieldV2 )
+	keys.makeExact(d.fields, true)
+	d.keyDecoder = &structDecoder{fields: d.fields, keys: keys, stringDecoder: skipStringDecoder}
 	if fields.Fallback != nil {
 		fb, err := c.compileFallback(typ, fields.Fallback)
 		if err != nil {
@@ -177,6 +182,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		return cursor + 1, nil
 	}
 	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	// seen are the fields which the object has, by their bits, after the first 64 in more, and unknown the names
 	// of no field which it has.
 	var seen uint64
@@ -185,41 +191,63 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	for {
 		start := cursor
 		if buf[start] != '"' {
-			return 0, syntaxErrorAt(buf, start, whereKey)
-		}
-		candidate, end, err := d.keyDecoder.decodeKey(buf, start, false)
-		if err != nil {
-			return 0, err
-		}
-		field, name, err := d.memberOf(ctx, buf[start:end], candidate)
-		if err != nil {
-			if e, ok := err.(*errors.UnmarshalError); ok {
-				// an error of the name, at it
-				e.Start = start
+			// white space after the comma, which is checked here, as most names follow the comma at once
+			if start = skipWhiteSpace(buf, start); buf[start] != '"' {
+				return 0, syntaxErrorAt(buf, start, whereKey)
 			}
-			return 0, err
+		}
+		var field *structFieldSet
+		var end int64
+		plain := false
+		if !fold {
+			field, end, plain = exactFieldV2(d.keyDecoder.keys, buf, start)
+		}
+		// name is the name decoded, which a name of no field is checked by, or nil for a plain one, which is as the
+		// input has it
+		var name []byte
+		if !plain {
+			// a name with an escape, a byte which is not ASCII or a control character, or any name which may match a
+			// field by its folded name
+			candidate, next, err := d.keyDecoder.decodeKey(buf, start, false)
+			if err != nil {
+				return 0, err
+			}
+			end = next
+			if field, name, err = d.memberOf(ctx, buf[start:end], candidate); err != nil {
+				if e, ok := err.(*errors.UnmarshalError); ok {
+					// an error of the name, at it
+					e.Start = start
+				}
+				return 0, err
+			}
 		}
 		// the name is checked before the colon after it, as encoding/json/v2 reads the name alone
-		switch {
-		case field != nil:
-			if checkNames && fieldSeen(field.fieldIdx, &seen, &more, len(d.fields)) {
-				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+		if field != nil {
+			if checkNames {
+				if idx := field.fieldIdx; idx < 64 {
+					// the first 64 fields are the bits of seen, in a register
+					bit := uint64(1) << uint(idx)
+					if seen&bit != 0 {
+						return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+					}
+					seen |= bit
+				} else if fieldSeen(idx, &more, len(d.fields)) {
+					return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+				}
 			}
-		case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
-			return 0, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
-		case checkNames:
-			if name == nil {
-				name = unquotedName(buf[start:end])
-			}
-			if !unknown.add(string(name)) {
-				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
-			}
+		} else if err := d.unknownMember(ctx, &unknown, checkNames, buf, start, end, name); err != nil {
+			return 0, err
 		}
-		cursor = skipWhiteSpace(buf, end)
-		if buf[cursor] != ':' {
-			return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
+		if buf[end] == ':' {
+			cursor = end + 1
+		} else {
+			cursor = skipWhiteSpace(buf, end)
+			if buf[cursor] != ':' {
+				return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
+			}
+			cursor++
 		}
-		cursor++
+		var err error
 		switch {
 		case field != nil:
 			cursor, err = field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
@@ -236,26 +264,42 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		case '}':
 			return cursor + 1, nil
 		case ',':
-			cursor = skipWhiteSpace(buf, cursor+1)
+			cursor++
 		default:
 			return 0, syntaxErrorAt(buf, cursor, whereAfterPair)
 		}
 	}
 }
 
+// unknownMember checks the name of no field at start in buf, before end, decoded as name, or nil if it is plain ( see
+// exactFieldV2 ): it is an error with V2RejectUnknownMembers, if the struct has no fallback, and a name which the
+// object had before is an error if checkNames. unknown are the names of no field which the object had. It is a
+// function of its own, so that the loop of Decode keeps nothing of it.
+func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, checkNames bool, buf []byte, start, end int64, name []byte) error {
+	switch {
+	case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
+		return &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
+	case checkNames:
+		if name == nil {
+			name = buf[start+1 : end-1]
+		}
+		// the name is not copied: it is in the input, which is not written while it is decoded, or decoded into an
+		// array of its own, and the set ends with the object
+		if !unknown.add(unsafe.String(unsafe.SliceData(name), len(name))) {
+			return &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+		}
+	}
+	return nil
+}
+
 func (d *v2StructDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
-// fieldSeen reports whether the field of the index was met before in an object, and marks it met: the bits of the
-// first 64 fields are in seen, and the ones of the rest in more, which is made when one of them is met.
-func fieldSeen(idx int, seen *uint64, more *[]uint64, n int) bool {
-	if idx < 64 {
-		bit := uint64(1) << uint(idx)
-		met := *seen&bit != 0
-		*seen |= bit
-		return met
-	}
+// fieldSeen reports whether the field of the index, 64 or more, was met before in an object of n fields, and marks
+// it met: its bit is in more, which is made when such a field is met. The first 64 fields are marked by the loops of
+// the objects themselves, in a register.
+func fieldSeen(idx int, more *[]uint64, n int) bool {
 	if *more == nil {
 		*more = make([]uint64, (n-64+63)/64)
 	}
@@ -266,6 +310,59 @@ func fieldSeen(idx int, seen *uint64, more *[]uint64, n int) bool {
 	return met
 }
 
+// exactFieldV2 finds the field whose name is the name at cursor in buf, a quote, as it is, if the name has only bytes
+// of ASCII which are not an escape or a control character ( a plain name, which most names are ): it returns the
+// field or nil, the position after the name, and whether the name is plain. The name is read word by word, as
+// structDecoder.decodeKey reads it, up to the capacity of buf, whose nul byte at the end stops a name before it. A
+// name which is not plain, or which is near the end of a buffer without room for a word after it, is left to
+// decodeKey and memberOf.
+func exactFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, int64, bool) {
+	start := cursor + 1
+	if start+16 > int64(cap(buf)) {
+		return nil, 0, false
+	}
+	w0 := load64(buf, start)
+	if special := specialKeyBytes(w0); special != 0 {
+		// a name of less than 8 bytes, whose word is the bytes before the special byte
+		n := int64(bits.TrailingZeros64(special) / 8)
+		if buf[start+n] != '"' {
+			return nil, 0, false
+		}
+		next := start + n + 1
+		if !keys.hasExactLength(int(n)) {
+			return nil, next, true
+		}
+		// the first entry of the name is looked at here, as decodeKey looks at the first entry of a key: most names
+		// are found in it
+		w0 &= (special ^ (special - 1)) >> 8
+		e := &keys.exact[indexOf((w0|bit5)&(1<<(uint(n)*8&63)-1), 0, keys.exactShift)]
+		if e.n == int(n) && e.w0 == w0 && e.unique != nil {
+			return e.unique, next, true
+		}
+		if e.unique == nil {
+			return nil, next, true
+		}
+		return keys.findExact(buf[start:start+n], w0, 0), next, true
+	}
+	end := start + 8
+	special := specialKeyBytes(load64(buf, end))
+	for special == 0 {
+		end += 8
+		if end+8 > int64(cap(buf)) {
+			return nil, 0, false
+		}
+		special = specialKeyBytes(load64(buf, end))
+	}
+	end += int64(bits.TrailingZeros64(special) / 8)
+	if buf[end] != '"' {
+		return nil, 0, false
+	}
+	if !keys.hasExactLength(int(end - start)) {
+		return nil, end + 1, true
+	}
+	return keys.findExact(buf[start:end], w0, load64(buf, end-8)), end + 1, true
+}
+
 // memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:
 // candidate is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name
 // as it is. Any other name matches a field by its folded name if the field may be matched so, but a name which
@@ -273,14 +370,18 @@ func fieldSeen(idx int, seen *uint64, more *[]uint64, n int) bool {
 // which v2 rejects.
 func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate *structFieldSet) (*structFieldSet, []byte, error) {
 	name := quoted[1 : len(quoted)-1]
+	if candidate != nil && string(name) == candidate.key {
+		// the name as the input has it is the name of the field, which has neither a backslash nor invalid UTF-8
+		// ( see jsonfields.Of ): it has no escape, and nothing to check
+		return candidate, name, nil
+	}
 	if hasNotASCIIOrEscape(name) {
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && !validV2Text(quoted) {
 			return nil, nil, errV2Text
 		}
-		name = unquotedName(quoted)
-	}
-	if candidate != nil && string(name) == candidate.key {
-		return candidate, name, nil
+		if name = unquotedName(quoted); candidate != nil && string(name) == candidate.key {
+			return candidate, name, nil
+		}
 	}
 	insensitive := ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	if !insensitive && !d.foldAlways {

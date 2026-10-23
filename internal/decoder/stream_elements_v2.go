@@ -584,6 +584,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 	}
 	ctx := s.ctx
 	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	var seen uint64
 	var more []uint64
 	var unknown nameSet
@@ -602,20 +603,37 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			return nil
 		}
 		start := s.cursor - int64(len(quoted))
-		candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)
-		if err != nil {
-			return s.placeAt(err, step)
+		var field *structFieldSet
+		plain := false
+		if !fold {
+			field, _, plain = exactFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start)
 		}
-		field, name, err := d.memberOf(ctx, quoted, candidate)
-		if err != nil {
-			if e, ok := err.(*errors.UnmarshalError); ok {
-				e.Start = start
+		name := quoted[1 : len(quoted)-1]
+		if !plain {
+			// a name which v2StructDecoder.Decode finds by memberOf
+			candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)
+			if err != nil {
+				return s.placeAt(err, step)
 			}
-			return s.placeAt(err, step)
+			if field, name, err = d.memberOf(ctx, quoted, candidate); err != nil {
+				if e, ok := err.(*errors.UnmarshalError); ok {
+					e.Start = start
+				}
+				return s.placeAt(err, step)
+			}
 		}
 		switch {
 		case field != nil:
-			if checkNames && fieldSeen(field.fieldIdx, &seen, &more, len(d.fields)) {
+			if !checkNames {
+				break
+			}
+			if idx := field.fieldIdx; idx < 64 {
+				bit := uint64(1) << uint(idx)
+				if seen&bit != 0 {
+					return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
+				}
+				seen |= bit
+			} else if fieldSeen(idx, &more, len(d.fields)) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
 		case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:

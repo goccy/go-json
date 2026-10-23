@@ -2,7 +2,7 @@
 
 - Area: decoder, encoder
 - Kind: defect (missing Go 1.27 behavior)
-- Priority: 1, right after [decoder-v2-api.md](decoder-v2-api.md)
+- Priority: 1, right after [decoder-v2-speed.md](decoder-v2-speed.md)
 - Status: open, must not be forgotten
 
 ## What

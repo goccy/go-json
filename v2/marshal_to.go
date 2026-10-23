@@ -171,9 +171,9 @@ type trackMark struct {
 	n, start, end int
 }
 
-// checkTracked is called with the levels which the tracker followed, by a test which compares them with the
+// onTracked is called with the levels which the tracker followed, by a test which compares them with the
 // ones of the whole output.
-var checkTracked func(out []byte, levels []textcoder.Level)
+var onTracked func(out []byte, levels []textcoder.Level)
 
 // trackMarkInterval is the length of the output between the marks: what is read again at most after a rewrite.
 const trackMarkInterval = 4 << 10
@@ -213,8 +213,8 @@ func (t *tracker) sync(out []byte, rewriteFrom int) []textcoder.Level {
 		t.markLevels = append(t.markLevels, t.levels...)
 		t.marks = append(t.marks, trackMark{n: t.n, start: start, end: len(t.markLevels)})
 	}
-	if checkTracked != nil {
-		checkTracked(out, t.levels)
+	if onTracked != nil {
+		onTracked(out, t.levels)
 	}
 	return t.levels
 }

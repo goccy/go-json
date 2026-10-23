@@ -144,10 +144,10 @@ func referenceNormalizedString(s string, e *Escaper) string {
 // is decoded ( with the loop of the escapes by SIMD if the CPU has it; see also
 // TestAppendNormalizedStringsWithoutEscapeLoop ).
 func TestAppendNormalizedStrings(t *testing.T) {
-	checkAppendNormalizedStrings(t)
+	compareAppendNormalizedStrings(t)
 }
 
-func checkAppendNormalizedStrings(t *testing.T) {
+func compareAppendNormalizedStrings(t *testing.T) {
 	t.Helper()
 	r := rand.New(rand.NewSource(1))
 	pieces := []string{"a", " ", "\"", "\\", "\n", "\x00", "\x1f", "\x7f", "<", ">", "&", "é", "ß", "あ", "語", "。", "Ａ",

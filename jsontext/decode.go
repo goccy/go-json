@@ -126,11 +126,11 @@ func (d *decoder) reset(r io.Reader, opts []Options) {
 	d.rerr, d.peekErr = nil, nil
 	d.raw = tokenSource{dec: d, form: formRaw}
 	d.vs = valueScanner{
-		st:         &d.st,
-		validUTF8:  !d.cfg.Has(allowInvalidUTF8),
-		checkNames: !d.cfg.Has(allowDuplicateNames),
-		decoding:   true,
-		scratch:    d.vs.scratch[:0],
+		st:                   &d.st,
+		validUTF8:            !d.cfg.Has(allowInvalidUTF8),
+		rejectDuplicateNames: !d.cfg.Has(allowDuplicateNames),
+		decoding:             true,
+		scratch:              d.vs.scratch[:0],
 	}
 }
 

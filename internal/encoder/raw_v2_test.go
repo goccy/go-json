@@ -24,8 +24,8 @@ func appendFormattedRaw(src string, flags encoder.OptionFlag) (string, bool) {
 	return strings.TrimPrefix(string(out), "prefix"), true
 }
 
-// checkFormattedRaw fails if AppendFormattedRaw appends src but not as jsontext formats it with the options.
-func checkFormattedRaw(t *testing.T, src string, flags encoder.OptionFlag) bool {
+// compareFormattedRaw fails if AppendFormattedRaw appends src but not as jsontext formats it with the options.
+func compareFormattedRaw(t *testing.T, src string, flags encoder.OptionFlag) bool {
 	t.Helper()
 	got, ok := appendFormattedRaw(src, flags)
 	if !ok {
@@ -103,7 +103,7 @@ func TestAppendFormattedRaw(t *testing.T) {
 		{deep, false},
 		{many.String(), false},
 	} {
-		if got := checkFormattedRaw(t, tt.in, rawFlags); got != tt.want {
+		if got := compareFormattedRaw(t, tt.in, rawFlags); got != tt.want {
 			t.Errorf("AppendFormattedRaw(%q) appended = %v; want %v", tt.in, got, tt.want)
 		}
 	}
@@ -117,7 +117,7 @@ func TestAppendFormattedRaw(t *testing.T) {
 		{"\" \"", encoder.NormalizeUTF8Option, false},
 		{`"ab \u0026"`, encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option, true},
 	} {
-		if got := checkFormattedRaw(t, tt.in, rawFlags|tt.flags); got != tt.want {
+		if got := compareFormattedRaw(t, tt.in, rawFlags|tt.flags); got != tt.want {
 			t.Errorf("AppendFormattedRaw(%q, %b) appended = %v; want %v", tt.in, tt.flags, got, tt.want)
 		}
 	}
@@ -168,7 +168,7 @@ func TestAppendFormattedRaw(t *testing.T) {
 	appended := 0
 	flagSets := []encoder.OptionFlag{0, encoder.HTMLEscapeOption, encoder.NormalizeUTF8Option}
 	for i := range 100000 {
-		if checkFormattedRaw(t, value(0), rawFlags|flagSets[i%len(flagSets)]) {
+		if compareFormattedRaw(t, value(0), rawFlags|flagSets[i%len(flagSets)]) {
 			appended++
 		}
 	}

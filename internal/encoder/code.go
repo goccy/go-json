@@ -334,9 +334,9 @@ type MapCode struct {
 	typ   reflect.Type
 	key   Code
 	value Code
-	// checkNames is whether the names of the keys may be the same, which OpMapKey checks as it writes the entries of
-	// a sorted map: the opcode of the end is OpMapEndCheckNames then.
-	checkNames bool
+	// mayRepeatNames is whether the names of the keys may be the same, which OpMapKey checks as it writes the
+	// entries of a sorted map: the opcode of the end is OpMapEndMayRepeatNames then.
+	mayRepeatNames bool
 }
 
 func (c *MapCode) Kind() CodeKind {
@@ -414,8 +414,8 @@ func (c *MapCode) ToOpcode(ctx *compileContext) Opcodes {
 	// back to the key opcode after a key, and the key opcode goes to the opcodes of the value of an entry.
 	key.NextField = value
 	value.NextField = key
-	if c.checkNames {
-		end.Op = OpMapEndCheckNames
+	if c.mayRepeatNames {
+		end.Op = OpMapEndMayRepeatNames
 	}
 	return Opcodes{header}.Add(keyCodes...).Add(value).Add(valueCodes...).Add(key).Add(end)
 }
@@ -863,10 +863,10 @@ func withHead(head *Opcode, codes Opcodes) Opcodes {
 	return append(Opcodes{head}, codes...)
 }
 
-// checksEmptyAtAddr is whether the opcode of the field decides omitempty by EmptyKind from the address of the
+// decidesEmptyAtAddr is whether the opcode of the field decides omitempty by EmptyKind from the address of the
 // field: the generic field opcode, and the opcodes of a field written by a marshaler, whose value may be of any
 // kind, as encoding/json decides it by the kind of the field whether or not it has a marshaler.
-func checksEmptyAtAddr(op OpType) bool {
+func decidesEmptyAtAddr(op OpType) bool {
 	switch op {
 	case OpStructFieldOmitEmpty, OpStructFieldOmitEmptyMarshalJSON, OpStructFieldOmitEmptyMarshalText:
 		return true
@@ -937,7 +937,7 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		field.Flags |= NonEmptyInterfaceFlags
 	}
 	field.NumBitSize = value.NumBitSize
-	if c.tag.IsOmitEmpty && checksEmptyAtAddr(op) {
+	if c.tag.IsOmitEmpty && decidesEmptyAtAddr(op) {
 		field.EmptyKind = emptyKindOf(c.typ)
 		if c.emptyNil {
 			field.EmptyKind = EmptyNil

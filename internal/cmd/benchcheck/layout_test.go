@@ -36,7 +36,7 @@ func BenchmarkWork(b *testing.B) {
 }
 `
 
-func TestCheckKeepsEveryLayout(t *testing.T) {
+func TestDetectKeepsEveryLayout(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
@@ -46,7 +46,7 @@ func TestCheckKeepsEveryLayout(t *testing.T) {
 	r.rounds = 4
 	r.write("lib.go", testLibFastRefactored)
 	r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchSlowLayout)
-	out := r.check(ignoreNoise)
+	out := r.detect(ignoreNoise)
 	assertStatuses(t, out.verdict, map[string]status{"BenchmarkWork": statusOK})
 	result := out.verdict.Benchmarks[0]
 	// the fastest is the layout 0, and the median is between both layouts: 60ms.
@@ -60,7 +60,7 @@ func TestCheckKeepsEveryLayout(t *testing.T) {
 	}
 }
 
-func TestCheckMeasuresEveryLayout(t *testing.T) {
+func TestDetectMeasuresEveryLayout(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
@@ -71,7 +71,7 @@ func TestCheckMeasuresEveryLayout(t *testing.T) {
 
 	recordDir := t.TempDir()
 	t.Setenv(testRecordDirEnv, recordDir)
-	out := r.check(ignoreNoise)
+	out := r.detect(ignoreNoise)
 	assertStatuses(t, out.verdict, map[string]status{"BenchmarkWork": statusOK})
 
 	entries, err := os.ReadDir(recordDir)

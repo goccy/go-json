@@ -85,18 +85,18 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 	out := b
 	if present && v.Len() > 0 {
 		// the members of the map or the raw value, which an empty one has none of.
-		var check func(name []byte) bool
+		var insertName func(name []byte) bool
 		if ctx.Option.Flag&AllowDuplicateNamesOption == 0 {
 			names := &fallbackNames{
-				fb: fb, before: b, others: fb.raw || ctx.CheckNames,
+				fb: fb, before: b, others: fb.raw || ctx.RescanNames,
 				insensitive: ctx.Option.Flag&MatchCaseInsensitiveNamesOption != 0,
 			}
-			check = names.check
+			insertName = names.insertName
 		}
 		if fb.raw {
-			out, err = V2Hooks.AppendRawMembers(ctx, b, v.Bytes(), check)
+			out, err = V2Hooks.AppendRawMembers(ctx, b, v.Bytes(), insertName)
 		} else {
-			out, err = fb.appendMapMembers(ctx, b, v, elem, check)
+			out, err = fb.appendMapMembers(ctx, b, v, elem, insertName)
 		}
 		if err != nil {
 			return b, err
@@ -110,14 +110,14 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 	return out, nil
 }
 
-// fallbackNames checks the names of the members of a fallback, which may be neither the name of a member which is
-// written already, of the object which before is in, nor the name of another member of the fallback.
+// fallbackNames decides which names of the members of a fallback may be written: neither the name of a member
+// which is written already, of the object which before is in, nor the name of another member of the fallback.
 //
 // Most names are none of the names of the fields of the struct, which the names of the fallback are found in
 // first: the members of the fields which the object has are read from its output only for a name of a field,
 // which is written or was omitted. The names of the fallback itself are kept only where two of them can be the
 // same: the members of a jsontext.Value, and the keys of a map, which are unique, but whose names are the same if
-// the bytes of their invalid UTF-8 are written as U+FFFD ( see RuntimeContext.CheckNames ).
+// the bytes of their invalid UTF-8 are written as U+FFFD ( see RuntimeContext.RescanNames ).
 type fallbackNames struct {
 	fb     *fallback
 	before []byte
@@ -130,8 +130,10 @@ type fallbackNames struct {
 	otherNames map[string]bool
 }
 
-// check reports whether the name of a member of the fallback may be written.
-func (n *fallbackNames) check(name []byte) bool {
+// insertName records that the member of the fallback of the name is written, and reports whether it may be: the
+// name is neither one which is written already nor, if the names of the fallback are kept, one of the fallback
+// before it.
+func (n *fallbackNames) insertName(name []byte) bool {
 	fb := n.fb
 	if f := fb.names[string(name)]; f != nil {
 		return n.insertField(f)
@@ -204,7 +206,7 @@ func enclosingObjectStart(b []byte) int {
 
 // appendMapMembers appends the entries of the map m, of string keys, as members, by the order of the keys if the
 // output is deterministic.
-func (fb *fallback) appendMapMembers(ctx *RuntimeContext, b []byte, m reflect.Value, elem reflect.Type, check func([]byte) bool) ([]byte, error) {
+func (fb *fallback) appendMapMembers(ctx *RuntimeContext, b []byte, m reflect.Value, elem reflect.Type, insertName func([]byte) bool) ([]byte, error) {
 	if m.Len() == 0 {
 		return b, nil
 	}
@@ -222,9 +224,9 @@ func (fb *fallback) appendMapMembers(ctx *RuntimeContext, b []byte, m reflect.Va
 			// a name of invalid UTF-8, which is reported for the type of the key.
 			return before, &errors.SemanticError{GoType: k.Type(), Err: errors.ErrInvalidUTF8}
 		}
-		if check != nil {
+		if insertName != nil {
 			name := jsonstring.AppendUnescaped(nil, out[len(b)+1:len(out)-1])
-			if !check(name) {
+			if !insertName(name) {
 				return before, &errors.TextError{Err: errors.ErrDuplicateName, Name: string(name), Out: before, AtDelim: true}
 			}
 		}

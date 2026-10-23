@@ -25,9 +25,9 @@ var V2Hooks struct {
 	// jsontext for a value which is not valid, at its place in the output.
 	FormatRaw func(ctx *RuntimeContext, b, raw []byte) ([]byte, error)
 	// AppendRawMembers appends the members of the JSON object raw, a jsontext.Value embedded as a fallback, after
-	// b, each followed by a comma: check reports whether a name may be written, if it is not nil. Its errors are
-	// the ones of the v2 json package, at their places in the output.
-	AppendRawMembers func(ctx *RuntimeContext, b, raw []byte, check func(name []byte) bool) ([]byte, error)
+	// b, each followed by a comma: insertName records a name, and reports whether it may be written, if it is not
+	// nil. Its errors are the ones of the v2 json package, at their places in the output.
+	AppendRawMembers func(ctx *RuntimeContext, b, raw []byte, insertName func(name []byte) bool) ([]byte, error)
 	// MarshalTo calls MarshalJSONTo of recv, the pointer to a value of typ, with an encoder which writes after the
 	// output b.
 	MarshalTo func(ctx *RuntimeContext, b []byte, typ reflect.Type, recv any) ([]byte, error)
@@ -268,7 +268,7 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	// the value is where the function or the method which called this was called: one which declined it, or the one
 	// of an inline fallback map, whose values these are ( see appendValueOf ).
 	inner.BaseIndent = ctx.ValueDepth
-	inner.CheckNames = false
+	inner.RescanNames = false
 	inner.RewriteFrom = ctx.RewriteFrom
 	out, err := b, EnterNested(inner, ctx, codeSet, p)
 	if err == nil {
@@ -278,7 +278,7 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 		// the first error, before which the encoding went on.
 		out, err = invalidOut, &errors.TextError{Err: errors.ErrInvalidUTF8}
 	}
-	ctx.CheckNames = ctx.CheckNames || inner.CheckNames
+	ctx.RescanNames = ctx.RescanNames || inner.RescanNames
 	ctx.RewriteFrom = inner.RewriteFrom
 	inner.Option.V2, inner.Option.Funcs = nil, nil
 	ReleaseRuntimeContext(inner)

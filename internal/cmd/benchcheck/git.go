@@ -89,8 +89,8 @@ func (r *repository) defaultCacheDir(ctx context.Context) (string, error) {
 	return filepath.Join(commonDir, "benchcheck"), nil
 }
 
-// checkout creates a temporary worktree of the commit at dir and returns the function to remove it.
-func (r *repository) checkout(ctx context.Context, dir, commit string) (func(), error) {
+// addWorktree creates a temporary worktree of the commit at dir and returns the function to remove it.
+func (r *repository) addWorktree(ctx context.Context, dir, commit string) (func(), error) {
 	if _, err := r.git(ctx, "worktree", "add", "--detach", dir, commit); err != nil {
 		return nil, err
 	}

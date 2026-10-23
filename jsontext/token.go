@@ -229,12 +229,12 @@ func (t Token) raw() []byte {
 	if dec == nil {
 		return []byte(t.str)
 	}
-	t.checkValid()
+	t.panicIfVoided()
 	return dec.prevBuffer()
 }
 
-// checkValid panics if t is a raw token which the decoder has moved past.
-func (t Token) checkValid() {
+// panicIfVoided panics if t is a raw token which the decoder has moved past.
+func (t Token) panicIfVoided() {
 	if dec := t.source().dec; dec != nil && dec.prevOffset() != int64(t.num) {
 		panic("invalid jsontext.Token; it has been voided by a subsequent json.Decoder call")
 	}
@@ -259,7 +259,7 @@ func (t Token) otherKind() Kind {
 	if t.src == nil {
 		return KindInvalid
 	}
-	t.checkValid()
+	t.panicIfVoided()
 	dec := t.src.dec
 	return kindOf(dec.buf[dec.prevStart])
 }
@@ -340,8 +340,8 @@ func (e *numError) Error() string {
 
 func (e *numError) Unwrap() error { return e.err }
 
-// checkNumber panics unless the token is a JSON number.
-func (t Token) checkNumber() {
+// panicUnlessNumber panics unless the token is a JSON number.
+func (t Token) panicUnlessNumber() {
 	if t.kind() != KindNumber {
 		panic("invalid JSON token kind: " + t.kind().String())
 	}
@@ -356,7 +356,7 @@ func (t Token) checkNumber() {
 //
 // It panics if the token is not a JSON number.
 func (t Token) Int() (int64, error) {
-	t.checkNumber()
+	t.panicUnlessNumber()
 	var n int64
 	var err error
 	switch t.source().form {
@@ -388,7 +388,7 @@ func (t Token) Int() (int64, error) {
 //
 // It panics if the token is not a JSON number.
 func (t Token) Uint() (uint64, error) {
-	t.checkNumber()
+	t.panicUnlessNumber()
 	var n uint64
 	var err error
 	switch t.source().form {
@@ -446,7 +446,7 @@ func (t Token) float(bits int) (float64, error) {
 			return f, nil
 		}
 	}
-	t.checkNumber()
+	t.panicUnlessNumber()
 	switch t.source().form {
 	case formInt:
 		return float64(int64(t.num)), nil

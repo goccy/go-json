@@ -114,7 +114,7 @@ func TestDecodeEmbeddedFieldDominance(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			checkRecursiveDecode(t, tt.in, tt.value, checkValuesAndErrors)
+			compareRecursiveDecode(t, tt.in, tt.value, compareValuesAndErrors)
 		})
 	}
 }
@@ -157,7 +157,7 @@ func TestDecodeEmbeddedFieldPromotion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			checkRecursiveDecode(t, tt.in, tt.value, checkValuesAndErrors)
+			compareRecursiveDecode(t, tt.in, tt.value, compareValuesAndErrors)
 		})
 	}
 }

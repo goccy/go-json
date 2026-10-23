@@ -166,7 +166,7 @@ func binaryPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
-type checker struct {
+type detector struct {
 	opt   *options
 	repo  *repository
 	cache *cache
@@ -180,7 +180,7 @@ type checker struct {
 	cleanups   []func()
 }
 
-func (c *checker) cleanup() {
+func (c *detector) cleanup() {
 	for i := len(c.cleanups) - 1; i >= 0; i-- {
 		c.cleanups[i]()
 	}
@@ -195,7 +195,7 @@ func (c *checker) cleanup() {
 // the library are in the binary, and a path of another length moves the data after them: the same code built in
 // two directories differed by 12 KB in the addresses of its data. With paths of the same length, the binaries of
 // identical code have the same addresses and sizes of every symbol.
-func (c *checker) headSuite(ctx context.Context) (*suite, error) {
+func (c *detector) headSuite(ctx context.Context) (*suite, error) {
 	headDir := filepath.Join(c.tmpDir, "head")
 	if err := c.repo.copyWorkingTree(ctx, headDir); err != nil {
 		return nil, err
@@ -219,13 +219,13 @@ func (c *checker) headSuite(ctx context.Context) (*suite, error) {
 // so that exactly the same benchmarks are compared.
 // If they can't be built with the base commit ( e.g. they use an API added after it ),
 // the benchmarks of the base commit itself are used instead.
-func (c *checker) baseSuite(ctx context.Context) (*suite, error) {
+func (c *detector) baseSuite(ctx context.Context) (*suite, error) {
 	if c.base != nil {
 		return c.base, nil
 	}
 	fmt.Printf("build benchmarks for base %s\n", c.baseCommit)
 	baseDir := filepath.Join(c.tmpDir, "base")
-	cleanup, err := c.repo.checkout(ctx, baseDir, c.baseCommit)
+	cleanup, err := c.repo.addWorktree(ctx, baseDir, c.baseCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func printProgress(base, head layoutMeasurement) {
 	}
 }
 
-// errBaseFailsEveryFunc is the error of a check whose base fails every benchmark function which it measures:
+// errBaseFailsEveryFunc is the error of a run whose base fails every benchmark function which it measures:
 // nothing is compared then.
 var errBaseFailsEveryFunc = errors.New("every benchmark function fails in the base")
 
@@ -290,7 +290,7 @@ var errBaseFailsEveryFunc = errors.New("every benchmark function fails in the ba
 // an error; a cancellation, a binary ended by a signal, an error to run the binary, and a failure of a function which
 // has results of the base are errors.
 // It returns whether the base failed.
-func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst, newInBase bool) (layoutMeasurement, layoutMeasurement, bool, error) {
+func (c *detector) measureFunc(ctx context.Context, fn string, base, head *suite, baseFirst, newInBase bool) (layoutMeasurement, layoutMeasurement, bool, error) {
 	type side struct {
 		suite  *suite
 		result layoutMeasurement
@@ -325,7 +325,7 @@ func (c *checker) measureFunc(ctx context.Context, fn string, base, head *suite,
 }
 
 // measure runs the benchmarks until all of them reach the result of the base or the attempts are exhausted.
-func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) {
+func (c *detector) measure(ctx context.Context, out *outcome) (*measured, error) {
 	fmt.Println("build benchmarks for working tree")
 	head, err := c.headSuite(ctx)
 	if err != nil {
@@ -398,7 +398,7 @@ func (c *checker) measure(ctx context.Context, out *outcome) (*measured, error) 
 		if failed == len(funcs) {
 			return nil, fmt.Errorf("%w %s", errBaseFailsEveryFunc, c.baseCommit)
 		}
-		// the results of a base which failed a function are not kept as the baseline: the next check measures it
+		// the results of a base which failed a function are not kept as the baseline: the next run measures it
 		// again, so that a failure which happens once is not kept for the base.
 		if attempt == 1 && cached == nil && failed == 0 {
 			if err := c.cache.storeBaseline(&baseline{Commit: c.baseCommit, Key: key, Results: measured}); err != nil {
@@ -416,7 +416,7 @@ type measured struct {
 	meanDeltaPercent float64
 }
 
-// outcome is the result of a check.
+// outcome is the result of detect.
 type outcome struct {
 	// verdict is nil if there is nothing to compare, because HEAD is the base commit without any change.
 	verdict        *verdict
@@ -424,7 +424,7 @@ type outcome struct {
 	cachedBaseline bool
 }
 
-func (c *checker) check(ctx context.Context) (*outcome, error) {
+func (c *detector) detect(ctx context.Context) (*outcome, error) {
 	head, err := c.repo.commit(ctx, "HEAD")
 	if err != nil {
 		return nil, err
@@ -499,8 +499,8 @@ func makeTempDir() (string, error) {
 	}
 }
 
-func (c *checker) run(ctx context.Context) error {
-	out, err := c.check(ctx)
+func (c *detector) run(ctx context.Context) error {
+	out, err := c.detect(ctx)
 	if err != nil {
 		return err
 	}
@@ -619,7 +619,7 @@ func _main() error {
 			return err
 		}
 	}
-	c := &checker{
+	c := &detector{
 		opt:   opt,
 		repo:  repo,
 		cache: &cache{dir: cacheDir, readable: !opt.noCache},

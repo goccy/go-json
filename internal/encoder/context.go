@@ -192,9 +192,9 @@ type RuntimeContext struct {
 	// V2State is the state of the calls of the v2 json package which use the context, which is kept with it: a
 	// pointer to its type, which the encoder doesn't know, read without the check of a type assertion.
 	V2State unsafe.Pointer
-	// CheckNames is whether the names of the objects of the output are to be checked for the same names, for the
+	// RescanNames is whether the output is to be read again for the names which an object has twice, for the
 	// v2 semantics: a name with invalid UTF-8 was written with U+FFFD.
-	CheckNames bool
+	RescanNames bool
 	// RewriteFrom is the first offset of the output which was written again, or shortened, since it was last
 	// reset, or math.MaxInt: the v2 json package, which follows the output as it grows, reads it again from there.
 	RewriteFrom int

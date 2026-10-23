@@ -171,7 +171,7 @@ func Multiline(v bool) Options { return options.BoolOf(multiline, v) }
 //
 // This affects encoding only. It implies Multiline(true).
 func WithIndent(indent string) Options {
-	checkIndent(indent, "indent")
+	panicIfNotIndent(indent, "indent")
 	return options.Indent{S: indent}
 }
 
@@ -181,11 +181,11 @@ func WithIndent(indent string) Options {
 //
 // This affects encoding only. It implies Multiline(true).
 func WithIndentPrefix(prefix string) Options {
-	checkIndent(prefix, "indent prefix")
+	panicIfNotIndent(prefix, "indent prefix")
 	return options.Indent{S: prefix, Prefix: true}
 }
 
-func checkIndent(s, what string) {
+func panicIfNotIndent(s, what string) {
 	if i := strings.IndexFunc(s, func(r rune) bool { return r != ' ' && r != '\t' }); i >= 0 {
 		panic(fmt.Sprintf("json: invalid character %s in %s", quoteChar([]byte(s[i:])), what))
 	}

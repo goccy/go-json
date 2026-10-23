@@ -25,7 +25,7 @@ func TestKeyEndMasks(t *testing.T) {
 	// mostly the ones of keys.
 	r := rand.New(rand.NewSource(1))
 	var b [8]byte
-	check := func() {
+	compare := func() {
 		t.Helper()
 		w := binary.LittleEndian.Uint64(b[:])
 		if got, want := bits.TrailingZeros64(specialKeyBytes(w))/8, firstByteOf(w, func(c byte) bool {
@@ -52,7 +52,7 @@ func TestKeyEndMasks(t *testing.T) {
 						b[j] = byte(r.Intn(256))
 					}
 				}
-				check()
+				compare()
 			}
 		}
 	}
@@ -61,7 +61,7 @@ func TestKeyEndMasks(t *testing.T) {
 		for j := range b {
 			b[j] = chars[r.Intn(len(chars))]
 		}
-		check()
+		compare()
 	}
 }
 

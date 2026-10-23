@@ -16,11 +16,11 @@ import (
 // appendCompactOutput ), and appended as they are, but for the strings with escapes, which are written again in
 // the form of the formatting: the escapes which it doesn't write are written as the characters they are.
 
-// lookedAtByRawCheck are the characters which the escaping of the options escapes, in a raw value which is appended
+// escapedInRaw are the characters which the escaping of the options escapes, in a raw value which is appended
 // by the formatting otherwise ( see AppendFormattedRaw ): U+2028 and U+2029 ( EscapeForJS ), whose first byte is
 // 0xe2, and '<', '>' and '&' ( EscapeForHTML ). The control characters, which are in each class, are not
 // appended here anyway.
-var lookedAtByRawCheck = [4]*jsonstring.ByteClass{
+var escapedInRaw = [4]*jsonstring.ByteClass{
 	nil,
 	jsonstring.NewByteClass(0xe2),
 	jsonstring.NewByteClass('<', '>', '&'),
@@ -43,11 +43,11 @@ func highBytes() []byte {
 	return b
 }
 
-// maxNamesOfRawCheck is the number of the names of the objects being read, and maxDepthOfRawCheck the depth of the
+// maxNamesOfRawWalk is the number of the names of the objects being read, and maxDepthOfRawWalk the depth of the
 // values, up to which a raw value is appended here: a larger one is formatted.
 const (
-	maxNamesOfRawCheck = 64
-	maxDepthOfRawCheck = 64
+	maxNamesOfRawWalk = 64
+	maxDepthOfRawWalk = 64
 )
 
 // rawLevels are the levels of the walk of a raw value ( see rawWalk ), which the runtime context keeps, so that
@@ -55,9 +55,9 @@ const (
 // values being read; names are the offsets of the names of the objects being read, and first the index in names
 // of the first name of each level.
 type rawLevels struct {
-	stack [maxDepthOfRawCheck]byte
-	first [maxDepthOfRawCheck]int32
-	names [maxNamesOfRawCheck]int32
+	stack [maxDepthOfRawWalk]byte
+	first [maxDepthOfRawWalk]int32
+	names [maxNamesOfRawWalk]int32
 }
 
 // AppendFormattedRaw appends src, a raw value, to dst as the formatting of the v2 semantics with the escaping of
@@ -76,7 +76,7 @@ func AppendFormattedRaw(ctx *RuntimeContext, dst, src []byte) ([]byte, bool) {
 	if flags&HTMLEscapeOption != 0 {
 		escape |= 2
 	}
-	if len(src) == 0 || (escape != 0 && lookedAtByRawCheck[escape].Has(src)) {
+	if len(src) == 0 || (escape != 0 && escapedInRaw[escape].Has(src)) {
 		return dst, false
 	}
 	// a value of ASCII without a control character and an escape, as most are, is found by SIMD: its strings end
@@ -104,7 +104,7 @@ type rawWalk struct {
 	copied int
 	// ascii is whether every byte read is ASCII.
 	ascii bool
-	// escape is the escaping of the options ( see lookedAtByRawCheck ), and plain is whether src has only ASCII
+	// escape is the escaping of the options ( see escapedInRaw ), and plain is whether src has only ASCII
 	// without a control character.
 	escape int
 	plain  bool
@@ -145,7 +145,7 @@ value:
 		}
 		i = end
 	case c == '{':
-		if depth == maxDepthOfRawCheck {
+		if depth == maxDepthOfRawWalk {
 			return false
 		}
 		lv.stack[depth] = '}'
@@ -160,7 +160,7 @@ value:
 		}
 		goto name
 	case c == '[':
-		if depth == maxDepthOfRawCheck {
+		if depth == maxDepthOfRawWalk {
 			return false
 		}
 		lv.stack[depth] = ']'
@@ -221,7 +221,7 @@ value:
 	}
 name:
 	// a name, which must be new in the object, before its value.
-	if i >= n || src[i] != '"' || numNames == maxNamesOfRawCheck {
+	if i >= n || src[i] != '"' || numNames == maxNamesOfRawWalk {
 		return false
 	}
 	{

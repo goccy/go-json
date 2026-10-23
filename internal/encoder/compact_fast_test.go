@@ -113,7 +113,7 @@ func BenchmarkCompactOutput(b *testing.B) {
 	for _, s := range []string{`"hello"`, obj, "[" + strings.Repeat(obj+",", 20) + obj + "]"} {
 		src := []byte(s)
 		dst := make([]byte, 0, len(s)+16)
-		b.Run("check/"+strconv.Itoa(len(s)), func(b *testing.B) {
+		b.Run("append/"+strconv.Itoa(len(s)), func(b *testing.B) {
 			b.SetBytes(int64(len(s)))
 			for i := 0; i < b.N; i++ {
 				if _, ok := appendCompactOutput(dst[:0], src, true, false); !ok {

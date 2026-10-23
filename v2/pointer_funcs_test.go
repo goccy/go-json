@@ -38,19 +38,19 @@ func TestMarshalPointerAtTopLevelForFuncs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := json.WithMarshalers(tt.funcs)
-			check := func(how string, got []byte, err error) {
+			compare := func(how string, got []byte, err error) {
 				t.Helper()
 				if err != nil || string(got) != tt.want {
 					t.Errorf("%s: got %s, %v, want %s", how, got, err, tt.want)
 				}
 			}
 			got, err := json.Marshal(tt.in, opts)
-			check("Marshal", got, err)
+			compare("Marshal", got, err)
 			got, err = json.MarshalOf(tt.in, opts)
-			check("MarshalOf", got, err)
+			compare("MarshalOf", got, err)
 			var b bytes.Buffer
 			err = json.MarshalEncode(jsontext.NewEncoder(&b), tt.in, opts)
-			check("MarshalEncode", bytes.TrimSuffix(b.Bytes(), []byte("\n")), err)
+			compare("MarshalEncode", bytes.TrimSuffix(b.Bytes(), []byte("\n")), err)
 		})
 	}
 }

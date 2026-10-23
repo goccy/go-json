@@ -192,8 +192,8 @@ func (e *encoder) derive() {
 	}
 	vs.esc = escapesOf(&e.cfg)
 	vs.validUTF8 = !e.cfg.Has(allowInvalidUTF8)
-	vs.checkNames = !e.cfg.Has(allowDuplicateNames)
-	vs.lazyNames = !vs.checkNames
+	vs.rejectDuplicateNames = !e.cfg.Has(allowDuplicateNames)
+	vs.lazyNames = !vs.rejectDuplicateNames
 	vs.decoding = false
 	vs.final = true
 	vs.preserve = e.cfg.Has(preserveRawStrings)
@@ -425,7 +425,7 @@ func (e *encoder) appendString(b []byte, t Token, name bool) ([]byte, error) {
 			return b, e.failAt(errInvalidUTF8, pos, pointNext)
 		}
 		if name {
-			if valid && e.vs.checkNames && e.st.addNewName(readOnlyBytes(t.str)) {
+			if valid && e.vs.rejectDuplicateNames && e.st.addNewName(readOnlyBytes(t.str)) {
 				return b, nil // a new name of an object of few names, as most are, without the calls of insertName
 			}
 			return b, e.insertName(pos, readOnlyBytes(t.str), !valid) // the name is copied
@@ -459,7 +459,7 @@ func (e *encoder) insertName(pos int, name []byte, mangle bool) error {
 	if mangle {
 		name = appendValidUTF8(nil, name)
 	}
-	if !e.st.insertName(name, e.vs.checkNames) {
+	if !e.st.insertName(name, e.vs.rejectDuplicateNames) {
 		ptr := e.st.namePointer(name)
 		return &SyntacticError{ByteOffset: e.base + int64(pos), JSONPointer: ptr, Err: ErrDuplicateName}
 	}

@@ -62,24 +62,24 @@ func (k *textKey) UnmarshalText(b []byte) error {
 	return nil
 }
 
-// recursiveCheck is what checkRecursiveDecode compares with encoding/json.
-type recursiveCheck int
+// recursiveComparison is what compareRecursiveDecode compares with encoding/json.
+type recursiveComparison int
 
 const (
-	// checkValuesAndErrors compares the values and the errors.
-	checkValuesAndErrors recursiveCheck = iota
-	// checkUndecodedKeys is for a map whose keys are not decoded: an encoding/json which does not decode as the one of
-	// Go 1.27 ( see stdTypeErrorMayDiffer ) fails for the whole object and leaves the map nil, where Go 1.27 makes the
-	// map and drops the entries, so the value of Unmarshal is not compared with the value it leaves then.
-	checkUndecodedKeys
-	// checkUndecodedPointerKeys is checkUndecodedKeys for keys which are pointers, whose errors are compared with
+	// compareValuesAndErrors compares the values and the errors.
+	compareValuesAndErrors recursiveComparison = iota
+	// compareUndecodedKeys is for a map whose keys are not decoded: an encoding/json which does not decode as the one
+	// of Go 1.27 ( see stdTypeErrorMayDiffer ) fails for the whole object and leaves the map nil, where Go 1.27 makes
+	// the map and drops the entries, so the value of Unmarshal is not compared with the value it leaves then.
+	compareUndecodedKeys
+	// compareUndecodedPointerKeys is compareUndecodedKeys for keys which are pointers, whose errors are compared with
 	// encoding/json by their kinds only, as TestDecodeMapKeyPointers does: go-json reports the type of the pointer, and
 	// encoding/json of Go 1.27 the type it points to. The Decoders are compared in full with Unmarshal.
-	checkUndecodedPointerKeys
-	// checkMethodError is for a decoding which an unmarshal method fails: an encoding/json which does not decode as
+	compareUndecodedPointerKeys
+	// compareMethodError is for a decoding which an unmarshal method fails: an encoding/json which does not decode as
 	// the one of Go 1.27 stops at the error, where Go 1.27 drops the entry and goes on, so the value of Unmarshal is
 	// not compared with the value it leaves.
-	checkMethodError
+	compareMethodError
 )
 
 // The decoder of a slice, a map or an array type which holds values of itself decodes them, as the decoder of a
@@ -115,51 +115,51 @@ func TestDecodeRecursiveType(t *testing.T) {
 	longMutualError := strings.TrimSuffix(longMutual.String(), "]") + `,{"z":[{"a":[{"b":[1]}]}]}]`
 
 	tests := []struct {
-		in    string
-		value func() any
-		check recursiveCheck
+		in      string
+		value   func() any
+		compare recursiveComparison
 	}{
-		{`[[],[[]],null]`, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{`null`, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{deep, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{deepError, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{long.String(), func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{longError, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{`[[],{}]`, func() any { return new(SelfSlice) }, checkValuesAndErrors},
-		{`{"a":{"b":{}},"c":null}`, func() any { return new(selfMap) }, checkValuesAndErrors},
-		{deepMapError, func() any { return new(selfMap) }, checkValuesAndErrors},
-		{longMap.String(), func() any { return new(selfMap) }, checkValuesAndErrors},
-		{longMapError, func() any { return new(selfMap) }, checkValuesAndErrors},
-		{`[[],null,[null,[]]]`, func() any { return new(selfPtrSlice) }, checkValuesAndErrors},
-		{`[[],null,[null,["x"]]]`, func() any { return new(selfPtrSlice) }, checkValuesAndErrors},
-		{`{"a":[{"b":[]}],"c":null}`, func() any { return new(selfMapOfSlices) }, checkValuesAndErrors},
-		{`{"a":[{"b":[1]}]}`, func() any { return new(selfMapOfSlices) }, checkValuesAndErrors},
-		{`{"a":{"b":null},"c":{}}`, func() any { return new(selfPtrMap) }, checkValuesAndErrors},
-		{`{"a":{"b":[]}}`, func() any { return new(selfPtrMap) }, checkValuesAndErrors},
-		{`[{"a":[{"b":null}]},{}]`, func() any { return new(selfSliceOfPtrMaps) }, checkValuesAndErrors},
-		{`[{"a":[{"b":true}]}]`, func() any { return new(selfSliceOfPtrMaps) }, checkValuesAndErrors},
-		{`[{"a":[{}]},{"b":[]}]`, func() any { return new(mutualSlice) }, checkValuesAndErrors},
-		{`{"a":[{"b":[{"c":1}]}]}`, func() any { return new(mutualMap) }, checkValuesAndErrors},
-		{longMutual.String(), func() any { return new(mutualSlice) }, checkValuesAndErrors},
-		{longMutualError, func() any { return new(mutualSlice) }, checkValuesAndErrors},
-		{`[[[[]],[[[]]]]]`, func() any { return new(selfArrayOfSlices) }, checkValuesAndErrors},
-		{`[[[["x"]]]]`, func() any { return new(selfArrayOfSlices) }, checkValuesAndErrors},
-		{`[{"a":[{}],"b":[{"c":[null]}]}]`, func() any { return new(selfArrayOfMaps) }, checkValuesAndErrors},
-		{`[{"a":[{"b":1}]}]`, func() any { return new(selfArrayOfMaps) }, checkValuesAndErrors},
-		{`[[],null,[[]]]`, func() any { return new(selfPtrToSlice) }, checkValuesAndErrors},
-		{`[[],[{}]]`, func() any { return new(selfPtrToSlice) }, checkValuesAndErrors},
+		{`[[],[[]],null]`, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{`null`, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{deep, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{deepError, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{long.String(), func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{longError, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{`[[],{}]`, func() any { return new(SelfSlice) }, compareValuesAndErrors},
+		{`{"a":{"b":{}},"c":null}`, func() any { return new(selfMap) }, compareValuesAndErrors},
+		{deepMapError, func() any { return new(selfMap) }, compareValuesAndErrors},
+		{longMap.String(), func() any { return new(selfMap) }, compareValuesAndErrors},
+		{longMapError, func() any { return new(selfMap) }, compareValuesAndErrors},
+		{`[[],null,[null,[]]]`, func() any { return new(selfPtrSlice) }, compareValuesAndErrors},
+		{`[[],null,[null,["x"]]]`, func() any { return new(selfPtrSlice) }, compareValuesAndErrors},
+		{`{"a":[{"b":[]}],"c":null}`, func() any { return new(selfMapOfSlices) }, compareValuesAndErrors},
+		{`{"a":[{"b":[1]}]}`, func() any { return new(selfMapOfSlices) }, compareValuesAndErrors},
+		{`{"a":{"b":null},"c":{}}`, func() any { return new(selfPtrMap) }, compareValuesAndErrors},
+		{`{"a":{"b":[]}}`, func() any { return new(selfPtrMap) }, compareValuesAndErrors},
+		{`[{"a":[{"b":null}]},{}]`, func() any { return new(selfSliceOfPtrMaps) }, compareValuesAndErrors},
+		{`[{"a":[{"b":true}]}]`, func() any { return new(selfSliceOfPtrMaps) }, compareValuesAndErrors},
+		{`[{"a":[{}]},{"b":[]}]`, func() any { return new(mutualSlice) }, compareValuesAndErrors},
+		{`{"a":[{"b":[{"c":1}]}]}`, func() any { return new(mutualMap) }, compareValuesAndErrors},
+		{longMutual.String(), func() any { return new(mutualSlice) }, compareValuesAndErrors},
+		{longMutualError, func() any { return new(mutualSlice) }, compareValuesAndErrors},
+		{`[[[[]],[[[]]]]]`, func() any { return new(selfArrayOfSlices) }, compareValuesAndErrors},
+		{`[[[["x"]]]]`, func() any { return new(selfArrayOfSlices) }, compareValuesAndErrors},
+		{`[{"a":[{}],"b":[{"c":[null]}]}]`, func() any { return new(selfArrayOfMaps) }, compareValuesAndErrors},
+		{`[{"a":[{"b":1}]}]`, func() any { return new(selfArrayOfMaps) }, compareValuesAndErrors},
+		{`[[],null,[[]]]`, func() any { return new(selfPtrToSlice) }, compareValuesAndErrors},
+		{`[[],[{}]]`, func() any { return new(selfPtrToSlice) }, compareValuesAndErrors},
 
-		{`[[null]]`, func() any { return new(selfArrayOfPtrs) }, checkValuesAndErrors},
-		{`[[[null]],1]`, func() any { return new(selfArrayOfPtrs) }, checkValuesAndErrors},
-		{`[[["x"]]]`, func() any { return new(selfArrayOfPtrs) }, checkValuesAndErrors},
-		{deepArray, func() any { return new(selfArrayOfPtrs) }, checkValuesAndErrors},
-		{deepArrayError, func() any { return new(selfArrayOfPtrs) }, checkValuesAndErrors},
-		{`[[null]]`, func() any { return new(selfPtrToArray) }, checkValuesAndErrors},
-		{`[[[1]]]`, func() any { return new(selfPtrToArray) }, checkValuesAndErrors},
-		{`[[[[null]]],[null]]`, func() any { return new(selfNestedArray) }, checkValuesAndErrors},
-		{`[[true]]`, func() any { return new(selfNestedArray) }, checkValuesAndErrors},
-		{`[[[null],[null]]]`, func() any { return new(mutualArrayA) }, checkValuesAndErrors},
-		{`[[["x"]]]`, func() any { return new(mutualArrayA) }, checkValuesAndErrors},
+		{`[[null]]`, func() any { return new(selfArrayOfPtrs) }, compareValuesAndErrors},
+		{`[[[null]],1]`, func() any { return new(selfArrayOfPtrs) }, compareValuesAndErrors},
+		{`[[["x"]]]`, func() any { return new(selfArrayOfPtrs) }, compareValuesAndErrors},
+		{deepArray, func() any { return new(selfArrayOfPtrs) }, compareValuesAndErrors},
+		{deepArrayError, func() any { return new(selfArrayOfPtrs) }, compareValuesAndErrors},
+		{`[[null]]`, func() any { return new(selfPtrToArray) }, compareValuesAndErrors},
+		{`[[[1]]]`, func() any { return new(selfPtrToArray) }, compareValuesAndErrors},
+		{`[[[[null]]],[null]]`, func() any { return new(selfNestedArray) }, compareValuesAndErrors},
+		{`[[true]]`, func() any { return new(selfNestedArray) }, compareValuesAndErrors},
+		{`[[[null],[null]]]`, func() any { return new(mutualArrayA) }, compareValuesAndErrors},
+		{`[[["x"]]]`, func() any { return new(mutualArrayA) }, compareValuesAndErrors},
 
 		// fields
 		{`{"X":[[null]],"A":[[[null],null]]}`, func() any {
@@ -167,114 +167,114 @@ func TestDecodeRecursiveType(t *testing.T) {
 				X selfArrayOfPtrs
 				A mutualArrayA
 			})
-		}, checkValuesAndErrors},
-		{`{"X":[[[true]]]}`, func() any { return new(struct{ X selfArrayOfPtrs }) }, checkValuesAndErrors},
+		}, compareValuesAndErrors},
+		{`{"X":[[[true]]]}`, func() any { return new(struct{ X selfArrayOfPtrs }) }, compareValuesAndErrors},
 		{`{"N":[[[[null]]],[null]],"P":[[null]]}`, func() any {
 			return new(struct {
 				N selfNestedArray
 				P selfPtrToArray
 			})
-		}, checkValuesAndErrors},
-		{`{"A":[[[null],[[[1]]]]]}`, func() any { return new(struct{ A mutualArrayA }) }, checkValuesAndErrors},
-		{`{"X":[[],[[]]]}`, func() any { return new(struct{ X SelfSlice }) }, checkValuesAndErrors},
-		{`{"X":[[],[[1]]]}`, func() any { return new(struct{ X SelfSlice }) }, checkValuesAndErrors},
-		{`{"M":{"a":{"b":{}}}}`, func() any { return new(struct{ M selfMap }) }, checkValuesAndErrors},
-		{`{"M":{"a":{"b":"x"}}}`, func() any { return new(struct{ M selfMap }) }, checkValuesAndErrors},
-		{`{"X":[[[]],[]]}`, func() any { return new(struct{ X []SelfSlice }) }, checkValuesAndErrors},
-		{`{"X":[[[]],[[true]]]}`, func() any { return new(struct{ X []SelfSlice }) }, checkValuesAndErrors},
-		{`{"P":[[],[[]]]}`, func() any { return new(struct{ P *SelfSlice }) }, checkValuesAndErrors},
-		{`{"P":[[],[[{}]]]}`, func() any { return new(struct{ P *SelfSlice }) }, checkValuesAndErrors},
+		}, compareValuesAndErrors},
+		{`{"A":[[[null],[[[1]]]]]}`, func() any { return new(struct{ A mutualArrayA }) }, compareValuesAndErrors},
+		{`{"X":[[],[[]]]}`, func() any { return new(struct{ X SelfSlice }) }, compareValuesAndErrors},
+		{`{"X":[[],[[1]]]}`, func() any { return new(struct{ X SelfSlice }) }, compareValuesAndErrors},
+		{`{"M":{"a":{"b":{}}}}`, func() any { return new(struct{ M selfMap }) }, compareValuesAndErrors},
+		{`{"M":{"a":{"b":"x"}}}`, func() any { return new(struct{ M selfMap }) }, compareValuesAndErrors},
+		{`{"X":[[[]],[]]}`, func() any { return new(struct{ X []SelfSlice }) }, compareValuesAndErrors},
+		{`{"X":[[[]],[[true]]]}`, func() any { return new(struct{ X []SelfSlice }) }, compareValuesAndErrors},
+		{`{"P":[[],[[]]]}`, func() any { return new(struct{ P *SelfSlice }) }, compareValuesAndErrors},
+		{`{"P":[[],[[{}]]]}`, func() any { return new(struct{ P *SelfSlice }) }, compareValuesAndErrors},
 		{`{"X":[[],[[]]]}`, func() any {
 			return new(struct {
 				X SelfSlice `json:",string"`
 			})
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 		{`{"X":"[[]]"}`, func() any {
 			return new(struct {
 				X SelfSlice `json:",string"`
 			})
-		}, checkValuesAndErrors},
-		{`{"SelfSlice":[[],[[]]]}`, func() any { return new(struct{ SelfSlice }) }, checkValuesAndErrors},
-		{`{"SelfSlice":[[],[[1]]]}`, func() any { return new(struct{ SelfSlice }) }, checkValuesAndErrors},
+		}, compareValuesAndErrors},
+		{`{"SelfSlice":[[],[[]]]}`, func() any { return new(struct{ SelfSlice }) }, compareValuesAndErrors},
+		{`{"SelfSlice":[[],[[1]]]}`, func() any { return new(struct{ SelfSlice }) }, compareValuesAndErrors},
 		{`{"X":[[],[[]]],"Y":{"a":{}},"Z":[{"a":[]}]}`, func() any {
 			return new(struct {
 				X SelfSlice
 				Y selfMap
 				Z mutualSlice
 			})
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 
 		// values of maps
-		{`{"a":[[],[[]]],"b":null}`, func() any { return new(map[string]SelfSlice) }, checkValuesAndErrors},
-		{`{"a":[[],[[1]]]}`, func() any { return new(map[string]SelfSlice) }, checkValuesAndErrors},
-		{`{"a":[null,[]],"b":null}`, func() any { return new(map[string]selfPtrToSlice) }, checkValuesAndErrors},
-		{`{"a":[null,[1]]}`, func() any { return new(map[string]selfPtrToSlice) }, checkValuesAndErrors},
-		{`{"a":[[null]],"b":null}`, func() any { return new(map[string]selfPtrToArray) }, checkValuesAndErrors},
-		{`{"a":[[[1]]]}`, func() any { return new(map[string]selfPtrToArray) }, checkValuesAndErrors},
-		{`{"a":[[null]],"b":[[[["x"]]]]}`, func() any { return new(map[string]selfArrayOfPtrs) }, checkValuesAndErrors},
-		{`{"a":[[[null],null]],"b":[[[[[]]]]]}`, func() any { return new(map[string]mutualArrayA) }, checkValuesAndErrors},
+		{`{"a":[[],[[]]],"b":null}`, func() any { return new(map[string]SelfSlice) }, compareValuesAndErrors},
+		{`{"a":[[],[[1]]]}`, func() any { return new(map[string]SelfSlice) }, compareValuesAndErrors},
+		{`{"a":[null,[]],"b":null}`, func() any { return new(map[string]selfPtrToSlice) }, compareValuesAndErrors},
+		{`{"a":[null,[1]]}`, func() any { return new(map[string]selfPtrToSlice) }, compareValuesAndErrors},
+		{`{"a":[[null]],"b":null}`, func() any { return new(map[string]selfPtrToArray) }, compareValuesAndErrors},
+		{`{"a":[[[1]]]}`, func() any { return new(map[string]selfPtrToArray) }, compareValuesAndErrors},
+		{`{"a":[[null]],"b":[[[["x"]]]]}`, func() any { return new(map[string]selfArrayOfPtrs) }, compareValuesAndErrors},
+		{`{"a":[[[null],null]],"b":[[[[[]]]]]}`, func() any { return new(map[string]mutualArrayA) }, compareValuesAndErrors},
 
 		// interface values
 		{`[[],[[]]]`, func() any {
 			var r SelfSlice
 			var v any = &r
 			return &v
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 		{`[[],[[1]]]`, func() any {
 			var r SelfSlice
 			var v any = &r
 			return &v
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 		{`[[],[[]]]`, func() any {
 			var v any = []SelfSlice{}
 			return &v
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 		{`[[],[[]]]`, func() any {
 			var s []SelfSlice
 			var v any = &s
 			return &v
-		}, checkValuesAndErrors},
+		}, compareValuesAndErrors},
 
 		// keys of maps
-		{`{"a":1}`, func() any { return new(map[selfPtrToSlice]int) }, checkUndecodedPointerKeys},
-		{`{"a":1}`, func() any { return new(map[*selfPtrSlice]int) }, checkUndecodedPointerKeys},
-		{`{}`, func() any { return new(map[*selfPtrSlice]int) }, checkUndecodedKeys},
+		{`{"a":1}`, func() any { return new(map[selfPtrToSlice]int) }, compareUndecodedPointerKeys},
+		{`{"a":1}`, func() any { return new(map[*selfPtrSlice]int) }, compareUndecodedPointerKeys},
+		{`{}`, func() any { return new(map[*selfPtrSlice]int) }, compareUndecodedKeys},
 
 		// keys which hold the map
-		{`{"a":1}`, func() any { return new(selfKeyMap) }, checkUndecodedPointerKeys},
-		{`{}`, func() any { return new(selfKeyMap) }, checkUndecodedKeys},
-		{`null`, func() any { return new(selfKeyMap) }, checkUndecodedKeys},
-		{`{"a":1}`, func() any { return new(selfPtrPtrKeyMap) }, checkUndecodedPointerKeys},
-		{`{"a":1}`, func() any { return new(selfArrayKeyMap) }, checkUndecodedKeys},
-		{`{}`, func() any { return new(selfArrayKeyMap) }, checkUndecodedKeys},
-		{`{"a":1}`, func() any { return new(selfPtrArrayKeyMap) }, checkUndecodedPointerKeys},
-		{`{"a":1}`, func() any { return new(selfSliceKeyMap) }, checkUndecodedPointerKeys},
-		{`{"a":1}`, func() any { return new(selfStructKeyMap) }, checkUndecodedKeys},
-		{`{"a":1}`, func() any { return new(mutualKeyMap) }, checkUndecodedPointerKeys},
-		{`{"a":{"b":1}}`, func() any { return new(mutualValueMap) }, checkUndecodedPointerKeys},
+		{`{"a":1}`, func() any { return new(selfKeyMap) }, compareUndecodedPointerKeys},
+		{`{}`, func() any { return new(selfKeyMap) }, compareUndecodedKeys},
+		{`null`, func() any { return new(selfKeyMap) }, compareUndecodedKeys},
+		{`{"a":1}`, func() any { return new(selfPtrPtrKeyMap) }, compareUndecodedPointerKeys},
+		{`{"a":1}`, func() any { return new(selfArrayKeyMap) }, compareUndecodedKeys},
+		{`{}`, func() any { return new(selfArrayKeyMap) }, compareUndecodedKeys},
+		{`{"a":1}`, func() any { return new(selfPtrArrayKeyMap) }, compareUndecodedPointerKeys},
+		{`{"a":1}`, func() any { return new(selfSliceKeyMap) }, compareUndecodedPointerKeys},
+		{`{"a":1}`, func() any { return new(selfStructKeyMap) }, compareUndecodedKeys},
+		{`{"a":1}`, func() any { return new(mutualKeyMap) }, compareUndecodedPointerKeys},
+		{`{"a":{"b":1}}`, func() any { return new(mutualValueMap) }, compareUndecodedPointerKeys},
 		{`{"M":{"a":1},"N":2}`, func() any {
 			return new(struct {
 				M selfArrayKeyMap
 				N int
 			})
-		}, checkUndecodedKeys},
-		{`{"x":{"a":1},"y":{}}`, func() any { return new(map[string]selfStructKeyMap) }, checkUndecodedKeys},
+		}, compareUndecodedKeys},
+		{`{"x":{"a":1},"y":{}}`, func() any { return new(map[string]selfStructKeyMap) }, compareUndecodedKeys},
 		{`{"M":{"a":1},"N":2}`, func() any {
 			return new(struct {
 				M selfKeyMap
 				N int
 			})
-		}, checkUndecodedPointerKeys},
+		}, compareUndecodedPointerKeys},
 
 		// the keys of a map which is reached again through the fields of its values, which have a method
-		{`{"a":{"F":{"b":{"G":{"c":{}}}}}}`, func() any { return new(textKeyMap) }, checkValuesAndErrors},
-		{`{"bad":{}}`, func() any { return new(textKeyMap) }, checkValuesAndErrors},
-		{`{"a":{"F":{"b":{"G":{"bad":{}}}}}}`, func() any { return new(textKeyMap) }, checkMethodError},
-		{`{"F":{"b":{"G":{"bad":{}}}}}`, func() any { return new(textKeyElem) }, checkMethodError},
+		{`{"a":{"F":{"b":{"G":{"c":{}}}}}}`, func() any { return new(textKeyMap) }, compareValuesAndErrors},
+		{`{"bad":{}}`, func() any { return new(textKeyMap) }, compareValuesAndErrors},
+		{`{"a":{"F":{"b":{"G":{"bad":{}}}}}}`, func() any { return new(textKeyMap) }, compareMethodError},
+		{`{"F":{"b":{"G":{"bad":{}}}}}`, func() any { return new(textKeyElem) }, compareMethodError},
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("%d %T", i, test.value()), func(t *testing.T) {
-			checkRecursiveDecode(t, test.in, test.value, test.check)
+			compareRecursiveDecode(t, test.in, test.value, test.compare)
 		})
 	}
 }
@@ -517,20 +517,20 @@ func TestDecodeEmbeddedAncestor(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("%d %T", i, test.value()), func(t *testing.T) {
-			checkRecursiveDecode(t, test.in, test.value, checkValuesAndErrors)
+			compareRecursiveDecode(t, test.in, test.value, compareValuesAndErrors)
 		})
 	}
 }
 
-// checkRecursiveDecode compares the decoding of in into the value of newValue by Unmarshal, and by a Decoder which
-// reads it a byte at a time and 512 bytes at a time, with the one of encoding/json, as check says. The type error of
+// compareRecursiveDecode compares the decoding of in into the value of newValue by Unmarshal, and by a Decoder which
+// reads it a byte at a time and 512 bytes at a time, with the one of encoding/json, as compare says. The type error of
 // an encoding/json which does not decode as the one of Go 1.27 may differ from go-json's ( see stdTypeErrorMayDiffer ),
 // and some type errors of Go 1.27 are other errors there: the error of Unmarshal is not compared with it then, and the
 // Decoders are compared in full with Unmarshal, as they are for keys which are pointers.
-func checkRecursiveDecode(t *testing.T, in string, newValue func() any, check recursiveCheck) {
+func compareRecursiveDecode(t *testing.T, in string, newValue func() any, compare recursiveComparison) {
 	t.Helper()
 	stdDescribe := describeTypeError
-	if check == checkUndecodedPointerKeys {
+	if compare == compareUndecodedPointerKeys {
 		stdDescribe = mapKeyKindError
 	}
 	compareErrors := func(name string, describe func(error) string, got error, from string, want error) {
@@ -555,13 +555,13 @@ func checkRecursiveDecode(t *testing.T, in string, newValue func() any, check re
 	case !errMayDiffer:
 		compareErrors("Unmarshal", stdDescribe, unmarshalErr, "encoding/json", stdErr)
 		compareValues("Unmarshal", unmarshaled, "encoding/json", std)
-	case check == checkValuesAndErrors:
+	case compare == compareValuesAndErrors:
 		compareValues("Unmarshal", unmarshaled, "encoding/json", std)
 	}
 	stdStream := newValue()
 	stdStreamErr := stdjson.NewDecoder(strings.NewReader(in)).Decode(stdStream)
 	want, wantErr, from, describe := stdStream, stdStreamErr, "encoding/json", stdDescribe
-	if check == checkUndecodedPointerKeys || errMayDiffer || stdTypeErrorMayDiffer(stdStreamErr) {
+	if compare == compareUndecodedPointerKeys || errMayDiffer || stdTypeErrorMayDiffer(stdStreamErr) {
 		want, wantErr, from, describe = unmarshaled, unmarshalErr, "Unmarshal", describeTypeError
 	}
 	for _, d := range []struct {

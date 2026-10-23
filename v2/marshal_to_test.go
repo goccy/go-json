@@ -32,13 +32,13 @@ type trackedOmit struct {
 // of it is written again: a member which omitempty takes back, the entries of a map which are sorted, and the
 // comma of an embedded fallback.
 func TestTrackedLevels(t *testing.T) {
-	checkTracked = func(out []byte, levels []textcoder.Level) {
+	onTracked = func(out []byte, levels []textcoder.Level) {
 		want := levelsOf(out, nil)
 		if normalized(levels) != normalized(want) {
 			t.Fatalf("levels of %s:\ngot  %+v\nwant %+v", out, levels, want)
 		}
 	}
-	defer func() { checkTracked = nil }()
+	defer func() { onTracked = nil }()
 
 	r := rand.New(rand.NewPCG(1, 2))
 	var pointers []jsontext.Pointer

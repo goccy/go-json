@@ -9,7 +9,7 @@ import (
 // kind of its key writes. The names of a map which is not sorted are checked as they are written ( see
 // appendMapKeyName ). The keys of a sorted map are sorted by their names, which puts the same names next to each
 // other, and checked by OpMapKey as the entries are written in that order, when the end of the map is
-// OpMapEndCheckNames.
+// OpMapEndMayRepeatNames.
 
 // SameMapName reports whether key, the name of an entry of a sorted map as it is encoded with a comma after it ( see
 // MapItem ), is the name of the entry before it, prev, which is an error unless AllowDuplicateNamesOption.

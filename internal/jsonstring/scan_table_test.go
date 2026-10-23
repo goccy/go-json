@@ -109,11 +109,11 @@ func utf8ValidPrefix(p []byte) bool {
 	return false
 }
 
-// checkUTF8Block checks what the loop of the escapes decides for a block against the decoder of UTF-8 of Go. A
+// compareUTF8Block checks what the loop of the escapes decides for a block against the decoder of UTF-8 of Go. A
 // block without a problem must be valid UTF-8 without U+2028 and U+2029 up to its tail, which is not written but
 // looked at again from its start by the next block. A block with a problem must have one: in the bytes up to the
 // tail, or a tail which starts no valid character; else a valid string would be escaped by the loop of the bytes.
-func checkUTF8Block(t *testing.T, b *[32]byte) {
+func compareUTF8Block(t *testing.T, b *[32]byte) {
 	t.Helper()
 	problem, tail := utf8BlockEmulated(b)
 	head := b[:32-tail]
@@ -140,7 +140,7 @@ func TestUTF8ValidationTables(t *testing.T) {
 			for y := 0; y < 256; y++ {
 				b := ascii()
 				b[at], b[at+1] = byte(x), byte(y)
-				checkUTF8Block(t, b)
+				compareUTF8Block(t, b)
 			}
 		}
 	}
@@ -153,11 +153,11 @@ func TestUTF8ValidationTables(t *testing.T) {
 				for _, z := range interesting {
 					b := ascii()
 					b[at], b[at+1], b[at+2] = x, y, z
-					checkUTF8Block(t, b)
+					compareUTF8Block(t, b)
 					if at+3 < 32 {
 						for _, w := range interesting {
 							b[at+3] = w
-							checkUTF8Block(t, b)
+							compareUTF8Block(t, b)
 						}
 					}
 				}
@@ -180,7 +180,7 @@ func TestUTF8ValidationTables(t *testing.T) {
 		}
 		var b [32]byte
 		copy(b[:], s)
-		checkUTF8Block(t, &b)
+		compareUTF8Block(t, &b)
 	}
 }
 

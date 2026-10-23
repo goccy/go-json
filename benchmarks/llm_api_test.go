@@ -469,17 +469,17 @@ func init() {
 func TestLLMPayloads(t *testing.T) {
 	// go-json decodes the responses and the events as encoding/json does, and encodes the requests to the same
 	// bytes.
-	checkDecode[ChatCompletionResponse](t, openAIChatResponseJSON)
-	checkDecode[Response](t, openAIResponsesResponseJSON)
-	checkDecode[MessagesResponse](t, anthropicResponseJSON)
+	compareDecode[ChatCompletionResponse](t, openAIChatResponseJSON)
+	compareDecode[Response](t, openAIResponsesResponseJSON)
+	compareDecode[MessagesResponse](t, anthropicResponseJSON)
 	for _, line := range openAIChatStream {
-		checkDecode[ChatCompletionStreamResponse](t, line)
+		compareDecode[ChatCompletionStreamResponse](t, line)
 	}
 	for _, line := range openAIResponsesStream {
-		checkDecode[ResponseStreamEvent](t, line)
+		compareDecode[ResponseStreamEvent](t, line)
 	}
 	for _, line := range anthropicStream {
-		checkDecode[MessageStreamEvent](t, line)
+		compareDecode[MessageStreamEvent](t, line)
 	}
 	for _, v := range []any{openAIChatRequest, openAIResponsesRequest, anthropicRequest} {
 		want, err := stdjson.Marshal(v)
@@ -496,7 +496,7 @@ func TestLLMPayloads(t *testing.T) {
 	}
 }
 
-func checkDecode[T any](t *testing.T, data []byte) {
+func compareDecode[T any](t *testing.T, data []byte) {
 	t.Helper()
 	var want, got T
 	if err := stdjson.Unmarshal(data, &want); err != nil {

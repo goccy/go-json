@@ -156,7 +156,7 @@ func TestDecodeFirstWin(t *testing.T) {
 					t.Fatalf("encoding/json: %s: %v", ref, err)
 				}
 			}
-			check := func(name string, got reflect.Value, err error) {
+			compare := func(name string, got reflect.Value, err error) {
 				t.Helper()
 				if refErr != nil {
 					if err == nil {
@@ -172,9 +172,9 @@ func TestDecodeFirstWin(t *testing.T) {
 				}
 			}
 			got := reflect.New(typ)
-			check("Unmarshal", got, json.UnmarshalWithOption([]byte(doc), got.Interface(), json.DecodeFieldPriorityFirstWin()))
+			compare("Unmarshal", got, json.UnmarshalWithOption([]byte(doc), got.Interface(), json.DecodeFieldPriorityFirstWin()))
 			got = reflect.New(typ)
-			check("Decoder", got, json.NewDecoder(strings.NewReader(doc)).DecodeWithOption(got.Interface(), json.DecodeFieldPriorityFirstWin()))
+			compare("Decoder", got, json.NewDecoder(strings.NewReader(doc)).DecodeWithOption(got.Interface(), json.DecodeFieldPriorityFirstWin()))
 		}
 	}
 }

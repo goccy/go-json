@@ -27,22 +27,22 @@ func TestScanStringAVX2(t *testing.T) {
 		}
 		for length := 32; length <= 130; length++ {
 			base := strings.Repeat("a", length)
-			check := func(s string) {
+			compare := func(s string) {
 				t.Helper()
 				got := scanStringAVX2(unsafe.Pointer(unsafe.StringData(s)), len(s), &e.tables)
 				if expected := expected(s); got != expected {
 					t.Fatalf("escape %d, %q: expected %d but got %d", index, s, expected, got)
 				}
 			}
-			check(base)
+			compare(base)
 			for pos := 0; pos < length; pos++ {
 				for _, c := range special {
 					b := []byte(base)
 					b[pos] = c
-					check(string(b))
+					compare(string(b))
 					if pos+1 < length {
 						b[pos+1] = '"'
-						check(string(b))
+						compare(string(b))
 					}
 				}
 			}
@@ -103,7 +103,7 @@ func TestAppendEscapedSIMD(t *testing.T) {
 	pieces := []string{"a", "Z", "0", " ", "\n", "\r", "\t", "\"", "\\", "\x00", "\x08", "\x0c", "\x1f", "\x7f", "<", ">", "&",
 		"é", "あ", "語", "😀", "\U0010ffff", "\u2027", "\u2028", "\u2029", "\u202a", "\ufffd", "\xff", "\x80", "\xc3", "\xe3\x81",
 		"\xf0\x9f", "\xc0\x80", "\xe0\x80\x80", "\xed\xa0\x80", "\xf0\x80\x80\x80", "\xf4\x90\x80\x80", "\xf5\x80\x80\x80"}
-	check := func(s string) {
+	compare := func(s string) {
 		t.Helper()
 		for index := range stringEscapeStrict {
 			e := &stringEscapes[index]
@@ -125,7 +125,7 @@ func TestAppendEscapedSIMD(t *testing.T) {
 				b.WriteByte(byte('a' + r.Intn(26)))
 			}
 		}
-		check(b.String())
+		compare(b.String())
 	}
 	valid := []string{"é", "ß", "あ", "語", "😀", "\U0010ffff", "\u2027", "\u202a", "a", " "}
 	for n := 0; n < 1000; n++ {
@@ -137,7 +137,7 @@ func TestAppendEscapedSIMD(t *testing.T) {
 				b.WriteString(valid[r.Intn(len(valid))])
 			}
 		}
-		check(b.String())
+		compare(b.String())
 	}
 }
 
@@ -176,7 +176,7 @@ func TestAppendHTMLEscapedSIMD(t *testing.T) {
 func TestAppendNormalizedStringsWithoutEscapeLoop(t *testing.T) {
 	defer func(loop bool) { hasEscapeLoop = loop }(hasEscapeLoop)
 	hasEscapeLoop = false
-	checkAppendNormalizedStrings(t)
+	compareAppendNormalizedStrings(t)
 }
 
 // A character which goes on after a block of the loop of the escapes of UTF-8, valid or not, followed by a block

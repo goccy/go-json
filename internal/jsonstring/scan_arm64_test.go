@@ -21,19 +21,19 @@ func TestScanStringNEON(t *testing.T) {
 		}
 		for length := 16; length <= 100; length++ {
 			base := strings.Repeat("a", length)
-			check := func(s string) {
+			compare := func(s string) {
 				t.Helper()
 				got := scanStringNEON(unsafe.Pointer(unsafe.StringData(s)), len(s), &e.tables)
 				if expected := expected(s); got != expected {
 					t.Fatalf("escape %d, %q: expected %d but got %d", index, s, expected, got)
 				}
 			}
-			check(base)
+			compare(base)
 			for pos := 0; pos < length; pos++ {
 				for _, c := range special {
 					b := []byte(base)
 					b[pos] = c
-					check(string(b))
+					compare(string(b))
 				}
 			}
 		}

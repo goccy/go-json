@@ -173,7 +173,7 @@ func BenchmarkDecodeTwice(b *testing.B) {
 }
 `
 	// testLibDecodeInterrupted has an API which interrupts the process, as a Ctrl-C does a test binary which a
-	// check runs.
+	// benchcheck runs.
 	testLibDecodeInterrupted = `package lib
 
 import (
@@ -273,23 +273,23 @@ func (r *testRepo) commit(message string) {
 	r.git("commit", "-q", "-m", message)
 }
 
-func (r *testRepo) check(tolerance float64) *outcome {
+func (r *testRepo) detect(tolerance float64) *outcome {
 	r.t.Helper()
-	out, err := r.checkResult(tolerance)
+	out, err := r.detectResult(tolerance)
 	if err != nil {
 		r.t.Fatal(err)
 	}
 	return out
 }
 
-// checkResult is check, which returns the error of the check.
-func (r *testRepo) checkResult(tolerance float64) (*outcome, error) {
+// detectResult is detect, which returns the error of the run too.
+func (r *testRepo) detectResult(tolerance float64) (*outcome, error) {
 	r.t.Helper()
 	rounds := r.rounds
 	if rounds == 0 {
 		rounds = r.layouts
 	}
-	c := &checker{
+	c := &detector{
 		opt: &options{
 			config:   benchConfig{Dir: "benchmarks", Bench: ".", BenchTime: "1x", Rounds: rounds, Layouts: r.layouts},
 			attempts: defaultAttempts,
@@ -300,7 +300,7 @@ func (r *testRepo) checkResult(tolerance float64) (*outcome, error) {
 		repo:  &repository{root: r.dir},
 		cache: &cache{dir: filepath.Join(r.dir, ".git", "benchcheck"), readable: true},
 	}
-	out, err := c.check(context.Background())
+	out, err := c.detect(context.Background())
 	// the temporary worktree of the base commit must always be removed.
 	if got := strings.Count(r.git("worktree", "list", "--porcelain"), "worktree "); got != 1 {
 		r.t.Fatalf("temporary worktree is left: %d worktrees exist", got)
@@ -333,7 +333,7 @@ func assertStatuses(t *testing.T, v *verdict, want map[string]status) {
 	}
 }
 
-func TestCheck(t *testing.T) {
+func TestDetect(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
@@ -345,14 +345,14 @@ func TestCheck(t *testing.T) {
 	r := newTestRepo(t)
 
 	t.Run("HEAD is the base commit", func(t *testing.T) {
-		if out := r.check(ignoreNoise); out.verdict != nil {
+		if out := r.detect(ignoreNoise); out.verdict != nil {
 			t.Fatalf("nothing must be compared: %+v", out.verdict)
 		}
 	})
 
 	t.Run("uncommitted changes on the base commit are measured", func(t *testing.T) {
 		r.write("lib.go", testLibFastRefactored)
-		out := r.check(ignoreNoise)
+		out := r.detect(ignoreNoise)
 		if out.cachedVerdict || out.cachedBaseline {
 			t.Fatalf("nothing must be cached yet: %+v", out)
 		}
@@ -363,7 +363,7 @@ func TestCheck(t *testing.T) {
 	r.commit("refactor")
 
 	t.Run("committed changes are measured with the cached result of the base", func(t *testing.T) {
-		out := r.check(ignoreNoise)
+		out := r.detect(ignoreNoise)
 		if out.cachedVerdict {
 			t.Fatal("verdict of uncommitted changes must not be cached")
 		}
@@ -374,7 +374,7 @@ func TestCheck(t *testing.T) {
 	})
 
 	t.Run("verdict of the same commit is cached", func(t *testing.T) {
-		out := r.check(ignoreNoise)
+		out := r.detect(ignoreNoise)
 		if !out.cachedVerdict {
 			t.Fatal("verdict must be cached")
 		}
@@ -382,7 +382,7 @@ func TestCheck(t *testing.T) {
 	})
 
 	t.Run("verdict is not shared between different options", func(t *testing.T) {
-		if out := r.check(ignoreNoise / 10); out.cachedVerdict {
+		if out := r.detect(ignoreNoise / 10); out.cachedVerdict {
 			t.Fatal("verdict of the other options must not be used")
 		}
 	})
@@ -390,7 +390,7 @@ func TestCheck(t *testing.T) {
 	t.Run("uncommitted changes are always measured", func(t *testing.T) {
 		r.write("lib.go", testLibSlow)
 		for i := 0; i < 2; i++ {
-			out := r.check(defaultTolerance)
+			out := r.detect(defaultTolerance)
 			if out.cachedVerdict {
 				t.Fatal("verdict must not be cached")
 			}
@@ -415,10 +415,10 @@ func TestCheck(t *testing.T) {
 
 	t.Run("degraded commit is cached as degraded", func(t *testing.T) {
 		r.commit("degrade")
-		if out := r.check(defaultTolerance); out.cachedVerdict {
+		if out := r.detect(defaultTolerance); out.cachedVerdict {
 			t.Fatal("verdict must not be cached yet")
 		}
-		out := r.check(defaultTolerance)
+		out := r.detect(defaultTolerance)
 		if !out.cachedVerdict {
 			t.Fatal("verdict must be cached")
 		}
@@ -432,7 +432,7 @@ func TestCheck(t *testing.T) {
 		// the head has the files which are not tracked yet.
 		r.write("extra.go", testLibExtra)
 		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchWithNewAPI)
-		out := r.check(ignoreNoise)
+		out := r.detect(ignoreNoise)
 		if out.cachedBaseline {
 			t.Fatal("result of the base measured by the other benchmarks must not be used")
 		}
@@ -445,7 +445,7 @@ func TestCheck(t *testing.T) {
 	})
 }
 
-func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
+func TestDetectBenchmarkWhichFailsInTheBase(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
@@ -463,10 +463,10 @@ func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
 			"BenchmarkDecode":      statusNew,
 			"BenchmarkDecodeTwice": statusNew,
 		}
-		out := r.check(ignoreNoise)
+		out := r.detect(ignoreNoise)
 		assertStatuses(t, out.verdict, want)
 		// the results of the base are not kept: the base is measured again, with the same statuses.
-		out = r.check(ignoreNoise)
+		out = r.detect(ignoreNoise)
 		if out.cachedBaseline {
 			t.Fatal("the results of a base which failed a function must not be kept")
 		}
@@ -478,7 +478,7 @@ func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
 		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecodeOnly)
 		r.commit("only an API which doesn't support its work yet")
 		r.write("lib.go", testLibDecodeSupported)
-		if _, err := r.checkResult(ignoreNoise); !errors.Is(err, errBaseFailsEveryFunc) {
+		if _, err := r.detectResult(ignoreNoise); !errors.Is(err, errBaseFailsEveryFunc) {
 			t.Fatalf("got %v, want the error of a base which fails every benchmark function", err)
 		}
 	})
@@ -491,7 +491,7 @@ func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
 		r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchDecode)
 		r.commit("an API which interrupts the process")
 		r.write("lib.go", testLibDecodeSupported)
-		if _, err := r.checkResult(ignoreNoise); err == nil || errors.Is(err, errBaseFailsEveryFunc) {
+		if _, err := r.detectResult(ignoreNoise); err == nil || errors.Is(err, errBaseFailsEveryFunc) {
 			t.Fatalf("got %v, want the error of the base which was ended by a signal", err)
 		}
 	})
@@ -502,13 +502,13 @@ func TestCheckBenchmarkWhichFailsInTheBase(t *testing.T) {
 		r.commit("an API which supports its work")
 		r.write("lib.go", testLibDecodeUnsupported)
 		var exitErr *exec.ExitError
-		if _, err := r.checkResult(ignoreNoise); !errors.As(err, &exitErr) || errors.Is(err, errBaseFailsEveryFunc) {
+		if _, err := r.detectResult(ignoreNoise); !errors.As(err, &exitErr) || errors.Is(err, errBaseFailsEveryFunc) {
 			t.Fatalf("got %v, want the error of the benchmark which fails in the working tree", err)
 		}
 	})
 }
 
-func TestCheckBuildsBothSidesAlike(t *testing.T) {
+func TestDetectBuildsBothSidesAlike(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
@@ -519,7 +519,7 @@ func TestCheckBuildsBothSidesAlike(t *testing.T) {
 	r.write("notes.txt", "notes\n")
 	recordDir := t.TempDir()
 	t.Setenv(testRecordDirEnv, recordDir)
-	out := r.check(ignoreNoise)
+	out := r.detect(ignoreNoise)
 	assertStatuses(t, out.verdict, map[string]status{"BenchmarkWork": statusOK})
 
 	symbols := map[string][]string{}
@@ -614,14 +614,14 @@ func TestIgnoredByGo(t *testing.T) {
 	}
 }
 
-func TestCheckIgnoresComparedLibraries(t *testing.T) {
+func TestDetectIgnoresComparedLibraries(t *testing.T) {
 	// the tolerance to make the verdict independent of the measurement noise.
 	const ignoreNoise = 1e12
 
 	r := newTestRepo(t)
 	r.write("lib.go", testLibFastRefactored)
 	r.write(filepath.Join("benchmarks", "bench_test.go"), testBenchWithComparedLibrary)
-	out := r.check(ignoreNoise)
+	out := r.detect(ignoreNoise)
 	assertStatuses(t, out.verdict, map[string]status{
 		"Benchmark_Work_GoJson": statusOK,
 		"BenchmarkWork":         statusOK,

@@ -141,6 +141,13 @@ func (ctx *RuntimeContext) SetInput(data []byte) []byte {
 	return buf
 }
 
+// SetBuf makes buf, an input followed by a nul byte which the caller keeps, the input of the decoding of ctx, whose
+// strings are copied out of it, as they are out of an input of SetInput. A nil buf drops it. It is a function, not
+// a method: a method of the context moves the data of the binary ( its method table ), which slows its decoding.
+func SetBuf(ctx *RuntimeContext, buf []byte) {
+	ctx.Buf, ctx.origin = buf, buf
+}
+
 // makeString returns the string of lit, which the string decoder returned from Buf: lit is either a part of Buf,
 // which is reused by the next call and has the bytes of the input ( Buf is never written ), or a new slice of its
 // own ( an escape was decoded, or an invalid UTF-8 sequence was replaced ).

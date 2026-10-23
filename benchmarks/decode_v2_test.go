@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gojson "github.com/goccy/go-json"
+	gojsontext "github.com/goccy/go-json/jsontext"
 	gojsonv2 "github.com/goccy/go-json/v2"
 )
 
@@ -178,4 +179,18 @@ func Benchmark_Decode_Records_ChunkedStream_GoJsonV2(b *testing.B) {
 
 func Benchmark_Decode_SkipRecords_ChunkedStream_GoJsonV2(b *testing.B) {
 	benchStream(b, streamSkipPayload, newGoJsonV2ReadDecoder)
+}
+
+// v2DecodeDecoder decodes the values of its decoder one after another by UnmarshalDecode of
+// github.com/goccy/go-json/v2.
+type v2DecodeDecoder struct{ dec *gojsontext.Decoder }
+
+func (d *v2DecodeDecoder) Decode(v any) error { return gojsonv2.UnmarshalDecode(d.dec, v) }
+
+func newGoJsonV2DecodeDecoder(r io.Reader) streamDecoder {
+	return &v2DecodeDecoder{dec: gojsontext.NewDecoder(r)}
+}
+
+func Benchmark_Decode_NDJSON_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamNDJSONPayload, newGoJsonV2DecodeDecoder)
 }

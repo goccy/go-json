@@ -187,20 +187,27 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 // beginCall sets ctx for a call by the options, and returns their config, which endCall drops.
 func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 	cfg := &noOptions
-	flags := decoder.V2Semantics
 	if len(opts) > 0 {
 		cfg = configPool.Get().(*options.Config)
 		cfg.Apply(opts)
+	}
+	setCall(ctx, cfg)
+	return cfg
+}
+
+// setCall sets ctx for a call by the options of cfg, &noOptions or a config of the pool, which endCall drops.
+func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
+	flags := decoder.V2Semantics
+	if cfg != &noOptions {
 		flags = unmarshalFlags(cfg)
 	}
 	ctx.Option.Flags = 0
 	ctx.Option.V2 = flags
 	call := ctx.V2Call()
-	call.Config = cfg
+	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
 		call.Funcs = u.funcs
 	}
-	return cfg
 }
 
 // endCall drops what beginCall set in ctx for a call, and cfg, the config of its options.

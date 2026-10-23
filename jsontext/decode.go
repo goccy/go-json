@@ -192,7 +192,8 @@ func (d *decoder) fetch() (int, error) {
 		if err == nil {
 			continue // no input, which encoding/json/jsontext reads again for, as long as it takes
 		}
-		if err != io.EOF {
+		if _, failed := d.r.(*failedInput); !failed && err != io.EOF {
+			// but the error of a decoder which failed, which is returned as it is
 			err = &ioError{err: err}
 		}
 		d.rerr = err
@@ -553,9 +554,10 @@ func (d *decoder) done(start, end int) {
 
 // invalidate voids the last token or value, as every call which reads does, even one which fails, as
 // encoding/json/jsontext does to catch a use of it: a raw Token of it panics, and the first byte of a Value of it
-// is overwritten. The input of a bytes.Buffer, whose array the decoder reads, stays as it is.
+// is overwritten. The input of a bytes.Buffer, whose array the decoder reads, and an input which the decoder
+// doesn't own stay as they are.
 func (d *decoder) invalidate() {
-	if d.bb == nil && d.prevEnd > d.prevStart {
+	if d.bb == nil && !d.shared && d.prevEnd > d.prevStart {
 		d.buf[d.prevStart] = '#'
 		d.prevStart = d.prevEnd
 	}

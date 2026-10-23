@@ -5,18 +5,19 @@ Issues; this directory holds what the maintainers have found and planned.
 
 ## Order
 
-The decoding half of the v2 API comes first: the API is completed before the known defects and
-speed gaps are worked on, since none of them is urgent. Everything below priority 1 waits until
-the v2 decoder is done.
+The decoding API of v2 is complete (2026-10-23). Its speed against v1 comes first, then the calls
+of the v2 methods by the root package; the known defects and the other speed gaps wait until
+then, since none of them is urgent.
 
 Priority 1: now
 
-- [decoder-v2-api.md](decoder-v2-api.md): the decoding API of `github.com/goccy/go-json/v2`
+- [decoder-v2-speed.md](decoder-v2-speed.md): v2 decoding at least as fast as v1
 - [v1-calls-v2-methods.md](v1-calls-v2-methods.md): the root package calls `UnmarshalJSONFrom`
-  and `MarshalJSONTo` (right after the v2 decoder)
+  and `MarshalJSONTo` (right after the speed of v2 decoding)
 
-Priority 2: first after the v2 decoder
+Priority 2: first after priority 1
 
+- [decoder-v2-stream-error-places.md](decoder-v2-stream-error-places.md)
 - [decoder-disallow-unknown-fields-order.md](decoder-disallow-unknown-fields-order.md)
 - [decoder-unexported-embedded-pointer-error.md](decoder-unexported-embedded-pointer-error.md)
 - [decoder-case-insensitive-field-choice.md](decoder-case-insensitive-field-choice.md)

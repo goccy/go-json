@@ -3,7 +3,7 @@
 - Area: decoder
 - Kind: defect
 - Priority: 2
-- Status: recorded 2026-10-15; re-check on master before fixing
+- Status: recorded 2026-10-15; checked on master on 2026-10-23
 
 ## What
 

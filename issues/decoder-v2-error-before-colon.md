@@ -3,26 +3,26 @@
 - Area: decoder (v2)
 - Kind: deviation
 - Priority: 4
-- Status: recorded 2026-10-20, found in the review of the v2 struct decoding
+- Status: recorded 2026-10-20, found in the review of the v2 struct decoding; checked on master on
+  2026-10-23
 
 ## What
 
 encoding/json/v2 reads the name of a member alone, and the colon after it only with the
 value. An error which needs no value of the member is found before the colon:
 
-- the embedded `jsontext.Value` fallback already holds a value which is not an object;
 - a nil embedded pointer to an unexported struct type on the way to the field;
 - a field of a type with no default representation (`time.Duration`);
 - the `string` option on a type which it doesn't apply to (`[]int`).
 
 The v2 decoder of go-json checks the colon before the value is decoded, so when the colon is
 missing or the input ends after the name, it reports the `jsontext.SyntacticError` instead of
-the `SemanticError`. Shape, with `Rest jsontext.Value \`json:",embed"\`` holding `1`:
+the `SemanticError`. Shape, with `struct{ D time.Duration }`:
 
 ```go
-// Unmarshal([]byte(`{"B" 2}`), &v)
-// go-json:            SyntacticError at 5: invalid character '2' after object name (expecting ':')
-// encoding/json/v2:   SemanticError at 1, "/B": embedded raw value must be a JSON object
+// Unmarshal([]byte(`{"D" 2}`), &v)
+// go-json:            SyntacticError at 5, "/D": invalid character '2' after object name (expecting ':')
+// encoding/json/v2:   SemanticError at 5, "/D": no default representation
 ```
 
 Both fail on such input; only the error which is reported differs. The checks of the name (an

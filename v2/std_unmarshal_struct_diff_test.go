@@ -126,6 +126,23 @@ type udWide struct {
 	F56, F57, F58, F59, F60, F61, F62, F63, F64, F65, F66, F67, F68, F69, F70, F71, F72, F73 int
 }
 
+// udNames has names which a name is told apart from by its words: of 7, 8 and 16 bytes, two of 19 bytes of the same
+// first and last words, a name of a control character and one which ends with a nul, which an input has only
+// escaped, a name which is not ASCII, and two names which differ only in case. A name of a backslash can't be: a
+// tag can't have it.
+type udNames struct {
+	Seven   int `json:"abcdefg"`
+	Eight   int `json:"abcdefgh"`
+	Sixteen int `json:"abcdefghijklmnop"`
+	Long1   int `json:"abcdefgh_1_ijklmnop"`
+	Long2   int `json:"abcdefgh_2_ijklmnop"`
+	Control int `json:"a\bb"`
+	Nul     int `json:"abc\x00"`
+	Accent  int `json:"é"`
+	Lower   int `json:"name"`
+	Upper   int `json:"Name"`
+}
+
 var (
 	insensitive = unmarshalDiffOptions{matchCaseInsensitiveNames: true}
 	reject      = unmarshalDiffOptions{rejectUnknownMembers: true}
@@ -137,6 +154,11 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		wideNames[i] = `"F` + strconv.Itoa(i) + `":` + strconv.Itoa(i)
 	}
 	wide := "{" + strings.Join(wideNames, ",") + "}"
+	unknownNames := make([]string, 40)
+	for i := range unknownNames {
+		unknownNames[i] = `"u` + strconv.Itoa(i) + `":` + strconv.Itoa(i)
+	}
+	manyUnknown := "{" + strings.Join(unknownNames, ",") + `,"u5":1}`
 	return []unmarshalDiffCase{
 		{name: "struct", in: `{"X":1,"y":2}`, out: outOf(udPoint{})},
 		{name: "struct merged", in: `{"y":2}`, out: outOf(udPoint{X: 5, Y: 6})},
@@ -214,6 +236,27 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct of many fields", in: wide, out: outOf(udWide{})},
 		{name: "struct of many fields twice", in: `{"F70":1,"F70":2}`, out: outOf(udWide{})},
 		{name: "struct of many fields twice early", in: `{"F3":1,"F70":2,"F3":3}`, out: outOf(udWide{})},
+		{name: "struct names by words", in: `{"abcdefg":1,"abcdefgh":2,"abcdefghijklmnop":3,"abcdefgh_1_ijklmnop":4,"abcdefgh_2_ijklmnop":5}`, out: outOf(udNames{})},
+		{name: "struct name of the first and last words of fields", in: `{"abcdefgh_3_ijklmnop":1}`, out: outOf(udNames{})},
+		{name: "struct name of the first and last words of fields twice", in: `{"abcdefgh_3_ijklmnop":1,"abcdefgh_3_ijklmnop":2}`, out: outOf(udNames{})},
+		{name: "struct name of 7 bytes twice", in: `{"abcdefg":1,"abcdefg":2}`, out: outOf(udNames{})},
+		{name: "struct names of the start of a field", in: `{"abcdef":1,"abcdefghi":2,"abcdefghijklmno":3}`, out: outOf(udNames{})},
+		{name: "struct empty name", in: `{"":1}`, out: outOf(udNames{})},
+		{name: "struct empty name twice", in: `{"":1,"":2}`, out: outOf(udNames{})},
+		{name: "struct name of an escaped backslash", in: `{"a\\b":1}`, out: outOf(udNames{})},
+		{name: "struct name of an escaped control character", in: `{"a\bb":1}`, out: outOf(udNames{})},
+		{name: "struct name without the nul at the end of a field", in: `{"abc":1}`, out: outOf(udNames{})},
+		{name: "struct name of a nul at the end", in: `{"abc\u0000":1}`, out: outOf(udNames{})},
+		{name: "struct name of a control character", in: "{\"a\x08b\":1}", out: outOf(udNames{})},
+		{name: "struct name not ASCII", in: `{"é":1}`, out: outOf(udNames{})},
+		{name: "struct name not ASCII escaped", in: `{"\u00e9":1}`, out: outOf(udNames{})},
+		{name: "struct name not ASCII of another case", in: `{"É":1}`, out: outOf(udNames{})},
+		{name: "struct name not ASCII of another case insensitive", in: `{"É":1}`, out: outOf(udNames{}), opts: insensitive},
+		{name: "struct names which differ in case", in: `{"name":1,"Name":2}`, out: outOf(udNames{})},
+		{name: "struct names which differ in case insensitive", in: `{"name":1,"Name":2}`, out: outOf(udNames{}), opts: insensitive},
+		{name: "struct name of fields which differ in case insensitive", in: `{"NAME":1}`, out: outOf(udNames{}), opts: insensitive},
+		{name: "struct many names of no field twice", in: manyUnknown, out: outOf(udNames{})},
+		{name: "struct many names of no field twice allowed", in: manyUnknown, out: outOf(udNames{}), opts: duplicates},
 		{name: "map", in: `{"a":1,"b":2}`, out: outOf(map[string]int(nil))},
 		{name: "map merged", in: `{"b":2}`, out: func() any { v := map[string]int{"a": 1}; return &v }},
 		{name: "map null", in: `null`, out: func() any { v := map[string]int{"a": 1}; return &v }},

@@ -295,21 +295,19 @@ type v2ScalarDecoder struct {
 }
 
 func (d *v2ScalarDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	buf := ctx.Buf
-	cursor = skipWhiteSpace(buf, cursor)
-	if buf[cursor] == 'n' {
-		if err := validateNull(buf, cursor); err != nil {
-			return 0, err
-		}
-		// a bool or a number has no pointer
-		clear(unsafe.Slice((*byte)(p), d.size))
-		return cursor + 4, nil
-	}
+	// the decoder of v1 checks null, which it leaves the value as it was for, and skips the white space before
 	next, err := d.dec.Decode(ctx, cursor, depth, p)
-	if err == nil && ctx.typeError != nil {
+	if err != nil {
+		return 0, err
+	}
+	if ctx.typeError != nil {
 		return 0, ctx.v2Error()
 	}
-	return next, err
+	if ctx.Buf[next-1] == 'l' {
+		// null, the only value which ends with l: a bool or a number has no pointer
+		clear(unsafe.Slice((*byte)(p), d.size))
+	}
+	return next, nil
 }
 
 func (d *v2ScalarDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

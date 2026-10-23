@@ -2,6 +2,7 @@ package jsontext
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"unsafe"
 
@@ -12,10 +13,24 @@ import (
 func init() {
 	textcoder.AttachDecoder = attachDecoder
 	textcoder.DetachDecoder = detachDecoder
+	textcoder.UnmarshalPlaceAt = unmarshalPlaceAt
+	textcoder.ReadError = func(err error) error { return &ioError{err: err} }
+	textcoder.IsReadError = func(err error) bool {
+		var e *ioError
+		return errors.As(err, &e)
+	}
+	textcoder.AfterTopLevelError = func(in []byte, base int64, opts *options.Config) error {
+		dec := NewDecoder(bytes.NewBuffer(in), opts)
+		dec.d.base = base
+		return dec.d.charError(0, placeAfterTopLevel, pointAt)
+	}
 	textcoder.ReleaseDecoder = func(dec unsafe.Pointer) {
 		d := &(*Decoder)(dec).d
 		d.cfg = config{}
 		d.st.outer = nil
+		if d.r != &attachedInput {
+			d.r, d.bb = nil, nil // the reader of an input which is read on, which the decoder must not keep
+		}
 	}
 	textcoder.DecoderPointer = func(dec unsafe.Pointer, where int) string {
 		st := &(*Decoder)(dec).d.st
@@ -35,10 +50,11 @@ var attachedInput bytes.Buffer
 
 // attachDecoder makes the Decoder dec read p.In from p.Pos, at the place whose innermost level is the one of p ( see
 // textcoder.AttachDecoder ). The input is read in place: it is the array of a bytes.Buffer for the decoder, which
-// never writes to it.
+// never writes to it, and, if p has a reader, the buffer of the decoder, which it moves and reads into, once it
+// needs more.
 func attachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 	d := &(*Decoder)(dec).d
-	if !(p.Same && d.ready() && d.r == &attachedInput) {
+	if !(p.Same && p.R == nil && d.ready() && d.r == &attachedInput) {
 		// set up as reset sets up a decoder of a reader, by the options of the call, without the options of a
 		// reset, which would be allocated.
 		if !d.ready() {
@@ -46,6 +62,9 @@ func attachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 		}
 		d.cfg = *p.Opts
 		d.r, d.bb = &attachedInput, &attachedInput
+		if p.R != nil {
+			d.r, d.bb = p.R, nil
+		}
 		d.raw = tokenSource{dec: d, form: formRaw}
 		d.vs = valueScanner{
 			st:         &d.st,
@@ -64,8 +83,8 @@ func attachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 	st.last().count = p.Count
 	st.outer, st.outerDepth, st.outerCount = p.Outer, len(st.levels)-1, p.Count
 	st.base = p.OuterDepth - st.outerDepth
-	d.buf, d.shared = p.In, true
-	d.base, d.pos, d.prevStart, d.prevEnd = 0, p.Pos, p.Pos, p.Pos
+	d.buf, d.shared = p.In, !p.Own
+	d.base, d.pos, d.prevStart, d.prevEnd = p.Base, p.Pos, p.Pos, p.Pos
 	d.rerr, d.peekErr = nil, nil
 	d.vs.scratch = d.vs.scratch[:0]
 	p.Depth = st.depth()
@@ -85,7 +104,15 @@ func detachDecoder(dec unsafe.Pointer, p *textcoder.DecoderAttachment) {
 			}
 		}
 	}
-	p.Depth, p.Count, p.Pos, p.PrevStart = d.st.depth(), d.st.last().count, d.pos, start
+	p.Depth, p.Count, p.Pos, p.End, p.PrevStart = d.st.depth(), d.st.last().count, d.pos, d.base+int64(d.pos), d.base+int64(start)
+	p.Rest = nil
+	if !d.shared {
+		// the decoder read on into a buffer of its own, whose bytes after the place go back to the caller
+		p.Rest = d.buf[d.pos:]
+		if p.Own {
+			p.In = d.buf
+		}
+	}
 	d.buf, d.vs.in = nil, nil
 	d.pos, d.prevStart, d.prevEnd = 0, 0, 0
 	d.peekErr = nil
@@ -115,6 +142,33 @@ func unmarshalPlace(in []byte, opts *options.Config, stop int64, read textcoder.
 			if err == nil {
 				return "", d.charError(pos, placeAfterTopLevel, pointAt)
 			}
+			return "", nil
+		}
+	}
+}
+
+// unmarshalPlaceAt is textcoder.UnmarshalPlaceAt: the part of the input is read by a Decoder attached at its place,
+// whose stack is made the one of the whole input, so that the levels of the place may end in the part.
+func unmarshalPlaceAt(p *textcoder.DecoderAttachment, stop int64, read textcoder.Read) (string, error) {
+	dec := new(Decoder)
+	attachDecoder(unsafe.Pointer(dec), p)
+	d := &dec.d
+	if d.st.outer != nil {
+		d.st = *d.st.full()
+	}
+	for {
+		if stop >= 0 {
+			if pos, err := d.beforeToken(true); err == nil && d.base+int64(pos) >= stop {
+				return readPlace(dec, read)
+			}
+		}
+		if _, err := dec.ReadToken(); err != nil {
+			if err == io.EOF {
+				return "", nil
+			}
+			return "", err
+		}
+		if d.st.depth() == 0 {
 			return "", nil
 		}
 	}

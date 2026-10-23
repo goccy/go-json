@@ -133,22 +133,33 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 		return &SemanticError{action: "unmarshal", GoType: ptrType, Err: errNonNilReference}
 	}
 	ctx := decoder.TakeRuntimeContext()
+	p := reusedValue(ctx, out)
+	err := unmarshalInput(ctx, ctx.SetInput(in), iruntime.TypePtr(ptrType), p, opts)
+	ctx.Option.V2 = 0
+	returnValue(p, out)
+	decoder.ReleaseRuntimeContext(ctx)
+	return err
+}
+
+// reusedValue returns a value of ctx which is reused, set to *out, which UnmarshalOf decodes into.
+func reusedValue[T any](ctx *decoder.RuntimeContext, out *T) unsafe.Pointer {
 	var p unsafe.Pointer
 	if unsafe.Sizeof(*out) > run.MaxReusedValueSize {
 		// every context of the pool would keep such a value: it is left to the GC.
-		p = reflect.New(ptrType.Elem()).UnsafePointer()
+		p = reflect.New(reflect.TypeFor[T]()).UnsafePointer()
 	} else {
-		p = ctx.TakeValue(ptrType.Elem(), iruntime.TypePtr(ptrType.Elem()))
+		p = ctx.TakeValue(reflect.TypeFor[T](), iruntime.TypePtr(reflect.TypeFor[T]()))
 	}
 	*(*T)(p) = *out
-	err := unmarshalInput(ctx, ctx.SetInput(in), iruntime.TypePtr(ptrType), p, opts)
-	ctx.Option.V2 = 0
+	return p
+}
+
+// returnValue sets *out to the value at p, which reusedValue returned, which is set to its zero value: the pool must
+// not keep what the value refers to alive.
+func returnValue[T any](p unsafe.Pointer, out *T) {
 	*out = *(*T)(p)
-	// the pool must not keep what the value refers to alive.
 	var zero T
 	*(*T)(p) = zero
-	decoder.ReleaseRuntimeContext(ctx)
-	return err
 }
 
 // emptyInterface is the layout of a value of interface{}.
@@ -167,6 +178,14 @@ var noOptions options.Config
 // unmarshalInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options.
 func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, opts []Options) error {
+	cfg := beginCall(ctx, opts)
+	err := decodeInput(ctx, buf, typ, p, cfg)
+	endCall(ctx, cfg)
+	return err
+}
+
+// beginCall sets ctx for a call by the options, and returns their config, which endCall drops.
+func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 	cfg := &noOptions
 	flags := decoder.V2Semantics
 	if len(opts) > 0 {
@@ -181,7 +200,12 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
 		call.Funcs = u.funcs
 	}
-	err := decodeInput(ctx, buf, typ, p, cfg)
+	return cfg
+}
+
+// endCall drops what beginCall set in ctx for a call, and cfg, the config of its options.
+func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
+	call := ctx.V2Call()
 	call.Funcs, call.Config = nil, nil
 	if st := (*fromState)(call.From); st != nil && st.att.In != nil {
 		st.release()
@@ -191,7 +215,6 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 		*cfg = options.Config{}
 		configPool.Put(cfg)
 	}
-	return err
 }
 
 // unmarshalFlags returns the options of the decoder for the options of a call.
@@ -218,19 +241,9 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 // decodeInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options of cfg, which the options of ctx are made of.
 func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, cfg *options.Config) error {
-	if typ == nil {
-		return &SemanticError{action: "unmarshal", Err: errNonNilReference}
-	}
-	dec, err := ctx.DecoderOfV2(typ)
+	dec, err := outputDecoder(ctx, typ, p)
 	if err != nil {
-		if _, ok := err.(*ierrors.InvalidUnmarshalError); ok {
-			// not a pointer
-			return &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
-		}
 		return err
-	}
-	if p == nil {
-		return &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, p)
 	if terr := ctx.V2TypeError(); terr != nil {
@@ -243,9 +256,29 @@ func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer,
 	}
 	if err != nil {
 		ctx.DiscardTypeError()
-		return unmarshalError(buf[:len(buf)-1], err, cfg)
+		return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
 	}
 	return nil
+}
+
+// outputDecoder returns the decoder of the output, the value at p of the pointer type typ, which must be a non-nil
+// pointer.
+func outputDecoder(ctx *decoder.RuntimeContext, typ, p unsafe.Pointer) (decoder.Decoder, error) {
+	if typ == nil {
+		return nil, &SemanticError{action: "unmarshal", Err: errNonNilReference}
+	}
+	dec, err := ctx.DecoderOfV2(typ)
+	if err != nil {
+		if _, ok := err.(*ierrors.InvalidUnmarshalError); ok {
+			// not a pointer
+			return nil, &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
+		}
+		return nil, err
+	}
+	if p == nil {
+		return nil, &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
+	}
+	return dec, nil
 }
 
 // errAfterValue is the error of a value of the input which is followed by more than white space.
@@ -262,12 +295,32 @@ func endsAt(buf []byte, cursor int64) bool {
 	}
 }
 
-// unmarshalError returns the error err of the decoding of in, the input, as encoding/json/v2 reports it. A syntax
-// error is found again in the input, by jsontext, which reports it as encoding/json/v2 does: the decoder finds a
-// syntax error, or the text which v2 rejects, but not where encoding/json/v2 reports it. An error of a value is
-// reported at its place, which jsontext finds, unless the input has a syntax error before, which encoding/json/v2
-// would meet first.
-func unmarshalError(in []byte, err error, cfg *options.Config) error {
+// errorInput is the input where the errors of a decoding are found again: the whole input of Unmarshal, or a part of
+// the buffer of a stream, which is read from its place by att ( see decoder.StreamPlace ). The offsets of the errors
+// of the decoder are in buf, whose first byte is at the offset base of the input.
+type errorInput struct {
+	buf  []byte
+	base int64
+	att  *textcoder.DecoderAttachment
+}
+
+// place reads the input as encoding/json/v2 reads it, up to the value at stop in buf, or the first syntax error with
+// stop -1, as textcoder.UnmarshalPlace does.
+func (in *errorInput) place(cfg *options.Config, stop int64, read textcoder.Read) (string, error) {
+	if in.att == nil {
+		return textcoder.UnmarshalPlace(in.buf, cfg, stop, read)
+	}
+	if stop >= 0 {
+		stop += in.base
+	}
+	return textcoder.UnmarshalPlaceAt(in.att, stop, read)
+}
+
+// unmarshalError returns the error err of the decoding of in as encoding/json/v2 reports it. A syntax error is found
+// again in the input, by jsontext, which reports it as encoding/json/v2 does: the decoder finds a syntax error, or the
+// text which v2 rejects, but not where encoding/json/v2 reports it. An error of a value is reported at its place,
+// which jsontext finds, unless the input has a syntax error before, which encoding/json/v2 would meet first.
+func unmarshalError(in *errorInput, err error, cfg *options.Config) error {
 	switch err.(type) {
 	case *SemanticError, *jsontext.SyntacticError:
 		// the error of a method or a function which read a jsontext.Decoder, at its place ( see unmarshalFrom )
@@ -275,7 +328,7 @@ func unmarshalError(in []byte, err error, cfg *options.Config) error {
 	}
 	e, ok := err.(*ierrors.UnmarshalError)
 	if !ok {
-		if _, serr := textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken); serr != nil {
+		if _, serr := in.place(cfg, -1, textcoder.ReadToken); serr != nil {
 			return serr
 		}
 		// the decoder rejects no input which jsontext accepts
@@ -288,24 +341,24 @@ func unmarshalError(in []byte, err error, cfg *options.Config) error {
 	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType):
 		read = textcoder.ReadValue
 	}
-	ptr, serr := textcoder.UnmarshalPlace(in, cfg, e.Start, read)
+	ptr, serr := in.place(cfg, e.Start, read)
 	if serr != nil {
 		return serr
 	}
 	if e.Err == ierrors.ErrDuplicateName {
 		// a name of an object of a struct or of a map, which is the one of an earlier member by its field or its
 		// key: a syntax error of the name.
-		return &jsontext.SyntacticError{ByteOffset: e.Start, JSONPointer: jsontext.Pointer(ptr), Err: e.Err}
+		return &jsontext.SyntacticError{ByteOffset: in.base + e.Start, JSONPointer: jsontext.Pointer(ptr), Err: e.Err}
 	}
 	se := &SemanticError{
-		action: "unmarshal", ByteOffset: e.Start, JSONPointer: jsontext.Pointer(ptr), GoType: e.GoType,
+		action: "unmarshal", ByteOffset: in.base + e.Start, JSONPointer: jsontext.Pointer(ptr), GoType: e.GoType,
 		Err: e.Err,
 	}
 	if !e.NoKind {
-		se.JSONKind = jsontext.Value(in[e.Start:]).Kind()
+		se.JSONKind = jsontext.Value(in.buf[e.Start:]).Kind()
 	}
 	if e.HasValue {
-		se.JSONValue = jsontext.Value(bytes.Clone(in[e.Start:e.End]))
+		se.JSONValue = jsontext.Value(bytes.Clone(in.buf[e.Start:e.End]))
 	}
 	return methodError(se, e)
 }

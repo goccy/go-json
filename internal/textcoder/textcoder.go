@@ -4,6 +4,7 @@
 package textcoder
 
 import (
+	"io"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/options"
@@ -88,10 +89,17 @@ var (
 // DecoderAttachment is the place of the input where a decoder is attached ( see AttachDecoder ), and, after
 // AttachDecoder and DetachDecoder, where it stopped reading.
 type DecoderAttachment struct {
-	// In is the whole input of the call, which the decoder reads from Pos: the end of the token before the value,
-	// so that it reads the delimiter before the value as its own.
-	In  []byte
-	Pos int
+	// In is the input which the decoder reads from Pos: the end of the token before the value, so that it reads the
+	// delimiter before the value as its own. In[0] is at the offset Base of the whole input, which the offsets of
+	// the decoder count from. R is the reader of the input after In, which the decoder reads when it needs more, or
+	// nil if In has all of it: the whole input of the call, or of the value. If Own is set, In is a buffer of the
+	// caller, which the decoder moves its input in and reads into, rather than one it makes, and which is In after
+	// DetachDecoder, grown if the decoder needed more room, for the next attach.
+	In   []byte
+	Pos  int
+	Base int64
+	R    io.Reader
+	Own  bool
 	// Object and Count are the innermost level of the place, an open object or array, or the top level if Top is
 	// set: Count has the parity of the place, which is a value, and is 0 only if the level has no token before
 	// it. The levels around it, and its name and its count, Outer gives when the decoder needs them.
@@ -106,10 +114,14 @@ type DecoderAttachment struct {
 	// Opts are the options of the decoder, which are the ones it was attached with the last time if Same is set.
 	Opts *options.Config
 	Same bool
-	// Depth and Count of the innermost level, Pos and PrevStart, the start of the last token or value which was
-	// read, DetachDecoder sets after the reads; Depth is the one of the place after AttachDecoder.
+	// Depth and Count of the innermost level, Pos, End, the offset in the whole input where the decoder stopped
+	// reading, and PrevStart, the one of the start of the last token or value which was read, DetachDecoder sets
+	// after the reads; Depth is the one of the place after AttachDecoder. If the decoder read R, Rest is what it
+	// read and didn't use, which follows End, and Pos is not a place of In.
 	Depth     int
-	PrevStart int
+	End       int64
+	PrevStart int64
+	Rest      []byte
 }
 
 var (
@@ -144,6 +156,23 @@ const (
 // syntax error it meets first, a *jsontext.SyntacticError, or else the JSON pointer of the value. With stop -1,
 // it reads the whole input and returns its first syntax error, or nil if it has none.
 var UnmarshalPlace func(in []byte, opts *options.Config, stop int64, read Read) (string, error)
+
+// UnmarshalPlaceAt is UnmarshalPlace for a part of the input, p.In, which is read from the place p as a decoder
+// attached there reads it ( see DecoderAttachment ), with the offsets of the whole input: it reads up to the value
+// which starts at the offset stop, or, with stop -1, up to the first syntax error, and returns "" and nil if In
+// ends before either. The levels of the place may end in the part, as no method reads it.
+var UnmarshalPlaceAt func(p *DecoderAttachment, stop int64, read Read) (string, error)
+
+// AfterTopLevelError returns the syntax error of the first byte of in, at the offset base of the input, which follows
+// the top-level value, as jsontext reports it.
+var AfterTopLevelError func(in []byte, base int64, opts *options.Config) error
+
+// ReadError returns err, the error of a reader of the input, as jsontext reports it, and IsReadError reports
+// whether err is such an error, which a method passes on as it is.
+var (
+	ReadError   func(err error) error
+	IsReadError func(err error) bool
+)
 
 // ValidValue reports whether v, a JSON value valid by the grammar, has the text which jsontext reads by the
 // options: valid UTF-8 unless allowInvalidUTF8, and no object with a name twice unless allowDuplicateNames.

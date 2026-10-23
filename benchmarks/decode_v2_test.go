@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -132,4 +133,49 @@ func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonV2(b *testing.B) {
 
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonV2(b *testing.B) {
 	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, unmarshalV2Insensitive)
+}
+
+// v2ReadDecoder decodes the single value of its reader by UnmarshalRead of github.com/goccy/go-json/v2, with the
+// options.
+type v2ReadDecoder struct {
+	r    io.Reader
+	opts []gojsonv2.Options
+}
+
+func (d *v2ReadDecoder) Decode(v any) error { return gojsonv2.UnmarshalRead(d.r, v, d.opts...) }
+
+func newGoJsonV2ReadDecoder(r io.Reader) streamDecoder { return &v2ReadDecoder{r: r} }
+
+// newGoJsonV2ReadInsensitiveDecoder is newGoJsonV2ReadDecoder for the payloads whose fields have no tags ( see
+// unmarshalV2Insensitive ).
+func newGoJsonV2ReadInsensitiveDecoder(r io.Reader) streamDecoder {
+	return &v2ReadDecoder{r: r, opts: []gojsonv2.Options{gojsonv2.MatchCaseInsensitiveNames(true)}}
+}
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamSmallPayload, newGoJsonV2ReadInsensitiveDecoder)
+}
+
+func Benchmark_Decode_MediumStruct_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamMediumPayload, newGoJsonV2ReadInsensitiveDecoder)
+}
+
+func Benchmark_Decode_Twitter_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamTwitterPayload, newGoJsonV2ReadDecoder)
+}
+
+func Benchmark_Decode_Code_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamCodePayload, newGoJsonV2ReadDecoder)
+}
+
+func Benchmark_Decode_CodeAny_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamCodeAnyPayload, newGoJsonV2ReadDecoder)
+}
+
+func Benchmark_Decode_Records_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamRecordsPayload, newGoJsonV2ReadDecoder)
+}
+
+func Benchmark_Decode_SkipRecords_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamSkipPayload, newGoJsonV2ReadDecoder)
 }

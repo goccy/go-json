@@ -137,6 +137,64 @@ func ufReadTokens[V ~[]byte, P ~string, K ~byte, T any, D ufDecoder[V, P, K, T]]
 	}
 }
 
+// ufOursFirst and ufStdFirst read the first token of their value, and fail.
+type ufOursFirst struct{}
+
+func (*ufOursFirst) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	return errUfFirst
+}
+
+type ufStdFirst struct{}
+
+func (*ufStdFirst) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	return errUfFirst
+}
+
+var errUfFirst = errors.New("failed after the first token")
+
+// ufOursFirstInt and ufStdFirstInt are ufOursFirst and ufStdFirst of a type of a number.
+type ufOursFirstInt int
+
+func (*ufOursFirstInt) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	return errUfFirst
+}
+
+type ufStdFirstInt int
+
+func (*ufStdFirstInt) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	return errUfFirst
+}
+
+// ufFirstOfInts is the function of the integers which reads the first token of a value, and fails.
+func ufFirstOfInts() umOptions {
+	return umOptions{
+		ours: []json.Options{json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, _ *int) error {
+			if _, err := dec.ReadToken(); err != nil {
+				return err
+			}
+			return errUfFirst
+		}))},
+		std: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(dec *stdjsontext.Decoder, _ *int) error {
+			if _, err := dec.ReadToken(); err != nil {
+				return err
+			}
+			return errUfFirst
+		}))},
+	}
+}
+
 type ufFieldsOurs struct {
 	A ufOurs
 	B *ufOurs
@@ -342,6 +400,18 @@ func ufCases() []ufCase {
 		c("function of a struct of itself", `{"N":{"S":[null],"V":2},"S":[{"V":3},null],"V":1}`, ufOut[ufNode, ufNode],
 			ufDecliningValues(func(v *ufNode) { v.V = -1 })),
 		c("function of strings of a struct field", `{"A":"a"}`, ufOut[struct{ A string }, struct{ A string }], ufFromString()),
+		// a method of a value which a pointer points to, which fails before a syntax error of its value
+		c("method of a pointer field failing", `{"P":[1,`+strings.Repeat(" ", 1000)+`x]}`,
+			ufOut[struct{ P *ufOursFirst }, struct{ P *ufStdFirst }], umOptions{}),
+		c("method of pointers failing", `[[1,`+strings.Repeat(" ", 1000)+`x]]`, ufOut[[]*ufOursFirst, []*ufStdFirst], umOptions{}),
+		c("method of a pointer field of a number failing", `{"P":[1,`+strings.Repeat(" ", 1000)+`x]}`,
+			ufOut[struct{ P *ufOursFirstInt }, struct{ P *ufStdFirstInt }], umOptions{}),
+		c("method of a pointer to a number failing", `[1,`+strings.Repeat(" ", 1000)+`x]`,
+			ufOut[*ufOursFirstInt, *ufStdFirstInt], umOptions{}),
+		c("function of a pointer field of a number failing", `{"P":[1,`+strings.Repeat(" ", 1000)+`x]}`,
+			ufOut[struct{ P *int }, struct{ P *int }], ufFirstOfInts()),
+		c("function of a pointer to a pointer to a number failing", `{"P":[1,`+strings.Repeat(" ", 1000)+`x]}`,
+			ufOut[struct{ P **int }, struct{ P **int }], ufFirstOfInts()),
 	}
 }
 

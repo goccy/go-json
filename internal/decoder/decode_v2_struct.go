@@ -391,6 +391,25 @@ func (fb *v2Fallback) target(p unsafe.Pointer) unsafe.Pointer {
 	return p
 }
 
+// openRaw returns the jsontext.Value fallback of the struct at p, made ready for one more member to be appended: an
+// object without its end and with a comma after its last member. A value which is not an object is an error.
+func (fb *v2Fallback) openRaw(p unsafe.Pointer) (*[]byte, error) {
+	b := (*[]byte)(fb.target(p))
+	if len(*b) == 0 {
+		*b = append(*b, '{')
+		return b, nil
+	}
+	*b = bytes.TrimRight(*b, " \t\r\n")
+	if len(*b) == 0 || (*b)[len(*b)-1] != '}' {
+		return nil, errRawNotObject
+	}
+	*b = bytes.TrimRight((*b)[:len(*b)-1], " \t\r\n")
+	if n := len(*b); n == 0 || (*b)[n-1] != ',' && (*b)[n-1] != '{' {
+		*b = append(*b, ',')
+	}
+	return b, nil
+}
+
 // decodeMember decodes the value at cursor of the member whose name, between start and end of the input, quoted, is
 // of no field of the struct at p, into its fallback.
 func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, start, end int64) (int64, error) {
@@ -398,19 +417,10 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 	target := fb.target(p)
 	if fb.mapType == nil {
 		// the value which the member is appended to is checked before the value of the member is read
-		b := (*[]byte)(target)
-		if len(*b) == 0 {
-			*b = append(*b, '{')
-		} else {
-			*b = bytes.TrimRight(*b, " \t\r\n")
-			if len(*b) == 0 || (*b)[len(*b)-1] != '}' {
-				// the error of the member, at its name
-				return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: errRawNotObject}
-			}
-			*b = bytes.TrimRight((*b)[:len(*b)-1], " \t\r\n")
-			if n := len(*b); n == 0 || (*b)[n-1] != ',' && (*b)[n-1] != '{' {
-				*b = append(*b, ',')
-			}
+		b, err := fb.openRaw(p)
+		if err != nil {
+			// the error of the member, at its name
+			return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: err}
 		}
 		valueStart := skipWhiteSpace(ctx.Buf, cursor)
 		valueEnd, err := ctx.skipValueV2(valueStart, depth)

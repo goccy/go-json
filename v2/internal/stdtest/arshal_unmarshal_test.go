@@ -26,16 +26,21 @@ import (
 	. "github.com/goccy/go-json/v2"
 )
 
-func TestUnmarshal(t *testing.T) {
-	tests := []struct {
-		name    CaseName
-		opts    []Options
-		inBuf   string
-		inVal   any
-		want    any
-		wantErr error
-		skip    bool
-	}{{
+// unmarshalTest is a case of TestUnmarshal.
+type unmarshalTest struct {
+	name    CaseName
+	opts    []Options
+	inBuf   string
+	inVal   any
+	want    any
+	wantErr error
+	skip    bool
+}
+
+// unmarshalTests returns the cases of TestUnmarshal, made anew for each test which decodes them, as the decoding
+// writes their values.
+func unmarshalTests() []unmarshalTest {
+	return []unmarshalTest{{
 		name:    Name("Nil"),
 		inBuf:   `null`,
 		wantErr: EU(errNonNilReference),
@@ -4451,22 +4456,85 @@ func TestUnmarshal(t *testing.T) {
 		inVal: addr(""),
 		want:  addr("called"),
 	}}
+}
 
-	for _, tt := range tests {
+func TestUnmarshal(t *testing.T) {
+	runUnmarshalTests(t, "Unmarshal", func(in string, out any, opts ...Options) error {
+		return Unmarshal([]byte(in), out, opts...)
+	})
+}
+
+// TestUnmarshalRead runs the cases of TestUnmarshal by UnmarshalRead, from readers of one byte, of a few and of the
+// whole input at a time, which make it decode a value element by element or whole.
+func TestUnmarshalRead(t *testing.T) {
+	for _, n := range []int{1, 7, 0} {
+		t.Run(fmt.Sprintf("reads-%d", n), func(t *testing.T) {
+			runUnmarshalTests(t, "UnmarshalRead", func(in string, out any, opts ...Options) error {
+				r := io.Reader(strings.NewReader(in))
+				if n > 0 {
+					r = &chunkReader{r: r, n: n}
+				}
+				return UnmarshalRead(r, out, opts...)
+			})
+		})
+	}
+}
+
+// chunkReader reads r n bytes at a time at most.
+type chunkReader struct {
+	r io.Reader
+	n int
+}
+
+func (r *chunkReader) Read(p []byte) (int, error) { return r.r.Read(p[:min(len(p), r.n)]) }
+
+// runUnmarshalTests runs the cases of TestUnmarshal by unmarshal.
+func runUnmarshalTests(t *testing.T, what string, unmarshal func(in string, out any, opts ...Options) error) {
+	for _, tt := range unmarshalTests() {
 		if tt.skip {
 			continue
 		}
 		t.Run(tt.name.Name, func(t *testing.T) {
 			skipUnsupported(t, tt.opts)
 			got := tt.inVal
-			gotErr := Unmarshal([]byte(tt.inBuf), got, tt.opts...)
+			gotErr := unmarshal(tt.inBuf, got, tt.opts...)
 			// the value is compared only without an error: what is decoded before an error is not specified.
 			if tt.wantErr == nil && !reflect.DeepEqual(got, tt.want) && tt.want != nil {
-				t.Errorf("%s: Unmarshal output mismatch:\ngot  %v\nwant %v", tt.name.Where, got, tt.want)
+				t.Errorf("%s: %s output mismatch:\ngot  %v\nwant %v", tt.name.Where, what, got, tt.want)
 			}
 			if !equalError(gotErr, tt.wantErr) {
-				t.Errorf("%s: Unmarshal error mismatch:\ngot  %v\nwant %v", tt.name.Where, gotErr, tt.wantErr)
+				t.Errorf("%s: %s error mismatch:\ngot  %v\nwant %v", tt.name.Where, what, gotErr, tt.wantErr)
 			}
 		})
+	}
+}
+
+type unmarshalerEOF struct{}
+
+func (unmarshalerEOF) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return io.EOF // should be wrapped and converted by Unmarshal to io.ErrUnexpectedEOF
+}
+
+// TestUnmarshalEOF verifies that io.EOF is converted to io.ErrUnexpectedEOF by Unmarshal and UnmarshalRead.
+func TestUnmarshalEOF(t *testing.T) {
+	opts := WithUnmarshalers(UnmarshalFromFunc(func(dec *jsontext.Decoder, _ *struct{}) error {
+		return io.EOF // should be wrapped and converted by Unmarshal to io.ErrUnexpectedEOF
+	}))
+
+	for _, in := range []string{"", "[", "[null", "[null]"} {
+		for _, newOut := range []func() any{
+			func() any { return new(unmarshalerEOF) },
+			func() any { return new([]unmarshalerEOF) },
+			func() any { return new(struct{}) },
+			func() any { return new([]struct{}) },
+		} {
+			wantErr := io.ErrUnexpectedEOF
+			if gotErr := Unmarshal([]byte(in), newOut(), opts); !errors.Is(gotErr, wantErr) {
+				t.Errorf("Unmarshal = %v, want %v", gotErr, wantErr)
+			}
+			if gotErr := UnmarshalRead(strings.NewReader(in), newOut(), opts); !errors.Is(gotErr, wantErr) {
+				t.Errorf("Unmarshal = %v, want %v", gotErr, wantErr)
+			}
+		}
 	}
 }

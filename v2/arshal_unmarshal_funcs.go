@@ -81,6 +81,7 @@ func UnmarshalFromFunc[T any](fn func(*jsontext.Decoder, T) error) *Unmarshalers
 		Decode: func(ctx *decoder.RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error) {
 			return unmarshalFrom(ctx, cursor, depth, t, fromFunc[T]{fn, castTo[T](p, from)})
 		},
+		FromDecoder: true,
 	}}}}
 }
 

@@ -33,6 +33,10 @@ var V2Hooks struct {
 	// UnmarshalFrom decodes the value at cursor into the value at p, of typ, by its UnmarshalJSONFrom: it returns
 	// the cursor after the value, or ErrUseDefault if the method declined the value.
 	UnmarshalFrom func(ctx *RuntimeContext, cursor, depth int64, typ reflect.Type, p unsafe.Pointer) (int64, error)
+	// SkipStreamValue skips the value of the stream, nested in depth objects and arrays, which the buffer doesn't
+	// hold whole, by a jsontext.Decoder attached at its place ( see V2Call.Value ), which checks it as
+	// encoding/json/v2 checks a value it skips: it returns the error at its place.
+	SkipStreamValue func(s *Stream, depth int64) error
 }
 
 // v2MethodOf returns the first method of unmarshaling from first on which decodes a value of the type, or noMethod.

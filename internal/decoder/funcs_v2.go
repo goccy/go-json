@@ -9,6 +9,7 @@ import (
 
 	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/runtime"
+	"github.com/goccy/go-json/internal/textcoder"
 )
 
 // The functions of unmarshaling of WithUnmarshalers of encoding/json/v2: a value of a type which a function takes is
@@ -22,6 +23,9 @@ type UnmarshalFunc struct {
 	// Decode decodes the value at cursor into the value at p, of the type from, and returns the cursor after it, or
 	// ErrUseDefault if the function declined the value, which a function of UnmarshalFromFunc may.
 	Decode func(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer, from reflect.Type) (int64, error)
+	// FromDecoder is set for a function of UnmarshalFromFunc, which reads a jsontext.Decoder: a stream gives it a
+	// value which it hasn't read whole ( see V2Call.Attach ), and any other function the value read whole.
+	FromDecoder bool
 }
 
 // ErrUseDefault is the error of a method or a function of unmarshaling which declined a value without reading it:
@@ -85,6 +89,35 @@ type V2Call struct {
 	// From is the state of the v2 json package for the methods and the functions which read a jsontext.Decoder,
 	// which the decoder doesn't know.
 	From unsafe.Pointer
+	// Stream is the stream which the call decodes, or nil for an input of its own, with the state of its decoding
+	// element by element ( see Stream.DecodeV2 ): Path is the place of the value which is decoded, a level for
+	// each object and array which it is in, the top level first ( see textcoder.Level ), and Value the value of
+	// the innermost level which a decoder of v2 decodes.
+	Stream *Stream
+	Path   []textcoder.Level
+	Value  StreamValue
+	// spareName is the array of a name of the path which no level has, which the next name is copied into ( see
+	// Stream.setName ).
+	spareName []byte
+	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).
+	Place StreamPlace
+}
+
+// StreamValue is the value of a stream which a decoder of v2 decodes, in the innermost level of the path, for a
+// method or a function which reads a jsontext.Decoder, which is attached at its place: From and Start are the
+// offsets in the buffer of the end of the token before the value and of the value. ReadsOn is set for a value which
+// the buffer doesn't hold whole, which the decoder reads on from the reader of the stream ( see Stream.ReadOn ).
+type StreamValue struct {
+	From, Start int64
+	ReadsOn     bool
+}
+
+// StreamPlace is the part of the buffer of a stream where an error of its decoding of v2 is found again: from
+// From, the end of the token before the member, the element or the value which failed, in the innermost level of
+// the path, up to End ( see V2Call.Path ).
+type StreamPlace struct {
+	From, End int64
+	Set       bool
 }
 
 // V2Call returns the state of the call of the v2 json package which decodes by ctx, which it makes the first time.

@@ -142,6 +142,10 @@ const (
 	// UnmarshalTextMethod is an error of UnmarshalText or of the time.Time of a string: a SemanticError or a
 	// SyntacticError it returns is reported as it is.
 	UnmarshalTextMethod
+	// UnmarshalWholeValue is the error of the text of a value which a stream read whole for its decoder, before it
+	// decoded it, as encoding/json/v2 reads a value whole for a method, a function or a type of a string, a number or
+	// bytes.
+	UnmarshalWholeValue
 )
 
 func (e *UnmarshalError) Error() string {

@@ -23,6 +23,10 @@ func init() {
 		m, _ := reflect.NewAt(typ, p).Interface().(UnmarshalerFrom)
 		return unmarshalFrom(ctx, cursor, depth, typ, fromMethod{m})
 	}
+	decoder.V2Hooks.SkipStreamValue = func(s *decoder.Stream, depth int64) error {
+		_, err := unmarshalFrom(s.Context(), 0, depth, nil, fromSkip{})
+		return err
+	}
 }
 
 // fromState is the state of the calls of the methods and the functions which read a jsontext.Decoder, which a
@@ -38,22 +42,66 @@ type fromState struct {
 	// moves att.Pos from: tracked follows the levels of the input up to it.
 	at      int
 	tracked tracker
+	// stream is the stream of the call, if it decodes one, the levels of whose path are the ones around the place
+	// ( see decoder.V2Call.Path ), followed by the ones of the value in the buffer which starts at valueStart of
+	// att.In, within which the place is, which tracked follows from there, and levels what Levels returned last.
+	// reader reads on from the stream for a value which the buffer doesn't hold whole, into room, which the decoder
+	// is given the bytes of the buffer of the stream from the place in, and moves them and reads into.
+	stream     *decoder.Stream
+	valueStart int
+	levels     []textcoder.Level
+	reader     streamReader
+	room       []byte
 }
+
+// maxKeptRoom is the size of the largest room which a state keeps: one which grew for a long token is dropped.
+const maxKeptRoom = 64 << 10
 
 // Levels returns the levels of the input in front of the place where the decoder is attached ( see
 // textcoder.Outer ). The places of a call only go forward, so the input is read once, as far as the last place.
 func (st *fromState) Levels() []textcoder.Level {
-	return st.tracked.sync(st.att.In[:st.at], math.MaxInt)
+	if st.stream == nil {
+		return st.tracked.sync(st.att.In[:st.at], math.MaxInt)
+	}
+	st.levels = pathLevels(st.levels, st.stream.Context().V2Call().Path)
+	if st.at > st.valueStart {
+		// a place within the value, whose levels follow the ones of the path
+		inner := st.tracked.sync(st.att.In[st.valueStart:st.at], math.MaxInt)
+		st.levels[len(st.levels)-1].Count += inner[0].Count
+		st.levels = append(st.levels, inner[1:]...)
+	}
+	return st.levels
 }
+
+// pathLevels returns the levels of the path of a stream in dst: an object which has no member yet has no name.
+func pathLevels(dst, path []textcoder.Level) []textcoder.Level {
+	dst = append(dst[:0], path...)
+	for i := range dst {
+		if dst[i].Count == 0 {
+			dst[i].Name = nil
+		}
+	}
+	return dst
+}
+
+// streamReader reads on from a stream, for a decoder attached at its value ( see decoder.Stream.ReadOn ).
+type streamReader struct{ s *decoder.Stream }
+
+func (r *streamReader) Read(p []byte) (int, error) { return r.s.ReadOn(p) }
 
 // release ends the call of the state, which a method or a function used: the input of the call and its options,
 // which may hold the functions of the caller, are dropped, and the levels are found again from the start of the
 // input of the next call.
 func (st *fromState) release() {
 	textcoder.ReleaseDecoder(unsafe.Pointer(&st.dec))
-	st.att.In, st.att.Opts, st.att.Outer = nil, nil, nil
+	st.att.In, st.att.Opts, st.att.Outer, st.att.R, st.att.Rest = nil, nil, nil, nil, nil
 	st.tracked.release()
 	st.tracked.stale = true
+	st.stream, st.reader.s = nil, nil
+	clear(st.levels[:cap(st.levels)])
+	if cap(st.room) > maxKeptRoom {
+		st.room = nil
+	}
 }
 
 // fromCall is the call of an UnmarshalJSONFrom method or of a function of UnmarshalFromFunc: a type of the call,
@@ -75,6 +123,12 @@ type fromFunc[T any] struct {
 
 func (c fromFunc[T]) call(dec *jsontext.Decoder) error { return c.fn(dec, c.v) }
 
+// fromSkip is the skip of a value which a stream doesn't hold whole, which is checked as encoding/json/v2 checks a
+// value it skips ( see decoder.V2Hooks.SkipStreamValue ).
+type fromSkip struct{}
+
+func (fromSkip) call(dec *jsontext.Decoder) error { return dec.SkipValue() }
+
 // unmarshalFrom calls c, the UnmarshalJSONFrom method or a function of UnmarshalFromFunc of a value of typ, with the
 // decoder of the state attached to the input at the value at cursor, in depth levels, and returns the cursor after
 // the value. c must read exactly that value, or else return errors.ErrUnsupported without reading anything, which
@@ -88,25 +142,24 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		st.tracked.stale = true
 		call.From = unsafe.Pointer(st)
 	}
-	buf := ctx.Buf
-	start := cursor
-	for isSpace(buf[start]) {
-		start++ // the nul byte after the input ends the white space
-	}
-	in := buf[:len(buf)-1]
-	if depth == 0 && start == int64(len(in)) {
+	att := &st.att
+	in, start, readsOn := st.place(ctx, cursor, depth)
+	if start < 0 {
 		// no value: encoding/json/v2 calls no method at the end of the input, which is a syntax error.
 		return 0, io.ErrUnexpectedEOF
 	}
-	att := &st.att
 	att.In, att.Opts, att.Same = in, call.Config, att.In != nil
-	att.Pos, att.Object, att.Top, att.Count = placeBefore(in, start)
 	att.Outer, att.OuterDepth = st, int(depth)
 	st.at = att.Pos
 	textcoder.AttachDecoder(unsafe.Pointer(&st.dec), att)
 	depthBefore, countBefore := att.Depth, att.Count
 	err := c.call(&st.dec)
 	textcoder.DetachDecoder(unsafe.Pointer(&st.dec), att)
+	if readsOn {
+		// the stream goes on where the decoder stopped, which may have read on, and the room is kept
+		st.stream.Resume(att.End, att.Rest)
+		st.room = att.In[:0]
+	}
 	if err == nil && (att.Depth != depthBefore || att.Count != countBefore+1) {
 		err = errNonSingularValue
 	}
@@ -119,7 +172,8 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		}
 		err = errUnsupportedMutation
 	}
-	if _, ok := err.(*jsontext.SyntacticError); ok {
+	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsReadError(err) {
+		// a syntax error and an error of the reader, which are not wrapped, as encoding/json/v2 doesn't wrap them
 		return 0, err
 	}
 	// the place of the error, where it stopped reading: the value if it read nothing, the value it read if it read
@@ -130,10 +184,10 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 	}
 	serr.Err = toUnexpectedEOF(serr.Err)
 	serr.action = cmp.Or(serr.action, "unmarshal")
-	where, offset := 0, int64(att.PrevStart)
+	where, offset := 0, att.PrevStart
 	switch {
 	case att.Depth == depthBefore && att.Count == countBefore:
-		where, offset = +1, start
+		where, offset = +1, att.Base+start
 	case att.Depth == depthBefore && att.Count == countBefore+1:
 		where = -1
 	}
@@ -145,6 +199,57 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		serr.GoType = typ
 	}
 	return 0, serr
+}
+
+// place sets the place of the attachment of the state for the value at cursor, which a method or a function which
+// reads a jsontext.Decoder is called for, and returns the input which the decoder reads, the start of the value in it,
+// and whether the decoder reads on from the stream of the call, for a value which its buffer doesn't hold whole. The
+// start is -1 at the end of the input, which has no value, at the top level, depth 0. The input is the one of the call, the buffer of the stream,
+// or the part of it which holds the value of the stream which is decoded whole, which the value at cursor is in ( see
+// decoder.V2Call.Value ).
+func (st *fromState) place(ctx *decoder.RuntimeContext, cursor, depth int64) ([]byte, int64, bool) {
+	call := ctx.V2Call()
+	att := &st.att
+	s := call.Stream
+	st.stream, att.R, att.Base, att.Own = s, nil, 0, false
+	var in []byte
+	start := cursor
+	if s == nil || !call.Value.ReadsOn {
+		buf := ctx.Buf
+		for isSpace(buf[start]) {
+			start++ // the nul byte after the input ends the white space
+		}
+		in = buf[:len(buf)-1]
+		if s == nil {
+			if depth == 0 && start == int64(len(in)) {
+				return nil, -1, false
+			}
+			att.Pos, att.Object, att.Top, att.Count = placeBefore(in, start)
+			return in, start, false
+		}
+	}
+	v := call.Value
+	read, base := s.Read()
+	att.Base, st.valueStart = base, int(v.Start)
+	st.tracked.stale = true
+	if v.ReadsOn {
+		// the bytes of the buffer from the place, which the decoder reads on after in a room of its own
+		st.room = append(st.room[:0], read[v.From:]...)
+		in, start = st.room, v.Start-v.From
+		att.Base, st.valueStart = base+v.From, int(start)
+		v.Start, v.From = start, 0
+		st.reader.s = s
+		att.R, att.Own = &st.reader, true
+	}
+	if start == v.Start {
+		// the value itself, whose place is the end of the token before it, in the innermost level of the path
+		path := call.Path
+		l := path[len(path)-1]
+		att.Pos, att.Object, att.Top, att.Count = int(v.From), l.Object, len(path) == 1, l.Count
+	} else {
+		att.Pos, att.Object, att.Top, att.Count = placeBefore(in, start)
+	}
+	return in, start, v.ReadsOn
 }
 
 // placeBefore returns the place in front of the value at start of in, which a decoder attached to it reads from: the

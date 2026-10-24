@@ -153,6 +153,14 @@ type udFoldRunes struct {
 	Loose  int `json:"NAME,case:ignore"`
 }
 
+// udFoldNoDashes has no name of a field with '_' or '-': a name with them matches a field by its folded name, which
+// folding drops them from.
+type udFoldNoDashes struct {
+	K    int `json:"k"`
+	S    int `json:"s,case:ignore"`
+	Long int `json:"LongName"`
+}
+
 var (
 	insensitive = unmarshalDiffOptions{matchCaseInsensitiveNames: true}
 	reject      = unmarshalDiffOptions{rejectUnknownMembers: true}
@@ -191,6 +199,8 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct unknown name rejected", in: `{"X":1,"Z":2}`, out: outOf(udPoint{}), opts: reject},
 		{name: "struct unknown value of invalid UTF-8", in: "{\"Z\":\"\xff\"}", out: outOf(udPoint{})},
 		{name: "struct unknown value of a lone surrogate", in: `{"Z":["\ud800"]}`, out: outOf(udPoint{})},
+		{name: "struct unknown long value of invalid UTF-8", in: "{\"Z\":\"abcdefgh\xffijklmnop\"}", out: outOf(udPoint{})},
+		{name: "struct unknown long value of a lone surrogate", in: `{"Z":"abcdefgh\ud800ijklmnop"}`, out: outOf(udPoint{})},
 		{name: "struct unknown value of a duplicate name", in: `{"Z":{"a":1,"a":2}}`, out: outOf(udPoint{})},
 		{name: "struct unknown value of a duplicate name allowed", in: `{"Z":{"a":1,"a":2}}`, out: outOf(udPoint{}), opts: duplicates},
 		{name: "struct unknown value of a syntax error", in: `{"Z":[1,}`, out: outOf(udPoint{})},
@@ -275,6 +285,13 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name with a dash for the underscore of a field insensitive", in: `{"a-b":1}`, out: outOf(udFoldRunes{}), opts: insensitive},
 		{name: "struct name of a strict field and an ignoring one", in: `{"Name":1,"name":2}`, out: outOf(udFoldRunes{})},
 		{name: "struct name of a strict field and an ignoring one insensitive", in: `{"Name":1,"nAME":2}`, out: outOf(udFoldRunes{}), opts: insensitive},
+		{name: "struct name with an underscore of no field with one", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{})},
+		{name: "struct name with an underscore of no field with one insensitive", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct name with a dash of an ignoring field with none", in: `{"s-":1,"-S":2}`, out: outOf(udFoldNoDashes{})},
+		{name: "struct name with a dash of the Kelvin sign insensitive", in: `{"-\u212a":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct name with a dash of the Kelvin sign unescaped insensitive", in: `{"-K":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct name with a dash and the name of a field insensitive", in: `{"k":1,"k-":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct name with only dashes insensitive", in: `{"_-":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "map", in: `{"a":1,"b":2}`, out: outOf(map[string]int(nil))},
 		{name: "map merged", in: `{"b":2}`, out: func() any { v := map[string]int{"a": 1}; return &v }},
 		{name: "map null", in: `null`, out: func() any { v := map[string]int{"a": 1}; return &v }},

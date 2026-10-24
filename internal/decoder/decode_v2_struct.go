@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"bytes"
+	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"math/bits"
@@ -409,7 +410,8 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	return match, name, nil
 }
 
-// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash.
+// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash, which it looks for byte by
+// byte: b is a name, which is short, or the tail of a value ( see valueHasNotASCIIOrEscape ).
 func hasNotASCIIOrEscape(b []byte) bool {
 	for _, c := range b {
 		if c >= 0x80 || c == '\\' {
@@ -417,6 +419,20 @@ func hasNotASCIIOrEscape(b []byte) bool {
 		}
 	}
 	return false
+}
+
+// valueHasNotASCIIOrEscape is hasNotASCIIOrEscape for a value, which it looks at eight bytes at a time.
+func valueHasNotASCIIOrEscape(b []byte) bool {
+	i := 0
+	for ; i+8 <= len(b); i += 8 {
+		w := binary.LittleEndian.Uint64(b[i:])
+		// a backslash is a zero byte of s, whose subtraction sets its top bit
+		s := w ^ ('\\' * lsb)
+		if (w|(s-lsb)&^s)&msb != 0 {
+			return true
+		}
+	}
+	return hasNotASCIIOrEscape(b[i:])
 }
 
 // unquotedName returns the string quoted, as the input has it, decoded.
@@ -439,7 +455,7 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	}
 	v := buf[start:end]
 	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
+	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && valueHasNotASCIIOrEscape(v)
 	if (scanNames || scanUTF8) &&
 		!textcoder.ValidValue(v, ctx.Option.V2&V2AllowDuplicateNames != 0, ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		return 0, errV2Text

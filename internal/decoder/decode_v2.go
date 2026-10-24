@@ -1080,8 +1080,11 @@ func (d *v2InterfaceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64
 // kept in a map, so that an object of many names is not quadratic in its names.
 const maxListedNames = 32
 
-// nameSet is the names of an object, which is checked for a name it has twice.
+// nameSet is the names of an object, among which add finds a name that the object has twice. mask has the bit of
+// each name of list ( see jsonstring.NameBit ): a name whose bit is not in it is not compared with the names, as
+// most names are not.
 type nameSet struct {
+	mask uint64
 	list []string
 	set  map[string]struct{}
 }
@@ -1095,9 +1098,13 @@ func (s *nameSet) add(name string) bool {
 		s.set[name] = struct{}{}
 		return true
 	}
-	for _, n := range s.list {
-		if n == name {
-			return false
+	if bit := jsonstring.NameBit(unsafe.Slice(unsafe.StringData(name), len(name))); s.mask&bit == 0 {
+		s.mask |= bit
+	} else {
+		for _, n := range s.list {
+			if n == name {
+				return false
+			}
 		}
 	}
 	s.list = append(s.list, name)

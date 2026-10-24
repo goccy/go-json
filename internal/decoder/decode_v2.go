@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
+	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -315,32 +317,138 @@ func (d *v2ScalarDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) (
 }
 
 // v2StringDecoder is the decoder of a string of v2: null is "", and a string must be valid UTF-8, without an escape
-// of a surrogate which is not a pair, unless V2AllowInvalidUTF8. The string is decoded as stringDecoder decodes it,
-// which replaces such text by U+FFFD: a string which has it is checked again from the input.
+// of a surrogate which is not a pair, unless V2AllowInvalidUTF8 ( see decodeStringV2 ).
 type v2StringDecoder struct{ *stringDecoder }
 
 func (d v2StringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	var (
 		s    string
 		next int64
-		ok   bool
 		err  error
 	)
 	buf := ctx.Buf
 	start := skipWhiteSpace(buf, cursor)
 	if buf[start] == '"' {
-		s, next, ok, err = d.decodeStringField(ctx, start+1)
+		s, next, err = decodeStringV2(d.stringDecoder, ctx, start+1)
 	} else {
-		s, next, ok, err = d.decodeStringValue(ctx, start)
+		var ok bool
+		if s, next, ok, err = d.decodeStringValue(ctx, start); err == nil && ok {
+			err = replacedRuneError(ctx, s, start, next)
+		}
 	}
 	if err != nil {
 		return 0, err
 	}
-	if ok && ctx.Option.V2&V2AllowInvalidUTF8 == 0 && strings.IndexByte(s, 0xef) >= 0 && !validV2Text(ctx.Buf[start:next]) {
-		return 0, errV2Text
-	}
 	**(**string)(unsafe.Pointer(&p)) = s
 	return next, nil
+}
+
+// decodeStringV2 decodes the string whose bytes start at start, after its quote, as decodeStringField decodes it, for
+// a string of v2. A string of bytes which are not control characters and of escapes which are not \u, whose words are
+// read as decodeStringField reads them, is decoded here if its bytes are valid UTF-8, which the loops here look
+// for: it has no text which v2 rejects. Any other string is decoded by decodeStringField, whose errors are the ones
+// of the string, and which replaces invalid UTF-8 and an escape of a surrogate which is not a pair by U+FFFD, which
+// is an error unless the input has it ( see replacedRuneError ). So is a string which goes on past the words read
+// where the CPU has a SIMD scan.
+func decodeStringV2(d *stringDecoder, ctx *RuntimeContext, start int64) (string, int64, error) {
+	buf := ctx.Buf
+	b := (*sliceHeader)(unsafe.Pointer(&buf)).data
+	buflen := int64(len(buf))
+	cursor := start
+	wordsEnd := buflen
+	if hasStringSIMD {
+		wordsEnd = min(buflen, start+64)
+	}
+	// The words of a plain ASCII string, which most are, are looked at by this loop, which keeps nothing else, as
+	// the first loop of decodeStringField.
+	for cursor+8 <= wordsEnd {
+		w := load64(buf, cursor)
+		if stop := keyEndBytes(w) | w&msb; stop != 0 {
+			cursor += int64(bits.TrailingZeros64(stop) / 8)
+			if char(b, cursor) == '"' {
+				return ctx.makeString(buf[start:cursor]), cursor + 1, nil
+			}
+			break
+		}
+		cursor += 8
+	}
+	firstEscape := int64(-1)
+	nonASCII := false
+	// ascii are the top bits which stop the words at a byte which is not ASCII, until the first one is met.
+	ascii := uint64(msb)
+	for {
+		c := char(b, cursor)
+		switch {
+		case c == '"':
+			literal, next := buf[start:cursor], cursor+1
+			if nonASCII && !utf8.Valid(literal) {
+				return decodeStringV1(d, ctx, start)
+			}
+			if firstEscape < 0 {
+				return ctx.makeString(literal), next, nil
+			}
+			if len(literal) > maxArenaStringSize {
+				return ctx.unescapeLong(literal, stringInfo{firstEscape: int(firstEscape), nonASCII: nonASCII}), next, nil
+			}
+			// an escaped string is decoded into the arena, out of the buffer, which is never written
+			dst := ctx.reserveArena(len(literal))
+			n := jsonstring.UnescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, int(firstEscape))
+			ctx.arena = ctx.arena[:len(ctx.arena)+n]
+			return unsafe.String(unsafe.SliceData(dst), n), next, nil
+		case c == '\\':
+			switch char(b, cursor+1) {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				if firstEscape < 0 {
+					firstEscape = cursor - start
+				}
+				cursor += 2
+			default:
+				// an escape \u, or an invalid one
+				return decodeStringV1(d, ctx, start)
+			}
+		case c >= 0x80:
+			nonASCII, ascii = true, 0
+			cursor++
+		case c >= 0x20 && wordsEnd == buflen:
+			// the words stopped where they may not be read, near the end of the buffer, not at a byte to look at
+			cursor++
+		default:
+			// a control character, the end of the input, or the end of the words where the CPU has a SIMD scan
+			return decodeStringV1(d, ctx, start)
+		}
+		for cursor+8 <= wordsEnd {
+			w := load64(buf, cursor)
+			if stop := keyEndBytes(w) | w&ascii; stop != 0 {
+				cursor += int64(bits.TrailingZeros64(stop) / 8)
+				break
+			}
+			cursor += 8
+		}
+	}
+}
+
+// decodeStringV1 decodes the string whose bytes start at start, after its quote, by decodeStringField, which replaces
+// invalid UTF-8 and an escape of a surrogate which is not a pair by U+FFFD, which is an error ( see
+// replacedRuneError ).
+func decodeStringV1(d *stringDecoder, ctx *RuntimeContext, start int64) (string, int64, error) {
+	s, next, _, err := d.decodeStringField(ctx, start)
+	if err != nil {
+		return "", 0, err
+	}
+	if err := replacedRuneError(ctx, s, start-1, next); err != nil {
+		return "", 0, err
+	}
+	return s, next, nil
+}
+
+// replacedRuneError returns errV2Text if the string s, which the decoders of v1 decoded from the string from start up
+// to next in the input, has a U+FFFD which they made of invalid UTF-8 or of an escape of a surrogate which is not a
+// pair, unless V2AllowInvalidUTF8, and nil otherwise. A U+FFFD of the input is valid.
+func replacedRuneError(ctx *RuntimeContext, s string, start, next int64) error {
+	if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && strings.IndexByte(s, 0xef) >= 0 && !validV2Text(ctx.Buf[start:next]) {
+		return errV2Text
+	}
+	return nil
 }
 
 // v2StringNumberDecoder is the decoder of a number of v2 with StringifyNumbers: the number is in a JSON string, by

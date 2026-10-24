@@ -11,7 +11,7 @@ then, since none of them is urgent.
 
 Priority 1: now
 
-- [decoder-v2-speed.md](decoder-v2-speed.md): v2 decoding at least as fast as v1
+- [decoder-v2-speed.md](decoder-v2-speed.md): v2 decoding at parity with v1
 - [v1-calls-v2-methods.md](v1-calls-v2-methods.md): the root package calls `UnmarshalJSONFrom`
   and `MarshalJSONTo` (right after the speed of v2 decoding)
 

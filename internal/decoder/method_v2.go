@@ -90,6 +90,27 @@ func (ctx *RuntimeContext) ReadValue(cursor, depth int64, typ reflect.Type, meth
 	return start, end, nil
 }
 
+// readTextV2 reads the value at cursor of a value of typ which method, or the decoder of a time, is given the text of:
+// a string of ASCII without an escape, which most are, is read once, and is its text, as it has nothing which v2
+// rejects; any other value is read whole by ReadValue, and a string is decoded. It returns the text of a string, or
+// nil, and the start and the end of the value. The text is a part of the input, which the method must copy to keep
+// it, as encoding.TextUnmarshaler says, and ends at its length: a method which appends to it doesn't write into the
+// input after it.
+func readTextV2(ctx *RuntimeContext, cursor, depth int64, typ reflect.Type, method errors.UnmarshalMethod) ([]byte, int64, int64, error) {
+	buf := ctx.Buf
+	if start := skipWhiteSpace(buf, cursor); buf[start] == '"' {
+		if q := plainStringEnd(buf, start+1); q >= 0 {
+			return buf[start+1 : q : q], start, q + 1, nil
+		}
+	}
+	start, end, err := ctx.ReadValue(cursor, depth, typ, method)
+	if err != nil || buf[start] != '"' {
+		return nil, start, end, err
+	}
+	text := unquotedName(buf[start:end])
+	return text[:len(text):len(text)], start, end, nil
+}
+
 // v2UnmarshalJSONDecoder is the decoder of a value whose UnmarshalJSON decodes it, which is given the value as the
 // input has it, null included. The bytes are a part of the input, which the method must copy to keep them, as the
 // interface of encoding/json/v2 says.
@@ -126,7 +147,7 @@ type v2UnmarshalTextDecoder struct {
 }
 
 func (d *v2UnmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	start, end, err := ctx.ReadValue(cursor, depth, d.typ, errors.UnmarshalTextMethod)
+	text, start, end, err := readTextV2(ctx, cursor, depth, d.typ, errors.UnmarshalTextMethod)
 	if err != nil {
 		return 0, err
 	}
@@ -139,7 +160,7 @@ func (d *v2UnmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errNonStringValue, Method: errors.UnmarshalTextMethod}
 	}
 	v := *(*any)(unsafe.Pointer(&emptyInterface{typ: d.ptrType, ptr: p}))
-	if err := v.(encoding.TextUnmarshaler).UnmarshalText(unquotedName(ctx.Buf[start:end])); err != nil {
+	if err := v.(encoding.TextUnmarshaler).UnmarshalText(text); err != nil {
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: err, Method: errors.UnmarshalTextMethod}
 	}
 	return end, nil
@@ -155,7 +176,7 @@ func (d *v2UnmarshalTextDecoder) DecodePath(ctx *RuntimeContext, cursor, depth i
 type v2TimeDecoder struct{}
 
 func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	start, end, err := ctx.ReadValue(cursor, depth, timeType, errors.UnmarshalTextMethod)
+	text, start, end, err := readTextV2(ctx, cursor, depth, timeType, errors.UnmarshalTextMethod)
 	if err != nil {
 		return 0, err
 	}
@@ -167,7 +188,6 @@ func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	default:
 		return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Method: errors.UnmarshalTextMethod}
 	}
-	text := unquotedName(ctx.Buf[start:end])
 	var t time.Time
 	if err := t.UnmarshalText(text); err != nil {
 		return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}

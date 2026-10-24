@@ -51,8 +51,10 @@ func (d *unmarshalTextDecoder) decodeText(ctx *RuntimeContext, cursor, depth int
 		return end, nil, err
 	}
 
-	// a string, which skipValue checked
+	// a string, which skipValue found valid, which ends at its length: a method which appends to it doesn't write into
+	// the input after it
 	src = jsonstring.UnquoteValid(src)
+	src = src[:len(src):len(src)]
 	v := *(*any)(unsafe.Pointer(&emptyInterface{
 		typ: runtime.TypePtr(d.typ),
 		ptr: *(*unsafe.Pointer)(unsafe.Pointer(&p)),

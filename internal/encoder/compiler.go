@@ -710,8 +710,8 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 		structCode.enableIndirect()
 	}
 	// the names of the keys which a function, a method or a pointer writes may be the same.
-	_, checkNames := keyCode.(*MarshalJSONCode)
-	return &MapCode{typ: typ, key: keyCode, value: valueCode, checkNames: c.v2 && checkNames}, nil
+	_, marshaledKey := keyCode.(*MarshalJSONCode)
+	return &MapCode{typ: typ, key: keyCode, value: valueCode, mayRepeatNames: c.v2 && marshaledKey}, nil
 }
 
 func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {

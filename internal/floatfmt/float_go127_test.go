@@ -36,7 +36,7 @@ func appendFloatByStrconv(dst []byte, f float64, size int) []byte {
 	return dst
 }
 
-func checkFloat(t *testing.T, f float64, size int) bool {
+func compareFloat(t *testing.T, f float64, size int) bool {
 	t.Helper()
 	got, want := AppendFloat(nil, f, size), appendFloatByStrconv(nil, f, size)
 	if string(got) != string(want) {
@@ -66,12 +66,12 @@ func TestAppendFloatStrconv(t *testing.T) {
 			continue
 		}
 		for _, f := range []float64{f, -f} {
-			checkFloat(t, f, 64)
+			compareFloat(t, f, 64)
 			if f32 := float32(f); !math.IsInf(float64(f32), 0) {
-				checkFloat(t, float64(f32), 32)
-				checkFloat(t, float64(math.Nextafter32(f32, 0)), 32)
+				compareFloat(t, float64(f32), 32)
+				compareFloat(t, float64(math.Nextafter32(f32, 0)), 32)
 				if next := math.Nextafter32(f32, float32(math.Inf(1))); !math.IsInf(float64(next), 0) {
-					checkFloat(t, float64(next), 32)
+					compareFloat(t, float64(next), 32)
 				}
 			}
 		}
@@ -84,13 +84,13 @@ func TestAppendFloatStrconv(t *testing.T) {
 	}
 	for range n {
 		if f := math.Float64frombits(r.Uint64()); !math.IsNaN(f) && !math.IsInf(f, 0) {
-			checkFloat(t, f, 64)
+			compareFloat(t, f, 64)
 		}
 		if f := math.Float32frombits(r.Uint32()); !math.IsNaN(float64(f)) && !math.IsInf(float64(f), 0) {
-			checkFloat(t, float64(f), 32)
+			compareFloat(t, float64(f), 32)
 		}
-		checkFloat(t, math.Float64frombits(0x4330000000000000|r.Uint64()>>12), 64)
-		checkFloat(t, math.Float64frombits(uint64(r.IntN(0x7ff))<<52|r.Uint64()>>61), 64)
+		compareFloat(t, math.Float64frombits(0x4330000000000000|r.Uint64()>>12), 64)
+		compareFloat(t, math.Float64frombits(uint64(r.IntN(0x7ff))<<52|r.Uint64()>>61), 64)
 	}
 }
 
@@ -106,7 +106,7 @@ func TestAppendFloatStrconvMany(t *testing.T) {
 	for w := range workers {
 		wg.Go(func() {
 			var got, want []byte
-			check := func(f float64, size int) {
+			compare := func(f float64, size int) {
 				if math.IsNaN(f) || math.IsInf(f, 0) {
 					return
 				}
@@ -119,8 +119,8 @@ func TestAppendFloatStrconvMany(t *testing.T) {
 			}
 			r := rand.New(rand.NewPCG(uint64(w), 3))
 			for b := uint64(w); b < 1<<32; b += uint64(workers) {
-				check(float64(math.Float32frombits(uint32(b))), 32)
-				check(math.Float64frombits(r.Uint64()), 64)
+				compare(float64(math.Float32frombits(uint32(b))), 32)
+				compare(math.Float64frombits(r.Uint64()), 64)
 			}
 		})
 	}

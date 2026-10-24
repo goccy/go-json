@@ -50,7 +50,7 @@ func TestMulPow10AsStrconv(t *testing.T) {
 // A number exactly half-way between two float64 values is never decided wrongly: the table gives none, or the even one.
 func TestMulPow10HalfWay(t *testing.T) {
 	r := rand.New(rand.NewSource(5))
-	checked, decided := 0, 0
+	tried, decided := 0, 0
 	for i := 0; i < 10000; i++ {
 		// the half-way point between m*2^e and (m+1)*2^e, written as a decimal: (2m+1) * 2^(e-1).
 		// Its decimal has at most 19 digits for these exponents.
@@ -66,7 +66,7 @@ func TestMulPow10HalfWay(t *testing.T) {
 		if !ok {
 			continue
 		}
-		checked++
+		tried++
 		got, ok := mulPow10(mant, exp)
 		if !ok {
 			continue
@@ -76,10 +76,10 @@ func TestMulPow10HalfWay(t *testing.T) {
 			t.Fatalf("%s: got %v, want %v", s, got, want)
 		}
 	}
-	if checked < 5000 {
-		t.Fatalf("only %d half-way points were checked", checked)
+	if tried < 5000 {
+		t.Fatalf("only %d half-way points were checked", tried)
 	}
-	t.Logf("%d half-way points checked, %d decided by the table", checked, decided)
+	t.Logf("%d half-way points checked, %d decided by the table", tried, decided)
 }
 
 // splitDecimal returns the mantissa and the exponent of ten of a decimal of at most 19 digits.

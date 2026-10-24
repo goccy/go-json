@@ -323,7 +323,7 @@ func TestEncodeRecursivePointerType(t *testing.T) {
 	// the values nested past the start of the detection of cycles, and the cycles, which fail as with encoding/json.
 	values = append(values, deepSlice, []recursivePtrToStruct{deepStruct}, &cycleSlice, &cycleMap, &cycleArray,
 		[]recursivePtrToStruct{cycleStruct})
-	checkStdEncoding(t, values...)
+	compareStdEncoding(t, values...)
 }
 
 // cycleMapOfValues is a cycle through the values of a map, which are copies: the map alone is reached again.

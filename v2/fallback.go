@@ -24,8 +24,8 @@ func init() {
 
 // appendRawMembers appends the members of the JSON object raw, a jsontext.Value embedded as a fallback, after b,
 // which ends with the comma after the members before them or with the brace of the object, each member followed
-// by a comma. check reports whether a name may be written, if it is not nil.
-func appendRawMembers(ctx *encoder.RuntimeContext, b, raw []byte, check func(name []byte) bool) ([]byte, error) {
+// by a comma. insertName records a name, and reports whether it may be written, if it is not nil.
+func appendRawMembers(ctx *encoder.RuntimeContext, b, raw []byte, insertName func(name []byte) bool) ([]byte, error) {
 	if len(raw) == 0 {
 		return b, nil
 	}
@@ -48,9 +48,9 @@ func appendRawMembers(ctx *encoder.RuntimeContext, b, raw []byte, check func(nam
 		if err != nil {
 			return b, fail(b, err)
 		}
-		if check != nil {
+		if insertName != nil {
 			unquoted, _ := jsontext.AppendUnquote(nil, name)
-			if !check(unquoted) {
+			if !insertName(unquoted) {
 				return b, &ierrors.TextError{Err: ierrors.ErrDuplicateName, Name: string(unquoted), Out: b, AtDelim: true}
 			}
 		}

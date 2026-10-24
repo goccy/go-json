@@ -322,7 +322,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 	// reset: the levels of the output are read from its start after the state is reset ( see tracker.sync ).
 	if st.cfg.Set == 0 {
 		ctx.Option.Flag = defaultFlags
-		ctx.CheckNames = false
+		ctx.RescanNames = false
 	} else if st.configure(ctx, in, nilPointer) {
 		// a nil pointer is null, which no function is called for.
 		return []byte("null"), false, nil
@@ -359,7 +359,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 		return nil, len(levelsOf(buf, nil)) > 1, st.marshalError(buf, err)
 	}
 	buf = buf[:len(buf)-1]
-	if ctx.CheckNames {
+	if ctx.RescanNames {
 		// a name with invalid UTF-8 may be the same as another one after U+FFFD is written for its bytes.
 		v := jsontext.Value(slices.Clone(buf))
 		if err := v.Compact(jsontext.AllowInvalidUTF8(true), jsontext.AllowDuplicateNames(false)); err != nil {
@@ -373,7 +373,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 // its own, as marshal does: it is inlined into the functions of marshaling, which then encode without a call.
 func (st *callState) prepareDefault(ctx *encoder.RuntimeContext) {
 	ctx.Option.Flag = defaultFlags
-	ctx.CheckNames = false
+	ctx.RescanNames = false
 	st.base, st.attached = 0, false
 	st.tracked.stale = true
 	if ctx.Option.V2 != unsafe.Pointer(st) {
@@ -397,7 +397,7 @@ func (st *callState) configure(ctx *encoder.RuntimeContext, in any, nilPointer b
 	c := &st.cfg
 	ctx.Option.Flag = optionFlags(c)
 	// two names may be the same after U+FFFD is written for their invalid bytes.
-	ctx.CheckNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
+	ctx.RescanNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
 	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {
 		if v := reflect.ValueOf(in); nilPointer || v.Kind() == reflect.Pointer && v.IsNil() {
 			return true

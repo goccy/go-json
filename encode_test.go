@@ -2807,7 +2807,7 @@ func TestEncodeMapOfSmallValues(t *testing.T) {
 		A bool
 		B uint16
 	}
-	check := func(name string, v any) {
+	compare := func(name string, v any) {
 		t.Helper()
 		for _, enc := range []func(any) ([]byte, error){json.Marshal, func(v any) ([]byte, error) { return json.MarshalWithOption(v, json.UnorderedMap()) }} {
 			got, err := enc(v)
@@ -2835,7 +2835,7 @@ func TestEncodeMapOfSmallValues(t *testing.T) {
 			triples[k], larges[k] = [3]int32{int32(i), -1, 2}, [33]byte{0: byte(i), 32: 1}
 		}
 		for name, v := range map[string]any{"bool": bools, "uint8": bytes, "int16": int16s, "int32": int32s, "[3]byte": arrays, "struct": pairs, "[3]int32": triples, "[33]byte": larges} {
-			check(fmt.Sprintf("%s %d", name, n), v)
+			compare(fmt.Sprintf("%s %d", name, n), v)
 		}
 	}
 }

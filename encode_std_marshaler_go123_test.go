@@ -12,5 +12,5 @@ func TestEncodeStdOID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkStdEncoding(t, oid, &oid, map[string]x509.OID{"sha256WithRSA": oid}, []x509.OID{oid})
+	compareStdEncoding(t, oid, &oid, map[string]x509.OID{"sha256WithRSA": oid}, []x509.OID{oid})
 }

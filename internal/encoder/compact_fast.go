@@ -39,8 +39,8 @@ type (
 	escapedStrings struct{ _ byte }
 )
 
-// maxDepthOfCompactCheck is the nesting up to which the output is checked here: a deeper one is compacted.
-const maxDepthOfCompactCheck = 64
+// maxDepthOfCompactScan is the nesting up to which isCompactJSON scans the output: a deeper one is compacted.
+const maxDepthOfCompactScan = 64
 
 // appendCompactOutput appends src, the output of a marshaler, to dst as compact appends it, if src is compact
 // and valid JSON, and returns false without appending if it may not be: then src is to be compacted. The output
@@ -73,7 +73,7 @@ func appendCompactOutput(dst, src []byte, escape, trusted bool) ([]byte, bool) {
 func isCompactJSON[S plainStrings | escapedStrings](src []byte) bool {
 	var walk S
 	plain := unsafe.Sizeof(walk) == unsafe.Sizeof(plainStrings{})
-	var stack [maxDepthOfCompactCheck]byte // the closing brackets of the values being read
+	var stack [maxDepthOfCompactScan]byte // the closing brackets of the values being read
 	depth := 0
 	n := len(src)
 	i := 0
@@ -93,7 +93,7 @@ func isCompactJSON[S plainStrings | escapedStrings](src []byte) bool {
 				return false
 			}
 		case c == '{':
-			if depth == maxDepthOfCompactCheck {
+			if depth == maxDepthOfCompactScan {
 				return false
 			}
 			stack[depth] = '}'
@@ -122,7 +122,7 @@ func isCompactJSON[S plainStrings | escapedStrings](src []byte) bool {
 			i++
 			continue
 		case c == '[':
-			if depth == maxDepthOfCompactCheck {
+			if depth == maxDepthOfCompactScan {
 				return false
 			}
 			stack[depth] = ']'

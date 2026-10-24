@@ -233,7 +233,7 @@ func Run(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]b
 				// the entry of the key at idx in the order of the names, whose value is given to the opcodes of
 				// the value, which OpMapValue ( NextField ) is followed by.
 				item := &mapCtx.Slice.Items[idx]
-				if idx > 0 && code.End.Op == encoder.OpMapEndCheckNames && encoder.SameMapName(ctx, item.Key, mapCtx.Slice.Items[idx-1].Key) {
+				if idx > 0 && code.End.Op == encoder.OpMapEndMayRepeatNames && encoder.SameMapName(ctx, item.Key, mapCtx.Slice.Items[idx-1].Key) {
 					// the output before the name, which tells where it is.
 					err := encoder.DuplicateMapNameError(item.Key, b)
 					encoder.ReleaseMapContext(ctx, mapCtx)

@@ -16,9 +16,9 @@ import (
 // The cases of the reported issues of the decoder: go-json decodes them as encoding/json of Go 1.27 does, and its
 // syntax errors are the ones of the running Go.
 
-// checkUnmarshal decodes doc into the values which newValue makes by go-json and by encoding/json, and compares
+// compareUnmarshal decodes doc into the values which newValue makes by go-json and by encoding/json, and compares
 // the errors and the decoded values where they are compared ( see comparesWithStd ).
-func checkUnmarshal(t *testing.T, doc string, newValue func() any) {
+func compareUnmarshal(t *testing.T, doc string, newValue func() any) {
 	t.Helper()
 	want, got := newValue(), newValue()
 	stdErr := stdjson.Unmarshal([]byte(doc), want)
@@ -97,25 +97,25 @@ func TestIssue642NullIntoTextUnmarshaler(t *testing.T) {
 		}
 	}
 	for _, doc := range []string{`null`, ` null `, `"x"`} {
-		checkUnmarshal(t, doc, func() any { v := issue642Pair{7, 8}; return &v })
-		checkUnmarshal(t, doc, func() any { v := issue642Name("keep"); return &v })
-		checkUnmarshal(t, doc, func() any { v := issue642List{"keep"}; return &v })
-		checkUnmarshal(t, doc, func() any { v := issue642Map{"keep": 1}; return &v })
+		compareUnmarshal(t, doc, func() any { v := issue642Pair{7, 8}; return &v })
+		compareUnmarshal(t, doc, func() any { v := issue642Name("keep"); return &v })
+		compareUnmarshal(t, doc, func() any { v := issue642List{"keep"}; return &v })
+		compareUnmarshal(t, doc, func() any { v := issue642Map{"keep": 1}; return &v })
 	}
 	for _, doc := range []string{
 		`{"P":null,"N":null,"L":null,"M":null,"PP":null,"PN":null}`,
 		`{"P":"x","N":"x","L":"x","M":"x","PP":"x","PN":"x"}`,
 	} {
-		checkUnmarshal(t, doc, func() any { v := full(); return &v })
+		compareUnmarshal(t, doc, func() any { v := full(); return &v })
 	}
 	for _, doc := range []string{`[null,"x",null]`} {
-		checkUnmarshal(t, doc, func() any { return &[]issue642Pair{{7, 8}} })
-		checkUnmarshal(t, doc, func() any { return &[]issue642Name{"keep"} })
-		checkUnmarshal(t, doc, func() any { return &[3]issue642Name{"keep", "keep", "keep"} })
-		checkUnmarshal(t, doc, func() any { return &[3]issue642Pair{{7, 8}, {7, 8}, {7, 8}} })
+		compareUnmarshal(t, doc, func() any { return &[]issue642Pair{{7, 8}} })
+		compareUnmarshal(t, doc, func() any { return &[]issue642Name{"keep"} })
+		compareUnmarshal(t, doc, func() any { return &[3]issue642Name{"keep", "keep", "keep"} })
+		compareUnmarshal(t, doc, func() any { return &[3]issue642Pair{{7, 8}, {7, 8}, {7, 8}} })
 	}
-	checkUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Name{"a": "keep"} })
-	checkUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Pair{"a": {7, 8}} })
+	compareUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Name{"a": "keep"} })
+	compareUnmarshal(t, `{"a":null,"b":"x"}`, func() any { return &map[string]issue642Pair{"a": {7, 8}} })
 }
 
 type decodeIssue450Embedded struct {
@@ -152,12 +152,12 @@ func TestIssue450EmbeddedFieldOfItsName(t *testing.T) {
 		`{"Embedded":"inside","Other":111,"Name":"outside"}`,
 		`{"embedded":"inside"}`,
 	} {
-		checkUnmarshal(t, doc, func() any { return new(decodeIssue450Struct) })
-		checkUnmarshal(t, doc, func() any { return new(decodeIssue450PtrStruct) })
+		compareUnmarshal(t, doc, func() any { return new(decodeIssue450Struct) })
+		compareUnmarshal(t, doc, func() any { return new(decodeIssue450PtrStruct) })
 	}
-	checkUnmarshal(t, `{"Inner":"x"}`, func() any { return new(decodeIssue450Outer) })
+	compareUnmarshal(t, `{"Inner":"x"}`, func() any { return new(decodeIssue450Outer) })
 	// an embedded value which is not a struct is a field of its name
-	checkUnmarshal(t, `{"DecodeIssue450Label":"x","Visible":"v"}`, func() any { return new(decodeIssue450Labeled) })
+	compareUnmarshal(t, `{"DecodeIssue450Label":"x","Visible":"v"}`, func() any { return new(decodeIssue450Labeled) })
 }
 
 // numberGrammarCases are numbers which are not valid, and valid ones around them.
@@ -172,13 +172,13 @@ func TestIssue448NumberGrammar(t *testing.T) {
 	// validated.
 	for _, n := range numberGrammarCases {
 		for _, doc := range []string{n, `[` + n + `]`, `{"x":` + n + `}`, `{"skipped":` + n + `,"x":1}`, `[[` + n + `],1]`} {
-			checkUnmarshal(t, doc, func() any { return new(any) })
-			checkUnmarshal(t, doc, func() any { return new(struct{}) })
-			checkUnmarshal(t, doc, func() any { return new(struct{ X any }) })
-			checkUnmarshal(t, doc, func() any { return new(struct{ X float64 }) })
-			checkUnmarshal(t, doc, func() any { return new(struct{ X int }) })
-			checkUnmarshal(t, doc, func() any { return new(map[string]any) })
-			checkUnmarshal(t, doc, func() any { return new([]any) })
+			compareUnmarshal(t, doc, func() any { return new(any) })
+			compareUnmarshal(t, doc, func() any { return new(struct{}) })
+			compareUnmarshal(t, doc, func() any { return new(struct{ X any }) })
+			compareUnmarshal(t, doc, func() any { return new(struct{ X float64 }) })
+			compareUnmarshal(t, doc, func() any { return new(struct{ X int }) })
+			compareUnmarshal(t, doc, func() any { return new(map[string]any) })
+			compareUnmarshal(t, doc, func() any { return new([]any) })
 			if got, want := json.Valid([]byte(doc)), stdjson.Valid([]byte(doc)); got != want {
 				t.Errorf("Valid(%q) = %v, want %v", doc, got, want)
 			}
@@ -193,9 +193,9 @@ func TestIssue448NumberGrammar(t *testing.T) {
 				})
 			},
 		} {
-			checkUnmarshal(t, n, newValue)
-			checkUnmarshal(t, `{"X":`+n+`}`, newValue)
-			checkUnmarshal(t, `{"X":"`+n+`"}`, newValue)
+			compareUnmarshal(t, n, newValue)
+			compareUnmarshal(t, `{"X":`+n+`}`, newValue)
+			compareUnmarshal(t, `{"X":"`+n+`"}`, newValue)
 		}
 	}
 }
@@ -206,13 +206,13 @@ func TestIssue555NumbersOutOfRange(t *testing.T) {
 	huge := "1" + strings.Repeat("0", 400)
 	for _, n := range []string{`1e400`, `-1e400`, huge, `1e39`, `-1e39`, `1e-400`} {
 		for _, doc := range []string{n, `{"n":` + n + `,"m":1}`, `[` + n + `,1]`} {
-			checkUnmarshal(t, doc, func() any { return new(any) })
-			checkUnmarshal(t, doc, func() any { return new(map[string]any) })
-			checkUnmarshal(t, doc, func() any { return new([]any) })
+			compareUnmarshal(t, doc, func() any { return new(any) })
+			compareUnmarshal(t, doc, func() any { return new(map[string]any) })
+			compareUnmarshal(t, doc, func() any { return new([]any) })
 		}
-		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float64 }) })
-		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float32 }) })
-		checkUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X any }) })
+		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float64 }) })
+		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float32 }) })
+		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X any }) })
 	}
 }
 
@@ -232,7 +232,7 @@ func TestStringOptionNumbers(t *testing.T) {
 		`1_000`, `300`, `-1`, `1e400`, `1e39`, ``, `-`, `1.5`, `99999999999999999999`,
 	} {
 		for _, name := range []string{"I", "U", "F", "F3", "P"} {
-			checkUnmarshal(t, `{"`+name+`":"`+s+`","X":7}`, func() any { return new(fields) })
+			compareUnmarshal(t, `{"`+name+`":"`+s+`","X":7}`, func() any { return new(fields) })
 		}
 	}
 }
@@ -241,9 +241,9 @@ func TestNumberMapKeys(t *testing.T) {
 	// The keys of a map of numbers are read by strconv, as encoding/json reads them.
 	for _, key := range []string{`01`, `+1`, `-1`, ` 1`, `1 `, `1.5`, `1e2`, `300`, `-Inf`, `0x10`, `1_000`, ``} {
 		doc := `{"` + key + `":1,"2":2}`
-		checkUnmarshal(t, doc, func() any { return new(map[int]int) })
-		checkUnmarshal(t, doc, func() any { return new(map[uint8]int) })
-		checkUnmarshal(t, doc, func() any { return new(map[float64]int) })
+		compareUnmarshal(t, doc, func() any { return new(map[int]int) })
+		compareUnmarshal(t, doc, func() any { return new(map[uint8]int) })
+		compareUnmarshal(t, doc, func() any { return new(map[float64]int) })
 	}
 }
 
@@ -359,10 +359,10 @@ func TestFuncFieldTypeError(t *testing.T) {
 		`{"F":1,"A":2}`, `{"F":"x","A":2}`, `{"F":null,"A":2}`, `{"F":[1,{"a":2}],"A":2}`, `{"F":{},"A":2}`,
 		`{"F":true,"A":2}`, `{"F":nul,"A":2}`, `{"F":[1 2],"A":2}`,
 	} {
-		checkUnmarshal(t, doc, func() any { return new(funcs) })
+		compareUnmarshal(t, doc, func() any { return new(funcs) })
 	}
-	checkUnmarshal(t, `[true,null]`, func() any { return new([]func()) })
-	checkUnmarshal(t, `1`, func() any { return new(func()) })
+	compareUnmarshal(t, `[true,null]`, func() any { return new([]func()) })
+	compareUnmarshal(t, `1`, func() any { return new(func()) })
 }
 
 func TestStringOptionJSONNumber(t *testing.T) {
@@ -376,7 +376,7 @@ func TestStringOptionJSONNumber(t *testing.T) {
 		N stdjson.Number `json:",string"`
 		A int
 	}
-	check := func(doc string) {
+	compare := func(doc string) {
 		t.Helper()
 		want, got := new(stdNumber), new(number)
 		stdErr := stdjson.Unmarshal([]byte(doc), want)
@@ -390,10 +390,10 @@ func TestStringOptionJSONNumber(t *testing.T) {
 		`1`, `-1.5e3`, `01`, `0x`, `1e`, `-`, `1.`, `1..2`, `--1`, `1 `, ` 1`, `+1`, `00`, `.5`, `12abc`, `1,2`, ``,
 		`true`, `false`, `null`, `nul`, `{}`, `\"1\"`, `\"x\"`, `\"1`, `\u0031`, `1\u0030`, ` null`, `\"1\" `,
 	} {
-		check(`{"N":"` + s + `","A":2}`)
+		compare(`{"N":"` + s + `","A":2}`)
 	}
 	for _, doc := range []string{`{"N":1,"A":2}`, `{"N":true,"A":2}`, `{"N":{},"A":2}`, `{"N":null,"A":2}`} {
-		check(doc)
+		compare(doc)
 	}
 }
 
@@ -415,7 +415,7 @@ func TestStringOptionWhiteSpace(t *testing.T) {
 		"PB": {` true`, `true `},
 	} {
 		for _, value := range values {
-			checkUnmarshal(t, `{"`+field+`":"`+value+`","U":"7"}`, func() any { return new(fields) })
+			compareUnmarshal(t, `{"`+field+`":"`+value+`","U":"7"}`, func() any { return new(fields) })
 		}
 	}
 }
@@ -430,9 +430,9 @@ func TestTimeOfOtherKinds(t *testing.T) {
 		`{"T":1,"U":2}`, `{"T":true,"U":2}`, `{"T":{"a":[1]},"U":2}`, `{"T":[],"U":2}`, `{"T":null,"U":2}`,
 		`{"T":"2020-01-01T00:00:00Z","U":2}`, `{"T":-1.5e3,"U":2}`, `{"T":tru,"U":2}`,
 	} {
-		checkUnmarshal(t, doc, func() any { return new(times) })
+		compareUnmarshal(t, doc, func() any { return new(times) })
 	}
-	checkUnmarshal(t, `1`, func() any { return new(time.Time) })
+	compareUnmarshal(t, `1`, func() any { return new(time.Time) })
 }
 
 // methodErrorValue is a value whose unmarshal methods fail for 0 and x.
@@ -478,29 +478,29 @@ func TestUnmarshalMethodErrors(t *testing.T) {
 		`{"A":1,"B":0,"E":2}`, `{"A":"x","B":0,"E":2}`, `{"B":0,"A":"x","E":2}`,
 		`{"T":"x","E":2}`, `{"B":0,"E":"x"}`, `{"B":0,"E":2,"C":1}`, `{"B":1,"T":"y","E":2}`,
 	} {
-		checkUnmarshal(t, doc, func() any { return new(fields) })
+		compareUnmarshal(t, doc, func() any { return new(fields) })
 	}
 	// a type error of encoding/json is returned as it is too
 	type stdTypeError struct {
 		N methodStdTypeError
 		E int
 	}
-	checkUnmarshal(t, `{"N":1,"E":2}`, func() any { return new(stdTypeError) })
+	compareUnmarshal(t, `{"N":1,"E":2}`, func() any { return new(stdTypeError) })
 }
 
 func TestTypeErrorPathOfKeys(t *testing.T) {
 	// The path of a type error has the keys of the input, escaped as the tokens of a JSON pointer.
 	for _, doc := range []string{`{"a/b":"x"}`, `{"a~b":"x"}`, `{"a.b":"x"}`, `{"~1/":{"c":"x"}}`} {
-		checkUnmarshal(t, doc, func() any { return new(map[string]int) })
-		checkUnmarshal(t, doc, func() any { return new(map[string]map[string]int) })
+		compareUnmarshal(t, doc, func() any { return new(map[string]int) })
+		compareUnmarshal(t, doc, func() any { return new(map[string]map[string]int) })
 	}
 }
 
 func TestNulAfterValue(t *testing.T) {
 	// A nul byte in the input is a byte which the grammar doesn't have: after a value, it is a syntax error.
 	for _, doc := range []string{"123\x00", "{\"a\":1}\x00", "\"s\" \x00", "[1]\x00 ", "true\x00", "1 \x00 2"} {
-		checkUnmarshal(t, doc, func() any { return new(any) })
-		checkUnmarshal(t, doc, func() any { return new(struct{ A int }) })
+		compareUnmarshal(t, doc, func() any { return new(any) })
+		compareUnmarshal(t, doc, func() any { return new(struct{ A int }) })
 		var got, want any
 		gotErr, wantErr := json.UnmarshalOf([]byte(doc), &got), stdjson.Unmarshal([]byte(doc), &want)
 		if describeTypeErrorMessage(gotErr) != describeTypeErrorMessage(wantErr) {

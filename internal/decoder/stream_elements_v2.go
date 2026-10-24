@@ -583,7 +583,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		return err
 	}
 	ctx := s.ctx
-	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	var seen uint64
 	var more []uint64
@@ -624,7 +624,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		}
 		switch {
 		case field != nil:
-			if !checkNames {
+			if !rejectDuplicateNames {
 				break
 			}
 			if idx := field.fieldIdx; idx < 64 {
@@ -638,7 +638,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			}
 		case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
 			return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}, step)
-		case checkNames:
+		case rejectDuplicateNames:
 			if !unknown.add(string(name)) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
@@ -769,13 +769,13 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 	if m.IsNil() {
 		m.Set(reflect.MakeMap(d.typ))
 	}
-	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	var seen reflect.Value
-	if checkNames && m.Len() > 0 {
+	if rejectDuplicateNames && m.Len() > 0 {
 		seen = reflect.MakeMap(reflect.MapOf(d.typ.Key(), emptyStructType))
 	}
 	var names *nameSet
-	if checkNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
+	if rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		names = &nameSet{}
 	}
 	k, v := reflect.New(d.typ.Key()), reflect.New(d.typ.Elem())
@@ -818,7 +818,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 		}
 		key := k.Elem()
 		if old := m.MapIndex(key); old.IsValid() {
-			if checkNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
+			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
 			v.Elem().Set(old)

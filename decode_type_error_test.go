@@ -137,7 +137,7 @@ func stdTypeErrorMayDiffer(err error) bool {
 	return !stdDecodesAsGo127 && errors.As(err, &typeErr)
 }
 
-func checkTypeError(t *testing.T, doc string, newValue func() any) {
+func compareTypeError(t *testing.T, doc string, newValue func() any) {
 	t.Helper()
 	want, got := newValue(), newValue()
 	stdErr := stdjson.Unmarshal([]byte(doc), want)
@@ -163,7 +163,7 @@ func checkTypeError(t *testing.T, doc string, newValue func() any) {
 func TestDecodeTypeErrors(t *testing.T) {
 	for _, place := range typeErrorPlaces {
 		for _, value := range typeErrorValues {
-			checkTypeError(t, fmt.Sprintf(place, value), func() any { return new(typeErrorOuter) })
+			compareTypeError(t, fmt.Sprintf(place, value), func() any { return new(typeErrorOuter) })
 		}
 	}
 }
@@ -182,18 +182,18 @@ func TestDecodeTypeErrorsOfValues(t *testing.T) {
 	}
 	for _, newValue := range targets {
 		for _, value := range typeErrorValues {
-			checkTypeError(t, value, newValue)
-			checkTypeError(t, " "+value+" ", newValue)
+			compareTypeError(t, value, newValue)
+			compareTypeError(t, " "+value+" ", newValue)
 		}
 	}
 	for _, doc := range []string{
 		`{"x":1}`, `{"1":1,"x":2,"3":3}`, `{"300":1}`, `{"-1":1}`, `{"1.5":1}`, `{"true":1,"false":2}`, `{}`,
 	} {
-		checkTypeError(t, doc, func() any { return new(map[int8]int) })
-		checkTypeError(t, doc, func() any { return new(map[uint]int) })
-		checkTypeError(t, doc, func() any { return new(map[float64]int) })
-		checkTypeError(t, doc, func() any { return new(map[bool]int) })
-		checkTypeError(t, doc, func() any { return new(map[typeErrorEmbedded]int) })
+		compareTypeError(t, doc, func() any { return new(map[int8]int) })
+		compareTypeError(t, doc, func() any { return new(map[uint]int) })
+		compareTypeError(t, doc, func() any { return new(map[float64]int) })
+		compareTypeError(t, doc, func() any { return new(map[bool]int) })
+		compareTypeError(t, doc, func() any { return new(map[typeErrorEmbedded]int) })
 	}
 }
 
@@ -207,7 +207,7 @@ func TestDecodeTypeErrorsBeforeSyntaxErrors(t *testing.T) {
 		`{"X":"s","Str":"\x"}`,
 		`{"A":{"F":"s"},"X":tru}`,
 	} {
-		checkTypeError(t, doc, func() any { return new(typeErrorOuter) })
+		compareTypeError(t, doc, func() any { return new(typeErrorOuter) })
 	}
 }
 
@@ -308,8 +308,8 @@ func TestDecodeTypeErrorsOfInterfaceValues(t *testing.T) {
 	for round := 0; round < 2; round++ {
 		for _, value := range []string{`{"A":1}`, `null`, `"text"`, `[1]`, `1`, `true`, ` false`, ` 12 `, ` {}`} {
 			for _, newValue := range values {
-				checkTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &holder{V: newValue()} })
-				checkTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &anyHolder{V: newValue()} })
+				compareTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &holder{V: newValue()} })
+				compareTypeError(t, `{"V":`+value+`,"Last":1}`, func() any { return &anyHolder{V: newValue()} })
 			}
 		}
 	}
@@ -329,7 +329,7 @@ func TestDecodeTypeErrorsOfKeysOfOtherCase(t *testing.T) {
 		`{"CODE":"x"}`,
 		`{"code":"x"}`,
 	} {
-		checkTypeError(t, doc, func() any { return new(country) })
+		compareTypeError(t, doc, func() any { return new(country) })
 	}
 }
 

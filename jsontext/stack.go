@@ -278,13 +278,13 @@ func (s *stack) pointerBytes(where, from int) []byte {
 	return b
 }
 
-// insertName adds the unquoted name to the innermost object, which must need a name, and reports false if check
-// is set and the object has it already. Without check, the object keeps only its last name, which the pointers
-// need.
-func (s *stack) insertName(name []byte, check bool) bool {
+// insertName adds the unquoted name to the innermost object, which must need a name, and reports false if
+// rejectDuplicate is set and the object has it already. Without rejectDuplicate, the object keeps only its last
+// name, which the pointers need.
+func (s *stack) insertName(name []byte, rejectDuplicate bool) bool {
 	l := s.last()
 	n := &s.names
-	if !check {
+	if !rejectDuplicate {
 		// the object keeps its last name only, for the pointers of errors: no object is indexed.
 		n.buf = append(n.buf[:n.start(l.first)], name...)
 		n.ends = append(n.ends[:l.first], len(n.buf))
@@ -303,10 +303,10 @@ func (s *stack) insertName(name []byte, check bool) bool {
 	return true
 }
 
-// addNewName adds the unquoted name to the innermost object, which must need a name, as insertName with check
-// does, and reports true, if the name is of a bit which no name of the object has and the names of the objects
-// are few, as most are: then it is new, and no object has an index of its names. Otherwise it adds nothing, and
-// insertName is to add it.
+// addNewName adds the unquoted name to the innermost object, which must need a name, as insertName with
+// rejectDuplicate does, and reports true, if the name is of a bit which no name of the object has and the names of
+// the objects are few, as most are: then it is new, and no object has an index of its names. Otherwise it adds
+// nothing, and insertName is to add it.
 func (s *stack) addNewName(name []byte) bool {
 	l := &s.levels[len(s.levels)-1]
 	n := &s.names

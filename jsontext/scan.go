@@ -21,8 +21,8 @@ import (
 type valueScanner struct {
 	st *stack
 	// the options
-	validUTF8  bool
-	checkNames bool
+	validUTF8            bool
+	rejectDuplicateNames bool
 	// lazyNames is set where the names of the objects aren't checked and the input, in, is the whole value: an
 	// object keeps the position of its last name in the input, as -2 minus it in level.last, and the names are
 	// added to the stack at an error only, for its pointer.
@@ -361,7 +361,7 @@ space4Back:
 	} else if n, f, err = scanStringFrom(b[i:], n, 0, mode); err != nil || s.write && f&strNonCanonical != 0 && !s.preserve {
 		return i, false
 	}
-	if s.checkNames {
+	if s.rejectDuplicateNames {
 		name := b[i+1 : i+n-1] // a name without escape sequences is the bytes between its quotes, without a call
 		if f&(strEscaped|strInvalidUTF8) != 0 {
 			name = unquotedName(&s.scratch, b[i:i+n], f)
@@ -694,7 +694,7 @@ name:
 			if f&(strEscaped|strInvalidUTF8) != 0 {
 				unquoted = unquotedName(&s.scratch, name, f)
 			}
-			if !s.st.insertName(unquoted, s.checkNames) {
+			if !s.st.insertName(unquoted, s.rejectDuplicateNames) {
 				return i, &scanError{err: ErrDuplicateName, pos: i, ptr: s.st.namePointer(unquoted)}
 			}
 		}

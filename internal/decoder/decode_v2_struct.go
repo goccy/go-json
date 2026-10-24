@@ -181,7 +181,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}
-	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	// seen are the fields which the object has, by their bits, after the first 64 in more, and unknown the names
 	// of no field which it has.
@@ -223,7 +223,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		}
 		// the name is checked before the colon after it, as encoding/json/v2 reads the name alone
 		if field != nil {
-			if checkNames {
+			if rejectDuplicateNames {
 				if idx := field.fieldIdx; idx < 64 {
 					// the first 64 fields are the bits of seen, in a register
 					bit := uint64(1) << uint(idx)
@@ -235,7 +235,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 					return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 				}
 			}
-		} else if err := d.unknownMember(ctx, &unknown, checkNames, buf, start, end, name); err != nil {
+		} else if err := d.unknownMember(ctx, &unknown, rejectDuplicateNames, buf, start, end, name); err != nil {
 			return 0, err
 		}
 		if buf[end] == ':' {
@@ -273,13 +273,13 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 
 // unknownMember checks the name of no field at start in buf, before end, decoded as name, or nil if it is plain ( see
 // exactFieldV2 ): it is an error with V2RejectUnknownMembers, if the struct has no fallback, and a name which the
-// object had before is an error if checkNames. unknown are the names of no field which the object had. It is a
-// function of its own, so that the loop of Decode keeps nothing of it.
-func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, checkNames bool, buf []byte, start, end int64, name []byte) error {
+// object had before is an error if rejectDuplicateNames. unknown are the names of no field which the object had.
+// It is a function of its own, so that the loop of Decode keeps nothing of it.
+func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, rejectDuplicateNames bool, buf []byte, start, end int64, name []byte) error {
 	switch {
 	case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
 		return &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
-	case checkNames:
+	case rejectDuplicateNames:
 		if name == nil {
 			name = buf[start+1 : end-1]
 		}
@@ -428,9 +428,9 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 		return 0, err
 	}
 	v := buf[start:end]
-	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	checkUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
-	if (checkNames || checkUTF8) &&
+	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
+	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
+	if (scanNames || scanUTF8) &&
 		!textcoder.ValidValue(v, ctx.Option.V2&V2AllowDuplicateNames != 0, ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		return 0, errV2Text
 	}
@@ -637,17 +637,17 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}
-	checkNames := ctx.Option.V2&V2AllowDuplicateNames == 0
+	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	// the keys of the object, if the map had keys before, which a name of the object can't be told from by the map;
 	// and the names of the object as they are written, which a key of another kind than a bool, an integer and a
 	// string of valid UTF-8 doesn't tell apart, as a pointer, a float or an interface value, nor a key which a method
 	// or a function decodes.
 	var seen reflect.Value
-	if checkNames && m.Len() > 0 {
+	if rejectDuplicateNames && m.Len() > 0 {
 		seen = reflect.MakeMap(reflect.MapOf(d.typ.Key(), emptyStructType))
 	}
 	var names *nameSet
-	if checkNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
+	if rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		names = &nameSet{}
 	}
 	k, v := reflect.New(d.typ.Key()), reflect.New(d.typ.Elem())
@@ -666,7 +666,7 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		}
 		key := k.Elem()
 		if old := m.MapIndex(key); old.IsValid() {
-			if checkNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
+			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 			}
 			v.Elem().Set(old)

@@ -46,7 +46,7 @@ import (
 //
 // What a category requires is checked, not assumed: every configuration is run on the probes of its category, small
 // inputs which tell a behavior apart, and the result of every configuration on every payload is compared with the
-// one of the baseline of the category ( see checkPayload ). A configuration which behaves differently is still
+// one of the baseline of the category ( see diffPayload ). A configuration which behaves differently is still
 // measured: the report shows it apart from the others of its category, with what differs. Only an operation which
 // fails on a payload is not measured.
 
@@ -385,7 +385,7 @@ func TestReport(t *testing.T) {
 				continue
 			}
 			for _, p := range payloads {
-				diff, err := checkPayload(c, op, p)
+				diff, err := diffPayload(c, op, p)
 				if err != nil {
 					run.Exclusions = append(run.Exclusions, report.Exclusion{Op: op, Payload: p.ID, Config: c.ID, Reason: err.Error()})
 					continue
@@ -515,11 +515,11 @@ func baselineOf(category string) *reportConfig {
 	panic("no baseline of " + category)
 }
 
-// checkPayload returns how the result of the configuration on the payload differs from the one of the baseline of
+// diffPayload returns how the result of the configuration on the payload differs from the one of the baseline of
 // its category, or "", and the error of the operation, which then can't be measured: a decoded value must be the
 // one the baseline decodes; an encoded value must be the baseline's output byte for byte in "std", where the
 // output is defined byte for byte, and the same JSON value in the other categories.
-func checkPayload(c *reportConfig, op string, p *reportPayload) (string, error) {
+func diffPayload(c *reportConfig, op string, p *reportPayload) (string, error) {
 	base := baselineOf(c.Category)
 	if op == report.OpDecode {
 		v := p.newValue()
@@ -566,14 +566,14 @@ func sameJSON(a, b []byte) bool {
 	return reflect.DeepEqual(x, y)
 }
 
-// reportProbe is a small input which tells a behavior apart. check returns "" if the configuration behaves as the
+// reportProbe is a small input which tells a behavior apart. deviation returns "" if the configuration behaves as the
 // category requires, else what it did.
 type reportProbe struct {
 	id, description string
 	op              string
 	// categories are the categories which require the behavior.
 	categories []string
-	check      func(c *reportConfig) string
+	deviation  func(c *reportConfig) string
 }
 
 type probeMarshaler struct{}
@@ -599,13 +599,13 @@ func encodeProbe(v any, want string, exact bool) func(c *reportConfig) string {
 	}
 }
 
-// decodeProbe decodes data into a new value of newValue's type, and checks the value, or that it is an error when
-// check is nil.
-func decodeProbe(data string, newValue func() any, check func(v any) string) func(c *reportConfig) string {
+// decodeProbe decodes data into a new value of newValue's type, and returns what deviation returns for the value,
+// or, when deviation is nil, "" if the decoding fails.
+func decodeProbe(data string, newValue func() any, deviation func(v any) string) func(c *reportConfig) string {
 	return func(c *reportConfig) string {
 		v := newValue()
 		err := c.decodeInto([]byte(data), v)
-		if check == nil {
+		if deviation == nil {
 			if err == nil {
 				return "accepted invalid input"
 			}
@@ -614,7 +614,7 @@ func decodeProbe(data string, newValue func() any, check func(v any) string) fun
 		if err != nil {
 			return "error: " + err.Error()
 		}
-		return check(v)
+		return deviation(v)
 	}
 }
 
@@ -649,19 +649,19 @@ func nameProbe(want string) func(v any) string {
 var reportProbes = []reportProbe{
 	{id: "escape-html", op: report.OpEncode, categories: []string{"std"},
 		description: `HTML characters are escaped: "<&>" is encoded as "\u003c\u0026\u003e".`,
-		check:       encodeProbe("<&>", `"\u003c\u0026\u003e"`, true)},
+		deviation:   encodeProbe("<&>", `"\u003c\u0026\u003e"`, true)},
 	{id: "no-escape-html", op: report.OpEncode, categories: []string{"v2"},
 		description: `HTML characters are not escaped: "<&>" is encoded as "<&>".`,
-		check:       encodeProbe("<&>", `"<&>"`, true)},
+		deviation:   encodeProbe("<&>", `"<&>"`, true)},
 	{id: "sort-map-keys", op: report.OpEncode, categories: []string{"std"},
 		description: "The keys of a map are sorted.",
-		check:       encodeProbe(map[string]int{"b": 1, "c": 2, "a": 3}, `{"a":3,"b":1,"c":2}`, true)},
+		deviation:   encodeProbe(map[string]int{"b": 1, "c": 2, "a": 3}, `{"a":3,"b":1,"c":2}`, true)},
 	{id: "invalid-utf8-encode", op: report.OpEncode, categories: v1Like,
 		description: `Invalid UTF-8 is encoded as U+FFFD.`,
-		check:       encodeProbe("a\xffb", `"a\ufffdb"`, false)},
+		deviation:   encodeProbe("a\xffb", `"a\ufffdb"`, false)},
 	{id: "invalid-utf8-encode-error", op: report.OpEncode, categories: []string{"v2"},
 		description: "Invalid UTF-8 is an error when it is encoded.",
-		check: func(c *reportConfig) string {
+		deviation: func(c *reportConfig) string {
 			if out, err := c.marshal("a\xffb"); err == nil {
 				return "encoded as " + string(out)
 			}
@@ -669,46 +669,46 @@ var reportProbes = []reportProbe{
 		}},
 	{id: "nil-null", op: report.OpEncode, categories: v1Like,
 		description: "A nil slice and a nil map are encoded as null.",
-		check:       encodeProbe(probeSlice{}, `{"S":null,"M":null}`, false)},
+		deviation:   encodeProbe(probeSlice{}, `{"S":null,"M":null}`, false)},
 	{id: "nil-empty", op: report.OpEncode, categories: []string{"v2"},
 		description: "A nil slice is encoded as [] and a nil map as {}.",
-		check:       encodeProbe(probeSlice{}, `{"S":[],"M":{}}`, false)},
+		deviation:   encodeProbe(probeSlice{}, `{"S":[],"M":{}}`, false)},
 	{id: "floats", op: report.OpEncode, categories: every,
 		description: "Floats are formatted as encoding/json formats them.",
-		check:       encodeProbe([]float64{1e21, 1e20, 1e-7, 0.000001, 0.1, 123456789, -0.5}, `[1e+21,100000000000000000000,1e-7,0.000001,0.1,123456789,-0.5]`, true)},
+		deviation:   encodeProbe([]float64{1e21, 1e20, 1e-7, 0.000001, 0.1, 123456789, -0.5}, `[1e+21,100000000000000000000,1e-7,0.000001,0.1,123456789,-0.5]`, true)},
 	{id: "marshaler-compact", op: report.OpEncode, categories: v1Like,
 		description: "The output of a Marshaler is compacted.",
-		check:       encodeProbe(probeMarshaler{}, `{"a":[1,2]}`, true)},
+		deviation:   encodeProbe(probeMarshaler{}, `{"a":[1,2]}`, true)},
 	{id: "invalid-utf8-decode", op: report.OpDecode, categories: v1Like,
 		description: "Invalid UTF-8 in a string is decoded as U+FFFD.",
-		check:       decodeProbe("\"a\xffb\"", func() any { return new(string) }, stringProbe("a\ufffdb"))},
+		deviation:   decodeProbe("\"a\xffb\"", func() any { return new(string) }, stringProbe("a\ufffdb"))},
 	{id: "invalid-utf8-decode-error", op: report.OpDecode, categories: []string{"v2"},
 		description: "Invalid UTF-8 in a string is an error.",
-		check:       decodeProbe("\"a\xffb\"", func() any { return new(string) }, nil)},
+		deviation:   decodeProbe("\"a\xffb\"", func() any { return new(string) }, nil)},
 	{id: "control-character", op: report.OpDecode, categories: every,
 		description: "A control character in a string is an error.",
-		check:       decodeProbe("\"a\x01\"", func() any { return new(string) }, nil)},
+		deviation:   decodeProbe("\"a\x01\"", func() any { return new(string) }, nil)},
 	{id: "case-insensitive", op: report.OpDecode, categories: v1Like,
 		description: "A key matches a field regardless of case.",
-		check:       decodeProbe(`{"NAME":"x"}`, func() any { return new(probeFields) }, nameProbe("x"))},
+		deviation:   decodeProbe(`{"NAME":"x"}`, func() any { return new(probeFields) }, nameProbe("x"))},
 	{id: "case-sensitive", op: report.OpDecode, categories: []string{"v2"},
 		description: "A key matches a field only by its case.",
-		check:       decodeProbe(`{"NAME":"x"}`, func() any { return new(probeFields) }, nameProbe(""))},
+		deviation:   decodeProbe(`{"NAME":"x"}`, func() any { return new(probeFields) }, nameProbe(""))},
 	{id: "skipped-value-validated", op: report.OpDecode, categories: every,
 		description: "The value of an unknown key is validated.",
-		check:       decodeProbe(`{"unknown":[1,,2],"Name":"x"}`, func() any { return new(probeFields) }, nil)},
+		deviation:   decodeProbe(`{"unknown":[1,,2],"Name":"x"}`, func() any { return new(probeFields) }, nil)},
 	{id: "duplicate-key", op: report.OpDecode, categories: v1Like,
 		description: "The last of duplicate keys wins.",
-		check:       decodeProbe(`{"Name":"a","Name":"b"}`, func() any { return new(probeFields) }, nameProbe("b"))},
+		deviation:   decodeProbe(`{"Name":"a","Name":"b"}`, func() any { return new(probeFields) }, nameProbe("b"))},
 	{id: "duplicate-key-error", op: report.OpDecode, categories: []string{"v2"},
 		description: "Duplicate keys are an error.",
-		check:       decodeProbe(`{"Name":"a","Name":"b"}`, func() any { return new(probeFields) }, nil)},
+		deviation:   decodeProbe(`{"Name":"a","Name":"b"}`, func() any { return new(probeFields) }, nil)},
 	{id: "overflow", op: report.OpDecode, categories: every,
 		description: "A number out of the range of its field is an error.",
-		check:       decodeProbe(`{"Small":300}`, func() any { return new(probeFields) }, nil)},
+		deviation:   decodeProbe(`{"Small":300}`, func() any { return new(probeFields) }, nil)},
 	{id: "string-copied", op: report.OpDecode, categories: []string{"std", "v2"},
 		description: "A decoded string is a copy: it doesn't change when the input is modified.",
-		check: func(c *reportConfig) string {
+		deviation: func(c *reportConfig) string {
 			data := []byte(`{"Name":"abcdefghijklmnopqrstuvwxyz"}`)
 			v := new(probeFields)
 			if err := c.decodeInto(data, v); err != nil {
@@ -754,7 +754,7 @@ func safeProbe(p reportProbe, c *reportConfig) (detail string) {
 			detail = fmt.Sprintf("panic: %v", r)
 		}
 	}()
-	return p.check(c)
+	return p.deviation(c)
 }
 
 // reportLibraries returns the libraries measured, with the versions the benchmarks are built with.

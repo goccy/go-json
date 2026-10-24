@@ -82,9 +82,9 @@ func TestEncodeStdMarshalers(t *testing.T) {
 	}
 }
 
-// checkStdEncoding checks that the values encode as encoding/json encodes them, with and without the escape of
+// compareStdEncoding checks that the values encode as encoding/json encodes them, with and without the escape of
 // HTML and with indent, by the plain VMs and the colored ones.
-func checkStdEncoding(t *testing.T, values ...any) {
+func compareStdEncoding(t *testing.T, values ...any) {
 	t.Helper()
 	for _, v := range values {
 		want, wantErr := stdjson.Marshal(v)
@@ -143,7 +143,7 @@ func TestEncodeStdMarshalersOfOtherPackages(t *testing.T) {
 		Levels: map[slog.Level]int{slog.LevelInfo: 1, slog.LevelError: 2},
 		Addrs:  map[netip.Addr]string{netip.MustParseAddr("::1"): "a", netip.MustParseAddr("127.0.0.1"): "b"}, Any: huge,
 	}
-	checkStdEncoding(t, v, &v, huge, big.NewInt(0), slog.LevelInfo, netip.Addr{}, net.IP{}, []*big.Int{huge, nil})
+	compareStdEncoding(t, v, &v, huge, big.NewInt(0), slog.LevelInfo, netip.Addr{}, net.IP{}, []*big.Int{huge, nil})
 	// an IP of an invalid length is the error of MarshalText.
 	if _, err := json.Marshal(net.IP{1, 2, 3}); err == nil {
 		t.Fatal("expected the error of MarshalText")
@@ -155,7 +155,7 @@ type userTime struct{ time.Time }
 
 func (userTime) MarshalJSON() ([]byte, error) { return []byte(`{"a":`), nil }
 
-func TestEncodeUserMarshalerIsChecked(t *testing.T) {
+func TestEncodeRejectsInvalidUserMarshalerOutput(t *testing.T) {
 	if _, err := json.Marshal(struct{ T userTime }{}); err == nil {
 		t.Fatal("expected an error for the invalid output of the marshaler of a type of the user")
 	}
@@ -204,7 +204,7 @@ func TestEncodeEmbeddedStdMarshalers(t *testing.T) {
 		Int: embeddedInt{big.NewInt(-12)}, M: map[embeddedAddr]embeddedTime{{netip.MustParseAddr("::1")}: {tm}},
 		S: []embeddedTimeNested{{"a", embeddedTimeAfter{3, tm}}}, Any: embeddedTimeAfter{4, tm},
 	}
-	checkStdEncoding(t, v, &v, embeddedTime{tm}, &embeddedTime{tm}, embeddedTimeNested{}, embeddedAddr{},
+	compareStdEncoding(t, v, &v, embeddedTime{tm}, &embeddedTime{tm}, embeddedTimeNested{}, embeddedAddr{},
 		embeddedThroughPointer{&embeddedTime{tm}}, &embeddedThroughPointer{&embeddedTime{tm}})
 	// the error of the marshaler of the embedded value is the one of the call.
 	late := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)

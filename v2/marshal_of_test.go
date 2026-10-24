@@ -44,7 +44,7 @@ func TestMarshalOf(t *testing.T) {
 		marshalOfStruct{Name: "name", Inner: inner, Ptr: &inner, List: []marshalOfInner{inner}, To: marshalOfTo{3}},
 		inner, &inner, nilPtr, 1, "s", []int{1, 2}, map[string]int{"a": 1}, marshalOfTo{4}, [2]bool{true},
 	}
-	check := func(name string, want []byte, wantErr error, got []byte, err error) {
+	compare := func(name string, want []byte, wantErr error, got []byte, err error) {
 		t.Helper()
 		if (err == nil) != (wantErr == nil) || string(got) != string(want) {
 			t.Errorf("%s = %s, %v; want %s, %v", name, got, err, want, wantErr)
@@ -56,24 +56,24 @@ func TestMarshalOf(t *testing.T) {
 		switch v := v.(type) {
 		case marshalOfStruct:
 			got, err := json.MarshalOf(v)
-			check("MarshalOf", want, wantErr, got, err)
+			compare("MarshalOf", want, wantErr, got, err)
 			err = json.MarshalWriteOf(&buf, v)
-			check("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
+			compare("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
 		case marshalOfInner:
 			got, err := json.MarshalOf(v)
-			check("MarshalOf", want, wantErr, got, err)
+			compare("MarshalOf", want, wantErr, got, err)
 			err = json.MarshalWriteOf(&buf, v)
-			check("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
+			compare("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
 		case *marshalOfInner:
 			got, err := json.MarshalOf(v)
-			check("MarshalOf", want, wantErr, got, err)
+			compare("MarshalOf", want, wantErr, got, err)
 			err = json.MarshalWriteOf(&buf, v)
-			check("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
+			compare("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
 		default:
 			got, err := json.MarshalOf(v)
-			check("MarshalOf", want, wantErr, got, err)
+			compare("MarshalOf", want, wantErr, got, err)
 			err = json.MarshalWriteOf(&buf, v)
-			check("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
+			compare("MarshalWriteOf", want, wantErr, buf.Bytes(), err)
 		}
 	}
 	// the functions of marshaling are called as for Marshal: not for a nil pointer, which is null.

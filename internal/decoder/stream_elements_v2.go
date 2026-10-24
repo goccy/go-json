@@ -523,12 +523,8 @@ func (s *Stream) decodeElementsV2(dec Decoder, p unsafe.Pointer, depth, from int
 			return true, s.decodeArrayElementsV2(d, p, depth, from)
 		}
 		typ = d.typ
-	case *v2ScalarDecoder:
-		b, ok := d.dec.(*boolDecoder)
-		if !ok {
-			return false, nil
-		}
-		typ = b.typ
+	case *boolDecoder:
+		typ = d.typ
 	case *v2InvalidDecoder:
 		// a type of no representation, which is the error before the value is read
 		return true, s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor, NoKind: true, Err: d.err}, from)

@@ -145,6 +145,22 @@ func (ctx *RuntimeContext) numberTypeError(start, end int64, typ reflect.Type) {
 	}
 }
 
+// numberError is the type error of the number between start and end, which is not of typ because it is out of its
+// range or not an integer, of a decoder of a number: it is recorded ( see numberTypeError ), and the position after
+// the number returned, but the semantics of encoding/json/v2 stop at the error, which is returned as v2Error makes
+// it. It is not inlined, so that the decoders of the numbers keep the size they had.
+//
+//go:noinline
+func (ctx *RuntimeContext) numberError(start, end int64, typ reflect.Type) (int64, error) {
+	if ctx.Option.V2 != 0 {
+		return 0, &errors.UnmarshalError{
+			GoType: typ, Start: start, End: end, HasValue: true, Err: numberCause(ctx.Buf[start:end], typ),
+		}
+	}
+	ctx.numberTypeError(start, end, typ)
+	return end, nil
+}
+
 // keyTypeError records the type error of the key of a map entry between start and end, the quotes of which are
 // included, which is not a number of typ: the error reports the key.
 func (ctx *RuntimeContext) keyTypeError(start, end int64, key []byte, typ reflect.Type) {

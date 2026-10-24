@@ -188,6 +188,13 @@ type udFoldNoDashes struct {
 	Long int `json:"LongName"`
 }
 
+// udReplacement has the name of the replacement character, which v1 decodes invalid UTF-8 into: such a name of no
+// other field is invalid, of every case.
+type udReplacement struct {
+	R int `json:"�"`
+	K int `json:"k"`
+}
+
 var (
 	insensitive = unmarshalDiffOptions{matchCaseInsensitiveNames: true}
 	reject      = unmarshalDiffOptions{rejectUnknownMembers: true}
@@ -364,6 +371,9 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name of the Kelvin sign of a field of dashes insensitive", in: `{"\u212a-X":1}`, out: outOf(udSnake{}), opts: insensitive},
 		{name: "struct names twice of a field of dashes insensitive", in: `{"user_name":1,"USERNAME":2}`, out: outOf(udSnake{}), opts: insensitive},
 		{name: "struct name with an underscore of no field with one", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{})},
+		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
+		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},
+		{name: "struct name of invalid UTF-8 of the replacement character allowed insensitive", in: "{\"\xff\":1,\"K\":2}", out: outOf(udReplacement{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true, matchCaseInsensitiveNames: true}},
 		{name: "struct name with an underscore of no field with one insensitive", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct name with a dash of an ignoring field with none", in: `{"s-":1,"-S":2}`, out: outOf(udFoldNoDashes{})},
 		{name: "struct name with a dash of the Kelvin sign insensitive", in: `{"-\u212a":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},

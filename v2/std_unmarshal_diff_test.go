@@ -335,6 +335,49 @@ func TestUnmarshalMatchesStd(t *testing.T) {
 	}
 }
 
+// udCalled counts the calls of its method in udCalls.
+type udCalled struct{}
+
+var udCalls int
+
+func (*udCalled) UnmarshalJSON([]byte) error {
+	udCalls++
+	return nil
+}
+
+// TestUnmarshalStopsAtANumberError checks that a number which is not a value of its type stops the decoding, as
+// encoding/json/v2 stops at its first error: the member after it is not decoded.
+func TestUnmarshalStopsAtANumberError(t *testing.T) {
+	type numbers struct {
+		I8  int8
+		U   uint
+		F32 float32
+		I   int
+		M   udCalled
+	}
+	callsOf := func(unmarshal func(v any) error) (int, error) {
+		udCalls = 0
+		err := unmarshal(new(numbers))
+		return udCalls, err
+	}
+	for _, in := range []string{`{"I8":300,"M":1}`, `{"U":-1,"M":1}`, `{"F32":1e40,"M":1}`, `{"I":1.5,"M":1}`} {
+		want, stdErr := callsOf(func(v any) error { return stdjson.Unmarshal([]byte(in), v) })
+		if stdErr == nil {
+			t.Fatalf("%s: no error of encoding/json/v2", in)
+		}
+		got, err := callsOf(func(v any) error { return json.Unmarshal([]byte(in), v) })
+		if err == nil || got != want {
+			t.Fatalf("%s: %d calls, %v; want %d calls and an error", in, got, err, want)
+		}
+		for _, n := range readSizes {
+			got, err := callsOf(func(v any) error { return json.UnmarshalRead(newChunkReader(in, n), v) })
+			if err == nil || got != want {
+				t.Fatalf("%s, reads of %d: %d calls, %v; want %d calls and an error", in, n, got, err, want)
+			}
+		}
+	}
+}
+
 // TestUnmarshalLeavesWhatElementsPointTo checks that an element of a slice or an array which a pointer is decoded
 // into is a new pointer, as encoding/json/v2 decodes into the zero value of an element: what the old one pointed to
 // is left as it was.

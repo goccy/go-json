@@ -257,6 +257,35 @@ func (*failingAfterTokens) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return errFailingAfterTokens
 }
 
+// TestUnmarshalDecodeOfAMemberOfAnEmptyName checks the error in the value of a member of the name "", which
+// UnmarshalDecode decodes after ReadToken read the name, by a new decoder, whose names have no array yet: its place
+// has the name, as encoding/json/v2 reports it.
+func TestUnmarshalDecodeOfAMemberOfAnEmptyName(t *testing.T) {
+	for _, in := range []string{`{"":{"x":1e}}`, `{"":1e}`, `{"a":1,"":[1,]}`} {
+		for _, n := range readSizes {
+			dec := jsontext.NewDecoder(newChunkReader(in, n))
+			std := stdjsontext.NewDecoder(newChunkReader(in, n))
+			tokens := 2
+			if in[2] == 'a' {
+				tokens = 4
+			}
+			for range tokens {
+				if _, err := dec.ReadToken(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := std.ReadToken(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var v, w any
+			got, want := describeUnmarshalError(json.UnmarshalDecode(dec, &v)), describeUnmarshalError(stdjson.UnmarshalDecode(std, &w))
+			if got != want {
+				t.Fatalf("%s, reads of %d:\n got %s\nwant %s", in, n, got, want)
+			}
+		}
+	}
+}
+
 // The decoder after an error of its value: after a SemanticError, the decoder is after the value, or, if the rest of
 // the value has an error, fails every read with it; after a syntax error, it is before the value, which it reads
 // again; after the error of a method which read its value from a reader, it is before the value, or fails every read

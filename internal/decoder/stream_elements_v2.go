@@ -573,7 +573,10 @@ func (s *Stream) memberValueV2() (int64, error) {
 // the name in the buffer for, into the spare name of the path ( see setName ).
 func (s *Stream) copyName(name []byte) {
 	call := s.ctx.v2
-	call.spareName = append(call.spareName[:0], name...)
+	if call.spareName = append(call.spareName[:0], name...); call.spareName == nil {
+		// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
+		call.spareName = []byte{}
+	}
 }
 
 // setName makes the name which copyName copied the last name of the level lv of the path, of its member k, whose

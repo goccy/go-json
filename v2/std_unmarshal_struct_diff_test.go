@@ -283,6 +283,8 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct embedded unexported pointer", in: `{"X":1}`, out: outOf(udOuterUnexportedPtr{})},
 		{name: "struct embedded unexported pointer set", in: `{"X":1}`, out: func() any { v := udOuterUnexportedPtr{udUnexportedEmbed: &udUnexportedEmbed{}}; return &v }},
 		{name: "struct map fallback", in: `{"A":1,"B":[2],"C":{"d":3}}`, out: outOf(udMapFallback{})},
+		{name: "struct map fallback of an empty name of a syntax error", in: `{"A":1,"":nul`, out: outOf(udMapFallback{})},
+		{name: "struct empty name of no field of a syntax error", in: `{"":[ fals, true],"y":1}`, out: outOf(udPoint{})},
 		{name: "struct map fallback merged", in: `{"B":{"y":2}}`, out: func() any { v := udMapFallback{Rest: map[string]any{"B": map[string]any{"x": 1.0}}}; return &v }},
 		{name: "struct map fallback twice", in: `{"B":1,"B":2}`, out: outOf(udMapFallback{})},
 		{name: "struct named map fallback", in: `{"B":2}`, out: outOf(udNamedMapFallback{})},

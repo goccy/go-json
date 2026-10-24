@@ -189,7 +189,10 @@ func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Lev
 			tl.Count-- // the value of the next level, which is open, is not counted
 		}
 		if l.object && l.last >= l.first {
-			tl.Name = st.names.get(l.last)
+			if tl.Name = st.names.get(l.last); tl.Name == nil {
+				// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
+				tl.Name = []byte{}
+			}
 		}
 		levels = append(levels, tl)
 	}

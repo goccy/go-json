@@ -375,6 +375,8 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name with an underscore of no field with one", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{})},
 		{name: "struct long name of another case insensitive", in: `{"LONGNAME":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct long name of another case with dashes insensitive", in: `{"long-name":1,"LongName":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct long string after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + `"}`, out: outOf(udInner{})},
+		{name: "struct long string of invalid UTF-8 after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + "\xff\"}", out: outOf(udInner{})},
 		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
 		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},
 		{name: "struct name of invalid UTF-8 of the replacement character allowed insensitive", in: "{\"\xff\":1,\"K\":2}", out: outOf(udReplacement{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true, matchCaseInsensitiveNames: true}},

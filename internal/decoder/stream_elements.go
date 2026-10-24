@@ -211,7 +211,7 @@ func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error 
 // again, and reports the error.
 func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 	switch dec.(type) {
-	case *stringDecoder, *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, *numberDecoder:
+	case *stringDecoder, *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, *numberDecoder, v2StringDecoder:
 	default:
 		return false
 	}

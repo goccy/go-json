@@ -360,6 +360,17 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		return s.decodeNestedV2(d.next, p, depth, from)
 	case *v2FuncDecoder:
 		return s.decodeFuncsV2(d, p, depth, from)
+	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder:
+		// a string, a number or a literal which the buffer has whole is decoded in it, as v1 decodes it, after from,
+		// which a read for the rest of a string keeps
+		if c := s.buf[s.cursor]; c != '{' && c != '[' {
+			keeps, keepFrom := s.keepFromHere(from)
+			decoded := s.decodeScalar(dec, p, depth)
+			s.keeps, s.keepFrom = keeps, keepFrom
+			if decoded {
+				return nil
+			}
+		}
 	}
 	keeps, keepFrom := s.keepFromHere(from)
 	end, whole, err := s.elementEnd(depth)

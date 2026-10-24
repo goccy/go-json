@@ -575,9 +575,12 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	v := buf[start:end]
-	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
+	// a number and a literal, which skipValue found of their grammar, are of ASCII without an escape, and they
+	// and a string have no name
+	v, c := buf[start:end], buf[start]
+	container := c == '{' || c == '['
+	scanNames := container && ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
+	scanUTF8 := (container || c == '"') && ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
 	if (scanNames || scanUTF8) && !textcoder.ValidValue(skipperOf(ctx), v) {
 		return 0, errV2Text
 	}

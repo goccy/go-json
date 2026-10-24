@@ -54,10 +54,11 @@ func UnmarshalDecodeOf[T any](in *jsontext.Decoder, out *T, opts ...Options) err
 }
 
 // decodeCall is the state of a call of UnmarshalDecode, which the calls reuse: the levels of the place of the value,
-// and the input of the decoder which a stream reads.
+// the input of the decoder which a stream reads, and the config of the options of the call.
 type decodeCall struct {
 	levels []textcoder.Level
 	input  lentInput
+	cfg    options.Config
 }
 
 var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
@@ -67,10 +68,12 @@ var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
 func unmarshalDecode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options) error {
 	dc := decodeCalls.Get().(*decodeCall)
 	err := dc.decode(in, typ, p, opts)
-	// the levels and the input refer to the decoder, which the pool must not keep alive
+	// the levels and the input refer to the decoder, and the config may hold the functions of the caller, which the
+	// pool must not keep alive
 	clear(dc.levels)
 	dc.levels = dc.levels[:0]
 	dc.input = lentInput{}
+	dc.cfg = options.Config{}
 	decodeCalls.Put(dc)
 	return err
 }
@@ -80,14 +83,13 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 	d := unsafe.Pointer(in)
 	levels, name, outer, depth := textcoder.DecoderPlace(d, dc.levels[:0])
 	dc.levels = levels
-	cfg := configPool.Get().(*options.Config)
+	cfg := &dc.cfg
 	in.Options().ApplyTo(cfg)
 	if len(opts) > 0 {
 		if name {
 			orig := *cfg
 			cfg.Apply(opts)
 			if err := optionsChange(&orig, cfg, levels[len(levels)-1]); err != nil && err != errChangingWhitespace {
-				releaseConfig(cfg)
 				// the error before the name, which is not read
 				start, berr := textcoder.BeginValue(d)
 				if berr != nil {
@@ -116,24 +118,17 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 	return err
 }
 
-// releaseConfig puts cfg, a config of the pool, back.
-func releaseConfig(cfg *options.Config) {
-	*cfg = options.Config{}
-	configPool.Put(cfg)
-}
-
 // decodeName decodes the name of an object which is the next value of the decoder, which reads it, into the value at
-// p, of the pointer type typ, by the options of cfg, as Unmarshal decodes it, and drops cfg.
+// p, of the pointer type typ, by the options of cfg, as Unmarshal decodes it.
 func decodeName(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config) error {
 	v, err := in.ReadValue()
 	if err != nil {
-		releaseConfig(cfg)
 		return err
 	}
 	ctx := decoder.TakeRuntimeContext()
 	setCall(ctx, cfg)
 	err = decodeInput(ctx, ctx.SetInput(v), typ, p, cfg)
-	endCall(ctx, cfg)
+	clearCall(ctx)
 	ctx.Option.V2 = 0
 	decoder.ReleaseRuntimeContext(ctx)
 	if se, ok := err.(*SemanticError); ok {
@@ -145,14 +140,13 @@ func decodeName(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config
 }
 
 // decodeInPlace decodes the next value of the decoder at d, which st attached at a value which the input of a call
-// holds whole, into the value at p, of the pointer type typ, by the options of cfg, and drops cfg: the value is
+// holds whole, into the value at p, of the pointer type typ, by the options of cfg: the value is
 // decoded in the input, where the decoder reads it, which goes on after it. levels and depth are the place of the
 // value ( see textcoder.DecoderPlace ).
 func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
-		releaseConfig(cfg)
 		return err
 	}
 	// the input with the nul byte after it, which the attach leaves out
@@ -180,7 +174,7 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels
 			return textcoder.SkipToEnd(decodePlace(in, from, levels, skipOptions, nil), depth, levels[depth].Count)
 		}, nil)
 	}
-	endCall(ctx, cfg)
+	clearCall(ctx)
 	ctx.Option.V2 = 0
 	decoder.ReleaseRuntimeContext(ctx)
 	return err
@@ -247,14 +241,13 @@ func (l *lentInput) Read(p []byte) (int, error) {
 }
 
 // decodeLent decodes the next value of the decoder at d, of in, into the value at p, of the pointer type typ, by the
-// options of cfg, and drops cfg: a stream reads the input of the decoder by input, from the end of the token before
+// options of cfg: a stream reads the input of the decoder by input, from the end of the token before
 // the value, as UnmarshalRead reads it, and the decoder goes on after the value. levels and depth are the place of
 // the value ( see textcoder.DecoderPlace ).
 func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
-		releaseConfig(cfg)
 		return err
 	}
 	buf, r := textcoder.DecoderInput(d, from)
@@ -281,7 +274,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels
 		}
 		err = afterError(d, err, start, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
 	}
-	endCall(ctx, cfg)
+	clearCall(ctx)
 	decoder.ReleaseStreamV2(s)
 	return err
 }
@@ -331,14 +324,13 @@ func streamSkip(s *decoder.Stream, read bool, depth int, count int64) func() (in
 }
 
 // decodeOnStream decodes the next value of the decoder at d, which st attached at a value of a stream which reads on
-// from the reader of the stream, into the value at p, of the pointer type typ, by the options of cfg, and drops cfg:
+// from the reader of the stream, into the value at p, of the pointer type typ, by the options of cfg:
 // the stream takes the input of the decoder back, decodes the value, and gives the decoder the input after it. levels
 // and depth are the place of the value ( see textcoder.DecoderPlace ).
 func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
-		releaseConfig(cfg)
 		return err
 	}
 	s := st.stream
@@ -373,7 +365,7 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 			s.Drop()
 		}
 	}
-	endCall(ctx, cfg)
+	clearCall(ctx)
 	st.nestedPath = s.RestorePath(savedPath)
 	call.Funcs, call.Config, call.Value, call.Place, call.From = savedFuncs, savedConfig, savedValue, savedPlace, savedFrom
 	*ctx.Option = savedOption

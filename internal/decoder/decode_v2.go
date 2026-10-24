@@ -1145,11 +1145,12 @@ func (n *callNames) start(i int) int {
 
 func (n *callNames) get(i int) []byte { return n.buf[n.start(i):n.ends[i]] }
 
-// has reports whether one of the names from the index first up to end is the name.
+// has reports whether one of the names from the index first up to end is the name: a name of another length, or of
+// another last byte, is not compared.
 func (n *callNames) has(first, end int, name []byte) bool {
 	start := n.start(first)
 	for _, e := range n.ends[first:end] {
-		if string(n.buf[start:e]) == string(name) {
+		if e-start == len(name) && (len(name) == 0 || n.buf[e-1] == name[len(name)-1]) && string(n.buf[start:e]) == string(name) {
 			return true
 		}
 		start = e

@@ -17,6 +17,10 @@
   (recorded 2026-10-11).
 - v2 `MarshalOf` drops its output on an error, so the error loses its place compared with
   `Marshal` (recorded 2026-10-08).
+- v2 `MarshalEncode` of a value which is not a string, where the encoder is at the name of a
+  member, writes the value before it fails: its methods run, and an unsupported value in it is a
+  `SemanticError`, where encoding/json/v2 fails at once with a `SyntacticError` at the place
+  (recorded 2026-10-25, found by the review of the names "" of the places of encoders).
 - Recorded 2026-09-21 as needing a change of the VM:
   - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
   - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;

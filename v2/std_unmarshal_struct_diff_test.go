@@ -129,7 +129,7 @@ type udWide struct {
 // udNames has names which a name is told apart from by its words: of 7, 8 and 16 bytes, two of 19 bytes of the same
 // first and last words, a name of a control character and one which ends with a nul, which an input has only
 // escaped, a name which is not ASCII, and two names which differ only in case. A name of a backslash can't be: a
-// tag can't have it.
+// tag can't have it. P nests it, for the names of no field of an object in another.
 type udNames struct {
 	Seven   int `json:"abcdefg"`
 	Eight   int `json:"abcdefgh"`
@@ -141,6 +141,18 @@ type udNames struct {
 	Accent  int `json:"é"`
 	Lower   int `json:"name"`
 	Upper   int `json:"Name"`
+	P       *udNames
+}
+
+// udDeep nests itself by R, for the values at the depth limit.
+type udDeep struct {
+	R *udDeep
+}
+
+// udKeyNames has a map whose keys are pointers, whose names may be the same: they are kept for the names an object
+// has twice, as the names of no field are.
+type udKeyNames struct {
+	K map[*int]int
 }
 
 // udFoldRunes has names which other names fold to: by a rune which is not ASCII, by '_' and '-', which folding drops,
@@ -177,6 +189,22 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		unknownNames[i] = `"u` + strconv.Itoa(i) + `":` + strconv.Itoa(i)
 	}
 	manyUnknown := "{" + strings.Join(unknownNames, ",") + `,"u5":1}`
+	// the names of no field of an object of many of them, which are in a map, around an object of few, and the other
+	// way round
+	manyAround := "{" + strings.Join(unknownNames, ",") + `,"P":{"u1":1,"u2":2},"u5":1}`
+	manyInside := `{"Z":1,"P":{` + strings.Join(unknownNames, ",") + `},"Z":2}`
+	manyInsideOnce := `{"Z":1,"P":{` + strings.Join(unknownNames, ",") + `},"u1":2}`
+	// objects past 64 levels, which the fast scan of the skipper gives up after names which it took, after values
+	// which it reads: v1 skips them, and jsontext reads them again
+	deepObject := `{"a":1,"b":` + strings.Repeat("[", 70) + strings.Repeat("]", 70) + `}`
+	deepDuplicate := `{"a":1,"b":` + strings.Repeat("[", 70) + `{"a":1,"a":2}` + strings.Repeat("]", 70) + `}`
+	// a value of no field at the depth which v1 skips past 64 levels from: of 10000 levels with the objects around it,
+	// as many as are allowed, and of one more
+	deepUnknown := func(levels int) string {
+		const around = 9970
+		return strings.Repeat(`{"R":`, around-1) + `{"Z":` + strings.Repeat("[", levels) + strings.Repeat("]", levels) +
+			strings.Repeat("}", around)
+	}
 	return []unmarshalDiffCase{
 		{name: "struct", in: `{"X":1,"y":2}`, out: outOf(udPoint{})},
 		{name: "struct merged", in: `{"y":2}`, out: outOf(udPoint{X: 5, Y: 6})},
@@ -203,6 +231,15 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct unknown long value of a lone surrogate", in: `{"Z":"abcdefgh\ud800ijklmnop"}`, out: outOf(udPoint{})},
 		{name: "struct unknown value of a duplicate name", in: `{"Z":{"a":1,"a":2}}`, out: outOf(udPoint{})},
 		{name: "struct unknown value of a duplicate name allowed", in: `{"Z":{"a":1,"a":2}}`, out: outOf(udPoint{}), opts: duplicates},
+		{name: "struct unknown objects of the same names", in: `{"Z":{"a":1},"W":{"a":1},"V":[{"a":1},{"a":2}]}`, out: outOf(udPoint{})},
+		{name: "struct unknown objects of the same names and one of a duplicate", in: `{"Z":{"a":1},"W":{"a":1},"V":{"b":1,"b":2}}`, out: outOf(udPoint{})},
+		{name: "struct unknown object and a value of invalid UTF-8", in: "{\"Z\":{\"a\":1},\"W\":\"\xff\"}", out: outOf(udPoint{})},
+		{name: "struct unknown object and a deep value", in: `{"Z":{"a":1},"W":` + deepObject + `,"V":{"a":1,"b":2}}`, out: outOf(udPoint{})},
+		{name: "struct unknown object and a deep value of a duplicate", in: `{"Z":{"a":1},"W":` + deepDuplicate + `}`, out: outOf(udPoint{})},
+		{name: "struct unknown array of objects of a duplicate name", in: `{"Z":[{"a":1},{"b":1,"b":2}]}`, out: outOf(udPoint{})},
+		{name: "struct unknown array of objects", in: `{"Z":[ {"a":1},{"a":2}],"X":1}`, out: outOf(udPoint{})},
+		{name: "struct unknown array of an object after a number of a duplicate name", in: `{"Z":[1,{"a":1,"a":2}]}`, out: outOf(udPoint{})},
+		{name: "struct unknown array of an object after a number", in: `{"Z":[1,{"a":1,"b":2}],"X":1}`, out: outOf(udPoint{})},
 		{name: "struct unknown value of a syntax error", in: `{"Z":[1,}`, out: outOf(udPoint{})},
 		{name: "struct unknown deep value", in: `{"Z":` + strings.Repeat("[", 9999) + strings.Repeat("]", 9999) + `}`, out: outOf(udPoint{})},
 		{name: "struct unknown too deep value", in: `{"Z":` + strings.Repeat("[", 10000) + strings.Repeat("]", 10000) + `}`, out: outOf(udPoint{})},
@@ -251,6 +288,21 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct nested error", in: `{"L":[{"X":1},{"y":"2"}]}`, out: outOf(udNested{})},
 		{name: "struct nested duplicate", in: `{"M":{"a":{"X":1},"a":{"y":2}}}`, out: outOf(udNested{})},
 		{name: "struct nested duplicate allowed", in: `{"M":{"a":{"X":1},"a":{"y":2}}}`, out: outOf(udNested{}), opts: duplicates},
+		{name: "struct names of no field of nested objects", in: `{"Z":1,"P":{"Z":1,"W":2},"PP":{"Z":3},"W":4}`, out: outOf(udNested{})},
+		{name: "struct names of no field of the same bits in a nested object", in: `{"aZb":1,"P":{"aXb":1,"aZb":2},"aYb":3}`, out: outOf(udNested{})},
+		{name: "struct name of no field twice around a nested object", in: `{"Z":1,"P":{"Z":1},"Z":2}`, out: outOf(udNested{})},
+		{name: "struct name of no field twice in a nested object", in: `{"Z":1,"P":{"W":1,"W":2},"Z":2}`, out: outOf(udNested{})},
+		{name: "struct names of no field of the elements of an array", in: `{"L":[{"Z":1},{"Z":2},{"Z":3,"W":4}],"Z":5}`, out: outOf(udNested{})},
+		{name: "struct name of no field twice around an array of objects", in: `{"Z":0,"L":[{"Z":1},{"Z":2}],"Z":3}`, out: outOf(udNested{})},
+		{name: "struct names of no field of the values of a map", in: `{"Z":0,"M":{"a":{"Z":1},"b":{"Z":2,"W":3}},"W":4}`, out: outOf(udNested{})},
+		{name: "struct name of no field twice after an error of a nested object", in: `{"Z":0,"L":[{"X":"x","Z":1}],"Z":2}`, out: outOf(udNested{})},
+		{name: "struct many names of no field around a nested object", in: manyAround, out: outOf(udNames{P: &udNames{}})},
+		{name: "struct many names of no field in a nested object", in: manyInside, out: outOf(udNames{P: &udNames{}})},
+		{name: "struct many names of no field in a nested object once", in: manyInsideOnce, out: outOf(udNames{P: &udNames{}})},
+		{name: "struct value of no field at the depth limit", in: deepUnknown(30), out: outOf(udDeep{})},
+		{name: "struct value of no field past the depth limit", in: deepUnknown(31), out: outOf(udDeep{}), errorOnly: true},
+		{name: "struct names of no field around a map of method keys", in: `{"Z":1,"K":{"1":1,"2":2},"W":2}`, out: outOf(udKeyNames{}), errorOnly: true},
+		{name: "struct name of no field twice around a map of method keys", in: `{"Z":1,"K":{"Z":1,"2":2},"Z":2}`, out: outOf(udKeyNames{}), errorOnly: true},
 		{name: "struct recursive", in: `{"Name":"a","Children":[{"Name":"b"}],"Next":{"Name":"c","Next":{"Name":"d"}}}`, out: outOf(udRecursive{})},
 		{name: "struct ignored fields", in: `{"A":1,"-":2,"c":3}`, out: outOf(udOmit{})},
 		{name: "struct of many fields", in: wide, out: outOf(udWide{})},
@@ -323,6 +375,9 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "map of any", in: `{"a":[1,{"b":null}]}`, out: outOf(map[string]any(nil))},
 		{name: "map of any merged", in: `{"a":{"y":2}}`, out: func() any { v := map[string]any{"a": map[string]any{"x": 1.0}}; return &v }},
 		{name: "map of any duplicate", in: `{"a":1,"a":2}`, out: outOf(map[string]any(nil))},
+		{name: "map of any names of nested objects", in: `{"a":{"b":1,"c":2},"b":3,"c":{"a":4}}`, out: outOf(map[string]any(nil))},
+		{name: "map of any duplicate around a nested object", in: `{"a":{"b":1},"b":2,"a":3}`, out: outOf(map[string]any(nil))},
+		{name: "any duplicate in a nested object", in: `[{"a":1},{"b":{"a":1,"a":2}}]`, out: outOf(any(nil))},
 		{name: "map of any duplicate allowed", in: `{"a":{"x":1},"a":{"y":2}}`, out: outOf(map[string]any(nil)), opts: duplicates},
 		{name: "map of any string", in: `"x"`, out: outOf(map[string]any(nil))},
 		{name: "map of maps", in: `{"a":{"b":1}}`, out: outOf(map[string]map[string]int(nil))},

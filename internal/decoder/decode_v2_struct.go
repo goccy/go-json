@@ -263,6 +263,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		cursor = skipWhiteSpace(buf, cursor)
 		switch buf[cursor] {
 		case '}':
+			unknown.end(ctx.v2)
 			return cursor + 1, nil
 		case ',':
 			cursor++
@@ -284,9 +285,7 @@ func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, r
 		if name == nil {
 			name = buf[start+1 : end-1]
 		}
-		// the name is not copied: it is in the input, which is not written while it is decoded, or decoded into an
-		// array of its own, and the set ends with the object
-		if !unknown.add(unsafe.String(unsafe.SliceData(name), len(name))) {
+		if !unknown.add(ctx.V2Call(), name) {
 			return &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 		}
 	}
@@ -445,10 +444,21 @@ func unquotedName(quoted []byte) []byte {
 }
 
 // skipValueV2 skips the value at cursor, which v2 reads whole: it must have the text which v2 allows ( see
-// textcoder.ValidValue ), which a value without an object, a byte which is not ASCII or an escape has.
+// textcoder.ValidValue ), which a value without an object, a byte which is not ASCII or an escape has. A value which
+// jsontext reads anyway, where names twice are rejected, is skipped and read for its text in one scan of jsontext,
+// unless the scan fails ( see textcoder.SkipNested ): then v1 skips it, for its errors, and jsontext reads it again.
+// Any other value is skipped by v1, whose skip is faster than the scan, and read by jsontext only if it has to be.
 func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	buf := ctx.Buf
 	start := skipWhiteSpace(buf, cursor)
+	if c := buf[start]; (c == '{' || c == '[' && buf[skipWhiteSpace(buf, start+1)] == '{') && ctx.Option.V2&V2AllowDuplicateNames == 0 && depth <= maxDecodeNestingDepth-64 {
+		// the values which jsontext reads anyway, for their names: an object, and an array which has one, as its
+		// first element shows. v1 skips no less deep a value than the scan of jsontext, which reads 64 levels ( see
+		// skipMaxLevel ).
+		if end, ok := textcoder.SkipNested(skipperOf(ctx), buf, int(start)); ok {
+			return int64(end), nil
+		}
+	}
 	end, err := skipValue(buf, start, depth)
 	if err != nil {
 		return 0, err
@@ -456,11 +466,38 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	v := buf[start:end]
 	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
 	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && valueHasNotASCIIOrEscape(v)
-	if (scanNames || scanUTF8) &&
-		!textcoder.ValidValue(v, ctx.Option.V2&V2AllowDuplicateNames != 0, ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
+	if (scanNames || scanUTF8) && !textcoder.ValidValue(skipperOf(ctx), v) {
 		return 0, errV2Text
 	}
 	return end, nil
+}
+
+// skipperOf returns the skipper of the call of ctx of its options, which it takes for the first value: the options
+// of a call which a method makes on the context of the call around it may differ. A value is read by a skipper only
+// for names twice or invalid UTF-8, which the options don't both allow.
+func skipperOf(ctx *RuntimeContext) unsafe.Pointer {
+	call := ctx.V2Call()
+	i := 0
+	switch {
+	case ctx.Option.V2&V2AllowDuplicateNames != 0:
+		i = 2 // for invalid UTF-8 only
+	case ctx.Option.V2&V2AllowInvalidUTF8 != 0:
+		i = 1
+	}
+	if call.skippers[i] == nil {
+		call.skippers[i] = textcoder.TakeSkipper(i == 2, i == 1)
+	}
+	return call.skippers[i]
+}
+
+// releaseSkippers puts back the skippers which the call took.
+func releaseSkippers(call *V2Call) {
+	for i, s := range call.skippers {
+		if s != nil {
+			textcoder.ReleaseSkipper(s)
+			call.skippers[i] = nil
+		}
+	}
 }
 
 // v2Fallback is the embedded fallback of a struct, which the members of no field are decoded into: a jsontext.Value,
@@ -672,10 +709,9 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	if rejectDuplicateNames && m.Len() > 0 {
 		seen = reflect.MakeMap(reflect.MapOf(d.typ.Key(), emptyStructType))
 	}
-	var names *nameSet
-	if rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
-		names = &nameSet{}
-	}
+	// names are the names of the keys, if two keys may have the same name
+	var names nameSet
+	keyNames := rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0)
 	k, v := reflect.New(d.typ.Key()), reflect.New(d.typ.Elem())
 	for {
 		start := cursor
@@ -687,7 +723,7 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		if err != nil {
 			return 0, err
 		}
-		if names != nil && !names.add(string(unquotedName(buf[start:next]))) {
+		if keyNames && !names.add(ctx.V2Call(), unquotedName(buf[start:next])) {
 			return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 		}
 		key := k.Elem()
@@ -714,6 +750,7 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		cursor = skipWhiteSpace(buf, next)
 		switch buf[cursor] {
 		case '}':
+			names.end(ctx.v2)
 			return cursor + 1, nil
 		case ',':
 			cursor = skipWhiteSpace(buf, cursor+1)

@@ -2,6 +2,7 @@ package jsontext
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -35,5 +36,34 @@ func TestPutEncoderDropsLargeArrays(t *testing.T) {
 		if n > 64<<10 {
 			t.Errorf("cap(%s) = %d after putEncoder", name, n)
 		}
+	}
+}
+
+// A skipper reads the values which a call skips with nothing of one left for the next: the names of the objects
+// which its fast scan left open, at a value past 64 levels, are dropped, and the values after it are read alike.
+func TestSkipperLeavesNoNames(t *testing.T) {
+	skipper := takeSkipper(false, false)
+	defer releaseSkipper(skipper)
+	e := (*encoder)(skipper)
+	deep := []byte(`{"a":1,"b":` + strings.Repeat("[", 70) + strings.Repeat("]", 70) + `}`)
+	if _, ok := skipNested(skipper, deep, 0); ok {
+		t.Fatal("the fast scan read a value past 64 levels")
+	}
+	if n := len(e.st.names.ends); n != 0 {
+		t.Fatalf("%d names left by the fast scan", n)
+	}
+	if !validValue(skipper, deep) {
+		t.Fatal("the value past 64 levels is not valid")
+	}
+	for _, v := range []string{`{"a":1,"b":2}`, `[{"a":1},{"a":2}]`, `{"a":{"a":1},"b":{"a":1}}`} {
+		if end, ok := skipNested(skipper, []byte(v), 0); !ok || end != len(v) {
+			t.Fatalf("%s: %d, %v", v, end, ok)
+		}
+	}
+	if _, ok := skipNested(skipper, []byte(`{"a":1,"a":2}`), 0); ok {
+		t.Fatal("an object of a name twice")
+	}
+	if n := len(e.st.names.ends); n != 0 {
+		t.Fatalf("%d names left", n)
 	}
 }

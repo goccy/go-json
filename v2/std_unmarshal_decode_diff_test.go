@@ -314,6 +314,56 @@ func TestUnmarshalDecodeAfterError(t *testing.T) {
 	}
 }
 
+// udAllowing and udStdAllowing decode their value by UnmarshalDecode into a struct of no field, with names twice
+// allowed, of the call which the method's decoder is of: the values of no field of the method and the ones around
+// it are skipped by the options of each.
+type udAllowing struct{}
+
+func (u *udAllowing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, &struct{}{}, jsontext.AllowDuplicateNames(true))
+}
+
+type udStdAllowing struct{}
+
+func (u *udStdAllowing) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
+	return stdjson.UnmarshalDecode(dec, &struct{}{}, stdjsontext.AllowDuplicateNames(true))
+}
+
+// A method which decodes with other options than the call around it, which values of no field are skipped by.
+func TestUnmarshalDecodeInMethodOfOtherOptionsMatchesStd(t *testing.T) {
+	for _, in := range []string{
+		`{"Z":{"a":1},"A":{"w":{"b":1,"b":2}},"V":{"a":1}}`,
+		// a value which jsontext reads for its UTF-8 by the options of the method, after one of the call around it
+		`{"Z":{"a":"é"},"A":{"w":{"b":"é","b":2}},"V":{"a":"é"}}`,
+		`{"Z":{"a":1,"a":2},"A":{"w":{"b":1}}}`,
+	} {
+		for _, n := range readSizes {
+			for _, how := range []string{"Unmarshal", "UnmarshalRead", "UnmarshalDecode"} {
+				t.Run(fmt.Sprintf("%.24s/reads-%d/%s", in, n, how), func(t *testing.T) {
+					var ours struct{ A udAllowing }
+					var theirs struct{ A udStdAllowing }
+					var err, stdErr error
+					switch how {
+					case "Unmarshal":
+						err = json.Unmarshal([]byte(in), &ours)
+						stdErr = stdjson.Unmarshal([]byte(in), &theirs)
+					case "UnmarshalRead":
+						err = json.UnmarshalRead(newChunkReader(in, n), &ours)
+						stdErr = stdjson.UnmarshalRead(newChunkReader(in, n), &theirs)
+					default:
+						err = json.UnmarshalDecode(jsontext.NewDecoder(newChunkReader(in, n)), &ours)
+						stdErr = stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(in, n)), &theirs)
+					}
+					want := strings.ReplaceAll(describeUnmarshalError(stdErr), "udStdAllowing", "udAllowing")
+					if got := describeUnmarshalError(err); got != want {
+						t.Fatalf("error:\n got %s\nwant %s", got, want)
+					}
+				})
+			}
+		}
+	}
+}
+
 // decodingNested decodes its value by UnmarshalDecode into X, and then, if it fails, does what mode says: returns
 // the error, declines the value or ignores the error.
 type decodingNested struct {

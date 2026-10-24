@@ -163,6 +163,26 @@ func (s *valueScanner) scan(b []byte, i int) (int, *scanError) {
 	return end, err
 }
 
+// readSkipped reads the value at b[i:] as scan does, of a scanner which doesn't write it, used again for the values
+// which a call skips, and which reports no place of an error: the count of the innermost level, which only the places
+// tell, goes on. With fast, it reads the value by the fast scan alone, and reports false where scan would read it
+// again from the start, past 64 levels as at an error ( see scanFast ).
+func (s *valueScanner) readSkipped(b []byte, i int, fast bool) (int, bool) {
+	if !fast {
+		end, err := s.scan(b, i)
+		return end, err == nil
+	}
+	names := len(s.st.names.ends)
+	s.run, s.wsEnd, s.in, s.kept, s.base = i, -1, b, false, s.st.depth()
+	end, ok := s.scanObjects(b, i, s.open)
+	if !ok {
+		// the names of the objects which the scan left open
+		s.st.names.truncate(names)
+	}
+	s.in = nil
+	return end, ok
+}
+
 // finish appends the rest of the output of the written value b[i:end], or, if keep is set and the output is all of
 // b, which the scan didn't append any part of, leaves it out and sets kept.
 func (s *valueScanner) finish(b []byte, i, end int) {

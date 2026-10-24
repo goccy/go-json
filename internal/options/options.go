@@ -4,6 +4,8 @@
 // internal package.
 package options
 
+import "math/bits"
+
 // Options is an option, or a set of them, which sets properties of a Config.
 type Options interface {
 	ApplyTo(c *Config)
@@ -102,13 +104,14 @@ func (c *Config) Same(d *Config) bool {
 		(c.Set&UnmarshalersSet == 0 || c.Unmarshalers == d.Unmarshalers)
 }
 
-// Bool is the option of a property which is true or false: the flag shifted by one bit, with the value as the
-// lowest bit. Its values are constants, so that an Options of it is made without an allocation.
-type Bool Flags
+// Bool is the option of a property which is true or false: the index of the bit of its flag shifted by one bit, with
+// the value as the lowest bit. It is a byte, which an Options holds without an allocation, as the runtime has the
+// values of the bytes: an option made for each call, as encoding/json/v2's are, costs nothing more.
+type Bool uint8
 
 // ApplyTo sets the property of o in c.
 func (o Bool) ApplyTo(c *Config) {
-	f := Flags(o) >> 1
+	f := Flags(1) << (o >> 1)
 	c.Set |= f
 	c.Value &^= f
 	if o&1 != 0 {
@@ -116,12 +119,13 @@ func (o Bool) ApplyTo(c *Config) {
 	}
 }
 
-// BoolOf returns the option which sets the property f to v.
+// BoolOf returns the option which sets the property f, a single flag, to v.
 func BoolOf(f Flags, v bool) Options {
+	o := Bool(bits.TrailingZeros64(uint64(f)) << 1)
 	if v {
-		return Bool(f<<1 | 1)
+		o |= 1
 	}
-	return Bool(f << 1)
+	return o
 }
 
 // Indent is the option of WithIndent or WithIndentPrefix of jsontext, which implies Multiline.

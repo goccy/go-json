@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
-	"slices"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -40,10 +39,13 @@ type v2StructDecoder struct {
 	fields     []*structFieldSet
 	keyDecoder *structDecoder
 	// casings are the `case` options of the fields, and folded the fields whose names may match a name by their
-	// folded names, by the folded names, in their breadth-first order. foldAlways is whether a field matches by
-	// its `case:ignore` option, without V2MatchCaseInsensitiveNames.
+	// folded names, by the folded names; foldedOf are the ones of the folded name of each field, by the indexes of
+	// the fields, which a name of the folded name of a field which v1 finds is matched by, as it can't be found
+	// without folding and hashing the name. foldAlways is whether a field matches by its `case:ignore` option,
+	// without V2MatchCaseInsensitiveNames.
 	casings    []jsonfields.Casing
 	folded     map[string][]*structFieldSet
+	foldedOf   [][]*structFieldSet
 	foldAlways bool
 	fallback   *v2Fallback
 }
@@ -64,7 +66,6 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.initErr = fields.FormatErr
 		return d, nil
 	}
-	ids := map[*structFieldSet]int{}
 	for i := range fields.List {
 		f := &fields.List[i]
 		var dec Decoder
@@ -81,16 +82,15 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		set := &structFieldSet{dec: dec, offset: offset, key: f.Name, keyLen: int64(len(f.Name)), fieldIdx: i}
 		d.fields = append(d.fields, set)
 		d.casings = append(d.casings, f.Casing)
-		ids[set] = f.ID
 		if f.Casing&jsonfields.CaseStrict == 0 {
 			folded := string(jsonfields.FoldName([]byte(f.Name)))
 			d.folded[folded] = append(d.folded[folded], set)
 			d.foldAlways = d.foldAlways || f.Casing&jsonfields.CaseIgnore != 0
 		}
 	}
-	for _, sets := range d.folded {
-		// the first field of a folded name by the breadth-first order is the one a name matches
-		slices.SortFunc(sets, func(a, b *structFieldSet) int { return ids[a] - ids[b] })
+	d.foldedOf = make([][]*structFieldSet, len(d.fields))
+	for i, f := range d.fields {
+		d.foldedOf[i] = d.folded[string(jsonfields.FoldName([]byte(f.key)))]
 	}
 	keys := newStructKeys(d.fields)
 	// every name of a field by its bytes as they are, which a name as the input has it is found by ( see
@@ -387,8 +387,18 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	if !insensitive && !d.foldAlways {
 		return nil, name, nil
 	}
+	var group []*structFieldSet
+	if candidate != nil {
+		// the fields of the folded name of candidate, which v1 found by the name folded as FoldName folds it, but
+		// for '_' and '-', which no rune folds to: it is the folded name of the name
+		group = d.foldedOf[candidate.fieldIdx]
+	} else {
+		var arr [64]byte
+		group = d.folded[string(jsonfields.AppendFoldName(arr[:0], name))]
+	}
+	// a name which several fields match by its folded name is an error, as in encoding/json/v2, whatever their order
 	var match *structFieldSet
-	for _, field := range d.folded[string(jsonfields.FoldName(name))] {
+	for _, field := range group {
 		if insensitive || d.casings[field.fieldIdx]&jsonfields.CaseIgnore != 0 {
 			if match != nil {
 				return nil, nil, &errors.UnmarshalError{GoType: d.typ, Err: errors.ErrAmbiguousName}

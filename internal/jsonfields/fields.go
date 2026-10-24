@@ -505,12 +505,7 @@ func isLetterOrDigit(r rune) bool {
 // FoldName returns the name of which the names that case:ignore matches are the same: the case is folded, and '_'
 // and '-' are removed.
 func FoldName(name []byte) []byte {
-	return AppendFoldName(make([]byte, 0, len(name)), name)
-}
-
-// AppendFoldName appends the folded name of name ( see FoldName ) to out, which an array of the caller may hold, so
-// that a name which is looked up by it is folded without an allocation.
-func AppendFoldName(out, name []byte) []byte {
+	out := make([]byte, 0, len(name))
 	for i := 0; i < len(name); {
 		if c := name[i]; c < utf8.RuneSelf {
 			if c != '_' && c != '-' {

@@ -155,6 +155,21 @@ type udKeyNames struct {
 	K map[*int]int
 }
 
+// udSnake has names of '_' and '-', as the structs of many APIs have: names of no field are looked up without their
+// '_' and '-' among the names of the fields without theirs ( see foldKey of internal/decoder ). Two names of the same
+// folded name make a name of it ambiguous; one of them is `case:strict`.
+type udSnake struct {
+	UserName  int `json:"user_name"`
+	CreatedAt int `json:"created-at"`
+	ID        int `json:"id"`
+	AB        int `json:"a_b"`
+	AB2       int `json:"ab"`
+	Strict    int `json:"x_y,case:strict"`
+	XY        int `json:"xy"`
+	Ignore    int `json:"long_name_of_a_field,case:ignore"`
+	Kelvin    int `json:"k_x"`
+}
+
 // udFoldRunes has names which other names fold to: by a rune which is not ASCII, by '_' and '-', which folding drops,
 // and two of the same folded name, of which a name matches the one of `case:strict` only as it is.
 type udFoldRunes struct {
@@ -337,6 +352,17 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name with a dash for the underscore of a field insensitive", in: `{"a-b":1}`, out: outOf(udFoldRunes{}), opts: insensitive},
 		{name: "struct name of a strict field and an ignoring one", in: `{"Name":1,"name":2}`, out: outOf(udFoldRunes{})},
 		{name: "struct name of a strict field and an ignoring one insensitive", in: `{"Name":1,"nAME":2}`, out: outOf(udFoldRunes{}), opts: insensitive},
+		{name: "struct names of fields of dashes", in: `{"user_name":1,"created-at":2,"id":3}`, out: outOf(udSnake{})},
+		{name: "struct names of fields of dashes insensitive", in: `{"UserName":1,"CREATED_AT":2,"Id":3}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct names of fields of other dashes insensitive", in: `{"user-name":1,"created_at":2,"__i_d__":3}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct names of no field of a struct of dashes insensitive", in: `{"other_name":1,"username_":2,"id":3,"user":4}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct name of two fields of dashes insensitive", in: `{"A-B":1}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct name of two fields of dashes", in: `{"A-B":1,"a_b":2,"ab":3}`, out: outOf(udSnake{})},
+		{name: "struct name of a strict field of dashes insensitive", in: `{"X_Y":1,"x-y":2,"XY":3}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct name of an ignoring field of dashes", in: `{"LongNameOfAField":1,"long-name-of-a-field":2}`, out: outOf(udSnake{})},
+		{name: "struct name of an ignoring field of dashes once", in: `{"LONG_NAME_OF_A_FIELD":1}`, out: outOf(udSnake{})},
+		{name: "struct name of the Kelvin sign of a field of dashes insensitive", in: `{"\u212a-X":1}`, out: outOf(udSnake{}), opts: insensitive},
+		{name: "struct names twice of a field of dashes insensitive", in: `{"user_name":1,"USERNAME":2}`, out: outOf(udSnake{}), opts: insensitive},
 		{name: "struct name with an underscore of no field with one", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{})},
 		{name: "struct name with an underscore of no field with one insensitive", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct name with a dash of an ignoring field with none", in: `{"s-":1,"-S":2}`, out: outOf(udFoldNoDashes{})},

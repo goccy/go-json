@@ -288,6 +288,14 @@ func ReleaseRuntimeContext(ctx *RuntimeContext) {
 	// The strings refer to the input: the slab is not kept, so that a context in the pool doesn't keep
 	// the input of a previous call alive. The slab of floats refers to nothing and is kept.
 	ctx.strings = nil
+	if v2 := ctx.v2; v2 != nil {
+		if len(v2.names.ends) != 0 {
+			v2.names.truncate(0)
+		}
+		if v2.skippers != [3]unsafe.Pointer{} {
+			releaseSkippers(v2)
+		}
+	}
 	runtimeContextPool.Put(ctx)
 }
 

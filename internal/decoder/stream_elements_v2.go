@@ -50,6 +50,12 @@ func TakeStreamV2(r io.Reader) *Stream {
 func ReleaseStreamV2(s *Stream) {
 	call := s.ctx.v2
 	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
+	if len(call.names.ends) != 0 {
+		call.names.truncate(0)
+	}
+	if call.skippers != [3]unsafe.Pointer{} {
+		releaseSkippers(call)
+	}
 	if len(s.buf) > maxReusedStreamBuffer {
 		s.buf = make([]byte, initBufSize+bufPadding)
 	}
@@ -151,6 +157,15 @@ func (s *Stream) DecodeV2(dec Decoder, p unsafe.Pointer, depth int64) error {
 // token before it, which the stream reads from: the white space and the delimiter between them, which were checked,
 // are skipped. It never returns io.EOF.
 func (s *Stream) DecodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
+	// the names of the objects of the value which an error ended are dropped after it: the value of a method, whose
+	// error the method may ignore, leaves none to the objects around it ( see callNames )
+	names := len(s.ctx.v2.names.ends)
+	err := s.decodeV2After(dec, p, depth, from, start)
+	s.ctx.v2.names.truncate(names)
+	return err
+}
+
+func (s *Stream) decodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
 	s.ctx.v2.Place.Set = false
 	keeps, keepFrom := s.keepFromHere(from)
 	for s.offset+s.length <= start {
@@ -598,6 +613,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			return s.placeAt(err, step)
 		}
 		if !ok {
+			unknown.end(ctx.v2)
 			s.keeps, s.keepFrom = keeps, keepFrom
 			s.popLevel(lv)
 			return nil
@@ -639,7 +655,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
 			return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}, step)
 		case rejectDuplicateNames:
-			if !unknown.add(string(name)) {
+			if !unknown.add(ctx.V2Call(), name) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
 		}
@@ -774,10 +790,9 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 	if rejectDuplicateNames && m.Len() > 0 {
 		seen = reflect.MakeMap(reflect.MapOf(d.typ.Key(), emptyStructType))
 	}
-	var names *nameSet
-	if rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
-		names = &nameSet{}
-	}
+	// names are the names of the keys, if two keys may have the same name
+	var names nameSet
+	keyNames := rejectDuplicateNames && !uniqueKeyNames(d.keyDecoder, d.typ.Key().Kind(), ctx.Option.V2&V2AllowInvalidUTF8 != 0)
 	k, v := reflect.New(d.typ.Key()), reflect.New(d.typ.Elem())
 	for i := 0; ; i++ {
 		// the end of the token before the entry, which the place of its errors is read again from, kept until the
@@ -789,6 +804,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 			return s.placeAt(err, step)
 		}
 		if !ok {
+			names.end(ctx.v2)
 			s.keeps, s.keepFrom = keeps, keepFrom
 			s.popLevel(lv)
 			return nil
@@ -813,7 +829,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 			return s.placeAt(err, step)
 		}
 		name := unquotedName(quoted)
-		if names != nil && !names.add(string(name)) {
+		if keyNames && !names.add(ctx.V2Call(), name) {
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}
 		key := k.Elem()
@@ -1010,6 +1026,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 			return s.placeAt(err, step)
 		}
 		if !ok {
+			names.end(ctx.v2)
 			s.keeps, s.keepFrom = keeps, keepFrom
 			s.popLevel(lv)
 			return nil
@@ -1018,7 +1035,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 			return s.placeAt(errV2Text, step)
 		}
 		name := ctx.copyString(unquotedName(quoted))
-		if !names.add(name) && ctx.Option.V2&V2AllowDuplicateNames == 0 {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.add(ctx.V2Call(), unsafe.Slice(unsafe.StringData(name), len(name))) {
 			start := s.cursor - int64(len(quoted))
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}

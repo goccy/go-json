@@ -206,6 +206,19 @@ var (
 	IsReadError func(err error) bool
 )
 
-// ValidValue reports whether v, a JSON value valid by the grammar, has the text which jsontext reads by the
-// options: valid UTF-8 unless allowInvalidUTF8, and no object with a name twice unless allowDuplicateNames.
-var ValidValue func(v []byte, allowDuplicateNames, allowInvalidUTF8 bool) bool
+// A skipper is a scanner of jsontext which reads the values that a call of the v2 json package skips, by the options
+// of the names of an object twice and of invalid UTF-8, without writing them: TakeSkipper returns one, which the
+// call keeps for all its values, and ReleaseSkipper puts it back.
+//
+// ValidValue reports whether v, a JSON value valid by the grammar, has the text which jsontext reads by the options
+// of the skipper: valid UTF-8 unless invalid UTF-8 is allowed, and no object with a name twice unless that is.
+//
+// SkipNested returns the end of the JSON object or array at b[i:] and true, if the fast scan of the skipper reads
+// it, which finds its end and its text at once: valid by the grammar, of no more than 64 levels, with the text which
+// ValidValue reports. It reports false otherwise, where the value is read again for what it is.
+var (
+	TakeSkipper    func(allowDuplicateNames, allowInvalidUTF8 bool) unsafe.Pointer
+	ReleaseSkipper func(skipper unsafe.Pointer)
+	ValidValue     func(skipper unsafe.Pointer, v []byte) bool
+	SkipNested     func(skipper unsafe.Pointer, b []byte, i int) (int, bool)
+)

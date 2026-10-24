@@ -292,9 +292,9 @@ func unmarshalPlaceAt(p *textcoder.DecoderAttachment, stop int64, read textcoder
 	}
 }
 
-// validValueOptions are the options of validValue, by AllowDuplicateNames and AllowInvalidUTF8, made once so that a
+// skipperOptions are the options of the skippers, by AllowDuplicateNames and AllowInvalidUTF8, made once so that a
 // call makes no Options.
-var validValueOptions = func() [2][2][]Options {
+var skipperOptions = func() [2][2][]Options {
 	var opts [2][2][]Options
 	for i, dup := range []bool{false, true} {
 		for j, utf8 := range []bool{false, true} {
@@ -304,8 +304,9 @@ var validValueOptions = func() [2][2][]Options {
 	return opts
 }()
 
-// validValue is textcoder.ValidValue: v is checked as Value.IsValid checks it.
-func validValue(v []byte, allowDuplicateNames, allowInvalidUTF8 bool) bool {
+// takeSkipper is textcoder.TakeSkipper: an encoder of the pool, whose scanner doesn't write. Its options are set
+// once: the fields of the scanner which they make are not set again by a call ( see encoder.init ).
+func takeSkipper(allowDuplicateNames, allowInvalidUTF8 bool) unsafe.Pointer {
 	var i, j int
 	if allowDuplicateNames {
 		i = 1
@@ -313,10 +314,23 @@ func validValue(v []byte, allowDuplicateNames, allowInvalidUTF8 bool) bool {
 	if allowInvalidUTF8 {
 		j = 1
 	}
-	e := getEncoder(validValueOptions[i][j])
-	defer putEncoder(e)
+	e := getEncoder(skipperOptions[i][j])
 	e.vs.write, e.vs.spaced = false, false
-	return e.writeValue(v) == nil
+	return unsafe.Pointer(e)
+}
+
+// releaseSkipper is textcoder.ReleaseSkipper.
+func releaseSkipper(skipper unsafe.Pointer) { putEncoder((*encoder)(skipper)) }
+
+// validValue is textcoder.ValidValue: v is checked as Value.IsValid checks it.
+func validValue(skipper unsafe.Pointer, v []byte) bool {
+	end, ok := (*encoder)(skipper).vs.readSkipped(v, 0, false)
+	return ok && end == len(v)
+}
+
+// skipNested is textcoder.SkipNested.
+func skipNested(skipper unsafe.Pointer, b []byte, i int) (int, bool) {
+	return (*encoder)(skipper).vs.readSkipped(b, i, true)
 }
 
 // readPlace reads the value at the start of the input of dec as read says, and returns the syntax error it meets,

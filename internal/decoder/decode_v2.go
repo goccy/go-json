@@ -1014,7 +1014,7 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && strings.IndexByte(key, 0xef) >= 0 && !validV2Text(buf[cursor:c]) {
 			return 0, errV2Text
 		}
-		if !names.add(key) && ctx.Option.V2&V2AllowDuplicateNames == 0 {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.add(ctx.V2Call(), unsafe.Slice(unsafe.StringData(key), len(key))) {
 			return 0, errV2Text
 		}
 		cursor = skipWhiteSpace(buf, c)
@@ -1030,6 +1030,7 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		cursor = skipWhiteSpace(buf, c)
 		switch buf[cursor] {
 		case '}':
+			names.end(ctx.v2)
 			return cursor + 1, nil
 		case ',':
 			cursor = skipWhiteSpace(buf, cursor+1)
@@ -1080,39 +1081,107 @@ func (d *v2InterfaceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64
 // kept in a map, so that an object of many names is not quadratic in its names.
 const maxListedNames = 32
 
-// nameSet is the names of an object, among which add finds a name that the object has twice. mask has the bit of
-// each name of list ( see jsonstring.NameBit ): a name whose bit is not in it is not compared with the names, as
-// most names are not.
+// nameSet is the names of an object, among which add finds a name that the object has twice: the n names of the
+// names of the call from the index first ( see callNames ), whose bits are in mask ( see jsonstring.NameBit ), and
+// past maxListedNames, the keys of set too. A name whose bit is not in mask is not compared with the names, as most
+// names are not. The zero nameSet has no name.
 type nameSet struct {
-	mask uint64
-	list []string
-	set  map[string]struct{}
+	mask     uint64
+	first, n int
+	set      map[string]struct{}
 }
 
-// add adds the name, and reports whether the set didn't have it.
-func (s *nameSet) add(name string) bool {
+// add adds the name, and reports whether the set didn't have it. The names of the call keep a copy of it, after the
+// ones of the objects which its object is in, which the keys of set are: they are not written while the object is
+// open, and an array which the names of the call leave for a larger one is not written again.
+func (s *nameSet) add(call *V2Call, name []byte) bool {
+	names := &call.names
 	if s.set != nil {
-		if _, exists := s.set[name]; exists {
+		if _, exists := s.set[string(name)]; exists {
 			return false
 		}
-		s.set[name] = struct{}{}
+		names.add(s.first+s.n, name)
+		s.set[unsafeString(names.get(s.first+s.n))] = struct{}{}
+		s.n++
 		return true
 	}
-	if bit := jsonstring.NameBit(unsafe.Slice(unsafe.StringData(name), len(name))); s.mask&bit == 0 {
-		s.mask |= bit
-	} else {
-		for _, n := range s.list {
-			if n == name {
-				return false
-			}
-		}
+	if s.n == 0 {
+		s.first = len(names.ends)
 	}
-	s.list = append(s.list, name)
-	if len(s.list) > maxListedNames {
-		s.set = make(map[string]struct{}, len(s.list))
-		for _, n := range s.list {
-			s.set[n] = struct{}{}
+	if bit := jsonstring.NameBit(name); s.mask&bit == 0 {
+		s.mask |= bit
+	} else if names.has(s.first, s.first+s.n, name) {
+		return false
+	}
+	names.add(s.first+s.n, name)
+	s.n++
+	if s.n > maxListedNames {
+		s.set = make(map[string]struct{}, 2*s.n)
+		for i := s.first; i < s.first+s.n; i++ {
+			s.set[unsafeString(names.get(i))] = struct{}{}
 		}
 	}
 	return true
+}
+
+// end drops the names of the set from the names of the call, at the end of its object.
+func (s *nameSet) end(call *V2Call) {
+	if s.n != 0 {
+		call.names.truncate(s.first)
+	}
+}
+
+// unsafeString is the string of the bytes of b, which are not written while it is used.
+func unsafeString(b []byte) string { return unsafe.String(unsafe.SliceData(b), len(b)) }
+
+// callNames are the names of no field of the objects of a call which are being decoded, as encoding/json/jsontext
+// keeps the names of the objects which are open: back to back in buf, an object after the objects which it is in,
+// the end of each in ends. They are copies, which keep nothing of the input. The names of an object which an error
+// ended are dropped by the next name of an object around it, at the end of the value of a stream which they are in
+// ( see Stream.DecodeV2After ), or when the context is released: a call which no error ended leaves none.
+type callNames struct {
+	buf  []byte
+	ends []int
+}
+
+// start is the position in buf of the name at the index i.
+func (n *callNames) start(i int) int {
+	if i == 0 {
+		return 0
+	}
+	return n.ends[i-1]
+}
+
+func (n *callNames) get(i int) []byte { return n.buf[n.start(i):n.ends[i]] }
+
+// has reports whether one of the names from the index first up to end is the name.
+func (n *callNames) has(first, end int, name []byte) bool {
+	start := n.start(first)
+	for _, e := range n.ends[first:end] {
+		if string(n.buf[start:e]) == string(name) {
+			return true
+		}
+		start = e
+	}
+	return false
+}
+
+// add puts the name at the index i, after the names of its object, past which the names of the objects in it which
+// an error ended are dropped.
+func (n *callNames) add(i int, name []byte) {
+	n.buf = append(n.buf[:n.start(i)], name...)
+	n.ends = append(n.ends[:i], len(n.buf))
+}
+
+// truncate drops the names from the index first on. Back to no name, it drops the arrays which a value of many long
+// names made large, of the sizes over which an encoder of jsontext drops the arrays of its names ( see putEncoder ),
+// so that a context in the pool doesn't pin them: then no object has a name in them.
+func (n *callNames) truncate(first int) {
+	const large = 64 << 10
+	if first == 0 && (cap(n.buf) > large || cap(n.ends) > large/8) {
+		*n = callNames{}
+		return
+	}
+	n.buf = n.buf[:n.start(first)]
+	n.ends = n.ends[:first]
 }

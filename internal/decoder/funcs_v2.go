@@ -101,6 +101,13 @@ type V2Call struct {
 	spareName []byte
 	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).
 	Place StreamPlace
+	// names are the names of no field, and the other names which are kept, of the objects of the call which are
+	// being decoded ( see nameSet ), which their arrays are used again for.
+	names callNames
+	// skippers are the scanners of jsontext which read the values that the call skips ( see textcoder.TakeSkipper ),
+	// by the options of the names of an object twice and of invalid UTF-8 which leave them something to read ( see
+	// skipperOf ), taken by the first value and put back when the context is released.
+	skippers [3]unsafe.Pointer
 }
 
 // StreamValue is the value of a stream which a decoder of v2 decodes, in the innermost level of the path, for a

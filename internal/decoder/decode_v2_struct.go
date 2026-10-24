@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -39,14 +41,15 @@ type v2StructDecoder struct {
 	// the name is the name of the field as it is.
 	fields     []*structFieldSet
 	keyDecoder *structDecoder
-	// casings are the `case` options of the fields, and folded the fields whose names may match a name by their
-	// folded names, by the folded names; foldedOf are the ones of the folded name of each field, by the indexes of
-	// the fields, which a name of the folded name of a field which v1 finds is matched by, as it can't be found
-	// without folding and hashing the name. foldAlways is whether a field matches by its `case:ignore` option,
-	// without V2MatchCaseInsensitiveNames.
+	// casings are the `case` options of the fields. foldedOf are the fields whose names may match a name by their
+	// folded names ( see jsonfields.FoldName ), of the folded name of each field, by the indexes of the fields: a
+	// name matches the ones of the field which v1 finds for it, or which foldKeys finds for it without its '_' and
+	// '-' ( see foldKey ). foldKeys is a table as v1's of the names of the fields without their '_' and '-', v1's own
+	// if no name of a field has them. foldAlways is whether a field matches by its `case:ignore` option, without
+	// V2MatchCaseInsensitiveNames.
 	casings    []jsonfields.Casing
-	folded     map[string][]*structFieldSet
 	foldedOf   [][]*structFieldSet
+	foldKeys   *structKeys
 	foldAlways bool
 	fallback   *v2Fallback
 }
@@ -54,7 +57,7 @@ type v2StructDecoder struct {
 // compileStructV2 returns the decoder of the struct type typ. It stays in c.decoders after the compile, as the one
 // of compileStruct does, unless a decoder which declines values to it is there ( see compileNextV2 ).
 func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
-	d := &v2StructDecoder{typ: typ, zero: newZeroer(typ), folded: map[string][]*structFieldSet{}}
+	d := &v2StructDecoder{typ: typ, zero: newZeroer(typ)}
 	if _, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; !exists {
 		c.decoders[uintptr(runtime.TypePtr(typ))] = d
 	}
@@ -67,6 +70,8 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.initErr = fields.FormatErr
 		return d, nil
 	}
+	// the fields whose names may match a name by their folded names, by the folded names
+	folded := map[string][]*structFieldSet{}
 	for i := range fields.List {
 		f := &fields.List[i]
 		var dec Decoder
@@ -84,16 +89,31 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.fields = append(d.fields, set)
 		d.casings = append(d.casings, f.Casing)
 		if f.Casing&jsonfields.CaseStrict == 0 {
-			folded := string(jsonfields.FoldName([]byte(f.Name)))
-			d.folded[folded] = append(d.folded[folded], set)
+			key := string(jsonfields.FoldName([]byte(f.Name)))
+			folded[key] = append(folded[key], set)
 			d.foldAlways = d.foldAlways || f.Casing&jsonfields.CaseIgnore != 0
 		}
 	}
 	d.foldedOf = make([][]*structFieldSet, len(d.fields))
+	dashes := false
 	for i, f := range d.fields {
-		d.foldedOf[i] = d.folded[string(jsonfields.FoldName([]byte(f.key)))]
+		d.foldedOf[i] = folded[string(jsonfields.FoldName([]byte(f.key)))]
+		dashes = dashes || strings.ContainsAny(f.key, "_-")
 	}
 	keys := newStructKeys(d.fields)
+	d.foldKeys = keys
+	if dashes {
+		// the fields under their names without '_' and '-', of their indexes
+		without := make([]*structFieldSet, len(d.fields))
+		for i, f := range d.fields {
+			var arr [64]byte
+			key, _ := foldKey(arr[:0], []byte(f.key))
+			w := *f
+			w.key, w.keyLen = string(key), int64(len(key))
+			without[i] = &w
+		}
+		d.foldKeys = newStructKeys(without)
+	}
 	// every name of a field by its bytes as they are, which a name as the input has it is found by ( see
 	// exactFieldV2 )
 	keys.makeExact(d.fields, true)
@@ -393,8 +413,14 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		// for '_' and '-', which no rune folds to: it is the folded name of the name
 		group = d.foldedOf[candidate.fieldIdx]
 	} else {
+		// the name without its '_' and '-' in the table of the fields without theirs, which folds it as FoldName
+		// folds it: v1 found nothing in the same lookup of the name without them in its table
 		var arr [64]byte
-		group = d.folded[string(jsonfields.AppendFoldName(arr[:0], name))]
+		if key, nonASCII := foldKey(arr[:0], name); len(key) < len(name) || d.foldKeys != d.keyDecoder.keys {
+			if field, _ := d.foldKeys.lookup(key, stringInfo{firstEscape: -1, nonASCII: nonASCII}); field != nil {
+				group = d.foldedOf[field.fieldIdx]
+			}
+		}
 	}
 	// a name which several fields match by its folded name is an error, as in encoding/json/v2, whatever their order
 	var match *structFieldSet
@@ -407,6 +433,28 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		}
 	}
 	return match, name, nil
+}
+
+// foldKey returns name without its '_' and '-', appended to out if it has one of them, and whether it has a byte
+// which is not ASCII. FoldName drops them, and no rune folds to them: v1's lookup of the key, which folds names as
+// FoldName folds them but for '_' and '-', finds a field of the folded name of the name in a table of the names of
+// the fields without them.
+func foldKey(out, name []byte) ([]byte, bool) {
+	i, nonASCII := 0, false
+	for ; i < len(name) && name[i] != '_' && name[i] != '-'; i++ {
+		nonASCII = nonASCII || name[i] >= utf8.RuneSelf
+	}
+	if i == len(name) {
+		return name, nonASCII
+	}
+	out = append(out, name[:i]...)
+	for _, c := range name[i+1:] {
+		if c != '_' && c != '-' {
+			out = append(out, c)
+			nonASCII = nonASCII || c >= utf8.RuneSelf
+		}
+	}
+	return out, nonASCII
 }
 
 // hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash, which it looks for byte by

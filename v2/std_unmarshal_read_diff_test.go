@@ -52,11 +52,17 @@ func (r *chunkReader) Read(p []byte) (int, error) {
 // reads, and in go-json on the size of the buffer of a stream, which is reused. The error is compared without its
 // text, which go-json doesn't imitate.
 var readTextByReads = map[string]bool{
-	"string of a lone surrogate":                 true,
-	"string of a lone low surrogate":             true,
-	"string of a high surrogate before a letter": true,
-	"any name of a lone surrogate":               true,
-	"struct unknown value of a lone surrogate":   true,
+	"string of a lone surrogate":                     true,
+	"string of a lone low surrogate":                 true,
+	"string of a high surrogate before a letter":     true,
+	"any name of a lone surrogate":                   true,
+	"struct unknown value of a lone surrogate":       true,
+	"string of an escape and a lone surrogate":       true,
+	"string of a lone surrogate at the end":          true,
+	"string of a high surrogate before a bad escape": true,
+	"string long of a lone surrogate at the end":     true,
+	"time of a lone surrogate":                       true,
+	"text of a lone surrogate":                       true,
 }
 
 // describeReadError is describeUnmarshalError for the case of the name, without the text of the error if the text
@@ -76,9 +82,14 @@ func describeReadError(name string, err error) string {
 	return describeUnmarshalError(err)
 }
 
-// readDiff runs the test of each size of the reads.
-func readDiff(t *testing.T, name string, f func(t *testing.T, n int)) {
+// readDiff runs the test of each size of the reads of the input in. With the race detector, an input longer than
+// 64 KiB, as a deep input spaced out, is not read a byte at a time, which takes the race detector seconds for each
+// test: its reads of 7 bytes cut its tokens as well, and the tests without the race detector read it a byte at a time.
+func readDiff(t *testing.T, name, in string, f func(t *testing.T, n int)) {
 	for _, n := range readSizes {
+		if n == 1 && raceEnabled && len(in) > 64<<10 {
+			continue
+		}
 		t.Run(fmt.Sprintf("%s/reads-%d", name, n), func(t *testing.T) { f(t, n) })
 	}
 }
@@ -125,7 +136,7 @@ func spaced(in string, n int) string {
 func TestUnmarshalReadMatchesStd(t *testing.T) {
 	for _, c := range append(unmarshalDiffCases(), unmarshalDiffStructCases()...) {
 		for i, in := range spacedInputs(c.in) {
-			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), func(t *testing.T, n int) {
+			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), in, func(t *testing.T, n int) {
 				ours, theirs := c.out(), c.out()
 				err := json.UnmarshalRead(newChunkReader(in, n), ours, c.opts.ours()...)
 				stdErr := stdjson.UnmarshalRead(newChunkReader(in, n), theirs, c.opts.std()...)
@@ -143,7 +154,7 @@ func TestUnmarshalReadMatchesStd(t *testing.T) {
 func TestUnmarshalReadMethodsMatchStd(t *testing.T) {
 	for _, c := range umCases() {
 		for i, in := range spacedInputs(c.in) {
-			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), func(t *testing.T, n int) {
+			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), in, func(t *testing.T, n int) {
 				ours, theirs := c.out(), c.out()
 				err := json.UnmarshalRead(newChunkReader(in, n), ours, c.opts.ours...)
 				stdErr := stdjson.UnmarshalRead(newChunkReader(in, n), theirs, c.opts.std...)
@@ -161,7 +172,7 @@ func TestUnmarshalReadMethodsMatchStd(t *testing.T) {
 func TestUnmarshalReadFromMatchesStd(t *testing.T) {
 	for _, c := range ufCases() {
 		for i, in := range spacedInputs(c.in) {
-			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), func(t *testing.T, n int) {
+			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), in, func(t *testing.T, n int) {
 				ours, theirs := c.ours(), c.theirs()
 				err := json.UnmarshalRead(newChunkReader(in, n), ours, c.opts.ours...)
 				stdErr := stdjson.UnmarshalRead(newChunkReader(in, n), theirs, c.opts.std...)

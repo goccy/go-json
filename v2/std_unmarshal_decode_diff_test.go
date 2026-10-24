@@ -67,7 +67,7 @@ func TestUnmarshalDecodeMatchesStd(t *testing.T) {
 	for _, c := range append(unmarshalDiffCases(), unmarshalDiffStructCases()...) {
 		for i, in := range spacedInputs(c.in) {
 			for _, where := range decodeDiffWhere {
-				readDiff(t, fmt.Sprintf("%s/%d/%s", c.name, i, where), func(t *testing.T, n int) {
+				readDiff(t, fmt.Sprintf("%s/%d/%s", c.name, i, where), in, func(t *testing.T, n int) {
 					input := decodeDiffInput(where, in)
 					ours, theirs := c.out(), c.out()
 					dec := jsontext.NewDecoder(newChunkReader(input, n), c.opts.ours()...)
@@ -98,7 +98,7 @@ func TestUnmarshalDecodeMatchesStd(t *testing.T) {
 func TestUnmarshalDecodeMethodsMatchStd(t *testing.T) {
 	for _, c := range umCases() {
 		for i, in := range spacedInputs(c.in) {
-			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), func(t *testing.T, n int) {
+			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), in, func(t *testing.T, n int) {
 				ours, theirs := c.out(), c.out()
 				err := json.UnmarshalDecode(jsontext.NewDecoder(newChunkReader(in, n)), ours, c.opts.ours...)
 				stdErr := stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(in, n)), theirs, c.opts.std...)
@@ -116,7 +116,7 @@ func TestUnmarshalDecodeMethodsMatchStd(t *testing.T) {
 func TestUnmarshalDecodeFromMatchesStd(t *testing.T) {
 	for _, c := range ufCases() {
 		for i, in := range spacedInputs(c.in) {
-			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), func(t *testing.T, n int) {
+			readDiff(t, fmt.Sprintf("%s/%d", c.name, i), in, func(t *testing.T, n int) {
 				ours, theirs := c.ours(), c.theirs()
 				err := json.UnmarshalDecode(jsontext.NewDecoder(newChunkReader(in, n)), ours, c.opts.ours...)
 				stdErr := stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(in, n)), theirs, c.opts.std...)
@@ -135,7 +135,7 @@ func TestUnmarshalDecodeFromMatchesStd(t *testing.T) {
 // The values of a stream of lines, decoded one after another, as a program reads a stream of records.
 func TestUnmarshalDecodeLinesMatchStd(t *testing.T) {
 	for _, c := range append(unmarshalDiffCases(), unmarshalDiffStructCases()...) {
-		readDiff(t, c.name, func(t *testing.T, n int) {
+		readDiff(t, c.name, c.in, func(t *testing.T, n int) {
 			in := c.in + "\n" + c.in + "\n" + c.in
 			dec := jsontext.NewDecoder(newChunkReader(in, n), c.opts.ours()...)
 			stdDec := stdjsontext.NewDecoder(newChunkReader(in, n), c.opts.std()...)

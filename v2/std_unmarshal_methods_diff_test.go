@@ -54,6 +54,32 @@ type umUnsupported struct{}
 func (*umUnsupported) UnmarshalJSON([]byte) error { return errors.ErrUnsupported }
 
 // umTextKey is a key of a map decoded by UnmarshalText.
+// umAppendText appends to its text, which the interface allows, before it keeps a copy of it: the input after the
+// text must stay as it is.
+type umAppendText struct{ S string }
+
+func (t *umAppendText) UnmarshalText(b []byte) error {
+	b = append(b, "XXXXXXXX"...)
+	t.S = string(b[:len(b)-8])
+	return nil
+}
+
+// umAppendKey is umAppendText for a key of a map.
+type umAppendKey string
+
+func (k *umAppendKey) UnmarshalText(b []byte) error {
+	b = append(b, "XXXXXXXX"...)
+	*k = umAppendKey(b[:len(b)-8])
+	return nil
+}
+
+// umAppendFields has a text which its method appends to before other fields.
+type umAppendFields struct {
+	A umAppendText
+	B string
+	N int
+}
+
 type umTextKey string
 
 func (k *umTextKey) UnmarshalText(b []byte) error {
@@ -224,6 +250,11 @@ func umCases() []umCase {
 		{name: "fields error", in: `{"T":"a","J":"bad"}`, out: outOf(umFields{})},
 		{name: "map of text keys", in: `{"a":1,"b":2}`, out: outOf(map[umTextKey]int(nil))},
 		{name: "map of text keys escaped", in: `{"\u0061":1}`, out: outOf(map[umTextKey]int(nil))},
+		{name: "text appended to", in: `{"A":"abcdefghijklmnop","B":"bbbbbbbb","N":1}`, out: outOf(umAppendFields{})},
+		{name: "text appended to of a byte which is not ASCII", in: `{"A":"abcé","B":"b","N":1}`, out: outOf(umAppendFields{})},
+		{name: "text appended to of an escape", in: `{"A":"a\nb","B":"b","N":1}`, out: outOf(umAppendFields{})},
+		{name: "text appended to at the end", in: `[{"A":"ab"}]`, out: outOf([]umAppendFields(nil))},
+		{name: "map of text keys appended to", in: `{"ké":1,"b":2,"c":3}`, out: outOf(map[umAppendKey]int(nil))},
 		{name: "map of text values", in: `{"a":"x","b":"bad"}`, out: outOf(map[string]umText(nil))},
 		{name: "time", in: `"2006-01-02T15:04:05Z"`, out: outOf(time.Time{})},
 		{name: "time of nanoseconds and a zone", in: `"2006-01-02T15:04:05.123456789+09:00"`, out: outOf(time.Time{})},
@@ -239,6 +270,14 @@ func umCases() []umCase {
 		{name: "time of hour 24", in: `"2006-01-02T24:00:00Z"`, out: outOf(time.Time{})},
 		{name: "time bad escape", in: `["2006\x"]`, out: outOf([]time.Time(nil))},
 		{name: "time in an array", in: `["2006-01-02T15:04:05Z","x"]`, out: outOf([]time.Time(nil))},
+		{name: "time of invalid UTF-8", in: "\"2006-01-02T15:04:05Z\xff\"", out: outOf(time.Time{})},
+		{name: "time of a lone surrogate", in: `"2006-01-02T15:04:05Z\ud800"`, out: outOf(time.Time{})},
+		{name: "time of a control byte", in: "\"2006-01-02\x01\"", out: outOf(time.Time{})},
+		{name: "time after white space", in: " \t\"2006-01-02T15:04:05Z\"", out: outOf(time.Time{})},
+		{name: "time object of a name twice", in: `{"a":1,"a":2}`, out: outOf(time.Time{})},
+		{name: "text of a control byte", in: "\"a\x01b\"", out: outOf(umText{})},
+		{name: "text after white space", in: " \n\"abc\"", out: outOf(umText{})},
+		{name: "text of a lone surrogate", in: `"a\udc00"`, out: outOf(umText{})},
 		{name: "time of the string option", in: `{"T":"2006-01-02T15:04:05Z"}`, out: outOf(umTimeString{})},
 		{name: "function", in: `[1,22,333]`, out: outOf([]int(nil)), opts: umLength},
 		{name: "function of a field", in: `{"X":12}`, out: outOf(struct{ X int }{}), opts: umDouble},
